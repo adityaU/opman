@@ -38,14 +38,16 @@ jobs:
             opencode-manager-aarch64-apple-darwin.tar.gz.sha256
 
       - name: Update Homebrew formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF#refs/tags/v}"
           SHA=$(awk '{print $1}' opencode-manager-aarch64-apple-darwin.tar.gz.sha256)
           URL="https://github.com/adityaU/opman/releases/download/v${VERSION}/opencode-manager-aarch64-apple-darwin.tar.gz"
 
-          git fetch origin master
-          git checkout master
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/adityaU/homebrew-opman.git" tap
+          cd tap
 
           sed -i '' "s|url \".*\"|url \"${URL}\"|" Formula/opman.rb
           sed -i '' "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/opman.rb
@@ -54,5 +56,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/opman.rb
-          git commit -m "formula: update to ${VERSION}"
-          git push origin master
+          git commit -m "opman ${VERSION}"
+          git push
