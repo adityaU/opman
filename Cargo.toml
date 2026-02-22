@@ -1,0 +1,46 @@
+[package]
+name = "opencode-manager"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+portable-pty = "0.8"
+vt100 = "0.15"
+tui-term = "0.2"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+dirs = "6"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+notify = "7"
+futures = "0.3"
+nucleo = "0.5"
+ignore = "0.4"
+asyncgit = "0.28.0"
+ctrlc = "3"
+rusqlite = { version = "0.31", features = ["bundled"] }
+chrono = { version = "0.4", features = ["clock"] }
+chrono-tz = "0.10"
+include_dir = "0.7"
+
+# vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
+# In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).
+# In debug mode it panics. Disable overflow checks for vt100 only.
+[profile.dev.package.vt100]
+overflow-checks = false
+
+[profile.release]
+# Optimise aggressively for size.
+opt-level = "z"          # "z" = size over speed (smaller than "s")
+lto = "thin"             # thin LTO: good dead-code removal, fast enough to be practical
+codegen-units = 1        # single CGU = more inlining + DCE across the whole crate
+panic = "abort"          # removes unwinding machinery (~saves ~10-15% on Rust binaries)
+strip = "none"           # keep all symbols (debuginfo + symbol table)
+debug = true             # full DWARF debug info

@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Build release binary
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Package binary
+        run: |
+          cd target/aarch64-apple-darwin/release
+          tar czf ../../../opencode-manager-aarch64-apple-darwin.tar.gz opencode-manager
+          cd ../../..
+          shasum -a 256 opencode-manager-aarch64-apple-darwin.tar.gz > opencode-manager-aarch64-apple-darwin.tar.gz.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            opencode-manager-aarch64-apple-darwin.tar.gz
+            opencode-manager-aarch64-apple-darwin.tar.gz.sha256
+
+      - name: Update Homebrew formula
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          SHA=$(awk '{print $1}' opencode-manager-aarch64-apple-darwin.tar.gz.sha256)
+          URL="https://github.com/adityaU/opman/releases/download/v${VERSION}/opencode-manager-aarch64-apple-darwin.tar.gz"
+
+          sed -i '' "s|url \".*\"|url \"${URL}\"|" Formula/opman.rb
+          sed -i '' "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/opman.rb
+          sed -i '' "s|version \".*\"|version \"${VERSION}\"|" Formula/opman.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/opman.rb
+          git commit -m "formula: update to ${VERSION}"
+          git push origin HEAD:main

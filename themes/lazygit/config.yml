@@ -1,0 +1,22 @@
+# OpenCode Manager Lazygit Theme (auto-generated, do not edit)
+gui:
+  theme:
+    activeBorderColor:
+      - "#a277ff"
+      - bold
+    inactiveBorderColor:
+      - "#2d2d2d"
+    optionsTextColor:
+      - "#f694ff"
+    selectedLineBgColor:
+      - "#15141b"
+    selectedRangeBgColor:
+      - "#15141b"
+    cherryPickedCommitBgColor:
+      - "#a277ff"
+    cherryPickedCommitFgColor:
+      - "#edecee"
+    unstagedChangesColor:
+      - "#ff6767"
+    defaultFgColor:
+      - "#edecee"
