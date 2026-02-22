@@ -376,7 +376,7 @@ async fn run_event_loop(
 ) -> Result<()> {
     let mut last_session_fetch = Instant::now();
     let mut last_theme_reload = Instant::now();
-    let mut last_blink_toggle = Instant::now();
+    let last_blink_toggle = Instant::now();
 
     loop {
         // ── 1. Draw the UI (instant on first iteration) ──────────────

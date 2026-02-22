@@ -13,6 +13,7 @@ pub struct ApiClient {
 
 /// Basic project/server info returned from the opencode API.
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ProjectInfo {
     /// The project directory being served.
     #[serde(default)]
@@ -59,6 +60,7 @@ impl ApiClient {
     }
 
     /// Fetch basic project info from a running opencode server.
+    #[allow(dead_code)]
     pub async fn fetch_project_info(
         &self,
         base_url: &str,
@@ -85,6 +87,7 @@ impl ApiClient {
     }
 
     /// Check if a server is reachable (simple health check).
+    #[allow(dead_code)]
     pub async fn health_check(&self, base_url: &str) -> Result<bool> {
         let url = format!("{}/health", base_url);
 
@@ -119,6 +122,7 @@ impl ApiClient {
     ///
     /// Makes a `GET /provider` request and searches all providers for the model,
     /// returning its context window limit (in tokens).
+    #[allow(dead_code)]
     pub async fn fetch_context_window(
         &self,
         base_url: &str,

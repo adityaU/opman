@@ -55,6 +55,7 @@ pub enum BackgroundEvent {
     },
     /// SSE: a session became idle.
     SseSessionIdle {
+        #[allow(dead_code)]
         project_idx: usize,
         session_id: String,
     },
@@ -215,6 +216,7 @@ pub struct SessionStats {
 
 impl SessionStats {
     /// Total tokens used (input + output + reasoning + cache read + cache write).
+    #[allow(dead_code)]
     pub fn total_tokens(&self) -> u64 {
         self.input_tokens
             + self.output_tokens
@@ -383,6 +385,7 @@ impl SessionSelectorState {
 
 /// Connection status of a project's server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ServerStatus {
     Stopped,
     Starting,
@@ -748,11 +751,13 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     pub fn toggle_sidebar(&mut self) {
         self.layout.toggle_visible(PanelId::Sidebar);
         self.resize_all_ptys();
     }
 
+    #[allow(dead_code)]
     pub fn toggle_focus(&mut self) {
         let panels = self.layout.visible_panels();
         if panels.len() < 2 {
@@ -770,6 +775,7 @@ impl App {
         self.show_cheatsheet = !self.show_cheatsheet;
     }
 
+    #[allow(dead_code)]
     pub fn terminal_inner_size(&self, total_rows: u16, total_cols: u16) -> (u16, u16) {
         if let Some(rect) = self.layout.panel_rect(PanelId::TerminalPane) {
             (rect.height, rect.width)
@@ -778,6 +784,7 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     pub fn shell_terminal_inner_size(&self, _total_rows: u16, _total_cols: u16) -> (u16, u16) {
         if let Some(rect) = self.layout.panel_rect(PanelId::IntegratedTerminal) {
             (rect.height, rect.width)
@@ -786,6 +793,7 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     pub fn terminal_pane_offset(&self) -> u16 {
         self.layout
             .panel_rect(PanelId::TerminalPane)
@@ -1151,6 +1159,7 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     pub fn neovim_terminal_inner_size(&self) -> (u16, u16) {
         if let Some(rect) = self.layout.panel_rect(PanelId::NeovimPane) {
             (rect.height, rect.width)

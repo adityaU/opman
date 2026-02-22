@@ -445,22 +445,22 @@ pub fn handle_paste(app: &mut App, text: &str) {
     match focused {
         PanelId::TerminalPane => {
             if let Some(pty) = project.active_pty_mut() {
-                pty.write(bytes);
+                let _ = pty.write(bytes);
             }
         }
         PanelId::NeovimPane => {
             if let Some(pty) = project.neovim_pty.as_mut() {
-                pty.write(bytes);
+                let _ = pty.write(bytes);
             }
         }
         PanelId::IntegratedTerminal => {
             if let Some(pty) = project.active_shell_pty_mut() {
-                pty.write(bytes);
+                let _ = pty.write(bytes);
             }
         }
         PanelId::GitPanel => {
             if let Some(pty) = project.gitui_pty.as_mut() {
-                pty.write(bytes);
+                let _ = pty.write(bytes);
             }
         }
         _ => {}

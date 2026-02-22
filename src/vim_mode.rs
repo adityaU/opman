@@ -68,10 +68,12 @@ impl EscapeTracker {
     }
 
     /// For non-terminal panels: 3 rapid Esc presses.
+    #[allow(dead_code)]
     pub fn triggered_triple(&mut self) -> bool {
         self.check_multi_press(3)
     }
 
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.timestamps.clear();
     }

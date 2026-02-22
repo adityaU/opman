@@ -78,6 +78,7 @@ impl RuntimeKeyBinding {
         self.modes.is_empty() || self.modes.contains(&mode)
     }
 
+    #[allow(dead_code)]
     pub fn has_modifier(&self) -> bool {
         !self.key.modifiers.is_empty()
     }

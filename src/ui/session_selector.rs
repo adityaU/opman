@@ -4,7 +4,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+use ratatui::widgets::{Block, Clear, Paragraph, Widget};
 
 use crate::app::{App, SessionSelectorState};
 use crate::theme::ThemeColors;
@@ -229,7 +229,7 @@ fn render_results(buf: &mut Buffer, area: Rect, state: &SessionSelectorState, th
 
         let project_part = &entry.project_name;
         let separator = " / ";
-        let full_content = format!("{}{}{}", project_part, separator, session_title);
+        let _full_content = format!("{}{}{}", project_part, separator, session_title);
 
         // Render project name part
         let margin = 2u16;

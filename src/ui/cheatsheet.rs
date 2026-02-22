@@ -1,7 +1,7 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
-use ratatui::widgets::{Block, Borders, Clear, Widget};
+use ratatui::widgets::{Block, Clear, Widget};
 
 use crate::theme::ThemeColors;
 use crate::which_key::{generate_cheatsheet_sections, RuntimeKeyBinding};

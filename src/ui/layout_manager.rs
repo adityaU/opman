@@ -83,6 +83,7 @@ impl LayoutManager {
         }
     }
 
+    #[allow(dead_code)]
     fn default_layout_with_shell() -> LayoutNode {
         LayoutNode::Split {
             direction: SplitDirection::Vertical,

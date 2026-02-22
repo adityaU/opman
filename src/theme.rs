@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -21,6 +20,7 @@ pub struct ThemeColors {
     pub text: Color,
     pub text_muted: Color,
     pub border: Color,
+    #[allow(dead_code)]
     pub border_active: Color,
     pub border_subtle: Color,
     pub error: Color,

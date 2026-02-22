@@ -48,6 +48,7 @@ struct MessageInfo {
     #[serde(rename = "sessionID")]
     session_id: String,
     #[serde(default, rename = "modelID")]
+    #[allow(dead_code)]
     model_id: String,
     #[serde(default)]
     cost: f64,

@@ -8,7 +8,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+use ratatui::widgets::{Block, Clear, Paragraph, Widget};
 
 use crate::app::App;
 use crate::theme::ThemeColors;
@@ -39,6 +39,7 @@ impl std::fmt::Debug for FuzzyPickerState {
 
 impl FuzzyPickerState {
     /// Create a new fuzzy picker and start scanning directories under `root`.
+    #[allow(dead_code)]
     pub fn new(root: PathBuf) -> Self {
         Self::new_with_existing(root, Vec::new())
     }

@@ -79,6 +79,7 @@ impl<'a> IntegratedTerminal<'a> {
     }
 
     /// Render the terminal in floating fullscreen overlay mode.
+    #[allow(dead_code)]
     pub fn render_floating(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 

@@ -26,7 +26,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+use ratatui::widgets::{Block, Clear, Paragraph, Widget};
 use ratatui::Frame;
 
 use crate::app::{App, InputMode};
@@ -271,6 +271,7 @@ fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(status_bar, area);
 }
 
+#[allow(dead_code)]
 pub fn render_pane_title_bar(
     buf: &mut Buffer,
     area: Rect,
