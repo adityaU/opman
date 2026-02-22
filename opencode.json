@@ -3,7 +3,7 @@
   "mcp": {
     "terminal": {
       "command": [
-        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/release/opencode-manager",
+        "/opt/homebrew/bin/opman",
         "--mcp",
         "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager"
       ],
@@ -11,7 +11,7 @@
     },
     "time": {
       "command": [
-        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/release/opencode-manager",
+        "/opt/homebrew/bin/opman",
         "--mcp-time"
       ],
       "type": "local"
