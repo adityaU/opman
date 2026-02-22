@@ -436,6 +436,79 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
 }
 
 pub fn handle_paste(app: &mut App, text: &str) {
+    // Route paste to overlay panels first — these consume all input when active
+
+    // Todo panel: only accepts paste when actively editing a todo
+    if let Some(ref mut state) = app.todo_panel {
+        if let Some(ref mut editing) = state.editing {
+            editing.buffer.insert_str(editing.cursor_pos, text);
+            editing.cursor_pos += text.len();
+            return;
+        }
+        // Todo panel is open but not editing — swallow paste (don't send to PTY)
+        return;
+    }
+
+    // Context input overlay: insert pasted text (may contain newlines)
+    if let Some(ref mut state) = app.context_input {
+        for c in text.chars() {
+            if c == '\n' || c == '\r' {
+                state.insert_newline();
+            } else {
+                state.insert_char(c);
+            }
+        }
+        return;
+    }
+
+    // Session selector: insert pasted text into search query
+    if let Some(ref mut state) = app.session_selector {
+        for c in text.chars() {
+            if c != '\n' && c != '\r' {
+                state.insert_char(c);
+            }
+        }
+        return;
+    }
+
+    // Session search mode: insert pasted text into search buffer
+    if app.session_search_mode {
+        for c in text.chars() {
+            if c != '\n' && c != '\r' {
+                app.session_search_buffer.insert(app.session_search_cursor, c);
+                app.session_search_cursor += 1;
+            }
+        }
+        app.update_session_search();
+        return;
+    }
+
+    // Add project input: insert pasted text into input buffer
+    if app.input_mode == InputMode::AddProject {
+        for c in text.chars() {
+            if c != '\n' && c != '\r' {
+                app.input_buffer.insert(app.input_cursor, c);
+                app.input_cursor += 1;
+            }
+        }
+        app.update_completions();
+        return;
+    }
+
+    // Fuzzy picker: insert pasted text into search query
+    if app.input_mode == InputMode::FuzzyPicker {
+        if let Some(ref mut state) = app.fuzzy_picker {
+            for c in text.chars() {
+                if c != '\n' && c != '\r' {
+                    state.insert_char(c);
+                }
+            }
+            state.tick();
+        }
+        return;
+    }
+
+    // No overlay active — forward paste to the focused PTY panel
     let focused = app.layout.focused;
     let Some(project) = app.active_project_mut() else {
         return;
