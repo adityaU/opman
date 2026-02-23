@@ -146,6 +146,10 @@ pub struct Project {
     pub active_shell_tab: usize,
     /// PTY running neovim, per-project.
     pub neovim_pty: Option<PtyInstance>,
+    /// Snapshot of file contents *before* the latest edit.
+    /// Keyed by absolute file path. Used by follow-edits to compute
+    /// per-edit diffs instead of cumulative diffs from HEAD.
+    pub file_snapshots: HashMap<String, String>,
     /// PTY running gitui, per-project.
     pub gitui_pty: Option<PtyInstance>,
     /// Cached list of session IDs fetched from the server's REST API.
@@ -248,6 +252,9 @@ pub struct TodoPanelState {
     pub scroll_offset: usize,
     pub session_id: String,
     pub editing: Option<EditingState>,
+    /// Set to true when the user modifies any todo. Used to decide
+    /// whether to send a system message when the panel is closed.
+    pub dirty: bool,
 }
 
 /// State for inline editing within the todo panel.
@@ -480,6 +487,11 @@ pub struct App {
     /// Context window limits keyed by project index.
     pub model_limits: HashMap<usize, ModelLimits>,
 
+    /// When true, the Neovim MCP server is enabled. This disables follow-edits
+    /// (since the AI edits through Neovim directly) and OpenCode's native
+    /// edit/write tools are denied via opencode.json permissions.
+    pub neovim_mcp_enabled: bool,
+
     /// Sender half of the background event channel.
     /// Background tasks clone this to send events back to the main loop.
     pub bg_tx: mpsc::UnboundedSender<BackgroundEvent>,
@@ -492,11 +504,6 @@ pub struct App {
     pub terminal_search: Option<TerminalSearchState>,
     /// Context input overlay state (multi-line text entry for OpenCode sessions).
     pub context_input: Option<ContextInputState>,
-    /// Tracks the last time a todo-continuation prompt was injected per session (for debouncing).
-    pub last_todo_notification: std::collections::HashMap<String, std::time::Instant>,
-    /// Tracks sessions where a UI-driven todo save recently occurred, so we can send
-    /// a continuation prompt only when the user changed todos from the manager UI.
-    pub pending_ui_todo_save: std::collections::HashSet<String>,
     /// Maps session IDs to the project index that owns them, preventing cross-project duplication.
     pub session_ownership: std::collections::HashMap<String, usize>,
 }
@@ -624,6 +631,7 @@ impl App {
                 shell_ptys: vec![],
                 active_shell_tab: 0,
                 neovim_pty: None,
+                file_snapshots: HashMap::new(),
                 gitui_pty: None,
                 sessions: Vec::new(),
                 git_branch: String::new(),
@@ -685,13 +693,12 @@ impl App {
             todo_panel: None,
             session_stats: HashMap::new(),
             model_limits: HashMap::new(),
+            neovim_mcp_enabled: false,
             bg_tx,
             toast_message: None,
             terminal_selection: None,
             terminal_search: None,
             context_input: None,
-            last_todo_notification: std::collections::HashMap::new(),
-            pending_ui_todo_save: std::collections::HashSet::new(),
             session_ownership: std::collections::HashMap::new(),
         }
     }
@@ -775,6 +782,58 @@ impl App {
         self.show_cheatsheet = !self.show_cheatsheet;
     }
 
+    /// Close the todo panel. If the user modified any todos (dirty flag),
+    /// send a system message to the AI session so it re-reads the list.
+    pub fn close_todo_panel(&mut self) {
+        if let Some(panel) = self.todo_panel.take() {
+            if panel.dirty {
+                let session_id = panel.session_id.clone();
+                info!(
+                    session_id,
+                    "Todo panel closed with changes, sending system message"
+                );
+
+                let proj_dir = self
+                    .projects
+                    .iter()
+                    .find(|p| p.active_session.as_deref() == Some(&session_id))
+                    .map(|p| p.path.to_string_lossy().to_string());
+
+                info!(
+                    ?proj_dir,
+                    "Resolved project directory for todo system message"
+                );
+
+                if let Some(proj_dir) = proj_dir {
+                    let base = base_url().to_string();
+                    info!(base, session_id, proj_dir, "Sending todo system message");
+                    tokio::spawn(async move {
+                        let client = crate::api::ApiClient::new();
+                        let msg = "[SYSTEM REMINDER - TODO CONTINUATION] The todo list has been \
+                                   updated. Re-read your todos and adjust your work plan accordingly. \
+                                   Mark completed items done and continue with the next pending task.";
+                        match client
+                            .send_system_message_async(&base, &proj_dir, &session_id, msg)
+                            .await
+                        {
+                            Ok(()) => info!("Todo system message sent successfully"),
+                            Err(e) => {
+                                tracing::error!("Failed to send todo continuation prompt: {e}")
+                            }
+                        }
+                    });
+                } else {
+                    tracing::warn!(
+                        session_id,
+                        "Could not find project for session, system message not sent"
+                    );
+                }
+            } else {
+                debug!("Todo panel closed without changes");
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub fn terminal_inner_size(&self, total_rows: u16, total_cols: u16) -> (u16, u16) {
         if let Some(rect) = self.layout.panel_rect(PanelId::TerminalPane) {
@@ -804,13 +863,13 @@ impl App {
     pub fn add_project(&mut self, entry: ProjectEntry) {
         let project = Project {
             name: entry.name.clone(),
-            path: std::fs::canonicalize(&entry.path)
-                .unwrap_or_else(|_| PathBuf::from(&entry.path)),
+            path: std::fs::canonicalize(&entry.path).unwrap_or_else(|_| PathBuf::from(&entry.path)),
             ptys: HashMap::new(),
             active_session: None,
             shell_ptys: vec![],
             active_shell_tab: 0,
             neovim_pty: None,
+            file_snapshots: HashMap::new(),
             gitui_pty: None,
             sessions: Vec::new(),
             git_branch: String::new(),
@@ -1233,7 +1292,8 @@ impl App {
                     if !project.sessions.iter().any(|s| s.id == session.id) {
                         info!(name = %project.name, session_id = %session.id, "SSE: new session created");
                         self.active_sessions.insert(session.id.clone());
-                        self.session_ownership.insert(session.id.clone(), project_idx);
+                        self.session_ownership
+                            .insert(session.id.clone(), project_idx);
                         project.sessions.insert(0, session.clone());
                     }
                     if awaiting {
@@ -1287,10 +1347,15 @@ impl App {
                     project_idx,
                     file_path,
                     follow_enabled = self.config.settings.follow_edits_in_neovim,
+                    neovim_mcp = self.neovim_mcp_enabled,
                     active_project = self.active_project,
                     "SseFileEdited received"
                 );
-                if self.config.settings.follow_edits_in_neovim && project_idx == self.active_project
+                // When Neovim MCP is enabled, the AI edits files through Neovim
+                // directly, so follow-edits is redundant and skipped.
+                if !self.neovim_mcp_enabled
+                    && self.config.settings.follow_edits_in_neovim
+                    && project_idx == self.active_project
                 {
                     if self
                         .projects
@@ -1307,90 +1372,141 @@ impl App {
                             "SseFileEdited: project found, checking neovim_pty"
                         );
                         if let Some(ref mut nvim) = project.neovim_pty {
-                            let escaped_path = file_path
-                                .replace('\\', "\\\\")
-                                .replace(' ', "\\ ")
-                                .replace('#', "\\#")
-                                .replace('%', "\\%");
+                            // Build the absolute path for Neovim commands.
+                            // Use fnameescape() via :execute so Vim handles
+                            // all special characters (spaces, quotes, #, %).
+                            let abs_path = if std::path::Path::new(&file_path).is_absolute() {
+                                file_path.clone()
+                            } else {
+                                project.path.join(&file_path).to_string_lossy().to_string()
+                            };
+                            // Escape single quotes for Vim string literals
+                            // (double each ' so 'Aditya''s' is valid).
+                            let vim_str_path = abs_path.replace('\'', "''");
 
-                            let mut cmds = vec![format!("\x1b:edit! {escaped_path}\r")];
+                            let mut cmds = vec![format!(
+                                "\x1b:execute 'edit! ' . fnameescape('{}')\r",
+                                vim_str_path
+                            )];
 
-                            // Compute diff via git to find changed lines
-                            let diff_result = std::process::Command::new("git")
-                                .args(["diff", "HEAD", "--unified=0", "--"])
-                                .arg(&file_path)
-                                .current_dir(&project.path)
-                                .output();
+                            // Compute per-edit diff using snapshots.
+                            // Read the current file content after this edit.
+                            let current_content =
+                                std::fs::read_to_string(&abs_path).unwrap_or_default();
 
-                            if let Ok(output) = diff_result {
-                                let diff_text = String::from_utf8_lossy(&output.stdout);
-                                let (added, deleted) = parse_unified_diff(&diff_text);
-                                debug!(
-                                    added_count = added.len(),
-                                    deleted_count = deleted.len(),
-                                    "SseFileEdited: parsed git diff"
+                            // Get or seed the snapshot for this file.
+                            // If no snapshot exists, seed from `git show HEAD:<file>`
+                            // so the first edit shows only the actual changes, not the
+                            // entire file as additions.
+                            let old_content =
+                                if let Some(snap) = project.file_snapshots.get(&abs_path) {
+                                    snap.clone()
+                                } else {
+                                    // Seed from git HEAD. Compute relative path for git.
+                                    let rel_path = std::path::Path::new(&abs_path)
+                                        .strip_prefix(&project.path)
+                                        .map(|p| p.to_string_lossy().to_string())
+                                        .unwrap_or_else(|_| file_path.clone());
+                                    let git_show = std::process::Command::new("git")
+                                        .args(["show", &format!("HEAD:{}", rel_path)])
+                                        .current_dir(&project.path)
+                                        .output();
+                                    match git_show {
+                                        Ok(output) if output.status.success() => {
+                                            String::from_utf8_lossy(&output.stdout).to_string()
+                                        }
+                                        _ => {
+                                            // Untracked or not in git — no baseline available.
+                                            String::new()
+                                        }
+                                    }
+                                };
+
+                            let (added, deleted) =
+                                if old_content.is_empty() && !current_content.is_empty() {
+                                    // No baseline at all (new/untracked file): all lines are additions.
+                                    let line_count = current_content.lines().count().max(1);
+                                    ((1..=line_count).collect::<Vec<_>>(), Vec::new())
+                                } else {
+                                    diff_snapshot_lines(&old_content, &current_content)
+                                };
+
+                            // Update snapshot to current content for next edit.
+                            project
+                                .file_snapshots
+                                .insert(abs_path.clone(), current_content);
+
+                            debug!(
+                                added_count = added.len(),
+                                deleted_count = deleted.len(),
+                                "SseFileEdited: snapshot diff computed"
+                            );
+
+                            if !added.is_empty() || !deleted.is_empty() {
+                                let success_hex = color_to_hex(self.theme.success);
+                                let error_hex = color_to_hex(self.theme.error);
+                                cmds.push(format!(
+                                    "\x1b:highlight DiffAddLine guibg={} guifg=black\r",
+                                    success_hex
+                                ));
+                                cmds.push(format!(
+                                    "\x1b:highlight DiffDelLine guibg={} guifg=black\r",
+                                    error_hex
+                                ));
+                                cmds.push(
+                                    "\x1b:sign define diff_add text=+ texthl=DiffAddLine\r"
+                                        .to_string(),
+                                );
+                                cmds.push(
+                                    "\x1b:sign define diff_del text=- texthl=DiffDelLine\r"
+                                        .to_string(),
+                                );
+                                // Use buffer= with current buffer number instead of file=
+                                // to avoid path escaping issues with special characters.
+                                cmds.push(
+                                    "\x1b:execute 'sign unplace * buffer=' . bufnr('%')\r"
+                                        .to_string(),
                                 );
 
-                                if !added.is_empty() || !deleted.is_empty() {
-                                    let success_hex = color_to_hex(self.theme.success);
-                                    let error_hex = color_to_hex(self.theme.error);
+                                let mut sign_id = 1;
+                                let mut first_line: Option<usize> = None;
+                                for line in &added {
+                                    first_line =
+                                        Some(first_line.map_or(*line, |m: usize| m.min(*line)));
                                     cmds.push(format!(
-                                        "\x1b:highlight DiffAddLine guibg={} guifg=black\r",
-                                        success_hex
+                                        "\x1b:execute 'sign place {} line={} name=diff_add buffer=' . bufnr('%')\r",
+                                        sign_id, line
                                     ));
-                                    cmds.push(format!(
-                                        "\x1b:highlight DiffDelLine guibg={} guifg=black\r",
-                                        error_hex
-                                    ));
-                                    cmds.push(
-                                        "\x1b:sign define diff_add text=+ texthl=DiffAddLine\r"
-                                            .to_string(),
-                                    );
-                                    cmds.push(
-                                        "\x1b:sign define diff_del text=- texthl=DiffDelLine\r"
-                                            .to_string(),
-                                    );
-                                    cmds.push(format!(
-                                        "\x1b:sign unplace * file={}\r",
-                                        escaped_path
-                                    ));
-
-                                    let mut sign_id = 1;
-                                    let mut first_line: Option<usize> = None;
-                                    for line in &added {
-                                        first_line =
-                                            Some(first_line.map_or(*line, |m: usize| m.min(*line)));
-                                        cmds.push(format!(
-                                            "\x1b:sign place {} line={} name=diff_add file={}\r",
-                                            sign_id, line, escaped_path
-                                        ));
-                                        sign_id += 1;
-                                    }
-                                    for line in &deleted {
-                                        first_line =
-                                            Some(first_line.map_or(*line, |m: usize| m.min(*line)));
-                                        cmds.push(format!(
-                                            "\x1b:sign place {} line={} name=diff_del file={}\r",
-                                            sign_id, line, escaped_path
-                                        ));
-                                        sign_id += 1;
-                                    }
-
-                                    if let Some(l) = first_line {
-                                        cmds.push(format!("\x1b:call cursor({}, 0)\r", l));
-                                        cmds.push("\x1b:normal! zz\r".to_string());
-                                    }
+                                    sign_id += 1;
                                 }
-                            } else {
-                                debug!("SseFileEdited: git diff failed, skipping highlights");
+                                for line in &deleted {
+                                    first_line =
+                                        Some(first_line.map_or(*line, |m: usize| m.min(*line)));
+                                    cmds.push(format!(
+                                        "\x1b:execute 'sign place {} line={} name=diff_del buffer=' . bufnr('%')\r",
+                                        sign_id, line
+                                    ));
+                                    sign_id += 1;
+                                }
+
+                                if let Some(l) = first_line {
+                                    cmds.push(format!("\x1b:call cursor({}, 0)\r", l));
+                                    cmds.push("\x1b:normal! zz\r".to_string());
+                                }
                             }
 
-                            for cmd in cmds {
-                                debug!(cmd = %cmd.escape_debug(), "SseFileEdited: writing vim cmd");
-                                let _ = nvim.write(cmd.as_bytes());
-                            }
+                            // Batch all commands into a single write to avoid
+                            // race conditions with Neovim processing.
+                            let batch = cmds.concat();
+                            debug!(
+                                cmd_count = cmds.len(),
+                                "SseFileEdited: writing batched vim cmds"
+                            );
+                            let _ = nvim.write(batch.as_bytes());
                         } else {
-                            debug!("SseFileEdited: neovim_pty is still None after ensure, skipping");
+                            debug!(
+                                "SseFileEdited: neovim_pty is still None after ensure, skipping"
+                            );
                         }
                     } else {
                         debug!(project_idx, "SseFileEdited: project not found at index");
@@ -1421,41 +1537,6 @@ impl App {
                         panel.todos = todos;
                         if panel.selected >= panel.todos.len() {
                             panel.selected = panel.todos.len().saturating_sub(1);
-                        }
-                    }
-                }
-
-                let from_ui = self.pending_ui_todo_save.remove(&session_id);
-                if from_ui {
-                    let now = std::time::Instant::now();
-                    let should_notify = self
-                        .last_todo_notification
-                        .get(&session_id)
-                        .map_or(true, |last| now.duration_since(*last).as_secs() >= 10);
-
-                    if should_notify {
-                        self.last_todo_notification.insert(session_id.clone(), now);
-
-                        let proj_dir = self
-                            .projects
-                            .iter()
-                            .find(|p| p.active_session.as_deref() == Some(&session_id))
-                            .map(|p| p.path.to_string_lossy().to_string());
-
-                        if let Some(proj_dir) = proj_dir {
-                            let sid = session_id.clone();
-                            let base = base_url().to_string();
-                            tokio::spawn(async move {
-                                let client = crate::api::ApiClient::new();
-                                let msg = "[SYSTEM REMINDER - TODO CONTINUATION] The todo list has been \
-                                           updated. Re-read your todos and adjust your work plan accordingly. \
-                                           Mark completed items done and continue with the next pending task.";
-                                if let Err(e) =
-                                    client.send_system_message_async(&base, &proj_dir, &sid, msg).await
-                                {
-                                    tracing::error!("Failed to send todo continuation prompt: {e}");
-                                }
-                            });
                         }
                     }
                 }
@@ -1682,6 +1763,314 @@ impl App {
                         SocketResponse::ok_status(state.to_string())
                     }
                     None => SocketResponse::err(format!("Tab {} not found", tab_idx)),
+                }
+            }
+            // ── Neovim operations ─────────────────────────────────────
+            "nvim_open" | "nvim_read" | "nvim_command" | "nvim_buffers" | "nvim_info"
+            | "nvim_diagnostics" | "nvim_definition" | "nvim_references" | "nvim_hover"
+            | "nvim_symbols" | "nvim_code_actions" | "nvim_eval" | "nvim_grep" | "nvim_diff"
+            | "nvim_write" | "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format"
+            | "nvim_signature" => {
+                let nvim_socket = match &project.neovim_pty {
+                    Some(pty) => match &pty.nvim_listen_addr {
+                        Some(addr) => addr.clone(),
+                        None => return SocketResponse::err(
+                            "Neovim PTY has no listen address".into()
+                        ),
+                    },
+                    None => return SocketResponse::err(
+                        "Neovim is not running for this project. Focus the Neovim pane to start it.".into()
+                    ),
+                };
+
+                match request.op.as_str() {
+                    "nvim_open" => {
+                        let file_path = match &request.file_path {
+                            Some(p) => p.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'file_path' for nvim_open".into(),
+                                )
+                            }
+                        };
+                        match crate::nvim_rpc::nvim_open_file(&nvim_socket, file_path, request.line)
+                        {
+                            Ok(()) => {
+                                let mut msg = format!("Opened {}", file_path);
+                                if let Some(ln) = request.line {
+                                    msg.push_str(&format!(" at line {}", ln));
+                                }
+                                SocketResponse::ok_text(msg)
+                            }
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to open file in Neovim: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_read" => {
+                        // Convert from 1-indexed (user-facing) to 0-indexed (nvim API)
+                        let start = request.line.unwrap_or(1).max(1) - 1;
+                        let end = match request.end_line {
+                            Some(-1) | None => {
+                                // Read to end of buffer
+                                match crate::nvim_rpc::nvim_buf_line_count(&nvim_socket) {
+                                    Ok(count) => count,
+                                    Err(e) => {
+                                        return SocketResponse::err(format!(
+                                            "Failed to get line count: {}",
+                                            e
+                                        ))
+                                    }
+                                }
+                            }
+                            Some(e) => e, // Already 1-indexed end, used as exclusive end
+                        };
+                        match crate::nvim_rpc::nvim_buf_get_lines(&nvim_socket, start, end) {
+                            Ok(lines) => {
+                                // Number the lines for readability (1-indexed)
+                                let numbered: Vec<String> = lines
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, l)| format!("{}: {}", start + 1 + i as i64, l))
+                                    .collect();
+                                SocketResponse::ok_text(numbered.join("\n"))
+                            }
+                            Err(e) => SocketResponse::err(format!(
+                                "Failed to read lines from Neovim: {}",
+                                e
+                            )),
+                        }
+                    }
+                    "nvim_command" => {
+                        let cmd = match &request.command {
+                            Some(c) => c.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'command' for nvim_command".into(),
+                                )
+                            }
+                        };
+                        match crate::nvim_rpc::nvim_command(&nvim_socket, cmd) {
+                            Ok(()) => SocketResponse::ok_text(format!("Command executed: {}", cmd)),
+                            Err(e) => SocketResponse::err(format!("Neovim command failed: {}", e)),
+                        }
+                    }
+                    "nvim_buffers" => match crate::nvim_rpc::nvim_list_bufs(&nvim_socket) {
+                        Ok(bufs) => {
+                            if bufs.is_empty() {
+                                SocketResponse::ok_text("No named buffers loaded.".into())
+                            } else {
+                                let lines: Vec<String> = bufs
+                                    .iter()
+                                    .map(|(id, name)| format!("Buffer {}: {}", id, name))
+                                    .collect();
+                                SocketResponse::ok_text(lines.join("\n"))
+                            }
+                        }
+                        Err(e) => SocketResponse::err(format!("Failed to list buffers: {}", e)),
+                    },
+                    "nvim_info" => {
+                        let name = crate::nvim_rpc::nvim_buf_get_name(&nvim_socket)
+                            .unwrap_or_else(|_| "(unknown)".into());
+                        let cursor =
+                            crate::nvim_rpc::nvim_cursor_pos(&nvim_socket).unwrap_or((1, 0));
+                        let line_count =
+                            crate::nvim_rpc::nvim_buf_line_count(&nvim_socket).unwrap_or(0);
+
+                        let info = format!(
+                            "Buffer: {}\nCursor: line {}, column {}\nTotal lines: {}",
+                            if name.is_empty() { "(unnamed)" } else { &name },
+                            cursor.0,
+                            cursor.1,
+                            line_count
+                        );
+                        SocketResponse::ok_text(info)
+                    }
+                    "nvim_diagnostics" => {
+                        let buf_only = request.buf_only.unwrap_or(false);
+                        match crate::nvim_rpc::nvim_lsp_diagnostics(&nvim_socket, buf_only) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to get diagnostics: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_definition" => {
+                        match crate::nvim_rpc::nvim_lsp_definition(
+                            &nvim_socket,
+                            request.line,
+                            request.col,
+                        ) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to get definition: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_references" => {
+                        match crate::nvim_rpc::nvim_lsp_references(
+                            &nvim_socket,
+                            request.line,
+                            request.col,
+                        ) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to get references: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_hover" => {
+                        match crate::nvim_rpc::nvim_lsp_hover(
+                            &nvim_socket,
+                            request.line,
+                            request.col,
+                        ) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to get hover info: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_symbols" => {
+                        let query = request.query.as_deref().unwrap_or("");
+                        let workspace = request.workspace.unwrap_or(false);
+                        match crate::nvim_rpc::nvim_lsp_symbols(&nvim_socket, query, workspace) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Failed to get symbols: {}", e)),
+                        }
+                    }
+                    "nvim_code_actions" => {
+                        match crate::nvim_rpc::nvim_lsp_code_actions(&nvim_socket) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => {
+                                SocketResponse::err(format!("Failed to get code actions: {}", e))
+                            }
+                        }
+                    }
+                    "nvim_eval" => {
+                        let code = match &request.command {
+                            Some(c) => c.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'command' (Lua code) for nvim_eval".into(),
+                                )
+                            }
+                        };
+                        match crate::nvim_rpc::nvim_eval_lua(&nvim_socket, code) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Lua eval failed: {}", e)),
+                        }
+                    }
+                    "nvim_grep" => {
+                        let pattern = match &request.query {
+                            Some(q) => q.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'query' (search pattern) for nvim_grep".into(),
+                                )
+                            }
+                        };
+                        let glob = request.glob.as_deref();
+                        match crate::nvim_rpc::nvim_grep(&nvim_socket, pattern, glob) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Grep failed: {}", e)),
+                        }
+                    }
+                    "nvim_diff" => match crate::nvim_rpc::nvim_buf_diff(&nvim_socket) {
+                        Ok(output) => {
+                            if output.is_empty() {
+                                SocketResponse::ok_text("No unsaved changes.".into())
+                            } else {
+                                SocketResponse::ok_text(output)
+                            }
+                        }
+                        Err(e) => SocketResponse::err(format!("Failed to compute diff: {}", e)),
+                    },
+                    "nvim_write" => {
+                        let all = request.all.unwrap_or(false);
+                        match crate::nvim_rpc::nvim_write(&nvim_socket, all) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Failed to write: {}", e)),
+                        }
+                    }
+                    // ── Editing ──────────────────────────────────────
+                    "nvim_edit" => {
+                        let start_line = match request.line {
+                            Some(l) => l,
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'start_line' for nvim_edit".into(),
+                                )
+                            }
+                        };
+                        let end_line = match request.end_line {
+                            Some(l) => l,
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'end_line' for nvim_edit".into(),
+                                )
+                            }
+                        };
+                        let new_text = match &request.new_text {
+                            Some(t) => t.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'new_text' for nvim_edit".into(),
+                                )
+                            }
+                        };
+                        match crate::nvim_rpc::nvim_buf_set_text(
+                            &nvim_socket,
+                            start_line,
+                            end_line,
+                            new_text,
+                        ) {
+                            Ok(msg) => SocketResponse::ok_text(msg),
+                            Err(e) => SocketResponse::err(format!("Edit failed: {}", e)),
+                        }
+                    }
+                    "nvim_undo" => {
+                        let count = request.count.unwrap_or(1);
+                        match crate::nvim_rpc::nvim_undo(&nvim_socket, count) {
+                            Ok(msg) => SocketResponse::ok_text(msg),
+                            Err(e) => SocketResponse::err(format!("Undo failed: {}", e)),
+                        }
+                    }
+                    // ── LSP Refactoring ──────────────────────────────
+                    "nvim_rename" => {
+                        let new_name = match &request.new_name {
+                            Some(n) => n.as_str(),
+                            None => {
+                                return SocketResponse::err(
+                                    "Missing 'new_name' for nvim_rename".into(),
+                                )
+                            }
+                        };
+                        match crate::nvim_rpc::nvim_lsp_rename(
+                            &nvim_socket,
+                            new_name,
+                            request.line,
+                            request.col,
+                        ) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Rename failed: {}", e)),
+                        }
+                    }
+                    "nvim_format" => match crate::nvim_rpc::nvim_lsp_format(&nvim_socket) {
+                        Ok(output) => SocketResponse::ok_text(output),
+                        Err(e) => SocketResponse::err(format!("Format failed: {}", e)),
+                    },
+                    "nvim_signature" => {
+                        match crate::nvim_rpc::nvim_lsp_signature(
+                            &nvim_socket,
+                            request.line,
+                            request.col,
+                        ) {
+                            Ok(output) => SocketResponse::ok_text(output),
+                            Err(e) => SocketResponse::err(format!("Signature help failed: {}", e)),
+                        }
+                    }
+                    _ => unreachable!(),
                 }
             }
             other => SocketResponse::err(format!("Unknown operation: {}", other)),
@@ -2059,11 +2448,51 @@ impl App {
     }
 }
 
+/// Diff two file snapshots line-by-line using the `similar` crate and return
+/// (added_lines, deleted_lines) as 1-based line numbers in the *new* file.
+///
+/// - `added` contains line numbers that are new or changed in the new file.
+/// - `deleted` contains line numbers in the new file *after which* old lines were removed.
+///   (If deletions occur at the very start, line 1 is used.)
+fn diff_snapshot_lines(old: &str, new: &str) -> (Vec<usize>, Vec<usize>) {
+    use similar::{ChangeTag, TextDiff};
+
+    let diff = TextDiff::from_lines(old, new);
+    let mut added = Vec::new();
+    let mut deleted = Vec::new();
+
+    // Track the current line number in the new file.
+    let mut new_line: usize = 0;
+
+    for change in diff.iter_all_changes() {
+        match change.tag() {
+            ChangeTag::Equal => {
+                new_line += 1;
+            }
+            ChangeTag::Insert => {
+                new_line += 1;
+                added.push(new_line);
+            }
+            ChangeTag::Delete => {
+                // Mark deletion at the current position in the new file.
+                // If nothing has been output yet, pin to line 1.
+                deleted.push(new_line.max(1));
+            }
+        }
+    }
+
+    // Deduplicate deletion markers (multiple deletions at the same position).
+    deleted.dedup();
+
+    (added, deleted)
+}
+
 /// Parse `git diff --unified=0` output and return (added_lines, deleted_lines).
 ///
 /// Hunk headers look like `@@ -old_start,old_count +new_start,new_count @@`.
 /// Lines starting with `+` (not `+++`) are additions in the new file.
 /// Lines starting with `-` (not `---`) are deletions (we mark them at the hunk start).
+#[cfg(test)]
 fn parse_unified_diff(diff: &str) -> (Vec<usize>, Vec<usize>) {
     let mut added = Vec::new();
     let mut deleted = Vec::new();
@@ -2314,6 +2743,52 @@ diff --git a/src/main.rs b/src/main.rs
         let diff = "@@ -1 +1 @@\n-old\n+new\n";
         let (added, deleted) = parse_unified_diff(diff);
         assert_eq!(added, vec![1]);
+        assert!(deleted.is_empty());
+    }
+
+    #[test]
+    fn test_snapshot_diff_additions() {
+        let old = "line1\nline2\nline3\n";
+        let new = "line1\nline2\nnew_line\nline3\n";
+        let (added, deleted) = diff_snapshot_lines(old, new);
+        assert_eq!(added, vec![3]);
+        assert!(deleted.is_empty());
+    }
+
+    #[test]
+    fn test_snapshot_diff_deletions() {
+        let old = "line1\nline2\nline3\n";
+        let new = "line1\nline3\n";
+        let (added, deleted) = diff_snapshot_lines(old, new);
+        assert!(added.is_empty());
+        assert_eq!(deleted, vec![1]); // deletion after line 1
+    }
+
+    #[test]
+    fn test_snapshot_diff_mixed() {
+        let old = "aaa\nbbb\nccc\n";
+        let new = "aaa\nXXX\nccc\nYYY\n";
+        let (added, deleted) = diff_snapshot_lines(old, new);
+        // bbb replaced by XXX, YYY appended
+        assert_eq!(added, vec![2, 4]);
+        assert_eq!(deleted, vec![1]); // bbb deleted after line 1
+    }
+
+    #[test]
+    fn test_snapshot_diff_empty_to_content() {
+        let old = "";
+        let new = "hello\nworld\n";
+        let (added, deleted) = diff_snapshot_lines(old, new);
+        assert_eq!(added, vec![1, 2]);
+        assert!(deleted.is_empty());
+    }
+
+    #[test]
+    fn test_snapshot_diff_no_change() {
+        let old = "same\ncontent\n";
+        let new = "same\ncontent\n";
+        let (added, deleted) = diff_snapshot_lines(old, new);
+        assert!(added.is_empty());
         assert!(deleted.is_empty());
     }
 }

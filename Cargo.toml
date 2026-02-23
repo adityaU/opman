@@ -1,6 +1,6 @@
 [package]
 name = "opencode-manager"
-version = "0.1.0"
+version = "0.1.4"
 edition = "2021"
 description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
 
@@ -29,6 +29,9 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 chrono = { version = "0.4", features = ["clock"] }
 chrono-tz = "0.10"
 include_dir = "0.7"
+similar = "2"
+rmpv = "1.3"
+rmp = "0.8"
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

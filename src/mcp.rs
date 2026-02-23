@@ -13,23 +13,53 @@ use tracing::{debug, info, warn};
 // ─── Internal socket protocol ───────────────────────────────────────────────
 
 /// Request sent over Unix socket from MCP bridge → manager.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SocketRequest {
-    pub op: String,            // "read" | "run" | "list" | "new" | "close" | "rename"
+    pub op: String, // "read" | "run" | "list" | "new" | "close" | "rename"
+    // + neovim ops: "nvim_open" | "nvim_read" | "nvim_command" | "nvim_buffers" | "nvim_info"
+    //   "nvim_diagnostics" | "nvim_definition" | "nvim_references"
+    //   "nvim_hover" | "nvim_symbols" | "nvim_code_actions"
+    //   "nvim_eval" | "nvim_grep" | "nvim_diff" | "nvim_write"
+    //   "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format" | "nvim_signature"
     #[serde(default)]
-    pub tab: Option<usize>,    // tab index (0-based)
+    pub tab: Option<usize>, // tab index (0-based)
     #[serde(default)]
-    pub command: Option<String>, // for "run" op
+    pub command: Option<String>, // for "run" op and "nvim_command" / "nvim_eval"
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,  // for "new" and "rename" ops
+    pub name: Option<String>, // for "new" and "rename" ops
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wait: Option<bool>,    // for "run" op: wait for output to settle
+    pub wait: Option<bool>, // for "run" op: wait for output to settle
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_n: Option<usize>, // for "read" op: return only last N lines
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_line: Option<usize>, // for "read" op: start line (0-based)
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_line: Option<usize>,   // for "read" op: end line (0-based, inclusive)
+    pub to_line: Option<usize>, // for "read" op: end line (0-based, inclusive)
+    // ── Neovim-specific fields ──────────────────────────────────────────
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>, // for "nvim_open" / "nvim_grep" ops
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<i64>, // for "nvim_open" / "nvim_read" / LSP position ops
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<i64>, // for "nvim_read" op (end of range)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub col: Option<i64>, // column for LSP position ops
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>, // for "nvim_symbols" / "nvim_grep" ops
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buf_only: Option<bool>, // for "nvim_diagnostics": current buffer only
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<bool>, // for "nvim_symbols": workspace vs document
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all: Option<bool>, // for "nvim_write": write all buffers
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glob: Option<String>, // for "nvim_grep": file glob pattern
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_text: Option<String>, // for "nvim_edit": replacement text
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>, // for "nvim_undo": undo count (negative = redo)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_name: Option<String>, // for "nvim_rename": new symbol name
 }
 
 /// Response sent over Unix socket from manager → MCP bridge.
@@ -57,22 +87,64 @@ pub struct TabInfo {
 
 impl SocketResponse {
     pub fn ok_text(output: String) -> Self {
-        Self { ok: true, output: Some(output), tabs: None, error: None, tab_index: None, command_state: None }
+        Self {
+            ok: true,
+            output: Some(output),
+            tabs: None,
+            error: None,
+            tab_index: None,
+            command_state: None,
+        }
     }
     pub fn ok_tabs(tabs: Vec<TabInfo>) -> Self {
-        Self { ok: true, output: None, tabs: Some(tabs), error: None, tab_index: None, command_state: None }
+        Self {
+            ok: true,
+            output: None,
+            tabs: Some(tabs),
+            error: None,
+            tab_index: None,
+            command_state: None,
+        }
     }
     pub fn ok_tab_created(tab_index: usize) -> Self {
-        Self { ok: true, output: None, tabs: None, error: None, tab_index: Some(tab_index), command_state: None }
+        Self {
+            ok: true,
+            output: None,
+            tabs: None,
+            error: None,
+            tab_index: Some(tab_index),
+            command_state: None,
+        }
     }
     pub fn ok_empty() -> Self {
-        Self { ok: true, output: None, tabs: None, error: None, tab_index: None, command_state: None }
+        Self {
+            ok: true,
+            output: None,
+            tabs: None,
+            error: None,
+            tab_index: None,
+            command_state: None,
+        }
     }
     pub fn err(msg: String) -> Self {
-        Self { ok: false, output: None, tabs: None, error: Some(msg), tab_index: None, command_state: None }
+        Self {
+            ok: false,
+            output: None,
+            tabs: None,
+            error: Some(msg),
+            tab_index: None,
+            command_state: None,
+        }
     }
     pub fn ok_status(state: String) -> Self {
-        Self { ok: true, output: None, tabs: None, error: None, tab_index: None, command_state: Some(state) }
+        Self {
+            ok: true,
+            output: None,
+            tabs: None,
+            error: None,
+            tab_index: None,
+            command_state: Some(state),
+        }
     }
 }
 
@@ -144,13 +216,11 @@ pub fn spawn_socket_server(
 
         // Tracks which tabs currently have an in-flight mutating request.
         // Key: Some(tab_idx) for explicit tab, Some(None) for "active tab" default.
-        let busy_tabs: Arc<Mutex<HashSet<Option<usize>>>> =
-            Arc::new(Mutex::new(HashSet::new()));
+        let busy_tabs: Arc<Mutex<HashSet<Option<usize>>>> = Arc::new(Mutex::new(HashSet::new()));
 
         // Tracks which ephemeral task names currently have an in-flight run.
         // Used by ephemeral_lock/ephemeral_unlock ops from the MCP bridge.
-        let busy_ephemeral: Arc<Mutex<HashSet<String>>> =
-            Arc::new(Mutex::new(HashSet::new()));
+        let busy_ephemeral: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
 
         loop {
             let (stream, _) = match listener.accept().await {
@@ -185,7 +255,9 @@ pub fn spawn_socket_server(
                     Ok(r) => r,
                     Err(e) => {
                         let resp = SocketResponse::err(format!("Invalid JSON: {}", e));
-                        let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                        let _ = writer
+                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                            .await;
                         let _ = writer.write_all(b"\n").await;
                         return;
                     }
@@ -197,8 +269,11 @@ pub fn spawn_socket_server(
                         let name = match &request.name {
                             Some(n) => n.clone(),
                             None => {
-                                let resp = SocketResponse::err("Missing 'name' for ephemeral_lock".into());
-                                let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                                let resp =
+                                    SocketResponse::err("Missing 'name' for ephemeral_lock".into());
+                                let _ = writer
+                                    .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                                    .await;
                                 let _ = writer.write_all(b"\n").await;
                                 return;
                             }
@@ -216,7 +291,9 @@ pub fn spawn_socket_server(
                                 name
                             ))
                         };
-                        let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                        let _ = writer
+                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                            .await;
                         let _ = writer.write_all(b"\n").await;
                         return;
                     }
@@ -225,7 +302,9 @@ pub fn spawn_socket_server(
                             eph.lock().unwrap().remove(name);
                         }
                         let resp = SocketResponse::ok_empty();
-                        let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                        let _ = writer
+                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                            .await;
                         let _ = writer.write_all(b"\n").await;
                         return;
                     }
@@ -250,7 +329,9 @@ pub fn spawn_socket_server(
                              Wait for it to complete or target a different tab.",
                             tab_desc
                         ));
-                        let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                        let _ = writer
+                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                            .await;
                         let _ = writer.write_all(b"\n").await;
                         return;
                     }
@@ -273,7 +354,9 @@ pub fn spawn_socket_server(
                     }
                     Err(_) => {
                         let resp = SocketResponse::err("Internal error: no response".into());
-                        let _ = writer.write_all(serde_json::to_string(&resp).unwrap().as_bytes()).await;
+                        let _ = writer
+                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
+                            .await;
                         let _ = writer.write_all(b"\n").await;
                         Ok(())
                     }
@@ -339,7 +422,9 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                stdout.write_all(serde_json::to_string(&error_resp)?.as_bytes()).await?;
+                stdout
+                    .write_all(serde_json::to_string(&error_resp)?.as_bytes())
+                    .await?;
                 stdout.write_all(b"\n").await?;
                 stdout.flush().await?;
                 continue;
@@ -411,7 +496,9 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
             }
         };
 
-        stdout.write_all(serde_json::to_string(&response)?.as_bytes()).await?;
+        stdout
+            .write_all(serde_json::to_string(&response)?.as_bytes())
+            .await?;
         stdout.write_all(b"\n").await?;
         stdout.flush().await?;
     }
@@ -556,10 +643,14 @@ async fn handle_tool_call(
     params: Option<serde_json::Value>,
 ) -> anyhow::Result<serde_json::Value> {
     let params = params.unwrap_or(serde_json::json!({}));
-    let tool_name = params.get("name")
+    let tool_name = params
+        .get("name")
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("Missing tool name"))?;
-    let arguments = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+    let arguments = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
 
     // Handle ephemeral run as a composite operation (new → run → poll → close)
     if tool_name == "terminal_ephemeral_run" {
@@ -570,77 +661,76 @@ async fn handle_tool_call(
     let socket_req = match tool_name {
         "terminal_read" => SocketRequest {
             op: "read".into(),
-            tab: arguments.get("tab").and_then(|v| v.as_u64()).map(|v| v as usize),
-            command: None,
-            name: None,
-            wait: None,
-            last_n: arguments.get("last_n").and_then(|v| v.as_u64()).map(|v| v as usize),
-            from_line: arguments.get("from_line").and_then(|v| v.as_u64()).map(|v| v as usize),
-            to_line: arguments.get("to_line").and_then(|v| v.as_u64()).map(|v| v as usize),
+            tab: arguments
+                .get("tab")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            last_n: arguments
+                .get("last_n")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            from_line: arguments
+                .get("from_line")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            to_line: arguments
+                .get("to_line")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            ..Default::default()
         },
         "terminal_run" => {
-            let cmd = arguments.get("command")
+            let cmd = arguments
+                .get("command")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow::anyhow!("terminal_run requires 'command' argument"))?;
             let wait = arguments.get("wait").and_then(|v| v.as_bool());
             SocketRequest {
                 op: "run".into(),
-                tab: arguments.get("tab").and_then(|v| v.as_u64()).map(|v| v as usize),
+                tab: arguments
+                    .get("tab")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize),
                 command: Some(cmd.to_string()),
-                name: None,
                 wait,
-                last_n: None,
-                from_line: None,
-                to_line: None,
+                ..Default::default()
             }
         }
         "terminal_list" => SocketRequest {
             op: "list".into(),
-            tab: None,
-            command: None,
-            name: None,
-            wait: None,
-            last_n: None,
-            from_line: None,
-            to_line: None,
+            ..Default::default()
         },
         "terminal_new" => SocketRequest {
             op: "new".into(),
-            tab: None,
-            command: None,
-            name: arguments.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            wait: None,
-            last_n: None,
-            from_line: None,
-            to_line: None,
+            name: arguments
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            ..Default::default()
         },
         "terminal_close" => SocketRequest {
             op: "close".into(),
-            tab: arguments.get("tab").and_then(|v| v.as_u64()).map(|v| v as usize),
-            command: None,
-            name: None,
-            wait: None,
-            last_n: None,
-            from_line: None,
-            to_line: None,
+            tab: arguments
+                .get("tab")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            ..Default::default()
         },
         "terminal_rename" => {
-            let tab = arguments.get("tab")
+            let tab = arguments
+                .get("tab")
                 .and_then(|v| v.as_u64())
                 .map(|v| v as usize)
                 .ok_or_else(|| anyhow::anyhow!("terminal_rename requires 'tab' argument"))?;
-            let name = arguments.get("name")
+            let name = arguments
+                .get("name")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow::anyhow!("terminal_rename requires 'name' argument"))?;
             SocketRequest {
                 op: "rename".into(),
                 tab: Some(tab),
-                command: None,
                 name: Some(name.to_string()),
-                wait: None,
-                last_n: None,
-                from_line: None,
-                to_line: None,
+                ..Default::default()
             }
         }
         other => {
@@ -655,7 +745,10 @@ async fn handle_tool_call(
     let is_wait_run = tool_name == "terminal_run" && socket_req.wait.unwrap_or(false);
     let wait_tab = socket_req.tab;
     let wait_timeout_secs = if is_wait_run {
-        arguments.get("timeout").and_then(|v| v.as_u64()).unwrap_or(30)
+        arguments
+            .get("timeout")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30)
     } else {
         30
     };
@@ -670,12 +763,7 @@ async fn handle_tool_call(
         let read_req = SocketRequest {
             op: "read".into(),
             tab: wait_tab,
-            command: None,
-            name: None,
-            wait: None,
-            last_n: None,
-            from_line: None,
-            to_line: None,
+            ..Default::default()
         };
         let read_resp = send_socket_request(sock_path, &read_req).await?;
 
@@ -698,31 +786,35 @@ async fn handle_ephemeral_run(
     sock_path: &Path,
     arguments: &serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    let cmd = arguments.get("command")
+    let cmd = arguments
+        .get("command")
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("terminal_ephemeral_run requires 'command' argument"))?;
 
-    let name = arguments.get("name")
+    let name = arguments
+        .get("name")
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("terminal_ephemeral_run requires 'name' argument"))?;
 
-    let timeout_secs = arguments.get("timeout")
+    let timeout_secs = arguments
+        .get("timeout")
         .and_then(|v| v.as_u64())
         .unwrap_or(30);
 
     // 0. Acquire ephemeral name lock — rejects if same name is already running
-    let lock_resp = send_socket_request(sock_path, &SocketRequest {
-        op: "ephemeral_lock".into(),
-        tab: None,
-        command: None,
-        name: Some(name.to_string()),
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await?;
+    let lock_resp = send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "ephemeral_lock".into(),
+            name: Some(name.to_string()),
+            ..Default::default()
+        },
+    )
+    .await?;
     if !lock_resp.ok {
-        let msg = lock_resp.error.unwrap_or_else(|| "Ephemeral lock failed".into());
+        let msg = lock_resp
+            .error
+            .unwrap_or_else(|| "Ephemeral lock failed".into());
         return Ok(serde_json::json!([{ "type": "text", "text": msg }]));
     }
 
@@ -730,16 +822,15 @@ async fn handle_ephemeral_run(
     let result = handle_ephemeral_run_inner(sock_path, cmd, name, timeout_secs).await;
 
     // Always release the ephemeral name lock
-    let _ = send_socket_request(sock_path, &SocketRequest {
-        op: "ephemeral_unlock".into(),
-        tab: None,
-        command: None,
-        name: Some(name.to_string()),
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await;
+    let _ = send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "ephemeral_unlock".into(),
+            name: Some(name.to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
 
     result
 }
@@ -751,59 +842,62 @@ async fn handle_ephemeral_run_inner(
     timeout_secs: u64,
 ) -> anyhow::Result<serde_json::Value> {
     // 1. Create ephemeral tab
-    let new_resp = send_socket_request(sock_path, &SocketRequest {
-        op: "new".into(),
-        tab: None,
-        command: None,
-        name: Some(name.to_string()),
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await?;
+    let new_resp = send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "new".into(),
+            name: Some(name.to_string()),
+            ..Default::default()
+        },
+    )
+    .await?;
 
     let tab_idx = match new_resp.tab_index {
         Some(idx) => idx,
         None => {
-            let msg = new_resp.error.unwrap_or_else(|| "Failed to create tab".into());
+            let msg = new_resp
+                .error
+                .unwrap_or_else(|| "Failed to create tab".into());
             return Ok(serde_json::json!([{ "type": "text", "text": msg }]));
         }
     };
 
     // 2. Run the command in the ephemeral tab
-    let run_resp = send_socket_request(sock_path, &SocketRequest {
-        op: "run".into(),
-        tab: Some(tab_idx),
-        command: Some(cmd.to_string()),
-        name: None,
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await;
+    let run_resp = send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "run".into(),
+            tab: Some(tab_idx),
+            command: Some(cmd.to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
 
     if let Err(e) = &run_resp {
         let _ = close_tab(sock_path, tab_idx).await;
         return Err(anyhow::anyhow!("Failed to run command: {}", e));
     }
     if !run_resp.as_ref().unwrap().ok {
-        let msg = run_resp.unwrap().error.unwrap_or_else(|| "Run failed".into());
+        let msg = run_resp
+            .unwrap()
+            .error
+            .unwrap_or_else(|| "Run failed".into());
         let _ = close_tab(sock_path, tab_idx).await;
         return Ok(serde_json::json!([{ "type": "text", "text": msg }]));
     }
 
     let timed_out = poll_command_completion(sock_path, Some(tab_idx), timeout_secs).await;
 
-    let read_resp = send_socket_request(sock_path, &SocketRequest {
-        op: "read".into(),
-        tab: Some(tab_idx),
-        command: None,
-        name: None,
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await;
+    let read_resp = send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "read".into(),
+            tab: Some(tab_idx),
+            ..Default::default()
+        },
+    )
+    .await;
 
     let mut final_output = match read_resp {
         Ok(ref r) if r.ok => r.output.clone().unwrap_or_default(),
@@ -832,23 +926,14 @@ async fn handle_ephemeral_run_inner(
 ///
 /// This avoids the race where we poll before the shell processes the command
 /// and see a stale "idle"/"success"/"failure" from the previous command.
-async fn poll_command_completion(
-    sock_path: &Path,
-    tab: Option<usize>,
-    timeout_secs: u64,
-) -> bool {
+async fn poll_command_completion(sock_path: &Path, tab: Option<usize>, timeout_secs: u64) -> bool {
     let poll_interval = std::time::Duration::from_millis(300);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
 
     let status_req = SocketRequest {
         op: "status".into(),
         tab,
-        command: None,
-        name: None,
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
+        ..Default::default()
     };
 
     // Phase 1: wait for state to become "running"
@@ -890,16 +975,15 @@ async fn poll_command_completion(
 }
 
 async fn close_tab(sock_path: &Path, tab_idx: usize) -> anyhow::Result<SocketResponse> {
-    send_socket_request(sock_path, &SocketRequest {
-        op: "close".into(),
-        tab: Some(tab_idx),
-        command: None,
-        name: None,
-        wait: None,
-        last_n: None,
-        from_line: None,
-        to_line: None,
-    }).await
+    send_socket_request(
+        sock_path,
+        &SocketRequest {
+            op: "close".into(),
+            tab: Some(tab_idx),
+            ..Default::default()
+        },
+    )
+    .await
 }
 
 /// Send a SocketRequest over the Unix socket and return the response.
@@ -907,8 +991,15 @@ async fn send_socket_request(
     sock_path: &Path,
     request: &SocketRequest,
 ) -> anyhow::Result<SocketResponse> {
-    let mut stream = tokio::net::UnixStream::connect(sock_path).await
-        .map_err(|e| anyhow::anyhow!("Failed to connect to manager socket at {:?}: {}. Is opencode-manager running?", sock_path, e))?;
+    let mut stream = tokio::net::UnixStream::connect(sock_path)
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to connect to manager socket at {:?}: {}. Is opencode-manager running?",
+                sock_path,
+                e
+            )
+        })?;
 
     let req_json = serde_json::to_string(request)?;
     stream.write_all(req_json.as_bytes()).await?;
@@ -943,9 +1034,14 @@ fn format_mcp_response(socket_resp: &SocketResponse) -> anyhow::Result<serde_jso
             "text": output
         }]))
     } else if let Some(ref tabs) = socket_resp.tabs {
-        let tab_text = tabs.iter()
+        let tab_text = tabs
+            .iter()
             .map(|t| {
-                let name_part = if t.name.is_empty() { String::new() } else { format!(" \"{}\"", t.name) };
+                let name_part = if t.name.is_empty() {
+                    String::new()
+                } else {
+                    format!(" \"{}\"", t.name)
+                };
                 let active_part = if t.active { " (active)" } else { "" };
                 format!("Tab {}{}{}", t.index, name_part, active_part)
             })
@@ -970,8 +1066,13 @@ fn format_mcp_response(socket_resp: &SocketResponse) -> anyhow::Result<serde_jso
 
 // ─── opencode.json auto-generation ──────────────────────────────────────────
 
-/// Write (or update) the opencode.json file for a project to include the terminal MCP server.
-pub fn write_opencode_json(project_path: &Path) -> anyhow::Result<()> {
+/// Write (or update) the opencode.json file for a project to include the MCP server configs.
+pub fn write_opencode_json(
+    project_path: &Path,
+    enable_terminal: bool,
+    enable_neovim: bool,
+    enable_time: bool,
+) -> anyhow::Result<()> {
     let json_path = project_path.join("opencode.json");
 
     // Read existing config or start fresh
@@ -983,39 +1084,82 @@ pub fn write_opencode_json(project_path: &Path) -> anyhow::Result<()> {
     };
 
     // Get the current executable path for the MCP command
-    let exe_path = std::env::current_exe()
-        .unwrap_or_else(|_| PathBuf::from("opencode-manager"));
+    let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("opencode-manager"));
     let exe_str = exe_path.to_string_lossy().to_string();
 
     let project_path_str = project_path.to_string_lossy().to_string();
 
-    // Set mcp.terminal config (field name is "mcp", not "mcpServers")
-    let mcp = config.as_object_mut()
+    // Set mcp.* configs based on enabled flags
+    let mcp = config
+        .as_object_mut()
         .map(|obj| obj.entry("mcp").or_insert(serde_json::json!({})))
         .unwrap();
 
     if let Some(mcp_obj) = mcp.as_object_mut() {
-        mcp_obj.insert("terminal".to_string(), serde_json::json!({
-            "type": "local",
-            "command": [exe_str, "--mcp", project_path_str]
-        }));
-        mcp_obj.insert("time".to_string(), serde_json::json!({
-            "type": "local",
-            "command": [exe_str, "--mcp-time"]
-        }));
+        if enable_terminal {
+            mcp_obj.insert(
+                "terminal".to_string(),
+                serde_json::json!({
+                    "type": "local",
+                    "command": [&exe_str, "--mcp", &project_path_str]
+                }),
+            );
+        } else {
+            mcp_obj.remove("terminal");
+        }
+        if enable_neovim {
+            mcp_obj.insert(
+                "neovim".to_string(),
+                serde_json::json!({
+                    "type": "local",
+                    "command": [&exe_str, "--mcp-nvim", &project_path_str]
+                }),
+            );
+        } else {
+            mcp_obj.remove("neovim");
+        }
+        if enable_time {
+            mcp_obj.insert(
+                "time".to_string(),
+                serde_json::json!({
+                    "type": "local",
+                    "command": [&exe_str, "--mcp-time"]
+                }),
+            );
+        } else {
+            mcp_obj.remove("time");
+        }
     }
 
     // Disable opencode's native bash tool so it uses the manager's terminal instead
-    let permission = config.as_object_mut()
-        .map(|obj| obj.entry("permission").or_insert(serde_json::json!({})))
-        .unwrap();
-    if let Some(perm_obj) = permission.as_object_mut() {
-        perm_obj.insert("bash".to_string(), serde_json::json!("deny"));
+    if enable_terminal {
+        let permission = config
+            .as_object_mut()
+            .map(|obj| obj.entry("permission").or_insert(serde_json::json!({})))
+            .unwrap();
+        if let Some(perm_obj) = permission.as_object_mut() {
+            perm_obj.insert("bash".to_string(), serde_json::json!("deny"));
+        }
+    }
+
+    // When neovim MCP is enabled, disable opencode's native edit/write tools
+    // since the AI edits files through neovim directly.
+    if enable_neovim {
+        let permission = config
+            .as_object_mut()
+            .map(|obj| obj.entry("permission").or_insert(serde_json::json!({})))
+            .unwrap();
+        if let Some(perm_obj) = permission.as_object_mut() {
+            perm_obj.insert("edit".to_string(), serde_json::json!("deny"));
+        }
     }
 
     let formatted = serde_json::to_string_pretty(&config)?;
     std::fs::write(&json_path, formatted)?;
-    info!(?json_path, "Wrote opencode.json with MCP terminal config + bash permission denied");
+    info!(
+        ?json_path,
+        enable_terminal, enable_neovim, enable_time, "Wrote opencode.json with MCP config"
+    );
 
     Ok(())
 }

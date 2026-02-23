@@ -1436,7 +1436,7 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
         }
         CommandAction::ToggleTodoPanel => {
             if app.todo_panel.is_some() {
-                app.todo_panel = None;
+                app.close_todo_panel();
             } else if let Some(project) = app.projects.get(app.active_project) {
                 if let Some(ref session_id) = project.active_session {
                     let proj_dir = project.path.to_string_lossy().to_string();
@@ -1458,6 +1458,7 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
                         scroll_offset: 0,
                         session_id: session_id.clone(),
                         editing: None,
+                        dirty: false,
                     });
                 }
             }
@@ -1570,7 +1571,7 @@ fn handle_context_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             app.context_input = None;
         }
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            // Submit: send text as a message to the active OpenCode session via API
+            // Submit: send text as a system message to the active OpenCode session
             if let Some(state) = app.context_input.take() {
                 let text = state.to_string();
                 if !text.trim().is_empty() {
@@ -1579,13 +1580,20 @@ fn handle_context_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             let proj_dir = project.path.to_string_lossy().to_string();
                             let sid = session_id.clone();
                             let base_url = crate::app::base_url().to_string();
+                            tracing::info!(session_id = sid, "Sending context input as system message");
                             tokio::spawn(async move {
                                 let client = crate::api::ApiClient::new();
-                                if let Err(e) = client
-                                    .send_session_message(&base_url, &proj_dir, &sid, &text)
+                                let msg = format!(
+                                    "[SYSTEM CONTEXT from user] {text}"
+                                );
+                                match client
+                                    .send_system_message_async(
+                                        &base_url, &proj_dir, &sid, &msg,
+                                    )
                                     .await
                                 {
-                                    tracing::error!("Failed to send context message: {e}");
+                                    Ok(()) => tracing::info!("Context system message sent successfully"),
+                                    Err(e) => tracing::error!("Failed to send context system message: {e}"),
                                 }
                             });
                         }
@@ -1646,7 +1654,7 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => {
-            app.todo_panel = None;
+            app.close_todo_panel();
         }
         KeyCode::Up | KeyCode::Char('k') => {
             if let Some(ref mut state) = app.todo_panel {
@@ -1667,9 +1675,9 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                         _ => "pending",
                     }
                     .to_string();
+                    state.dirty = true;
                     let session_id = state.session_id.clone();
                     let todos = state.todos.clone();
-                    app.pending_ui_todo_save.insert(session_id.clone());
                     tokio::task::spawn_blocking(move || {
                         if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                             tracing::error!("Failed to save todos: {e}");
@@ -1708,9 +1716,9 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                     if state.selected >= state.todos.len() {
                         state.selected = state.todos.len().saturating_sub(1);
                     }
+                    state.dirty = true;
                     let session_id = state.session_id.clone();
                     let todos = state.todos.clone();
-                    app.pending_ui_todo_save.insert(session_id.clone());
                     tokio::task::spawn_blocking(move || {
                         if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                             tracing::error!("Failed to save todos: {e}");
@@ -1728,9 +1736,9 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                         _ => "low",
                     }
                     .to_string();
+                    state.dirty = true;
                     let session_id = state.session_id.clone();
                     let todos = state.todos.clone();
-                    app.pending_ui_todo_save.insert(session_id.clone());
                     tokio::task::spawn_blocking(move || {
                         if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                             tracing::error!("Failed to save todos: {e}");
@@ -1744,9 +1752,9 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 if state.selected > 0 {
                     state.todos.swap(state.selected, state.selected - 1);
                     state.selected -= 1;
+                    state.dirty = true;
                     let session_id = state.session_id.clone();
                     let todos = state.todos.clone();
-                    app.pending_ui_todo_save.insert(session_id.clone());
                     tokio::task::spawn_blocking(move || {
                         if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                             tracing::error!("Failed to save todos: {e}");
@@ -1760,9 +1768,9 @@ fn handle_todo_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 if state.selected + 1 < state.todos.len() {
                     state.todos.swap(state.selected, state.selected + 1);
                     state.selected += 1;
+                    state.dirty = true;
                     let session_id = state.session_id.clone();
                     let todos = state.todos.clone();
-                    app.pending_ui_todo_save.insert(session_id.clone());
                     tokio::task::spawn_blocking(move || {
                         if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                             tracing::error!("Failed to save todos: {e}");
@@ -1809,7 +1817,6 @@ fn handle_todo_edit_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             }
         }
         KeyCode::Enter => {
-            let mut save_session_id: Option<String> = None;
             if let Some(ref mut state) = app.todo_panel {
                 if let Some(ref editing) = state.editing {
                     let content = editing.buffer.trim().to_string();
@@ -1828,9 +1835,9 @@ fn handle_todo_edit_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                 priority,
                             });
                         }
+                        state.dirty = true;
                         let session_id = state.session_id.clone();
                         let todos = state.todos.clone();
-                        save_session_id = Some(session_id.clone());
                         tokio::task::spawn_blocking(move || {
                             if let Err(e) = crate::todo_db::save_todos_to_db(&session_id, &todos) {
                                 tracing::error!("Failed to save todos: {e}");
@@ -1839,9 +1846,6 @@ fn handle_todo_edit_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                     }
                 }
                 state.editing = None;
-            }
-            if let Some(sid) = save_session_id {
-                app.pending_ui_todo_save.insert(sid);
             }
         }
         KeyCode::Char(c) => {

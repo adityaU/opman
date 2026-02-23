@@ -3,7 +3,7 @@ use futures::StreamExt;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::app::{BackgroundEvent, SessionInfo};
 
@@ -356,7 +356,7 @@ fn handle_sse_data(
             debug!(project_idx, "SSE: server connected");
         }
         "file.edited" => {
-            debug!(project_idx, raw_props = %event.properties, "SSE: file.edited raw event");
+            info!(project_idx, raw_props = %event.properties, "SSE: file.edited raw event");
             if let Some(file) = event.properties.get("file").and_then(|v| v.as_str()) {
                 debug!(project_idx, file, "SSE: file.edited - sending to handler");
                 let _ = bg_tx.send(BackgroundEvent::SseFileEdited {

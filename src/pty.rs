@@ -28,6 +28,8 @@ pub struct PtyInstance {
     pub scroll_offset: usize,
     pub name: String,
     pub command_state: Arc<Mutex<CommandState>>,
+    /// Path to the neovim `--listen` socket (only set for neovim PTYs).
+    pub nvim_listen_addr: Option<std::path::PathBuf>,
 }
 
 impl std::fmt::Debug for PtyInstance {
@@ -120,6 +122,7 @@ impl PtyInstance {
             scroll_offset: 0,
             name: String::new(),
             command_state,
+            nvim_listen_addr: None,
         })
     }
 
@@ -402,6 +405,7 @@ impl PtyInstance {
             scroll_offset: 0,
             name: name.unwrap_or_else(|| String::new()),
             command_state,
+            nvim_listen_addr: None,
         };
         Ok(pty)
     }
@@ -432,6 +436,18 @@ impl PtyInstance {
         for (key, val) in theme_envs {
             cmd.env(key, val);
         }
+
+        // Compute a unique listen socket path for this neovim instance
+        let listen_path =
+            std::path::PathBuf::from(format!("/tmp/opencode-nvim-{}.sock", std::process::id()));
+        // Clean up any stale socket from a previous run
+        let _ = std::fs::remove_file(&listen_path);
+        cmd.arg("--listen");
+        cmd.arg(listen_path.to_string_lossy().as_ref());
+
+        // Enable sign column and line numbers so diff signs are visible
+        cmd.arg("--cmd");
+        cmd.arg("set signcolumn=yes number norelativenumber");
         if let Some(dir) = theme_dir {
             let colorscheme_path = dir.join("nvim/colors/opencode.lua");
             cmd.arg("--cmd");
@@ -468,7 +484,13 @@ impl PtyInstance {
             Self::read_pty_output(reader, parser_clone, cmd_state_clone);
         });
 
-        debug!(rows, cols, ?working_dir, "Neovim PTY instance spawned");
+        debug!(
+            rows,
+            cols,
+            ?working_dir,
+            ?listen_path,
+            "Neovim PTY instance spawned"
+        );
 
         Ok(Self {
             parser,
@@ -480,6 +502,7 @@ impl PtyInstance {
             scroll_offset: 0,
             name: String::new(),
             command_state,
+            nvim_listen_addr: Some(listen_path),
         })
     }
 
@@ -553,6 +576,7 @@ impl PtyInstance {
             scroll_offset: 0,
             name: String::new(),
             command_state,
+            nvim_listen_addr: None,
         })
     }
 }

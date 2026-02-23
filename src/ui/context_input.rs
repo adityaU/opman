@@ -78,53 +78,115 @@ impl<'a> ContextInput<'a> {
             Style::default().fg(theme.border_subtle),
         );
 
-        // Text area
+        // Text area with word wrapping
         let text_y = inner.y + 3;
-        let text_height = inner.height.saturating_sub(5); // title + sep + hint
+        let text_height = inner.height.saturating_sub(5) as usize; // title + sep + hint
+        let cw = content_width as usize;
 
-        let visible_start = if state.cursor_row >= text_height as usize {
-            state.cursor_row - text_height as usize + 1
+        // Build visual rows from logical lines, wrapping at content_width.
+        // Each entry is (logical_line_idx, byte_start, byte_end).
+        let mut vrows: Vec<(usize, usize, usize)> = Vec::new();
+        let mut cursor_vrow: usize = 0; // visual row of cursor
+        let mut _cursor_vcol: usize = 0; // visual column of cursor
+
+        for (li, line_text) in state.lines.iter().enumerate() {
+            if cw == 0 {
+                vrows.push((li, 0, line_text.len()));
+                continue;
+            }
+            if line_text.is_empty() {
+                if li == state.cursor_row {
+                    cursor_vrow = vrows.len();
+                    _cursor_vcol = 0;
+                }
+                vrows.push((li, 0, 0));
+                continue;
+            }
+            let mut pos = 0;
+            while pos < line_text.len() {
+                let chunk_start = pos;
+                let mut col = 0;
+                let mut end = pos;
+                for ch in line_text[pos..].chars() {
+                    if col + 1 > cw {
+                        break;
+                    }
+                    col += 1;
+                    end += ch.len_utf8();
+                }
+                if end == pos {
+                    let ch = line_text[pos..].chars().next().unwrap();
+                    end += ch.len_utf8();
+                }
+                if li == state.cursor_row
+                    && state.cursor_col >= chunk_start
+                    && (state.cursor_col < end
+                        || (state.cursor_col == end && end == line_text.len()))
+                {
+                    cursor_vrow = vrows.len();
+                    _cursor_vcol = line_text[chunk_start..state.cursor_col.min(end)]
+                        .chars()
+                        .count();
+                }
+                vrows.push((li, chunk_start, end));
+                pos = end;
+            }
+        }
+
+        // Scroll so cursor is visible
+        let visible_start = if cursor_vrow >= text_height {
+            cursor_vrow - text_height + 1
         } else {
             0
         };
 
-        for i in 0..text_height as usize {
-            let line_idx = visible_start + i;
-            let row_y = text_y + i as u16;
+        for vi in 0..text_height {
+            let vrow_idx = visible_start + vi;
+            let row_y = text_y + vi as u16;
             if row_y >= inner.y + inner.height.saturating_sub(1) {
                 break;
             }
+            if vrow_idx >= vrows.len() {
+                break;
+            }
 
-            if line_idx < state.lines.len() {
-                let line_text = &state.lines[line_idx];
-                let is_cursor_line = line_idx == state.cursor_row;
+            let (li, byte_start, byte_end) = vrows[vrow_idx];
+            let chunk = &state.lines[li][byte_start..byte_end];
+            let is_cursor_vrow = vrow_idx == cursor_vrow;
 
-                if is_cursor_line {
-                    let col = state.cursor_col.min(line_text.len());
-                    let before = &line_text[..col];
-                    let cursor_ch = line_text.get(col..col + 1).unwrap_or(" ");
-                    let after = if col + 1 < line_text.len() {
-                        &line_text[col + 1..]
-                    } else {
-                        ""
-                    };
-
-                    let spans = vec![
-                        Span::styled(before, Style::default().fg(theme.text)),
-                        Span::styled(
-                            cursor_ch,
-                            Style::default()
-                                .bg(theme.text)
-                                .fg(theme.background)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(after, Style::default().fg(theme.text)),
-                    ];
-                    let line = Line::from(spans);
-                    Paragraph::new(line).render(Rect::new(content_x, row_y, content_width, 1), buf);
+            if is_cursor_vrow {
+                let cursor_byte = state.cursor_col.min(byte_end).saturating_sub(byte_start);
+                let before = &chunk[..cursor_byte.min(chunk.len())];
+                let (cursor_ch, cursor_ch_len) = if cursor_byte < chunk.len() {
+                    let ch = chunk[cursor_byte..].chars().next().unwrap();
+                    (
+                        &chunk[cursor_byte..cursor_byte + ch.len_utf8()],
+                        ch.len_utf8(),
+                    )
                 } else {
-                    buf.set_string(content_x, row_y, line_text, Style::default().fg(theme.text));
-                }
+                    (" ", 0)
+                };
+                let after = if cursor_ch_len > 0 && cursor_byte + cursor_ch_len <= chunk.len() {
+                    &chunk[cursor_byte + cursor_ch_len..]
+                } else {
+                    ""
+                };
+
+                let spans = vec![
+                    Span::styled(before, Style::default().fg(theme.text)),
+                    Span::styled(
+                        cursor_ch,
+                        Style::default()
+                            .bg(theme.text)
+                            .fg(theme.background)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(after, Style::default().fg(theme.text)),
+                ];
+                let line = Line::from(spans);
+                Paragraph::new(line).render(Rect::new(content_x, row_y, content_width, 1), buf);
+            } else {
+                buf.set_string(content_x, row_y, chunk, Style::default().fg(theme.text));
             }
         }
 

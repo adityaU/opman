@@ -1,9 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
+    "neovim": {
+      "command": [
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
+        "--mcp-nvim",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager"
+      ],
+      "type": "local"
+    },
     "terminal": {
       "command": [
-        "/opt/homebrew/bin/opman",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
         "--mcp",
         "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager"
       ],
@@ -11,13 +19,14 @@
     },
     "time": {
       "command": [
-        "/opt/homebrew/bin/opman",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
         "--mcp-time"
       ],
       "type": "local"
     }
   },
   "permission": {
-    "bash": "deny"
+    "bash": "deny",
+    "edit": "deny"
   }
 }

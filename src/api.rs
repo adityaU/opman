@@ -195,6 +195,7 @@ impl ApiClient {
     ///
     /// Uses `POST /session/{id}/message` with a text part payload.
     /// The response is streamed by the server; we discard it (fire-and-forget).
+    #[allow(dead_code)]
     pub async fn send_session_message(
         &self,
         base_url: &str,
@@ -233,17 +234,28 @@ impl ApiClient {
         let url = format!("{}/session/{}/prompt_async", base_url, session_id);
         debug!(url, session_id, "Sending async system message to session");
 
-        self.client
+        let resp = self
+            .client
             .post(&url)
             .header("x-opencode-directory", project_dir)
             .header("Accept", "application/json")
             .json(&serde_json::json!({
-                "system": true,
+                "system": "true",
                 "parts": [{ "type": "text", "text": text }]
             }))
             .send()
             .await
             .context("Failed to send async system message to opencode session")?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!(
+                "System message rejected by server: HTTP {} — {}",
+                status,
+                body
+            );
+        }
 
         Ok(())
     }

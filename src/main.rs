@@ -3,7 +3,9 @@ mod app;
 mod config;
 mod input;
 mod mcp;
+mod mcp_neovim;
 mod mcp_time;
+mod nvim_rpc;
 mod pty;
 mod server;
 mod sse;
@@ -69,6 +71,19 @@ async fn main() -> Result<()> {
     if args.len() >= 2 && args[1] == "--mcp-time" {
         return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
     }
+
+    // ── Neovim MCP bridge mode: `opencode-manager --mcp-nvim <project_path>` ──
+    if args.len() >= 3 && args[1] == "--mcp-nvim" {
+        let project_path = PathBuf::from(&args[2]);
+        return mcp_neovim::run_mcp_neovim_bridge(project_path).await.map_err(Into::into);
+    }
+
+    // ── Check for --no-* MCP flags ──────────────────────────────────
+    let no_mcp = args.iter().any(|a| a == "--no-mcp");
+    let enable_terminal_mcp = !no_mcp && !args.iter().any(|a| a == "--no-terminal-mcp");
+    let enable_neovim_mcp = !no_mcp && !args.iter().any(|a| a == "--no-neovim-mcp");
+    let enable_time_mcp = !no_mcp && !args.iter().any(|a| a == "--no-time-mcp");
+    let enable_any_mcp = enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp;
 
     info!("opencode-manager starting");
 
@@ -176,12 +191,28 @@ async fn main() -> Result<()> {
         }
 
         // Spawn MCP socket servers and write opencode.json for each project
-        for i in 0..app.projects.len() {
-            let project_path = app.projects[i].path.clone();
-            mcp::spawn_socket_server(&project_path, app.bg_tx.clone(), i);
-            if let Err(e) = mcp::write_opencode_json(&project_path) {
-                tracing::warn!("Failed to write opencode.json for {}: {}", project_path.display(), e);
+        if enable_any_mcp {
+            for i in 0..app.projects.len() {
+                let project_path = app.projects[i].path.clone();
+                if enable_terminal_mcp || enable_neovim_mcp {
+                    mcp::spawn_socket_server(&project_path, app.bg_tx.clone(), i);
+                }
+                if let Err(e) = mcp::write_opencode_json(
+                    &project_path,
+                    enable_terminal_mcp,
+                    enable_neovim_mcp,
+                    enable_time_mcp,
+                ) {
+                    tracing::warn!("Failed to write opencode.json for {}: {}", project_path.display(), e);
+                }
             }
+        }
+
+        // When neovim MCP is enabled, store flag on App (disables follow-edits)
+        // and auto-start the neovim PTY for all projects so MCP tools work
+        // immediately without requiring the user to open the neovim pane.
+        if enable_neovim_mcp {
+            app.neovim_mcp_enabled = true;
         }
 
         // Auto-activate project 0 by spawning PTY directly
@@ -203,6 +234,18 @@ async fn main() -> Result<()> {
             inner_cols,
             theme_envs,
         );
+
+        // Auto-start neovim PTY for all projects when neovim MCP is enabled,
+        // so MCP tools work immediately without requiring the user to focus
+        // the neovim pane. The pane itself remains hidden until manually opened.
+        if enable_neovim_mcp {
+            let saved = app.active_project;
+            for i in 0..app.projects.len() {
+                app.active_project = i;
+                app.ensure_neovim_pty();
+            }
+            app.active_project = saved;
+        }
     }
 
     // 7. Main event loop — TUI renders on first iteration (instant startup!)
@@ -226,8 +269,10 @@ async fn main() -> Result<()> {
     }
 
     // Clean up MCP socket files
-    for project in &app.projects {
-        mcp::cleanup_socket(&project.path);
+    if enable_any_mcp {
+        for project in &app.projects {
+            mcp::cleanup_socket(&project.path);
+        }
     }
 
     info!("opencode-manager shut down");
@@ -863,11 +908,14 @@ async fn run_event_loop(
                                                             format!(" {} ", pty.name)
                                                         };
                                                         let label_len = label.len();
-                                                        if click_x >= x_offset && click_x < x_offset + label_len {
+                                                        // Include command-state dot width to match rendering
+                                                        let cmd_state = pty.command_state.lock().unwrap().clone();
+                                                        let dot_width = if cmd_state != crate::pty::CommandState::Idle { 1 } else { 0 };
+                                                        if click_x >= x_offset && click_x < x_offset + label_len + dot_width {
                                                             project.active_shell_tab = i;
                                                             break;
                                                         }
-                                                        x_offset += label_len;
+                                                        x_offset += label_len + dot_width;
                                                     }
                                                 }
                                             } else if let Some(pty) = project.active_shell_pty_mut() {

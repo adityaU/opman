@@ -60,6 +60,32 @@ pub fn render_overlay_dim(area: Rect, buf: &mut Buffer) {
     }
 }
 
+/// Dim an unfocused panel by reducing the brightness of every cell.
+/// Blends each color channel toward a dark base by the given factor
+/// (0.0 = fully dark, 1.0 = no change). A factor around 0.45-0.55
+/// gives a noticeable but readable dimming.
+fn dim_panel(area: Rect, buf: &mut Buffer, factor: f32) {
+    fn blend(c: Color, factor: f32) -> Color {
+        match c {
+            Color::Rgb(r, g, b) => Color::Rgb(
+                (r as f32 * factor) as u8,
+                (g as f32 * factor) as u8,
+                (b as f32 * factor) as u8,
+            ),
+            Color::Reset => Color::Reset,
+            other => other,
+        }
+    }
+    for y in area.y..area.y + area.height {
+        for x in area.x..area.x + area.width {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_fg(blend(cell.fg, factor));
+                cell.set_bg(blend(cell.bg, factor));
+            }
+        }
+    }
+}
+
 pub fn draw(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
 
@@ -151,6 +177,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             }
         }
     } else {
+        let focused = app.layout.focused;
         for panel_id in &[
             PanelId::Sidebar,
             PanelId::TerminalPane,
@@ -190,22 +217,18 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                     frame.render_widget(gp, rect);
                 }
             }
+            // Dim unfocused panels so the focused one stands out.
+            if *panel_id != focused {
+                dim_panel(rect, frame.buffer_mut(), 0.5);
+            }
         }
 
-        let focused_rect = app.layout.panel_rect(app.layout.focused);
         let seps: Vec<_> = app.layout.get_separator_rects().to_vec();
         for sep in &seps {
             let is_vertical = sep.direction == layout_manager::SplitDirection::Horizontal;
-            let color = if focused_rect.map_or(false, |fr| {
-                separator_borders_panel(sep.rect, is_vertical, fr)
-            }) {
-                app.theme.primary
-            } else {
-                app.theme.border_subtle
-            };
-            render_separator(frame, app, sep.rect, is_vertical, color);
+            render_separator(frame, app, sep.rect, is_vertical, app.theme.border_subtle);
         }
-        render_separator_junctions(frame, app, &seps, focused_rect);
+        render_separator_junctions(frame, app, &seps);
     }
 
     render_status_bar(frame, app, status_area);
@@ -312,18 +335,6 @@ pub fn render_pane_title_bar(
     );
 }
 
-fn separator_borders_panel(sep: Rect, is_vertical: bool, panel: Rect) -> bool {
-    if is_vertical {
-        let y_overlaps = sep.y < panel.y + panel.height && panel.y < sep.y + sep.height;
-        let adjacent = sep.x == panel.x + panel.width || sep.x + sep.width == panel.x;
-        y_overlaps && adjacent
-    } else {
-        let x_overlaps = sep.x < panel.x + panel.width && panel.x < sep.x + sep.width;
-        let adjacent = sep.y == panel.y + panel.height || sep.y + sep.height == panel.y;
-        x_overlaps && adjacent
-    }
-}
-
 fn render_separator(frame: &mut Frame, _app: &App, area: Rect, is_vertical: bool, color: Color) {
     let buf = frame.buffer_mut();
     let style = Style::default().fg(color);
@@ -342,9 +353,9 @@ fn render_separator_junctions(
     frame: &mut Frame,
     app: &App,
     seps: &[layout_manager::SeparatorRect],
-    focused_rect: Option<Rect>,
 ) {
     let buf = frame.buffer_mut();
+    let style = Style::default().fg(app.theme.border_subtle);
 
     for a in seps {
         for b in seps {
@@ -364,17 +375,6 @@ fn render_separator_junctions(
             let hx_end = h.rect.x + h.rect.width;
 
             if vx >= hx_start && vx < hx_end {
-                let v_focused =
-                    focused_rect.map_or(false, |fr| separator_borders_panel(v.rect, true, fr));
-                let h_focused =
-                    focused_rect.map_or(false, |fr| separator_borders_panel(h.rect, false, fr));
-                let color = if v_focused || h_focused {
-                    app.theme.primary
-                } else {
-                    app.theme.border_subtle
-                };
-                let style = Style::default().fg(color);
-
                 if hy == vy_end {
                     buf.set_string(vx, hy, "┴", style);
                 } else if hy + 1 == vy_start {
