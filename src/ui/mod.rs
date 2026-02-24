@@ -62,8 +62,8 @@ pub fn render_overlay_dim(area: Rect, buf: &mut Buffer) {
 
 /// Dim an unfocused panel by reducing the brightness of every cell.
 /// Blends each color channel toward a dark base by the given factor
-/// (0.0 = fully dark, 1.0 = no change). A factor around 0.8
-/// gives a subtle but noticeable dimming (20% brightness reduction).
+/// (0.0 = fully dark, 1.0 = no change).  Driven by the
+/// `unfocused_dim_percent` setting (0–100, default 20).
 fn dim_panel(area: Rect, buf: &mut Buffer, factor: f32) {
     fn blend(c: Color, factor: f32) -> Color {
         match c {
@@ -219,7 +219,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             }
             // Dim unfocused panels so the focused one stands out.
             if *panel_id != focused {
-                dim_panel(rect, frame.buffer_mut(), 0.8);
+                let pct = app.config.settings.unfocused_dim_percent.min(100) as f32;
+                dim_panel(rect, frame.buffer_mut(), 1.0 - pct / 100.0);
             }
         }
 
@@ -271,6 +272,7 @@ fn render_overlays(frame: &mut Frame, app: &App, size: Rect) {
             &app.theme,
             app.config_panel_selected,
             app.config.settings.follow_edits_in_neovim,
+            app.config.settings.unfocused_dim_percent,
         );
         panel.render_popup(size, frame.buffer_mut());
     }

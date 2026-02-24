@@ -5,15 +5,35 @@ use ratatui::widgets::{Block, Clear, Widget};
 
 use crate::theme::ThemeColors;
 
+/// A single setting entry – either a boolean toggle or a numeric percentage.
+pub enum SettingValue {
+    Bool(bool),
+    Percent(u8),
+}
+
 pub struct ConfigPanel<'a> {
     theme: &'a ThemeColors,
     selected: usize,
-    settings: Vec<(&'static str, bool)>,
+    settings: Vec<(&'static str, SettingValue)>,
 }
 
 impl<'a> ConfigPanel<'a> {
-    pub fn new(theme: &'a ThemeColors, selected: usize, follow_edits_in_neovim: bool) -> Self {
-        let settings = vec![("Follow edits in neovim", follow_edits_in_neovim)];
+    pub fn new(
+        theme: &'a ThemeColors,
+        selected: usize,
+        follow_edits_in_neovim: bool,
+        unfocused_dim_percent: u8,
+    ) -> Self {
+        let settings = vec![
+            (
+                "Follow edits in neovim",
+                SettingValue::Bool(follow_edits_in_neovim),
+            ),
+            (
+                "Unfocused panel dimming",
+                SettingValue::Percent(unfocused_dim_percent),
+            ),
+        ];
         Self {
             theme,
             selected,
@@ -73,15 +93,14 @@ impl<'a> ConfigPanel<'a> {
         let mut cy = sep_y + 1;
         let max_y = popup_area.y + popup_area.height - 1;
 
-        for (i, (label, enabled)) in self.settings.iter().enumerate() {
+        for (i, (label, value)) in self.settings.iter().enumerate() {
             if cy >= max_y {
                 break;
             }
 
             let is_selected = i == self.selected;
-            let checkbox = if *enabled { "[✓] " } else { "[ ] " };
 
-            let checkbox_style = if is_selected {
+            let control_style = if is_selected {
                 Style::default()
                     .fg(self.theme.primary)
                     .add_modifier(Modifier::BOLD)
@@ -104,14 +123,29 @@ impl<'a> ConfigPanel<'a> {
                 }
             }
 
-            buf.set_string(inner_x, cy, checkbox, checkbox_style);
-            buf.set_string(inner_x + 4, cy, label, label_style);
+            match value {
+                SettingValue::Bool(enabled) => {
+                    let checkbox = if *enabled { "[✓] " } else { "[ ] " };
+                    buf.set_string(inner_x, cy, checkbox, control_style);
+                    buf.set_string(inner_x + 4, cy, label, label_style);
+                }
+                SettingValue::Percent(pct) => {
+                    let control = format!("◀ {:>3}% ▶  ", pct);
+                    buf.set_string(inner_x, cy, &control, control_style);
+                    buf.set_string(
+                        inner_x + control.chars().count() as u16,
+                        cy,
+                        label,
+                        label_style,
+                    );
+                }
+            }
 
             cy += 1;
         }
 
         // Hint at bottom
-        let hint = "↑↓ navigate · Enter toggle · Esc close";
+        let hint = "↑↓ navigate · Enter/Space toggle · ←→ adjust · Esc close";
         let hint_y = popup_area.y + popup_area.height - 1;
         if hint_y > cy {
             buf.set_string(

@@ -28,6 +28,10 @@ pub struct Settings {
     /// If not set, uses $SHELL environment variable, falling back to "/bin/bash".
     #[serde(default)]
     pub default_terminal_command: Option<String>,
+    /// How much to dim unfocused panels, as a percentage (0–100).
+    /// 0 = no dimming, 100 = fully black.  Default is 20.
+    #[serde(default = "default_unfocused_dim_percent")]
+    pub unfocused_dim_percent: u8,
 }
 
 impl Default for Settings {
@@ -35,6 +39,7 @@ impl Default for Settings {
         Self {
             follow_edits_in_neovim: false,
             default_terminal_command: None,
+            unfocused_dim_percent: 20,
         }
     }
 }
@@ -250,6 +255,9 @@ fn default_leader_git() -> String {
 }
 fn default_follow_edits() -> bool {
     true
+}
+fn default_unfocused_dim_percent() -> u8 {
+    20
 }
 fn default_leader_neovim() -> String {
     "n".into()

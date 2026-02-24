@@ -24,7 +24,13 @@ fn zen_panel(app: &mut App, target: PanelId) {
     } else {
         let focused = app.layout.focused;
         app.pre_zen_state = Some((app.layout.panel_visible, focused));
-        for panel in &[PanelId::Sidebar, PanelId::TerminalPane, PanelId::NeovimPane, PanelId::IntegratedTerminal, PanelId::GitPanel] {
+        for panel in &[
+            PanelId::Sidebar,
+            PanelId::TerminalPane,
+            PanelId::NeovimPane,
+            PanelId::IntegratedTerminal,
+            PanelId::GitPanel,
+        ] {
             app.layout.set_visible(*panel, *panel == target);
         }
         app.layout.focused = target;
@@ -72,7 +78,10 @@ fn popout_panels(app: &mut App) {
 
         if panels_to_popout.is_empty() {
             app.pre_popout_state = None;
-            app.toast_message = Some(("No panels visible to pop out".into(), std::time::Instant::now()));
+            app.toast_message = Some((
+                "No panels visible to pop out".into(),
+                std::time::Instant::now(),
+            ));
             return;
         }
 
@@ -88,10 +97,7 @@ fn popout_panels(app: &mut App) {
                         .as_ref()
                         .map(|sid| format!(" --session {}", sid))
                         .unwrap_or_default();
-                    format!(
-                        "opencode attach {} --dir {}{}",
-                        base_url, dir, session_part
-                    )
+                    format!("opencode attach {} --dir {}{}", base_url, dir, session_part)
                 }
                 PanelId::NeovimPane => {
                     let colorscheme_path = td.join("nvim/colors/opencode.lua");
@@ -126,25 +132,39 @@ fn popout_panels(app: &mut App) {
                 _ => "Panel",
             };
 
-            if let Some(child) = spawn_external_terminal(&project_dir, &cmd_str, title, &theme_envs) {
+            if let Some(child) = spawn_external_terminal(&project_dir, &cmd_str, title, &theme_envs)
+            {
                 spawned.push(child);
             }
         }
 
         if spawned.is_empty() {
             app.pre_popout_state = None;
-            app.toast_message = Some(("Failed to spawn external windows".into(), std::time::Instant::now()));
+            app.toast_message = Some((
+                "Failed to spawn external windows".into(),
+                std::time::Instant::now(),
+            ));
             return;
         }
 
-        for panel in &[PanelId::Sidebar, PanelId::TerminalPane, PanelId::NeovimPane, PanelId::IntegratedTerminal, PanelId::GitPanel] {
+        for panel in &[
+            PanelId::Sidebar,
+            PanelId::TerminalPane,
+            PanelId::NeovimPane,
+            PanelId::IntegratedTerminal,
+            PanelId::GitPanel,
+        ] {
             app.layout.set_visible(*panel, false);
         }
         app.popout_windows = spawned;
         app.popout_mode = true;
         let count = panels_to_popout.len();
         app.toast_message = Some((
-            format!("{} panel{} popped out — Space+w+w to restore", count, if count == 1 { "" } else { "s" }),
+            format!(
+                "{} panel{} popped out — Space+w+w to restore",
+                count,
+                if count == 1 { "" } else { "s" }
+            ),
             std::time::Instant::now(),
         ));
     }
@@ -162,7 +182,11 @@ fn spawn_external_terminal(
     let mut env_exports = String::new();
     env_exports.push_str("export TERM=xterm-256color COLORTERM=truecolor; ");
     for (key, val) in theme_envs {
-        env_exports.push_str(&format!("export {}='{}'; ", key, val.replace('\'', "'\\''")));
+        env_exports.push_str(&format!(
+            "export {}='{}'; ",
+            key,
+            val.replace('\'', "'\\''")
+        ));
     }
 
     let shell_cmd = format!("{}cd {} && {}", env_exports, shell_escape(cwd), command);
@@ -380,7 +404,9 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
     }
 
     // Registry-based keybind lookup
-    let has_modifier = key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+    let has_modifier = key
+        .modifiers
+        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
     let on_sidebar_or_git = matches!(app.layout.focused, PanelId::Sidebar | PanelId::GitPanel);
     let is_leader_key = key.code == KeyCode::Char(' ') && app.vim_mode == VimMode::Normal;
 
@@ -475,7 +501,8 @@ pub fn handle_paste(app: &mut App, text: &str) {
     if app.session_search_mode {
         for c in text.chars() {
             if c != '\n' && c != '\r' {
-                app.session_search_buffer.insert(app.session_search_cursor, c);
+                app.session_search_buffer
+                    .insert(app.session_search_cursor, c);
                 app.session_search_cursor += 1;
             }
         }
@@ -572,84 +599,84 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Enter => {
             app.sidebar_pending_g = false;
             match app.sidebar_item_at(app.sidebar_selection) {
-            Some(SidebarItem::Project(idx)) => {
-                if app.active_project != idx {
-                    app.switch_project(idx);
-                }
-                if app.sessions_expanded_for == Some(idx) {
-                    app.sessions_expanded_for = None;
-                } else {
-                    app.sessions_expanded_for = Some(idx);
-                }
-            }
-            Some(SidebarItem::NewSession(proj_idx)) => {
-                if app.active_project != proj_idx {
-                    app.switch_project(proj_idx);
-                }
-                if let Some(project) = app.projects.get_mut(proj_idx) {
-                    if let Some(pty) = project.active_pty_mut() {
-                        let _ = pty.kill();
+                Some(SidebarItem::Project(idx)) => {
+                    if app.active_project != idx {
+                        app.switch_project(idx);
                     }
-                    if let Some(sid) = project.active_session.take() {
-                        project.ptys.remove(&sid);
-                    }
-                }
-                app.pending_new_session = Some(proj_idx);
-                app.pending_session_select = None;
-                app.layout.focused = PanelId::TerminalPane;
-            }
-            Some(SidebarItem::Session(proj_idx, session_id)) => {
-                if app.active_project != proj_idx {
-                    app.switch_project(proj_idx);
-                }
-                if let Some(project) = app.projects.get(proj_idx) {
-                    if project.ptys.contains_key(&session_id) {
-                        app.projects[proj_idx].active_session = Some(session_id.clone());
-                        app.active_project = proj_idx;
-                        let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
-                        let sid = session_id.clone();
-                        let base_url = crate::app::base_url().to_string();
-                        tokio::spawn(async move {
-                            let client = crate::api::ApiClient::new();
-                            let _ = client.select_session(&base_url, &dir, &sid).await;
-                        });
+                    if app.sessions_expanded_for == Some(idx) {
+                        app.sessions_expanded_for = None;
                     } else {
-                        app.pending_session_select = Some((proj_idx, session_id));
+                        app.sessions_expanded_for = Some(idx);
                     }
                 }
-                app.layout.focused = PanelId::TerminalPane;
-            }
-            Some(SidebarItem::SubAgentSession(proj_idx, session_id)) => {
-                if app.active_project != proj_idx {
-                    app.switch_project(proj_idx);
-                }
-                if let Some(project) = app.projects.get(proj_idx) {
-                    if project.ptys.contains_key(&session_id) {
-                        app.projects[proj_idx].active_session = Some(session_id.clone());
-                        app.active_project = proj_idx;
-                        let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
-                        let sid = session_id.clone();
-                        let base_url = crate::app::base_url().to_string();
-                        tokio::spawn(async move {
-                            let client = crate::api::ApiClient::new();
-                            let _ = client.select_session(&base_url, &dir, &sid).await;
-                        });
-                    } else {
-                        app.pending_session_select = Some((proj_idx, session_id));
+                Some(SidebarItem::NewSession(proj_idx)) => {
+                    if app.active_project != proj_idx {
+                        app.switch_project(proj_idx);
                     }
+                    if let Some(project) = app.projects.get_mut(proj_idx) {
+                        if let Some(pty) = project.active_pty_mut() {
+                            let _ = pty.kill();
+                        }
+                        if let Some(sid) = project.active_session.take() {
+                            project.ptys.remove(&sid);
+                        }
+                    }
+                    app.pending_new_session = Some(proj_idx);
+                    app.pending_session_select = None;
+                    app.layout.focused = PanelId::TerminalPane;
                 }
-                app.layout.focused = PanelId::TerminalPane;
-            }
-            Some(SidebarItem::MoreSessions(proj_idx)) => {
-                if app.active_project != proj_idx {
-                    app.switch_project(proj_idx);
+                Some(SidebarItem::Session(proj_idx, session_id)) => {
+                    if app.active_project != proj_idx {
+                        app.switch_project(proj_idx);
+                    }
+                    if let Some(project) = app.projects.get(proj_idx) {
+                        if project.ptys.contains_key(&session_id) {
+                            app.projects[proj_idx].active_session = Some(session_id.clone());
+                            app.active_project = proj_idx;
+                            let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
+                            let sid = session_id.clone();
+                            let base_url = crate::app::base_url().to_string();
+                            tokio::spawn(async move {
+                                let client = crate::api::ApiClient::new();
+                                let _ = client.select_session(&base_url, &dir, &sid).await;
+                            });
+                        } else {
+                            app.pending_session_select = Some((proj_idx, session_id));
+                        }
+                    }
+                    app.layout.focused = PanelId::TerminalPane;
                 }
-                app.open_session_search();
-            }
-            Some(SidebarItem::AddProject) => {
-                app.start_add_project();
-            }
-            None => {}
+                Some(SidebarItem::SubAgentSession(proj_idx, session_id)) => {
+                    if app.active_project != proj_idx {
+                        app.switch_project(proj_idx);
+                    }
+                    if let Some(project) = app.projects.get(proj_idx) {
+                        if project.ptys.contains_key(&session_id) {
+                            app.projects[proj_idx].active_session = Some(session_id.clone());
+                            app.active_project = proj_idx;
+                            let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
+                            let sid = session_id.clone();
+                            let base_url = crate::app::base_url().to_string();
+                            tokio::spawn(async move {
+                                let client = crate::api::ApiClient::new();
+                                let _ = client.select_session(&base_url, &dir, &sid).await;
+                            });
+                        } else {
+                            app.pending_session_select = Some((proj_idx, session_id));
+                        }
+                    }
+                    app.layout.focused = PanelId::TerminalPane;
+                }
+                Some(SidebarItem::MoreSessions(proj_idx)) => {
+                    if app.active_project != proj_idx {
+                        app.switch_project(proj_idx);
+                    }
+                    app.open_session_search();
+                }
+                Some(SidebarItem::AddProject) => {
+                    app.start_add_project();
+                }
+                None => {}
             }
         }
         KeyCode::Char('a') => {
@@ -764,11 +791,15 @@ fn key_event_to_bytes(key: &KeyEvent) -> Vec<u8> {
         KeyCode::Char(c) => {
             if has_ctrl && !has_alt {
                 // Ctrl+letter → control character (0x01-0x1A)
-                let ctrl_byte = (c.to_ascii_lowercase() as u8).wrapping_sub(b'a').wrapping_add(1);
+                let ctrl_byte = (c.to_ascii_lowercase() as u8)
+                    .wrapping_sub(b'a')
+                    .wrapping_add(1);
                 vec![ctrl_byte]
             } else if has_ctrl && has_alt {
                 // Ctrl+Alt+letter → ESC + control character
-                let ctrl_byte = (c.to_ascii_lowercase() as u8).wrapping_sub(b'a').wrapping_add(1);
+                let ctrl_byte = (c.to_ascii_lowercase() as u8)
+                    .wrapping_sub(b'a')
+                    .wrapping_add(1);
                 vec![0x1b, ctrl_byte]
             } else if has_alt {
                 // Alt+key → ESC prefix + character
@@ -785,10 +816,18 @@ fn key_event_to_bytes(key: &KeyEvent) -> Vec<u8> {
             }
         }
         KeyCode::Enter => {
-            if has_alt { vec![0x1b, b'\r'] } else { vec![b'\r'] }
+            if has_alt {
+                vec![0x1b, b'\r']
+            } else {
+                vec![b'\r']
+            }
         }
         KeyCode::Backspace => {
-            if has_alt { vec![0x1b, 0x7f] } else { vec![0x7f] }
+            if has_alt {
+                vec![0x1b, 0x7f]
+            } else {
+                vec![0x7f]
+            }
         }
         KeyCode::Tab => vec![b'\t'],
         KeyCode::BackTab => vec![0x1b, b'[', b'Z'], // Shift+Tab
@@ -874,18 +913,18 @@ fn key_event_to_bytes(key: &KeyEvent) -> Vec<u8> {
         // F5-F12 use tilde-style sequences
         KeyCode::F(n) => {
             let (code, letter) = match n {
-                1 => (None, Some(b'P')),   // \eOP or \e[1;{mod}P
-                2 => (None, Some(b'Q')),   // \eOQ
-                3 => (None, Some(b'R')),   // \eOR
-                4 => (None, Some(b'S')),   // \eOS
-                5 => (Some(15), None),     // \e[15~
-                6 => (Some(17), None),     // \e[17~
-                7 => (Some(18), None),     // \e[18~
-                8 => (Some(19), None),     // \e[19~
-                9 => (Some(20), None),     // \e[20~
-                10 => (Some(21), None),    // \e[21~
-                11 => (Some(23), None),    // \e[23~
-                12 => (Some(24), None),    // \e[24~
+                1 => (None, Some(b'P')), // \eOP or \e[1;{mod}P
+                2 => (None, Some(b'Q')), // \eOQ
+                3 => (None, Some(b'R')), // \eOR
+                4 => (None, Some(b'S')), // \eOS
+                5 => (Some(15), None),   // \e[15~
+                6 => (Some(17), None),   // \e[17~
+                7 => (Some(18), None),   // \e[18~
+                8 => (Some(19), None),   // \e[19~
+                9 => (Some(20), None),   // \e[20~
+                10 => (Some(21), None),  // \e[21~
+                11 => (Some(23), None),  // \e[23~
+                12 => (Some(24), None),  // \e[24~
                 _ => return Vec::new(),
             };
             match (code, letter) {
@@ -970,13 +1009,19 @@ fn handle_config_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Enter | KeyCode::Char(' ') => {
             toggle_config_setting(app);
         }
+        KeyCode::Left | KeyCode::Char('h') => {
+            adjust_config_setting(app, -5);
+        }
+        KeyCode::Right | KeyCode::Char('l') => {
+            adjust_config_setting(app, 5);
+        }
         _ => {}
     }
     Ok(())
 }
 
 fn config_panel_setting_count() -> usize {
-    1
+    2
 }
 
 fn toggle_config_setting(app: &mut App) {
@@ -986,6 +1031,22 @@ fn toggle_config_setting(app: &mut App) {
                 !app.config.settings.follow_edits_in_neovim;
         }
         _ => {}
+    }
+    if let Err(e) = app.config.save() {
+        eprintln!("Failed to save config: {}", e);
+    }
+}
+
+/// Adjust a numeric setting by `delta` (clamped to valid range).
+/// Only applies to percentage-type settings; ignored for booleans.
+fn adjust_config_setting(app: &mut App, delta: i16) {
+    match app.config_panel_selected {
+        1 => {
+            let cur = app.config.settings.unfocused_dim_percent as i16;
+            app.config.settings.unfocused_dim_percent =
+                cur.saturating_add(delta).clamp(0, 100) as u8;
+        }
+        _ => return,
     }
     if let Err(e) = app.config.save() {
         eprintln!("Failed to save config: {}", e);
@@ -1078,7 +1139,6 @@ fn handle_git_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     }
     Ok(())
 }
-
 
 fn handle_add_project_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
@@ -1356,13 +1416,28 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
             if app.zen_mode {
                 let focused = app.layout.focused;
                 app.pre_zen_state = Some((app.layout.panel_visible, focused));
-                for panel in &[PanelId::Sidebar, PanelId::TerminalPane, PanelId::NeovimPane, PanelId::IntegratedTerminal, PanelId::GitPanel] {
+                for panel in &[
+                    PanelId::Sidebar,
+                    PanelId::TerminalPane,
+                    PanelId::NeovimPane,
+                    PanelId::IntegratedTerminal,
+                    PanelId::GitPanel,
+                ] {
                     if *panel != focused {
                         app.layout.set_visible(*panel, false);
                     }
                 }
             } else if let Some((saved_visible, saved_focused)) = app.pre_zen_state.take() {
-                for (i, panel) in [PanelId::Sidebar, PanelId::TerminalPane, PanelId::NeovimPane, PanelId::IntegratedTerminal, PanelId::GitPanel].iter().enumerate() {
+                for (i, panel) in [
+                    PanelId::Sidebar,
+                    PanelId::TerminalPane,
+                    PanelId::NeovimPane,
+                    PanelId::IntegratedTerminal,
+                    PanelId::GitPanel,
+                ]
+                .iter()
+                .enumerate()
+                {
                     app.layout.set_visible(*panel, saved_visible[i]);
                 }
                 app.layout.focused = saved_focused;
@@ -1479,7 +1554,8 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
         CommandAction::NextTerminalTab => {
             if let Some(project) = app.projects.get_mut(app.active_project) {
                 if !project.shell_ptys.is_empty() {
-                    project.active_shell_tab = (project.active_shell_tab + 1) % project.shell_ptys.len();
+                    project.active_shell_tab =
+                        (project.active_shell_tab + 1) % project.shell_ptys.len();
                 }
             }
         }
@@ -1580,20 +1656,23 @@ fn handle_context_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             let proj_dir = project.path.to_string_lossy().to_string();
                             let sid = session_id.clone();
                             let base_url = crate::app::base_url().to_string();
-                            tracing::info!(session_id = sid, "Sending context input as system message");
+                            tracing::info!(
+                                session_id = sid,
+                                "Sending context input as system message"
+                            );
                             tokio::spawn(async move {
                                 let client = crate::api::ApiClient::new();
-                                let msg = format!(
-                                    "[SYSTEM CONTEXT from user] {text}"
-                                );
+                                let msg = format!("[SYSTEM CONTEXT from user] {text}");
                                 match client
-                                    .send_system_message_async(
-                                        &base_url, &proj_dir, &sid, &msg,
-                                    )
+                                    .send_system_message_async(&base_url, &proj_dir, &sid, &msg)
                                     .await
                                 {
-                                    Ok(()) => tracing::info!("Context system message sent successfully"),
-                                    Err(e) => tracing::error!("Failed to send context system message: {e}"),
+                                    Ok(()) => {
+                                        tracing::info!("Context system message sent successfully")
+                                    }
+                                    Err(e) => tracing::error!(
+                                        "Failed to send context system message: {e}"
+                                    ),
                                 }
                             });
                         }
@@ -1902,7 +1981,6 @@ fn handle_todo_edit_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     Ok(())
 }
 
-
 /// Convert a crossterm `MouseEvent` to SGR (1006) encoded bytes for the PTY.
 ///
 /// SGR encoding: `ESC [ < Cb ; Cx ; Cy M` (press) or `ESC [ < Cb ; Cx ; Cy m` (release)
@@ -1945,4 +2023,3 @@ pub fn mouse_event_to_bytes(event: &MouseEvent, panel_x: u16, panel_y: u16) -> O
         MouseEventKind::Moved => Some(format!("\x1b[<35;{};{}M", col, row).into_bytes()),
     }
 }
-
