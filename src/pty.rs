@@ -78,6 +78,8 @@ impl PtyInstance {
         cmd.arg(url);
         cmd.arg("--dir");
         cmd.arg(working_dir);
+        cmd.arg("--log-level");
+        cmd.arg("ERROR");
         if let Some(sid) = session_id {
             cmd.arg("--session");
             cmd.arg(sid);
