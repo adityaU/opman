@@ -1,5 +1,6 @@
 mod api;
 mod app;
+mod command_palette;
 mod config;
 mod input;
 mod mcp;
@@ -10,19 +11,21 @@ mod pty;
 mod server;
 mod sse;
 mod theme;
-mod ui;
-mod vim_mode;
-mod command_palette;
-mod which_key;
 mod theme_gen;
 mod todo_db;
+mod ui;
+mod vim_mode;
+mod which_key;
 
 use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, DisableBracketedPaste, EnableBracketedPaste, Event};
+use crossterm::event::{
+    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    Event,
+};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -55,8 +58,9 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::sync::Mutex::new(log_writer))
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                tracing_subscriber::EnvFilter::new("warn,notify=error,walkdir=error")
+            }),
         )
         .init();
 
@@ -75,7 +79,9 @@ async fn main() -> Result<()> {
     // ── Neovim MCP bridge mode: `opman --mcp-nvim <project_path>` ──
     if args.len() >= 3 && args[1] == "--mcp-nvim" {
         let project_path = PathBuf::from(&args[2]);
-        return mcp_neovim::run_mcp_neovim_bridge(project_path).await.map_err(Into::into);
+        return mcp_neovim::run_mcp_neovim_bridge(project_path)
+            .await
+            .map_err(Into::into);
     }
 
     // ── Check for --no-* MCP flags ──────────────────────────────────
@@ -88,8 +94,8 @@ async fn main() -> Result<()> {
     info!("opman starting");
 
     // Spawn `opencode serve` on a free port before anything else
-    let (base_url, server_handle) = server::spawn_opencode_server()
-        .context("Failed to start opencode serve")?;
+    let (base_url, server_handle) =
+        server::spawn_opencode_server().context("Failed to start opencode serve")?;
     crate::app::init_base_url(base_url);
 
     // Kill the server on Ctrl+C (even if the TUI hasn't reached cleanup)
@@ -173,10 +179,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    if let Some(project) = app.projects.get(app.active_project) {
-        let _ = _watcher.watch(&project.path, notify::RecursiveMode::Recursive);
-    }
-
     // 6. Kick off initial data loading for all projects (shared server is already running externally)
     if !app.projects.is_empty() {
         // Fetch sessions for ALL projects immediately
@@ -203,7 +205,11 @@ async fn main() -> Result<()> {
                     enable_neovim_mcp,
                     enable_time_mcp,
                 ) {
-                    tracing::warn!("Failed to write opencode.json for {}: {}", project_path.display(), e);
+                    tracing::warn!(
+                        "Failed to write opencode.json for {}: {}",
+                        project_path.display(),
+                        e
+                    );
                 }
             }
         }
@@ -226,14 +232,7 @@ async fn main() -> Result<()> {
             .unwrap_or((cols.saturating_sub(32), rows.saturating_sub(2)));
         let path = app.projects[0].path.clone();
         let theme_envs = app.theme.pty_env_vars();
-        spawn_activate_project(
-            &app.bg_tx,
-            0,
-            path,
-            inner_rows,
-            inner_cols,
-            theme_envs,
-        );
+        spawn_activate_project(&app.bg_tx, 0, path, inner_rows, inner_cols, theme_envs);
 
         // Auto-start neovim PTY for all projects when neovim MCP is enabled,
         // so MCP tools work immediately without requiring the user to focus
@@ -249,8 +248,7 @@ async fn main() -> Result<()> {
     }
 
     // 7. Main event loop — TUI renders on first iteration (instant startup!)
-    let result =
-        run_event_loop(&mut terminal, &mut app, watcher_rx, bg_rx).await;
+    let result = run_event_loop(&mut terminal, &mut app, watcher_rx, bg_rx).await;
 
     // 8. Cleanup (always runs, even if event loop errored)
     disable_raw_mode().ok();
@@ -293,9 +291,20 @@ fn spawn_activate_project(
     let tx = bg_tx.clone();
     let base_url = crate::app::base_url().to_string();
     tokio::task::spawn_blocking(move || {
-        match pty::PtyInstance::spawn(&base_url, terminal_rows, terminal_cols, &project_path, None, &theme_envs) {
+        match pty::PtyInstance::spawn(
+            &base_url,
+            terminal_rows,
+            terminal_cols,
+            &project_path,
+            None,
+            &theme_envs,
+        ) {
             Ok(pty) => {
-                let _ = tx.send(BackgroundEvent::PtySpawned { project_idx, session_id: "__new__".to_string(), pty });
+                let _ = tx.send(BackgroundEvent::PtySpawned {
+                    project_idx,
+                    session_id: "__new__".to_string(),
+                    pty,
+                });
                 let _ = tx.send(BackgroundEvent::ProjectActivated { project_idx });
             }
             Err(e) => {
@@ -306,10 +315,7 @@ fn spawn_activate_project(
 }
 
 /// Spawn a background task to fetch sessions for all projects via the REST API.
-fn spawn_session_fetch(
-    bg_tx: &mpsc::UnboundedSender<BackgroundEvent>,
-    projects: &[app::Project],
-) {
+fn spawn_session_fetch(bg_tx: &mpsc::UnboundedSender<BackgroundEvent>, projects: &[app::Project]) {
     let fetch_targets: Vec<(usize, String)> = projects
         .iter()
         .enumerate()
@@ -397,12 +403,27 @@ fn spawn_session_select(
         let path = project_path.clone();
         let sid_clone = sid_for_pty.clone();
         tokio::task::spawn_blocking(move || {
-            match pty::PtyInstance::spawn(&url, terminal_rows, terminal_cols, &path, Some(&sid_for_pty), &theme_envs) {
+            match pty::PtyInstance::spawn(
+                &url,
+                terminal_rows,
+                terminal_cols,
+                &path,
+                Some(&sid_for_pty),
+                &theme_envs,
+            ) {
                 Ok(pty) => {
-                    let _ = tx2.send(BackgroundEvent::PtySpawned { project_idx, session_id: sid_clone, pty });
+                    let _ = tx2.send(BackgroundEvent::PtySpawned {
+                        project_idx,
+                        session_id: sid_clone,
+                        pty,
+                    });
                 }
                 Err(e) => {
-                    tracing::warn!(project_idx, "PTY respawn after session select failed: {}", e);
+                    tracing::warn!(
+                        project_idx,
+                        "PTY respawn after session select failed: {}",
+                        e
+                    );
                 }
             }
         })
@@ -495,7 +516,14 @@ async fn run_event_loop(
                 tokio::spawn(async move {
                     let idx = proj_idx;
                     match tokio::task::spawn_blocking(move || {
-                        crate::pty::PtyInstance::spawn(&base_url, inner_rows, inner_cols, &project_path, None, &theme_envs)
+                        crate::pty::PtyInstance::spawn(
+                            &base_url,
+                            inner_rows,
+                            inner_cols,
+                            &project_path,
+                            None,
+                            &theme_envs,
+                        )
                     })
                     .await
                     {
@@ -536,7 +564,6 @@ async fn run_event_loop(
                 tracing::debug!("Theme reloaded from KV store change");
                 continue;
             }
-
         }
 
         // ── 7. Periodic session fetching (every 2 minutes, non-blocking) ──
@@ -582,16 +609,22 @@ async fn run_event_loop(
                                 // Next match
                                 if let Some(ref mut search) = app.terminal_search {
                                     if !search.matches.is_empty() {
-                                        search.current_match = (search.current_match + 1) % search.matches.len();
+                                        search.current_match =
+                                            (search.current_match + 1) % search.matches.len();
                                         // Scroll to match
-                                        let (match_row, _, _) = search.matches[search.current_match];
-                                        if let Some(project) = app.projects.get_mut(app.active_project) {
+                                        let (match_row, _, _) =
+                                            search.matches[search.current_match];
+                                        if let Some(project) =
+                                            app.projects.get_mut(app.active_project)
+                                        {
                                             if let Some(pty) = project.active_shell_pty_mut() {
                                                 if let Ok(mut p) = pty.parser.lock() {
                                                     let rows = p.screen().size().0 as usize;
-                                                    let total = p.screen().contents().lines().count();
+                                                    let total =
+                                                        p.screen().contents().lines().count();
                                                     if match_row + rows < total {
-                                                        pty.scroll_offset = total - match_row - rows;
+                                                        pty.scroll_offset =
+                                                            total - match_row - rows;
                                                         p.set_scrollback(pty.scroll_offset);
                                                     } else {
                                                         pty.scroll_offset = 0;
@@ -618,11 +651,13 @@ async fn run_event_loop(
                                     // Ctrl+N = next match
                                     if let Some(ref mut search) = app.terminal_search {
                                         if !search.matches.is_empty() {
-                                            search.current_match = (search.current_match + 1) % search.matches.len();
+                                            search.current_match =
+                                                (search.current_match + 1) % search.matches.len();
                                         }
                                     }
                                     true
-                                } else if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'p' {
+                                } else if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'p'
+                                {
                                     // Ctrl+P = prev match
                                     if let Some(ref mut search) = app.terminal_search {
                                         if !search.matches.is_empty() {
@@ -634,7 +669,9 @@ async fn run_event_loop(
                                         }
                                     }
                                     true
-                                } else if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT {
+                                } else if key.modifiers.is_empty()
+                                    || key.modifiers == KeyModifiers::SHIFT
+                                {
                                     // Regular character input
                                     if let Some(ref mut search) = app.terminal_search {
                                         search.query.push(c);
@@ -664,9 +701,12 @@ async fn run_event_loop(
                         if is_terminal_focused {
                             match (key.code, key.modifiers.contains(KeyModifiers::SHIFT)) {
                                 (KeyCode::PageUp, true) => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
                                         if let Some(pty) = project.active_shell_pty_mut() {
-                                            pty.scroll_offset = pty.scroll_offset.saturating_add(pty.rows as usize / 2);
+                                            pty.scroll_offset = pty
+                                                .scroll_offset
+                                                .saturating_add(pty.rows as usize / 2);
                                             if let Ok(mut p) = pty.parser.lock() {
                                                 p.set_scrollback(pty.scroll_offset);
                                                 pty.scroll_offset = p.screen().scrollback();
@@ -676,9 +716,12 @@ async fn run_event_loop(
                                     continue;
                                 }
                                 (KeyCode::PageDown, true) => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
                                         if let Some(pty) = project.active_shell_pty_mut() {
-                                            pty.scroll_offset = pty.scroll_offset.saturating_sub(pty.rows as usize / 2);
+                                            pty.scroll_offset = pty
+                                                .scroll_offset
+                                                .saturating_sub(pty.rows as usize / 2);
                                             if let Ok(mut p) = pty.parser.lock() {
                                                 p.set_scrollback(pty.scroll_offset);
                                                 pty.scroll_offset = p.screen().scrollback();
@@ -713,14 +756,9 @@ async fn run_event_loop(
                             .map(|p| p.ptys.is_empty())
                             .unwrap_or(false)
                         {
-                            let (cols, rows) =
-                                crossterm::terminal::size().unwrap_or((80, 24));
-                            let content_area = ratatui::layout::Rect::new(
-                                0,
-                                0,
-                                cols,
-                                rows.saturating_sub(1),
-                            );
+                            let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
+                            let content_area =
+                                ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
                             app.layout.compute_rects(content_area);
                             let (inner_cols, inner_rows) = app
                                 .layout
@@ -730,12 +768,7 @@ async fn run_event_loop(
                             let path = app.projects[new_idx].path.clone();
                             let theme_envs = app.theme.pty_env_vars();
                             spawn_activate_project(
-                                &app.bg_tx,
-                                new_idx,
-                                path,
-                                inner_rows,
-                                inner_cols,
-                                theme_envs,
+                                &app.bg_tx, new_idx, path, inner_rows, inner_cols, theme_envs,
                             );
                         }
                     }
@@ -773,14 +806,23 @@ async fn run_event_loop(
                         if let Some(panel) = panel_opt {
                             match panel {
                                 crate::ui::layout_manager::PanelId::Sidebar => {
-                                    if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) = mouse_event.kind {
-                                        if let Some(rect) = app.layout.panel_rect(crate::ui::layout_manager::PanelId::Sidebar) {
-                                            let relative_y = mouse_event.row.saturating_sub(rect.y) as usize;
+                                    if let crossterm::event::MouseEventKind::Down(
+                                        crossterm::event::MouseButton::Left,
+                                    ) = mouse_event.kind
+                                    {
+                                        if let Some(rect) = app
+                                            .layout
+                                            .panel_rect(crate::ui::layout_manager::PanelId::Sidebar)
+                                        {
+                                            let relative_y =
+                                                mouse_event.row.saturating_sub(rect.y) as usize;
                                             let item_count = app.sidebar_item_count();
                                             if relative_y < item_count {
                                                 app.sidebar_cursor = relative_y;
-                                                app.layout.focused = crate::ui::layout_manager::PanelId::Sidebar;
-                                                if let Some(item) = app.sidebar_item_at(relative_y) {
+                                                app.layout.focused =
+                                                    crate::ui::layout_manager::PanelId::Sidebar;
+                                                if let Some(item) = app.sidebar_item_at(relative_y)
+                                                {
                                                     match item {
                                                         crate::app::SidebarItem::Project(idx) => {
                                                             if app.active_project != idx {
@@ -878,8 +920,13 @@ async fn run_event_loop(
                                     }
                                 }
                                 crate::ui::layout_manager::PanelId::TerminalPane => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some((pty, rect)) = project.active_pty_mut().zip(app.layout.panel_rect(crate::ui::layout_manager::PanelId::TerminalPane)) {
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
+                                        if let Some((pty, rect)) =
+                                            project.active_pty_mut().zip(app.layout.panel_rect(
+                                                crate::ui::layout_manager::PanelId::TerminalPane,
+                                            ))
+                                        {
                                             forward_mouse_to_pty(
                                                 pty,
                                                 &mouse_event,
@@ -893,18 +940,36 @@ async fn run_event_loop(
                                     }
                                 }
                                 crate::ui::layout_manager::PanelId::IntegratedTerminal => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some(rect) = app.layout.panel_rect(crate::ui::layout_manager::PanelId::IntegratedTerminal) {
-                                            let has_tab_bar = project.active_resources().map(|r| r.shell_ptys.len()).unwrap_or(0) > 1;
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
+                                        if let Some(rect) = app.layout.panel_rect(
+                                            crate::ui::layout_manager::PanelId::IntegratedTerminal,
+                                        ) {
+                                            let has_tab_bar = project
+                                                .active_resources()
+                                                .map(|r| r.shell_ptys.len())
+                                                .unwrap_or(0)
+                                                > 1;
                                             // Check if click is on the tab bar row
                                             if has_tab_bar && mouse_event.row == rect.y {
-                                                if matches!(mouse_event.kind, crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)) {
+                                                if matches!(
+                                                    mouse_event.kind,
+                                                    crossterm::event::MouseEventKind::Down(
+                                                        crossterm::event::MouseButton::Left
+                                                    )
+                                                ) {
                                                     // Calculate which tab was clicked based on x position
-                                                    let click_x = mouse_event.column.saturating_sub(rect.x) as usize;
+                                                    let click_x =
+                                                        mouse_event.column.saturating_sub(rect.x)
+                                                            as usize;
                                                     let mut x_offset = 0usize;
                                                     let mut clicked_tab = None;
-                                                    if let Some(resources) = project.active_resources() {
-                                                        for (i, pty) in resources.shell_ptys.iter().enumerate() {
+                                                    if let Some(resources) =
+                                                        project.active_resources()
+                                                    {
+                                                        for (i, pty) in
+                                                            resources.shell_ptys.iter().enumerate()
+                                                        {
                                                             let label = if pty.name.is_empty() {
                                                                 format!(" Tab {} ", i + 1)
                                                             } else {
@@ -912,9 +977,24 @@ async fn run_event_loop(
                                                             };
                                                             let label_len = label.len();
                                                             // Include command-state dot width to match rendering
-                                                            let cmd_state = pty.command_state.lock().unwrap().clone();
-                                                            let dot_width = if cmd_state != crate::pty::CommandState::Idle { 1 } else { 0 };
-                                                            if click_x >= x_offset && click_x < x_offset + label_len + dot_width {
+                                                            let cmd_state = pty
+                                                                .command_state
+                                                                .lock()
+                                                                .unwrap()
+                                                                .clone();
+                                                            let dot_width = if cmd_state
+                                                                != crate::pty::CommandState::Idle
+                                                            {
+                                                                1
+                                                            } else {
+                                                                0
+                                                            };
+                                                            if click_x >= x_offset
+                                                                && click_x
+                                                                    < x_offset
+                                                                        + label_len
+                                                                        + dot_width
+                                                            {
                                                                 clicked_tab = Some(i);
                                                                 break;
                                                             }
@@ -922,14 +1002,18 @@ async fn run_event_loop(
                                                         }
                                                     }
                                                     if let Some(tab) = clicked_tab {
-                                                        if let Some(resources) = project.active_resources_mut() {
+                                                        if let Some(resources) =
+                                                            project.active_resources_mut()
+                                                        {
                                                             resources.active_shell_tab = tab;
                                                         }
                                                     }
                                                 }
-                                            } else if let Some(pty) = project.active_shell_pty_mut() {
+                                            } else if let Some(pty) = project.active_shell_pty_mut()
+                                            {
                                                 // Account for tab bar offset only when tab bar is visible
-                                                let content_offset_y = if has_tab_bar { rect.y + 1 } else { rect.y };
+                                                let content_offset_y =
+                                                    if has_tab_bar { rect.y + 1 } else { rect.y };
                                                 forward_mouse_to_pty(
                                                     pty,
                                                     &mouse_event,
@@ -944,8 +1028,15 @@ async fn run_event_loop(
                                     }
                                 }
                                 crate::ui::layout_manager::PanelId::NeovimPane => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some((pty, rect)) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()).zip(app.layout.panel_rect(crate::ui::layout_manager::PanelId::NeovimPane)) {
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
+                                        if let Some((pty, rect)) = project
+                                            .active_resources_mut()
+                                            .and_then(|r| r.neovim_pty.as_mut())
+                                            .zip(app.layout.panel_rect(
+                                                crate::ui::layout_manager::PanelId::NeovimPane,
+                                            ))
+                                        {
                                             forward_mouse_to_pty(
                                                 pty,
                                                 &mouse_event,
@@ -959,8 +1050,13 @@ async fn run_event_loop(
                                     }
                                 }
                                 crate::ui::layout_manager::PanelId::GitPanel => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some((pty, rect)) = project.gitui_pty.as_mut().zip(app.layout.panel_rect(crate::ui::layout_manager::PanelId::GitPanel)) {
+                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                    {
+                                        if let Some((pty, rect)) =
+                                            project.gitui_pty.as_mut().zip(app.layout.panel_rect(
+                                                crate::ui::layout_manager::PanelId::GitPanel,
+                                            ))
+                                        {
                                             forward_mouse_to_pty(
                                                 pty,
                                                 &mouse_event,
@@ -997,7 +1093,7 @@ fn forward_mouse_to_pty(
     terminal_selection: &mut Option<crate::app::TerminalSelection>,
     toast_message: &mut Option<(String, std::time::Instant)>,
 ) {
-    use crossterm::event::{MouseEventKind, MouseButton};
+    use crossterm::event::{MouseButton, MouseEventKind};
 
     let mouse_mode = if let Ok(p) = pty.parser.lock() {
         p.screen().mouse_protocol_mode()
@@ -1026,15 +1122,18 @@ fn forward_mouse_to_pty(
                 let rel_row = event.row.saturating_sub(panel_y);
 
                 // Ctrl+Click: open URL at cursor position
-                if event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+                if event
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::CONTROL)
+                {
                     if let Ok(parser) = pty.parser.lock() {
                         let screen = parser.screen();
-                        let row_text = screen.contents_between(
-                            rel_row, 0, rel_row, screen.size().1 - 1,
-                        );
+                        let row_text =
+                            screen.contents_between(rel_row, 0, rel_row, screen.size().1 - 1);
                         // Find URL containing the clicked column
                         let prefixes = ["https://", "http://", "ftp://"];
-                        let end_chars: &[char] = &[' ', '\t', '"', '\'', '>', '<', ')', ']', '}', '|'];
+                        let end_chars: &[char] =
+                            &[' ', '\t', '"', '\'', '>', '<', ')', ']', '}', '|'];
                         for prefix in &prefixes {
                             let mut search_from = 0usize;
                             while let Some(start) = row_text[search_from..].find(prefix) {
@@ -1046,9 +1145,7 @@ fn forward_mouse_to_pty(
                                 let col = rel_col as usize;
                                 if col >= abs_start && col < url_end {
                                     let url = &row_text[abs_start..url_end];
-                                    let _ = std::process::Command::new("open")
-                                        .arg(url)
-                                        .spawn();
+                                    let _ = std::process::Command::new("open").arg(url).spawn();
                                     return;
                                 }
                                 search_from = url_end;
@@ -1082,27 +1179,31 @@ fn forward_mouse_to_pty(
                         if let Ok(parser) = pty.parser.lock() {
                             let screen = parser.screen().clone();
                             drop(parser);
-                            
+
                             // Normalize start/end so start <= end
-                            let (sr, sc, er, ec) = if (sel.start_row, sel.start_col) <= (sel.end_row, sel.end_col) {
-                                (sel.start_row, sel.start_col, sel.end_row, sel.end_col)
-                            } else {
-                                (sel.end_row, sel.end_col, sel.start_row, sel.start_col)
-                            };
-                            
+                            let (sr, sc, er, ec) =
+                                if (sel.start_row, sel.start_col) <= (sel.end_row, sel.end_col) {
+                                    (sel.start_row, sel.start_col, sel.end_row, sel.end_col)
+                                } else {
+                                    (sel.end_row, sel.end_col, sel.start_row, sel.start_col)
+                                };
+
                             let text = screen.contents_between(sr, sc, er, ec);
-                            
+
                             // Copy to macOS clipboard
-                            use std::process::{Command, Stdio};
                             use std::io::Write;
+                            use std::process::{Command, Stdio};
                             if !text.trim().is_empty() {
-                                if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn() {
+                                if let Ok(mut child) =
+                                    Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                                {
                                     if let Some(stdin) = child.stdin.as_mut() {
                                         let _ = stdin.write_all(text.as_bytes());
                                     }
                                     let _ = child.wait();
                                 }
-                                *toast_message = Some(("Copied!".to_string(), std::time::Instant::now()));
+                                *toast_message =
+                                    Some(("Copied!".to_string(), std::time::Instant::now()));
                             }
                         }
                         *terminal_selection = None;
@@ -1150,7 +1251,9 @@ fn update_terminal_search_matches(app: &mut app::App) {
                 // vt100 contents() returns all visible text
                 // We search row by row for the query
                 for row_idx in 0..rows {
-                    let row_text = screen.contents_between(row_idx, 0, row_idx + 1, 0).to_lowercase();
+                    let row_text = screen
+                        .contents_between(row_idx, 0, row_idx + 1, 0)
+                        .to_lowercase();
                     let mut search_from = 0;
                     while let Some(col) = row_text[search_from..].find(&query) {
                         let actual_col = search_from + col;
