@@ -14,7 +14,7 @@ fn color_rgb(c: Color) -> (u8, u8, u8) {
 
 pub fn theme_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join(".config/opencode-manager/themes")
+    PathBuf::from(home).join(".config/opman/themes")
 }
 
 #[allow(dead_code)]

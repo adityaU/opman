@@ -1,4 +1,4 @@
-/// MCP Neovim server — runs as `opencode-manager --mcp-nvim <project_path>`
+/// MCP Neovim server — runs as `opman --mcp-nvim <project_path>`
 ///
 /// Exposes tools for interacting with the embedded Neovim instance:
 ///
@@ -95,7 +95,7 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
                     "protocolVersion": "2024-11-05",
                     "capabilities": { "tools": {} },
                     "serverInfo": {
-                        "name": "opencode-manager-neovim",
+                        "name": "opman-neovim",
                         "version": "1.0.0"
                     }
                 },
@@ -161,7 +161,7 @@ fn tool_definitions() -> serde_json::Value {
         // ── File & Buffer ────────────────────────────────────────────
         {
             "name": "neovim_open",
-            "description": "Open a file in the embedded Neovim editor. Optionally jump to a specific line number. The file will be displayed in the Neovim pane of the opencode-manager TUI.",
+            "description": "Open a file in the embedded Neovim editor. Optionally jump to a specific line number. The file will be displayed in the Neovim pane of the opman TUI.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -656,7 +656,7 @@ async fn send_socket_request(
 
     let mut stream = UnixStream::connect(sock_path).await.map_err(|e| {
         anyhow::anyhow!(
-            "Failed to connect to manager socket at {:?}: {}. Is opencode-manager running?",
+            "Failed to connect to manager socket at {:?}: {}. Is opman running?",
             sock_path,
             e
         )

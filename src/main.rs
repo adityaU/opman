@@ -60,19 +60,19 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    // ── MCP bridge mode: `opencode-manager --mcp <project_path>` ─────
+    // ── MCP bridge mode: `opman --mcp <project_path>` ─────
     let args: Vec<String> = std::env::args().collect();
     if args.len() >= 3 && args[1] == "--mcp" {
         let project_path = PathBuf::from(&args[2]);
         return mcp::run_mcp_bridge(project_path).await.map_err(Into::into);
     }
 
-    // ── Time MCP bridge mode: `opencode-manager --mcp-time` ──────────
+    // ── Time MCP bridge mode: `opman --mcp-time` ──────────
     if args.len() >= 2 && args[1] == "--mcp-time" {
         return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
     }
 
-    // ── Neovim MCP bridge mode: `opencode-manager --mcp-nvim <project_path>` ──
+    // ── Neovim MCP bridge mode: `opman --mcp-nvim <project_path>` ──
     if args.len() >= 3 && args[1] == "--mcp-nvim" {
         let project_path = PathBuf::from(&args[2]);
         return mcp_neovim::run_mcp_neovim_bridge(project_path).await.map_err(Into::into);
@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
     let enable_time_mcp = !no_mcp && !args.iter().any(|a| a == "--no-time-mcp");
     let enable_any_mcp = enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp;
 
-    info!("opencode-manager starting");
+    info!("opman starting");
 
     // Spawn `opencode serve` on a free port before anything else
     let (base_url, server_handle) = server::spawn_opencode_server()
@@ -275,7 +275,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    info!("opencode-manager shut down");
+    info!("opman shut down");
 
     result
 }

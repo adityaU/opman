@@ -173,12 +173,12 @@ fn tab_lock_key(request: &SocketRequest) -> Option<Option<usize>> {
 // ─── Socket path helper ─────────────────────────────────────────────────────
 
 /// Compute the Unix socket path for a given project path.
-/// Format: /tmp/opencode-manager-{hash}.sock
+/// Format: /tmp/opman-{hash}.sock
 pub fn socket_path_for_project(project_path: &Path) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     project_path.hash(&mut hasher);
     let hash = hasher.finish();
-    PathBuf::from(format!("/tmp/opencode-manager-{:x}.sock", hash))
+    PathBuf::from(format!("/tmp/opman-{:x}.sock", hash))
 }
 
 // ─── Unix socket server (runs inside the manager process) ───────────────────
@@ -381,7 +381,7 @@ pub fn cleanup_socket(project_path: &Path) {
     let _ = std::fs::remove_file(&sock);
 }
 
-// ─── MCP stdio bridge (runs as `opencode-manager --mcp <project_path>`) ─────
+// ─── MCP stdio bridge (runs as `opman --mcp <project_path>`) ─────
 
 /// MCP JSON-RPC request (subset we handle).
 #[derive(Debug, Deserialize)]
@@ -443,7 +443,7 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                             "tools": {}
                         },
                         "serverInfo": {
-                            "name": "opencode-manager-terminal",
+                            "name": "opman-terminal",
                             "version": "1.0.0"
                         }
                     },
@@ -511,7 +511,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
     serde_json::json!([
         {
             "name": "terminal_read",
-            "description": "Read the current screen output from a terminal tab in the opencode-manager. Returns the visible text content of the terminal.",
+            "description": "Read the current screen output from a terminal tab in the opman. Returns the visible text content of the terminal.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -536,7 +536,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
         },
         {
             "name": "terminal_run",
-            "description": "Run a command in a terminal tab in the opencode-manager. The command is typed into the terminal and executed. Use this to run shell commands, scripts, or interact with running processes. If a command is already running on the tab, this will return an error — send Ctrl-C (\\x03) as the command to interrupt it first.",
+            "description": "Run a command in a terminal tab in the opman. The command is typed into the terminal and executed. Use this to run shell commands, scripts, or interact with running processes. If a command is already running on the tab, this will return an error — send Ctrl-C (\\x03) as the command to interrupt it first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -562,7 +562,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
         },
         {
             "name": "terminal_list",
-            "description": "List all terminal tabs in the opencode-manager for the current project. Returns tab indices and which tab is currently active.",
+            "description": "List all terminal tabs in the opman for the current project. Returns tab indices and which tab is currently active.",
             "inputSchema": {
                 "type": "object",
                 "properties": {}
@@ -570,7 +570,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
         },
         {
             "name": "terminal_new",
-            "description": "Create a new terminal tab in the opencode-manager. Returns the index of the newly created tab.",
+            "description": "Create a new terminal tab in the opman. Returns the index of the newly created tab.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -583,7 +583,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
         },
         {
             "name": "terminal_close",
-            "description": "Close a terminal tab in the opencode-manager.",
+            "description": "Close a terminal tab in the opman.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -995,7 +995,7 @@ async fn send_socket_request(
         .await
         .map_err(|e| {
             anyhow::anyhow!(
-                "Failed to connect to manager socket at {:?}: {}. Is opencode-manager running?",
+                "Failed to connect to manager socket at {:?}: {}. Is opman running?",
                 sock_path,
                 e
             )
@@ -1084,7 +1084,7 @@ pub fn write_opencode_json(
     };
 
     // Get the current executable path for the MCP command
-    let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("opencode-manager"));
+    let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("opman"));
     let exe_str = exe_path.to_string_lossy().to_string();
 
     let project_path_str = project_path.to_string_lossy().to_string();

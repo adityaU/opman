@@ -558,16 +558,70 @@ impl Default for Config {
 
 impl Config {
     /// Return the path to the config file:
-    /// `~/.config/opencode-manager/config.toml`
+    /// `~/.config/opman/config.toml`
     pub fn config_path() -> Result<PathBuf> {
         let config_dir = dirs::config_dir()
             .context("Could not determine config directory")?
-            .join("opencode-manager");
+            .join("opman");
         Ok(config_dir.join("config.toml"))
     }
 
+    /// Return the legacy config directory path for migration.
+    fn legacy_config_dir() -> Option<PathBuf> {
+        dirs::config_dir().map(|d| d.join("opencode-manager"))
+    }
+
+    /// Migrate from the old `~/.config/opencode-manager/` directory to
+    /// `~/.config/opman/` if the old directory exists and the new one does not.
+    /// Moves the entire directory (config.toml, themes, etc.) in one operation.
+    fn migrate_legacy_config() {
+        let new_dir = match dirs::config_dir() {
+            Some(d) => d.join("opman"),
+            None => return,
+        };
+        if new_dir.exists() {
+            return; // new config already exists, nothing to migrate
+        }
+        if let Some(old_dir) = Self::legacy_config_dir() {
+            if old_dir.exists() {
+                if let Err(e) = fs::rename(&old_dir, &new_dir) {
+                    // rename may fail across filesystems; fall back to copy
+                    eprintln!(
+                        "Note: could not rename {} -> {}: {}. Trying copy.",
+                        old_dir.display(),
+                        new_dir.display(),
+                        e
+                    );
+                    if let Err(e2) = Self::copy_dir_recursive(&old_dir, &new_dir) {
+                        eprintln!("Failed to migrate legacy config: {}", e2);
+                    } else {
+                        let _ = fs::remove_dir_all(&old_dir);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Recursively copy a directory tree.
+    fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+        fs::create_dir_all(dst)?;
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let ty = entry.file_type()?;
+            let dest_path = dst.join(entry.file_name());
+            if ty.is_dir() {
+                Self::copy_dir_recursive(&entry.path(), &dest_path)?;
+            } else {
+                fs::copy(entry.path(), &dest_path)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Load the config from disk, or return the default if the file doesn't exist.
+    /// Automatically migrates from the legacy config directory if needed.
     pub fn load() -> Result<Self> {
+        Self::migrate_legacy_config();
         let path = Self::config_path()?;
         if !path.exists() {
             return Ok(Self::default());

@@ -1,4 +1,4 @@
-/// MCP time server — runs as `opencode-manager --mcp-time`
+/// MCP time server — runs as `opman --mcp-time`
 ///
 /// Exposes three tools to the AI:
 ///   - `time_now`       — current time in the system timezone (or a given zone)
@@ -63,7 +63,7 @@ pub async fn run_mcp_time_bridge() -> anyhow::Result<()> {
                     "protocolVersion": "2024-11-05",
                     "capabilities": { "tools": {} },
                     "serverInfo": {
-                        "name": "opencode-manager-time",
+                        "name": "opman-time",
                         "version": "1.0.0"
                     }
                 },
