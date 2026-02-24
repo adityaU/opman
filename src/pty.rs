@@ -437,9 +437,17 @@ impl PtyInstance {
             cmd.env(key, val);
         }
 
-        // Compute a unique listen socket path for this neovim instance
-        let listen_path =
-            std::path::PathBuf::from(format!("/tmp/opencode-nvim-{}.sock", std::process::id()));
+        // Compute a unique listen socket path per project.
+        // Include both the manager PID and a hash of the working directory
+        // so multiple projects each get their own neovim socket.
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        std::hash::Hash::hash(&working_dir, &mut hasher);
+        let dir_hash = std::hash::Hasher::finish(&hasher);
+        let listen_path = std::path::PathBuf::from(format!(
+            "/tmp/opencode-nvim-{}-{:x}.sock",
+            std::process::id(),
+            dir_hash
+        ));
         // Clean up any stale socket from a previous run
         let _ = std::fs::remove_file(&listen_path);
         cmd.arg("--listen");
