@@ -62,8 +62,8 @@ pub fn render_overlay_dim(area: Rect, buf: &mut Buffer) {
 
 /// Dim an unfocused panel by reducing the brightness of every cell.
 /// Blends each color channel toward a dark base by the given factor
-/// (0.0 = fully dark, 1.0 = no change). A factor around 0.45-0.55
-/// gives a noticeable but readable dimming.
+/// (0.0 = fully dark, 1.0 = no change). A factor around 0.8
+/// gives a subtle but noticeable dimming (20% brightness reduction).
 fn dim_panel(area: Rect, buf: &mut Buffer, factor: f32) {
     fn blend(c: Color, factor: f32) -> Color {
         match c {
@@ -219,7 +219,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             }
             // Dim unfocused panels so the focused one stands out.
             if *panel_id != focused {
-                dim_panel(rect, frame.buffer_mut(), 0.5);
+                dim_panel(rect, frame.buffer_mut(), 0.8);
             }
         }
 
