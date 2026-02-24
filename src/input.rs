@@ -572,7 +572,7 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Char('g') => {
             if app.sidebar_pending_g {
-                app.sidebar_selection = 0;
+                app.sidebar_cursor = 0;
                 app.sidebar_pending_g = false;
             } else {
                 app.sidebar_pending_g = true;
@@ -580,25 +580,25 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('G') => {
             let max = app.sidebar_item_count().saturating_sub(1);
-            app.sidebar_selection = max;
+            app.sidebar_cursor = max;
             app.sidebar_pending_g = false;
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            if app.sidebar_selection > 0 {
-                app.sidebar_selection -= 1;
+            if app.sidebar_cursor > 0 {
+                app.sidebar_cursor -= 1;
             }
             app.sidebar_pending_g = false;
         }
         KeyCode::Down | KeyCode::Char('j') => {
             let max = app.sidebar_item_count().saturating_sub(1);
-            if app.sidebar_selection < max {
-                app.sidebar_selection += 1;
+            if app.sidebar_cursor < max {
+                app.sidebar_cursor += 1;
             }
             app.sidebar_pending_g = false;
         }
         KeyCode::Enter => {
             app.sidebar_pending_g = false;
-            match app.sidebar_item_at(app.sidebar_selection) {
+            match app.sidebar_item_at(app.sidebar_cursor) {
                 Some(SidebarItem::Project(idx)) => {
                     if app.active_project != idx {
                         app.switch_project(idx);
@@ -686,7 +686,7 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Char('o') => {
             app.sidebar_pending_g = false;
             if let Some(SidebarItem::Session(_proj_idx, ref session_id)) =
-                app.sidebar_item_at(app.sidebar_selection)
+                app.sidebar_item_at(app.sidebar_cursor)
             {
                 let sid = session_id.clone();
                 if app.subagents_expanded_for.as_deref() == Some(&sid) {
@@ -698,7 +698,7 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('r') => {
             app.sidebar_pending_g = false;
-            match app.sidebar_item_at(app.sidebar_selection) {
+            match app.sidebar_item_at(app.sidebar_cursor) {
                 Some(SidebarItem::Session(proj_idx, session_id))
                 | Some(SidebarItem::SubAgentSession(proj_idx, session_id)) => {
                     if app.active_project != proj_idx {
@@ -726,7 +726,7 @@ fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('d') => {
             app.sidebar_pending_g = false;
-            if let Some(SidebarItem::Project(idx)) = app.sidebar_item_at(app.sidebar_selection) {
+            if let Some(SidebarItem::Project(idx)) = app.sidebar_item_at(app.sidebar_cursor) {
                 app.confirm_delete = Some(idx);
             }
         }

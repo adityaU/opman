@@ -3,7 +3,7 @@
   "mcp": {
     "neovim": {
       "command": [
-        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opman",
         "--mcp-nvim",
         "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager"
       ],
@@ -11,7 +11,7 @@
     },
     "terminal": {
       "command": [
-        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opman",
         "--mcp",
         "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager"
       ],
@@ -19,7 +19,7 @@
     },
     "time": {
       "command": [
-        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opencode-manager",
+        "/Volumes/Aditya's T7/adityau-home/Workspace/opencode-manager/target/debug/opman",
         "--mcp-time"
       ],
       "type": "local"

@@ -778,7 +778,7 @@ async fn run_event_loop(
                                             let relative_y = mouse_event.row.saturating_sub(rect.y) as usize;
                                             let item_count = app.sidebar_item_count();
                                             if relative_y < item_count {
-                                                app.sidebar_selection = relative_y;
+                                                app.sidebar_cursor = relative_y;
                                                 app.layout.focused = crate::ui::layout_manager::PanelId::Sidebar;
                                                 if let Some(item) = app.sidebar_item_at(relative_y) {
                                                     match item {

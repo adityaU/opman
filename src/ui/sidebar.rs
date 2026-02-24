@@ -37,7 +37,16 @@ impl<'a> Sidebar<'a> {
         Self { app }
     }
 
+    /// Apply cursor (j/k highlight) background to an existing style.
+    fn with_cursor_bg(&self, style: Style) -> Style {
+        style.bg(self.app.theme.background_element)
+    }
+
     /// Build the list items for the project list.
+    ///
+    /// Two independent highlights:
+    ///   - **cursor** (`sidebar_cursor`): background highlight via `background_element`
+    ///   - **selected** (`sidebar_selection`): bold + primary foreground (active session)
     fn build_items(&self) -> Vec<ListItem<'a>> {
         let mut items = Vec::new();
 
@@ -58,9 +67,10 @@ impl<'a> Sidebar<'a> {
         for (i, project) in self.app.projects.iter().enumerate() {
             let is_active = i == self.app.active_project;
             let is_selected = flat_idx == self.app.sidebar_selection;
+            let is_cursor = flat_idx == self.app.sidebar_cursor;
 
             let marker = if is_active { "▶ " } else { "  " };
-            let style = if is_selected {
+            let mut style = if is_selected {
                 Style::default()
                     .fg(self.app.theme.primary)
                     .add_modifier(Modifier::BOLD)
@@ -69,6 +79,9 @@ impl<'a> Sidebar<'a> {
             } else {
                 Style::default().fg(self.app.theme.text)
             };
+            if is_cursor {
+                style = self.with_cursor_bg(style);
+            }
 
             let has_active = project.sessions.iter().any(|s| {
                 if self.app.active_sessions.contains(&s.id) {
@@ -87,7 +100,11 @@ impl<'a> Sidebar<'a> {
                     self.app.theme.accent,
                     self.app.pulse_phase,
                 );
-                spans.push(Span::styled("● ", Style::default().fg(dot_color)));
+                let mut dot_style = Style::default().fg(dot_color);
+                if is_cursor {
+                    dot_style = self.with_cursor_bg(dot_style);
+                }
+                spans.push(Span::styled("● ", dot_style));
             }
             spans.push(Span::styled(project.name.clone(), style));
             let project_line = Line::from(spans);
@@ -99,15 +116,23 @@ impl<'a> Sidebar<'a> {
 
             if is_expanded {
                 let is_sel = flat_idx == self.app.sidebar_selection;
-                let ns_style = if is_sel {
+                let is_cur = flat_idx == self.app.sidebar_cursor;
+                let mut ns_style = if is_sel {
                     Style::default()
                         .fg(self.app.theme.accent)
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(self.app.theme.accent)
                 };
+                if is_cur {
+                    ns_style = self.with_cursor_bg(ns_style);
+                }
+                let mut pad_style = Style::default();
+                if is_cur {
+                    pad_style = self.with_cursor_bg(pad_style);
+                }
                 items.push(ListItem::new(Line::from(vec![
-                    Span::raw("    "),
+                    Span::styled("    ", pad_style),
                     Span::styled("+ New Session", ns_style),
                 ])));
                 flat_idx += 1;
@@ -124,6 +149,7 @@ impl<'a> Sidebar<'a> {
 
             for session in &visible {
                 let is_sel = flat_idx == self.app.sidebar_selection;
+                let is_cur = flat_idx == self.app.sidebar_cursor;
                 let is_active = self.app.active_sessions.contains(&session.id);
                 let has_active_subagent = self
                     .app
@@ -134,19 +160,26 @@ impl<'a> Sidebar<'a> {
                 let has_subagents = !self.app.subagent_sessions(i, &session.id).is_empty();
                 let is_subagents_open =
                     self.app.subagents_expanded_for.as_deref() == Some(&session.id);
-                let s_style = if is_sel {
+                let mut s_style = if is_sel {
                     Style::default()
                         .fg(self.app.theme.primary)
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(self.app.theme.text_muted)
                 };
+                if is_cur {
+                    s_style = self.with_cursor_bg(s_style);
+                }
                 let title = if session.title.is_empty() {
                     &session.id
                 } else {
                     &session.title
                 };
-                let mut spans = vec![Span::raw("    ")];
+                let mut pad_style = Style::default();
+                if is_cur {
+                    pad_style = self.with_cursor_bg(pad_style);
+                }
+                let mut spans = vec![Span::styled("    ", pad_style)];
                 spans.push(Span::styled("└ ", s_style));
                 if show_dot {
                     let dot_color = lerp_color(
@@ -154,7 +187,11 @@ impl<'a> Sidebar<'a> {
                         self.app.theme.accent,
                         self.app.pulse_phase,
                     );
-                    spans.push(Span::styled("● ", Style::default().fg(dot_color)));
+                    let mut dot_style = Style::default().fg(dot_color);
+                    if is_cur {
+                        dot_style = self.with_cursor_bg(dot_style);
+                    }
+                    spans.push(Span::styled("● ", dot_style));
                 }
                 if has_subagents {
                     let arrow = if is_subagents_open { "▼ " } else { "▶ " };
@@ -168,20 +205,28 @@ impl<'a> Sidebar<'a> {
                     let subagents = self.app.subagent_sessions(i, &session.id);
                     for sub in &subagents {
                         let sub_sel = flat_idx == self.app.sidebar_selection;
+                        let sub_cur = flat_idx == self.app.sidebar_cursor;
                         let sub_active = self.app.active_sessions.contains(&sub.id);
-                        let sub_style = if sub_sel {
+                        let mut sub_style = if sub_sel {
                             Style::default()
                                 .fg(self.app.theme.primary)
                                 .add_modifier(Modifier::BOLD)
                         } else {
                             Style::default().fg(self.app.theme.text_muted)
                         };
+                        if sub_cur {
+                            sub_style = self.with_cursor_bg(sub_style);
+                        }
                         let sub_title = if sub.title.is_empty() {
                             &sub.id
                         } else {
                             &sub.title
                         };
-                        let mut sub_spans = vec![Span::raw("      ")];
+                        let mut sub_pad = Style::default();
+                        if sub_cur {
+                            sub_pad = self.with_cursor_bg(sub_pad);
+                        }
+                        let mut sub_spans = vec![Span::styled("      ", sub_pad)];
                         sub_spans.push(Span::styled("└ ", sub_style));
                         if sub_active {
                             let dot_color = lerp_color(
@@ -189,7 +234,11 @@ impl<'a> Sidebar<'a> {
                                 self.app.theme.accent,
                                 self.app.pulse_phase,
                             );
-                            sub_spans.push(Span::styled("● ", Style::default().fg(dot_color)));
+                            let mut dot_style = Style::default().fg(dot_color);
+                            if sub_cur {
+                                dot_style = self.with_cursor_bg(dot_style);
+                            }
+                            sub_spans.push(Span::styled("● ", dot_style));
                         }
                         sub_spans.push(Span::styled(sub_title.to_string(), sub_style));
                         items.push(ListItem::new(Line::from(sub_spans)));
@@ -200,15 +249,23 @@ impl<'a> Sidebar<'a> {
 
             if self.app.has_more_sessions(i) {
                 let is_sel = flat_idx == self.app.sidebar_selection;
-                let more_style = if is_sel {
+                let is_cur = flat_idx == self.app.sidebar_cursor;
+                let mut more_style = if is_sel {
                     Style::default()
                         .fg(self.app.theme.primary)
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(self.app.theme.secondary)
                 };
+                if is_cur {
+                    more_style = self.with_cursor_bg(more_style);
+                }
+                let mut pad_style = Style::default();
+                if is_cur {
+                    pad_style = self.with_cursor_bg(pad_style);
+                }
                 items.push(ListItem::new(Line::from(vec![
-                    Span::raw("    "),
+                    Span::styled("    ", pad_style),
                     Span::styled("└ more...", more_style),
                 ])));
                 flat_idx += 1;
@@ -217,13 +274,17 @@ impl<'a> Sidebar<'a> {
 
         // "Add project" entry at the bottom
         let is_sel = flat_idx == self.app.sidebar_selection;
-        let add_style = if is_sel {
+        let is_cur = flat_idx == self.app.sidebar_cursor;
+        let mut add_style = if is_sel {
             Style::default()
                 .fg(self.app.theme.primary)
                 .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(self.app.theme.primary)
         };
+        if is_cur {
+            add_style = self.with_cursor_bg(add_style);
+        }
         items.push(ListItem::new(Line::from(vec![Span::styled(
             "  [+ Add Project]",
             add_style,
@@ -257,12 +318,13 @@ impl<'a> Widget for Sidebar<'a> {
             ))));
         }
 
+        // Scrolling follows the cursor (j/k position)
         let max_visible = area.height.saturating_sub(1) as usize;
         let total_items = items.len();
-        let sidebar_selection = self.app.sidebar_selection;
+        let sidebar_cursor = self.app.sidebar_cursor;
 
-        let scroll_offset = if sidebar_selection >= max_visible {
-            sidebar_selection - max_visible + 1
+        let scroll_offset = if sidebar_cursor >= max_visible {
+            sidebar_cursor - max_visible + 1
         } else {
             0
         };

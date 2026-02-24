@@ -406,6 +406,7 @@ pub struct App {
     pub layout: LayoutManager,
     pub should_quit: bool,
     pub sidebar_selection: usize,
+    pub sidebar_cursor: usize,
     pub sidebar_pending_g: bool,
     pub config: Config,
     pub input_mode: InputMode,
@@ -649,6 +650,7 @@ impl App {
             layout: LayoutManager::new(),
             should_quit: false,
             sidebar_selection: 0,
+            sidebar_cursor: 0,
             sidebar_pending_g: false,
             projects,
             config,
@@ -1008,13 +1010,14 @@ impl App {
         if self.projects.is_empty() {
             self.active_project = 0;
             self.sidebar_selection = 0;
+            self.sidebar_cursor = 0;
         } else {
             if self.active_project >= self.projects.len() {
                 self.active_project = self.projects.len().saturating_sub(1);
             }
-            self.sidebar_selection = self
-                .sidebar_selection
-                .min(self.projects.len().saturating_sub(1));
+            let max = self.projects.len().saturating_sub(1);
+            self.sidebar_selection = self.sidebar_selection.min(max);
+            self.sidebar_cursor = self.sidebar_cursor.min(max);
         }
 
         Ok(())
