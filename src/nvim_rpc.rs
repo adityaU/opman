@@ -18,10 +18,83 @@ use rmpv::Value;
 /// Global message ID counter (monotonically increasing).
 static MSG_ID: AtomicU32 = AtomicU32::new(1);
 
+/// Check if neovim is in `r?` (confirm) mode and auto-dismiss the prompt.
+///
+/// When neovim encounters a swap file, file-changed-on-disk, or similar
+/// situation it enters `r?` mode — a blocking confirmation dialog that
+/// prevents any further RPC calls from completing. This function detects
+/// that state and sends `E` (Edit anyway) to dismiss it, looping until
+/// the mode clears.
+fn dismiss_confirm_prompts(stream: &mut UnixStream) -> Result<()> {
+    // Try up to 10 times in case prompts cascade (e.g. multiple swap files)
+    for _ in 0..10 {
+        let msgid = MSG_ID.fetch_add(1, Ordering::Relaxed);
+        let mode_request = Value::Array(vec![
+            Value::from(0u64),
+            Value::from(msgid as u64),
+            Value::from("nvim_get_mode"),
+            Value::Array(vec![]),
+        ]);
+
+        let mut buf = Vec::new();
+        rmpv::encode::write_value(&mut buf, &mode_request)
+            .context("Failed to encode mode request")?;
+        stream
+            .write_all(&buf)
+            .context("Failed to write mode request")?;
+        stream.flush()?;
+
+        let response =
+            rmpv::decode::read_value(&mut *stream).context("Failed to read mode response")?;
+
+        // Parse: [1, msgid, nil, {mode: "...", blocking: bool}]
+        let is_confirm = response
+            .as_array()
+            .and_then(|arr| arr.get(3))
+            .and_then(|result| result.as_map())
+            .map(|pairs| {
+                pairs
+                    .iter()
+                    .any(|(k, v)| k.as_str() == Some("mode") && v.as_str() == Some("r?"))
+            })
+            .unwrap_or(false);
+
+        if !is_confirm {
+            return Ok(());
+        }
+
+        // Dismiss the prompt by sending 'E' (Edit anyway)
+        let input_msgid = MSG_ID.fetch_add(1, Ordering::Relaxed);
+        let input_request = Value::Array(vec![
+            Value::from(0u64),
+            Value::from(input_msgid as u64),
+            Value::from("nvim_input"),
+            Value::Array(vec![Value::from("E")]),
+        ]);
+
+        let mut input_buf = Vec::new();
+        rmpv::encode::write_value(&mut input_buf, &input_request)
+            .context("Failed to encode input request")?;
+        stream
+            .write_all(&input_buf)
+            .context("Failed to write input request")?;
+        stream.flush()?;
+
+        // Read and discard the nvim_input response
+        let _ = rmpv::decode::read_value(&mut *stream);
+
+        // Give neovim time to process before checking again
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    Ok(())
+}
+
 /// Send an RPC request to neovim and return the result.
 ///
 /// Connects fresh for each call (neovim's socket supports multiple connections).
 /// Timeout prevents hanging if neovim is unresponsive.
+/// Automatically dismisses any confirm-mode prompts before the actual call.
 pub fn nvim_call(socket_path: &Path, method: &str, args: Vec<Value>) -> Result<Value> {
     let mut stream = UnixStream::connect(socket_path)
         .with_context(|| format!("Failed to connect to neovim at {:?}", socket_path))?;
@@ -32,6 +105,9 @@ pub fn nvim_call(socket_path: &Path, method: &str, args: Vec<Value>) -> Result<V
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))
         .context("Failed to set write timeout")?;
+
+    // Auto-dismiss any confirm prompts (swap file dialogs, etc.)
+    dismiss_confirm_prompts(&mut stream)?;
 
     let msgid = MSG_ID.fetch_add(1, Ordering::Relaxed);
 

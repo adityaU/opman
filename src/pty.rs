@@ -455,7 +455,7 @@ impl PtyInstance {
 
         // Enable sign column and line numbers so diff signs are visible
         cmd.arg("--cmd");
-        cmd.arg("set signcolumn=yes number norelativenumber");
+        cmd.arg("set signcolumn=yes number norelativenumber noswapfile");
         if let Some(dir) = theme_dir {
             let colorscheme_path = dir.join("nvim/colors/opencode.lua");
             cmd.arg("--cmd");
