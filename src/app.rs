@@ -1692,15 +1692,84 @@ impl App {
     ) -> crate::mcp::SocketResponse {
         use crate::mcp::{SocketResponse, TabInfo};
 
+        // Collect spawn parameters before borrowing project mutably.
+        let shell_size = self
+            .layout
+            .panel_rect(crate::ui::layout_manager::PanelId::IntegratedTerminal)
+            .map(|r| (r.height.saturating_sub(1).max(2), r.width.max(2)))
+            .unwrap_or((24, 80));
+        let nvim_size = self
+            .layout
+            .panel_rect(crate::ui::layout_manager::PanelId::NeovimPane)
+            .map(|r| (r.height.max(2), r.width.max(2)))
+            .unwrap_or((24, 80));
+        let theme_envs = self.theme.pty_env_vars();
+        let td = crate::theme_gen::theme_dir();
+        let terminal_command = self
+            .config
+            .projects
+            .get(project_idx)
+            .and_then(|e| e.terminal_command.as_deref())
+            .or(self.config.settings.default_terminal_command.as_deref())
+            .map(|s| s.to_string());
+
         let project = match self.projects.get_mut(project_idx) {
             Some(p) => p,
             None => return SocketResponse::err("Project not found".into()),
         };
         let project_path = project.path.clone();
-        let resources = match project.session_resources.get_mut(session_id) {
-            Some(r) => r,
-            None => return SocketResponse::err("No session resources found".into()),
-        };
+        let resources = project
+            .session_resources
+            .entry(session_id.to_string())
+            .or_insert_with(SessionResources::new);
+
+        // Determine if this is a terminal op that needs at least one shell tab.
+        let needs_shell = matches!(
+            request.op.as_str(),
+            "read" | "run" | "close" | "rename" | "status"
+        );
+        // Determine if this is a neovim op.
+        let needs_neovim = request.op.starts_with("nvim_");
+
+        // Lazily spawn a shell PTY if needed and none exist.
+        if needs_shell && resources.shell_ptys.is_empty() {
+            match PtyInstance::spawn_shell(
+                shell_size.0,
+                shell_size.1,
+                &project_path,
+                &theme_envs,
+                Some(&td),
+                terminal_command.as_deref(),
+                None,
+            ) {
+                Ok(shell) => {
+                    resources.shell_ptys.push(shell);
+                    resources.active_shell_tab = 0;
+                }
+                Err(e) => {
+                    return SocketResponse::err(format!("Failed to auto-start terminal: {}", e));
+                }
+            }
+        }
+
+        // Lazily spawn neovim if needed and not running.
+        if needs_neovim && resources.neovim_pty.is_none() {
+            match PtyInstance::spawn_neovim(
+                nvim_size.0,
+                nvim_size.1,
+                &project_path,
+                &theme_envs,
+                Some(&td),
+            ) {
+                Ok(nvim) => {
+                    resources.neovim_pty = Some(nvim);
+                }
+                Err(e) => {
+                    return SocketResponse::err(format!("Failed to auto-start neovim: {}", e));
+                }
+            }
+        }
+
         match request.op.as_str() {
             "read" => {
                 let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
@@ -1786,27 +1855,13 @@ impl App {
                 SocketResponse::ok_tabs(tabs)
             }
             "new" => {
-                // Spawn a new shell tab
-                let shell_size = self
-                    .layout
-                    .panel_rect(crate::ui::layout_manager::PanelId::IntegratedTerminal)
-                    .map(|r| (r.height.saturating_sub(1).max(2), r.width.max(2)))
-                    .unwrap_or((24, 80));
-                let theme_envs = self.theme.pty_env_vars();
-                let td = crate::theme_gen::theme_dir();
-                let command = self
-                    .config
-                    .projects
-                    .get(project_idx)
-                    .and_then(|e| e.terminal_command.as_deref())
-                    .or(self.config.settings.default_terminal_command.as_deref());
                 match crate::pty::PtyInstance::spawn_shell(
                     shell_size.0,
                     shell_size.1,
                     &project_path,
                     &theme_envs,
                     Some(&td),
-                    command,
+                    terminal_command.as_deref(),
                     request.name.clone(),
                 ) {
                     Ok(shell) => {
