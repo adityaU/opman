@@ -44,6 +44,12 @@ impl std::fmt::Debug for PtyInstance {
     }
 }
 
+impl Drop for PtyInstance {
+    fn drop(&mut self) {
+        let _ = self.kill();
+    }
+}
+
 impl PtyInstance {
     /// Spawn a new PTY running `opencode attach <url>`.
     ///
@@ -75,6 +81,10 @@ impl PtyInstance {
         if let Some(sid) = session_id {
             cmd.arg("--session");
             cmd.arg(sid);
+            // Export session ID as env var so MCP bridge processes (spawned by
+            // opencode as children) can include it in socket requests, ensuring
+            // terminal/neovim tool calls route to the correct session.
+            cmd.env("OPENCODE_SESSION_ID", sid);
         }
         cmd.cwd(working_dir);
         cmd.env("TERM", "xterm-256color");

@@ -58,7 +58,9 @@ struct McpRequest {
 
 pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     let sock_path = mcp::socket_path_for_project(&project_path);
-
+    // Read session ID from env var set by opencode PTY spawn, so all
+    // socket requests route to the correct per-session resources.
+    let session_id = std::env::var("OPENCODE_SESSION_ID").ok();
     let stdin = tokio::io::stdin();
     let mut stdout = tokio::io::stdout();
     let mut reader = BufReader::new(stdin);
@@ -111,7 +113,7 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
             }),
 
             "tools/call" => {
-                let result = handle_tool_call(&sock_path, req.params).await;
+                let result = handle_tool_call(&sock_path, req.params, session_id.as_deref()).await;
                 match result {
                     Ok(content) => serde_json::json!({
                         "jsonrpc": "2.0",
@@ -460,6 +462,7 @@ fn tool_definitions() -> serde_json::Value {
 async fn handle_tool_call(
     sock_path: &std::path::Path,
     params: Option<serde_json::Value>,
+    session_id: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let params = params.unwrap_or(serde_json::json!({}));
     let tool_name = params
@@ -641,6 +644,10 @@ async fn handle_tool_call(
             }]));
         }
     };
+
+    // Inject session_id into the request for correct routing
+    let mut socket_req = socket_req;
+    socket_req.session_id = session_id.map(|s| s.to_string());
 
     let resp = send_socket_request(sock_path, &socket_req).await?;
     format_response(sock_path, tool_name, &resp).await

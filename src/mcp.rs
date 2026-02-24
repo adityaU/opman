@@ -21,6 +21,10 @@ pub struct SocketRequest {
     //   "nvim_hover" | "nvim_symbols" | "nvim_code_actions"
     //   "nvim_eval" | "nvim_grep" | "nvim_diff" | "nvim_write"
     //   "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format" | "nvim_signature"
+    /// Session ID for routing to the correct per-session resources.
+    /// Set by MCP bridges from OPENCODE_SESSION_ID env var.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
     #[serde(default)]
     pub tab: Option<usize>, // tab index (0-based)
     #[serde(default)]
@@ -339,10 +343,13 @@ pub fn spawn_socket_server(
 
                 // Send to main event loop and wait for response
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                // Extract session_id from the request (set by bridge from
+                // OPENCODE_SESSION_ID env var) before wrapping.
+                let session_id = request.session_id.clone().unwrap_or_default();
                 let pending = PendingSocketRequest { request, reply_tx };
                 let _ = tx.send(crate::app::BackgroundEvent::McpSocketRequest {
                     project_idx: pidx,
-                    session_id: String::new(), // resolved from active_session in handler
+                    session_id,
                     pending,
                 });
 
@@ -397,7 +404,9 @@ struct McpJsonRpcRequest {
 /// Run the MCP stdio bridge: read JSON-RPC from stdin, forward to socket, write response to stdout.
 pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     let sock_path = socket_path_for_project(&project_path);
-
+    // Read session ID from env var set by opencode PTY spawn, so all
+    // socket requests route to the correct per-session resources.
+    let session_id = std::env::var("OPENCODE_SESSION_ID").ok();
     let stdin = tokio::io::stdin();
     let mut stdout = tokio::io::stdout();
     let mut reader = BufReader::new(stdin);
@@ -465,7 +474,8 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                 })
             }
             "tools/call" => {
-                let result = handle_tool_call(&sock_path, rpc_req.params).await;
+                let result =
+                    handle_tool_call(&sock_path, rpc_req.params, session_id.as_deref()).await;
                 match result {
                     Ok(content) => {
                         serde_json::json!({
@@ -642,6 +652,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
 async fn handle_tool_call(
     sock_path: &Path,
     params: Option<serde_json::Value>,
+    session_id: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let params = params.unwrap_or(serde_json::json!({}));
     let tool_name = params
@@ -655,7 +666,7 @@ async fn handle_tool_call(
 
     // Handle ephemeral run as a composite operation (new → run → poll → close)
     if tool_name == "terminal_ephemeral_run" {
-        return handle_ephemeral_run(sock_path, &arguments).await;
+        return handle_ephemeral_run(sock_path, &arguments, session_id).await;
     }
 
     // Build internal socket request
@@ -742,6 +753,10 @@ async fn handle_tool_call(
         }
     };
 
+    // Inject session_id into the request for correct routing
+    let mut socket_req = socket_req;
+    socket_req.session_id = session_id.map(|s| s.to_string());
+
     // Check if this is a "run" with wait — we'll need the tab and wait flag before sending
     let is_wait_run = tool_name == "terminal_run" && socket_req.wait.unwrap_or(false);
     let wait_tab = socket_req.tab;
@@ -759,11 +774,13 @@ async fn handle_tool_call(
 
     // For "run" with wait=true: poll command_state until command finishes or timeout
     if is_wait_run && socket_resp.ok {
-        let timed_out = poll_command_completion(sock_path, wait_tab, wait_timeout_secs).await;
+        let timed_out =
+            poll_command_completion(sock_path, wait_tab, wait_timeout_secs, session_id).await;
 
         let read_req = SocketRequest {
             op: "read".into(),
             tab: wait_tab,
+            session_id: session_id.map(|s| s.to_string()),
             ..Default::default()
         };
         let read_resp = send_socket_request(sock_path, &read_req).await?;
@@ -786,6 +803,7 @@ async fn handle_tool_call(
 async fn handle_ephemeral_run(
     sock_path: &Path,
     arguments: &serde_json::Value,
+    session_id: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let cmd = arguments
         .get("command")
@@ -802,12 +820,15 @@ async fn handle_ephemeral_run(
         .and_then(|v| v.as_u64())
         .unwrap_or(30);
 
+    let sid = session_id.map(|s| s.to_string());
+
     // 0. Acquire ephemeral name lock — rejects if same name is already running
     let lock_resp = send_socket_request(
         sock_path,
         &SocketRequest {
             op: "ephemeral_lock".into(),
             name: Some(name.to_string()),
+            session_id: sid.clone(),
             ..Default::default()
         },
     )
@@ -820,7 +841,8 @@ async fn handle_ephemeral_run(
     }
 
     // From here on, we must unlock on every exit path
-    let result = handle_ephemeral_run_inner(sock_path, cmd, name, timeout_secs).await;
+    let result =
+        handle_ephemeral_run_inner(sock_path, cmd, name, timeout_secs, sid.as_deref()).await;
 
     // Always release the ephemeral name lock
     let _ = send_socket_request(
@@ -828,6 +850,7 @@ async fn handle_ephemeral_run(
         &SocketRequest {
             op: "ephemeral_unlock".into(),
             name: Some(name.to_string()),
+            session_id: sid,
             ..Default::default()
         },
     )
@@ -841,13 +864,17 @@ async fn handle_ephemeral_run_inner(
     cmd: &str,
     name: &str,
     timeout_secs: u64,
+    session_id: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
+    let sid = session_id.map(|s| s.to_string());
+
     // 1. Create ephemeral tab
     let new_resp = send_socket_request(
         sock_path,
         &SocketRequest {
             op: "new".into(),
             name: Some(name.to_string()),
+            session_id: sid.clone(),
             ..Default::default()
         },
     )
@@ -870,13 +897,14 @@ async fn handle_ephemeral_run_inner(
             op: "run".into(),
             tab: Some(tab_idx),
             command: Some(cmd.to_string()),
+            session_id: sid.clone(),
             ..Default::default()
         },
     )
     .await;
 
     if let Err(e) = &run_resp {
-        let _ = close_tab(sock_path, tab_idx).await;
+        let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
         return Err(anyhow::anyhow!("Failed to run command: {}", e));
     }
     if !run_resp.as_ref().unwrap().ok {
@@ -884,17 +912,19 @@ async fn handle_ephemeral_run_inner(
             .unwrap()
             .error
             .unwrap_or_else(|| "Run failed".into());
-        let _ = close_tab(sock_path, tab_idx).await;
+        let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
         return Ok(serde_json::json!([{ "type": "text", "text": msg }]));
     }
 
-    let timed_out = poll_command_completion(sock_path, Some(tab_idx), timeout_secs).await;
+    let timed_out =
+        poll_command_completion(sock_path, Some(tab_idx), timeout_secs, sid.as_deref()).await;
 
     let read_resp = send_socket_request(
         sock_path,
         &SocketRequest {
             op: "read".into(),
             tab: Some(tab_idx),
+            session_id: sid.clone(),
             ..Default::default()
         },
     )
@@ -910,7 +940,7 @@ async fn handle_ephemeral_run_inner(
     }
 
     // 3. Close the ephemeral tab
-    let _ = close_tab(sock_path, tab_idx).await;
+    let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
 
     Ok(serde_json::json!([{
         "type": "text",
@@ -927,13 +957,19 @@ async fn handle_ephemeral_run_inner(
 ///
 /// This avoids the race where we poll before the shell processes the command
 /// and see a stale "idle"/"success"/"failure" from the previous command.
-async fn poll_command_completion(sock_path: &Path, tab: Option<usize>, timeout_secs: u64) -> bool {
+async fn poll_command_completion(
+    sock_path: &Path,
+    tab: Option<usize>,
+    timeout_secs: u64,
+    session_id: Option<&str>,
+) -> bool {
     let poll_interval = std::time::Duration::from_millis(300);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
 
     let status_req = SocketRequest {
         op: "status".into(),
         tab,
+        session_id: session_id.map(|s| s.to_string()),
         ..Default::default()
     };
 
@@ -975,12 +1011,17 @@ async fn poll_command_completion(sock_path: &Path, tab: Option<usize>, timeout_s
     }
 }
 
-async fn close_tab(sock_path: &Path, tab_idx: usize) -> anyhow::Result<SocketResponse> {
+async fn close_tab(
+    sock_path: &Path,
+    tab_idx: usize,
+    session_id: Option<&str>,
+) -> anyhow::Result<SocketResponse> {
     send_socket_request(
         sock_path,
         &SocketRequest {
             op: "close".into(),
             tab: Some(tab_idx),
+            session_id: session_id.map(|s| s.to_string()),
             ..Default::default()
         },
     )

@@ -97,11 +97,30 @@ pub fn kill_server(handle: &ServerHandle) {
 /// Shut down all PTY processes for every project.
 pub fn shutdown_all_ptys(projects: &mut [Project]) {
     for project in projects.iter_mut() {
+        // Kill opencode session PTYs
         for (_, pty) in project.ptys.iter_mut() {
             let _ = pty.kill();
         }
-        debug!(name = %project.name, "PTYs killed during shutdown");
         project.ptys.clear();
+
+        // Kill per-session resources (shell terminals + neovim instances)
+        for resources in project.session_resources.values_mut() {
+            for shell_pty in &mut resources.shell_ptys {
+                let _ = shell_pty.kill();
+            }
+            if let Some(ref mut nvim) = resources.neovim_pty {
+                let _ = nvim.kill();
+            }
+        }
+        project.session_resources.clear();
+
+        // Kill gitui PTY if running
+        if let Some(ref mut gitui) = project.gitui_pty {
+            let _ = gitui.kill();
+        }
+        project.gitui_pty = None;
+
+        debug!(name = %project.name, "All PTYs killed during shutdown");
         project.active_session = None;
     }
     info!("All PTYs shut down");
