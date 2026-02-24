@@ -173,13 +173,40 @@ pub fn nvim_exec_lua(socket_path: &Path, code: &str, args: Vec<Value>) -> Result
     )
 }
 
-/// Get lines from the current buffer (0-indexed, end-exclusive).
-pub fn nvim_buf_get_lines(socket_path: &Path, start: i64, end: i64) -> Result<Vec<String>> {
+/// Find or load a buffer by file path and return its buffer handle.
+///
+/// Uses `vim.fn.bufadd()` (creates if needed) + `vim.fn.bufload()` (ensures
+/// content is loaded). Returns the integer buffer handle suitable for passing
+/// to `nvim_buf_get_lines`, `nvim_buf_set_lines`, etc.
+pub fn nvim_find_or_load_buffer(socket_path: &Path, file_path: &str) -> Result<i64> {
+    let escaped = file_path.replace('\\', "\\\\").replace('\'', "\\'");
+    let lua = format!(
+        r#"
+        local buf = vim.fn.bufadd('{}')
+        vim.fn.bufload(buf)
+        return buf
+        "#,
+        escaped
+    );
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
+    result
+        .as_i64()
+        .context("nvim_find_or_load_buffer: expected integer buffer handle")
+}
+
+/// Get lines from a buffer (0-indexed, end-exclusive).
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_buf_get_lines(
+    socket_path: &Path,
+    buf: i64,
+    start: i64,
+    end: i64,
+) -> Result<Vec<String>> {
     let result = nvim_call(
         socket_path,
         "nvim_buf_get_lines",
         vec![
-            Value::from(0i64), // buffer 0 = current
+            Value::from(buf), // buffer handle (0 = current)
             Value::from(start),
             Value::from(end),
             Value::from(false), // strict_indexing
@@ -196,23 +223,17 @@ pub fn nvim_buf_get_lines(socket_path: &Path, start: i64, end: i64) -> Result<Ve
     Ok(lines)
 }
 
-/// Get the total number of lines in the current buffer.
-pub fn nvim_buf_line_count(socket_path: &Path) -> Result<i64> {
-    let result = nvim_call(
-        socket_path,
-        "nvim_buf_line_count",
-        vec![Value::from(0i64)], // buffer 0 = current
-    )?;
+/// Get the total number of lines in a buffer.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_buf_line_count(socket_path: &Path, buf: i64) -> Result<i64> {
+    let result = nvim_call(socket_path, "nvim_buf_line_count", vec![Value::from(buf)])?;
     result.as_i64().context("Expected integer line count")
 }
 
-/// Get the name (file path) of the current buffer.
-pub fn nvim_buf_get_name(socket_path: &Path) -> Result<String> {
-    let result = nvim_call(
-        socket_path,
-        "nvim_buf_get_name",
-        vec![Value::from(0i64)], // buffer 0 = current
-    )?;
+/// Get the name (file path) of a buffer.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_buf_get_name(socket_path: &Path, buf: i64) -> Result<String> {
+    let result = nvim_call(socket_path, "nvim_buf_get_name", vec![Value::from(buf)])?;
     Ok(result.as_str().unwrap_or("").to_string())
 }
 
@@ -297,134 +318,151 @@ pub fn nvim_open_file(socket_path: &Path, file_path: &str, line: Option<i64>) ->
 
 // ─── LSP helpers ────────────────────────────────────────────────────────────
 
-/// Get LSP diagnostics for the current buffer or all buffers.
+/// Get LSP diagnostics for a specific buffer or all buffers.
 ///
 /// Returns a JSON string with diagnostic entries.
-pub fn nvim_lsp_diagnostics(socket_path: &Path, buf_only: bool) -> Result<String> {
-    let lua = if buf_only {
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_lsp_diagnostics(socket_path: &Path, buf: i64, buf_only: bool) -> Result<String> {
+    let lua = format!(
         r#"
-        local diags = vim.diagnostic.get(0)
-        local buf_name = vim.api.nvim_buf_get_name(0)
-        local out = {}
-        for _, d in ipairs(diags) do
-            table.insert(out, {
-                file = buf_name,
-                lnum = d.lnum + 1,
-                col = d.col + 1,
-                severity = vim.diagnostic.severity[d.severity] or "Unknown",
-                message = d.message,
-                source = d.source or "",
-            })
+        local buf = {buf}
+        if buf == 0 then buf = vim.api.nvim_get_current_buf() end
+        if {buf_only} then
+            local diags = vim.diagnostic.get(buf)
+            local buf_name = vim.api.nvim_buf_get_name(buf)
+            local out = {{}}
+            for _, d in ipairs(diags) do
+                table.insert(out, {{
+                    file = buf_name,
+                    lnum = d.lnum + 1,
+                    col = d.col + 1,
+                    severity = vim.diagnostic.severity[d.severity] or "Unknown",
+                    message = d.message,
+                    source = d.source or "",
+                }})
+            end
+            return vim.json.encode(out)
+        else
+            local diags = vim.diagnostic.get()
+            local out = {{}}
+            for _, d in ipairs(diags) do
+                local buf_name = vim.api.nvim_buf_get_name(d.bufnr or 0)
+                table.insert(out, {{
+                    file = buf_name,
+                    lnum = d.lnum + 1,
+                    col = d.col + 1,
+                    severity = vim.diagnostic.severity[d.severity] or "Unknown",
+                    message = d.message,
+                    source = d.source or "",
+                }})
+            end
+            return vim.json.encode(out)
         end
-        return vim.json.encode(out)
-        "#
-    } else {
-        r#"
-        local diags = vim.diagnostic.get()
-        local out = {}
-        for _, d in ipairs(diags) do
-            local buf_name = vim.api.nvim_buf_get_name(d.bufnr or 0)
-            table.insert(out, {
-                file = buf_name,
-                lnum = d.lnum + 1,
-                col = d.col + 1,
-                severity = vim.diagnostic.severity[d.severity] or "Unknown",
-                message = d.message,
-                source = d.source or "",
-            })
-        end
-        return vim.json.encode(out)
-        "#
-    };
+        "#,
+        buf = buf,
+        buf_only = if buf_only { "true" } else { "false" },
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
 /// Go to the definition of the symbol at the given position and return the location.
+/// Pass `buf = 0` for the current buffer.
 pub fn nvim_lsp_definition(
     socket_path: &Path,
+    buf: i64,
     line: Option<i64>,
     col: Option<i64>,
 ) -> Result<String> {
-    // Move cursor if position specified
-    if let (Some(ln), Some(c)) = (line, col) {
-        nvim_call(
-            socket_path,
-            "nvim_win_set_cursor",
-            vec![
-                Value::from(0i64),
-                Value::Array(vec![Value::from(ln), Value::from(c.max(0))]),
-            ],
-        )?;
-    }
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
+    let set_cursor = if let (Some(ln), Some(c)) = (line, col) {
+        format!("vim.api.nvim_win_set_cursor(0, {{{}, {}}})", ln, c.max(0))
+    } else {
+        String::new()
+    };
 
-    let lua = r#"
+    let lua = format!(
+        r#"
+    {set_buf}
+    {set_cursor}
     local params = vim.lsp.util.make_position_params(0)
     local results = vim.lsp.buf_request_sync(0, 'textDocument/definition', params, 5000)
-    if not results then return vim.json.encode({error = "No LSP response (timeout or no server)"}) end
+    if not results then return vim.json.encode({{error = "No LSP response (timeout or no server)"}}) end
 
-    local locations = {}
+    local locations = {{}}
     for _, res in pairs(results) do
         if res.result then
             local items = res.result
-            if items.uri or items.targetUri then items = {items} end
+            if items.uri or items.targetUri then items = {{items}} end
             for _, loc in ipairs(items) do
                 local uri = loc.uri or loc.targetUri
                 local range = loc.range or loc.targetSelectionRange or loc.targetRange
                 if uri and range then
                     local file = vim.uri_to_fname(uri)
-                    table.insert(locations, {
+                    table.insert(locations, {{
                         file = file,
                         lnum = range.start.line + 1,
                         col = range.start.character + 1,
-                    })
+                    }})
                 end
             end
         end
     end
 
     if #locations == 0 then
-        return vim.json.encode({error = "No definition found"})
+        return vim.json.encode({{error = "No definition found"}})
     end
 
     -- Jump to first result
     local first = locations[1]
     vim.cmd('edit ' .. vim.fn.fnameescape(first.file))
-    vim.api.nvim_win_set_cursor(0, {first.lnum, first.col - 1})
+    vim.api.nvim_win_set_cursor(0, {{first.lnum, first.col - 1}})
     vim.cmd('normal! zz')
 
-    return vim.json.encode({locations = locations})
-    "#;
+    return vim.json.encode({{locations = locations}})
+    "#,
+        set_buf = set_buf,
+        set_cursor = set_cursor,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
 /// Find all references to the symbol at the given position.
+/// Pass `buf = 0` for the current buffer.
 pub fn nvim_lsp_references(
     socket_path: &Path,
+    buf: i64,
     line: Option<i64>,
     col: Option<i64>,
 ) -> Result<String> {
-    if let (Some(ln), Some(c)) = (line, col) {
-        nvim_call(
-            socket_path,
-            "nvim_win_set_cursor",
-            vec![
-                Value::from(0i64),
-                Value::Array(vec![Value::from(ln), Value::from(c.max(0))]),
-            ],
-        )?;
-    }
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
+    let set_cursor = if let (Some(ln), Some(c)) = (line, col) {
+        format!("vim.api.nvim_win_set_cursor(0, {{{}, {}}})", ln, c.max(0))
+    } else {
+        String::new()
+    };
 
-    let lua = r#"
+    let lua = format!(
+        r#"
+    {set_buf}
+    {set_cursor}
     local params = vim.lsp.util.make_position_params(0)
-    params.context = { includeDeclaration = true }
+    params.context = {{ includeDeclaration = true }}
     local results = vim.lsp.buf_request_sync(0, 'textDocument/references', params, 10000)
-    if not results then return vim.json.encode({error = "No LSP response (timeout or no server)"}) end
+    if not results then return vim.json.encode({{error = "No LSP response (timeout or no server)"}}) end
 
-    local refs = {}
+    local refs = {{}}
     for _, res in pairs(results) do
         if res.result then
             for _, loc in ipairs(res.result) do
@@ -436,44 +474,56 @@ pub fn nvim_lsp_references(
                 if ok and lines and lines[lnum] then
                     text = vim.trim(lines[lnum])
                 end
-                table.insert(refs, {
+                table.insert(refs, {{
                     file = file,
                     lnum = lnum,
                     col = col,
                     text = text,
-                })
+                }})
             end
         end
     end
 
     if #refs == 0 then
-        return vim.json.encode({error = "No references found"})
+        return vim.json.encode({{error = "No references found"}})
     end
 
-    return vim.json.encode({references = refs, count = #refs})
-    "#;
+    return vim.json.encode({{references = refs, count = #refs}})
+    "#,
+        set_buf = set_buf,
+        set_cursor = set_cursor,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
 /// Get hover/type information for the symbol at the given position.
-pub fn nvim_lsp_hover(socket_path: &Path, line: Option<i64>, col: Option<i64>) -> Result<String> {
-    if let (Some(ln), Some(c)) = (line, col) {
-        nvim_call(
-            socket_path,
-            "nvim_win_set_cursor",
-            vec![
-                Value::from(0i64),
-                Value::Array(vec![Value::from(ln), Value::from(c.max(0))]),
-            ],
-        )?;
-    }
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_lsp_hover(
+    socket_path: &Path,
+    buf: i64,
+    line: Option<i64>,
+    col: Option<i64>,
+) -> Result<String> {
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
+    let set_cursor = if let (Some(ln), Some(c)) = (line, col) {
+        format!("vim.api.nvim_win_set_cursor(0, {{{}, {}}})", ln, c.max(0))
+    } else {
+        String::new()
+    };
 
-    let lua = r#"
+    let lua = format!(
+        r#"
+    {set_buf}
+    {set_cursor}
     local params = vim.lsp.util.make_position_params(0)
     local results = vim.lsp.buf_request_sync(0, 'textDocument/hover', params, 5000)
-    if not results then return vim.json.encode({error = "No LSP response (timeout or no server)"}) end
+    if not results then return vim.json.encode({{error = "No LSP response (timeout or no server)"}}) end
 
     for _, res in pairs(results) do
         if res.result and res.result.contents then
@@ -483,7 +533,7 @@ pub fn nvim_lsp_hover(socket_path: &Path, line: Option<i64>, col: Option<i64>) -
             elseif contents.value then
                 return contents.value
             elseif type(contents) == "table" then
-                local parts = {}
+                local parts = {{}}
                 for _, c in ipairs(contents) do
                     if type(c) == "string" then
                         table.insert(parts, c)
@@ -496,15 +546,24 @@ pub fn nvim_lsp_hover(socket_path: &Path, line: Option<i64>, col: Option<i64>) -
         end
     end
 
-    return vim.json.encode({error = "No hover information available"})
-    "#;
+    return vim.json.encode({{error = "No hover information available"}})
+    "#,
+        set_buf = set_buf,
+        set_cursor = set_cursor,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
 /// Search for workspace or document symbols.
-pub fn nvim_lsp_symbols(socket_path: &Path, query: &str, workspace: bool) -> Result<String> {
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_lsp_symbols(
+    socket_path: &Path,
+    buf: i64,
+    query: &str,
+    workspace: bool,
+) -> Result<String> {
     let method = if workspace {
         "workspace/symbol"
     } else {
@@ -516,15 +575,17 @@ pub fn nvim_lsp_symbols(socket_path: &Path, query: &str, workspace: bool) -> Res
 
     let lua = format!(
         r#"
+        local buf = {buf}
+        if buf == 0 then buf = vim.api.nvim_get_current_buf() end
         local method = "{method}"
         local params
         if method == "workspace/symbol" then
             params = {{ query = "{query}" }}
         else
-            params = {{ textDocument = vim.lsp.util.make_text_document_params(0) }}
+            params = {{ textDocument = vim.lsp.util.make_text_document_params(buf) }}
         end
 
-        local results = vim.lsp.buf_request_sync(0, method, params, 10000)
+        local results = vim.lsp.buf_request_sync(buf, method, params, 10000)
         if not results then return vim.json.encode({{error = "No LSP response"}}) end
 
         local function flatten_symbols(symbols, file, prefix)
@@ -557,7 +618,7 @@ pub fn nvim_lsp_symbols(socket_path: &Path, query: &str, workspace: bool) -> Res
         local all = {{}}
         for _, res in pairs(results) do
             if res.result then
-                local file = vim.api.nvim_buf_get_name(0)
+                local file = vim.api.nvim_buf_get_name(buf)
                 local flat = flatten_symbols(res.result, file, nil)
                 for _, s in ipairs(flat) do
                     table.insert(all, s)
@@ -571,6 +632,7 @@ pub fn nvim_lsp_symbols(socket_path: &Path, query: &str, workspace: bool) -> Res
 
         return vim.json.encode({{symbols = all, count = #all}})
         "#,
+        buf = buf,
         method = escaped_method,
         query = escaped_query,
     );
@@ -580,37 +642,48 @@ pub fn nvim_lsp_symbols(socket_path: &Path, query: &str, workspace: bool) -> Res
 }
 
 /// List available LSP code actions at the current cursor position.
-pub fn nvim_lsp_code_actions(socket_path: &Path) -> Result<String> {
-    let lua = r#"
-    local params = vim.lsp.util.make_range_params(0)
-    params.context = {
-        diagnostics = vim.diagnostic.get(0, { lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 }),
-    }
-    local results = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 5000)
-    if not results then return vim.json.encode({error = "No LSP response"}) end
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_lsp_code_actions(socket_path: &Path, buf: i64) -> Result<String> {
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
 
-    local actions = {}
+    let lua = format!(
+        r#"
+    {set_buf}
+    local params = vim.lsp.util.make_range_params(0)
+    params.context = {{
+        diagnostics = vim.diagnostic.get(0, {{ lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 }}),
+    }}
+    local results = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 5000)
+    if not results then return vim.json.encode({{error = "No LSP response"}}) end
+
+    local actions = {{}}
     for _, res in pairs(results) do
         if res.result then
             for i, action in ipairs(res.result) do
-                table.insert(actions, {
+                table.insert(actions, {{
                     index = i,
                     title = action.title,
                     kind = action.kind or "",
                     is_preferred = action.isPreferred or false,
-                })
+                }})
             end
         end
     end
 
     if #actions == 0 then
-        return vim.json.encode({error = "No code actions available"})
+        return vim.json.encode({{error = "No code actions available"}})
     end
 
-    return vim.json.encode({actions = actions, count = #actions})
-    "#;
+    return vim.json.encode({{actions = actions, count = #actions}})
+    "#,
+        set_buf = set_buf,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
@@ -662,18 +735,21 @@ pub fn nvim_grep(socket_path: &Path, pattern: &str, glob: Option<&str>) -> Resul
     Ok(value_to_string(&result))
 }
 
-/// Get unsaved changes in the current buffer as a unified diff.
-pub fn nvim_buf_diff(socket_path: &Path) -> Result<String> {
-    let lua = r#"
-    local buf = vim.api.nvim_get_current_buf()
+/// Get unsaved changes in a buffer as a unified diff.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_buf_diff(socket_path: &Path, buf: i64) -> Result<String> {
+    let lua = format!(
+        r#"
+    local buf = {buf}
+    if buf == 0 then buf = vim.api.nvim_get_current_buf() end
     local name = vim.api.nvim_buf_get_name(buf)
     if name == "" then
-        return vim.json.encode({error = "Buffer has no file name"})
+        return vim.json.encode({{error = "Buffer has no file name"}})
     end
 
     local ok, on_disk = pcall(vim.fn.readfile, name)
     if not ok then
-        return vim.json.encode({error = "File not on disk (new file)"})
+        return vim.json.encode({{error = "File not on disk (new file)"}})
     end
 
     local current = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
@@ -685,41 +761,63 @@ pub fn nvim_buf_diff(socket_path: &Path) -> Result<String> {
     if vim.diff then
         local a = table.concat(on_disk, "\n") .. "\n"
         local b = table.concat(current, "\n") .. "\n"
-        local diff = vim.diff(a, b, {result_type = "unified", ctxlen = 3})
+        local diff = vim.diff(a, b, {{result_type = "unified", ctxlen = 3}})
         if diff == "" then
             return "No differences."
         end
         return diff
     end
 
-    return vim.json.encode({error = "vim.diff not available (requires Neovim 0.9+)"})
-    "#;
+    return vim.json.encode({{error = "vim.diff not available (requires Neovim 0.9+)"}})
+    "#,
+        buf = buf,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
-/// Save the current buffer or all buffers.
-pub fn nvim_write(socket_path: &Path, all: bool) -> Result<String> {
-    let cmd = if all { "wall" } else { "write" };
-    nvim_command(socket_path, cmd)?;
-    Ok(if all {
-        "All buffers saved.".to_string()
-    } else {
-        let name = nvim_buf_get_name(socket_path).unwrap_or_default();
-        format!(
+/// Save a buffer or all buffers.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_write(socket_path: &Path, buf: i64, all: bool) -> Result<String> {
+    if all {
+        nvim_command(socket_path, "wall")?;
+        Ok("All buffers saved.".to_string())
+    } else if buf == 0 {
+        nvim_command(socket_path, "write")?;
+        let name = nvim_buf_get_name(socket_path, 0).unwrap_or_default();
+        Ok(format!(
             "Saved: {}",
             if name.is_empty() { "(unnamed)" } else { &name }
-        )
-    })
+        ))
+    } else {
+        // Scope to specific buffer
+        let lua = format!(
+            r#"
+            vim.api.nvim_buf_call({buf}, function()
+                vim.cmd('write')
+            end)
+            return vim.api.nvim_buf_get_name({buf})
+            "#,
+            buf = buf,
+        );
+        let result = nvim_exec_lua(socket_path, &lua, vec![])?;
+        let name = value_to_string(&result);
+        Ok(format!(
+            "Saved: {}",
+            if name.is_empty() { "(unnamed)" } else { &name }
+        ))
+    }
 }
 
-/// Replace lines in the current buffer.
+/// Replace lines in a buffer.
 ///
 /// `start_line` and `end_line` are 1-indexed, inclusive.
 /// The new text replaces the specified range. Pass an empty string to delete lines.
+/// Pass `buf = 0` for the current buffer.
 pub fn nvim_buf_set_text(
     socket_path: &Path,
+    buf: i64,
     start_line: i64,
     end_line: i64,
     new_text: &str,
@@ -739,7 +837,7 @@ pub fn nvim_buf_set_text(
         socket_path,
         "nvim_buf_set_lines",
         vec![
-            Value::from(0i64),         // buffer 0 = current
+            Value::from(buf),          // buffer handle (0 = current)
             Value::from(start),        // start (0-indexed)
             Value::from(end),          // end (exclusive)
             Value::from(false),        // strict_indexing
@@ -760,19 +858,38 @@ pub fn nvim_buf_set_text(
     ))
 }
 
-/// Undo or redo changes in the current buffer.
+/// Undo or redo changes in a buffer.
 ///
 /// `count` is the number of times to undo (positive) or redo (negative).
 /// Defaults to 1 undo if count is 0 or positive, redo if negative.
-pub fn nvim_undo(socket_path: &Path, count: i64) -> Result<String> {
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_undo(socket_path: &Path, buf: i64, count: i64) -> Result<String> {
     let (cmd, n) = if count < 0 {
         ("redo", (-count) as u64)
     } else {
         ("undo", count.max(1) as u64)
     };
 
-    for _ in 0..n {
-        nvim_command(socket_path, cmd)?;
+    if buf == 0 {
+        // Current buffer: use simple commands
+        for _ in 0..n {
+            nvim_command(socket_path, cmd)?;
+        }
+    } else {
+        // Specific buffer: scope via nvim_buf_call
+        let lua = format!(
+            r#"
+            vim.api.nvim_buf_call({buf}, function()
+                for _ = 1, {n} do
+                    vim.cmd('{cmd}')
+                end
+            end)
+            "#,
+            buf = buf,
+            n = n,
+            cmd = cmd,
+        );
+        nvim_exec_lua(socket_path, &lua, vec![])?;
     }
 
     Ok(format!("{} x{}", cmd, n))
@@ -781,28 +898,31 @@ pub fn nvim_undo(socket_path: &Path, count: i64) -> Result<String> {
 /// Rename a symbol using LSP.
 ///
 /// Renames the symbol at the given position (or cursor) to `new_name`.
+/// Pass `buf = 0` for the current buffer.
 pub fn nvim_lsp_rename(
     socket_path: &Path,
+    buf: i64,
     new_name: &str,
     line: Option<i64>,
     col: Option<i64>,
 ) -> Result<String> {
-    // Move cursor if position specified
-    if let (Some(ln), Some(c)) = (line, col) {
-        nvim_call(
-            socket_path,
-            "nvim_win_set_cursor",
-            vec![
-                Value::from(0i64),
-                Value::Array(vec![Value::from(ln), Value::from(c.max(0))]),
-            ],
-        )?;
-    }
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
+    let set_cursor = if let (Some(ln), Some(c)) = (line, col) {
+        format!("vim.api.nvim_win_set_cursor(0, {{{}, {}}})", ln, c.max(0))
+    } else {
+        String::new()
+    };
 
     let escaped_name = new_name.replace('\\', "\\\\").replace('"', "\\\"");
 
     let lua = format!(
         r#"
+        {set_buf}
+        {set_cursor}
         local new_name = "{name}"
         local params = vim.lsp.util.make_position_params(0)
         params.newName = new_name
@@ -860,6 +980,8 @@ pub fn nvim_lsp_rename(
             file_count = #file_list,
         }})
         "#,
+        set_buf = set_buf,
+        set_cursor = set_cursor,
         name = escaped_name,
     );
 
@@ -867,10 +989,14 @@ pub fn nvim_lsp_rename(
     Ok(value_to_string(&result))
 }
 
-/// Format the current buffer using the LSP formatter.
-pub fn nvim_lsp_format(socket_path: &Path) -> Result<String> {
-    let lua = r#"
-    local clients = vim.lsp.get_clients({ bufnr = 0 })
+/// Format a buffer using the LSP formatter.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_lsp_format(socket_path: &Path, buf: i64) -> Result<String> {
+    let lua = format!(
+        r#"
+    local buf = {buf}
+    if buf == 0 then buf = vim.api.nvim_get_current_buf() end
+    local clients = vim.lsp.get_clients({{ bufnr = buf }})
     local has_formatter = false
     for _, client in ipairs(clients) do
         if client.supports_method("textDocument/formatting") then
@@ -880,44 +1006,51 @@ pub fn nvim_lsp_format(socket_path: &Path) -> Result<String> {
     end
 
     if not has_formatter then
-        return vim.json.encode({error = "No LSP server with formatting support attached to this buffer"})
+        return vim.json.encode({{error = "No LSP server with formatting support attached to this buffer"}})
     end
 
-    local buf_name = vim.api.nvim_buf_get_name(0)
-    vim.lsp.buf.format({ async = false, timeout_ms = 10000 })
+    local buf_name = vim.api.nvim_buf_get_name(buf)
+    vim.lsp.buf.format({{ async = false, timeout_ms = 10000, bufnr = buf }})
 
-    return vim.json.encode({
+    return vim.json.encode({{
         formatted = true,
         file = buf_name,
-    })
-    "#;
+    }})
+    "#,
+        buf = buf,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 
 /// Get function signature help at the given position.
+/// Pass `buf = 0` for the current buffer.
 pub fn nvim_lsp_signature(
     socket_path: &Path,
+    buf: i64,
     line: Option<i64>,
     col: Option<i64>,
 ) -> Result<String> {
-    if let (Some(ln), Some(c)) = (line, col) {
-        nvim_call(
-            socket_path,
-            "nvim_win_set_cursor",
-            vec![
-                Value::from(0i64),
-                Value::Array(vec![Value::from(ln), Value::from(c.max(0))]),
-            ],
-        )?;
-    }
+    let set_buf = if buf != 0 {
+        format!("vim.api.nvim_set_current_buf({})", buf)
+    } else {
+        String::new()
+    };
+    let set_cursor = if let (Some(ln), Some(c)) = (line, col) {
+        format!("vim.api.nvim_win_set_cursor(0, {{{}, {}}})", ln, c.max(0))
+    } else {
+        String::new()
+    };
 
-    let lua = r#"
+    let lua = format!(
+        r#"
+    {set_buf}
+    {set_cursor}
     local params = vim.lsp.util.make_position_params(0)
     local results = vim.lsp.buf_request_sync(0, 'textDocument/signatureHelp', params, 5000)
     if not results then
-        return vim.json.encode({error = "No LSP response (timeout or no server)"})
+        return vim.json.encode({{error = "No LSP response (timeout or no server)"}})
     end
 
     for _, res in pairs(results) do
@@ -926,15 +1059,15 @@ pub fn nvim_lsp_signature(
             local active_sig = (res.result.activeSignature or 0) + 1
             local active_param = res.result.activeParameter or 0
 
-            local out = {}
+            local out = {{}}
             for i, sig in ipairs(sigs) do
-                local entry = {
+                local entry = {{
                     label = sig.label,
                     active = (i == active_sig),
                     documentation = nil,
-                    parameters = {},
+                    parameters = {{}},
                     active_parameter = (i == active_sig) and active_param or nil,
-                }
+                }}
                 if sig.documentation then
                     if type(sig.documentation) == "string" then
                         entry.documentation = sig.documentation
@@ -944,7 +1077,7 @@ pub fn nvim_lsp_signature(
                 end
                 if sig.parameters then
                     for _, p in ipairs(sig.parameters) do
-                        local param = { label = "" }
+                        local param = {{ label = "" }}
                         if type(p.label) == "string" then
                             param.label = p.label
                         elseif type(p.label) == "table" then
@@ -964,14 +1097,17 @@ pub fn nvim_lsp_signature(
                 table.insert(out, entry)
             end
 
-            return vim.json.encode({signatures = out, count = #out})
+            return vim.json.encode({{signatures = out, count = #out}})
         end
     end
 
-    return vim.json.encode({error = "No signature help available"})
-    "#;
+    return vim.json.encode({{error = "No signature help available"}})
+    "#,
+        set_buf = set_buf,
+        set_cursor = set_cursor,
+    );
 
-    let result = nvim_exec_lua(socket_path, lua, vec![])?;
+    let result = nvim_exec_lua(socket_path, &lua, vec![])?;
     Ok(value_to_string(&result))
 }
 

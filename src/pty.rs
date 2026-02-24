@@ -423,12 +423,16 @@ impl PtyInstance {
     }
 
     /// Spawn a new PTY running neovim.
+    ///
+    /// `session_id` is included in the socket path so that each session within
+    /// the same project gets its own isolated neovim instance.
     pub fn spawn_neovim(
         rows: u16,
         cols: u16,
         working_dir: &std::path::Path,
         theme_envs: &[(String, String)],
         theme_dir: Option<&std::path::Path>,
+        session_id: Option<&str>,
     ) -> Result<Self> {
         let pty_system = native_pty_system();
 
@@ -449,11 +453,15 @@ impl PtyInstance {
             cmd.env(key, val);
         }
 
-        // Compute a unique listen socket path per project.
-        // Include both the manager PID and a hash of the working directory
-        // so multiple projects each get their own neovim socket.
+        // Compute a unique listen socket path per (project, session) pair.
+        // Include the manager PID, a hash of the working directory, AND the
+        // session ID so each session gets its own neovim socket — preventing
+        // cross-session contamination when multiple sessions share a project.
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hash::hash(&working_dir, &mut hasher);
+        if let Some(sid) = session_id {
+            std::hash::Hash::hash(sid, &mut hasher);
+        }
         let dir_hash = std::hash::Hasher::finish(&hasher);
         let listen_path = std::path::PathBuf::from(format!(
             "/tmp/opencode-nvim-{}-{:x}.sock",

@@ -181,10 +181,14 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_read",
-            "description": "Read lines from the current buffer in the embedded Neovim editor. Returns the text content of the specified line range with line numbers.",
+            "description": "Read lines from a buffer in the embedded Neovim editor. Returns the text content of the specified line range with line numbers. If file_path is provided, reads from that file's buffer; otherwise reads from the current buffer.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to read. If omitted, reads the current buffer."
+                    },
                     "start_line": {
                         "type": "number",
                         "description": "Start line (1-indexed, inclusive). Defaults to 1."
@@ -228,23 +232,32 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_write",
-            "description": "Save the current buffer (or all buffers) in the embedded Neovim editor.",
+            "description": "Save a buffer (or all buffers) in the embedded Neovim editor. If file_path is provided, saves that file's buffer; otherwise saves the current buffer.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to save. If omitted, saves the current buffer."
+                    },
                     "all": {
                         "type": "boolean",
-                        "description": "If true, save all modified buffers. If false or omitted, save only the current buffer."
+                        "description": "If true, save all modified buffers. If false or omitted, save only the targeted buffer."
                     }
                 }
             }
         },
         {
             "name": "neovim_diff",
-            "description": "Show unsaved changes in the current Neovim buffer as a unified diff. Compares the buffer content against the file on disk.",
+            "description": "Show unsaved changes in a Neovim buffer as a unified diff. Compares the buffer content against the file on disk. If file_path is provided, diffs that file's buffer; otherwise diffs the current buffer.",
             "inputSchema": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to diff. If omitted, diffs the current buffer."
+                    }
+                }
             }
         },
         // ── LSP ──────────────────────────────────────────────────────
@@ -254,19 +267,27 @@ fn tool_definitions() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to get diagnostics for. If omitted, uses the current buffer."
+                    },
                     "buf_only": {
                         "type": "boolean",
-                        "description": "If true, return diagnostics only for the current buffer. If false or omitted, return diagnostics for all open buffers (project-wide)."
+                        "description": "If true, return diagnostics only for the targeted buffer. If false or omitted, return diagnostics for all open buffers (project-wide)."
                     }
                 }
             }
         },
         {
             "name": "neovim_definition",
-            "description": "Go to the definition of the symbol at the specified position (or current cursor) using the LSP. Jumps to the definition and returns the location(s). Requires an LSP server.",
+            "description": "Go to the definition of the symbol at the specified position using the LSP. Jumps to the definition and returns the location(s). Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file containing the symbol. If omitted, uses the current buffer."
+                    },
                     "line": {
                         "type": "number",
                         "description": "Line number (1-indexed) of the symbol. Defaults to current cursor line."
@@ -280,10 +301,14 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_references",
-            "description": "Find all references to the symbol at the specified position (or current cursor) using the LSP. Returns file paths, line numbers, and context for each reference. Requires an LSP server.",
+            "description": "Find all references to the symbol at the specified position using the LSP. Returns file paths, line numbers, and context for each reference. Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file containing the symbol. If omitted, uses the current buffer."
+                    },
                     "line": {
                         "type": "number",
                         "description": "Line number (1-indexed) of the symbol. Defaults to current cursor line."
@@ -297,10 +322,14 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_hover",
-            "description": "Get hover/type information for the symbol at the specified position (or current cursor) from the LSP. Returns type signatures, documentation, etc. Requires an LSP server.",
+            "description": "Get hover/type information for the symbol at the specified position from the LSP. Returns type signatures, documentation, etc. Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file containing the symbol. If omitted, uses the current buffer."
+                    },
                     "line": {
                         "type": "number",
                         "description": "Line number (1-indexed) of the symbol. Defaults to current cursor line."
@@ -314,17 +343,21 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_symbols",
-            "description": "Search for symbols using the LSP. Can search within the current document or across the entire workspace. Returns symbol names, kinds (function, class, variable, etc.), file locations, and line numbers. Requires an LSP server.",
+            "description": "Search for symbols using the LSP. Can search within a specific document or across the entire workspace. Returns symbol names, kinds, file locations, and line numbers. Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to search for document symbols. If omitted, uses the current buffer. Ignored for workspace searches."
+                    },
                     "query": {
                         "type": "string",
                         "description": "Search query to filter symbols. For workspace search, this filters by name. For document symbols, all symbols are returned (query is ignored)."
                     },
                     "workspace": {
                         "type": "boolean",
-                        "description": "If true, search across the entire workspace. If false or omitted, search only the current document."
+                        "description": "If true, search across the entire workspace. If false or omitted, search only the targeted document."
                     }
                 }
             }
@@ -334,7 +367,12 @@ fn tool_definitions() -> serde_json::Value {
             "description": "List available LSP code actions at the current cursor position. Code actions include quick-fixes, refactors, and source actions. Returns action titles and kinds. Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to get code actions for. If omitted, uses the current buffer."
+                    }
+                }
             }
         },
         // ── Dev Flow ─────────────────────────────────────────────────
@@ -373,10 +411,14 @@ fn tool_definitions() -> serde_json::Value {
         // ── Editing ─────────────────────────────────────────────
         {
             "name": "neovim_edit",
-            "description": "Replace a range of lines in the current Neovim buffer with new text. This is the primary way to modify file content. Lines are 1-indexed and inclusive. The new text replaces the entire specified range. To insert lines, set start_line and end_line to the same line. To delete lines, pass an empty string as new_text.",
+            "description": "Replace a range of lines in a Neovim buffer with new text. This is the primary way to modify file content. Lines are 1-indexed and inclusive. If file_path is provided, edits that file's buffer; otherwise edits the current buffer.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to edit. If omitted, edits the current buffer."
+                    },
                     "start_line": {
                         "type": "number",
                         "description": "First line to replace (1-indexed, inclusive)."
@@ -395,10 +437,14 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_undo",
-            "description": "Undo or redo changes in the current Neovim buffer. Positive count undoes that many changes, negative count redoes. Defaults to 1 undo.",
+            "description": "Undo or redo changes in a Neovim buffer. Positive count undoes that many changes, negative count redoes. If file_path is provided, operates on that file's buffer; otherwise on the current buffer.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to undo in. If omitted, uses the current buffer."
+                    },
                     "count": {
                         "type": "number",
                         "description": "Number of changes to undo (positive) or redo (negative). Defaults to 1 undo."
@@ -409,10 +455,14 @@ fn tool_definitions() -> serde_json::Value {
         // ── LSP Refactoring ─────────────────────────────────────
         {
             "name": "neovim_rename",
-            "description": "Rename a symbol across the project using the LSP. Applies the rename to all files and returns a summary of changes. Requires an LSP server with rename support.",
+            "description": "Rename a symbol across the project using the LSP. If file_path is provided, uses that file's buffer context; otherwise uses the current buffer. Requires an LSP server with rename support.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file containing the symbol. If omitted, uses the current buffer."
+                    },
                     "new_name": {
                         "type": "string",
                         "description": "The new name for the symbol."
@@ -431,18 +481,27 @@ fn tool_definitions() -> serde_json::Value {
         },
         {
             "name": "neovim_format",
-            "description": "Format the current buffer using the LSP formatter (e.g., rustfmt, prettier, black). Requires an LSP server with formatting support attached to the buffer.",
+            "description": "Format a buffer using the LSP formatter (e.g., rustfmt, prettier, black). If file_path is provided, formats that file's buffer; otherwise formats the current buffer. Requires an LSP server with formatting support.",
             "inputSchema": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file to format. If omitted, formats the current buffer."
+                    }
+                }
             }
         },
         {
             "name": "neovim_signature",
-            "description": "Get function signature help at the specified position (or current cursor) from the LSP. Shows parameter names, types, and documentation for function calls. Useful when writing function call arguments. Requires an LSP server.",
+            "description": "Get function signature help at the specified position from the LSP. Shows parameter names, types, and documentation for function calls. If file_path is provided, uses that file's buffer context; otherwise uses the current buffer. Requires an LSP server.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Absolute path of the file. If omitted, uses the current buffer."
+                    },
                     "line": {
                         "type": "number",
                         "description": "Line number (1-indexed) of the call site. Defaults to current cursor line."
@@ -490,6 +549,7 @@ async fn handle_tool_call(
         }
         "neovim_read" => SocketRequest {
             op: "nvim_read".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             line: arguments.get("start_line").and_then(|v| v.as_i64()),
             end_line: arguments.get("end_line").and_then(|v| v.as_i64()),
             ..Default::default()
@@ -515,39 +575,46 @@ async fn handle_tool_call(
         },
         "neovim_write" => SocketRequest {
             op: "nvim_write".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             all: arguments.get("all").and_then(|v| v.as_bool()),
             ..Default::default()
         },
         "neovim_diff" => SocketRequest {
             op: "nvim_diff".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             ..Default::default()
         },
         // ── LSP ──────────────────────────────────────────────────
         "neovim_diagnostics" => SocketRequest {
             op: "nvim_diagnostics".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             buf_only: arguments.get("buf_only").and_then(|v| v.as_bool()),
             ..Default::default()
         },
         "neovim_definition" => SocketRequest {
             op: "nvim_definition".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_references" => SocketRequest {
             op: "nvim_references".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_hover" => SocketRequest {
             op: "nvim_hover".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_symbols" => SocketRequest {
             op: "nvim_symbols".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             query: arguments
                 .get("query")
                 .and_then(|v| v.as_str())
@@ -557,6 +624,7 @@ async fn handle_tool_call(
         },
         "neovim_code_actions" => SocketRequest {
             op: "nvim_code_actions".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             ..Default::default()
         },
         // ── Dev Flow ─────────────────────────────────────────────
@@ -602,6 +670,7 @@ async fn handle_tool_call(
                 .ok_or_else(|| anyhow::anyhow!("neovim_edit requires 'new_text' argument"))?;
             SocketRequest {
                 op: "nvim_edit".into(),
+                file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 line: Some(start_line),
                 end_line: Some(end_line),
                 new_text: Some(new_text.to_string()),
@@ -610,6 +679,7 @@ async fn handle_tool_call(
         }
         "neovim_undo" => SocketRequest {
             op: "nvim_undo".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             count: arguments.get("count").and_then(|v| v.as_i64()),
             ..Default::default()
         },
@@ -621,6 +691,7 @@ async fn handle_tool_call(
                 .ok_or_else(|| anyhow::anyhow!("neovim_rename requires 'new_name' argument"))?;
             SocketRequest {
                 op: "nvim_rename".into(),
+                file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 new_name: Some(new_name.to_string()),
                 line: arguments.get("line").and_then(|v| v.as_i64()),
                 col: arguments.get("col").and_then(|v| v.as_i64()),
@@ -629,10 +700,12 @@ async fn handle_tool_call(
         }
         "neovim_format" => SocketRequest {
             op: "nvim_format".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             ..Default::default()
         },
         "neovim_signature" => SocketRequest {
             op: "nvim_signature".into(),
+            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
@@ -650,7 +723,7 @@ async fn handle_tool_call(
     socket_req.session_id = session_id.map(|s| s.to_string());
 
     let resp = send_socket_request(sock_path, &socket_req).await?;
-    format_response(sock_path, tool_name, &resp).await
+    format_response(tool_name, &resp)
 }
 
 /// Send a SocketRequest over the Unix socket and return the response.
@@ -687,7 +760,7 @@ async fn send_socket_request(
 }
 
 /// Map file extension to markdown language identifier for syntax highlighting.
-fn ext_to_lang(path: &str) -> &str {
+pub fn ext_to_lang(path: &str) -> &str {
     match path.rsplit('.').next().unwrap_or("") {
         "rs" => "rust",
         "ts" | "mts" | "cts" => "typescript",
@@ -743,11 +816,7 @@ fn try_pretty_json(s: &str) -> String {
 ///
 /// Wraps output in markdown code fences with appropriate language identifiers
 /// so that the AI client can render syntax-highlighted content.
-async fn format_response(
-    sock_path: &std::path::Path,
-    tool_name: &str,
-    resp: &SocketResponse,
-) -> anyhow::Result<serde_json::Value> {
+fn format_response(tool_name: &str, resp: &SocketResponse) -> anyhow::Result<serde_json::Value> {
     if !resp.ok {
         let error_msg = resp.error.as_deref().unwrap_or("Unknown error");
         return Ok(serde_json::json!([{
@@ -759,30 +828,8 @@ async fn format_response(
     let text = resp.output.as_deref().unwrap_or("OK");
 
     let formatted = match tool_name {
-        // ── File content: detect language from buffer name ─────────
-        "neovim_read" => {
-            // Ask for the current buffer name to determine syntax highlighting
-            let info_req = SocketRequest {
-                op: "nvim_info".into(),
-                ..Default::default()
-            };
-            let lang = if let Ok(info_resp) = send_socket_request(sock_path, &info_req).await {
-                if let Some(ref info_text) = info_resp.output {
-                    // info output is "Buffer: /path/to/file.ext\n..."
-                    info_text
-                        .lines()
-                        .next()
-                        .and_then(|line| line.strip_prefix("Buffer: "))
-                        .map(|path| ext_to_lang(path).to_string())
-                        .unwrap_or_default()
-                } else {
-                    String::new()
-                }
-            } else {
-                String::new()
-            };
-            format!("```{}\n{}\n```", lang, text)
-        }
+        // ── File content: already wrapped in code fence by app.rs ───
+        "neovim_read" => text.to_string(),
 
         // ── Diff output ──────────────────────────────────────────────
         "neovim_diff" => {

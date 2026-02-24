@@ -1,5 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -226,6 +226,12 @@ pub fn spawn_socket_server(
         // Used by ephemeral_lock/ephemeral_unlock ops from the MCP bridge.
         let busy_ephemeral: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
 
+        // Per-file lock map for neovim operations. Operations on different
+        // files run concurrently; operations on the same file (or with no
+        // file_path, keyed as "__current__") are serialized.
+        let nvim_locks: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
         loop {
             let (stream, _) = match listener.accept().await {
                 Ok(conn) => conn,
@@ -239,6 +245,7 @@ pub fn spawn_socket_server(
             let pidx = project_idx;
             let busy = busy_tabs.clone();
             let eph = busy_ephemeral.clone();
+            let nvim = nvim_locks.clone();
 
             tokio::spawn(async move {
                 let (reader, mut writer) = stream.into_split();
@@ -341,6 +348,38 @@ pub fn spawn_socket_server(
                     }
                 }
 
+                // Acquire per-file neovim lock for nvim_* ops. Operations on
+                // different files run concurrently; same-file ops are serialized.
+                let is_nvim_op = request.op.starts_with("nvim_");
+                let nvim_lock_key = if is_nvim_op {
+                    Some(
+                        request
+                            .file_path
+                            .as_deref()
+                            .unwrap_or("__current__")
+                            .to_string(),
+                    )
+                } else {
+                    None
+                };
+                // Acquire per-file lock. Keep the Arc alive so the guard can borrow it.
+                let _nvim_arc = if let Some(ref key) = nvim_lock_key {
+                    let lock = {
+                        let mut locks = nvim.lock().unwrap();
+                        locks
+                            .entry(key.clone())
+                            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+                            .clone()
+                    };
+                    Some(lock)
+                } else {
+                    None
+                };
+                let _nvim_guard = match &_nvim_arc {
+                    Some(lock) => Some(lock.lock().await),
+                    None => None,
+                };
+
                 // Send to main event loop and wait for response
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
                 // Extract session_id from the request (set by bridge from
@@ -370,6 +409,9 @@ pub fn spawn_socket_server(
                     }
                 };
                 let _ = write_result;
+
+                // Release the per-file neovim lock (dropped when _nvim_guard goes out of scope)
+                drop(_nvim_guard);
 
                 // Release the per-tab lock
                 if let Some(key) = lock_key {

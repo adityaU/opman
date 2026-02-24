@@ -1206,8 +1206,8 @@ impl App {
             &self.projects[index].path,
             &theme_envs,
             Some(&td),
-        ) {
-            Ok(nvim) => {
+            Some(&sid),
+        ) {            Ok(nvim) => {
                 let resources = self.projects[index]
                     .session_resources
                     .entry(sid)
@@ -1760,6 +1760,7 @@ impl App {
                 &project_path,
                 &theme_envs,
                 Some(&td),
+                Some(session_id),
             ) {
                 Ok(nvim) => {
                     resources.neovim_pty = Some(nvim);
@@ -1942,6 +1943,23 @@ impl App {
                     ),
                 };
 
+                // Resolve file_path → buffer handle (0 = current buffer)
+                let buf: i64 = if let Some(ref path) = request.file_path {
+                    // nvim_open handles its own file_path, skip resolution
+                    if request.op != "nvim_open" {
+                        match crate::nvim_rpc::nvim_find_or_load_buffer(&nvim_socket, path) {
+                            Ok(id) => id,
+                            Err(e) => return SocketResponse::err(
+                                format!("Failed to resolve buffer for '{}': {}", path, e)
+                            ),
+                        }
+                    } else {
+                        0
+                    }
+                } else {
+                    0 // current buffer
+                };
+
                 match request.op.as_str() {
                     "nvim_open" => {
                         let file_path = match &request.file_path {
@@ -1972,7 +1990,7 @@ impl App {
                         let end = match request.end_line {
                             Some(-1) | None => {
                                 // Read to end of buffer
-                                match crate::nvim_rpc::nvim_buf_line_count(&nvim_socket) {
+                                match crate::nvim_rpc::nvim_buf_line_count(&nvim_socket, buf) {
                                     Ok(count) => count,
                                     Err(e) => {
                                         return SocketResponse::err(format!(
@@ -1984,7 +2002,14 @@ impl App {
                             }
                             Some(e) => e, // Already 1-indexed end, used as exclusive end
                         };
-                        match crate::nvim_rpc::nvim_buf_get_lines(&nvim_socket, start, end) {
+                        // Get buffer name for language detection (fold into
+                        // same atomic window so format_response doesn't need a
+                        // separate nvim_info round-trip).
+                        let lang = crate::nvim_rpc::nvim_buf_get_name(&nvim_socket, buf)
+                            .map(|name| crate::mcp_neovim::ext_to_lang(&name).to_string())
+                            .unwrap_or_default();
+
+                        match crate::nvim_rpc::nvim_buf_get_lines(&nvim_socket, buf, start, end) {
                             Ok(lines) => {
                                 // Number the lines for readability (1-indexed)
                                 let numbered: Vec<String> = lines
@@ -1992,7 +2017,10 @@ impl App {
                                     .enumerate()
                                     .map(|(i, l)| format!("{}: {}", start + 1 + i as i64, l))
                                     .collect();
-                                SocketResponse::ok_text(numbered.join("\n"))
+                                let body = numbered.join("\n");
+                                // Wrap in code fence so format_response can pass
+                                // through without another nvim_info call.
+                                SocketResponse::ok_text(format!("```{}\n{}\n```", lang, body))
                             }
                             Err(e) => SocketResponse::err(format!(
                                 "Failed to read lines from Neovim: {}",
@@ -2029,12 +2057,12 @@ impl App {
                         Err(e) => SocketResponse::err(format!("Failed to list buffers: {}", e)),
                     },
                     "nvim_info" => {
-                        let name = crate::nvim_rpc::nvim_buf_get_name(&nvim_socket)
+                        let name = crate::nvim_rpc::nvim_buf_get_name(&nvim_socket, buf)
                             .unwrap_or_else(|_| "(unknown)".into());
                         let cursor =
                             crate::nvim_rpc::nvim_cursor_pos(&nvim_socket).unwrap_or((1, 0));
                         let line_count =
-                            crate::nvim_rpc::nvim_buf_line_count(&nvim_socket).unwrap_or(0);
+                            crate::nvim_rpc::nvim_buf_line_count(&nvim_socket, buf).unwrap_or(0);
 
                         let info = format!(
                             "Buffer: {}\nCursor: line {}, column {}\nTotal lines: {}",
@@ -2047,7 +2075,7 @@ impl App {
                     }
                     "nvim_diagnostics" => {
                         let buf_only = request.buf_only.unwrap_or(false);
-                        match crate::nvim_rpc::nvim_lsp_diagnostics(&nvim_socket, buf_only) {
+                        match crate::nvim_rpc::nvim_lsp_diagnostics(&nvim_socket, buf, buf_only) {
                             Ok(output) => SocketResponse::ok_text(output),
                             Err(e) => {
                                 SocketResponse::err(format!("Failed to get diagnostics: {}", e))
@@ -2057,6 +2085,7 @@ impl App {
                     "nvim_definition" => {
                         match crate::nvim_rpc::nvim_lsp_definition(
                             &nvim_socket,
+                            buf,
                             request.line,
                             request.col,
                         ) {
@@ -2069,6 +2098,7 @@ impl App {
                     "nvim_references" => {
                         match crate::nvim_rpc::nvim_lsp_references(
                             &nvim_socket,
+                            buf,
                             request.line,
                             request.col,
                         ) {
@@ -2081,6 +2111,7 @@ impl App {
                     "nvim_hover" => {
                         match crate::nvim_rpc::nvim_lsp_hover(
                             &nvim_socket,
+                            buf,
                             request.line,
                             request.col,
                         ) {
@@ -2093,13 +2124,13 @@ impl App {
                     "nvim_symbols" => {
                         let query = request.query.as_deref().unwrap_or("");
                         let workspace = request.workspace.unwrap_or(false);
-                        match crate::nvim_rpc::nvim_lsp_symbols(&nvim_socket, query, workspace) {
+                        match crate::nvim_rpc::nvim_lsp_symbols(&nvim_socket, buf, query, workspace) {
                             Ok(output) => SocketResponse::ok_text(output),
                             Err(e) => SocketResponse::err(format!("Failed to get symbols: {}", e)),
                         }
                     }
                     "nvim_code_actions" => {
-                        match crate::nvim_rpc::nvim_lsp_code_actions(&nvim_socket) {
+                        match crate::nvim_rpc::nvim_lsp_code_actions(&nvim_socket, buf) {
                             Ok(output) => SocketResponse::ok_text(output),
                             Err(e) => {
                                 SocketResponse::err(format!("Failed to get code actions: {}", e))
@@ -2135,7 +2166,7 @@ impl App {
                             Err(e) => SocketResponse::err(format!("Grep failed: {}", e)),
                         }
                     }
-                    "nvim_diff" => match crate::nvim_rpc::nvim_buf_diff(&nvim_socket) {
+                    "nvim_diff" => match crate::nvim_rpc::nvim_buf_diff(&nvim_socket, buf) {
                         Ok(output) => {
                             if output.is_empty() {
                                 SocketResponse::ok_text("No unsaved changes.".into())
@@ -2147,7 +2178,7 @@ impl App {
                     },
                     "nvim_write" => {
                         let all = request.all.unwrap_or(false);
-                        match crate::nvim_rpc::nvim_write(&nvim_socket, all) {
+                        match crate::nvim_rpc::nvim_write(&nvim_socket, buf, all) {
                             Ok(output) => SocketResponse::ok_text(output),
                             Err(e) => SocketResponse::err(format!("Failed to write: {}", e)),
                         }
@@ -2180,6 +2211,7 @@ impl App {
                         };
                         match crate::nvim_rpc::nvim_buf_set_text(
                             &nvim_socket,
+                            buf,
                             start_line,
                             end_line,
                             new_text,
@@ -2190,7 +2222,7 @@ impl App {
                     }
                     "nvim_undo" => {
                         let count = request.count.unwrap_or(1);
-                        match crate::nvim_rpc::nvim_undo(&nvim_socket, count) {
+                        match crate::nvim_rpc::nvim_undo(&nvim_socket, buf, count) {
                             Ok(msg) => SocketResponse::ok_text(msg),
                             Err(e) => SocketResponse::err(format!("Undo failed: {}", e)),
                         }
@@ -2207,6 +2239,7 @@ impl App {
                         };
                         match crate::nvim_rpc::nvim_lsp_rename(
                             &nvim_socket,
+                            buf,
                             new_name,
                             request.line,
                             request.col,
@@ -2215,13 +2248,14 @@ impl App {
                             Err(e) => SocketResponse::err(format!("Rename failed: {}", e)),
                         }
                     }
-                    "nvim_format" => match crate::nvim_rpc::nvim_lsp_format(&nvim_socket) {
+                    "nvim_format" => match crate::nvim_rpc::nvim_lsp_format(&nvim_socket, buf) {
                         Ok(output) => SocketResponse::ok_text(output),
                         Err(e) => SocketResponse::err(format!("Format failed: {}", e)),
                     },
                     "nvim_signature" => {
                         match crate::nvim_rpc::nvim_lsp_signature(
                             &nvim_socket,
+                            buf,
                             request.line,
                             request.col,
                         ) {
