@@ -425,6 +425,7 @@ async fn run_event_loop(
 
     loop {
         // ── 1. Draw the UI (instant on first iteration) ──────────────
+        app.sync_sidebar_to_active_session();
         terminal.draw(|frame| ui::draw(frame, app))?;
 
         if app.should_quit {

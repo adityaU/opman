@@ -2223,6 +2223,52 @@ impl App {
         count
     }
 
+    /// Compute the flat sidebar index for a given project + session ID.
+    /// Returns `None` if the session is not currently visible in the sidebar.
+    fn sidebar_index_for_session(&self, project_idx: usize, session_id: &str) -> Option<usize> {
+        let mut idx = 0;
+        for (i, _) in self.projects.iter().enumerate() {
+            idx += 1; // project row
+
+            if self.sessions_expanded_for == Some(i) {
+                idx += 1; // "New Session"
+            }
+
+            let vis = self.visible_sessions(i);
+            for session in &vis {
+                if i == project_idx && session.id == session_id {
+                    return Some(idx);
+                }
+                idx += 1;
+
+                if self.subagents_expanded_for.as_deref() == Some(&session.id) {
+                    idx += self.subagent_sessions(i, &session.id).len();
+                }
+            }
+
+            if self.has_more_sessions(i) {
+                idx += 1;
+            }
+        }
+        None
+    }
+
+    /// Keep `sidebar_selection` in sync with the active project's active
+    /// session so the highlight always reflects what is shown in the
+    /// terminal pane.
+    pub fn sync_sidebar_to_active_session(&mut self) {
+        let proj = self.active_project;
+        if let Some(ref sid) = self
+            .projects
+            .get(proj)
+            .and_then(|p| p.active_session.clone())
+        {
+            if let Some(flat) = self.sidebar_index_for_session(proj, sid) {
+                self.sidebar_selection = flat;
+            }
+        }
+    }
+
     /// Open session search mode for the active project.
     pub fn open_session_search(&mut self) {
         if let Some(project) = self.projects.get(self.active_project) {
