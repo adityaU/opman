@@ -94,6 +94,7 @@ pub enum BackgroundEvent {
     /// MCP socket request from a bridge process (terminal tool invocation).
     McpSocketRequest {
         project_idx: usize,
+        session_id: String,
         pending: crate::mcp::PendingSocketRequest,
     },
 }
@@ -140,16 +141,8 @@ pub struct Project {
     pub ptys: HashMap<String, PtyInstance>,
     /// Which session's PTY is currently active (key into `ptys`).
     pub active_session: Option<String>,
-    /// PTYs running the user's shell (integrated terminal tabs), per-project.
-    pub shell_ptys: Vec<PtyInstance>,
-    /// Index of the active shell tab.
-    pub active_shell_tab: usize,
-    /// PTY running neovim, per-project.
-    pub neovim_pty: Option<PtyInstance>,
-    /// Snapshot of file contents *before* the latest edit.
-    /// Keyed by absolute file path. Used by follow-edits to compute
-    /// per-edit diffs instead of cumulative diffs from HEAD.
-    pub file_snapshots: HashMap<String, String>,
+    /// Per-session resources (shell tabs, neovim, file snapshots).
+    pub session_resources: HashMap<String, SessionResources>,
     /// PTY running gitui, per-project.
     pub gitui_pty: Option<PtyInstance>,
     /// Cached list of session IDs fetched from the server's REST API.
@@ -168,6 +161,62 @@ impl Project {
     pub fn active_pty_mut(&mut self) -> Option<&mut PtyInstance> {
         let sid = self.active_session.clone();
         sid.and_then(move |s| self.ptys.get_mut(&s))
+    }
+
+    /// Get the session resources for the active session (immutable).
+    pub fn active_resources(&self) -> Option<&SessionResources> {
+        self.active_session
+            .as_ref()
+            .and_then(|sid| self.session_resources.get(sid))
+    }
+
+    /// Get the session resources for the active session (mutable).
+    pub fn active_resources_mut(&mut self) -> Option<&mut SessionResources> {
+        let sid = self.active_session.clone();
+        sid.and_then(move |s| self.session_resources.get_mut(&s))
+    }
+
+    /// Get or create session resources for the active session.
+    pub fn ensure_active_resources(&mut self) -> Option<&mut SessionResources> {
+        let sid = self.active_session.clone()?;
+        Some(self.session_resources.entry(sid).or_insert_with(SessionResources::new))
+    }
+
+    pub fn active_shell_pty(&self) -> Option<&PtyInstance> {
+        self.active_resources()
+            .and_then(|r| r.shell_ptys.get(r.active_shell_tab))
+    }
+
+    pub fn active_shell_pty_mut(&mut self) -> Option<&mut PtyInstance> {
+        self.active_resources_mut()
+            .and_then(|r| r.shell_ptys.get_mut(r.active_shell_tab))
+    }
+}
+
+/// Per-session resources: each session gets its own independent terminal tabs,
+/// neovim instance, and file snapshots.
+#[derive(Debug)]
+pub struct SessionResources {
+    /// PTYs running the user's shell (integrated terminal tabs).
+    pub shell_ptys: Vec<PtyInstance>,
+    /// Index of the active shell tab.
+    pub active_shell_tab: usize,
+    /// PTY running neovim.
+    pub neovim_pty: Option<PtyInstance>,
+    /// Snapshot of file contents *before* the latest edit.
+    /// Keyed by absolute file path. Used by follow-edits to compute
+    /// per-edit diffs instead of cumulative diffs from HEAD.
+    pub file_snapshots: HashMap<String, String>,
+}
+
+impl SessionResources {
+    pub fn new() -> Self {
+        Self {
+            shell_ptys: Vec::new(),
+            active_shell_tab: 0,
+            neovim_pty: None,
+            file_snapshots: HashMap::new(),
+        }
     }
 
     pub fn active_shell_pty(&self) -> Option<&PtyInstance> {
@@ -629,10 +678,7 @@ impl App {
                     .unwrap_or_else(|_| PathBuf::from(&entry.path)),
                 ptys: HashMap::new(),
                 active_session: None,
-                shell_ptys: vec![],
-                active_shell_tab: 0,
-                neovim_pty: None,
-                file_snapshots: HashMap::new(),
+                session_resources: HashMap::new(),
                 gitui_pty: None,
                 sessions: Vec::new(),
                 git_branch: String::new(),
@@ -742,14 +788,20 @@ impl App {
                 if rect.width > 0 && rect.height > 0 {
                     // Reserve 1 line for tab bar
                     let content_height = rect.height.saturating_sub(1).max(1);
-                    for shell_pty in &mut project.shell_ptys {
-                        let _ = shell_pty.resize(content_height, rect.width);
+                    if let Some(resources) = project.active_resources_mut() {
+                        for shell_pty in &mut resources.shell_ptys {
+                            let _ = shell_pty.resize(content_height, rect.width);
+                        }
                     }
                 }
             }
-            if let (Some(ref mut nvim_pty), Some(rect)) = (&mut project.neovim_pty, nvim_rect) {
-                if rect.width > 0 && rect.height > 0 {
-                    let _ = nvim_pty.resize(rect.height, rect.width);
+            if let Some(resources) = project.active_resources_mut() {
+                if let Some(ref mut nvim_pty) = resources.neovim_pty {
+                    if let Some(rect) = nvim_rect {
+                        if rect.width > 0 && rect.height > 0 {
+                            let _ = nvim_pty.resize(rect.height, rect.width);
+                        }
+                    }
                 }
             }
             if let (Some(ref mut gitui_pty), Some(rect)) = (&mut project.gitui_pty, git_rect) {
@@ -868,10 +920,7 @@ impl App {
             path: std::fs::canonicalize(&entry.path).unwrap_or_else(|_| PathBuf::from(&entry.path)),
             ptys: HashMap::new(),
             active_session: None,
-            shell_ptys: vec![],
-            active_shell_tab: 0,
-            neovim_pty: None,
-            file_snapshots: HashMap::new(),
+            session_resources: HashMap::new(),
             gitui_pty: None,
             sessions: Vec::new(),
             git_branch: String::new(),
@@ -1034,9 +1083,20 @@ impl App {
         if index >= self.projects.len() {
             return;
         }
-        // Ensure at least one shell tab exists
-        if !self.projects[index].shell_ptys.is_empty() {
-            return;
+        // Need an active session to attach resources to
+        let sid = match self.projects[index].active_session.clone() {
+            Some(s) => s,
+            None => return,
+        };
+        // Ensure at least one shell tab exists for the active session
+        {
+            let resources = self.projects[index]
+                .session_resources
+                .entry(sid.clone())
+                .or_insert_with(SessionResources::new);
+            if !resources.shell_ptys.is_empty() {
+                return;
+            }
         }
         let shell_rows = self
             .layout
@@ -1064,8 +1124,12 @@ impl App {
             None,
         ) {
             Ok(shell) => {
-                self.projects[index].shell_ptys.push(shell);
-                self.projects[index].active_shell_tab = 0;
+                let resources = self.projects[index]
+                    .session_resources
+                    .entry(sid)
+                    .or_insert_with(SessionResources::new);
+                resources.shell_ptys.push(shell);
+                resources.active_shell_tab = 0;
             }
             Err(e) => tracing::warn!(
                 project = %self.projects[index].name,
@@ -1079,6 +1143,10 @@ impl App {
         if index >= self.projects.len() {
             return;
         }
+        let sid = match self.projects[index].active_session.clone() {
+            Some(s) => s,
+            None => return,
+        };
         let shell_rows = self
             .layout
             .panel_rect(PanelId::IntegratedTerminal)
@@ -1104,8 +1172,12 @@ impl App {
             None,
         ) {
             Ok(shell) => {
-                self.projects[index].shell_ptys.push(shell);
-                self.projects[index].active_shell_tab = self.projects[index].shell_ptys.len() - 1;
+                let resources = self.projects[index]
+                    .session_resources
+                    .entry(sid)
+                    .or_insert_with(SessionResources::new);
+                resources.shell_ptys.push(shell);
+                resources.active_shell_tab = resources.shell_ptys.len() - 1;
             }
             Err(e) => tracing::warn!(
                 project = %self.projects[index].name,
@@ -1119,8 +1191,18 @@ impl App {
         if index >= self.projects.len() {
             return;
         }
-        if self.projects[index].neovim_pty.is_some() {
-            return;
+        let sid = match self.projects[index].active_session.clone() {
+            Some(s) => s,
+            None => return,
+        };
+        {
+            let resources = self.projects[index]
+                .session_resources
+                .entry(sid.clone())
+                .or_insert_with(SessionResources::new);
+            if resources.neovim_pty.is_some() {
+                return;
+            }
         }
         let nvim_size = self
             .layout
@@ -1136,7 +1218,13 @@ impl App {
             &theme_envs,
             Some(&td),
         ) {
-            Ok(nvim) => self.projects[index].neovim_pty = Some(nvim),
+            Ok(nvim) => {
+                let resources = self.projects[index]
+                    .session_resources
+                    .entry(sid)
+                    .or_insert_with(SessionResources::new);
+                resources.neovim_pty = Some(nvim);
+            }
             Err(e) => tracing::warn!(
                 project = %self.projects[index].name,
                 "Failed to spawn neovim PTY: {}", e
@@ -1207,11 +1295,13 @@ impl App {
         let shell_cmd = format!(" source '{}'; clear\n", zsh_theme.display());
 
         for project in self.projects.iter_mut() {
-            if let Some(ref mut nvim) = project.neovim_pty {
-                let _ = nvim.write(nvim_cmd.as_bytes());
-            }
-            for shell in &mut project.shell_ptys {
-                let _ = shell.write(shell_cmd.as_bytes());
+            for resources in project.session_resources.values_mut() {
+                if let Some(ref mut nvim) = resources.neovim_pty {
+                    let _ = nvim.write(nvim_cmd.as_bytes());
+                }
+                for shell in &mut resources.shell_ptys {
+                    let _ = shell.write(shell_cmd.as_bytes());
+                }
             }
             // Kill and respawn gitui_pty to pick up new theme
             if project.gitui_pty.is_some() {
@@ -1363,87 +1453,83 @@ impl App {
                     if self
                         .projects
                         .get(project_idx)
-                        .map(|p| p.neovim_pty.is_none())
-                        .unwrap_or(false)
+                        .and_then(|p| p.active_resources())
+                        .map(|r| r.neovim_pty.is_none())
+                        .unwrap_or(true)
                     {
                         self.ensure_neovim_pty();
                     }
                     if let Some(project) = self.projects.get_mut(project_idx) {
-                        let has_nvim = project.neovim_pty.is_some();
+                        let has_nvim = project
+                            .active_resources()
+                            .map(|r| r.neovim_pty.is_some())
+                            .unwrap_or(false);
                         debug!(
                             has_nvim,
                             "SseFileEdited: project found, checking neovim_pty"
                         );
-                        if let Some(ref mut nvim) = project.neovim_pty {
-                            // Build the absolute path for Neovim commands.
-                            // Use fnameescape() via :execute so Vim handles
-                            // all special characters (spaces, quotes, #, %).
-                            let abs_path = if std::path::Path::new(&file_path).is_absolute() {
-                                file_path.clone()
+
+                        // Clone project.path early to avoid borrow conflicts
+                        // when we later borrow neovim_pty mutably.
+                        let project_path = project.path.clone();
+
+                        // Build the absolute path for Neovim commands.
+                        let abs_path = if std::path::Path::new(&file_path).is_absolute() {
+                            file_path.clone()
+                        } else {
+                            project_path.join(&file_path).to_string_lossy().to_string()
+                        };
+
+                        // Read the current file content after this edit.
+                        let current_content =
+                            std::fs::read_to_string(&abs_path).unwrap_or_default();
+
+                        // Get or seed the snapshot for this file.
+                        let old_content = if let Some(snap) = project
+                            .active_resources()
+                            .and_then(|r| r.file_snapshots.get(&abs_path))
+                        {
+                            snap.clone()
+                        } else {
+                            // Seed from git HEAD.
+                            let rel_path = std::path::Path::new(&abs_path)
+                                .strip_prefix(&project_path)
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or_else(|_| file_path.clone());
+                            let git_show = std::process::Command::new("git")
+                                .args(["show", &format!("HEAD:{}", rel_path)])
+                                .current_dir(&project_path)
+                                .output();
+                            match git_show {
+                                Ok(output) if output.status.success() => {
+                                    String::from_utf8_lossy(&output.stdout).to_string()
+                                }
+                                _ => String::new(),
+                            }
+                        };
+
+                        let (added, deleted) =
+                            if old_content.is_empty() && !current_content.is_empty() {
+                                let line_count = current_content.lines().count().max(1);
+                                ((1..=line_count).collect::<Vec<_>>(), Vec::new())
                             } else {
-                                project.path.join(&file_path).to_string_lossy().to_string()
+                                diff_snapshot_lines(&old_content, &current_content)
                             };
-                            // Escape single quotes for Vim string literals
-                            // (double each ' so 'Aditya''s' is valid).
+
+                        debug!(
+                            added_count = added.len(),
+                            deleted_count = deleted.len(),
+                            "SseFileEdited: snapshot diff computed"
+                        );
+
+                        if has_nvim {
+                            // Escape single quotes for Vim string literals.
                             let vim_str_path = abs_path.replace('\'', "''");
 
                             let mut cmds = vec![format!(
                                 "\x1b:execute 'edit! ' . fnameescape('{}')\r",
                                 vim_str_path
                             )];
-
-                            // Compute per-edit diff using snapshots.
-                            // Read the current file content after this edit.
-                            let current_content =
-                                std::fs::read_to_string(&abs_path).unwrap_or_default();
-
-                            // Get or seed the snapshot for this file.
-                            // If no snapshot exists, seed from `git show HEAD:<file>`
-                            // so the first edit shows only the actual changes, not the
-                            // entire file as additions.
-                            let old_content =
-                                if let Some(snap) = project.file_snapshots.get(&abs_path) {
-                                    snap.clone()
-                                } else {
-                                    // Seed from git HEAD. Compute relative path for git.
-                                    let rel_path = std::path::Path::new(&abs_path)
-                                        .strip_prefix(&project.path)
-                                        .map(|p| p.to_string_lossy().to_string())
-                                        .unwrap_or_else(|_| file_path.clone());
-                                    let git_show = std::process::Command::new("git")
-                                        .args(["show", &format!("HEAD:{}", rel_path)])
-                                        .current_dir(&project.path)
-                                        .output();
-                                    match git_show {
-                                        Ok(output) if output.status.success() => {
-                                            String::from_utf8_lossy(&output.stdout).to_string()
-                                        }
-                                        _ => {
-                                            // Untracked or not in git — no baseline available.
-                                            String::new()
-                                        }
-                                    }
-                                };
-
-                            let (added, deleted) =
-                                if old_content.is_empty() && !current_content.is_empty() {
-                                    // No baseline at all (new/untracked file): all lines are additions.
-                                    let line_count = current_content.lines().count().max(1);
-                                    ((1..=line_count).collect::<Vec<_>>(), Vec::new())
-                                } else {
-                                    diff_snapshot_lines(&old_content, &current_content)
-                                };
-
-                            // Update snapshot to current content for next edit.
-                            project
-                                .file_snapshots
-                                .insert(abs_path.clone(), current_content);
-
-                            debug!(
-                                added_count = added.len(),
-                                deleted_count = deleted.len(),
-                                "SseFileEdited: snapshot diff computed"
-                            );
 
                             if !added.is_empty() || !deleted.is_empty() {
                                 let success_hex = color_to_hex(self.theme.success);
@@ -1464,8 +1550,6 @@ impl App {
                                     "\x1b:sign define diff_del text=- texthl=DiffDelLine\r"
                                         .to_string(),
                                 );
-                                // Use buffer= with current buffer number instead of file=
-                                // to avoid path escaping issues with special characters.
                                 cmds.push(
                                     "\x1b:execute 'sign unplace * buffer=' . bufnr('%')\r"
                                         .to_string(),
@@ -1498,19 +1582,33 @@ impl App {
                                 }
                             }
 
-                            // Batch all commands into a single write to avoid
-                            // race conditions with Neovim processing.
                             let batch = cmds.concat();
                             debug!(
                                 cmd_count = cmds.len(),
                                 "SseFileEdited: writing batched vim cmds"
                             );
-                            let _ = nvim.write(batch.as_bytes());
+
+                            // Update snapshot and write to neovim in one mutable borrow.
+                            if let Some(resources) = project.ensure_active_resources() {
+                                resources
+                                    .file_snapshots
+                                    .insert(abs_path.clone(), current_content);
+                                if let Some(ref mut nvim) = resources.neovim_pty {
+                                    let _ = nvim.write(batch.as_bytes());
+                                }
+                            }
                         } else {
+                            // No neovim, just update snapshot.
+                            if let Some(resources) = project.ensure_active_resources() {
+                                resources
+                                    .file_snapshots
+                                    .insert(abs_path.clone(), current_content);
+                            }
                             debug!(
                                 "SseFileEdited: neovim_pty is still None after ensure, skipping"
                             );
                         }
+
                     } else {
                         debug!(project_idx, "SseFileEdited: project not found at index");
                     }
@@ -1578,9 +1676,21 @@ impl App {
             }
             BackgroundEvent::McpSocketRequest {
                 project_idx,
+                session_id,
                 pending,
             } => {
-                let response = self.handle_mcp_request(project_idx, &pending.request);
+                // If session_id is empty (e.g. from MCP socket server), resolve
+                // from the project's active_session instead.
+                let resolved_sid = if session_id.is_empty() {
+                    self.projects
+                        .get(project_idx)
+                        .and_then(|p| p.active_session.clone())
+                        .unwrap_or_default()
+                } else {
+                    session_id
+                };
+                let response =
+                    self.handle_mcp_request(project_idx, &resolved_sid, &pending.request);
                 let _ = pending.reply_tx.send(response);
             }
         }
@@ -1590,6 +1700,7 @@ impl App {
     fn handle_mcp_request(
         &mut self,
         project_idx: usize,
+        session_id: &str,
         request: &crate::mcp::SocketRequest,
     ) -> crate::mcp::SocketResponse {
         use crate::mcp::{SocketResponse, TabInfo};
@@ -1598,11 +1709,15 @@ impl App {
             Some(p) => p,
             None => return SocketResponse::err("Project not found".into()),
         };
+        let resources = match project.session_resources.get_mut(session_id) {
+            Some(r) => r,
+            None => return SocketResponse::err("No session resources found".into()),
+        };
 
         match request.op.as_str() {
             "read" => {
-                let tab_idx = request.tab.unwrap_or(project.active_shell_tab);
-                match project.shell_ptys.get(tab_idx) {
+                let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
+                match resources.shell_ptys.get(tab_idx) {
                     Some(pty) => {
                         if let Ok(parser) = pty.parser.lock() {
                             let screen = parser.screen();
@@ -1632,12 +1747,12 @@ impl App {
                 }
             }
             "run" => {
-                let tab_idx = request.tab.unwrap_or(project.active_shell_tab);
+                let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
                 let command = match &request.command {
                     Some(c) => c,
                     None => return SocketResponse::err("Missing 'command' for run op".into()),
                 };
-                match project.shell_ptys.get_mut(tab_idx) {
+                match resources.shell_ptys.get_mut(tab_idx) {
                     Some(pty) => {
                         let is_ctrl_c = command == "\x03";
                         if !is_ctrl_c {
@@ -1667,13 +1782,13 @@ impl App {
                 }
             }
             "list" => {
-                let tabs: Vec<TabInfo> = project
+                let tabs: Vec<TabInfo> = resources
                     .shell_ptys
                     .iter()
                     .enumerate()
                     .map(|(i, pty)| TabInfo {
                         index: i,
-                        active: i == project.active_shell_tab,
+                        active: i == resources.active_shell_tab,
                         name: if pty.name.is_empty() {
                             format!("Tab {}", i + 1)
                         } else {
@@ -1698,37 +1813,48 @@ impl App {
                     .get(project_idx)
                     .and_then(|e| e.terminal_command.as_deref())
                     .or(self.config.settings.default_terminal_command.as_deref());
-                let project = &mut self.projects[project_idx];
+                let project_path = self.projects[project_idx].path.clone();
                 match crate::pty::PtyInstance::spawn_shell(
                     shell_size.0,
                     shell_size.1,
-                    &project.path,
+                    &project_path,
                     &theme_envs,
                     Some(&td),
                     command,
                     request.name.clone(),
                 ) {
                     Ok(shell) => {
-                        project.shell_ptys.push(shell);
-                        let new_idx = project.shell_ptys.len() - 1;
-                        project.active_shell_tab = new_idx;
+                        let resources = match self.projects[project_idx]
+                            .session_resources
+                            .get_mut(session_id)
+                        {
+                            Some(r) => r,
+                            None => {
+                                return SocketResponse::err(
+                                    "No session resources found".into(),
+                                )
+                            }
+                        };
+                        resources.shell_ptys.push(shell);
+                        let new_idx = resources.shell_ptys.len() - 1;
+                        resources.active_shell_tab = new_idx;
                         SocketResponse::ok_tab_created(new_idx)
                     }
                     Err(e) => SocketResponse::err(format!("Failed to spawn shell: {}", e)),
                 }
             }
             "close" => {
-                let tab_idx = request.tab.unwrap_or(project.active_shell_tab);
-                if tab_idx >= project.shell_ptys.len() {
+                let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
+                if tab_idx >= resources.shell_ptys.len() {
                     return SocketResponse::err(format!("Tab {} not found", tab_idx));
                 }
-                if project.shell_ptys.len() <= 1 {
+                if resources.shell_ptys.len() <= 1 {
                     return SocketResponse::err("Cannot close the last tab".into());
                 }
-                let mut pty = project.shell_ptys.remove(tab_idx);
+                let mut pty = resources.shell_ptys.remove(tab_idx);
                 let _ = pty.kill();
-                if project.active_shell_tab >= project.shell_ptys.len() {
-                    project.active_shell_tab = project.shell_ptys.len().saturating_sub(1);
+                if resources.active_shell_tab >= resources.shell_ptys.len() {
+                    resources.active_shell_tab = resources.shell_ptys.len().saturating_sub(1);
                 }
                 SocketResponse::ok_empty()
             }
@@ -1741,7 +1867,7 @@ impl App {
                     Some(n) => n,
                     None => return SocketResponse::err("Missing 'name' for rename op".into()),
                 };
-                match project.shell_ptys.get_mut(tab_idx) {
+                match resources.shell_ptys.get_mut(tab_idx) {
                     Some(pty) => {
                         pty.name = name.clone();
                         SocketResponse::ok_empty()
@@ -1750,8 +1876,8 @@ impl App {
                 }
             }
             "status" => {
-                let tab_idx = request.tab.unwrap_or(project.active_shell_tab);
-                match project.shell_ptys.get(tab_idx) {
+                let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
+                match resources.shell_ptys.get(tab_idx) {
                     Some(pty) => {
                         let state = if let Ok(cs) = pty.command_state.lock() {
                             match *cs {
@@ -1774,7 +1900,7 @@ impl App {
             | "nvim_symbols" | "nvim_code_actions" | "nvim_eval" | "nvim_grep" | "nvim_diff"
             | "nvim_write" | "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format"
             | "nvim_signature" => {
-                let nvim_socket = match &project.neovim_pty {
+                let nvim_socket = match &resources.neovim_pty {
                     Some(pty) => match &pty.nvim_listen_addr {
                         Some(addr) => addr.clone(),
                         None => return SocketResponse::err(

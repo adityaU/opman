@@ -586,7 +586,7 @@ async fn run_event_loop(
                                         // Scroll to match
                                         let (match_row, _, _) = search.matches[search.current_match];
                                         if let Some(project) = app.projects.get_mut(app.active_project) {
-                                            if let Some(pty) = project.shell_ptys.get_mut(project.active_shell_tab) {
+                                            if let Some(pty) = project.active_shell_pty_mut() {
                                                 if let Ok(mut p) = pty.parser.lock() {
                                                     let rows = p.screen().size().0 as usize;
                                                     let total = p.screen().contents().lines().count();
@@ -665,7 +665,7 @@ async fn run_event_loop(
                             match (key.code, key.modifiers.contains(KeyModifiers::SHIFT)) {
                                 (KeyCode::PageUp, true) => {
                                     if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some(pty) = project.shell_ptys.get_mut(project.active_shell_tab) {
+                                        if let Some(pty) = project.active_shell_pty_mut() {
                                             pty.scroll_offset = pty.scroll_offset.saturating_add(pty.rows as usize / 2);
                                             if let Ok(mut p) = pty.parser.lock() {
                                                 p.set_scrollback(pty.scroll_offset);
@@ -677,7 +677,7 @@ async fn run_event_loop(
                                 }
                                 (KeyCode::PageDown, true) => {
                                     if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some(pty) = project.shell_ptys.get_mut(project.active_shell_tab) {
+                                        if let Some(pty) = project.active_shell_pty_mut() {
                                             pty.scroll_offset = pty.scroll_offset.saturating_sub(pty.rows as usize / 2);
                                             if let Ok(mut p) = pty.parser.lock() {
                                                 p.set_scrollback(pty.scroll_offset);
@@ -895,28 +895,36 @@ async fn run_event_loop(
                                 crate::ui::layout_manager::PanelId::IntegratedTerminal => {
                                     if let Some(project) = app.projects.get_mut(app.active_project) {
                                         if let Some(rect) = app.layout.panel_rect(crate::ui::layout_manager::PanelId::IntegratedTerminal) {
-                                            let has_tab_bar = project.shell_ptys.len() > 1;
+                                            let has_tab_bar = project.active_resources().map(|r| r.shell_ptys.len()).unwrap_or(0) > 1;
                                             // Check if click is on the tab bar row
                                             if has_tab_bar && mouse_event.row == rect.y {
                                                 if matches!(mouse_event.kind, crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)) {
                                                     // Calculate which tab was clicked based on x position
                                                     let click_x = mouse_event.column.saturating_sub(rect.x) as usize;
                                                     let mut x_offset = 0usize;
-                                                    for (i, pty) in project.shell_ptys.iter().enumerate() {
-                                                        let label = if pty.name.is_empty() {
-                                                            format!(" Tab {} ", i + 1)
-                                                        } else {
-                                                            format!(" {} ", pty.name)
-                                                        };
-                                                        let label_len = label.len();
-                                                        // Include command-state dot width to match rendering
-                                                        let cmd_state = pty.command_state.lock().unwrap().clone();
-                                                        let dot_width = if cmd_state != crate::pty::CommandState::Idle { 1 } else { 0 };
-                                                        if click_x >= x_offset && click_x < x_offset + label_len + dot_width {
-                                                            project.active_shell_tab = i;
-                                                            break;
+                                                    let mut clicked_tab = None;
+                                                    if let Some(resources) = project.active_resources() {
+                                                        for (i, pty) in resources.shell_ptys.iter().enumerate() {
+                                                            let label = if pty.name.is_empty() {
+                                                                format!(" Tab {} ", i + 1)
+                                                            } else {
+                                                                format!(" {} ", pty.name)
+                                                            };
+                                                            let label_len = label.len();
+                                                            // Include command-state dot width to match rendering
+                                                            let cmd_state = pty.command_state.lock().unwrap().clone();
+                                                            let dot_width = if cmd_state != crate::pty::CommandState::Idle { 1 } else { 0 };
+                                                            if click_x >= x_offset && click_x < x_offset + label_len + dot_width {
+                                                                clicked_tab = Some(i);
+                                                                break;
+                                                            }
+                                                            x_offset += label_len + dot_width;
                                                         }
-                                                        x_offset += label_len + dot_width;
+                                                    }
+                                                    if let Some(tab) = clicked_tab {
+                                                        if let Some(resources) = project.active_resources_mut() {
+                                                            resources.active_shell_tab = tab;
+                                                        }
                                                     }
                                                 }
                                             } else if let Some(pty) = project.active_shell_pty_mut() {
@@ -937,7 +945,7 @@ async fn run_event_loop(
                                 }
                                 crate::ui::layout_manager::PanelId::NeovimPane => {
                                     if let Some(project) = app.projects.get_mut(app.active_project) {
-                                        if let Some((pty, rect)) = project.neovim_pty.as_mut().zip(app.layout.panel_rect(crate::ui::layout_manager::PanelId::NeovimPane)) {
+                                        if let Some((pty, rect)) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()).zip(app.layout.panel_rect(crate::ui::layout_manager::PanelId::NeovimPane)) {
                                             forward_mouse_to_pty(
                                                 pty,
                                                 &mouse_event,
@@ -1134,7 +1142,7 @@ fn update_terminal_search_matches(app: &mut app::App) {
 
     let mut matches = Vec::new();
     if let Some(project) = app.projects.get(app.active_project) {
-        if let Some(pty) = project.shell_ptys.get(project.active_shell_tab) {
+        if let Some(pty) = project.active_shell_pty() {
             if let Ok(parser) = pty.parser.lock() {
                 let screen = parser.screen();
                 let rows = screen.size().0;

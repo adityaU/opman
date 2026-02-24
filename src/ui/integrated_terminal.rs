@@ -31,8 +31,12 @@ impl<'a> IntegratedTerminal<'a> {
             buf[(x, area.y)].set_style(bg_style);
         }
 
+        let resources = match project.active_resources() {
+            Some(r) => r,
+            None => return,
+        };
         let mut x_offset = area.x;
-        for (i, pty) in project.shell_ptys.iter().enumerate() {
+        for (i, pty) in resources.shell_ptys.iter().enumerate() {
             if x_offset >= area.x + area.width {
                 break;
             }
@@ -42,7 +46,7 @@ impl<'a> IntegratedTerminal<'a> {
             } else {
                 format!(" {} ", pty.name)
             };
-            let is_active = i == project.active_shell_tab;
+            let is_active = i == resources.active_shell_tab;
 
             let style = if is_active {
                 Style::default()

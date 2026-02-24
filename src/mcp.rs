@@ -342,6 +342,7 @@ pub fn spawn_socket_server(
                 let pending = PendingSocketRequest { request, reply_tx };
                 let _ = tx.send(crate::app::BackgroundEvent::McpSocketRequest {
                     project_idx: pidx,
+                    session_id: String::new(), // resolved from active_session in handler
                     pending,
                 });
 

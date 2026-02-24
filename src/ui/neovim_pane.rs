@@ -30,7 +30,7 @@ impl Widget for NeovimPane<'_> {
             }
         };
 
-        match &project.neovim_pty {
+        match project.active_resources().and_then(|r| r.neovim_pty.as_ref()) {
             Some(pty) => {
                 let parser = pty.parser.lock().unwrap();
                 let pseudo_term = tui_term::widget::PseudoTerminal::new(parser.screen())

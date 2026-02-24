@@ -549,7 +549,7 @@ pub fn handle_paste(app: &mut App, text: &str) {
             }
         }
         PanelId::NeovimPane => {
-            if let Some(pty) = project.neovim_pty.as_mut() {
+            if let Some(pty) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()) {
                 let _ = pty.write(bytes);
             }
         }
@@ -1269,7 +1269,7 @@ fn handle_fuzzy_picker_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 /// Forwards all keys to the neovim PTY.
 fn handle_neovim_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     if let Some(project) = app.active_project_mut() {
-        if let Some(ref mut nvim_pty) = project.neovim_pty {
+        if let Some(ref mut nvim_pty) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()) {
             if nvim_pty.scroll_offset > 0 {
                 nvim_pty.scroll_offset = 0;
                 if let Ok(mut parser) = nvim_pty.parser.lock() {
@@ -1374,11 +1374,17 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
         CommandAction::NavigateDown => app.layout.navigate_down(),
         CommandAction::SwapTerminal => {
             if let Some(project) = app.projects.get_mut(app.active_project) {
-                let sid = project.active_session.clone();
-                let active_tab = project.active_shell_tab;
-                if let Some(sid) = sid {
-                    if let Some(pty) = project.ptys.get_mut(&sid) {
-                        if let Some(shell) = project.shell_ptys.get_mut(active_tab) {
+                if let Some(sid) = project.active_session.clone() {
+                    let active_tab = project
+                        .session_resources
+                        .get(&sid)
+                        .map(|r| r.active_shell_tab)
+                        .unwrap_or(0);
+                    if let (Some(pty), Some(resources)) = (
+                        project.ptys.get_mut(&sid),
+                        project.session_resources.get_mut(&sid),
+                    ) {
+                        if let Some(shell) = resources.shell_ptys.get_mut(active_tab) {
                             std::mem::swap(pty, shell);
                         }
                     }
@@ -1553,36 +1559,47 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
         }
         CommandAction::NextTerminalTab => {
             if let Some(project) = app.projects.get_mut(app.active_project) {
-                if !project.shell_ptys.is_empty() {
-                    project.active_shell_tab =
-                        (project.active_shell_tab + 1) % project.shell_ptys.len();
+                if let Some(resources) = project.active_resources_mut() {
+                    if !resources.shell_ptys.is_empty() {
+                        resources.active_shell_tab =
+                            (resources.active_shell_tab + 1) % resources.shell_ptys.len();
+                    }
                 }
             }
         }
         CommandAction::PrevTerminalTab => {
             if let Some(project) = app.projects.get_mut(app.active_project) {
-                if !project.shell_ptys.is_empty() {
-                    project.active_shell_tab = if project.active_shell_tab == 0 {
-                        project.shell_ptys.len() - 1
-                    } else {
-                        project.active_shell_tab - 1
-                    };
+                if let Some(resources) = project.active_resources_mut() {
+                    if !resources.shell_ptys.is_empty() {
+                        resources.active_shell_tab = if resources.active_shell_tab == 0 {
+                            resources.shell_ptys.len() - 1
+                        } else {
+                            resources.active_shell_tab - 1
+                        };
+                    }
                 }
             }
         }
         CommandAction::CloseTerminalTab => {
+            let mut should_hide = false;
             if let Some(project) = app.projects.get_mut(app.active_project) {
-                if project.shell_ptys.len() > 1 {
-                    project.shell_ptys.remove(project.active_shell_tab);
-                    if project.active_shell_tab >= project.shell_ptys.len() {
-                        project.active_shell_tab = project.shell_ptys.len().saturating_sub(1);
+                if let Some(resources) = project.active_resources_mut() {
+                    if resources.shell_ptys.len() > 1 {
+                        resources.shell_ptys.remove(resources.active_shell_tab);
+                        if resources.active_shell_tab >= resources.shell_ptys.len() {
+                            resources.active_shell_tab =
+                                resources.shell_ptys.len().saturating_sub(1);
+                        }
+                    } else if resources.shell_ptys.len() == 1 {
+                        resources.shell_ptys.clear();
+                        resources.active_shell_tab = 0;
+                        should_hide = true;
                     }
-                } else if project.shell_ptys.len() == 1 {
-                    project.shell_ptys.clear();
-                    project.active_shell_tab = 0;
-                    app.layout.set_visible(PanelId::IntegratedTerminal, false);
-                    resize_ptys(app);
                 }
+            }
+            if should_hide {
+                app.layout.set_visible(PanelId::IntegratedTerminal, false);
+                resize_ptys(app);
             }
         }
         CommandAction::SearchTerminal => {
@@ -1599,7 +1616,7 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
                     search.current_match = (search.current_match + 1) % search.matches.len();
                     let (match_row, _, _) = search.matches[search.current_match];
                     if let Some(project) = app.projects.get_mut(app.active_project) {
-                        if let Some(pty) = project.shell_ptys.get_mut(project.active_shell_tab) {
+                        if let Some(pty) = project.active_shell_pty_mut() {
                             if let Ok(mut p) = pty.parser.lock() {
                                 let rows = p.screen().size().0 as usize;
                                 if match_row >= rows {
@@ -1623,7 +1640,7 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
                     };
                     let (match_row, _, _) = search.matches[search.current_match];
                     if let Some(project) = app.projects.get_mut(app.active_project) {
-                        if let Some(pty) = project.shell_ptys.get_mut(project.active_shell_tab) {
+                        if let Some(pty) = project.active_shell_pty_mut() {
                             if let Ok(mut p) = pty.parser.lock() {
                                 let rows = p.screen().size().0 as usize;
                                 if match_row >= rows {
