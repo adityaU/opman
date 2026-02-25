@@ -20,7 +20,7 @@ pub struct SocketRequest {
     //   "nvim_diagnostics" | "nvim_definition" | "nvim_references"
     //   "nvim_hover" | "nvim_symbols" | "nvim_code_actions"
     //   "nvim_eval" | "nvim_grep" | "nvim_diff" | "nvim_write"
-    //   "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format" | "nvim_signature"
+    //   "nvim_edit_and_save" | "nvim_undo" | "nvim_rename" | "nvim_format" | "nvim_signature"
     /// Session ID for routing to the correct per-session resources.
     /// Set by MCP bridges from OPENCODE_SESSION_ID env var.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -59,7 +59,7 @@ pub struct SocketRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glob: Option<String>, // for "nvim_grep": file glob pattern
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub new_text: Option<String>, // for "nvim_edit": replacement text
+    pub new_text: Option<String>, // for "nvim_edit_and_save": replacement text
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<i64>, // for "nvim_undo": undo count (negative = redo)
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -410,8 +410,8 @@ fn tool_definitions() -> serde_json::Value {
         },
         // ── Editing ─────────────────────────────────────────────
         {
-            "name": "neovim_edit",
-            "description": "Replace a range of lines in a Neovim buffer with new text. This is the primary way to modify file content. Lines are 1-indexed and inclusive. If file_path is provided, edits that file's buffer; otherwise edits the current buffer.",
+            "name": "neovim_edit_and_save",
+            "description": "Replace a range of lines in a Neovim buffer with new text and save the file to disk. This is the primary way to modify file content. Lines are 1-indexed and inclusive. If file_path is provided, edits that file's buffer; otherwise edits the current buffer.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -549,7 +549,10 @@ async fn handle_tool_call(
         }
         "neovim_read" => SocketRequest {
             op: "nvim_read".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             line: arguments.get("start_line").and_then(|v| v.as_i64()),
             end_line: arguments.get("end_line").and_then(|v| v.as_i64()),
             ..Default::default()
@@ -575,46 +578,67 @@ async fn handle_tool_call(
         },
         "neovim_write" => SocketRequest {
             op: "nvim_write".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             all: arguments.get("all").and_then(|v| v.as_bool()),
             ..Default::default()
         },
         "neovim_diff" => SocketRequest {
             op: "nvim_diff".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             ..Default::default()
         },
         // ── LSP ──────────────────────────────────────────────────
         "neovim_diagnostics" => SocketRequest {
             op: "nvim_diagnostics".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             buf_only: arguments.get("buf_only").and_then(|v| v.as_bool()),
             ..Default::default()
         },
         "neovim_definition" => SocketRequest {
             op: "nvim_definition".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_references" => SocketRequest {
             op: "nvim_references".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_hover" => SocketRequest {
             op: "nvim_hover".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()
         },
         "neovim_symbols" => SocketRequest {
             op: "nvim_symbols".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             query: arguments
                 .get("query")
                 .and_then(|v| v.as_str())
@@ -624,7 +648,10 @@ async fn handle_tool_call(
         },
         "neovim_code_actions" => SocketRequest {
             op: "nvim_code_actions".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             ..Default::default()
         },
         // ── Dev Flow ─────────────────────────────────────────────
@@ -655,22 +682,31 @@ async fn handle_tool_call(
             }
         }
         // ── Editing ─────────────────────────────────────────
-        "neovim_edit" => {
+        "neovim_edit_and_save" => {
             let start_line = arguments
                 .get("start_line")
                 .and_then(|v| v.as_i64())
-                .ok_or_else(|| anyhow::anyhow!("neovim_edit requires 'start_line' argument"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("neovim_edit_and_save requires 'start_line' argument")
+                })?;
             let end_line = arguments
                 .get("end_line")
                 .and_then(|v| v.as_i64())
-                .ok_or_else(|| anyhow::anyhow!("neovim_edit requires 'end_line' argument"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("neovim_edit_and_save requires 'end_line' argument")
+                })?;
             let new_text = arguments
                 .get("new_text")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| anyhow::anyhow!("neovim_edit requires 'new_text' argument"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("neovim_edit_and_save requires 'new_text' argument")
+                })?;
             SocketRequest {
-                op: "nvim_edit".into(),
-                file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                op: "nvim_edit_and_save".into(),
+                file_path: arguments
+                    .get("file_path")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 line: Some(start_line),
                 end_line: Some(end_line),
                 new_text: Some(new_text.to_string()),
@@ -679,7 +715,10 @@ async fn handle_tool_call(
         }
         "neovim_undo" => SocketRequest {
             op: "nvim_undo".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             count: arguments.get("count").and_then(|v| v.as_i64()),
             ..Default::default()
         },
@@ -691,7 +730,10 @@ async fn handle_tool_call(
                 .ok_or_else(|| anyhow::anyhow!("neovim_rename requires 'new_name' argument"))?;
             SocketRequest {
                 op: "nvim_rename".into(),
-                file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                file_path: arguments
+                    .get("file_path")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 new_name: Some(new_name.to_string()),
                 line: arguments.get("line").and_then(|v| v.as_i64()),
                 col: arguments.get("col").and_then(|v| v.as_i64()),
@@ -700,12 +742,18 @@ async fn handle_tool_call(
         }
         "neovim_format" => SocketRequest {
             op: "nvim_format".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             ..Default::default()
         },
         "neovim_signature" => SocketRequest {
             op: "nvim_signature".into(),
-            file_path: arguments.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            file_path: arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             line: arguments.get("line").and_then(|v| v.as_i64()),
             col: arguments.get("col").and_then(|v| v.as_i64()),
             ..Default::default()

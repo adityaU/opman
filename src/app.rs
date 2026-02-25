@@ -1930,7 +1930,7 @@ impl App {
             "nvim_open" | "nvim_read" | "nvim_command" | "nvim_buffers" | "nvim_info"
             | "nvim_diagnostics" | "nvim_definition" | "nvim_references" | "nvim_hover"
             | "nvim_symbols" | "nvim_code_actions" | "nvim_eval" | "nvim_grep" | "nvim_diff"
-            | "nvim_write" | "nvim_edit" | "nvim_undo" | "nvim_rename" | "nvim_format"
+            | "nvim_write" | "nvim_edit_and_save" | "nvim_undo" | "nvim_rename" | "nvim_format"
             | "nvim_signature" => {
                 let nvim_socket = match &resources.neovim_pty {
                     Some(pty) => match &pty.nvim_listen_addr {
@@ -2189,12 +2189,12 @@ impl App {
                         }
                     }
                     // ── Editing ──────────────────────────────────────
-                    "nvim_edit" => {
+                    "nvim_edit_and_save" => {
                         let start_line = match request.line {
                             Some(l) => l,
                             None => {
                                 return SocketResponse::err(
-                                    "Missing 'start_line' for nvim_edit".into(),
+                                    "Missing 'start_line' for nvim_edit_and_save".into(),
                                 )
                             }
                         };
@@ -2202,7 +2202,7 @@ impl App {
                             Some(l) => l,
                             None => {
                                 return SocketResponse::err(
-                                    "Missing 'end_line' for nvim_edit".into(),
+                                    "Missing 'end_line' for nvim_edit_and_save".into(),
                                 )
                             }
                         };
@@ -2210,11 +2210,11 @@ impl App {
                             Some(t) => t.as_str(),
                             None => {
                                 return SocketResponse::err(
-                                    "Missing 'new_text' for nvim_edit".into(),
+                                    "Missing 'new_text' for nvim_edit_and_save".into(),
                                 )
                             }
                         };
-                        match crate::nvim_rpc::nvim_buf_set_text(
+                        match crate::nvim_rpc::nvim_buf_set_text_and_save(
                             &nvim_socket,
                             buf,
                             start_line,
@@ -2222,7 +2222,7 @@ impl App {
                             new_text,
                         ) {
                             Ok(msg) => SocketResponse::ok_text(msg),
-                            Err(e) => SocketResponse::err(format!("Edit failed: {}", e)),
+                            Err(e) => SocketResponse::err(format!("Edit+save failed: {}", e)),
                         }
                     }
                     "nvim_undo" => {

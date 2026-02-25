@@ -858,6 +858,23 @@ pub fn nvim_buf_set_text(
     ))
 }
 
+/// Replace lines in a buffer and save to disk.
+///
+/// Combines `nvim_buf_set_text` + `nvim_write` in a single operation.
+/// `start_line` and `end_line` are 1-indexed, inclusive.
+/// Pass `buf = 0` for the current buffer.
+pub fn nvim_buf_set_text_and_save(
+    socket_path: &Path,
+    buf: i64,
+    start_line: i64,
+    end_line: i64,
+    new_text: &str,
+) -> Result<String> {
+    let edit_msg = nvim_buf_set_text(socket_path, buf, start_line, end_line, new_text)?;
+    let save_msg = nvim_write(socket_path, buf, false)?;
+    Ok(format!("{}\n{}", edit_msg, save_msg))
+}
+
 /// Undo or redo changes in a buffer.
 ///
 /// `count` is the number of times to undo (positive) or redo (negative).
