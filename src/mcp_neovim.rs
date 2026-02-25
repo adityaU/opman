@@ -411,13 +411,13 @@ fn tool_definitions() -> serde_json::Value {
         // ── Editing ─────────────────────────────────────────────
         {
             "name": "neovim_edit_and_save",
-            "description": "Replace a range of lines in a Neovim buffer with new text and save the file to disk. This is the primary way to modify file content. Lines are 1-indexed and inclusive. If file_path is provided, edits that file's buffer; otherwise edits the current buffer.",
+            "description": "Replace a range of lines in a Neovim buffer with new text and save the file to disk. This is the primary way to modify file content. Lines are 1-indexed and inclusive. file_path is required — use the buffer list to find open buffers. For multiple edits, pass an \"edits\" array instead of the single-edit parameters — line numbers are automatically adjusted after each edit so you can specify them based on the original file contents.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "Absolute path of the file to edit. If omitted, edits the current buffer."
+                        "description": "Absolute path of the file to edit. Required for single edit, ignored when edits array is provided."
                     },
                     "start_line": {
                         "type": "number",
@@ -430,26 +430,53 @@ fn tool_definitions() -> serde_json::Value {
                     "new_text": {
                         "type": "string",
                         "description": "The replacement text. Use newlines (\\n) to separate multiple lines. Pass an empty string to delete the specified lines."
+                    },
+                    "edits": {
+                        "type": "array",
+                        "description": "Array of edits to apply as a batch. When provided, the single-edit parameters above are ignored. Line numbers should reference the original file — adjustments are computed automatically.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "Absolute path of the file to edit."
+                                },
+                                "start_line": {
+                                    "type": "number",
+                                    "description": "First line to replace (1-indexed, inclusive)."
+                                },
+                                "end_line": {
+                                    "type": "number",
+                                    "description": "Last line to replace (1-indexed, inclusive)."
+                                },
+                                "new_text": {
+                                    "type": "string",
+                                    "description": "The replacement text."
+                                }
+                            },
+                            "required": ["file_path", "start_line", "end_line", "new_text"]
+                        }
                     }
                 },
-                "required": ["start_line", "end_line", "new_text"]
+                "required": []
             }
         },
         {
             "name": "neovim_undo",
-            "description": "Undo or redo changes in a Neovim buffer. Positive count undoes that many changes, negative count redoes. If file_path is provided, operates on that file's buffer; otherwise on the current buffer.",
+            "description": "Undo or redo changes in a Neovim buffer. Positive count undoes that many changes, negative count redoes. file_path is required — use the buffer list to find open buffers.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "Absolute path of the file to undo in. If omitted, uses the current buffer."
+                        "description": "Absolute path of the file to undo in. Required."
                     },
                     "count": {
                         "type": "number",
                         "description": "Number of changes to undo (positive) or redo (negative). Defaults to 1 undo."
                     }
-                }
+                },
+                "required": ["file_path"]
             }
         },
         // ── LSP Refactoring ─────────────────────────────────────
@@ -683,45 +710,94 @@ async fn handle_tool_call(
         }
         // ── Editing ─────────────────────────────────────────
         "neovim_edit_and_save" => {
-            let start_line = arguments
-                .get("start_line")
-                .and_then(|v| v.as_i64())
-                .ok_or_else(|| {
-                    anyhow::anyhow!("neovim_edit_and_save requires 'start_line' argument")
-                })?;
-            let end_line = arguments
-                .get("end_line")
-                .and_then(|v| v.as_i64())
-                .ok_or_else(|| {
-                    anyhow::anyhow!("neovim_edit_and_save requires 'end_line' argument")
-                })?;
-            let new_text = arguments
-                .get("new_text")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    anyhow::anyhow!("neovim_edit_and_save requires 'new_text' argument")
-                })?;
-            SocketRequest {
-                op: "nvim_edit_and_save".into(),
-                file_path: arguments
+            // Check for multi-edit batch first
+            if let Some(edits_val) = arguments.get("edits") {
+                let edits_arr = edits_val
+                    .as_array()
+                    .ok_or_else(|| anyhow::anyhow!("'edits' must be an array"))?;
+                if edits_arr.is_empty() {
+                    anyhow::bail!("'edits' array must not be empty");
+                }
+                let mut edits = Vec::new();
+                for (i, edit) in edits_arr.iter().enumerate() {
+                    let fp = edit
+                        .get("file_path")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| anyhow::anyhow!("edits[{}] requires 'file_path'", i))?;
+                    let sl = edit
+                        .get("start_line")
+                        .and_then(|v| v.as_i64())
+                        .ok_or_else(|| anyhow::anyhow!("edits[{}] requires 'start_line'", i))?;
+                    let el = edit
+                        .get("end_line")
+                        .and_then(|v| v.as_i64())
+                        .ok_or_else(|| anyhow::anyhow!("edits[{}] requires 'end_line'", i))?;
+                    let nt = edit
+                        .get("new_text")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| anyhow::anyhow!("edits[{}] requires 'new_text'", i))?;
+                    edits.push(mcp::EditOp {
+                        file_path: fp.to_string(),
+                        start_line: sl,
+                        end_line: el,
+                        new_text: nt.to_string(),
+                    });
+                }
+                SocketRequest {
+                    op: "nvim_edit_and_save".into(),
+                    edits: Some(edits),
+                    ..Default::default()
+                }
+            } else {
+                // Single edit — require all four params
+                let file_path = arguments
                     .get("file_path")
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string()),
-                line: Some(start_line),
-                end_line: Some(end_line),
-                new_text: Some(new_text.to_string()),
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("neovim_edit_and_save requires 'file_path' argument — use neovim_buffers to find open buffers")
+                    })?;
+                let start_line = arguments
+                    .get("start_line")
+                    .and_then(|v| v.as_i64())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("neovim_edit_and_save requires 'start_line' argument")
+                    })?;
+                let end_line = arguments
+                    .get("end_line")
+                    .and_then(|v| v.as_i64())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("neovim_edit_and_save requires 'end_line' argument")
+                    })?;
+                let new_text = arguments
+                    .get("new_text")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("neovim_edit_and_save requires 'new_text' argument")
+                    })?;
+                SocketRequest {
+                    op: "nvim_edit_and_save".into(),
+                    file_path: Some(file_path.to_string()),
+                    line: Some(start_line),
+                    end_line: Some(end_line),
+                    new_text: Some(new_text.to_string()),
+                    ..Default::default()
+                }
+            }
+        }
+        "neovim_undo" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    anyhow::anyhow!("neovim_undo requires 'file_path' argument — use neovim_buffers to find open buffers")
+                })?;
+            SocketRequest {
+                op: "nvim_undo".into(),
+                file_path: Some(file_path.to_string()),
+                count: arguments.get("count").and_then(|v| v.as_i64()),
                 ..Default::default()
             }
         }
-        "neovim_undo" => SocketRequest {
-            op: "nvim_undo".into(),
-            file_path: arguments
-                .get("file_path")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            count: arguments.get("count").and_then(|v| v.as_i64()),
-            ..Default::default()
-        },
         // ── LSP Refactoring ─────────────────────────────────
         "neovim_rename" => {
             let new_name = arguments

@@ -6,6 +6,7 @@
 /// Protocol format (msgpack array):
 ///   Request:  [0, msgid, method, params]
 ///   Response: [1, msgid, error, result]
+use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -870,43 +871,193 @@ pub fn nvim_buf_set_text_and_save(
     end_line: i64,
     new_text: &str,
 ) -> Result<String> {
+    // Scroll to the edit target so the user sees the change happen.
+    // nvim_win_set_cursor is 1-indexed (line, 0-indexed col).
+    let _ = nvim_call(
+        socket_path,
+        "nvim_win_set_cursor",
+        vec![
+            Value::from(0i64), // current window
+            Value::Array(vec![Value::from(start_line), Value::from(0i64)]),
+        ],
+    );
+    let _ = nvim_command(socket_path, "normal! zz");
+
     let edit_msg = nvim_buf_set_text(socket_path, buf, start_line, end_line, new_text)?;
     let save_msg = nvim_write(socket_path, buf, false)?;
+
+    // Highlight the edited range for 1 second.
+    // start_line is 1-indexed; after the edit, new lines occupy
+    // start_line .. start_line + new_lines_count - 1.
+    let new_lines_count = if new_text.is_empty() {
+        0i64
+    } else {
+        new_text.lines().count() as i64
+    };
+    if new_lines_count > 0 {
+        // 0-indexed start/end for the highlight
+        let hl_start = start_line - 1;
+        let hl_end = hl_start + new_lines_count; // exclusive
+        let lua = format!(
+            r#"
+            local buf = ({buf} == 0) and vim.api.nvim_get_current_buf() or {buf}
+            local ns = vim.api.nvim_create_namespace("opman_edit_flash")
+            vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+            for i = {start}, {end_exclusive} - 1 do
+                vim.api.nvim_buf_add_highlight(buf, ns, "Visual", i, 0, -1)
+            end
+            vim.defer_fn(function()
+                vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+            end, 1000)
+            "#,
+            buf = buf,
+            start = hl_start,
+            end_exclusive = hl_end,
+        );
+        // Best-effort: don't fail the edit if highlighting fails
+        let _ = nvim_exec_lua(socket_path, &lua, vec![]);
+    }
+
     Ok(format!("{}\n{}", edit_msg, save_msg))
+}
+
+/// A resolved edit ready to apply: buffer handle + line range + text.
+pub struct ResolvedEdit {
+    pub buf: i64,
+    pub file_path: String,
+    pub start_line: i64,
+    pub end_line: i64,
+    pub new_text: String,
+}
+
+/// Apply multiple edits across one or more files in a single batch.
+///
+/// Edits are applied sequentially in the order given. After each edit, the
+/// line numbers of subsequent edits **to the same file** are adjusted by the
+/// delta (lines_added − lines_removed) so callers can specify all line
+/// numbers based on the **original** file contents.
+///
+/// Each modified file is saved once at the end. The Neovim viewport scrolls
+/// to the first edit, and the last edited range in each file is flashed.
+pub fn nvim_buf_multi_edit_and_save(
+    socket_path: &Path,
+    edits: &mut [ResolvedEdit],
+) -> Result<String> {
+    if edits.is_empty() {
+        anyhow::bail!("No edits provided");
+    }
+
+    // Track cumulative line delta per file (keyed by file_path).
+    let mut deltas: HashMap<String, i64> = HashMap::new();
+    let mut messages: Vec<String> = Vec::new();
+    // Track which buffers were modified (for saving) and last-edit info (for flash).
+    let mut modified_bufs: HashMap<i64, String> = HashMap::new(); // buf -> file_path
+    let mut last_edit_per_buf: HashMap<i64, (i64, i64)> = HashMap::new(); // buf -> (hl_start_0idx, hl_end_exclusive_0idx)
+
+    for i in 0..edits.len() {
+        let delta = *deltas.get(&edits[i].file_path).unwrap_or(&0);
+        let adjusted_start = edits[i].start_line + delta;
+        let adjusted_end = edits[i].end_line + delta;
+
+        // Switch to the correct buffer and scroll to the edit location
+        // so the user sees each edit happen.
+        if edits[i].buf != 0 {
+            let _ = nvim_call(
+                socket_path,
+                "nvim_set_current_buf",
+                vec![Value::from(edits[i].buf)],
+            );
+        }
+        let _ = nvim_call(
+            socket_path,
+            "nvim_win_set_cursor",
+            vec![
+                Value::from(0i64),
+                Value::Array(vec![Value::from(adjusted_start), Value::from(0i64)]),
+            ],
+        );
+        let _ = nvim_command(socket_path, "normal! zz");
+
+        // Apply the edit
+        let edit_msg = nvim_buf_set_text(
+            socket_path,
+            edits[i].buf,
+            adjusted_start,
+            adjusted_end,
+            &edits[i].new_text,
+        )?;
+        messages.push(edit_msg);
+
+        // Calculate the delta this edit introduced
+        let lines_removed = edits[i].end_line - edits[i].start_line + 1;
+        let lines_added = if edits[i].new_text.is_empty() {
+            0i64
+        } else {
+            edits[i].new_text.lines().count() as i64
+        };
+        let edit_delta = lines_added - lines_removed;
+
+        // Update cumulative delta for this file
+        *deltas.entry(edits[i].file_path.clone()).or_insert(0) += edit_delta;
+
+        // Track modified buffer and last edit position
+        modified_bufs.insert(edits[i].buf, edits[i].file_path.clone());
+        if lines_added > 0 {
+            let hl_start = adjusted_start - 1; // 0-indexed
+            let hl_end = hl_start + lines_added; // exclusive
+            last_edit_per_buf.insert(edits[i].buf, (hl_start, hl_end));
+        }
+    }
+
+    // Save each modified buffer once
+    for (&buf, file_path) in &modified_bufs {
+        match nvim_write(socket_path, buf, false) {
+            Ok(msg) => messages.push(msg),
+            Err(e) => messages.push(format!("Failed to save {}: {}", file_path, e)),
+        }
+    }
+
+    // Flash the last edited range in each buffer for 1 second
+    for (&buf, &(hl_start, hl_end)) in &last_edit_per_buf {
+        let lua = format!(
+            r#"
+            local buf = ({buf} == 0) and vim.api.nvim_get_current_buf() or {buf}
+            local ns = vim.api.nvim_create_namespace("opman_edit_flash")
+            vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+            for i = {start}, {end_exclusive} - 1 do
+                vim.api.nvim_buf_add_highlight(buf, ns, "Visual", i, 0, -1)
+            end
+            vim.defer_fn(function()
+                vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+            end, 1000)
+            "#,
+            buf = buf,
+            start = hl_start,
+            end_exclusive = hl_end,
+        );
+        let _ = nvim_exec_lua(socket_path, &lua, vec![]);
+    }
+
+    Ok(messages.join("\n"))
 }
 
 /// Undo or redo changes in a buffer.
 ///
-/// `count` is the number of times to undo (positive) or redo (negative).
-/// Defaults to 1 undo if count is 0 or positive, redo if negative.
+/// Positive `count` undoes that many changes; negative `count` redoes.
 /// Pass `buf = 0` for the current buffer.
 pub fn nvim_undo(socket_path: &Path, buf: i64, count: i64) -> Result<String> {
-    let (cmd, n) = if count < 0 {
-        ("redo", (-count) as u64)
+    if buf != 0 {
+        nvim_call(socket_path, "nvim_set_current_buf", vec![Value::from(buf)])?;
+    }
+
+    let (cmd, n) = if count >= 0 {
+        ("undo", count.max(1))
     } else {
-        ("undo", count.max(1) as u64)
+        ("redo", -count)
     };
 
-    if buf == 0 {
-        // Current buffer: use simple commands
-        for _ in 0..n {
-            nvim_command(socket_path, cmd)?;
-        }
-    } else {
-        // Specific buffer: scope via nvim_buf_call
-        let lua = format!(
-            r#"
-            vim.api.nvim_buf_call({buf}, function()
-                for _ = 1, {n} do
-                    vim.cmd('{cmd}')
-                end
-            end)
-            "#,
-            buf = buf,
-            n = n,
-            cmd = cmd,
-        );
-        nvim_exec_lua(socket_path, &lua, vec![])?;
+    for _ in 0..n {
+        nvim_command(socket_path, cmd)?;
     }
 
     Ok(format!("{} x{}", cmd, n))

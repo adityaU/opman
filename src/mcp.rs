@@ -12,6 +12,15 @@ use tracing::{debug, info, warn};
 
 // ─── Internal socket protocol ───────────────────────────────────────────────
 
+/// A single edit operation within a multi-edit batch.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EditOp {
+    pub file_path: String,
+    pub start_line: i64,
+    pub end_line: i64,
+    pub new_text: String,
+}
+
 /// Request sent over Unix socket from MCP bridge → manager.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SocketRequest {
@@ -35,10 +44,6 @@ pub struct SocketRequest {
     pub wait: Option<bool>, // for "run" op: wait for output to settle
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_n: Option<usize>, // for "read" op: return only last N lines
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from_line: Option<usize>, // for "read" op: start line (0-based)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_line: Option<usize>, // for "read" op: end line (0-based, inclusive)
     // ── Neovim-specific fields ──────────────────────────────────────────
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_path: Option<String>, // for "nvim_open" / "nvim_grep" ops
@@ -64,6 +69,9 @@ pub struct SocketRequest {
     pub count: Option<i64>, // for "nvim_undo": undo count (negative = redo)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_name: Option<String>, // for "nvim_rename": new symbol name
+    // ── Multi-edit batch ────────────────────────────────────────────────
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edits: Option<Vec<EditOp>>, // for "nvim_edit_and_save": batch of edits
 }
 
 /// Response sent over Unix socket from manager → MCP bridge.
@@ -303,15 +311,21 @@ pub fn spawn_socket_server(
 
                 // Acquire per-file neovim lock for nvim_* ops. Operations on
                 // different files run concurrently; same-file ops are serialized.
+                // Multi-edit batches use a global lock since they touch multiple files.
                 let is_nvim_op = request.op.starts_with("nvim_");
                 let nvim_lock_key = if is_nvim_op {
-                    Some(
-                        request
-                            .file_path
-                            .as_deref()
-                            .unwrap_or("__current__")
-                            .to_string(),
-                    )
+                    if request.edits.is_some() {
+                        // Multi-edit: serialize against all nvim ops
+                        Some("__multi_edit__".to_string())
+                    } else {
+                        Some(
+                            request
+                                .file_path
+                                .as_deref()
+                                .unwrap_or("__current__")
+                                .to_string(),
+                        )
+                    }
                 } else {
                     None
                 };
@@ -512,7 +526,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
     serde_json::json!([
         {
             "name": "terminal_read",
-            "description": "Read the current screen output from a terminal tab in the opman. Returns the visible text content of the terminal.",
+            "description": "Read the terminal output from a terminal tab in the opman. Returns the full terminal buffer (scrollback + visible). Use last_n to limit to the most recent N lines.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -522,15 +536,7 @@ fn mcp_tool_definitions() -> serde_json::Value {
                     },
                     "last_n": {
                         "type": "number",
-                        "description": "Return only the last N lines of the visible screen."
-                    },
-                    "from_line": {
-                        "type": "number",
-                        "description": "Start line (0-based) for partial read. Use with to_line."
-                    },
-                    "to_line": {
-                        "type": "number",
-                        "description": "End line (0-based, inclusive) for partial read. Use with from_line."
+                        "description": "Return only the last N lines of the terminal output."
                     }
                 }
             }
@@ -669,14 +675,6 @@ async fn handle_tool_call(
                 .map(|v| v as usize),
             last_n: arguments
                 .get("last_n")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            from_line: arguments
-                .get("from_line")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            to_line: arguments
-                .get("to_line")
                 .and_then(|v| v.as_u64())
                 .map(|v| v as usize),
             ..Default::default()

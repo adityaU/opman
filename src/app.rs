@@ -1777,25 +1777,8 @@ impl App {
                 let tab_idx = request.tab.unwrap_or(resources.active_shell_tab);
                 match resources.shell_ptys.get(tab_idx) {
                     Some(pty) => {
-                        if let Ok(parser) = pty.parser.lock() {
-                            let screen = parser.screen();
-                            let (rows, cols) = screen.size();
-                            let text = if let (Some(from), Some(to)) =
-                                (request.from_line, request.to_line)
-                            {
-                                // Range read: from_line..=to_line (0-based)
-                                let from = (from as u16).min(rows.saturating_sub(1));
-                                let to = (to as u16).min(rows.saturating_sub(1));
-                                screen.contents_between(from, 0, to + 1, cols)
-                            } else if let Some(n) = request.last_n {
-                                // Last N lines
-                                let total = rows as usize;
-                                let start = total.saturating_sub(n) as u16;
-                                screen.contents_between(start, 0, rows, cols)
-                            } else {
-                                // Full screen contents (default)
-                                screen.contents()
-                            };
+                        if let Ok(mut parser) = pty.parser.lock() {
+                            let text = read_full_terminal_buffer(&mut parser, request.last_n);
                             SocketResponse::ok_text(text)
                         } else {
                             SocketResponse::err("Failed to lock terminal parser".into())
@@ -2190,39 +2173,74 @@ impl App {
                     }
                     // ── Editing ──────────────────────────────────────
                     "nvim_edit_and_save" => {
-                        let start_line = match request.line {
-                            Some(l) => l,
-                            None => {
-                                return SocketResponse::err(
-                                    "Missing 'start_line' for nvim_edit_and_save".into(),
-                                )
+                        // Multi-edit batch path
+                        if let Some(edit_ops) = &request.edits {
+                            // Resolve each edit's file_path → buffer handle
+                            let mut resolved: Vec<crate::nvim_rpc::ResolvedEdit> = Vec::new();
+                            for (i, op) in edit_ops.iter().enumerate() {
+                                let edit_buf = match crate::nvim_rpc::nvim_find_or_load_buffer(
+                                    &nvim_socket,
+                                    &op.file_path,
+                                ) {
+                                    Ok(id) => id,
+                                    Err(e) => {
+                                        return SocketResponse::err(format!(
+                                            "edits[{}]: failed to resolve buffer for '{}': {}",
+                                            i, op.file_path, e
+                                        ))
+                                    }
+                                };
+                                resolved.push(crate::nvim_rpc::ResolvedEdit {
+                                    buf: edit_buf,
+                                    file_path: op.file_path.clone(),
+                                    start_line: op.start_line,
+                                    end_line: op.end_line,
+                                    new_text: op.new_text.clone(),
+                                });
                             }
-                        };
-                        let end_line = match request.end_line {
-                            Some(l) => l,
-                            None => {
-                                return SocketResponse::err(
-                                    "Missing 'end_line' for nvim_edit_and_save".into(),
-                                )
+                            match crate::nvim_rpc::nvim_buf_multi_edit_and_save(
+                                &nvim_socket,
+                                &mut resolved,
+                            ) {
+                                Ok(msg) => SocketResponse::ok_text(msg),
+                                Err(e) => SocketResponse::err(format!("Multi-edit failed: {}", e)),
                             }
-                        };
-                        let new_text = match &request.new_text {
-                            Some(t) => t.as_str(),
-                            None => {
-                                return SocketResponse::err(
-                                    "Missing 'new_text' for nvim_edit_and_save".into(),
-                                )
+                        } else {
+                            // Single edit path (backward compatible)
+                            let start_line = match request.line {
+                                Some(l) => l,
+                                None => {
+                                    return SocketResponse::err(
+                                        "Missing 'start_line' for nvim_edit_and_save".into(),
+                                    )
+                                }
+                            };
+                            let end_line = match request.end_line {
+                                Some(l) => l,
+                                None => {
+                                    return SocketResponse::err(
+                                        "Missing 'end_line' for nvim_edit_and_save".into(),
+                                    )
+                                }
+                            };
+                            let new_text = match &request.new_text {
+                                Some(t) => t.as_str(),
+                                None => {
+                                    return SocketResponse::err(
+                                        "Missing 'new_text' for nvim_edit_and_save".into(),
+                                    )
+                                }
+                            };
+                            match crate::nvim_rpc::nvim_buf_set_text_and_save(
+                                &nvim_socket,
+                                buf,
+                                start_line,
+                                end_line,
+                                new_text,
+                            ) {
+                                Ok(msg) => SocketResponse::ok_text(msg),
+                                Err(e) => SocketResponse::err(format!("Edit+save failed: {}", e)),
                             }
-                        };
-                        match crate::nvim_rpc::nvim_buf_set_text_and_save(
-                            &nvim_socket,
-                            buf,
-                            start_line,
-                            end_line,
-                            new_text,
-                        ) {
-                            Ok(msg) => SocketResponse::ok_text(msg),
-                            Err(e) => SocketResponse::err(format!("Edit+save failed: {}", e)),
                         }
                     }
                     "nvim_undo" => {
@@ -2690,6 +2708,81 @@ impl App {
         self.completion_selected = 0;
         self.completions_visible = false;
     }
+}
+
+/// Read the full terminal buffer (scrollback + visible screen) from a vt100 parser.
+///
+/// The vt100 `Screen` only exposes a viewport of `screen_rows` lines at a time.
+/// To read the full history we temporarily shift the scrollback offset, read each
+/// window of rows, then restore the original offset.
+///
+/// If `last_n` is `Some(n)`, only the last `n` lines of the full buffer are returned.
+/// Otherwise the entire buffer is returned.
+fn read_full_terminal_buffer(parser: &mut vt100::Parser, last_n: Option<usize>) -> String {
+    let original_offset = parser.screen().scrollback();
+    let (screen_rows, cols) = parser.screen().size();
+    let screen_rows = screen_rows as usize;
+
+    // Discover how many scrollback rows exist by setting offset to max.
+    parser.set_scrollback(usize::MAX);
+    let total_scrollback = parser.screen().scrollback();
+
+    let total_lines = total_scrollback + screen_rows;
+
+    // Determine which lines to collect.
+    let (skip_lines, lines_wanted) = if let Some(n) = last_n {
+        let n = n.min(total_lines);
+        (total_lines - n, n)
+    } else {
+        (0, total_lines)
+    };
+
+    let mut lines: Vec<String> = Vec::with_capacity(lines_wanted);
+
+    // Walk from top of buffer (max scrollback) downward.
+    // At scrollback offset `sb`, the viewport shows rows from absolute
+    // line `(total_scrollback - sb)` to `(total_scrollback - sb + screen_rows - 1)`.
+    let mut sb = total_scrollback;
+    loop {
+        parser.set_scrollback(sb);
+        let window_start = total_scrollback - sb; // absolute line index of viewport top
+
+        for (i, row_text) in parser.screen().rows(0, cols).enumerate() {
+            let abs_line = window_start + i;
+            if abs_line < skip_lines {
+                continue;
+            }
+            if lines.len() >= lines_wanted {
+                break;
+            }
+            lines.push(row_text);
+        }
+
+        if lines.len() >= lines_wanted {
+            break;
+        }
+
+        // Step down: move viewport by screen_rows
+        if sb >= screen_rows {
+            sb -= screen_rows;
+        } else {
+            // Last window — show the bottom (scrollback=0)
+            if sb == 0 {
+                break;
+            }
+            sb = 0;
+        }
+    }
+
+    // Restore original scrollback position so the UI is unaffected.
+    parser.set_scrollback(original_offset);
+
+    // Trim trailing empty lines.
+    while lines.last().map_or(false, |l| l.trim().is_empty()) {
+        lines.pop();
+    }
+
+    lines.join("\n")
 }
 
 /// Diff two file snapshots line-by-line using the `similar` crate and return
