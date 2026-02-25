@@ -158,22 +158,6 @@ pub struct PendingSocketRequest {
     pub reply_tx: tokio::sync::oneshot::Sender<SocketResponse>,
 }
 
-/// Returns the tab lock key for a request, or `None` if the operation doesn't
-/// target a specific tab (e.g. "list", "new") and should bypass the per-tab lock.
-///
-/// For tab-targeting mutating ops the key is `Some(tab_index)` where
-/// `tab_index` is the explicit tab from the request, or `None` meaning
-/// "active tab" (two requests that both target the active tab will collide).
-///
-/// Read-only operations (`read`, `status`, `list`, `new`) return `None` and
-/// bypass the lock entirely — they can run concurrently on the same tab.
-fn tab_lock_key(request: &SocketRequest) -> Option<Option<usize>> {
-    match request.op.as_str() {
-        "run" | "close" | "rename" => Some(request.tab),
-        _ => None,
-    }
-}
-
 // ─── Socket path helper ─────────────────────────────────────────────────────
 
 /// Compute the Unix socket path for a given project path.
@@ -191,10 +175,10 @@ pub fn socket_path_for_project(project_path: &Path) -> PathBuf {
 /// Each incoming connection reads one JSON line, sends a PendingSocketRequest
 /// through `request_tx`, waits for the response, and writes it back.
 ///
-/// Requests targeting the same terminal tab are rejected if one is already
-/// in-flight (second parallel request gets an immediate error response).
-/// Requests for different tabs are processed concurrently.
-/// Tab-less operations ("list", "new") bypass the per-tab lock entirely.
+/// Concurrency controls:
+/// - Ephemeral task names are deduplicated (only one in-flight per name).
+/// - Neovim operations are serialized per-file (different files run concurrently).
+/// - Terminal tab busy state is checked at the application level in `handle_mcp_request`.
 pub fn spawn_socket_server(
     project_path: &Path,
     request_tx: mpsc::UnboundedSender<crate::app::BackgroundEvent>,
@@ -218,10 +202,6 @@ pub fn spawn_socket_server(
             }
         };
 
-        // Tracks which tabs currently have an in-flight mutating request.
-        // Key: Some(tab_idx) for explicit tab, Some(None) for "active tab" default.
-        let busy_tabs: Arc<Mutex<HashSet<Option<usize>>>> = Arc::new(Mutex::new(HashSet::new()));
-
         // Tracks which ephemeral task names currently have an in-flight run.
         // Used by ephemeral_lock/ephemeral_unlock ops from the MCP bridge.
         let busy_ephemeral: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
@@ -243,7 +223,6 @@ pub fn spawn_socket_server(
 
             let tx = request_tx.clone();
             let pidx = project_idx;
-            let busy = busy_tabs.clone();
             let eph = busy_ephemeral.clone();
             let nvim = nvim_locks.clone();
 
@@ -322,32 +301,6 @@ pub fn spawn_socket_server(
                     _ => {}
                 }
 
-                // Per-tab concurrency guard: reject if this tab already has an
-                // in-flight mutating request. Read-only ops skip the check.
-                let lock_key = tab_lock_key(&request);
-                if let Some(key) = lock_key {
-                    let already_busy = {
-                        let mut tabs = busy.lock().unwrap();
-                        !tabs.insert(key)
-                    };
-                    if already_busy {
-                        let tab_desc = match key {
-                            Some(idx) => format!("tab {}", idx),
-                            None => "active tab".into(),
-                        };
-                        let resp = SocketResponse::err(format!(
-                            "Tab busy: another request is already in-flight for {}. \
-                             Wait for it to complete or target a different tab.",
-                            tab_desc
-                        ));
-                        let _ = writer
-                            .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                            .await;
-                        let _ = writer.write_all(b"\n").await;
-                        return;
-                    }
-                }
-
                 // Acquire per-file neovim lock for nvim_* ops. Operations on
                 // different files run concurrently; same-file ops are serialized.
                 let is_nvim_op = request.op.starts_with("nvim_");
@@ -412,11 +365,6 @@ pub fn spawn_socket_server(
 
                 // Release the per-file neovim lock (dropped when _nvim_guard goes out of scope)
                 drop(_nvim_guard);
-
-                // Release the per-tab lock
-                if let Some(key) = lock_key {
-                    busy.lock().unwrap().remove(&key);
-                }
             });
         }
     });

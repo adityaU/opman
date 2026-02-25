@@ -1207,7 +1207,8 @@ impl App {
             &theme_envs,
             Some(&td),
             Some(&sid),
-        ) {            Ok(nvim) => {
+        ) {
+            Ok(nvim) => {
                 let resources = self.projects[index]
                     .session_resources
                     .entry(sid)
@@ -1816,7 +1817,7 @@ impl App {
                             if let Ok(state) = pty.command_state.lock() {
                                 if *state == crate::pty::CommandState::Running {
                                     return SocketResponse::err(
-                                        "A command is already running on this tab. Send Ctrl-C (\\x03) to interrupt it first.".into()
+                                        "Tab is busy (command running). Send Ctrl-C (\\x03) to interrupt, try another tab, or use terminal_ephemeral_run.".into()
                                     );
                                 }
                             }
@@ -1949,9 +1950,12 @@ impl App {
                     if request.op != "nvim_open" {
                         match crate::nvim_rpc::nvim_find_or_load_buffer(&nvim_socket, path) {
                             Ok(id) => id,
-                            Err(e) => return SocketResponse::err(
-                                format!("Failed to resolve buffer for '{}': {}", path, e)
-                            ),
+                            Err(e) => {
+                                return SocketResponse::err(format!(
+                                    "Failed to resolve buffer for '{}': {}",
+                                    path, e
+                                ))
+                            }
                         }
                     } else {
                         0
@@ -2124,7 +2128,8 @@ impl App {
                     "nvim_symbols" => {
                         let query = request.query.as_deref().unwrap_or("");
                         let workspace = request.workspace.unwrap_or(false);
-                        match crate::nvim_rpc::nvim_lsp_symbols(&nvim_socket, buf, query, workspace) {
+                        match crate::nvim_rpc::nvim_lsp_symbols(&nvim_socket, buf, query, workspace)
+                        {
                             Ok(output) => SocketResponse::ok_text(output),
                             Err(e) => SocketResponse::err(format!("Failed to get symbols: {}", e)),
                         }
