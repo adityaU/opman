@@ -97,6 +97,17 @@ pub enum BackgroundEvent {
         session_id: String,
         pending: crate::mcp::PendingSocketRequest,
     },
+    /// User messages fetched for the watcher modal "re-inject original" picker.
+    WatcherSessionMessages {
+        session_id: String,
+        messages: Vec<SessionMessage>,
+    },
+    /// Session status fetched from REST API (busy/retry sessions).
+    SessionStatusFetched {
+        /// Map of session_id -> status_type ("busy", "retry").
+        /// Sessions absent from the map are idle.
+        busy_sessions: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +270,9 @@ pub struct SessionStats {
     pub cache_read: u64,
     /// Cache write tokens from the latest assistant message.
     pub cache_write: u64,
+    /// Previous total token count (before the latest update).
+    /// Used by the status bar to show an up/down arrow indicating direction of change.
+    pub prev_total_tokens: u64,
 }
 
 impl SessionStats {
@@ -540,6 +554,11 @@ pub struct App {
     /// Background tasks clone this to send events back to the main loop.
     pub bg_tx: mpsc::UnboundedSender<BackgroundEvent>,
 
+    /// Shared registry of neovim socket paths for off-main-loop nvim operation
+    /// handling. Populated when neovim PTYs are spawned; read by socket server
+    /// tasks to dispatch nvim_rpc calls directly without main loop round-trip.
+    pub nvim_registry: crate::mcp::NvimSocketRegistry,
+
     /// Toast notification message and display timestamp.
     pub toast_message: Option<(String, std::time::Instant)>,
     /// Active terminal text selection.
@@ -548,13 +567,31 @@ pub struct App {
     pub terminal_search: Option<TerminalSearchState>,
     /// Context input overlay state (multi-line text entry for OpenCode sessions).
     pub context_input: Option<ContextInputState>,
+    /// Active session watchers: session_id → config.
+    pub session_watchers: HashMap<String, WatcherConfig>,
+    /// Watcher modal overlay state (Some when modal is open).
+    pub watcher_modal: Option<WatcherModalState>,
+    /// Pending watcher timers: session_id → abort handle.
+    /// When a session goes idle, we spawn a delayed task. If the session becomes
+    /// busy again before the delay expires, we abort the task.
+    pub watcher_pending: HashMap<String, tokio::task::AbortHandle>,
+    /// Tracks when each watched session entered the idle state (for countdown display).
+    /// Set when `try_trigger_watcher` starts a timer; cleared when session becomes busy.
+    pub watcher_idle_since: HashMap<String, std::time::Instant>,
     /// Maps session IDs to the project index that owns them, preventing cross-project duplication.
     pub session_ownership: std::collections::HashMap<String, usize>,
+    /// Maps parent session ID → set of child (subagent) session IDs.
+    /// Used by the watcher system to suppress idle triggers while children are still active.
+    pub session_children: HashMap<String, HashSet<String>>,
     /// Dirty flag for the main event loop.  Set to `true` whenever any UI-visible
     /// state changes (key press, background event, overlay toggle, etc.).
     /// The main loop skips `terminal.draw()` when this is `false` **and** no
     /// PTY has new output, saving a full render pass (~460k allocs/s at 60fps).
     pub needs_redraw: bool,
+    /// X-coordinate range (start_col, end_col) of the server URL in the status bar.
+    /// Set during render by the StatusBar widget via interior mutability so the
+    /// mouse handler can detect clicks on the URL.  None when no URL is displayed.
+    pub status_bar_url_range: std::cell::Cell<Option<(u16, u16)>>,
 }
 
 /// State for context input overlay (multi-line text entry for OpenCode sessions).
@@ -652,6 +689,190 @@ impl ContextInputState {
     }
 }
 
+/// Configuration for a session watcher that sends a continuation message
+/// when the session goes idle for a configured duration.
+#[derive(Debug, Clone)]
+pub struct WatcherConfig {
+    pub session_id: String,
+    pub project_idx: usize,
+    pub idle_timeout_secs: u64,
+    pub continuation_message: String,
+    pub include_original: bool,
+    /// The full text of the selected original user message (if any).
+    pub original_message: Option<String>,
+}
+
+/// Which field is focused in the watcher modal right panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatcherField {
+    SessionList,
+    Message,
+    IncludeOriginal,
+    OriginalMessageList,
+    TimeoutInput,
+}
+
+/// A session entry shown in the watcher modal left sidebar.
+#[derive(Debug, Clone)]
+pub struct WatcherSessionEntry {
+    pub session_id: String,
+    pub title: String,
+    pub project_name: String,
+    pub project_idx: usize,
+    pub is_current: bool,
+    pub is_active: bool,
+    pub has_watcher: bool,
+}
+
+/// A user message from a session, for the "re-inject original" picker.
+#[derive(Debug, Clone)]
+pub struct SessionMessage {
+    pub role: String,
+    pub text: String,
+}
+
+/// State for the watcher modal overlay.
+pub struct WatcherModalState {
+    /// Sessions displayed in the left sidebar.
+    pub sessions: Vec<WatcherSessionEntry>,
+    /// Currently selected session index in left sidebar.
+    pub selected_session_idx: usize,
+    /// Scroll offset for session list.
+    pub session_scroll: usize,
+    /// Which field is focused in the right panel.
+    pub active_field: WatcherField,
+    /// Continuation message lines (multi-line editor).
+    pub message_lines: Vec<String>,
+    pub message_cursor_row: usize,
+    pub message_cursor_col: usize,
+    /// Include original message toggle.
+    pub include_original: bool,
+    /// Messages from the selected session (fetched from API).
+    pub session_messages: Vec<SessionMessage>,
+    /// Selected original message index.
+    pub selected_message_idx: usize,
+    pub message_scroll: usize,
+    /// Idle timeout seconds.
+    pub idle_timeout_secs: u64,
+    /// Timeout input buffer (for typing numbers).
+    pub timeout_input: String,
+}
+
+impl WatcherModalState {
+    pub fn message_text(&self) -> String {
+        self.message_lines.join("\n")
+    }
+
+    pub fn insert_char(&mut self, c: char) {
+        self.message_lines[self.message_cursor_row].insert(self.message_cursor_col, c);
+        self.message_cursor_col += c.len_utf8();
+    }
+
+    pub fn insert_newline(&mut self) {
+        let rest =
+            self.message_lines[self.message_cursor_row][self.message_cursor_col..].to_string();
+        self.message_lines[self.message_cursor_row].truncate(self.message_cursor_col);
+        self.message_cursor_row += 1;
+        self.message_lines.insert(self.message_cursor_row, rest);
+        self.message_cursor_col = 0;
+    }
+
+    pub fn backspace(&mut self) {
+        if self.message_cursor_col > 0 {
+            let prev = self.message_lines[self.message_cursor_row][..self.message_cursor_col]
+                .chars()
+                .last()
+                .unwrap_or(' ');
+            self.message_cursor_col -= prev.len_utf8();
+            self.message_lines[self.message_cursor_row].remove(self.message_cursor_col);
+        } else if self.message_cursor_row > 0 {
+            let line = self.message_lines.remove(self.message_cursor_row);
+            self.message_cursor_row -= 1;
+            self.message_cursor_col = self.message_lines[self.message_cursor_row].len();
+            self.message_lines[self.message_cursor_row].push_str(&line);
+        }
+    }
+
+    pub fn cursor_left(&mut self) {
+        if self.message_cursor_col > 0 {
+            let prev = self.message_lines[self.message_cursor_row][..self.message_cursor_col]
+                .chars()
+                .last()
+                .unwrap_or(' ');
+            self.message_cursor_col -= prev.len_utf8();
+        } else if self.message_cursor_row > 0 {
+            self.message_cursor_row -= 1;
+            self.message_cursor_col = self.message_lines[self.message_cursor_row].len();
+        }
+    }
+
+    pub fn cursor_right(&mut self) {
+        let line_len = self.message_lines[self.message_cursor_row].len();
+        if self.message_cursor_col < line_len {
+            let next = self.message_lines[self.message_cursor_row][self.message_cursor_col..]
+                .chars()
+                .next()
+                .unwrap_or(' ');
+            self.message_cursor_col += next.len_utf8();
+        } else if self.message_cursor_row + 1 < self.message_lines.len() {
+            self.message_cursor_row += 1;
+            self.message_cursor_col = 0;
+        }
+    }
+
+    pub fn cursor_up(&mut self) {
+        if self.message_cursor_row > 0 {
+            self.message_cursor_row -= 1;
+            self.message_cursor_col = self
+                .message_cursor_col
+                .min(self.message_lines[self.message_cursor_row].len());
+        }
+    }
+
+    pub fn cursor_down(&mut self) {
+        if self.message_cursor_row + 1 < self.message_lines.len() {
+            self.message_cursor_row += 1;
+            self.message_cursor_col = self
+                .message_cursor_col
+                .min(self.message_lines[self.message_cursor_row].len());
+        }
+    }
+
+    /// Cycle to the next field.
+    pub fn next_field(&mut self) {
+        self.active_field = match self.active_field {
+            WatcherField::SessionList => WatcherField::Message,
+            WatcherField::Message => WatcherField::IncludeOriginal,
+            WatcherField::IncludeOriginal => {
+                if self.include_original {
+                    WatcherField::OriginalMessageList
+                } else {
+                    WatcherField::TimeoutInput
+                }
+            }
+            WatcherField::OriginalMessageList => WatcherField::TimeoutInput,
+            WatcherField::TimeoutInput => WatcherField::SessionList,
+        };
+    }
+
+    /// Cycle to the previous field.
+    pub fn prev_field(&mut self) {
+        self.active_field = match self.active_field {
+            WatcherField::SessionList => WatcherField::TimeoutInput,
+            WatcherField::Message => WatcherField::SessionList,
+            WatcherField::IncludeOriginal => WatcherField::Message,
+            WatcherField::OriginalMessageList => WatcherField::IncludeOriginal,
+            WatcherField::TimeoutInput => {
+                if self.include_original {
+                    WatcherField::OriginalMessageList
+                } else {
+                    WatcherField::IncludeOriginal
+                }
+            }
+        };
+    }
+}
+
 /// State for terminal text search overlay.
 #[derive(Debug, Clone)]
 pub struct TerminalSearchState {
@@ -741,12 +962,19 @@ impl App {
             model_limits: HashMap::new(),
             neovim_mcp_enabled: false,
             bg_tx,
+            nvim_registry: crate::mcp::new_nvim_socket_registry(),
             toast_message: None,
             terminal_selection: None,
             terminal_search: None,
             context_input: None,
+            session_watchers: HashMap::new(),
+            watcher_modal: None,
+            watcher_pending: HashMap::new(),
+            watcher_idle_since: HashMap::new(),
             session_ownership: std::collections::HashMap::new(),
+            session_children: HashMap::new(),
             needs_redraw: true,
+            status_bar_url_range: std::cell::Cell::new(None),
         }
     }
 
@@ -1244,6 +1472,16 @@ impl App {
             Some(&sid),
         ) {
             Ok(nvim) => {
+                // Register nvim socket path in shared registry so socket
+                // server tasks can handle nvim ops off the main loop.
+                if let Some(ref addr) = nvim.nvim_listen_addr {
+                    let reg = self.nvim_registry.clone();
+                    let key = (index, sid.clone());
+                    let addr = addr.clone();
+                    tokio::spawn(async move {
+                        reg.write().await.insert(key, addr);
+                    });
+                }
                 let resources = self.projects[index]
                     .session_resources
                     .entry(sid)
@@ -1345,7 +1583,76 @@ impl App {
         }
     }
 
+    /// Try to trigger a watcher for the given session.
+    ///
+    /// Suppressed when `has_active_children` is true — the parent should not
+    /// be considered fully idle while subagent sessions are still running.
+    pub fn try_trigger_watcher(&mut self, session_id: &str, has_active_children: bool) {
+        let watcher = match self.session_watchers.get(session_id) {
+            Some(w) => w,
+            None => return,
+        };
+
+        // Cancel any existing pending timer first (e.g. from a previous idle).
+        if let Some(prev_handle) = self.watcher_pending.remove(session_id) {
+            prev_handle.abort();
+        }
+
+        if has_active_children {
+            tracing::info!(
+                session_id = %session_id,
+                "Watcher: suppressed — subagent sessions still active"
+            );
+            self.watcher_idle_since.remove(session_id);
+            return;
+        }
+
+        let timeout = watcher.idle_timeout_secs;
+        let msg = watcher.continuation_message.clone();
+        let original = if watcher.include_original {
+            watcher.original_message.clone()
+        } else {
+            None
+        };
+        let api = crate::api::ApiClient::new();
+        let base_url = crate::app::base_url().to_string();
+        let project_dir = self
+            .projects
+            .get(watcher.project_idx)
+            .map(|p| p.path.display().to_string())
+            .unwrap_or_default();
+        let sid = session_id.to_string();
+        tracing::info!(
+            session_id = %sid,
+            timeout_secs = timeout,
+            "Watcher: scheduling continuation message after idle"
+        );
+
+        // Record when idle countdown started (for UI display).
+        self.watcher_idle_since
+            .insert(session_id.to_string(), std::time::Instant::now());
+
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_secs(timeout)).await;
+            tracing::info!(session_id = %sid, "Watcher: sending continuation message");
+            let mut full_msg = String::new();
+            if let Some(orig) = original {
+                full_msg.push_str(&format!("[Original message]: {}\n\n", orig));
+            }
+            full_msg.push_str(&msg);
+            if let Err(e) = api
+                .send_system_message_async(&base_url, &project_dir, &sid, &full_msg)
+                .await
+            {
+                tracing::warn!("Watcher failed to send message to {}: {}", sid, e);
+            }
+        });
+        self.watcher_pending
+            .insert(session_id.to_string(), handle.abort_handle());
+    }
+
     /// Handle a background event received via the mpsc channel.
+    /// Called from the main event loop's `try_recv()` drain.
     /// Called from the main event loop's `try_recv()` drain.
     pub fn handle_background_event(&mut self, event: BackgroundEvent) {
         match event {
@@ -1392,6 +1699,15 @@ impl App {
             BackgroundEvent::ProjectActivated { project_idx } => {
                 debug!(project_idx, "Project fully activated via background event");
             }
+            BackgroundEvent::SessionStatusFetched { busy_sessions } => {
+                tracing::info!(
+                    count = busy_sessions.len(),
+                    "SessionStatusFetched: bootstrapping active_sessions"
+                );
+                for sid in busy_sessions {
+                    self.active_sessions.insert(sid);
+                }
+            }
             BackgroundEvent::SseSessionCreated {
                 project_idx,
                 session,
@@ -1406,9 +1722,27 @@ impl App {
                     }
                 }
 
+                // Track parent→child relationship for watcher suppression.
+                if !session.parent_id.is_empty() {
+                    tracing::info!(
+                        session_id = %session.id,
+                        parent_id = %session.parent_id,
+                        "SseSessionCreated: registering child→parent relationship"
+                    );
+                    self.session_children
+                        .entry(session.parent_id.clone())
+                        .or_default()
+                        .insert(session.id.clone());
+                }
+
                 if let Some(project) = self.projects.get_mut(project_idx) {
                     if !project.sessions.iter().any(|s| s.id == session.id) {
-                        info!(name = %project.name, session_id = %session.id, "SSE: new session created");
+                        info!(
+                            name = %project.name,
+                            session_id = %session.id,
+                            parent_id = %session.parent_id,
+                            "SSE: new session created"
+                        );
                         self.active_sessions.insert(session.id.clone());
                         self.session_ownership
                             .insert(session.id.clone(), project_idx);
@@ -1447,6 +1781,26 @@ impl App {
             } => {
                 self.active_sessions.remove(&session_id);
                 self.session_ownership.remove(&session_id);
+
+                // Clean up parent→child tracking.
+                // First, find if this session had a parent (look it up before removing).
+                let parent_id = self
+                    .projects
+                    .get(project_idx)
+                    .and_then(|p| p.sessions.iter().find(|s| s.id == session_id))
+                    .map(|s| s.parent_id.clone())
+                    .unwrap_or_default();
+                if !parent_id.is_empty() {
+                    if let Some(children) = self.session_children.get_mut(&parent_id) {
+                        children.remove(&session_id);
+                        if children.is_empty() {
+                            self.session_children.remove(&parent_id);
+                        }
+                    }
+                }
+                // Also remove this session as a parent (if it had children).
+                self.session_children.remove(&session_id);
+
                 if let Some(project) = self.projects.get_mut(project_idx) {
                     project.sessions.retain(|s| s.id != session_id);
 
@@ -1472,10 +1826,70 @@ impl App {
                 }
             }
             BackgroundEvent::SseSessionIdle { session_id, .. } => {
+                let has_active_children = self
+                    .session_children
+                    .get(&session_id)
+                    .map(|children| {
+                        children
+                            .iter()
+                            .any(|cid| self.active_sessions.contains(cid))
+                    })
+                    .unwrap_or(false);
+
+                tracing::info!(
+                    session_id = %session_id,
+                    has_watcher = self.session_watchers.contains_key(&session_id),
+                    was_active = self.active_sessions.contains(&session_id),
+                    has_active_children,
+                    "SseSessionIdle received"
+                );
                 self.active_sessions.remove(&session_id);
+
+                // Try to trigger watcher for this session (suppressed if children still active).
+                self.try_trigger_watcher(&session_id, has_active_children);
+
+                // If this is a child session going idle, check whether the parent's
+                // watcher should now fire (parent idle + no more active children).
+                let parent_id = self
+                    .projects
+                    .iter()
+                    .flat_map(|p| p.sessions.iter())
+                    .find(|s| s.id == session_id)
+                    .map(|s| s.parent_id.clone())
+                    .unwrap_or_default();
+                if !parent_id.is_empty() && !self.active_sessions.contains(&parent_id) {
+                    let parent_has_active_children = self
+                        .session_children
+                        .get(&parent_id)
+                        .map(|children| {
+                            children
+                                .iter()
+                                .any(|cid| self.active_sessions.contains(cid))
+                        })
+                        .unwrap_or(false);
+                    if !parent_has_active_children {
+                        tracing::info!(
+                            parent_id = %parent_id,
+                            child_id = %session_id,
+                            "SseSessionIdle: last child went idle, re-evaluating parent watcher"
+                        );
+                        self.try_trigger_watcher(&parent_id, false);
+                    }
+                }
             }
             BackgroundEvent::SseSessionBusy { session_id } => {
-                self.active_sessions.insert(session_id);
+                tracing::debug!(
+                    session_id = %session_id,
+                    has_pending = self.watcher_pending.contains_key(&session_id),
+                    "SseSessionBusy received"
+                );
+                self.active_sessions.insert(session_id.clone());
+                self.watcher_idle_since.remove(&session_id);
+                // Cancel any pending watcher timer for this session.
+                if let Some(abort_handle) = self.watcher_pending.remove(&session_id) {
+                    tracing::info!(session_id = %session_id, "Watcher: cancelled pending timer (session busy)");
+                    abort_handle.abort();
+                }
             }
             BackgroundEvent::SseFileEdited {
                 project_idx,
@@ -1678,6 +2092,9 @@ impl App {
                     .session_stats
                     .entry(session_id.clone())
                     .or_insert_with(SessionStats::default);
+                // Snapshot current total before overwriting so the status bar
+                // can show an up/down arrow for token usage direction.
+                stats.prev_total_tokens = stats.total_tokens();
                 stats.cost = cost;
                 stats.input_tokens = input_tokens;
                 stats.output_tokens = output_tokens;
@@ -1715,6 +2132,21 @@ impl App {
                 let response =
                     self.handle_mcp_request(project_idx, &resolved_sid, &pending.request);
                 let _ = pending.reply_tx.send(response);
+            }
+            BackgroundEvent::WatcherSessionMessages {
+                session_id,
+                messages,
+            } => {
+                if let Some(ref mut modal) = self.watcher_modal {
+                    // Only update if the currently selected session matches.
+                    if let Some(entry) = modal.sessions.get(modal.selected_session_idx) {
+                        if entry.session_id == session_id {
+                            modal.session_messages = messages;
+                            modal.selected_message_idx = 0;
+                            modal.message_scroll = 0;
+                        }
+                    }
+                }
             }
         }
     }
@@ -1799,6 +2231,15 @@ impl App {
                 Some(session_id),
             ) {
                 Ok(nvim) => {
+                    // Register nvim socket in shared registry for off-main-loop handling.
+                    if let Some(ref addr) = nvim.nvim_listen_addr {
+                        let reg = self.nvim_registry.clone();
+                        let key = (project_idx, session_id.to_string());
+                        let addr = addr.clone();
+                        tokio::spawn(async move {
+                            reg.write().await.insert(key, addr);
+                        });
+                    }
                     resources.neovim_pty = Some(nvim);
                 }
                 Err(e) => {

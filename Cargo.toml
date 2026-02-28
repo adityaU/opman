@@ -1,6 +1,6 @@
 [package]
 name = "opman"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2021"
 description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
 

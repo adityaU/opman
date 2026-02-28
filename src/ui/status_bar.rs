@@ -6,6 +6,7 @@ use ratatui::widgets::{Paragraph, Widget};
 
 use crate::app::{App, ServerStatus};
 use crate::ui::layout_manager::PanelId;
+use crate::ui::sidebar::lerp_color;
 use crate::vim_mode::VimMode;
 
 /// Status bar widget displayed at the bottom of the screen.
@@ -72,68 +73,106 @@ impl<'a> Widget for StatusBar<'a> {
 
             // Server status
             let status = self.app.project_server_status(self.app.active_project);
-            let (status_text, status_color) = match status {
-                ServerStatus::Running => ("● running", self.app.theme.success),
-                ServerStatus::Starting => ("◐ starting", self.app.theme.warning),
-                ServerStatus::Stopped => ("○ stopped", self.app.theme.error),
-                ServerStatus::Error => ("✕ error", self.app.theme.error),
-            };
-            spans.push(Span::raw("  "));
-            spans.push(Span::styled(status_text, Style::default().fg(status_color)));
+            match status {
+                ServerStatus::Running => {
+                    let dot_color = lerp_color(
+                        self.app.theme.background,
+                        self.app.theme.accent,
+                        self.app.pulse_phase,
+                    );
+                    spans.push(Span::raw("  "));
+                    spans.push(Span::styled("●", Style::default().fg(dot_color)));
+                    spans.push(Span::styled(
+                        " running ",
+                        Style::default().fg(self.app.theme.success),
+                    ));
 
+                    // Track URL x-range for click-to-copy
+                    let url_text = crate::app::base_url();
+                    let start_x: u16 = area.x + spans.iter().map(|s| s.width() as u16).sum::<u16>();
+                    let end_x = start_x + url_text.len() as u16;
+                    self.app.status_bar_url_range.set(Some((start_x, end_x)));
+
+                    spans.push(Span::styled(
+                        url_text,
+                        Style::default().fg(self.app.theme.text_muted),
+                    ));
+                }
+                _ => {
+                    let (status_text, status_color) = match status {
+                        ServerStatus::Running => unreachable!(),
+                        ServerStatus::Starting => ("◐ starting", self.app.theme.warning),
+                        ServerStatus::Stopped => ("○ stopped", self.app.theme.error),
+                        ServerStatus::Error => ("✕ error", self.app.theme.error),
+                    };
+                    spans.push(Span::raw("  "));
+                    spans.push(Span::styled(status_text, Style::default().fg(status_color)));
+                    self.app.status_bar_url_range.set(None);
+                }
+            }
+
+            // Token usage and context window — always shown when stats exist
             if let Some(session_id) = &project.active_session {
                 if let Some(stats) = self.app.session_stats.get(session_id) {
-                    let total_tokens = stats.input_tokens
-                        + stats.output_tokens
-                        + stats.reasoning_tokens
-                        + stats.cache_read
-                        + stats.cache_write;
+                    let total_tokens = stats.total_tokens();
 
-                    if total_tokens > 0 || stats.cost > 0.0 {
-                        spans.push(Span::raw("  "));
+                    let token_display = if total_tokens >= 1_000_000 {
+                        format!("{:.1}M", total_tokens as f64 / 1_000_000.0)
+                    } else if total_tokens >= 1_000 {
+                        format!("{:.1}K", total_tokens as f64 / 1_000.0)
+                    } else {
+                        format!("{}", total_tokens)
+                    };
 
-                        let token_display = if total_tokens >= 1_000_000 {
-                            format!("{:.1}M", total_tokens as f64 / 1_000_000.0)
-                        } else if total_tokens >= 1_000 {
-                            format!("{:.1}K", total_tokens as f64 / 1_000.0)
+                    let context_window = self
+                        .app
+                        .model_limits
+                        .get(&self.app.active_project)
+                        .map(|ml| ml.context_window)
+                        .unwrap_or(0);
+
+                    spans.push(Span::raw("  "));
+
+                    if context_window > 0 {
+                        let pct =
+                            ((total_tokens as f64 / context_window as f64) * 100.0).round() as u64;
+                        let pct_color = if pct >= 90 {
+                            self.app.theme.error
+                        } else if pct >= 70 {
+                            self.app.theme.warning
                         } else {
-                            format!("{}", total_tokens)
+                            self.app.theme.text_muted
                         };
+                        spans.push(Span::styled(
+                            format!(" {}  {}%", token_display, pct),
+                            Style::default().fg(pct_color),
+                        ));
+                    } else {
+                        spans.push(Span::styled(
+                            format!(" {}", token_display),
+                            Style::default().fg(self.app.theme.text_muted),
+                        ));
+                    }
 
-                        let context_window = self
-                            .app
-                            .model_limits
-                            .get(&self.app.active_project)
-                            .map(|ml| ml.context_window)
-                            .unwrap_or(0);
+                    // Direction arrow: compare current total with previous total
+                    let prev = stats.prev_total_tokens;
+                    if total_tokens > prev && prev > 0 {
+                        spans.push(Span::styled(
+                            " ▲",
+                            Style::default().fg(self.app.theme.error),
+                        ));
+                    } else if total_tokens < prev {
+                        spans.push(Span::styled(
+                            " ▼",
+                            Style::default().fg(self.app.theme.success),
+                        ));
+                    }
 
-                        if context_window > 0 {
-                            let pct = ((total_tokens as f64 / context_window as f64) * 100.0)
-                                .round() as u64;
-                            let pct_color = if pct >= 90 {
-                                self.app.theme.error
-                            } else if pct >= 70 {
-                                self.app.theme.warning
-                            } else {
-                                self.app.theme.text_muted
-                            };
-                            spans.push(Span::styled(
-                                format!(" {}  {}%", token_display, pct),
-                                Style::default().fg(pct_color),
-                            ));
-                        } else {
-                            spans.push(Span::styled(
-                                format!(" {}", token_display),
-                                Style::default().fg(self.app.theme.text_muted),
-                            ));
-                        }
-
-                        if stats.cost > 0.0 {
-                            spans.push(Span::styled(
-                                format!("  ${:.4}", stats.cost),
-                                Style::default().fg(self.app.theme.text_muted),
-                            ));
-                        }
+                    if stats.cost > 0.0 {
+                        spans.push(Span::styled(
+                            format!("  ${:.4}", stats.cost),
+                            Style::default().fg(self.app.theme.text_muted),
+                        ));
                     }
                 }
             }

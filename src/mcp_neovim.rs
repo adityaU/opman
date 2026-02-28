@@ -36,6 +36,7 @@
 /// Unix socket to the manager process, which executes them against the
 /// Neovim RPC socket.
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -56,13 +57,22 @@ struct McpRequest {
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
+/// Run the MCP neovim stdio bridge: read JSON-RPC from stdin, forward to
+/// socket, write response to stdout.
+///
+/// Tool calls (`tools/call`) are dispatched **concurrently**: each call is
+/// spawned as a separate tokio task so the MCP client can issue parallel
+/// tool calls (e.g. reading two different files at once).  Responses are
+/// written back with the correct `id` as they complete.  The socket server
+/// layer provides per-file serialization for neovim operations.
 pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> {
-    let sock_path = mcp::socket_path_for_project(&project_path);
+    let sock_path = Arc::new(mcp::socket_path_for_project(&project_path));
     // Read session ID from env var set by opencode PTY spawn, so all
     // socket requests route to the correct per-session resources.
-    let session_id = std::env::var("OPENCODE_SESSION_ID").ok();
+    let session_id: Arc<Option<String>> = Arc::new(std::env::var("OPENCODE_SESSION_ID").ok());
     let stdin = tokio::io::stdin();
-    let mut stdout = tokio::io::stdout();
+    let stdout: Arc<tokio::sync::Mutex<tokio::io::Stdout>> =
+        Arc::new(tokio::sync::Mutex::new(tokio::io::stdout()));
     let mut reader = BufReader::new(stdin);
     let mut line = String::new();
 
@@ -92,68 +102,89 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                write_response(&mut stdout, &resp).await;
+                write_response_shared(&stdout, &resp).await;
                 continue;
             }
         };
 
-        let resp = match req.method.as_str() {
-            "initialize" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": { "tools": {} },
-                    "serverInfo": {
-                        "name": "opman-neovim",
-                        "version": "1.0.0"
-                    }
-                },
-                "id": req.id
-            }),
+        match req.method.as_str() {
+            "initialize" => {
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": { "tools": {} },
+                        "serverInfo": {
+                            "name": "opman-neovim",
+                            "version": "1.0.0"
+                        }
+                    },
+                    "id": req.id
+                });
+                write_response_shared(&stdout, &resp).await;
+            }
 
             "notifications/initialized" => continue,
 
-            "tools/list" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": { "tools": tool_definitions() },
-                "id": req.id
-            }),
-
-            "tools/call" => {
-                let result = handle_tool_call(&sock_path, req.params, session_id.as_deref()).await;
-                match result {
-                    Ok(content) => serde_json::json!({
-                        "jsonrpc": "2.0",
-                        "result": { "content": content },
-                        "id": req.id
-                    }),
-                    Err(e) => serde_json::json!({
-                        "jsonrpc": "2.0",
-                        "result": {
-                            "content": [{ "type": "text", "text": format!("Error: {}", e) }],
-                            "isError": true
-                        },
-                        "id": req.id
-                    }),
-                }
+            "tools/list" => {
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "result": { "tools": tool_definitions() },
+                    "id": req.id
+                });
+                write_response_shared(&stdout, &resp).await;
             }
 
-            other => serde_json::json!({
-                "jsonrpc": "2.0",
-                "error": { "code": -32601, "message": format!("Method not found: {}", other) },
-                "id": req.id
-            }),
-        };
+            "tools/call" => {
+                // Spawn tool call concurrently — does not block the stdin reader
+                let sock = Arc::clone(&sock_path);
+                let sid = Arc::clone(&session_id);
+                let out = Arc::clone(&stdout);
+                let id = req.id.clone();
+                let params = req.params;
+                tokio::spawn(async move {
+                    let result =
+                        handle_tool_call(&sock, params, sid.as_deref()).await;
+                    let response = match result {
+                        Ok(content) => serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "result": { "content": content },
+                            "id": id
+                        }),
+                        Err(e) => serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "result": {
+                                "content": [{ "type": "text", "text": format!("Error: {}", e) }],
+                                "isError": true
+                            },
+                            "id": id
+                        }),
+                    };
+                    write_response_shared(&out, &response).await;
+                });
+            }
 
-        write_response(&mut stdout, &resp).await;
+            other => {
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "error": { "code": -32601, "message": format!("Method not found: {}", other) },
+                    "id": req.id
+                });
+                write_response_shared(&stdout, &resp).await;
+            }
+        }
     }
 
     Ok(())
 }
 
-/// Write a JSON-RPC response to stdout. Swallows write errors so the bridge
-/// never dies due to a transient stdout issue.
-async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+/// Write a JSON-RPC response to a shared stdout (tokio Mutex-protected).
+/// The entire write (json + newline + flush) is atomic w.r.t. the lock so
+/// concurrent tasks never interleave their output.
+async fn write_response_shared(
+    stdout: &Arc<tokio::sync::Mutex<tokio::io::Stdout>>,
+    resp: &serde_json::Value,
+) {
     let json = match serde_json::to_string(resp) {
         Ok(j) => j,
         Err(e) => {
@@ -161,15 +192,16 @@ async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value
             return;
         }
     };
-    if let Err(e) = stdout.write_all(json.as_bytes()).await {
+    let mut out = stdout.lock().await;
+    if let Err(e) = out.write_all(json.as_bytes()).await {
         eprintln!("MCP neovim bridge: stdout write error: {}", e);
         return;
     }
-    if let Err(e) = stdout.write_all(b"\n").await {
+    if let Err(e) = out.write_all(b"\n").await {
         eprintln!("MCP neovim bridge: stdout write error: {}", e);
         return;
     }
-    if let Err(e) = stdout.flush().await {
+    if let Err(e) = out.flush().await {
         eprintln!("MCP neovim bridge: stdout flush error: {}", e);
     }
 }

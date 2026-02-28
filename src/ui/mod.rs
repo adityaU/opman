@@ -22,6 +22,7 @@ pub mod tag_popup;
 pub mod term_render;
 pub mod terminal_pane;
 pub mod todo_panel;
+pub mod watcher_modal;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -296,6 +297,11 @@ fn render_overlays(frame: &mut Frame, app: &App, size: Rect) {
     if app.context_input.is_some() {
         let ci = context_input::ContextInput::new(app);
         ci.render_popup(size, frame.buffer_mut());
+    }
+
+    if app.watcher_modal.is_some() {
+        let wm = watcher_modal::WatcherModal::new(app);
+        wm.render_popup(size, frame.buffer_mut());
     }
 }
 

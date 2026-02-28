@@ -10,6 +10,19 @@ use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
+// ─── Shared neovim socket registry ──────────────────────────────────────────
+
+/// Shared registry of neovim socket paths, keyed by (project_idx, session_id).
+/// Updated by the main loop when neovim PTYs are spawned; read by socket server
+/// tasks to handle nvim operations directly without round-tripping through the
+/// main event loop.
+pub type NvimSocketRegistry = Arc<tokio::sync::RwLock<HashMap<(usize, String), PathBuf>>>;
+
+/// Create a new empty neovim socket registry.
+pub fn new_nvim_socket_registry() -> NvimSocketRegistry {
+    Arc::new(tokio::sync::RwLock::new(HashMap::new()))
+}
+
 // ─── Internal socket protocol ───────────────────────────────────────────────
 
 /// A single edit operation within a multi-edit batch.
@@ -187,10 +200,17 @@ pub fn socket_path_for_project(project_path: &Path) -> PathBuf {
 /// - Ephemeral task names are deduplicated (only one in-flight per name).
 /// - Neovim operations are serialized per-file (different files run concurrently).
 /// - Terminal tab busy state is checked at the application level in `handle_mcp_request`.
+///
+/// Neovim operations are handled **directly** in the socket server task when the
+/// neovim socket is already registered (i.e. neovim has been spawned). This avoids
+/// round-tripping through the main TUI event loop for blocking `nvim_rpc` calls.
+/// If neovim hasn't been spawned yet, the request falls through to the main loop
+/// which lazy-spawns neovim and registers the socket path.
 pub fn spawn_socket_server(
     project_path: &Path,
     request_tx: mpsc::UnboundedSender<crate::app::BackgroundEvent>,
     project_idx: usize,
+    nvim_registry: NvimSocketRegistry,
 ) -> PathBuf {
     let sock_path = socket_path_for_project(project_path);
 
@@ -220,6 +240,12 @@ pub fn spawn_socket_server(
         let nvim_locks: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
             Arc::new(Mutex::new(HashMap::new()));
 
+        // Per-tab lock map for terminal operations. Operations on different
+        // tabs run concurrently; operations on the same tab are serialized.
+        // Key: tab index (as string), or "__no_tab__" for ops without a tab.
+        let term_locks: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
         loop {
             let (stream, _) = match listener.accept().await {
                 Ok(conn) => conn,
@@ -233,6 +259,8 @@ pub fn spawn_socket_server(
             let pidx = project_idx;
             let eph = busy_ephemeral.clone();
             let nvim = nvim_locks.clone();
+            let term = term_locks.clone();
+            let registry = nvim_registry.clone();
 
             tokio::spawn(async move {
                 let (reader, mut writer) = stream.into_split();
@@ -309,32 +337,71 @@ pub fn spawn_socket_server(
                     _ => {}
                 }
 
-                // Acquire per-file neovim lock for nvim_* ops. Operations on
+                // Acquire per-file neovim lock(s) for nvim_* ops. Operations on
                 // different files run concurrently; same-file ops are serialized.
-                // Multi-edit batches use a global lock since they touch multiple files.
+                // Multi-edit batches acquire locks for ALL touched files (sorted
+                // to avoid deadlocks).
                 let is_nvim_op = request.op.starts_with("nvim_");
-                let nvim_lock_key = if is_nvim_op {
-                    if request.edits.is_some() {
-                        // Multi-edit: serialize against all nvim ops
-                        Some("__multi_edit__".to_string())
+                let nvim_lock_keys: Vec<String> = if is_nvim_op {
+                    if let Some(ref edits) = request.edits {
+                        // Multi-edit: collect unique file paths, sorted for
+                        // consistent lock ordering (prevents deadlocks).
+                        let mut paths: Vec<String> = edits
+                            .iter()
+                            .map(|e| e.file_path.clone())
+                            .collect::<std::collections::BTreeSet<_>>()
+                            .into_iter()
+                            .collect();
+                        if paths.is_empty() {
+                            paths.push("__current__".to_string());
+                        }
+                        paths
                     } else {
-                        Some(
-                            request
-                                .file_path
-                                .as_deref()
-                                .unwrap_or("__current__")
-                                .to_string(),
-                        )
+                        vec![request
+                            .file_path
+                            .as_deref()
+                            .unwrap_or("__current__")
+                            .to_string()]
                     }
                 } else {
-                    None
+                    vec![]
                 };
-                // Acquire per-file lock. Keep the Arc alive so the guard can borrow it.
-                let _nvim_arc = if let Some(ref key) = nvim_lock_key {
+                // Acquire per-file locks. Keep Arcs alive so guards can borrow them.
+                let nvim_arcs: Vec<Arc<tokio::sync::Mutex<()>>> = {
+                    if nvim_lock_keys.is_empty() {
+                        vec![]
+                    } else {
+                        let mut locks_map = nvim.lock().unwrap();
+                        nvim_lock_keys
+                            .iter()
+                            .map(|key| {
+                                locks_map
+                                    .entry(key.clone())
+                                    .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+                                    .clone()
+                            })
+                            .collect()
+                    }
+                };
+                // Acquire all locks in order (sorted keys → deterministic order).
+                let mut _nvim_guards = Vec::new();
+                for arc in &nvim_arcs {
+                    _nvim_guards.push(arc.lock().await);
+                }
+
+                // Acquire per-tab terminal lock for terminal ops that target a
+                // specific tab. Operations on different tabs run concurrently;
+                // same-tab ops are serialized.
+                let is_term_op = matches!(request.op.as_str(), "run" | "read" | "close" | "rename");
+                let _term_arc = if is_term_op {
+                    let key = request
+                        .tab
+                        .map(|t| t.to_string())
+                        .unwrap_or_else(|| "__active__".to_string());
                     let lock = {
-                        let mut locks = nvim.lock().unwrap();
+                        let mut locks = term.lock().unwrap();
                         locks
-                            .entry(key.clone())
+                            .entry(key)
                             .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
                             .clone()
                     };
@@ -342,10 +409,45 @@ pub fn spawn_socket_server(
                 } else {
                     None
                 };
-                let _nvim_guard = match &_nvim_arc {
+                let _term_guard = match &_term_arc {
                     Some(lock) => Some(lock.lock().await),
                     None => None,
                 };
+
+                // For nvim_* ops: try to handle directly using the registry
+                // (avoids round-trip through the main TUI event loop).
+                if is_nvim_op {
+                    let session_id = request.session_id.clone().unwrap_or_default();
+                    let nvim_socket = {
+                        let reg = registry.read().await;
+                        reg.get(&(pidx, session_id.clone())).cloned()
+                    };
+
+                    if let Some(nvim_socket) = nvim_socket {
+                        // Handle nvim operation directly in this task using
+                        // spawn_blocking (nvim_rpc uses synchronous I/O).
+                        let response = {
+                            let req = request;
+                            let sock = nvim_socket;
+                            tokio::task::spawn_blocking(move || {
+                                handle_nvim_op_blocking(&sock, &req)
+                            })
+                            .await
+                            .unwrap_or_else(|e| {
+                                SocketResponse::err(format!("Task join error: {}", e))
+                            })
+                        };
+
+                        let json = serde_json::to_string(&response).unwrap();
+                        let _ = writer.write_all(json.as_bytes()).await;
+                        let _ = writer.write_all(b"\n").await;
+
+                        drop(_nvim_guards);
+                        return;
+                    }
+                    // else: neovim not yet spawned — fall through to main loop
+                    // which will lazy-spawn it and register the socket.
+                }
 
                 // Send to main event loop and wait for response
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
@@ -377,13 +479,311 @@ pub fn spawn_socket_server(
                 };
                 let _ = write_result;
 
-                // Release the per-file neovim lock (dropped when _nvim_guard goes out of scope)
-                drop(_nvim_guard);
+                // Release locks (dropped when guards go out of scope)
+                drop(_nvim_guards);
+                drop(_term_guard);
             });
         }
     });
 
     sock_path
+}
+
+/// Handle a neovim operation directly (blocking I/O via nvim_rpc).
+///
+/// This is called from `spawn_blocking` in the socket server task, bypassing
+/// the main TUI event loop entirely. All nvim_rpc functions use synchronous
+/// UnixStream I/O, so they must run on a blocking thread.
+fn handle_nvim_op_blocking(nvim_socket: &Path, request: &SocketRequest) -> SocketResponse {
+    // Resolve file_path → buffer handle (0 = current buffer)
+    let buf: i64 = if let Some(ref path) = request.file_path {
+        // nvim_open handles its own file_path, skip resolution
+        if request.op != "nvim_open" {
+            match crate::nvim_rpc::nvim_find_or_load_buffer(nvim_socket, path) {
+                Ok(id) => id,
+                Err(e) => {
+                    return SocketResponse::err(format!(
+                        "Failed to resolve buffer for '{}': {}",
+                        path, e
+                    ))
+                }
+            }
+        } else {
+            0
+        }
+    } else {
+        0 // current buffer
+    };
+
+    match request.op.as_str() {
+        "nvim_open" => {
+            let file_path = match &request.file_path {
+                Some(p) => p.as_str(),
+                None => return SocketResponse::err("Missing 'file_path' for nvim_open".into()),
+            };
+            match crate::nvim_rpc::nvim_open_file(nvim_socket, file_path, request.line) {
+                Ok(()) => {
+                    let mut msg = format!("Opened {}", file_path);
+                    if let Some(ln) = request.line {
+                        msg.push_str(&format!(" at line {}", ln));
+                    }
+                    SocketResponse::ok_text(msg)
+                }
+                Err(e) => SocketResponse::err(format!("Failed to open file in Neovim: {}", e)),
+            }
+        }
+        "nvim_read" => {
+            // Convert from 1-indexed (user-facing) to 0-indexed (nvim API)
+            let start = request.line.unwrap_or(1).max(1) - 1;
+            let end = match request.end_line {
+                Some(-1) | None => match crate::nvim_rpc::nvim_buf_line_count(nvim_socket, buf) {
+                    Ok(count) => count,
+                    Err(e) => {
+                        return SocketResponse::err(format!("Failed to get line count: {}", e))
+                    }
+                },
+                Some(e) => e,
+            };
+            let lang = crate::nvim_rpc::nvim_buf_get_name(nvim_socket, buf)
+                .map(|name| crate::mcp_neovim::ext_to_lang(&name).to_string())
+                .unwrap_or_default();
+
+            match crate::nvim_rpc::nvim_buf_get_lines(nvim_socket, buf, start, end) {
+                Ok(lines) => {
+                    let numbered: Vec<String> = lines
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| format!("{}: {}", start + 1 + i as i64, l))
+                        .collect();
+                    let body = numbered.join("\n");
+                    SocketResponse::ok_text(format!("```{}\n{}\n```", lang, body))
+                }
+                Err(e) => SocketResponse::err(format!("Failed to read lines from Neovim: {}", e)),
+            }
+        }
+        "nvim_command" => {
+            let cmd = match &request.command {
+                Some(c) => c.as_str(),
+                None => return SocketResponse::err("Missing 'command' for nvim_command".into()),
+            };
+            match crate::nvim_rpc::nvim_command(nvim_socket, cmd) {
+                Ok(()) => SocketResponse::ok_text(format!("Command executed: {}", cmd)),
+                Err(e) => SocketResponse::err(format!("Neovim command failed: {}", e)),
+            }
+        }
+        "nvim_buffers" => match crate::nvim_rpc::nvim_list_bufs(nvim_socket) {
+            Ok(bufs) => {
+                if bufs.is_empty() {
+                    SocketResponse::ok_text("No named buffers loaded.".into())
+                } else {
+                    let lines: Vec<String> = bufs
+                        .iter()
+                        .map(|(id, name)| format!("Buffer {}: {}", id, name))
+                        .collect();
+                    SocketResponse::ok_text(lines.join("\n"))
+                }
+            }
+            Err(e) => SocketResponse::err(format!("Failed to list buffers: {}", e)),
+        },
+        "nvim_info" => {
+            let name = crate::nvim_rpc::nvim_buf_get_name(nvim_socket, buf)
+                .unwrap_or_else(|_| "(unknown)".into());
+            let cursor = crate::nvim_rpc::nvim_cursor_pos(nvim_socket).unwrap_or((1, 0));
+            let line_count = crate::nvim_rpc::nvim_buf_line_count(nvim_socket, buf).unwrap_or(0);
+
+            let info = format!(
+                "Buffer: {}\nCursor: line {}, column {}\nTotal lines: {}",
+                if name.is_empty() { "(unnamed)" } else { &name },
+                cursor.0,
+                cursor.1,
+                line_count
+            );
+            SocketResponse::ok_text(info)
+        }
+        "nvim_diagnostics" => {
+            let buf_only = request.buf_only.unwrap_or(false);
+            match crate::nvim_rpc::nvim_lsp_diagnostics(nvim_socket, buf, buf_only) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to get diagnostics: {}", e)),
+            }
+        }
+        "nvim_definition" => {
+            match crate::nvim_rpc::nvim_lsp_definition(nvim_socket, buf, request.line, request.col)
+            {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to get definition: {}", e)),
+            }
+        }
+        "nvim_references" => {
+            match crate::nvim_rpc::nvim_lsp_references(nvim_socket, buf, request.line, request.col)
+            {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to get references: {}", e)),
+            }
+        }
+        "nvim_hover" => {
+            match crate::nvim_rpc::nvim_lsp_hover(nvim_socket, buf, request.line, request.col) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to get hover info: {}", e)),
+            }
+        }
+        "nvim_symbols" => {
+            let query = request.query.as_deref().unwrap_or("");
+            let workspace = request.workspace.unwrap_or(false);
+            match crate::nvim_rpc::nvim_lsp_symbols(nvim_socket, buf, query, workspace) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to get symbols: {}", e)),
+            }
+        }
+        "nvim_code_actions" => match crate::nvim_rpc::nvim_lsp_code_actions(nvim_socket, buf) {
+            Ok(output) => SocketResponse::ok_text(output),
+            Err(e) => SocketResponse::err(format!("Failed to get code actions: {}", e)),
+        },
+        "nvim_eval" => {
+            let code = match &request.command {
+                Some(c) => c.as_str(),
+                None => {
+                    return SocketResponse::err("Missing 'command' (Lua code) for nvim_eval".into())
+                }
+            };
+            match crate::nvim_rpc::nvim_eval_lua(nvim_socket, code) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Lua eval failed: {}", e)),
+            }
+        }
+        "nvim_grep" => {
+            let pattern = match &request.query {
+                Some(q) => q.as_str(),
+                None => {
+                    return SocketResponse::err(
+                        "Missing 'query' (search pattern) for nvim_grep".into(),
+                    )
+                }
+            };
+            let glob = request.glob.as_deref();
+            match crate::nvim_rpc::nvim_grep(nvim_socket, pattern, glob) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Grep failed: {}", e)),
+            }
+        }
+        "nvim_diff" => match crate::nvim_rpc::nvim_buf_diff(nvim_socket, buf) {
+            Ok(output) => {
+                if output.is_empty() {
+                    SocketResponse::ok_text("No unsaved changes.".into())
+                } else {
+                    SocketResponse::ok_text(output)
+                }
+            }
+            Err(e) => SocketResponse::err(format!("Failed to compute diff: {}", e)),
+        },
+        "nvim_write" => {
+            let all = request.all.unwrap_or(false);
+            match crate::nvim_rpc::nvim_write(nvim_socket, buf, all) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Failed to write: {}", e)),
+            }
+        }
+        "nvim_edit_and_save" => {
+            if let Some(edit_ops) = &request.edits {
+                // Multi-edit batch path
+                let mut resolved: Vec<crate::nvim_rpc::ResolvedEdit> = Vec::new();
+                for (i, op) in edit_ops.iter().enumerate() {
+                    let edit_buf =
+                        match crate::nvim_rpc::nvim_find_or_load_buffer(nvim_socket, &op.file_path)
+                        {
+                            Ok(id) => id,
+                            Err(e) => {
+                                return SocketResponse::err(format!(
+                                    "edits[{}]: failed to resolve buffer for '{}': {}",
+                                    i, op.file_path, e
+                                ))
+                            }
+                        };
+                    resolved.push(crate::nvim_rpc::ResolvedEdit {
+                        buf: edit_buf,
+                        file_path: op.file_path.clone(),
+                        start_line: op.start_line,
+                        end_line: op.end_line,
+                        new_text: op.new_text.clone(),
+                    });
+                }
+                match crate::nvim_rpc::nvim_buf_multi_edit_and_save(nvim_socket, &mut resolved) {
+                    Ok(msg) => SocketResponse::ok_text(msg),
+                    Err(e) => SocketResponse::err(format!("Multi-edit failed: {}", e)),
+                }
+            } else {
+                // Single edit path
+                let start_line = match request.line {
+                    Some(l) => l,
+                    None => {
+                        return SocketResponse::err(
+                            "Missing 'start_line' for nvim_edit_and_save".into(),
+                        )
+                    }
+                };
+                let end_line = match request.end_line {
+                    Some(l) => l,
+                    None => {
+                        return SocketResponse::err(
+                            "Missing 'end_line' for nvim_edit_and_save".into(),
+                        )
+                    }
+                };
+                let new_text = match &request.new_text {
+                    Some(t) => t.as_str(),
+                    None => {
+                        return SocketResponse::err(
+                            "Missing 'new_text' for nvim_edit_and_save".into(),
+                        )
+                    }
+                };
+                match crate::nvim_rpc::nvim_buf_set_text_and_save(
+                    nvim_socket,
+                    buf,
+                    start_line,
+                    end_line,
+                    new_text,
+                ) {
+                    Ok(msg) => SocketResponse::ok_text(msg),
+                    Err(e) => SocketResponse::err(format!("Edit+save failed: {}", e)),
+                }
+            }
+        }
+        "nvim_undo" => {
+            let count = request.count.unwrap_or(1);
+            match crate::nvim_rpc::nvim_undo(nvim_socket, buf, count) {
+                Ok(msg) => SocketResponse::ok_text(msg),
+                Err(e) => SocketResponse::err(format!("Undo failed: {}", e)),
+            }
+        }
+        "nvim_rename" => {
+            let new_name = match &request.new_name {
+                Some(n) => n.as_str(),
+                None => return SocketResponse::err("Missing 'new_name' for nvim_rename".into()),
+            };
+            match crate::nvim_rpc::nvim_lsp_rename(
+                nvim_socket,
+                buf,
+                new_name,
+                request.line,
+                request.col,
+            ) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Rename failed: {}", e)),
+            }
+        }
+        "nvim_format" => match crate::nvim_rpc::nvim_lsp_format(nvim_socket, buf) {
+            Ok(output) => SocketResponse::ok_text(output),
+            Err(e) => SocketResponse::err(format!("Format failed: {}", e)),
+        },
+        "nvim_signature" => {
+            match crate::nvim_rpc::nvim_lsp_signature(nvim_socket, buf, request.line, request.col) {
+                Ok(output) => SocketResponse::ok_text(output),
+                Err(e) => SocketResponse::err(format!("Signature help failed: {}", e)),
+            }
+        }
+        _ => SocketResponse::err(format!("Unknown nvim operation: {}", request.op)),
+    }
 }
 
 // ─── Cleanup: remove socket files on shutdown ───────────────────────────────
@@ -407,17 +807,30 @@ struct McpJsonRpcRequest {
 
 /// Run the MCP stdio bridge: read JSON-RPC from stdin, forward to socket, write response to stdout.
 ///
+/// Tool calls (`tools/call`) are dispatched **concurrently**: each call is
+/// spawned as a separate tokio task, and responses are written back with the
+/// correct `id` as they complete — not in request order.  This allows the MCP
+/// client (e.g. opencode) to issue parallel tool calls that execute at the same
+/// time (subject to per-resource locking in the socket server layer).
+///
+/// Non-tool methods (initialize, tools/list) are still handled inline since
+/// they are cheap and ordering-sensitive (initialize must complete before
+/// tools/list).
+///
 /// This function is designed to **never exit** on transient errors. Only a
 /// genuine EOF on stdin (the MCP client closed the pipe) causes a clean exit.
 /// All stdout write failures are swallowed — the individual request is lost
 /// but the bridge stays alive so subsequent requests still work.
 pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
-    let sock_path = socket_path_for_project(&project_path);
+    let sock_path = Arc::new(socket_path_for_project(&project_path));
     // Read session ID from env var set by opencode PTY spawn, so all
     // socket requests route to the correct per-session resources.
-    let session_id = std::env::var("OPENCODE_SESSION_ID").ok();
+    let session_id: Arc<Option<String>> = Arc::new(std::env::var("OPENCODE_SESSION_ID").ok());
     let stdin = tokio::io::stdin();
-    let mut stdout = tokio::io::stdout();
+    // Shared stdout writer protected by a tokio Mutex so concurrent tasks can
+    // write responses without interleaving.
+    let stdout: Arc<tokio::sync::Mutex<tokio::io::Stdout>> =
+        Arc::new(tokio::sync::Mutex::new(tokio::io::stdout()));
     let mut reader = BufReader::new(stdin);
 
     let mut line = String::new();
@@ -447,16 +860,16 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                write_jsonrpc_response(&mut stdout, &error_resp).await;
+                write_jsonrpc_stdout(&stdout, &error_resp).await;
                 continue;
             }
         };
 
         let _ = rpc_req.jsonrpc; // consumed for deserialization
 
-        let response = match rpc_req.method.as_str() {
+        match rpc_req.method.as_str() {
             "initialize" => {
-                serde_json::json!({
+                let response = serde_json::json!({
                     "jsonrpc": "2.0",
                     "result": {
                         "protocolVersion": "2024-11-05",
@@ -469,64 +882,77 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                         }
                     },
                     "id": rpc_req.id
-                })
+                });
+                write_jsonrpc_stdout(&stdout, &response).await;
             }
             "notifications/initialized" => {
                 // Client acknowledgment, no response needed
                 continue;
             }
             "tools/list" => {
-                serde_json::json!({
+                let response = serde_json::json!({
                     "jsonrpc": "2.0",
                     "result": {
                         "tools": mcp_tool_definitions()
                     },
                     "id": rpc_req.id
-                })
+                });
+                write_jsonrpc_stdout(&stdout, &response).await;
             }
             "tools/call" => {
-                let result =
-                    handle_tool_call(&sock_path, rpc_req.params, session_id.as_deref()).await;
-                match result {
-                    Ok(content) => {
-                        serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "result": {
-                                "content": content
-                            },
-                            "id": rpc_req.id
-                        })
-                    }
-                    Err(e) => {
-                        serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "result": {
-                                "content": [{ "type": "text", "text": format!("Error: {}", e) }],
-                                "isError": true
-                            },
-                            "id": rpc_req.id
-                        })
-                    }
-                }
+                // Spawn tool call concurrently — does not block the stdin reader
+                let sock = Arc::clone(&sock_path);
+                let sid = Arc::clone(&session_id);
+                let out = Arc::clone(&stdout);
+                let id = rpc_req.id.clone();
+                let params = rpc_req.params;
+                tokio::spawn(async move {
+                    let result = handle_tool_call(&sock, params, sid.as_deref()).await;
+                    let response = match result {
+                        Ok(content) => {
+                            serde_json::json!({
+                                "jsonrpc": "2.0",
+                                "result": {
+                                    "content": content
+                                },
+                                "id": id
+                            })
+                        }
+                        Err(e) => {
+                            serde_json::json!({
+                                "jsonrpc": "2.0",
+                                "result": {
+                                    "content": [{ "type": "text", "text": format!("Error: {}", e) }],
+                                    "isError": true
+                                },
+                                "id": id
+                            })
+                        }
+                    };
+                    write_jsonrpc_stdout(&out, &response).await;
+                });
             }
             _ => {
-                serde_json::json!({
+                let response = serde_json::json!({
                     "jsonrpc": "2.0",
                     "error": { "code": -32601, "message": format!("Method not found: {}", rpc_req.method) },
                     "id": rpc_req.id
-                })
+                });
+                write_jsonrpc_stdout(&stdout, &response).await;
             }
-        };
-
-        write_jsonrpc_response(&mut stdout, &response).await;
+        }
     }
 
     Ok(())
 }
 
-/// Write a JSON-RPC response to stdout. Swallows write errors so the bridge
-/// never dies due to a transient stdout issue.
-async fn write_jsonrpc_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+/// Write a JSON-RPC response to a shared stdout (tokio Mutex-protected).
+/// The entire write (json + newline + flush) is atomic w.r.t. the lock so
+/// concurrent tasks never interleave their output.
+async fn write_jsonrpc_stdout(
+    stdout: &Arc<tokio::sync::Mutex<tokio::io::Stdout>>,
+    resp: &serde_json::Value,
+) {
     let json = match serde_json::to_string(resp) {
         Ok(j) => j,
         Err(e) => {
@@ -534,15 +960,16 @@ async fn write_jsonrpc_response(stdout: &mut tokio::io::Stdout, resp: &serde_jso
             return;
         }
     };
-    if let Err(e) = stdout.write_all(json.as_bytes()).await {
+    let mut out = stdout.lock().await;
+    if let Err(e) = out.write_all(json.as_bytes()).await {
         eprintln!("MCP bridge: stdout write error: {}", e);
         return;
     }
-    if let Err(e) = stdout.write_all(b"\n").await {
+    if let Err(e) = out.write_all(b"\n").await {
         eprintln!("MCP bridge: stdout write error: {}", e);
         return;
     }
-    if let Err(e) = stdout.flush().await {
+    if let Err(e) = out.flush().await {
         eprintln!("MCP bridge: stdout flush error: {}", e);
     }
 }

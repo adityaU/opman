@@ -94,11 +94,20 @@ pub struct KeyBindings {
     pub toggle_neovim: String,
     #[serde(default = "default_toggle_git")]
     pub toggle_git: String,
-    #[serde(default = "default_swap_panel")]
-    pub swap_panel: String,
-    #[serde(default = "default_swap_panel_alt")]
-    pub swap_panel_alt: String,
 
+    // ── Leader → Swap sub-bindings ──────────────────────────────────
+    #[serde(default = "default_leader_swap")]
+    pub leader_swap: String,
+    #[serde(default = "default_swap_sidebar")]
+    pub swap_sidebar: String,
+    #[serde(default = "default_swap_opencode")]
+    pub swap_opencode: String,
+    #[serde(default = "default_swap_terminal")]
+    pub swap_terminal: String,
+    #[serde(default = "default_swap_neovim")]
+    pub swap_neovim: String,
+    #[serde(default = "default_swap_git")]
+    pub swap_git: String,
     // ── Leader key ──────────────────────────────────────────────────
     #[serde(default = "default_leader")]
     pub leader: String,
@@ -238,11 +247,23 @@ fn default_toggle_neovim() -> String {
 fn default_toggle_git() -> String {
     "ctrl+g".into()
 }
-fn default_swap_panel() -> String {
-    "ctrl+.".into()
+fn default_leader_swap() -> String {
+    "s".into()
 }
-fn default_swap_panel_alt() -> String {
-    "ctrl+shift+s".into()
+fn default_swap_sidebar() -> String {
+    "s".into()
+}
+fn default_swap_opencode() -> String {
+    "o".into()
+}
+fn default_swap_terminal() -> String {
+    "t".into()
+}
+fn default_swap_neovim() -> String {
+    "n".into()
+}
+fn default_swap_git() -> String {
+    "g".into()
 }
 fn default_leader() -> String {
     "space".into()
@@ -384,8 +405,12 @@ impl Default for KeyBindings {
             toggle_terminal: default_toggle_terminal(),
             toggle_neovim: default_toggle_neovim(),
             toggle_git: default_toggle_git(),
-            swap_panel: default_swap_panel(),
-            swap_panel_alt: default_swap_panel_alt(),
+            leader_swap: default_leader_swap(),
+            swap_sidebar: default_swap_sidebar(),
+            swap_opencode: default_swap_opencode(),
+            swap_terminal: default_swap_terminal(),
+            swap_neovim: default_swap_neovim(),
+            swap_git: default_swap_git(),
             leader: default_leader(),
             leader_terminal: default_leader_terminal(),
             leader_git: default_leader_git(),

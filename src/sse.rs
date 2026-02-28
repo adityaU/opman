@@ -1,7 +1,7 @@
 use anyhow::Result;
 use futures::StreamExt;
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
@@ -176,10 +176,8 @@ pub fn spawn_session_poller(
 ) {
     let tx = bg_tx.clone();
     tokio::spawn(async move {
-        let mut last_updated: HashMap<String, u64> = HashMap::new();
+        // Track which sessions we consider active so we only emit transitions.
         let mut known_active: HashSet<String> = HashSet::new();
-        let mut unchanged_count: HashMap<String, u32> = HashMap::new();
-        const IDLE_THRESHOLD: u32 = 5; // 5 polls × 3s = 15s without change → idle
 
         let client = crate::api::ApiClient::new();
         let base_url = crate::app::base_url().to_string();
@@ -187,38 +185,53 @@ pub fn spawn_session_poller(
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
-            let sessions = match client.fetch_sessions(&base_url, &project_dir).await {
-                Ok(s) => s,
+            // Use the authoritative /session/status endpoint.  It returns a map
+            // of session_id → { type: "busy"|"retry"|… } for non-idle sessions.
+            // Idle sessions are absent from the map.  This correctly reflects
+            // in-progress tool calls (including long-running ones) for both
+            // parent and child sessions.
+            let status_map = match client.fetch_session_status(&base_url, &project_dir).await {
+                Ok(m) => m,
                 Err(_) => continue,
             };
 
-            for session in &sessions {
-                let prev = last_updated.get(&session.id).copied().unwrap_or(0);
-                let now = session.time.updated;
+            // Sessions that the server considers active right now.
+            let server_active: HashSet<String> = status_map
+                .iter()
+                .filter(|(_, status)| status != &"idle")
+                .map(|(id, _)| id.clone())
+                .collect();
 
-                if prev > 0 && now > prev {
-                    unchanged_count.insert(session.id.clone(), 0);
-                    if !known_active.contains(&session.id) {
-                        known_active.insert(session.id.clone());
-                        let _ = tx.send(BackgroundEvent::SseSessionBusy {
-                            session_id: session.id.clone(),
-                        });
-                    }
-                } else if known_active.contains(&session.id) {
-                    let count = unchanged_count.entry(session.id.clone()).or_insert(0);
-                    *count += 1;
-                    if *count >= IDLE_THRESHOLD {
-                        known_active.remove(&session.id);
-                        unchanged_count.remove(&session.id);
-                        let _ = tx.send(BackgroundEvent::SseSessionIdle {
-                            project_idx,
-                            session_id: session.id.clone(),
-                        });
-                    }
+            // Detect newly-busy sessions → emit SseSessionBusy.
+            for id in &server_active {
+                if !known_active.contains(id) {
+                    info!(
+                        project_idx,
+                        session_id = %id,
+                        "Poller: session became busy (server status)"
+                    );
+                    let _ = tx.send(BackgroundEvent::SseSessionBusy {
+                        session_id: id.clone(),
+                    });
                 }
-
-                last_updated.insert(session.id.clone(), now);
             }
+
+            // Detect sessions that went idle → emit SseSessionIdle.
+            for id in &known_active {
+                if !server_active.contains(id) {
+                    info!(
+                        project_idx,
+                        session_id = %id,
+                        "Poller: session became idle (server status)"
+                    );
+                    let _ = tx.send(BackgroundEvent::SseSessionIdle {
+                        project_idx,
+                        session_id: id.clone(),
+                    });
+                }
+            }
+
+            known_active = server_active;
         }
     });
 }
@@ -304,7 +317,12 @@ fn handle_sse_data(
     match event.event_type.as_str() {
         "session.created" => {
             let props: SessionCreatedProps = serde_json::from_value(event.properties)?;
-            debug!(project_idx, session_id = %props.info.id, "SSE: session.created");
+            info!(
+                project_idx,
+                session_id = %props.info.id,
+                title = %props.info.title,
+                "SSE: session.created — new session detected"
+            );
             let _ = bg_tx.send(BackgroundEvent::SseSessionCreated {
                 project_idx,
                 session: props.info,
@@ -320,7 +338,7 @@ fn handle_sse_data(
         }
         "session.deleted" => {
             let props: SessionDeletedProps = serde_json::from_value(event.properties)?;
-            debug!(project_idx, session_id = %props.session_id, "SSE: session.deleted");
+            info!(project_idx, session_id = %props.session_id, "SSE: session.deleted");
             let _ = bg_tx.send(BackgroundEvent::SseSessionDeleted {
                 project_idx,
                 session_id: props.session_id,
@@ -328,7 +346,7 @@ fn handle_sse_data(
         }
         "session.idle" => {
             let props: SessionDeletedProps = serde_json::from_value(event.properties)?;
-            debug!(project_idx, session_id = %props.session_id, "SSE: session.idle");
+            info!(project_idx, session_id = %props.session_id, "SSE: session.idle");
             let _ = bg_tx.send(BackgroundEvent::SseSessionIdle {
                 project_idx,
                 session_id: props.session_id,
@@ -336,7 +354,12 @@ fn handle_sse_data(
         }
         "session.status" => {
             let props: SessionStatusProps = serde_json::from_value(event.properties)?;
-            debug!(project_idx, session_id = %props.session_id, status = %props.status.status_type, "SSE: session.status");
+            info!(
+                project_idx,
+                session_id = %props.session_id,
+                status = %props.status.status_type,
+                "SSE: session.status — state change"
+            );
             match props.status.status_type.as_str() {
                 "busy" => {
                     let _ = bg_tx.send(BackgroundEvent::SseSessionBusy {
@@ -349,7 +372,13 @@ fn handle_sse_data(
                         session_id: props.session_id,
                     });
                 }
-                _ => {}
+                other => {
+                    debug!(
+                        project_idx,
+                        status = other,
+                        "SSE: session.status — unhandled type"
+                    );
+                }
             }
         }
         "server.connected" => {

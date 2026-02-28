@@ -197,7 +197,12 @@ async fn main() -> Result<()> {
             for i in 0..app.projects.len() {
                 let project_path = app.projects[i].path.clone();
                 if enable_terminal_mcp || enable_neovim_mcp {
-                    mcp::spawn_socket_server(&project_path, app.bg_tx.clone(), i);
+                    mcp::spawn_socket_server(
+                        &project_path,
+                        app.bg_tx.clone(),
+                        i,
+                        app.nvim_registry.clone(),
+                    );
                 }
                 if let Err(e) = mcp::write_opencode_json(
                     &project_path,
@@ -333,18 +338,32 @@ fn spawn_session_fetch(bg_tx: &mpsc::UnboundedSender<BackgroundEvent>, projects:
     let base_url = crate::app::base_url().to_string();
     tokio::spawn(async move {
         let client = api::ApiClient::new();
-        for (project_idx, dir) in fetch_targets {
-            match client.fetch_sessions(&base_url, &dir).await {
+        let mut all_busy: Vec<String> = Vec::new();
+        for (project_idx, dir) in &fetch_targets {
+            match client.fetch_sessions(&base_url, dir).await {
                 Ok(sessions) => {
                     let _ = tx.send(BackgroundEvent::SessionsFetched {
-                        project_idx,
+                        project_idx: *project_idx,
                         sessions,
                     });
                 }
                 Err(_) => {
-                    let _ = tx.send(BackgroundEvent::SessionFetchFailed { project_idx });
+                    let _ = tx.send(BackgroundEvent::SessionFetchFailed { project_idx: *project_idx });
                 }
             }
+            // Also fetch session status to bootstrap active_sessions.
+            if let Ok(status_map) = client.fetch_session_status(&base_url, dir).await {
+                for (session_id, status_type) in &status_map {
+                    if status_type != "idle" {
+                        all_busy.push(session_id.clone());
+                    }
+                }
+            }
+        }
+        if !all_busy.is_empty() {
+            let _ = tx.send(BackgroundEvent::SessionStatusFetched {
+                busy_sessions: all_busy,
+            });
         }
     });
 }
@@ -445,6 +464,7 @@ async fn run_event_loop(
     let last_blink_toggle = Instant::now();
     // Previous pulse_phase value, used to detect changes worth redrawing.
     let mut prev_pulse_phase: f64 = 0.0;
+    let mut last_countdown_redraw = Instant::now();
 
     loop {
         // ── 1. Draw the UI only when something actually changed ──────
@@ -585,7 +605,10 @@ async fn run_event_loop(
         }
 
         // ── 7.5. Update pulse phase for active session dots ─────────
-        if !app.active_sessions.is_empty() {
+        // Also drive the pulse when watcher countdowns are active (session
+        // may be idle, but we still need the pulsing dot in the overlay).
+        let has_watcher_countdown = !app.watcher_idle_since.is_empty();
+        if !app.active_sessions.is_empty() || has_watcher_countdown {
             let elapsed = last_blink_toggle.elapsed().as_secs_f64();
             // 1.5s full cycle, smooth sine wave clamped to 0.35..=1.0
             // so the dot never fades to background-color (invisible).
@@ -597,6 +620,14 @@ async fn run_event_loop(
                 app.pulse_phase = new_phase;
                 prev_pulse_phase = new_phase;
                 app.needs_redraw = true;
+            }
+            // Force a redraw at least once per second during watcher
+            // countdown so the elapsed/remaining seconds tick in the overlay.
+            if has_watcher_countdown
+                && last_countdown_redraw.elapsed() >= Duration::from_secs(1)
+            {
+                app.needs_redraw = true;
+                last_countdown_redraw = Instant::now();
             }
         }
 
@@ -847,6 +878,38 @@ async fn run_event_loop(
 
                         // Forward mouse events to the PTY if the mouse is over a terminal panel
                         if dragging.is_none() {
+                            // --- Status bar click-to-copy URL ---
+                            if mouse_event.row == rows.saturating_sub(1) {
+                                if let crossterm::event::MouseEventKind::Down(
+                                    crossterm::event::MouseButton::Left,
+                                ) = mouse_event.kind
+                                {
+                                    if let Some((start_x, end_x)) =
+                                        app.status_bar_url_range.get()
+                                    {
+                                        let col = mouse_event.column;
+                                        if col >= start_x && col < end_x {
+                                            let url = crate::app::base_url();
+                                            use std::io::Write as _;
+                                            use std::process::{Command, Stdio};
+                                            if let Ok(mut child) = Command::new("pbcopy")
+                                                .stdin(Stdio::piped())
+                                                .spawn()
+                                            {
+                                                if let Some(stdin) = child.stdin.as_mut() {
+                                                    let _ = stdin.write_all(url.as_bytes());
+                                                }
+                                                let _ = child.wait();
+                                            }
+                                            app.toast_message = Some((
+                                                "Server URL copied!".to_string(),
+                                                std::time::Instant::now(),
+                                            ));
+                                            app.needs_redraw = true;
+                                        }
+                                    }
+                                }
+                            }
                             // In zen mode, only the focused panel is rendered full-screen,
                             // but panel_at() still uses non-zen layout rects → wrong panel.
                             // Short-circuit: always use the focused panel in zen mode.

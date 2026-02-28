@@ -59,6 +59,47 @@ impl ApiClient {
         Ok(sessions)
     }
 
+    /// Fetch the current status of all sessions from the server.
+    ///
+    /// Makes a `GET /session/status` request. Returns a map of session IDs to
+    /// their status. Sessions that are idle are absent from the map; only busy
+    /// or retry sessions appear.
+    pub async fn fetch_session_status(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+    ) -> Result<std::collections::HashMap<String, String>> {
+        let url = format!("{}/session/status", base_url);
+        debug!(url, project_dir, "Fetching session status");
+
+        let response = self
+            .client
+            .get(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch session status from opencode server")?;
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse session status response")?;
+
+        // The response is a Record<sessionID, { type: "busy"|"retry"|"idle" }>
+        // Only busy/retry sessions are present; idle ones are absent.
+        let mut status_map = std::collections::HashMap::new();
+        if let Some(obj) = body.as_object() {
+            for (session_id, status) in obj {
+                if let Some(status_type) = status.get("type").and_then(|t| t.as_str()) {
+                    status_map.insert(session_id.clone(), status_type.to_string());
+                }
+            }
+        }
+
+        Ok(status_map)
+    }
+
     /// Fetch basic project info from a running opencode server.
     #[allow(dead_code)]
     pub async fn fetch_project_info(
@@ -264,5 +305,87 @@ impl ApiClient {
         }
 
         Ok(())
+    }
+
+    /// Fetch messages for a session, returning only user-role messages.
+    ///
+    /// Uses `GET /session/{id}/message` with the project directory header.
+    /// Returns a list of `SessionMessage` with role and text.
+    pub async fn fetch_session_messages(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+    ) -> Result<Vec<crate::app::SessionMessage>> {
+        let url = format!("{}/session/{}/message", base_url, session_id);
+        debug!(url, session_id, "Fetching session messages for watcher");
+
+        let response = self
+            .client
+            .get(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch session messages")?;
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse session messages response")?;
+
+        let mut messages = Vec::new();
+        // The response is an array of `{ info: { role, ... }, parts: [...] }`.
+        // It may also be an object with message IDs as keys.
+        let items: Vec<&serde_json::Value> = if let Some(arr) = body.as_array() {
+            arr.iter().collect()
+        } else if let Some(obj) = body.as_object() {
+            obj.values().collect()
+        } else {
+            vec![]
+        };
+
+        for item in items {
+            // The role lives under item.info.role (not item.role).
+            let info = item.get("info");
+            let role = info
+                .and_then(|i| i.get("role"))
+                .and_then(|r| r.as_str())
+                // Fallback: try top-level role for older API versions.
+                .or_else(|| item.get("role").and_then(|r| r.as_str()))
+                .unwrap_or("")
+                .to_string();
+            if role != "user" {
+                continue;
+            }
+            // Parts are at item.parts (top-level, same level as info).
+            let text = if let Some(parts) = item.get("parts").and_then(|p| p.as_array()) {
+                parts
+                    .iter()
+                    .filter_map(|p| {
+                        // Only extract text from "text" type parts.
+                        let ptype = p.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                        if ptype == "text" || ptype.is_empty() {
+                            p.get("text").and_then(|t| t.as_str())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else if let Some(t) = item.get("text").and_then(|t| t.as_str()) {
+                t.to_string()
+            } else if let Some(content) = item.get("content").and_then(|c| c.as_str()) {
+                content.to_string()
+            } else {
+                continue;
+            };
+            if text.is_empty() {
+                continue;
+            }
+            messages.push(crate::app::SessionMessage { role, text });
+        }
+
+        Ok(messages)
     }
 }

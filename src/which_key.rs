@@ -354,6 +354,41 @@ pub fn build_space_children(kb: &KeyBindings) -> Vec<RuntimeKeyBinding> {
             CommandAction::ContextInput,
             NORMAL_MODES,
         ),
+        {
+            let swap_children = vec![
+                rk_leaf(
+                    parse(&kb.swap_sidebar),
+                    "Sidebar",
+                    CommandAction::SwapWithSidebar,
+                    NORMAL_MODES,
+                ),
+                rk_leaf(
+                    parse(&kb.swap_opencode),
+                    "Opencode",
+                    CommandAction::SwapWithOpencode,
+                    NORMAL_MODES,
+                ),
+                rk_leaf(
+                    parse(&kb.swap_terminal),
+                    "Terminal",
+                    CommandAction::SwapWithTerminal,
+                    NORMAL_MODES,
+                ),
+                rk_leaf(
+                    parse(&kb.swap_neovim),
+                    "Neovim",
+                    CommandAction::SwapWithNeovim,
+                    NORMAL_MODES,
+                ),
+                rk_leaf(
+                    parse(&kb.swap_git),
+                    "Git",
+                    CommandAction::SwapWithGit,
+                    NORMAL_MODES,
+                ),
+            ];
+            rk_prefix(parse(&kb.leader_swap), "Swap", NORMAL_MODES, swap_children)
+        },
     ]
 }
 
@@ -451,18 +486,6 @@ pub fn build_keymap(kb: &KeyBindings) -> Vec<RuntimeKeyBinding> {
             parse(&kb.toggle_neovim),
             "Toggle Neovim",
             CommandAction::ToggleNeovim,
-            NORMAL_MODES,
-        ),
-        rk_leaf(
-            parse(&kb.swap_panel),
-            "Swap Panel",
-            CommandAction::SwapPanel,
-            NORMAL_MODES,
-        ),
-        rk_leaf(
-            parse(&kb.swap_panel_alt),
-            "Swap Panel",
-            CommandAction::SwapPanel,
             NORMAL_MODES,
         ),
         rk_leaf(

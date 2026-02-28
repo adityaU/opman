@@ -4,6 +4,7 @@ use nucleo::{Config, Matcher};
 use crate::config::{format_key_display, KeyBindings};
 
 /// Actions that can be triggered from the command palette or keybindings.
+/// Actions that can be triggered from the command palette or keybindings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandAction {
     ToggleSidebar,
@@ -36,7 +37,12 @@ pub enum CommandAction {
     ResizeDown,
     // Extra
     ToggleCheatsheet,
-    SwapPanel,
+    // Targeted panel swaps
+    SwapWithSidebar,
+    SwapWithOpencode,
+    SwapWithTerminal,
+    SwapWithNeovim,
+    SwapWithGit,
     SessionSelector,
     ToggleTodoPanel,
     NewTerminalTab,
@@ -48,6 +54,7 @@ pub enum CommandAction {
     SearchPrevMatch,
     ContextInput,
     PopOutPanels,
+    SessionWatcher,
 }
 
 pub struct CommandEntry {
@@ -137,10 +144,40 @@ pub fn build_commands(keys: &KeyBindings) -> Vec<CommandEntry> {
             action: CommandAction::NavigateDown,
         },
         CommandEntry {
-            name: "Swap Terminal".into(),
-            shorthand: "swap".into(),
+            name: "Swap Terminal Content".into(),
+            shorthand: "swap terminal content".into(),
             keys_hint: leader_nested_hint(keys, &keys.leader_window, &keys.window_swap),
             action: CommandAction::SwapTerminal,
+        },
+        CommandEntry {
+            name: "Swap with Sidebar".into(),
+            shorthand: "swap sidebar".into(),
+            keys_hint: leader_nested_hint(keys, &keys.leader_swap, &keys.swap_sidebar),
+            action: CommandAction::SwapWithSidebar,
+        },
+        CommandEntry {
+            name: "Swap with Opencode".into(),
+            shorthand: "swap opencode".into(),
+            keys_hint: leader_nested_hint(keys, &keys.leader_swap, &keys.swap_opencode),
+            action: CommandAction::SwapWithOpencode,
+        },
+        CommandEntry {
+            name: "Swap with Terminal".into(),
+            shorthand: "swap terminal".into(),
+            keys_hint: leader_nested_hint(keys, &keys.leader_swap, &keys.swap_terminal),
+            action: CommandAction::SwapWithTerminal,
+        },
+        CommandEntry {
+            name: "Swap with Neovim".into(),
+            shorthand: "swap neovim".into(),
+            keys_hint: leader_nested_hint(keys, &keys.leader_swap, &keys.swap_neovim),
+            action: CommandAction::SwapWithNeovim,
+        },
+        CommandEntry {
+            name: "Swap with Git Panel".into(),
+            shorthand: "swap git".into(),
+            keys_hint: leader_nested_hint(keys, &keys.leader_swap, &keys.swap_git),
+            action: CommandAction::SwapWithGit,
         },
         CommandEntry {
             name: "Toggle Git Panel".into(),
@@ -249,6 +286,12 @@ pub fn build_commands(keys: &KeyBindings) -> Vec<CommandEntry> {
             shorthand: "popout float".into(),
             keys_hint: leader_nested_hint(keys, &keys.leader_window, &keys.window_popout),
             action: CommandAction::PopOutPanels,
+        },
+        CommandEntry {
+            name: "Session Watcher".into(),
+            shorthand: "watcher watch".into(),
+            keys_hint: leader_hint(keys, "w"),
+            action: CommandAction::SessionWatcher,
         },
     ]
 }
