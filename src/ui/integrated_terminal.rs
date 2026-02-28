@@ -120,7 +120,13 @@ impl<'a> IntegratedTerminal<'a> {
                     };
                     let palette = ansi_palette_from_theme(&self.app.theme);
                     let screen = parser.screen();
-                    term_render::render_screen(screen, content_area, buf, &palette, &self.app.theme);
+                    term_render::render_screen(
+                        screen,
+                        content_area,
+                        buf,
+                        &palette,
+                        &self.app.theme,
+                    );
                     render_url_underlines(buf, content_area, screen);
                 }
                 // Lock released — search/selection only touch the ratatui buffer.
@@ -201,7 +207,13 @@ impl<'a> Widget for IntegratedTerminal<'a> {
                     };
                     let palette = ansi_palette_from_theme(&self.app.theme);
                     let screen = parser.screen();
-                    term_render::render_screen(screen, content_area, buf, &palette, &self.app.theme);
+                    term_render::render_screen(
+                        screen,
+                        content_area,
+                        buf,
+                        &palette,
+                        &self.app.theme,
+                    );
                     render_url_underlines(buf, content_area, screen);
                 }
                 // Lock released — search/selection only touch the ratatui buffer.

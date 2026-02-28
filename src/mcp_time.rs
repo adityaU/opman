@@ -190,7 +190,10 @@ fn tool_definitions() -> serde_json::Value {
 fn dispatch_tool(params: Option<serde_json::Value>) -> serde_json::Value {
     let params = params.unwrap_or(serde_json::json!({}));
     let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let args = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
 
     let text = match tool_name {
         "time_now" => tool_time_now(&args),
@@ -258,19 +261,37 @@ fn tool_time_convert(args: &serde_json::Value) -> String {
 
     // Resolve "local" to the system timezone name
     let system_tz = system_timezone_name();
-    let from_str = if from_str == "local" { system_tz.as_str() } else { from_str };
-    let to_str = if to_str == "local" { system_tz.as_str() } else { to_str };
+    let from_str = if from_str == "local" {
+        system_tz.as_str()
+    } else {
+        from_str
+    };
+    let to_str = if to_str == "local" {
+        system_tz.as_str()
+    } else {
+        to_str
+    };
 
     // Parse source timezone
     let from_tz: Tz = match from_str.parse() {
         Ok(tz) => tz,
-        Err(_) => return format!("Unknown source timezone: \"{}\". Use time_zones tool to search.", from_str),
+        Err(_) => {
+            return format!(
+                "Unknown source timezone: \"{}\". Use time_zones tool to search.",
+                from_str
+            )
+        }
     };
 
     // Parse target timezone
     let to_tz: Tz = match to_str.parse() {
         Ok(tz) => tz,
-        Err(_) => return format!("Unknown target timezone: \"{}\". Use time_zones tool to search.", to_str),
+        Err(_) => {
+            return format!(
+                "Unknown target timezone: \"{}\". Use time_zones tool to search.",
+                to_str
+            )
+        }
     };
 
     // Parse the datetime string (try multiple formats)
@@ -281,9 +302,9 @@ fn tool_time_convert(args: &serde_json::Value) -> String {
         "%Y-%m-%d %H:%M",
     ];
 
-    let naive_dt = formats.iter().find_map(|fmt| {
-        chrono::NaiveDateTime::parse_from_str(datetime_str, fmt).ok()
-    });
+    let naive_dt = formats
+        .iter()
+        .find_map(|fmt| chrono::NaiveDateTime::parse_from_str(datetime_str, fmt).ok());
 
     let naive_dt = match naive_dt {
         Some(dt) => dt,
@@ -296,10 +317,12 @@ fn tool_time_convert(args: &serde_json::Value) -> String {
     // Localize to source timezone
     let from_dt: DateTime<Tz> = match from_tz.from_local_datetime(&naive_dt).single() {
         Some(dt) => dt,
-        None => return format!(
-            "Ambiguous or invalid local time \"{}\" in timezone \"{}\" (e.g. DST transition).",
-            datetime_str, from_str
-        ),
+        None => {
+            return format!(
+                "Ambiguous or invalid local time \"{}\" in timezone \"{}\" (e.g. DST transition).",
+                datetime_str, from_str
+            )
+        }
     };
 
     // Convert to target timezone
@@ -317,7 +340,8 @@ fn tool_time_convert(args: &serde_json::Value) -> String {
 // ─── time_zones ──────────────────────────────────────────────────────────────
 
 fn tool_time_zones(args: &serde_json::Value) -> String {
-    let search = args.get("search")
+    let search = args
+        .get("search")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_lowercase();
@@ -335,7 +359,11 @@ fn tool_time_zones(args: &serde_json::Value) -> String {
     format!(
         "{} timezone(s){}:\n{}",
         all.len(),
-        if search.is_empty() { String::new() } else { format!(" matching \"{}\"", search) },
+        if search.is_empty() {
+            String::new()
+        } else {
+            format!(" matching \"{}\"", search)
+        },
         all.join("\n")
     )
 }

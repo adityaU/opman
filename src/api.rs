@@ -91,7 +91,13 @@ impl ApiClient {
     pub async fn health_check(&self, base_url: &str) -> Result<bool> {
         let url = format!("{}/health", base_url);
 
-        match self.client.get(&url).header("Accept", "application/json").send().await {
+        match self
+            .client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .await
+        {
             Ok(resp) => Ok(resp.status().is_success()),
             Err(_) => Ok(false),
         }

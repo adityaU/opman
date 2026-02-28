@@ -616,241 +616,266 @@ async fn run_event_loop(
         }
 
         // ── 8. Poll for crossterm events (16ms tick = 60fps) ─────────
+        // Drain ALL pending events before redrawing. When typing fast,
+        // multiple keystrokes may arrive within one 16ms frame; process
+        // them back-to-back so the PTY receives them without draw-cycle
+        // latency between each keystroke.
         if event::poll(Duration::from_millis(16)).context("Event poll failed")? {
-            // Any crossterm event (key, mouse, paste, resize) means the UI
-            // needs to update, so mark dirty unconditionally.
-            app.needs_redraw = true;
-            match event::read().context("Event read failed")? {
-                Event::Key(key) => {
-                    // Terminal search input handling — intercept keys before normal handler
-                    if app.terminal_search.is_some() {
-                        use crossterm::event::{KeyCode, KeyModifiers};
-                        let handled = match key.code {
-                            KeyCode::Esc => {
-                                app.terminal_search = None;
-                                true
-                            }
-                            KeyCode::Enter => {
-                                // Next match
-                                if let Some(ref mut search) = app.terminal_search {
-                                    if !search.matches.is_empty() {
-                                        search.current_match =
-                                            (search.current_match + 1) % search.matches.len();
-                                        // Scroll to match
-                                        let (match_row, _, _) =
-                                            search.matches[search.current_match];
-                                        if let Some(project) =
-                                            app.projects.get_mut(app.active_project)
-                                        {
-                                            if let Some(pty) = project.active_shell_pty_mut() {
-                                                // Count lines and set scrollback in one lock
-                                                // to avoid clone + double-lock.
-                                                if let Ok(mut p) = pty.parser.lock() {
-                                                    let rows = p.screen().size().0 as usize;
-                                                    let total =
-                                                        p.screen().contents().lines().count();
-                                                    if match_row + rows < total {
-                                                        pty.scroll_offset =
-                                                            total - match_row - rows;
-                                                        p.set_scrollback(pty.scroll_offset);
-                                                    } else {
-                                                        pty.scroll_offset = 0;
-                                                        p.set_scrollback(0);
+            loop {
+                // Any crossterm event (key, mouse, paste, resize) means the UI
+                // needs to update, so mark dirty unconditionally.
+                app.needs_redraw = true;
+                match event::read().context("Event read failed")? {
+                    Event::Key(key) => {
+                        let mut key_intercepted = false;
+                        // Terminal search input handling — intercept keys before normal handler
+                        if app.terminal_search.is_some() {
+                            use crossterm::event::{KeyCode, KeyModifiers};
+                            let handled = match key.code {
+                                KeyCode::Esc => {
+                                    app.terminal_search = None;
+                                    true
+                                }
+                                KeyCode::Enter => {
+                                    // Next match
+                                    if let Some(ref mut search) = app.terminal_search {
+                                        if !search.matches.is_empty() {
+                                            search.current_match =
+                                                (search.current_match + 1) % search.matches.len();
+                                            // Scroll to match
+                                            let (match_row, _, _) =
+                                                search.matches[search.current_match];
+                                            if let Some(project) =
+                                                app.projects.get_mut(app.active_project)
+                                            {
+                                                if let Some(pty) = project.active_shell_pty_mut() {
+                                                    // Count lines and set scrollback in one lock
+                                                    // to avoid clone + double-lock.
+                                                    if let Ok(mut p) = pty.parser.lock() {
+                                                        let rows = p.screen().size().0 as usize;
+                                                        let total =
+                                                            p.screen().contents().lines().count();
+                                                        if match_row + rows < total {
+                                                            pty.scroll_offset =
+                                                                total - match_row - rows;
+                                                            p.set_scrollback(pty.scroll_offset);
+                                                        } else {
+                                                            pty.scroll_offset = 0;
+                                                            p.set_scrollback(0);
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                true
-                            }
-                            KeyCode::Backspace => {
-                                if let Some(ref mut search) = app.terminal_search {
-                                    search.query.pop();
-                                    search.cursor = search.query.len();
-                                    // Re-run search
-                                    update_terminal_search_matches(app);
-                                }
-                                true
-                            }
-                            KeyCode::Char(c) => {
-                                if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'n' {
-                                    // Ctrl+N = next match
-                                    if let Some(ref mut search) = app.terminal_search {
-                                        if !search.matches.is_empty() {
-                                            search.current_match =
-                                                (search.current_match + 1) % search.matches.len();
-                                        }
-                                    }
                                     true
-                                } else if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'p'
-                                {
-                                    // Ctrl+P = prev match
+                                }
+                                KeyCode::Backspace => {
                                     if let Some(ref mut search) = app.terminal_search {
-                                        if !search.matches.is_empty() {
-                                            search.current_match = if search.current_match == 0 {
-                                                search.matches.len().saturating_sub(1)
-                                            } else {
-                                                search.current_match - 1
-                                            };
-                                        }
-                                    }
-                                    true
-                                } else if key.modifiers.is_empty()
-                                    || key.modifiers == KeyModifiers::SHIFT
-                                {
-                                    // Regular character input
-                                    if let Some(ref mut search) = app.terminal_search {
-                                        search.query.push(c);
+                                        search.query.pop();
                                         search.cursor = search.query.len();
+                                        // Re-run search
+                                        update_terminal_search_matches(app);
                                     }
-                                    update_terminal_search_matches(app);
                                     true
-                                } else {
-                                    false
                                 }
-                            }
-                            _ => false,
-                        };
-
-                        if handled {
-                            continue;
-                        }
-                    }
-
-                    // Shift+PgUp/PgDn for terminal keyboard scrollback
-                    {
-                        use crossterm::event::{KeyCode, KeyModifiers};
-                        let is_terminal_focused = matches!(
-                            app.layout.focused,
-                            crate::ui::layout_manager::PanelId::IntegratedTerminal
-                        );
-                        if is_terminal_focused {
-                            match (key.code, key.modifiers.contains(KeyModifiers::SHIFT)) {
-                                (KeyCode::PageUp, true) => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
-                                    {
-                                        if let Some(pty) = project.active_shell_pty_mut() {
-                                            pty.scroll_offset = pty
-                                                .scroll_offset
-                                                .saturating_add(pty.rows as usize / 2);
-                                            if let Ok(mut p) = pty.parser.lock() {
-                                                p.set_scrollback(pty.scroll_offset);
-                                                pty.scroll_offset = p.screen().scrollback();
+                                KeyCode::Char(c) => {
+                                    if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'n' {
+                                        // Ctrl+N = next match
+                                        if let Some(ref mut search) = app.terminal_search {
+                                            if !search.matches.is_empty() {
+                                                search.current_match = (search.current_match + 1)
+                                                    % search.matches.len();
                                             }
                                         }
-                                    }
-                                    continue;
-                                }
-                                (KeyCode::PageDown, true) => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
+                                        true
+                                    } else if key.modifiers.contains(KeyModifiers::CONTROL)
+                                        && c == 'p'
                                     {
-                                        if let Some(pty) = project.active_shell_pty_mut() {
-                                            pty.scroll_offset = pty
-                                                .scroll_offset
-                                                .saturating_sub(pty.rows as usize / 2);
-                                            if let Ok(mut p) = pty.parser.lock() {
-                                                p.set_scrollback(pty.scroll_offset);
-                                                pty.scroll_offset = p.screen().scrollback();
+                                        // Ctrl+P = prev match
+                                        if let Some(ref mut search) = app.terminal_search {
+                                            if !search.matches.is_empty() {
+                                                search.current_match = if search.current_match == 0
+                                                {
+                                                    search.matches.len().saturating_sub(1)
+                                                } else {
+                                                    search.current_match - 1
+                                                };
                                             }
                                         }
+                                        true
+                                    } else if key.modifiers.is_empty()
+                                        || key.modifiers == KeyModifiers::SHIFT
+                                    {
+                                        // Regular character input
+                                        if let Some(ref mut search) = app.terminal_search {
+                                            search.query.push(c);
+                                            search.cursor = search.query.len();
+                                        }
+                                        update_terminal_search_matches(app);
+                                        true
+                                    } else {
+                                        false
                                     }
-                                    continue;
                                 }
-                                _ => {}
+                                _ => false,
+                            };
+
+                            if handled {
+                                key_intercepted = true;
                             }
                         }
+
+                        if !key_intercepted {
+                            // Shift+PgUp/PgDn for terminal keyboard scrollback
+                            {
+                                use crossterm::event::{KeyCode, KeyModifiers};
+                                let is_terminal_focused = matches!(
+                                    app.layout.focused,
+                                    crate::ui::layout_manager::PanelId::IntegratedTerminal
+                                );
+                                if is_terminal_focused {
+                                    match (key.code, key.modifiers.contains(KeyModifiers::SHIFT)) {
+                                        (KeyCode::PageUp, true) => {
+                                            if let Some(project) =
+                                                app.projects.get_mut(app.active_project)
+                                            {
+                                                if let Some(pty) = project.active_shell_pty_mut() {
+                                                    pty.scroll_offset = pty
+                                                        .scroll_offset
+                                                        .saturating_add(pty.rows as usize / 2);
+                                                    if let Ok(mut p) = pty.parser.lock() {
+                                                        p.set_scrollback(pty.scroll_offset);
+                                                        pty.scroll_offset = p.screen().scrollback();
+                                                    }
+                                                }
+                                            }
+                                            key_intercepted = true;
+                                        }
+                                        (KeyCode::PageDown, true) => {
+                                            if let Some(project) =
+                                                app.projects.get_mut(app.active_project)
+                                            {
+                                                if let Some(pty) = project.active_shell_pty_mut() {
+                                                    pty.scroll_offset = pty
+                                                        .scroll_offset
+                                                        .saturating_sub(pty.rows as usize / 2);
+                                                    if let Ok(mut p) = pty.parser.lock() {
+                                                        p.set_scrollback(pty.scroll_offset);
+                                                        pty.scroll_offset = p.screen().scrollback();
+                                                    }
+                                                }
+                                            }
+                                            key_intercepted = true;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        } // !key_intercepted (search + scroll)
+
+                        if !key_intercepted {
+                            // Track active project before key handling
+                            let pre_active = app.active_project;
+                            input::handle_key_event(app, key)?;
+
+                            // If active project changed via sidebar Enter, activate in background
+                            if app.active_project != pre_active {
+                                let new_idx = app.active_project;
+
+                                // Fetch sessions immediately for the newly switched project
+                                if let Some(p) = app.projects.get(new_idx) {
+                                    let dir = p.path.to_string_lossy().to_string();
+                                    spawn_single_session_fetch(&app.bg_tx, new_idx, dir);
+                                }
+
+                                // Spawn PTY in background if needed
+                                if app
+                                    .projects
+                                    .get(new_idx)
+                                    .map(|p| p.ptys.is_empty())
+                                    .unwrap_or(false)
+                                {
+                                    let (cols, rows) =
+                                        crossterm::terminal::size().unwrap_or((80, 24));
+                                    let content_area = ratatui::layout::Rect::new(
+                                        0,
+                                        0,
+                                        cols,
+                                        rows.saturating_sub(1),
+                                    );
+                                    app.layout.compute_rects(content_area);
+                                    let (inner_cols, inner_rows) = app
+                                        .layout
+                                        .panel_rect(
+                                            crate::ui::layout_manager::PanelId::TerminalPane,
+                                        )
+                                        .map(|r| (r.width, r.height))
+                                        .unwrap_or((
+                                            cols.saturating_sub(32),
+                                            rows.saturating_sub(2),
+                                        ));
+                                    let path = app.projects[new_idx].path.clone();
+                                    let theme_envs = app.theme.pty_env_vars();
+                                    spawn_activate_project(
+                                        &app.bg_tx, new_idx, path, inner_rows, inner_cols,
+                                        theme_envs,
+                                    );
+                                }
+                            }
+                        } // !key_intercepted (normal key handling)
                     }
-
-                    // Track active project before key handling
-                    let pre_active = app.active_project;
-                    input::handle_key_event(app, key)?;
-
-                    // If active project changed via sidebar Enter, activate in background
-                    if app.active_project != pre_active {
-                        let new_idx = app.active_project;
-
-                        // Fetch sessions immediately for the newly switched project
-                        if let Some(p) = app.projects.get(new_idx) {
-                            let dir = p.path.to_string_lossy().to_string();
-                            spawn_single_session_fetch(&app.bg_tx, new_idx, dir);
-                        }
-
-                        // Spawn PTY in background if needed
-                        if app
-                            .projects
-                            .get(new_idx)
-                            .map(|p| p.ptys.is_empty())
-                            .unwrap_or(false)
-                        {
-                            let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-                            let content_area =
-                                ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
-                            app.layout.compute_rects(content_area);
-                            let (inner_cols, inner_rows) = app
-                                .layout
-                                .panel_rect(crate::ui::layout_manager::PanelId::TerminalPane)
-                                .map(|r| (r.width, r.height))
-                                .unwrap_or((cols.saturating_sub(32), rows.saturating_sub(2)));
-                            let path = app.projects[new_idx].path.clone();
-                            let theme_envs = app.theme.pty_env_vars();
-                            spawn_activate_project(
-                                &app.bg_tx, new_idx, path, inner_rows, inner_cols, theme_envs,
-                            );
-                        }
+                    Event::Paste(text) => {
+                        input::handle_paste(app, &text);
                     }
-                }
-                Event::Paste(text) => {
-                    input::handle_paste(app, &text);
-                }
-                Event::Resize(cols, rows) => {
-                    let content_area =
-                        ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
-                    app.layout.compute_rects(content_area);
-                    resize_ptys(app);
-                }
-                Event::Mouse(mouse_event) => {
-                    let (cols, rows) = crossterm::terminal::size()?;
-                    let area = ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
-
-                    app.layout.compute_rects(area);
-                    let dragging = app.layout.handle_mouse(mouse_event, area);
-                    if dragging.is_some() {
-                        app.layout.compute_rects(area);
+                    Event::Resize(cols, rows) => {
+                        let content_area =
+                            ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
+                        app.layout.compute_rects(content_area);
                         resize_ptys(app);
                     }
+                    Event::Mouse(mouse_event) => {
+                        let (cols, rows) = crossterm::terminal::size()?;
+                        let area = ratatui::layout::Rect::new(0, 0, cols, rows.saturating_sub(1));
 
-                    // Forward mouse events to the PTY if the mouse is over a terminal panel
-                    if dragging.is_none() {
-                        // In zen mode, only the focused panel is rendered full-screen,
-                        // but panel_at() still uses non-zen layout rects → wrong panel.
-                        // Short-circuit: always use the focused panel in zen mode.
-                        let panel_opt = if app.zen_mode {
-                            Some(app.layout.focused)
-                        } else {
-                            app.layout.panel_at(mouse_event.column, mouse_event.row)
-                        };
-                        if let Some(panel) = panel_opt {
-                            match panel {
-                                crate::ui::layout_manager::PanelId::Sidebar => {
-                                    if let crossterm::event::MouseEventKind::Down(
-                                        crossterm::event::MouseButton::Left,
-                                    ) = mouse_event.kind
-                                    {
-                                        if let Some(rect) = app
-                                            .layout
-                                            .panel_rect(crate::ui::layout_manager::PanelId::Sidebar)
+                        app.layout.compute_rects(area);
+                        let dragging = app.layout.handle_mouse(mouse_event, area);
+                        if dragging.is_some() {
+                            app.layout.compute_rects(area);
+                            resize_ptys(app);
+                        }
+
+                        // Forward mouse events to the PTY if the mouse is over a terminal panel
+                        if dragging.is_none() {
+                            // In zen mode, only the focused panel is rendered full-screen,
+                            // but panel_at() still uses non-zen layout rects → wrong panel.
+                            // Short-circuit: always use the focused panel in zen mode.
+                            let panel_opt = if app.zen_mode {
+                                Some(app.layout.focused)
+                            } else {
+                                app.layout.panel_at(mouse_event.column, mouse_event.row)
+                            };
+                            if let Some(panel) = panel_opt {
+                                match panel {
+                                    crate::ui::layout_manager::PanelId::Sidebar => {
+                                        if let crossterm::event::MouseEventKind::Down(
+                                            crossterm::event::MouseButton::Left,
+                                        ) = mouse_event.kind
                                         {
-                                            let relative_y =
-                                                mouse_event.row.saturating_sub(rect.y) as usize;
-                                            let item_count = app.sidebar_item_count();
-                                            if relative_y < item_count {
-                                                app.sidebar_cursor = relative_y;
-                                                app.layout.focused =
-                                                    crate::ui::layout_manager::PanelId::Sidebar;
-                                                if let Some(item) = app.sidebar_item_at(relative_y)
-                                                {
-                                                    match item {
+                                            if let Some(rect) = app.layout.panel_rect(
+                                                crate::ui::layout_manager::PanelId::Sidebar,
+                                            ) {
+                                                let relative_y =
+                                                    mouse_event.row.saturating_sub(rect.y) as usize;
+                                                let item_count = app.sidebar_item_count();
+                                                if relative_y < item_count {
+                                                    app.sidebar_cursor = relative_y;
+                                                    app.layout.focused =
+                                                        crate::ui::layout_manager::PanelId::Sidebar;
+                                                    if let Some(item) =
+                                                        app.sidebar_item_at(relative_y)
+                                                    {
+                                                        match item {
                                                         crate::app::SidebarItem::Project(idx) => {
                                                             if app.active_project != idx {
                                                                 app.switch_project(idx);
@@ -941,20 +966,21 @@ async fn run_event_loop(
                                                             app.start_add_project();
                                                         }
                                                     }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                crate::ui::layout_manager::PanelId::TerminalPane => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
-                                    {
-                                        if let Some((pty, rect)) =
-                                            project.active_pty_mut().zip(app.layout.panel_rect(
-                                                crate::ui::layout_manager::PanelId::TerminalPane,
-                                            ))
+                                    crate::ui::layout_manager::PanelId::TerminalPane => {
+                                        if let Some(project) =
+                                            app.projects.get_mut(app.active_project)
                                         {
-                                            forward_mouse_to_pty(
+                                            if let Some((pty, rect)) = project
+                                                .active_pty_mut()
+                                                .zip(app.layout.panel_rect(
+                                                crate::ui::layout_manager::PanelId::TerminalPane,
+                                            )) {
+                                                forward_mouse_to_pty(
                                                 pty,
                                                 &mouse_event,
                                                 rect.x,
@@ -963,13 +989,14 @@ async fn run_event_loop(
                                                 &mut app.terminal_selection,
                                                 &mut app.toast_message,
                                             );
+                                            }
                                         }
                                     }
-                                }
-                                crate::ui::layout_manager::PanelId::IntegratedTerminal => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
-                                    {
-                                        if let Some(rect) = app.layout.panel_rect(
+                                    crate::ui::layout_manager::PanelId::IntegratedTerminal => {
+                                        if let Some(project) =
+                                            app.projects.get_mut(app.active_project)
+                                        {
+                                            if let Some(rect) = app.layout.panel_rect(
                                             crate::ui::layout_manager::PanelId::IntegratedTerminal,
                                         ) {
                                             let has_tab_bar = project
@@ -1052,56 +1079,68 @@ async fn run_event_loop(
                                                 );
                                             }
                                         }
-                                    }
-                                }
-                                crate::ui::layout_manager::PanelId::NeovimPane => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
-                                    {
-                                        if let Some((pty, rect)) = project
-                                            .active_resources_mut()
-                                            .and_then(|r| r.neovim_pty.as_mut())
-                                            .zip(app.layout.panel_rect(
-                                                crate::ui::layout_manager::PanelId::NeovimPane,
-                                            ))
-                                        {
-                                            forward_mouse_to_pty(
-                                                pty,
-                                                &mouse_event,
-                                                rect.x,
-                                                rect.y,
-                                                crate::ui::layout_manager::PanelId::NeovimPane,
-                                                &mut app.terminal_selection,
-                                                &mut app.toast_message,
-                                            );
                                         }
                                     }
-                                }
-                                crate::ui::layout_manager::PanelId::GitPanel => {
-                                    if let Some(project) = app.projects.get_mut(app.active_project)
-                                    {
-                                        if let Some((pty, rect)) =
-                                            project.gitui_pty.as_mut().zip(app.layout.panel_rect(
-                                                crate::ui::layout_manager::PanelId::GitPanel,
-                                            ))
+                                    crate::ui::layout_manager::PanelId::NeovimPane => {
+                                        if let Some(project) =
+                                            app.projects.get_mut(app.active_project)
                                         {
-                                            forward_mouse_to_pty(
-                                                pty,
-                                                &mouse_event,
-                                                rect.x,
-                                                rect.y,
-                                                crate::ui::layout_manager::PanelId::GitPanel,
-                                                &mut app.terminal_selection,
-                                                &mut app.toast_message,
-                                            );
+                                            if let Some((pty, rect)) = project
+                                                .active_resources_mut()
+                                                .and_then(|r| r.neovim_pty.as_mut())
+                                                .zip(app.layout.panel_rect(
+                                                    crate::ui::layout_manager::PanelId::NeovimPane,
+                                                ))
+                                            {
+                                                forward_mouse_to_pty(
+                                                    pty,
+                                                    &mouse_event,
+                                                    rect.x,
+                                                    rect.y,
+                                                    crate::ui::layout_manager::PanelId::NeovimPane,
+                                                    &mut app.terminal_selection,
+                                                    &mut app.toast_message,
+                                                );
+                                            }
+                                        }
+                                    }
+                                    crate::ui::layout_manager::PanelId::GitPanel => {
+                                        if let Some(project) =
+                                            app.projects.get_mut(app.active_project)
+                                        {
+                                            if let Some((pty, rect)) = project
+                                                .gitui_pty
+                                                .as_mut()
+                                                .zip(app.layout.panel_rect(
+                                                    crate::ui::layout_manager::PanelId::GitPanel,
+                                                ))
+                                            {
+                                                forward_mouse_to_pty(
+                                                    pty,
+                                                    &mouse_event,
+                                                    rect.x,
+                                                    rect.y,
+                                                    crate::ui::layout_manager::PanelId::GitPanel,
+                                                    &mut app.terminal_selection,
+                                                    &mut app.toast_message,
+                                                );
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
-            }
+
+                // Check for more pending events (non-blocking).
+                // If none remain, break out so we redraw and process
+                // background events before the next frame.
+                if !event::poll(Duration::from_millis(0)).context("Event poll failed")? {
+                    break;
+                }
+            } // loop (drain pending events)
         }
     }
 

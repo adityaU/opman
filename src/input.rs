@@ -549,7 +549,10 @@ pub fn handle_paste(app: &mut App, text: &str) {
             }
         }
         PanelId::NeovimPane => {
-            if let Some(pty) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()) {
+            if let Some(pty) = project
+                .active_resources_mut()
+                .and_then(|r| r.neovim_pty.as_mut())
+            {
                 let _ = pty.write(bytes);
             }
         }
@@ -1269,7 +1272,10 @@ fn handle_fuzzy_picker_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 /// Forwards all keys to the neovim PTY.
 fn handle_neovim_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     if let Some(project) = app.active_project_mut() {
-        if let Some(ref mut nvim_pty) = project.active_resources_mut().and_then(|r| r.neovim_pty.as_mut()) {
+        if let Some(ref mut nvim_pty) = project
+            .active_resources_mut()
+            .and_then(|r| r.neovim_pty.as_mut())
+        {
             if nvim_pty.scroll_offset > 0 {
                 nvim_pty.scroll_offset = 0;
                 if let Ok(mut parser) = nvim_pty.parser.lock() {

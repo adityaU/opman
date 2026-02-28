@@ -372,7 +372,12 @@ fn handle_sse_data(
                 if let Ok(todos) = serde_json::from_value::<Vec<crate::app::TodoItem>>(
                     event.properties.get("todos").cloned().unwrap_or_default(),
                 ) {
-                    debug!(project_idx, session_id, count = todos.len(), "SSE: todo.updated");
+                    debug!(
+                        project_idx,
+                        session_id,
+                        count = todos.len(),
+                        "SSE: todo.updated"
+                    );
                     let _ = bg_tx.send(BackgroundEvent::SseTodoUpdated {
                         session_id: session_id.to_string(),
                         todos,

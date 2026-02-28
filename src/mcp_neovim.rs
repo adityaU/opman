@@ -174,7 +174,6 @@ async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value
     }
 }
 
-
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
 fn tool_definitions() -> serde_json::Value {
