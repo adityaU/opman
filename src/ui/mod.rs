@@ -19,6 +19,7 @@ pub mod sidebar;
 pub mod status_bar;
 pub mod submodule_popup;
 pub mod tag_popup;
+pub mod term_render;
 pub mod terminal_pane;
 pub mod todo_panel;
 
@@ -110,8 +111,13 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let content_area = status_chunks[0];
     let status_area = status_chunks[1];
 
-    app.layout.compute_rects(content_area);
-    app.resize_all_ptys();
+    // Only recompute layout rects + resize PTYs when the terminal size
+    // changed or the layout structure was modified (panels toggled, resized).
+    if content_area != app.layout.last_area || app.layout.layout_dirty {
+        app.layout.compute_rects(content_area);
+        app.resize_all_ptys();
+        app.layout.layout_dirty = false;
+    }
 
     if app.popout_mode {
         let lines = vec![
@@ -220,7 +226,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             // Dim unfocused panels so the focused one stands out.
             if *panel_id != focused {
                 let pct = app.config.settings.unfocused_dim_percent.min(100) as f32;
-                dim_panel(rect, frame.buffer_mut(), 1.0 - pct / 100.0);
+                if pct > 0.0 {
+                    dim_panel(rect, frame.buffer_mut(), 1.0 - pct / 100.0);
+                }
             }
         }
 

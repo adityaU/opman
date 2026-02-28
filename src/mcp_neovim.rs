@@ -68,8 +68,15 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
 
     loop {
         line.clear();
-        if reader.read_line(&mut line).await? == 0 {
-            break; // EOF
+        let n = match reader.read_line(&mut line).await {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("MCP neovim bridge stdin read error: {}", e);
+                continue;
+            }
+        };
+        if n == 0 {
+            break; // EOF — client closed the pipe
         }
 
         let trimmed = line.trim();
@@ -85,7 +92,7 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                write_response(&mut stdout, &resp).await?;
+                write_response(&mut stdout, &resp).await;
                 continue;
             }
         };
@@ -138,23 +145,35 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
             }),
         };
 
-        write_response(&mut stdout, &resp).await?;
+        write_response(&mut stdout, &resp).await;
     }
 
     Ok(())
 }
 
-async fn write_response(
-    stdout: &mut tokio::io::Stdout,
-    resp: &serde_json::Value,
-) -> anyhow::Result<()> {
-    stdout
-        .write_all(serde_json::to_string(resp)?.as_bytes())
-        .await?;
-    stdout.write_all(b"\n").await?;
-    stdout.flush().await?;
-    Ok(())
+/// Write a JSON-RPC response to stdout. Swallows write errors so the bridge
+/// never dies due to a transient stdout issue.
+async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+    let json = match serde_json::to_string(resp) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("MCP neovim bridge: failed to serialize response: {}", e);
+            return;
+        }
+    };
+    if let Err(e) = stdout.write_all(json.as_bytes()).await {
+        eprintln!("MCP neovim bridge: stdout write error: {}", e);
+        return;
+    }
+    if let Err(e) = stdout.write_all(b"\n").await {
+        eprintln!("MCP neovim bridge: stdout write error: {}", e);
+        return;
+    }
+    if let Err(e) = stdout.flush().await {
+        eprintln!("MCP neovim bridge: stdout flush error: {}", e);
+    }
 }
+
 
 // ─── Tool definitions ────────────────────────────────────────────────────────
 

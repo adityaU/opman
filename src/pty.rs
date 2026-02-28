@@ -1,4 +1,5 @@
 use std::io::{Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
@@ -30,6 +31,10 @@ pub struct PtyInstance {
     pub command_state: Arc<Mutex<CommandState>>,
     /// Path to the neovim `--listen` socket (only set for neovim PTYs).
     pub nvim_listen_addr: Option<std::path::PathBuf>,
+    /// Set to `true` by the reader thread when new PTY output arrives.
+    /// Cleared by the render loop after drawing.  Used to skip
+    /// expensive terminal re-renders when the screen hasn't changed.
+    pub dirty: Arc<AtomicBool>,
 }
 
 impl std::fmt::Debug for PtyInstance {
@@ -51,6 +56,14 @@ impl Drop for PtyInstance {
 }
 
 impl PtyInstance {
+    /// Returns `true` if the PTY has received new output since the last call.
+    /// Atomically clears the flag.
+    #[inline]
+    pub fn take_dirty(&self) -> bool {
+        self.dirty.swap(false, Ordering::AcqRel)
+    }
+
+    /// Spawn a new PTY running `opencode attach <url>`.
     /// Spawn a new PTY running `opencode attach <url>`.
     ///
     /// The PTY will capture the opencode TUI output via a VT100 parser.
@@ -112,14 +125,19 @@ impl PtyInstance {
 
         let safe_rows = rows.max(2);
         let safe_cols = cols.max(2);
-        let parser = Arc::new(Mutex::new(vt100::Parser::new(safe_rows, safe_cols, 10000)));
+        let parser = Arc::new(Mutex::new(vt100::Parser::new(
+            safe_rows, safe_cols, 1_000_000,
+        )));
 
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
+        let dirty = Arc::new(AtomicBool::new(true));
+
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
+        let dirty_clone = Arc::clone(&dirty);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
         });
 
         debug!(url, rows, cols, "PTY instance spawned");
@@ -135,6 +153,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: None,
+            dirty: Arc::new(AtomicBool::new(true)),
         })
     }
 
@@ -149,6 +168,7 @@ impl PtyInstance {
         mut reader: Box<dyn Read + Send>,
         parser: Arc<Mutex<vt100::Parser>>,
         command_state: Arc<Mutex<CommandState>>,
+        dirty: Arc<AtomicBool>,
     ) {
         let mut buf = [0u8; 4096];
         let mut leftover: Vec<u8> = Vec::new();
@@ -168,6 +188,7 @@ impl PtyInstance {
                     if let Ok(mut p) = parser.lock() {
                         p.process(&buf[..n]);
                     }
+                    dirty.store(true, Ordering::Release);
 
                     // Keep trailing bytes for OSC sequences split across reads
                     let keep = data.len().min(32);
@@ -395,14 +416,19 @@ impl PtyInstance {
 
         let safe_rows = rows.max(2);
         let safe_cols = cols.max(2);
-        let parser = Arc::new(Mutex::new(vt100::Parser::new(safe_rows, safe_cols, 10000)));
+        let parser = Arc::new(Mutex::new(vt100::Parser::new(
+            safe_rows, safe_cols, 1_000_000,
+        )));
 
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
+        let dirty = Arc::new(AtomicBool::new(true));
+
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
+        let dirty_clone = Arc::clone(&dirty);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
         });
 
         debug!(%shell, rows, cols, ?working_dir, "Shell PTY instance spawned");
@@ -418,6 +444,7 @@ impl PtyInstance {
             name: name.unwrap_or_else(|| String::new()),
             command_state,
             nvim_listen_addr: None,
+            dirty: Arc::new(AtomicBool::new(true)),
         };
         Ok(pty)
     }
@@ -502,14 +529,19 @@ impl PtyInstance {
 
         let safe_rows = rows.max(2);
         let safe_cols = cols.max(2);
-        let parser = Arc::new(Mutex::new(vt100::Parser::new(safe_rows, safe_cols, 10000)));
+        let parser = Arc::new(Mutex::new(vt100::Parser::new(
+            safe_rows, safe_cols, 1_000_000,
+        )));
 
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
+        let dirty = Arc::new(AtomicBool::new(true));
+
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
+        let dirty_clone = Arc::clone(&dirty);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
         });
 
         debug!(
@@ -531,6 +563,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: Some(listen_path),
+            dirty: Arc::new(AtomicBool::new(true)),
         })
     }
 
@@ -582,18 +615,20 @@ impl PtyInstance {
 
         let safe_rows = rows.max(2);
         let safe_cols = cols.max(2);
-        let parser = Arc::new(Mutex::new(vt100::Parser::new(safe_rows, safe_cols, 10000)));
+        let parser = Arc::new(Mutex::new(vt100::Parser::new(
+            safe_rows, safe_cols, 1_000_000,
+        )));
 
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
+        let dirty = Arc::new(AtomicBool::new(true));
+
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
+        let dirty_clone = Arc::clone(&dirty);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
         });
-
-        debug!(rows, cols, ?working_dir, "GitUI PTY instance spawned");
-
         Ok(Self {
             parser,
             writer: Some(writer),
@@ -605,6 +640,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: None,
+            dirty: Arc::new(AtomicBool::new(true)),
         })
     }
 }

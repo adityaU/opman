@@ -179,6 +179,10 @@ pub fn ansi_palette_from_theme(theme: &ThemeColors) -> [Color; 16] {
 /// Post-process a buffer region, replacing ANSI indexed colors (0-15)
 /// with theme-derived RGB values.  Call this immediately after
 /// `PseudoTerminal::render` on the same `Rect`.
+///
+/// NOTE: This is now superseded by `term_render::render_screen()` which
+/// performs the remapping inline.  Kept for potential future use.
+#[allow(dead_code)]
 pub fn remap_ansi_colors(
     buf: &mut ratatui::buffer::Buffer,
     area: ratatui::layout::Rect,

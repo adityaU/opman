@@ -406,6 +406,11 @@ struct McpJsonRpcRequest {
 }
 
 /// Run the MCP stdio bridge: read JSON-RPC from stdin, forward to socket, write response to stdout.
+///
+/// This function is designed to **never exit** on transient errors. Only a
+/// genuine EOF on stdin (the MCP client closed the pipe) causes a clean exit.
+/// All stdout write failures are swallowed — the individual request is lost
+/// but the bridge stays alive so subsequent requests still work.
 pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     let sock_path = socket_path_for_project(&project_path);
     // Read session ID from env var set by opencode PTY spawn, so all
@@ -418,9 +423,15 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     let mut line = String::new();
     loop {
         line.clear();
-        let n = reader.read_line(&mut line).await?;
+        let n = match reader.read_line(&mut line).await {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("MCP bridge stdin read error: {}", e);
+                continue;
+            }
+        };
         if n == 0 {
-            break; // EOF
+            break; // EOF — client closed the pipe
         }
 
         let trimmed = line.trim();
@@ -436,11 +447,7 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                stdout
-                    .write_all(serde_json::to_string(&error_resp)?.as_bytes())
-                    .await?;
-                stdout.write_all(b"\n").await?;
-                stdout.flush().await?;
+                write_jsonrpc_response(&mut stdout, &error_resp).await;
                 continue;
             }
         };
@@ -511,14 +518,33 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
             }
         };
 
-        stdout
-            .write_all(serde_json::to_string(&response)?.as_bytes())
-            .await?;
-        stdout.write_all(b"\n").await?;
-        stdout.flush().await?;
+        write_jsonrpc_response(&mut stdout, &response).await;
     }
 
     Ok(())
+}
+
+/// Write a JSON-RPC response to stdout. Swallows write errors so the bridge
+/// never dies due to a transient stdout issue.
+async fn write_jsonrpc_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+    let json = match serde_json::to_string(resp) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("MCP bridge: failed to serialize response: {}", e);
+            return;
+        }
+    };
+    if let Err(e) = stdout.write_all(json.as_bytes()).await {
+        eprintln!("MCP bridge: stdout write error: {}", e);
+        return;
+    }
+    if let Err(e) = stdout.write_all(b"\n").await {
+        eprintln!("MCP bridge: stdout write error: {}", e);
+        return;
+    }
+    if let Err(e) = stdout.flush().await {
+        eprintln!("MCP bridge: stdout flush error: {}", e);
+    }
 }
 
 /// Return MCP tool definitions for tools/list.

@@ -443,11 +443,18 @@ async fn run_event_loop(
     let mut last_session_fetch = Instant::now();
     let mut last_theme_reload = Instant::now();
     let last_blink_toggle = Instant::now();
+    // Previous pulse_phase value, used to detect changes worth redrawing.
+    let mut prev_pulse_phase: f64 = 0.0;
 
     loop {
-        // ── 1. Draw the UI (instant on first iteration) ──────────────
-        app.sync_sidebar_to_active_session();
-        terminal.draw(|frame| ui::draw(frame, app))?;
+        // ── 1. Draw the UI only when something actually changed ──────
+        // Collect PTY dirty flags (new terminal output from reader threads).
+        let any_pty_dirty = app.drain_pty_dirty_flags();
+        if app.needs_redraw || any_pty_dirty {
+            app.sync_sidebar_to_active_session();
+            terminal.draw(|frame| ui::draw(frame, app))?;
+            app.needs_redraw = false;
+        }
 
         if app.should_quit {
             break;
@@ -456,15 +463,18 @@ async fn run_event_loop(
         // ── 2. Drain ALL background events (zero-cost when empty) ────
         while let Ok(event) = bg_rx.try_recv() {
             app.handle_background_event(event);
+            app.needs_redraw = true;
         }
 
         // ── 3. Handle pending project removal ────────────────────────
         if let Some(idx) = app.pending_remove.take() {
             app.remove_project(idx)?;
+            app.needs_redraw = true;
         }
 
         // ── 4. Handle pending session select (non-blocking) ──────────
         if let Some((proj_idx, session_id)) = app.pending_session_select.take() {
+            app.needs_redraw = true;
             if let Some(project) = app.projects.get(proj_idx) {
                 if project.ptys.contains_key(&session_id) {
                     app.projects[proj_idx].active_session = Some(session_id.clone());
@@ -502,6 +512,7 @@ async fn run_event_loop(
         // pending_new_session is consumed once to spawn PTY.
         // awaiting_new_session persists for the SSE handler to auto-select.
         if let Some(proj_idx) = app.pending_new_session.take() {
+            app.needs_redraw = true;
             app.awaiting_new_session = Some(proj_idx);
             if let Some(project) = app.projects.get(proj_idx) {
                 let project_path = project.path.clone();
@@ -561,40 +572,54 @@ async fn run_event_loop(
                 }
                 app.update_ptys_for_theme();
                 last_theme_reload = Instant::now();
+                app.needs_redraw = true;
                 tracing::debug!("Theme reloaded from KV store change");
                 continue;
             }
         }
 
-        // ── 7. Periodic session fetching (every 2 minutes, non-blocking) ──
+        // ── 7. Periodic session fetching (every 5 seconds, non-blocking) ──
         if last_session_fetch.elapsed() > Duration::from_secs(5) {
             spawn_session_fetch(&app.bg_tx, &app.projects);
             last_session_fetch = Instant::now();
         }
 
         // ── 7.5. Update pulse phase for active session dots ─────────
-        {
+        if !app.active_sessions.is_empty() {
             let elapsed = last_blink_toggle.elapsed().as_secs_f64();
             // 1.5s full cycle, smooth sine wave clamped to 0.35..=1.0
             // so the dot never fades to background-color (invisible).
             let raw = (elapsed * std::f64::consts::PI / 0.75).sin().abs();
-            app.pulse_phase = 0.35 + raw * 0.65;
+            let new_phase = 0.35 + raw * 0.65;
+            // Only redraw when the rendered alpha actually changes
+            // (quantize to 1/60th increments to avoid unnecessary redraws).
+            if ((new_phase - prev_pulse_phase) * 60.0).abs() >= 1.0 {
+                app.pulse_phase = new_phase;
+                prev_pulse_phase = new_phase;
+                app.needs_redraw = true;
+            }
         }
 
         // ── 7.6. Tick fuzzy picker matcher (processes walker results) ─
         if let Some(ref mut picker) = app.fuzzy_picker {
-            picker.tick();
+            if picker.tick() {
+                app.needs_redraw = true;
+            }
         }
 
         // ── 7.7. Clear expired toast notifications ─────────────────────
         if let Some((_, ts)) = &app.toast_message {
             if ts.elapsed() > std::time::Duration::from_secs(2) {
                 app.toast_message = None;
+                app.needs_redraw = true;
             }
         }
 
         // ── 8. Poll for crossterm events (16ms tick = 60fps) ─────────
         if event::poll(Duration::from_millis(16)).context("Event poll failed")? {
+            // Any crossterm event (key, mouse, paste, resize) means the UI
+            // needs to update, so mark dirty unconditionally.
+            app.needs_redraw = true;
             match event::read().context("Event read failed")? {
                 Event::Key(key) => {
                     // Terminal search input handling — intercept keys before normal handler
@@ -618,6 +643,8 @@ async fn run_event_loop(
                                             app.projects.get_mut(app.active_project)
                                         {
                                             if let Some(pty) = project.active_shell_pty_mut() {
+                                                // Count lines and set scrollback in one lock
+                                                // to avoid clone + double-lock.
                                                 if let Ok(mut p) = pty.parser.lock() {
                                                     let rows = p.screen().size().0 as usize;
                                                     let total =
@@ -1095,28 +1122,41 @@ fn forward_mouse_to_pty(
 ) {
     use crossterm::event::{MouseButton, MouseEventKind};
 
-    let mouse_mode = if let Ok(p) = pty.parser.lock() {
-        p.screen().mouse_protocol_mode()
-    } else {
-        return;
+    // Acquire lock once to check mouse mode and handle scroll in one shot.
+    // This reduces lock acquisitions from 2-3 per scroll event down to 1.
+    let mouse_mode = {
+        let mut parser = match pty.parser.lock() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+
+        let mode = parser.screen().mouse_protocol_mode();
+
+        if mode == vt100::MouseProtocolMode::None {
+            // Handle scroll events while we already hold the lock
+            match event.kind {
+                MouseEventKind::ScrollUp => {
+                    pty.scroll_offset = pty.scroll_offset.saturating_add(3);
+                    parser.set_scrollback(pty.scroll_offset);
+                    pty.scroll_offset = parser.screen().scrollback();
+                    return;
+                }
+                MouseEventKind::ScrollDown => {
+                    pty.scroll_offset = pty.scroll_offset.saturating_sub(3);
+                    parser.set_scrollback(pty.scroll_offset);
+                    pty.scroll_offset = parser.screen().scrollback();
+                    return;
+                }
+                _ => {} // fall through, lock will be dropped
+            }
+        }
+
+        mode
     };
+    // Lock is now released.
 
     if mouse_mode == vt100::MouseProtocolMode::None {
         match event.kind {
-            MouseEventKind::ScrollUp => {
-                pty.scroll_offset = pty.scroll_offset.saturating_add(3);
-                if let Ok(mut p) = pty.parser.lock() {
-                    p.set_scrollback(pty.scroll_offset);
-                    pty.scroll_offset = p.screen().scrollback();
-                }
-            }
-            MouseEventKind::ScrollDown => {
-                pty.scroll_offset = pty.scroll_offset.saturating_sub(3);
-                if let Ok(mut p) = pty.parser.lock() {
-                    p.set_scrollback(pty.scroll_offset);
-                    pty.scroll_offset = p.screen().scrollback();
-                }
-            }
             MouseEventKind::Down(MouseButton::Left) => {
                 let rel_col = event.column.saturating_sub(panel_x);
                 let rel_row = event.row.saturating_sub(panel_y);
@@ -1126,30 +1166,31 @@ fn forward_mouse_to_pty(
                     .modifiers
                     .contains(crossterm::event::KeyModifiers::CONTROL)
                 {
-                    if let Ok(parser) = pty.parser.lock() {
+                    // Clone screen and drop lock before doing string work
+                    let row_text = if let Ok(parser) = pty.parser.lock() {
                         let screen = parser.screen();
-                        let row_text =
-                            screen.contents_between(rel_row, 0, rel_row, screen.size().1 - 1);
-                        // Find URL containing the clicked column
-                        let prefixes = ["https://", "http://", "ftp://"];
-                        let end_chars: &[char] =
-                            &[' ', '\t', '"', '\'', '>', '<', ')', ']', '}', '|'];
-                        for prefix in &prefixes {
-                            let mut search_from = 0usize;
-                            while let Some(start) = row_text[search_from..].find(prefix) {
-                                let abs_start = search_from + start;
-                                let url_end = row_text[abs_start..]
-                                    .find(|c: char| end_chars.contains(&c) || c.is_control())
-                                    .map(|e| abs_start + e)
-                                    .unwrap_or(row_text.trim_end().len());
-                                let col = rel_col as usize;
-                                if col >= abs_start && col < url_end {
-                                    let url = &row_text[abs_start..url_end];
-                                    let _ = std::process::Command::new("open").arg(url).spawn();
-                                    return;
-                                }
-                                search_from = url_end;
+                        screen.contents_between(rel_row, 0, rel_row, screen.size().1 - 1)
+                    } else {
+                        return;
+                    };
+                    // Lock released — do URL scanning without holding it
+                    let prefixes = ["https://", "http://", "ftp://"];
+                    let end_chars: &[char] = &[' ', '\t', '"', '\'', '>', '<', ')', ']', '}', '|'];
+                    for prefix in &prefixes {
+                        let mut search_from = 0usize;
+                        while let Some(start) = row_text[search_from..].find(prefix) {
+                            let abs_start = search_from + start;
+                            let url_end = row_text[abs_start..]
+                                .find(|c: char| end_chars.contains(&c) || c.is_control())
+                                .map(|e| abs_start + e)
+                                .unwrap_or(row_text.trim_end().len());
+                            let col = rel_col as usize;
+                            if col >= abs_start && col < url_end {
+                                let url = &row_text[abs_start..url_end];
+                                let _ = std::process::Command::new("open").arg(url).spawn();
+                                return;
                             }
+                            search_from = url_end;
                         }
                     }
                 }
@@ -1180,7 +1221,6 @@ fn forward_mouse_to_pty(
                             let screen = parser.screen().clone();
                             drop(parser);
 
-                            // Normalize start/end so start <= end
                             let (sr, sc, er, ec) =
                                 if (sel.start_row, sel.start_col) <= (sel.end_row, sel.end_col) {
                                     (sel.start_row, sel.start_col, sel.end_row, sel.end_col)
@@ -1190,7 +1230,6 @@ fn forward_mouse_to_pty(
 
                             let text = screen.contents_between(sr, sc, er, ec);
 
-                            // Copy to macOS clipboard
                             use std::io::Write;
                             use std::process::{Command, Stdio};
                             if !text.trim().is_empty() {
@@ -1245,11 +1284,9 @@ fn update_terminal_search_matches(app: &mut app::App) {
     if let Some(project) = app.projects.get(app.active_project) {
         if let Some(pty) = project.active_shell_pty() {
             if let Ok(parser) = pty.parser.lock() {
+                // Only iterates visible rows (typically 24-50), so fast under lock.
                 let screen = parser.screen();
                 let rows = screen.size().0;
-                // Search visible screen + scrollback
-                // vt100 contents() returns all visible text
-                // We search row by row for the query
                 for row_idx in 0..rows {
                     let row_text = screen
                         .contents_between(row_idx, 0, row_idx + 1, 0)

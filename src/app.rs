@@ -550,6 +550,11 @@ pub struct App {
     pub context_input: Option<ContextInputState>,
     /// Maps session IDs to the project index that owns them, preventing cross-project duplication.
     pub session_ownership: std::collections::HashMap<String, usize>,
+    /// Dirty flag for the main event loop.  Set to `true` whenever any UI-visible
+    /// state changes (key press, background event, overlay toggle, etc.).
+    /// The main loop skips `terminal.draw()` when this is `false` **and** no
+    /// PTY has new output, saving a full render pass (~460k allocs/s at 60fps).
+    pub needs_redraw: bool,
 }
 
 /// State for context input overlay (multi-line text entry for OpenCode sessions).
@@ -741,6 +746,7 @@ impl App {
             terminal_search: None,
             context_input: None,
             session_ownership: std::collections::HashMap::new(),
+            needs_redraw: true,
         }
     }
 
@@ -752,6 +758,35 @@ impl App {
     /// Returns a mutable reference to the currently active project.
     pub fn active_project_mut(&mut self) -> Option<&mut Project> {
         self.projects.get_mut(self.active_project)
+    }
+
+    /// Check (and consume) the `dirty` flag on every PTY that is currently
+    /// being rendered.  Returns `true` if at least one had new output.
+    /// This is O(visible panels) — typically 4-5 PTYs at most.
+    pub fn drain_pty_dirty_flags(&self) -> bool {
+        let project = match self.projects.get(self.active_project) {
+            Some(p) => p,
+            None => return false,
+        };
+        let mut any_dirty = false;
+        // Opencode terminal pane (active session PTY)
+        if let Some(pty) = project.active_pty() {
+            any_dirty |= pty.take_dirty();
+        }
+        // Integrated terminal tabs
+        if let Some(resources) = project.active_resources() {
+            for shell in &resources.shell_ptys {
+                any_dirty |= shell.take_dirty();
+            }
+            if let Some(ref nvim) = resources.neovim_pty {
+                any_dirty |= nvim.take_dirty();
+            }
+        }
+        // Git panel
+        if let Some(ref gitui) = project.gitui_pty {
+            any_dirty |= gitui.take_dirty();
+        }
+        any_dirty
     }
 
     /// Switch the active project by index.

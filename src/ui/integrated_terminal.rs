@@ -2,13 +2,13 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Clear, Widget};
-use tui_term::widget::PseudoTerminal;
 
 use crate::app::App;
 use crate::pty::CommandState;
-use crate::theme::{ansi_palette_from_theme, remap_ansi_colors};
+use crate::theme::ansi_palette_from_theme;
 use crate::ui::layout_manager::PanelId;
 use crate::ui::sidebar::lerp_color;
+use crate::ui::term_render;
 
 /// Widget that renders the integrated shell terminal panel.
 ///
@@ -113,13 +113,17 @@ impl<'a> IntegratedTerminal<'a> {
                 };
                 self.render_tab_bar(project, tab_area, buf);
 
-                let parser = shell_pty.parser.lock().unwrap();
-                let pseudo_term = PseudoTerminal::new(parser.screen()).style(base_style);
-                pseudo_term.render(content_area, buf);
-                let palette = ansi_palette_from_theme(&self.app.theme);
-                remap_ansi_colors(buf, content_area, &palette, &self.app.theme);
-
-                render_url_underlines(buf, content_area, parser.screen());
+                {
+                    let parser = match shell_pty.parser.lock() {
+                        Ok(p) => p,
+                        Err(_) => return,
+                    };
+                    let palette = ansi_palette_from_theme(&self.app.theme);
+                    let screen = parser.screen();
+                    term_render::render_screen(screen, content_area, buf, &palette, &self.app.theme);
+                    render_url_underlines(buf, content_area, screen);
+                }
+                // Lock released — search/selection only touch the ratatui buffer.
                 render_search_highlights(self.app, content_area, buf);
 
                 if let Some(ref sel) = self.app.terminal_selection {
@@ -174,8 +178,6 @@ impl<'a> Widget for IntegratedTerminal<'a> {
             }
         }
 
-        let base_style = Style::default().fg(theme.text).bg(theme.background);
-
         if let Some(project) = self.app.active_project() {
             if let Some(shell_pty) = project.active_shell_pty() {
                 let tab_area = Rect {
@@ -192,13 +194,17 @@ impl<'a> Widget for IntegratedTerminal<'a> {
                 };
                 self.render_tab_bar(project, tab_area, buf);
 
-                let parser = shell_pty.parser.lock().unwrap();
-                let pseudo_term = PseudoTerminal::new(parser.screen()).style(base_style);
-                pseudo_term.render(content_area, buf);
-                let palette = ansi_palette_from_theme(&self.app.theme);
-                remap_ansi_colors(buf, content_area, &palette, &self.app.theme);
-
-                render_url_underlines(buf, content_area, parser.screen());
+                {
+                    let parser = match shell_pty.parser.lock() {
+                        Ok(p) => p,
+                        Err(_) => return,
+                    };
+                    let palette = ansi_palette_from_theme(&self.app.theme);
+                    let screen = parser.screen();
+                    term_render::render_screen(screen, content_area, buf, &palette, &self.app.theme);
+                    render_url_underlines(buf, content_area, screen);
+                }
+                // Lock released — search/selection only touch the ratatui buffer.
                 render_search_highlights(self.app, content_area, buf);
 
                 if let Some(ref sel) = self.app.terminal_selection {

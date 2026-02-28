@@ -55,6 +55,9 @@ pub struct LayoutManager {
     pub drag_state: DragState,
     pub panel_visible: [bool; 5],
     pub last_area: Rect,
+    /// Set to `true` whenever layout structure changes (visibility, resize, tree rebuild).
+    /// The draw loop checks this + area change to decide whether to recompute rects.
+    pub layout_dirty: bool,
 }
 
 const MIN_PANEL_SIZE: u16 = 6;
@@ -70,6 +73,7 @@ impl LayoutManager {
             drag_state: DragState::None,
             panel_visible: [true, true, false, false, false],
             last_area: Rect::default(),
+            layout_dirty: true,
         }
     }
 
@@ -128,6 +132,7 @@ impl LayoutManager {
     }
 
     fn rebuild_tree(&mut self) {
+        self.layout_dirty = true;
         let sidebar = self.panel_visible[0];
         let terminal = self.panel_visible[1];
         let neovim = self.panel_visible[2];
@@ -394,6 +399,7 @@ impl LayoutManager {
     /// preventing jerk when the click doesn't exactly land on the separator center.
     fn apply_resize_delta(&mut self, target_depth: usize, parent_idx: usize, ratio_delta: f64) {
         Self::apply_delta_recursive(&mut self.root, target_depth, 0, parent_idx, ratio_delta);
+        self.layout_dirty = true;
     }
 
     fn apply_delta_recursive(

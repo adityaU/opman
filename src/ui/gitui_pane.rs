@@ -4,7 +4,8 @@ use ratatui::style::Style;
 use ratatui::widgets::Widget;
 
 use crate::app::App;
-use crate::theme::{ansi_palette_from_theme, remap_ansi_colors};
+use crate::theme::ansi_palette_from_theme;
+use crate::ui::term_render;
 
 pub struct GituiPane<'a> {
     pub app: &'a App,
@@ -32,12 +33,15 @@ impl Widget for GituiPane<'_> {
 
         match &project.gitui_pty {
             Some(pty) => {
-                let parser = pty.parser.lock().unwrap();
-                let pseudo_term = tui_term::widget::PseudoTerminal::new(parser.screen())
-                    .style(Style::default().bg(self.app.theme.background));
-                pseudo_term.render(area, buf);
-                let palette = ansi_palette_from_theme(&self.app.theme);
-                remap_ansi_colors(buf, area, &palette, &self.app.theme);
+                {
+                    let parser = match pty.parser.lock() {
+                        Ok(p) => p,
+                        Err(_) => return,
+                    };
+                    let palette = ansi_palette_from_theme(&self.app.theme);
+                    let screen = parser.screen();
+                    term_render::render_screen(screen, area, buf, &palette, &self.app.theme);
+                }
 
                 if let Some(ref sel) = self.app.terminal_selection {
                     if sel.panel_id == crate::ui::layout_manager::PanelId::GitPanel {
