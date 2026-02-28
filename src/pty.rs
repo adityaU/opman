@@ -153,7 +153,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: None,
-            dirty: Arc::new(AtomicBool::new(true)),
+            dirty,
         })
     }
 
@@ -444,7 +444,7 @@ impl PtyInstance {
             name: name.unwrap_or_else(|| String::new()),
             command_state,
             nvim_listen_addr: None,
-            dirty: Arc::new(AtomicBool::new(true)),
+            dirty,
         };
         Ok(pty)
     }
@@ -563,7 +563,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: Some(listen_path),
-            dirty: Arc::new(AtomicBool::new(true)),
+            dirty,
         })
     }
 
@@ -640,7 +640,7 @@ impl PtyInstance {
             name: String::new(),
             command_state,
             nvim_listen_addr: None,
-            dirty: Arc::new(AtomicBool::new(true)),
+            dirty,
         })
     }
 }
