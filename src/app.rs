@@ -87,6 +87,16 @@ pub enum BackgroundEvent {
         cache_read: u64,
         cache_write: u64,
     },
+    /// SSE: a permission was requested by the AI agent.
+    SsePermissionAsked {
+        project_idx: usize,
+        request: PermissionRequest,
+    },
+    /// SSE: a question was asked by the AI agent.
+    SseQuestionAsked {
+        project_idx: usize,
+        request: QuestionRequest,
+    },
     /// Provider model limits fetched from REST API.
     ModelLimitsFetched {
         project_idx: usize,
@@ -303,6 +313,54 @@ pub struct TodoItem {
     pub content: String,
     pub status: String,
     pub priority: String,
+}
+
+/// A permission request from the AI agent (e.g. edit, bash, read).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PermissionRequest {
+    pub id: String,
+    #[serde(rename = "sessionID")]
+    pub session_id: String,
+    #[serde(default)]
+    pub permission: String,
+    #[serde(default)]
+    pub patterns: Vec<String>,
+    #[serde(default)]
+    pub metadata: serde_json::Value,
+}
+
+/// A question asked by the AI agent via the question tool.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QuestionRequest {
+    pub id: String,
+    #[serde(rename = "sessionID")]
+    pub session_id: String,
+    #[serde(default)]
+    pub questions: Vec<QuestionInfo>,
+}
+
+/// A single question within a question request.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QuestionInfo {
+    #[serde(default)]
+    pub question: String,
+    #[serde(default)]
+    pub header: String,
+    #[serde(default)]
+    pub options: Vec<QuestionOption>,
+    #[serde(default)]
+    pub multiple: bool,
+    #[serde(default)]
+    pub custom: bool,
+}
+
+/// A single option within a question.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QuestionOption {
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub description: String,
 }
 
 /// State for the todo panel overlay.
@@ -1931,14 +1989,176 @@ impl App {
                         .or_default()
                         .insert(session.id.clone());
 
-                    // NOTE: We intentionally do NOT spawn a separate Slack relay
-                    // watcher for subagent sessions.  The parent session's relay
-                    // watcher already picks up the "task" tool call part, which
-                    // appears as a task_update chunk (collapsible task card) in
-                    // Slack's timeline UI.  Spawning a second watcher would cause
-                    // the subagent's messages to leak out as top-level text in
-                    // the thread, outside the task card — exactly the bug we're
-                    // preventing here.
+                    // ── Spawn a dedicated Slack thread for the subagent ──
+                    // Instead of inlining the subagent output as a task_update
+                    // chunk in the parent thread, we create a brand-new top-level
+                    // Slack message for the subagent, cross-link both threads,
+                    // register the session↔thread mapping, spawn a relay watcher,
+                    // and enable a continuation watcher.
+                    if let Some(ref slack_state) = self.slack_state {
+                        if let Some(ref auth) = self.slack_auth {
+                            let parent_thread_info = {
+                                if let Ok(s) = slack_state.try_lock() {
+                                    s.session_threads.get(&session.parent_id).cloned()
+                                } else {
+                                    None
+                                }
+                            };
+
+                            if let Some((parent_channel, parent_thread_ts)) = parent_thread_info {
+                                let child_sid = session.id.clone();
+                                let child_title = session.title.clone();
+                                let parent_sid = session.parent_id.clone();
+                                let bot_token = auth.bot_token.clone();
+                                let base_url = crate::app::base_url().to_string();
+                                let project_dir = self
+                                    .projects
+                                    .get(project_idx)
+                                    .map(|p| p.path.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+                                let buffer_secs = self.config.settings.slack.relay_buffer_secs;
+                                let st = slack_state.clone();
+
+                                // NOTE: No WatcherConfig for subagents — they only
+                                // get a relay watcher (Slack message relay), not the
+                                // continuation/hang detection watcher.
+
+                                tokio::spawn(async move {
+                                    let client = reqwest::Client::new();
+
+                                    // Build parent thread link.
+                                    let parent_link = crate::slack::slack_thread_link(
+                                        &parent_channel,
+                                        &parent_thread_ts,
+                                    );
+                                    let title_display = if child_title.is_empty() {
+                                        "Subagent".to_string()
+                                    } else {
+                                        child_title.clone()
+                                    };
+
+                                    // 1. Post a new top-level message as the subagent thread.
+                                    let top_msg = format!(
+                                        ":robot_face: *Subagent:* {}\n:link: Parent thread: {}",
+                                        title_display, parent_link
+                                    );
+                                    let subagent_ts = match crate::slack::post_message(
+                                        &client,
+                                        &bot_token,
+                                        &parent_channel,
+                                        &top_msg,
+                                        None, // top-level, not a thread reply
+                                    )
+                                    .await
+                                    {
+                                        Ok(ts) => ts,
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                "Slack subagent thread: failed to post top-level message: {}",
+                                                e
+                                            );
+                                            return;
+                                        }
+                                    };
+
+                                    tracing::info!(
+                                        "Slack subagent thread: created {} for child session {} (parent {})",
+                                        subagent_ts,
+                                        &child_sid[..8.min(child_sid.len())],
+                                        &parent_sid[..8.min(parent_sid.len())]
+                                    );
+
+                                    // 2. Post cross-link in the parent thread.
+                                    let child_link = crate::slack::slack_thread_link(
+                                        &parent_channel,
+                                        &subagent_ts,
+                                    );
+                                    let parent_notify = format!(
+                                        ":robot_face: Subagent started: {} → {}",
+                                        title_display, child_link
+                                    );
+                                    let _ = crate::slack::post_message(
+                                        &client,
+                                        &bot_token,
+                                        &parent_channel,
+                                        &parent_notify,
+                                        Some(&parent_thread_ts),
+                                    )
+                                    .await;
+
+                                    // 3. Register session↔thread mapping and record msg offset.
+                                    {
+                                        let mut s = st.lock().await;
+                                        s.thread_sessions.insert(
+                                            subagent_ts.clone(),
+                                            (project_idx, child_sid.clone()),
+                                        );
+                                        s.session_threads.insert(
+                                            child_sid.clone(),
+                                            (parent_channel.clone(), subagent_ts.clone()),
+                                        );
+                                        s.subagent_threads.insert(
+                                            child_sid.clone(),
+                                            (
+                                                parent_channel.clone(),
+                                                subagent_ts.clone(),
+                                                parent_sid.clone(),
+                                            ),
+                                        );
+                                    }
+
+                                    // Record current message count so relay only picks up new msgs.
+                                    match crate::slack::fetch_all_session_messages(
+                                        &client,
+                                        &base_url,
+                                        &project_dir,
+                                        &child_sid,
+                                    )
+                                    .await
+                                    {
+                                        Ok(msgs) => {
+                                            let mut s = st.lock().await;
+                                            s.session_msg_offset
+                                                .insert(child_sid.clone(), msgs.len());
+                                        }
+                                        Err(_) => {
+                                            let mut s = st.lock().await;
+                                            s.session_msg_offset.insert(child_sid.clone(), 0);
+                                        }
+                                    }
+
+                                    // 4. Spawn relay watcher for the subagent thread.
+                                    let handle = crate::slack::spawn_session_relay_watcher(
+                                        child_sid.clone(),
+                                        project_dir.clone(),
+                                        parent_channel.clone(),
+                                        subagent_ts.clone(),
+                                        bot_token.clone(),
+                                        base_url.clone(),
+                                        buffer_secs,
+                                        st.clone(),
+                                    );
+                                    {
+                                        let mut s = st.lock().await;
+                                        s.relay_abort_handles
+                                            .insert(child_sid.clone(), handle.abort_handle());
+                                        // Persist session map.
+                                        let map = crate::slack::SlackSessionMap {
+                                            session_threads: s.session_threads.clone(),
+                                            thread_sessions: s.thread_sessions.clone(),
+                                            msg_offsets: s.session_msg_offset.clone(),
+                                        };
+                                        if let Err(e) = map.save() {
+                                            tracing::warn!(
+                                                "Slack subagent thread: failed to persist session map: {}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
 
                 if let Some(project) = self.projects.get_mut(project_idx) {
@@ -2286,11 +2506,76 @@ impl App {
                 debug!(session_id, count = todos.len(), "SSE todo.updated");
                 if let Some(ref mut panel) = self.todo_panel {
                     if panel.session_id == session_id {
-                        panel.todos = todos;
+                        panel.todos = todos.clone();
                         if panel.selected >= panel.todos.len() {
                             panel.selected = panel.todos.len().saturating_sub(1);
                         }
                     }
+                }
+
+                // Post or update the todo checklist in the Slack thread.
+                if let (Some(ref ss), Some(ref auth)) =
+                    (self.slack_state.clone(), self.slack_auth.clone())
+                {
+                    let ss = ss.clone();
+                    let bot_token = auth.bot_token.clone();
+                    let sid = session_id.clone();
+                    tokio::spawn(async move {
+                        let (channel, thread_ts, existing_ts) = {
+                            let guard = ss.lock().await;
+                            let thread_info = guard.session_threads.get(&sid).cloned();
+                            let existing = guard.todo_message_ts.get(&sid).cloned();
+                            match thread_info {
+                                Some((ch, ts)) => (ch, ts, existing),
+                                None => return, // no Slack thread for this session
+                            }
+                        };
+
+                        let text = crate::slack::render_todos_mrkdwn(&todos);
+                        let client = reqwest::Client::new();
+
+                        if let Some(ref msg_ts) = existing_ts {
+                            // Update existing todo message.
+                            if let Err(e) = crate::slack::update_message(
+                                &client, &bot_token, &channel, msg_ts, &text,
+                            )
+                            .await
+                            {
+                                tracing::warn!(
+                                    "Slack todo update failed for session {}: {}",
+                                    &sid[..8.min(sid.len())],
+                                    e
+                                );
+                            }
+                        } else {
+                            // Post a new todo message.
+                            match crate::slack::post_message(
+                                &client,
+                                &bot_token,
+                                &channel,
+                                &text,
+                                Some(&thread_ts),
+                            )
+                            .await
+                            {
+                                Ok(ts) => {
+                                    let mut guard = ss.lock().await;
+                                    guard.todo_message_ts.insert(sid.clone(), ts);
+                                    tracing::info!(
+                                        "Slack todo: posted checklist for session {}",
+                                        &sid[..8.min(sid.len())]
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Slack todo post failed for session {}: {}",
+                                        &sid[..8.min(sid.len())],
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                    });
                 }
             }
             BackgroundEvent::SseMessageUpdated {
@@ -2322,6 +2607,140 @@ impl App {
                     session_id,
                     cost, input_tokens, output_tokens, "SSE: message.updated with token/cost data"
                 );
+                // Wake up the Slack relay watcher for this session (if any)
+                // so it polls immediately instead of waiting for the next
+                // buffer_secs interval.
+                if let Some(ref ss) = self.slack_state {
+                    if let Ok(guard) = ss.try_lock() {
+                        guard.notify_relay(&session_id);
+                    }
+                }
+            }
+            BackgroundEvent::SsePermissionAsked {
+                project_idx,
+                request,
+            } => {
+                info!(
+                    project_idx,
+                    request_id = %request.id,
+                    session_id = %request.session_id,
+                    permission = %request.permission,
+                    "Permission request received from AI agent"
+                );
+
+                // Post to Slack thread if this session has one.
+                if let (Some(ref ss), Some(ref auth)) =
+                    (self.slack_state.clone(), self.slack_auth.clone())
+                {
+                    let ss = ss.clone();
+                    let bot_token = auth.bot_token.clone();
+                    let sid = request.session_id.clone();
+                    let req = request.clone();
+                    let pidx = project_idx;
+                    tokio::spawn(async move {
+                        let (channel, thread_ts) = {
+                            let guard = ss.lock().await;
+                            match guard.session_threads.get(&sid).cloned() {
+                                Some((ch, ts)) => (ch, ts),
+                                None => return, // no Slack thread for this session
+                            }
+                        };
+
+                        let (fallback, blocks) = crate::slack::render_permission_blocks(&req);
+                        let client = reqwest::Client::new();
+
+                        match crate::slack::post_message_with_blocks(
+                            &client,
+                            &bot_token,
+                            &channel,
+                            &fallback,
+                            &blocks,
+                            Some(&thread_ts),
+                        )
+                        .await
+                        {
+                            Ok(msg_ts) => {
+                                // Store pending permission so thread replies / button clicks can resolve it.
+                                let mut guard = ss.lock().await;
+                                guard.pending_permissions.insert(
+                                    thread_ts.clone(),
+                                    (req.id.clone(), sid.clone(), pidx, msg_ts, req.clone()),
+                                );
+                                tracing::info!(
+                                    "Slack: posted permission request {} for session {}",
+                                    &req.id[..8.min(req.id.len())],
+                                    &sid[..8.min(sid.len())]
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!("Slack: failed to post permission request: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
+            BackgroundEvent::SseQuestionAsked {
+                project_idx,
+                request,
+            } => {
+                info!(
+                    project_idx,
+                    request_id = %request.id,
+                    session_id = %request.session_id,
+                    question_count = request.questions.len(),
+                    "Question request received from AI agent"
+                );
+
+                // Post to Slack thread if this session has one.
+                if let (Some(ref ss), Some(ref auth)) =
+                    (self.slack_state.clone(), self.slack_auth.clone())
+                {
+                    let ss = ss.clone();
+                    let bot_token = auth.bot_token.clone();
+                    let sid = request.session_id.clone();
+                    let req = request.clone();
+                    let pidx = project_idx;
+                    tokio::spawn(async move {
+                        let (channel, thread_ts) = {
+                            let guard = ss.lock().await;
+                            match guard.session_threads.get(&sid).cloned() {
+                                Some((ch, ts)) => (ch, ts),
+                                None => return, // no Slack thread for this session
+                            }
+                        };
+
+                        let (fallback, blocks) = crate::slack::render_question_blocks(&req);
+                        let client = reqwest::Client::new();
+
+                        match crate::slack::post_message_with_blocks(
+                            &client,
+                            &bot_token,
+                            &channel,
+                            &fallback,
+                            &blocks,
+                            Some(&thread_ts),
+                        )
+                        .await
+                        {
+                            Ok(msg_ts) => {
+                                // Store pending question so thread replies / button clicks can resolve it.
+                                let mut guard = ss.lock().await;
+                                guard.pending_questions.insert(
+                                    thread_ts.clone(),
+                                    (req.id.clone(), sid.clone(), pidx, msg_ts, req.clone()),
+                                );
+                                tracing::info!(
+                                    "Slack: posted question {} for session {}",
+                                    &req.id[..8.min(req.id.len())],
+                                    &sid[..8.min(sid.len())]
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!("Slack: failed to post question: {}", e);
+                            }
+                        }
+                    });
+                }
             }
             BackgroundEvent::ModelLimitsFetched {
                 project_idx,
@@ -3385,6 +3804,277 @@ impl App {
                         return; // Skip normal thread reply handling.
                     }
 
+                    // ── Permission / question reply check ────────────
+                    // If there's a pending permission or question for this thread,
+                    // parse the reply and call the appropriate API endpoint instead
+                    // of injecting as a system message.
+                    {
+                        let trimmed_lower = text.trim().to_lowercase();
+                        let mut handled = false;
+
+                        if let Ok(mut guard) = state.try_lock() {
+                            // Check for pending permission first.
+                            if let Some((req_id, _sid, pidx, _msg_ts, _perm_req)) =
+                                guard.pending_permissions.get(&thread_ts).cloned()
+                            {
+                                let reply = match trimmed_lower.as_str() {
+                                    "once" | "yes" | "allow" | "1" => Some("once"),
+                                    "always" | "all" | "2" => Some("always"),
+                                    "reject" | "deny" | "no" | "3" => Some("reject"),
+                                    _ => None,
+                                };
+
+                                if let Some(reply_str) = reply {
+                                    // Remove from pending before spawning.
+                                    guard.pending_permissions.remove(&thread_ts);
+                                    drop(guard);
+
+                                    let base_url = crate::app::base_url().to_string();
+                                    let project_dir = self
+                                        .projects
+                                        .get(pidx)
+                                        .map(|p| p.path.to_string_lossy().to_string())
+                                        .unwrap_or_default();
+                                    let _st = state.clone();
+                                    let bot_token = self
+                                        .slack_auth
+                                        .as_ref()
+                                        .map(|a| a.bot_token.clone())
+                                        .unwrap_or_default();
+                                    let ch = channel.clone();
+                                    let tts = thread_ts.clone();
+                                    let rid = req_id.clone();
+                                    let reply_owned = reply_str.to_string();
+
+                                    tokio::spawn(async move {
+                                        let api = crate::api::ApiClient::new();
+                                        match api
+                                            .reply_permission(
+                                                &base_url,
+                                                &project_dir,
+                                                &rid,
+                                                &reply_owned,
+                                            )
+                                            .await
+                                        {
+                                            Ok(()) => {
+                                                let client = reqwest::Client::new();
+                                                let _ = crate::slack::post_message(
+                                                    &client,
+                                                    &bot_token,
+                                                    &ch,
+                                                    &format!(
+                                                        ":white_check_mark: Permission reply sent: `{}`",
+                                                        reply_owned
+                                                    ),
+                                                    Some(&tts),
+                                                )
+                                                .await;
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(
+                                                    "Slack: failed to reply to permission {}: {}",
+                                                    rid,
+                                                    e
+                                                );
+                                                let client = reqwest::Client::new();
+                                                let _ = crate::slack::post_message(
+                                                    &client,
+                                                    &bot_token,
+                                                    &ch,
+                                                    &format!(
+                                                        ":x: Failed to send permission reply: {}",
+                                                        e
+                                                    ),
+                                                    Some(&tts),
+                                                )
+                                                .await;
+                                            }
+                                        }
+                                    });
+
+                                    handled = true;
+                                }
+                            }
+                        }
+
+                        // Check for pending question.
+                        if !handled {
+                            if let Ok(mut guard) = state.try_lock() {
+                                if let Some((req_id, _sid, pidx, _msg_ts, ref question_req)) =
+                                    guard.pending_questions.get(&thread_ts).cloned()
+                                {
+                                    // Parse reply: "reject" dismisses; numbers select options;
+                                    // anything else is custom text.
+                                    let is_reject = trimmed_lower == "reject"
+                                        || trimmed_lower == "dismiss"
+                                        || trimmed_lower == "skip";
+
+                                    if is_reject {
+                                        guard.pending_questions.remove(&thread_ts);
+                                        drop(guard);
+
+                                        let base_url = crate::app::base_url().to_string();
+                                        let project_dir = self
+                                            .projects
+                                            .get(pidx)
+                                            .map(|p| p.path.to_string_lossy().to_string())
+                                            .unwrap_or_default();
+                                        let _st = state.clone();
+                                        let bot_token = self
+                                            .slack_auth
+                                            .as_ref()
+                                            .map(|a| a.bot_token.clone())
+                                            .unwrap_or_default();
+                                        let ch = channel.clone();
+                                        let tts = thread_ts.clone();
+                                        let rid = req_id.clone();
+
+                                        tokio::spawn(async move {
+                                            let api = crate::api::ApiClient::new();
+                                            match api
+                                                .reject_question(&base_url, &project_dir, &rid)
+                                                .await
+                                            {
+                                                Ok(()) => {
+                                                    let client = reqwest::Client::new();
+                                                    let _ = crate::slack::post_message(
+                                                        &client,
+                                                        &bot_token,
+                                                        &ch,
+                                                        ":no_entry_sign: Question dismissed.",
+                                                        Some(&tts),
+                                                    )
+                                                    .await;
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!(
+                                                        "Slack: failed to reject question {}: {}",
+                                                        rid,
+                                                        e
+                                                    );
+                                                }
+                                            }
+                                        });
+
+                                        handled = true;
+                                    } else {
+                                        // Parse option numbers or use as custom text.
+                                        // Build answers: one inner vec per question.
+                                        let mut answers: Vec<Vec<String>> = Vec::new();
+                                        let reply_text = text.trim().to_string();
+
+                                        for q in &question_req.questions {
+                                            // Try to parse as comma-separated option numbers.
+                                            let parts: Vec<&str> =
+                                                reply_text.split(',').map(|s| s.trim()).collect();
+                                            let mut selected_labels: Vec<String> = Vec::new();
+                                            let mut all_numeric = true;
+
+                                            for part in &parts {
+                                                if let Ok(n) = part.parse::<usize>() {
+                                                    if n >= 1 && n <= q.options.len() {
+                                                        selected_labels
+                                                            .push(q.options[n - 1].label.clone());
+                                                    } else {
+                                                        all_numeric = false;
+                                                        break;
+                                                    }
+                                                } else {
+                                                    all_numeric = false;
+                                                    break;
+                                                }
+                                            }
+
+                                            if all_numeric && !selected_labels.is_empty() {
+                                                answers.push(selected_labels);
+                                            } else {
+                                                // Treat the whole reply as custom text.
+                                                answers.push(vec![reply_text.clone()]);
+                                            }
+                                        }
+
+                                        guard.pending_questions.remove(&thread_ts);
+                                        drop(guard);
+
+                                        let base_url = crate::app::base_url().to_string();
+                                        let project_dir = self
+                                            .projects
+                                            .get(pidx)
+                                            .map(|p| p.path.to_string_lossy().to_string())
+                                            .unwrap_or_default();
+                                        let bot_token = self
+                                            .slack_auth
+                                            .as_ref()
+                                            .map(|a| a.bot_token.clone())
+                                            .unwrap_or_default();
+                                        let ch = channel.clone();
+                                        let tts = thread_ts.clone();
+                                        let rid = req_id.clone();
+
+                                        tokio::spawn(async move {
+                                            let api = crate::api::ApiClient::new();
+                                            match api
+                                                .reply_question(
+                                                    &base_url,
+                                                    &project_dir,
+                                                    &rid,
+                                                    &answers,
+                                                )
+                                                .await
+                                            {
+                                                Ok(()) => {
+                                                    let answer_display = answers
+                                                        .iter()
+                                                        .map(|a| a.join(", "))
+                                                        .collect::<Vec<_>>()
+                                                        .join(" | ");
+                                                    let client = reqwest::Client::new();
+                                                    let _ = crate::slack::post_message(
+                                                        &client,
+                                                        &bot_token,
+                                                        &ch,
+                                                        &format!(
+                                                            ":white_check_mark: Answer sent: {}",
+                                                            answer_display
+                                                        ),
+                                                        Some(&tts),
+                                                    )
+                                                    .await;
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!(
+                                                        "Slack: failed to reply to question {}: {}",
+                                                        rid,
+                                                        e
+                                                    );
+                                                    let client = reqwest::Client::new();
+                                                    let _ = crate::slack::post_message(
+                                                        &client,
+                                                        &bot_token,
+                                                        &ch,
+                                                        &format!(
+                                                            ":x: Failed to send question answer: {}",
+                                                            e
+                                                        ),
+                                                        Some(&tts),
+                                                    )
+                                                    .await;
+                                                }
+                                            }
+                                        });
+
+                                        handled = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        if handled {
+                            return;
+                        }
+                    }
+
                     // ── Normal thread reply ─────────────────────────
                     let st = state.clone();
                     let base_url = crate::app::base_url().to_string();
@@ -3502,6 +4192,254 @@ impl App {
                                 crate::slack::SlackLogLevel::Info,
                                 format!("Response batch sent to thread {}", thread_ts),
                             );
+                        }
+                    });
+                }
+            }
+            SlackBackgroundEvent::BlockAction {
+                action_id,
+                channel,
+                message_ts,
+                thread_ts,
+                user: _,
+            } => {
+                info!(
+                    action_id = %action_id,
+                    channel = %channel,
+                    message_ts = %message_ts,
+                    thread_ts = ?thread_ts,
+                    "Slack block action received"
+                );
+
+                // Parse the action_id to determine the type and extract IDs.
+                // Permission actions: "perm_once:<req_id>", "perm_always:<req_id>", "perm_reject:<req_id>"
+                // Question option actions: "q_<req_id>_<question_idx>:<option_idx>"
+                // Question reject actions: "q_reject:<req_id>"
+
+                if let (Some(ref ss), Some(ref auth)) =
+                    (self.slack_state.clone(), self.slack_auth.clone())
+                {
+                    let bot_token = auth.bot_token.clone();
+                    let ss = ss.clone();
+                    // Collect project paths upfront (before async context).
+                    let project_paths: Vec<String> = self
+                        .projects
+                        .iter()
+                        .map(|p| p.path.to_string_lossy().to_string())
+                        .collect();
+                    let base_url = crate::app::base_url().to_string();
+
+                    tokio::spawn(async move {
+                        let thread_key = thread_ts.clone().unwrap_or_default();
+
+                        if action_id.starts_with("perm_") {
+                            // Permission button clicked.
+                            let (reply_str, _req_id_from_action) =
+                                if let Some(rid) = action_id.strip_prefix("perm_once:") {
+                                    ("once", rid.to_string())
+                                } else if let Some(rid) = action_id.strip_prefix("perm_always:") {
+                                    ("always", rid.to_string())
+                                } else if let Some(rid) = action_id.strip_prefix("perm_reject:") {
+                                    ("reject", rid.to_string())
+                                } else {
+                                    tracing::warn!(
+                                        "Slack: unrecognized permission action_id: {}",
+                                        action_id
+                                    );
+                                    return;
+                                };
+
+                            let pending = {
+                                let mut guard = ss.lock().await;
+                                guard.pending_permissions.remove(&thread_key)
+                            };
+
+                            if let Some((req_id, _sid, pidx, _orig_msg_ts, perm_req)) = pending {
+                                let project_dir =
+                                    project_paths.get(pidx).cloned().unwrap_or_default();
+
+                                let api = crate::api::ApiClient::new();
+                                match api
+                                    .reply_permission(&base_url, &project_dir, &req_id, reply_str)
+                                    .await
+                                {
+                                    Ok(()) => {
+                                        // Update the original message to remove buttons.
+                                        let (confirmed_text, confirmed_blocks) =
+                                            crate::slack::render_permission_confirmed_blocks(
+                                                &perm_req, reply_str,
+                                            );
+                                        let client = reqwest::Client::new();
+                                        let _ = crate::slack::update_message_blocks(
+                                            &client,
+                                            &bot_token,
+                                            &channel,
+                                            &message_ts,
+                                            &confirmed_text,
+                                            &confirmed_blocks,
+                                        )
+                                        .await;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Slack: failed to reply to permission via button: {}",
+                                            e
+                                        );
+                                        let client = reqwest::Client::new();
+                                        let tts = thread_ts.as_deref().unwrap_or(&channel);
+                                        let _ = crate::slack::post_message(
+                                            &client,
+                                            &bot_token,
+                                            &channel,
+                                            &format!(":x: Failed to send permission reply: {}", e),
+                                            Some(tts),
+                                        )
+                                        .await;
+                                    }
+                                }
+                            } else {
+                                tracing::warn!(
+                                    "Slack: no pending permission found for thread {:?}",
+                                    thread_ts
+                                );
+                            }
+                        } else if action_id.starts_with("q_reject:") {
+                            // Question dismiss button clicked.
+                            let pending = {
+                                let mut guard = ss.lock().await;
+                                guard.pending_questions.remove(&thread_key)
+                            };
+
+                            if let Some((req_id, _sid, pidx, _orig_msg_ts, _q_req)) = pending {
+                                let project_dir =
+                                    project_paths.get(pidx).cloned().unwrap_or_default();
+
+                                let api = crate::api::ApiClient::new();
+                                match api.reject_question(&base_url, &project_dir, &req_id).await {
+                                    Ok(()) => {
+                                        let (dismissed_text, dismissed_blocks) =
+                                            crate::slack::render_question_dismissed_blocks();
+                                        let client = reqwest::Client::new();
+                                        let _ = crate::slack::update_message_blocks(
+                                            &client,
+                                            &bot_token,
+                                            &channel,
+                                            &message_ts,
+                                            &dismissed_text,
+                                            &dismissed_blocks,
+                                        )
+                                        .await;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Slack: failed to reject question via button: {}",
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                        } else if action_id.starts_with("q_") {
+                            // Question option button clicked.
+                            // action_id format: "q_<req_id>_<question_idx>:<option_idx>"
+                            let rest = &action_id[2..]; // strip "q_"
+                                                        // Find the colon to split question_idx from option_idx.
+                            if let Some(colon_pos) = rest.rfind(':') {
+                                let before_colon = &rest[..colon_pos];
+                                let option_idx_str = &rest[colon_pos + 1..];
+
+                                // before_colon = "<req_id>_<question_idx>"
+                                // Split on last underscore.
+                                if let Some(last_underscore) = before_colon.rfind('_') {
+                                    let qi_str = &before_colon[last_underscore + 1..];
+
+                                    let qi: usize = qi_str.parse().unwrap_or(0);
+                                    let oi: usize = option_idx_str.parse().unwrap_or(0);
+
+                                    let pending = {
+                                        let mut guard = ss.lock().await;
+                                        guard.pending_questions.remove(&thread_key)
+                                    };
+
+                                    if let Some((req_id, _sid, pidx, _orig_msg_ts, q_req)) = pending
+                                    {
+                                        // Build answers: select the option by index.
+                                        let mut answers: Vec<Vec<String>> = Vec::new();
+                                        for (i, q) in q_req.questions.iter().enumerate() {
+                                            if i == qi {
+                                                if let Some(opt) = q.options.get(oi) {
+                                                    answers.push(vec![opt.label.clone()]);
+                                                } else {
+                                                    answers.push(vec![format!("option_{}", oi)]);
+                                                }
+                                            } else {
+                                                // For other questions, send first option as default.
+                                                if let Some(first) = q.options.first() {
+                                                    answers.push(vec![first.label.clone()]);
+                                                } else {
+                                                    answers.push(vec![]);
+                                                }
+                                            }
+                                        }
+
+                                        let project_dir =
+                                            project_paths.get(pidx).cloned().unwrap_or_default();
+
+                                        let api = crate::api::ApiClient::new();
+                                        match api
+                                            .reply_question(
+                                                &base_url,
+                                                &project_dir,
+                                                &req_id,
+                                                &answers,
+                                            )
+                                            .await
+                                        {
+                                            Ok(()) => {
+                                                let answer_display = answers
+                                                    .iter()
+                                                    .map(|a| a.join(", "))
+                                                    .collect::<Vec<_>>()
+                                                    .join(" | ");
+                                                let (confirmed_text, confirmed_blocks) =
+                                                    crate::slack::render_question_confirmed_blocks(
+                                                        &answer_display,
+                                                    );
+                                                let client = reqwest::Client::new();
+                                                let _ = crate::slack::update_message_blocks(
+                                                    &client,
+                                                    &bot_token,
+                                                    &channel,
+                                                    &message_ts,
+                                                    &confirmed_text,
+                                                    &confirmed_blocks,
+                                                )
+                                                .await;
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(
+                                                    "Slack: failed to reply to question via button: {}",
+                                                    e
+                                                );
+                                                let client = reqwest::Client::new();
+                                                let tts = thread_ts.as_deref().unwrap_or(&channel);
+                                                let _ = crate::slack::post_message(
+                                                    &client,
+                                                    &bot_token,
+                                                    &channel,
+                                                    &format!(
+                                                        ":x: Failed to send question answer: {}",
+                                                        e
+                                                    ),
+                                                    Some(tts),
+                                                )
+                                                .await;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            tracing::debug!("Slack: ignoring unknown action_id: {}", action_id);
                         }
                     });
                 }

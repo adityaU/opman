@@ -414,6 +414,46 @@ fn handle_sse_data(
                 }
             }
         }
+        "permission.asked" => {
+            match serde_json::from_value::<crate::app::PermissionRequest>(event.properties) {
+                Ok(req) => {
+                    info!(
+                        project_idx,
+                        request_id = %req.id,
+                        session_id = %req.session_id,
+                        permission = %req.permission,
+                        "SSE: permission.asked"
+                    );
+                    let _ = bg_tx.send(BackgroundEvent::SsePermissionAsked {
+                        project_idx,
+                        request: req,
+                    });
+                }
+                Err(e) => {
+                    warn!(project_idx, error = %e, "SSE: permission.asked — failed to parse");
+                }
+            }
+        }
+        "question.asked" => {
+            match serde_json::from_value::<crate::app::QuestionRequest>(event.properties) {
+                Ok(req) => {
+                    info!(
+                        project_idx,
+                        request_id = %req.id,
+                        session_id = %req.session_id,
+                        question_count = req.questions.len(),
+                        "SSE: question.asked"
+                    );
+                    let _ = bg_tx.send(BackgroundEvent::SseQuestionAsked {
+                        project_idx,
+                        request: req,
+                    });
+                }
+                Err(e) => {
+                    warn!(project_idx, error = %e, "SSE: question.asked — failed to parse");
+                }
+            }
+        }
         _ => {
             // Try to handle message.updated for token/cost tracking
             if event.event_type == "message.updated" {
@@ -437,7 +477,7 @@ fn handle_sse_data(
                     });
                 }
             }
-            // Ignore other events (permission.*, etc.)
+            // Ignore other unhandled events
         }
     }
 

@@ -19,8 +19,7 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex, Notify};
 use tracing::{debug, error, info, warn};
 
 // ── Slack Auth (persisted to YAML) ──────────────────────────────────────
@@ -475,6 +474,19 @@ pub enum SlackBackgroundEvent {
     OAuthComplete(Result<SlackAuth>),
     /// Socket Mode connection status changed.
     ConnectionStatus(SlackConnectionStatus),
+    /// A Slack Block Kit interactive button was clicked.
+    BlockAction {
+        /// The `action_id` from the button (e.g. "perm_once:<req_id>").
+        action_id: String,
+        /// Channel where the interaction occurred.
+        channel: String,
+        /// Message ts that contained the button (for updating the message).
+        message_ts: String,
+        /// Thread ts (if the message was inside a thread).
+        thread_ts: Option<String>,
+        /// The user who clicked.
+        user: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -509,6 +521,30 @@ pub struct SlackState {
     /// Active streaming message timestamps: session_id → stream message ts.
     /// Used by the relay watcher to append content to an active stream.
     pub streaming_messages: HashMap<String, String>,
+    /// Subagent session → (channel, thread_ts, parent_session_id) for the
+    /// subagent's dedicated Slack thread.  When a subagent session is created,
+    /// we post a new top-level message and route the subagent's relay output to
+    /// that thread.  The parent relay watcher uses this to replace "task" tool
+    /// output with a link to the child thread.
+    pub subagent_threads: HashMap<String, (String, String, String)>,
+    /// Notify handles for relay watchers: session_id → Arc<Notify>.
+    /// SSE message events call `.notify_one()` to wake the relay watcher
+    /// immediately instead of waiting for the next poll interval.
+    pub relay_notifiers: HashMap<String, Arc<Notify>>,
+    /// Message timestamp of the "living" todo checklist message posted in
+    /// the Slack thread for each session.  Used to `chat.update` the same
+    /// message each time the todo list changes.
+    pub todo_message_ts: HashMap<String, String>,
+    /// Pending permission requests: thread_ts → (request_id, session_id, project_idx, message_ts, PermissionRequest).
+    /// When a thread reply or button click arrives, we check this map to see if the reply is
+    /// a permission response ("once", "always", "reject").
+    pub pending_permissions:
+        HashMap<String, (String, String, usize, String, crate::app::PermissionRequest)>,
+    /// Pending question requests: thread_ts → (request_id, session_id, project_idx, message_ts, QuestionRequest).
+    /// When a thread reply or button click arrives, we check this map to see if the reply is
+    /// a question answer (option numbers or custom text).
+    pub pending_questions:
+        HashMap<String, (String, String, usize, String, crate::app::QuestionRequest)>,
     /// Slack event log for debugging.
     pub event_log: Vec<SlackLogEntry>,
     /// Metrics counters.
@@ -526,6 +562,12 @@ impl SlackState {
             session_msg_offset: HashMap::new(),
             relay_abort_handles: HashMap::new(),
             streaming_messages: HashMap::new(),
+            subagent_threads: HashMap::new(),
+            relay_notifiers: HashMap::new(),
+
+            todo_message_ts: HashMap::new(),
+            pending_permissions: HashMap::new(),
+            pending_questions: HashMap::new(),
             event_log: Vec::new(),
             metrics: SlackMetrics::default(),
         }
@@ -543,8 +585,445 @@ impl SlackState {
             self.event_log.drain(0..self.event_log.len() - 200);
         }
     }
+
+    /// Wake up the relay watcher for a session so it polls immediately.
+    pub fn notify_relay(&self, session_id: &str) {
+        if let Some(n) = self.relay_notifiers.get(session_id) {
+            n.notify_one();
+        }
+    }
 }
 
+/// Construct a Slack thread permalink from channel and thread_ts.
+///
+/// Format: `https://slack.com/archives/{channel}/p{ts_without_dot}`
+pub fn slack_thread_link(channel: &str, thread_ts: &str) -> String {
+    let ts_nodot = thread_ts.replace('.', "");
+    format!("https://slack.com/archives/{}/p{}", channel, ts_nodot)
+}
+
+/// Render a list of `TodoItem`s as Slack mrkdwn checklist text.
+///
+/// Each item is rendered with a status emoji and the content:
+/// - completed  → `:white_check_mark:`
+/// - in_progress → `:arrows_counterclockwise:`
+/// - cancelled  → `:no_entry_sign:`
+/// - pending    → `:white_large_square:`
+///
+/// Priority is shown as a suffix for high-priority items.
+pub fn render_todos_mrkdwn(todos: &[crate::app::TodoItem]) -> String {
+    if todos.is_empty() {
+        return ":clipboard: *Todo List*\n_No items yet._".to_string();
+    }
+
+    let mut lines = Vec::with_capacity(todos.len() + 1);
+    lines.push(":clipboard: *Todo List*".to_string());
+
+    for item in todos {
+        let icon = match item.status.as_str() {
+            "completed" => ":white_check_mark:",
+            "in_progress" => ":arrows_counterclockwise:",
+            "cancelled" => ":no_entry_sign:",
+            _ => ":white_large_square:", // pending / unknown
+        };
+
+        let priority_suffix = match item.priority.as_str() {
+            "high" => "  :red_circle:",
+            _ => "",
+        };
+
+        let content = if item.status == "completed" || item.status == "cancelled" {
+            format!("~{}~", item.content) // strikethrough
+        } else {
+            item.content.clone()
+        };
+
+        lines.push(format!("{}  {}{}", icon, content, priority_suffix));
+    }
+
+    // Add a summary line.
+    let done = todos.iter().filter(|t| t.status == "completed").count();
+    let total = todos.len();
+    lines.push(format!("\n_{}/{} completed_", done, total));
+    lines.join("\n")
+}
+
+/// Render a permission request as Slack mrkdwn text.
+///
+/// Shows the permission type, patterns, and instructions for how to reply.
+#[allow(dead_code)]
+pub fn render_permission_mrkdwn(req: &crate::app::PermissionRequest) -> String {
+    let emoji = match req.permission.as_str() {
+        "edit" => ":pencil2:",
+        "bash" => ":terminal:",
+        "read" => ":eyes:",
+        "glob" | "grep" => ":mag:",
+        "task" => ":robot_face:",
+        "webfetch" | "websearch" => ":globe_with_meridians:",
+        "external_directory" => ":file_folder:",
+        "doom_loop" => ":warning:",
+        _ => ":lock:",
+    };
+
+    let mut lines = vec![format!(
+        "{} *Permission requested:* `{}`",
+        emoji, req.permission
+    )];
+
+    if !req.patterns.is_empty() {
+        let patterns_str = req
+            .patterns
+            .iter()
+            .map(|p| format!("`{}`", p))
+            .collect::<Vec<_>>()
+            .join(", ");
+        lines.push(format!("Patterns: {}", patterns_str));
+    }
+
+    // Show metadata if present and meaningful.
+    if let Some(obj) = req.metadata.as_object() {
+        for (k, v) in obj {
+            if let Some(s) = v.as_str() {
+                if !s.is_empty() {
+                    lines.push(format!("{}: `{}`", k, s));
+                }
+            }
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("Reply in this thread:".to_string());
+    lines.push("`once` — allow this one time".to_string());
+    lines.push("`always` — allow for the rest of the session".to_string());
+    lines.push("`reject` — deny this request".to_string());
+    lines.join("\n")
+}
+
+/// Render a question request as Slack mrkdwn text.
+///
+/// Shows each question with numbered options and instructions for replying.
+#[allow(dead_code)]
+pub fn render_question_mrkdwn(req: &crate::app::QuestionRequest) -> String {
+    let mut lines = vec![":question: *Question from the AI agent*".to_string()];
+
+    for (qi, q) in req.questions.iter().enumerate() {
+        if req.questions.len() > 1 {
+            lines.push(format!("\n*Question {}:*", qi + 1));
+        }
+        if !q.header.is_empty() {
+            lines.push(format!("*{}*", q.header));
+        }
+        if !q.question.is_empty() {
+            lines.push(q.question.clone());
+        }
+
+        if !q.options.is_empty() {
+            lines.push(String::new());
+            for (oi, opt) in q.options.iter().enumerate() {
+                let desc = if opt.description.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — {}", opt.description)
+                };
+                lines.push(format!("`{}`. {}{}", oi + 1, opt.label, desc));
+            }
+        }
+
+        if q.multiple {
+            lines.push(
+                "\n_Multiple selections allowed — reply with comma-separated numbers (e.g. `1,3`)_"
+                    .to_string(),
+            );
+        }
+    }
+
+    lines.push(String::new());
+    lines.push(
+        "Reply in this thread with the option number(s), or type a custom answer.".to_string(),
+    );
+    lines.push("Reply `reject` to dismiss this question.".to_string());
+
+    lines.join("\n")
+}
+
+/// Render a permission request as Block Kit blocks with interactive buttons.
+///
+/// Returns `(fallback_text, blocks)` where `fallback_text` is used for
+/// notifications and `blocks` is the Block Kit layout with action buttons.
+pub fn render_permission_blocks(
+    req: &crate::app::PermissionRequest,
+) -> (String, Vec<serde_json::Value>) {
+    let emoji = match req.permission.as_str() {
+        "edit" => ":pencil2:",
+        "bash" => ":terminal:",
+        "read" => ":eyes:",
+        "glob" | "grep" => ":mag:",
+        "task" => ":robot_face:",
+        "webfetch" | "websearch" => ":globe_with_meridians:",
+        "external_directory" => ":file_folder:",
+        "doom_loop" => ":warning:",
+        _ => ":lock:",
+    };
+
+    let mut text_lines = vec![format!(
+        "{} *Permission requested:* `{}`",
+        emoji, req.permission
+    )];
+
+    if !req.patterns.is_empty() {
+        let patterns_str = req
+            .patterns
+            .iter()
+            .map(|p| format!("`{}`", p))
+            .collect::<Vec<_>>()
+            .join(", ");
+        text_lines.push(format!("Patterns: {}", patterns_str));
+    }
+
+    if let Some(obj) = req.metadata.as_object() {
+        for (k, v) in obj {
+            if let Some(s) = v.as_str() {
+                if !s.is_empty() {
+                    text_lines.push(format!("{}: `{}`", k, s));
+                }
+            }
+        }
+    }
+
+    let fallback = format!("Permission requested: {}", req.permission);
+    let detail_text = text_lines.join("\n");
+    let req_id = &req.id;
+
+    let blocks = vec![
+        serde_json::json!({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": detail_text
+            }
+        }),
+        serde_json::json!({
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "Once", "emoji": true },
+                    "style": "primary",
+                    "action_id": format!("perm_once:{}", req_id),
+                    "value": "once"
+                },
+                {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "Always", "emoji": true },
+                    "action_id": format!("perm_always:{}", req_id),
+                    "value": "always"
+                },
+                {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "Reject", "emoji": true },
+                    "style": "danger",
+                    "action_id": format!("perm_reject:{}", req_id),
+                    "value": "reject"
+                }
+            ]
+        }),
+    ];
+
+    (fallback, blocks)
+}
+
+/// Render a question request as Block Kit blocks with interactive buttons.
+///
+/// Returns `(fallback_text, blocks)` where `blocks` contains section blocks
+/// for the question text and actions blocks with option buttons.
+///
+/// Slack limits actions blocks to 25 elements each, so we split if needed.
+pub fn render_question_blocks(
+    req: &crate::app::QuestionRequest,
+) -> (String, Vec<serde_json::Value>) {
+    let fallback = "Question from the AI agent".to_string();
+    let req_id = &req.id;
+    let mut blocks: Vec<serde_json::Value> = Vec::new();
+
+    // Header
+    blocks.push(serde_json::json!({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": ":question: *Question from the AI agent*"
+        }
+    }));
+
+    for (qi, q) in req.questions.iter().enumerate() {
+        // Question header/text
+        let mut q_text_parts: Vec<String> = Vec::new();
+        if req.questions.len() > 1 {
+            q_text_parts.push(format!("*Question {}:*", qi + 1));
+        }
+        if !q.header.is_empty() {
+            q_text_parts.push(format!("*{}*", q.header));
+        }
+        if !q.question.is_empty() {
+            q_text_parts.push(q.question.clone());
+        }
+        if q.multiple {
+            q_text_parts.push("_Multiple selections allowed_".to_string());
+        }
+
+        if !q_text_parts.is_empty() {
+            blocks.push(serde_json::json!({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": q_text_parts.join("\n")
+                }
+            }));
+        }
+
+        // Option buttons — up to 25 per actions block (Slack limit is 25 elements).
+        // We also add a description below each button if available.
+        if !q.options.is_empty() {
+            let mut buttons: Vec<serde_json::Value> = Vec::new();
+            for (oi, opt) in q.options.iter().enumerate() {
+                let label = if opt.label.len() > 75 {
+                    // Slack button text limit is 75 chars
+                    format!("{}…", &opt.label[..72])
+                } else {
+                    opt.label.clone()
+                };
+                let btn = serde_json::json!({
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": label, "emoji": true },
+                    "action_id": format!("q_{}_{}:{}", req_id, qi, oi),
+                    "value": format!("{}:{}", qi, oi)
+                });
+                buttons.push(btn);
+            }
+
+            // Split into chunks of 24 (leaving room for a Dismiss button in last chunk)
+            let chunks: Vec<&[serde_json::Value]> = buttons.chunks(24).collect();
+            let num_chunks = chunks.len();
+            for (ci, chunk) in chunks.iter().enumerate() {
+                let mut elements: Vec<serde_json::Value> = chunk.to_vec();
+                // Add dismiss button to the last chunk
+                if ci == num_chunks - 1 {
+                    elements.push(serde_json::json!({
+                        "type": "button",
+                        "text": { "type": "plain_text", "text": "Dismiss", "emoji": true },
+                        "style": "danger",
+                        "action_id": format!("q_reject:{}", req_id),
+                        "value": "reject"
+                    }));
+                }
+                blocks.push(serde_json::json!({
+                    "type": "actions",
+                    "elements": elements
+                }));
+            }
+
+            // If there are descriptions, show them as context
+            let desc_parts: Vec<String> = q
+                .options
+                .iter()
+                .enumerate()
+                .filter(|(_, o)| !o.description.is_empty())
+                .map(|(_oi, o)| format!("*{}*: {}", o.label, o.description))
+                .collect();
+            if !desc_parts.is_empty() {
+                blocks.push(serde_json::json!({
+                    "type": "context",
+                    "elements": [{
+                        "type": "mrkdwn",
+                        "text": desc_parts.join("  |  ")
+                    }]
+                }));
+            }
+        }
+    }
+
+    // Fallback text for thread replies from users
+    blocks.push(serde_json::json!({
+        "type": "context",
+        "elements": [{
+            "type": "mrkdwn",
+            "text": "_You can also reply in this thread with option numbers or custom text._"
+        }]
+    }));
+
+    (fallback, blocks)
+}
+
+/// Build a "confirmed" version of a permission message (buttons removed).
+pub fn render_permission_confirmed_blocks(
+    req: &crate::app::PermissionRequest,
+    action: &str,
+) -> (String, Vec<serde_json::Value>) {
+    let emoji = match action {
+        "once" | "always" => ":white_check_mark:",
+        "reject" => ":no_entry_sign:",
+        _ => ":white_check_mark:",
+    };
+
+    let perm_emoji = match req.permission.as_str() {
+        "edit" => ":pencil2:",
+        "bash" => ":terminal:",
+        "read" => ":eyes:",
+        "glob" | "grep" => ":mag:",
+        "task" => ":robot_face:",
+        "webfetch" | "websearch" => ":globe_with_meridians:",
+        "external_directory" => ":file_folder:",
+        "doom_loop" => ":warning:",
+        _ => ":lock:",
+    };
+
+    let fallback = format!("Permission {}: {}", action, req.permission);
+    let text = format!(
+        "{} *Permission:* `{}` — {} *{}*",
+        perm_emoji, req.permission, emoji, action
+    );
+
+    let blocks = vec![serde_json::json!({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": text
+        }
+    })];
+
+    (fallback, blocks)
+}
+
+/// Build a "confirmed" version of a question message (buttons removed).
+pub fn render_question_confirmed_blocks(answer_display: &str) -> (String, Vec<serde_json::Value>) {
+    let fallback = format!("Question answered: {}", answer_display);
+    let text = format!(":white_check_mark: *Answer sent:* {}", answer_display);
+
+    let blocks = vec![serde_json::json!({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": text
+        }
+    })];
+
+    (fallback, blocks)
+}
+
+/// Build a "dismissed" version of a question message (buttons removed).
+pub fn render_question_dismissed_blocks() -> (String, Vec<serde_json::Value>) {
+    let fallback = "Question dismissed".to_string();
+    let text = ":no_entry_sign: *Question dismissed*".to_string();
+
+    let blocks = vec![serde_json::json!({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": text
+        }
+    })];
+
+    (fallback, blocks)
+}
 /// A single log entry in the Slack event log.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -747,6 +1226,12 @@ async fn handle_socket_text(
                 handle_events_api_payload(payload, event_tx, our_user_id)?;
             }
         }
+        "interactive" => {
+            if let Some(payload) = envelope.get("payload") {
+                debug!("Socket Mode interactive payload: {}", payload);
+                handle_interactive_payload(payload, event_tx)?;
+            }
+        }
         "disconnect" => {
             info!("Received disconnect from Slack (normal rotation)");
         }
@@ -869,6 +1354,82 @@ fn handle_events_api_payload(
     Ok(())
 }
 
+/// Parse a Slack interactive (block_actions) payload and emit a BlockAction event.
+///
+/// The payload shape for `block_actions` is:
+/// ```json
+/// {
+///   "type": "block_actions",
+///   "actions": [{ "action_id": "...", "block_id": "...", ... }],
+///   "channel": { "id": "C..." },
+///   "message": { "ts": "..." },
+///   "container": { "thread_ts": "..." },
+///   "user": { "id": "U..." }
+/// }
+/// ```
+fn handle_interactive_payload(
+    payload: &serde_json::Value,
+    event_tx: &mpsc::UnboundedSender<SlackBackgroundEvent>,
+) -> Result<()> {
+    let payload_type = payload.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    if payload_type != "block_actions" {
+        debug!("Ignoring interactive payload type: {}", payload_type);
+        return Ok(());
+    }
+
+    let actions = payload
+        .get("actions")
+        .and_then(|v| v.as_array())
+        .context("Missing 'actions' array in block_actions payload")?;
+
+    let channel = payload
+        .pointer("/channel/id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let message_ts = payload
+        .pointer("/message/ts")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    // thread_ts may be in container or message.
+    let thread_ts = payload
+        .pointer("/container/thread_ts")
+        .or_else(|| payload.pointer("/message/thread_ts"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let user = payload
+        .pointer("/user/id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    for action in actions {
+        let action_id = action
+            .get("action_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if action_id.is_empty() {
+            continue;
+        }
+
+        info!(
+            "Slack block_action: action_id={}, channel={}, message_ts={}, thread_ts={:?}, user={}",
+            action_id, channel, message_ts, thread_ts, user
+        );
+
+        let _ = event_tx.send(SlackBackgroundEvent::BlockAction {
+            action_id: action_id.to_string(),
+            channel: channel.to_string(),
+            message_ts: message_ts.to_string(),
+            thread_ts: thread_ts.clone(),
+            user: user.to_string(),
+        });
+    }
+
+    Ok(())
+}
 // ── Slack Web API Helpers ───────────────────────────────────────────────
 
 /// Post a message to a Slack channel/thread.
@@ -911,6 +1472,51 @@ pub async fn post_message(
         .context("Missing 'ts' in postMessage response")
 }
 
+/// Post a message with Block Kit blocks to a Slack channel/thread.
+///
+/// `text` serves as the notification/fallback text.
+/// `blocks` is the Block Kit layout array.
+pub async fn post_message_with_blocks(
+    client: &reqwest::Client,
+    bot_token: &str,
+    channel: &str,
+    text: &str,
+    blocks: &[serde_json::Value],
+    thread_ts: Option<&str>,
+) -> Result<String> {
+    let mut body = serde_json::json!({
+        "channel": channel,
+        "text": text,
+        "blocks": blocks,
+    });
+    if let Some(ts) = thread_ts {
+        body["thread_ts"] = serde_json::Value::String(ts.to_string());
+    }
+
+    let resp = client
+        .post("https://slack.com/api/chat.postMessage")
+        .bearer_auth(bot_token)
+        .json(&body)
+        .send()
+        .await
+        .context("Failed to post Slack message with blocks")?;
+
+    let result: serde_json::Value = resp.json().await?;
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        let err = result
+            .get("error")
+            .and_then(|e| e.as_str())
+            .unwrap_or("unknown");
+        anyhow::bail!("chat.postMessage (blocks) failed: {}", err);
+    }
+
+    result
+        .get("ts")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .context("Missing 'ts' in postMessage response")
+}
+
 /// Update (edit) an existing Slack message.
 #[allow(dead_code)]
 pub async fn update_message(
@@ -941,6 +1547,45 @@ pub async fn update_message(
             .and_then(|e| e.as_str())
             .unwrap_or("unknown");
         anyhow::bail!("chat.update failed: {}", err);
+    }
+
+    Ok(())
+}
+
+/// Update (edit) an existing Slack message, replacing its blocks.
+///
+/// Sends `text` as fallback and `blocks` as the new Block Kit layout.
+/// Pass an empty slice for `blocks` to remove all blocks (e.g. after a button is clicked).
+pub async fn update_message_blocks(
+    client: &reqwest::Client,
+    bot_token: &str,
+    channel: &str,
+    ts: &str,
+    text: &str,
+    blocks: &[serde_json::Value],
+) -> Result<()> {
+    let body = serde_json::json!({
+        "channel": channel,
+        "ts": ts,
+        "text": text,
+        "blocks": blocks,
+    });
+
+    let resp = client
+        .post("https://slack.com/api/chat.update")
+        .bearer_auth(bot_token)
+        .json(&body)
+        .send()
+        .await
+        .context("Failed to update Slack message with blocks")?;
+
+    let result: serde_json::Value = resp.json().await?;
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        let err = result
+            .get("error")
+            .and_then(|e| e.as_str())
+            .unwrap_or("unknown");
+        anyhow::bail!("chat.update (blocks) failed: {}", err);
     }
 
     Ok(())
@@ -3133,21 +3778,43 @@ pub fn spawn_session_relay_watcher_labeled(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let client = reqwest::Client::new();
-        let interval = Duration::from_secs(buffer_secs.max(1));
+        let fallback_interval = Duration::from_secs(buffer_secs.max(1));
+        // When notified by an SSE event we still add a small debounce so we
+        // don't hammer the API while messages are streaming in rapidly.
+        let debounce = Duration::from_millis(800);
         let mut idle_polls: u32 = 0;
         const IDLE_STOP_THRESHOLD: u32 = 3;
         let mut last_streamed_role: Option<String> = None;
         let mut label_emitted = false;
 
+        // Register a Notify so SSE message events can wake us up.
+        let notify = {
+            let mut s = slack_state.lock().await;
+            let n = s
+                .relay_notifiers
+                .entry(session_id.clone())
+                .or_insert_with(|| Arc::new(Notify::new()))
+                .clone();
+            n
+        };
+
         info!(
-            "Slack relay watcher started for session {} (poll every {}s, label={:?})",
+            "Slack relay watcher started for session {} (poll every {}s, debounce {}ms, label={:?})",
             &session_id[..8.min(session_id.len())],
             buffer_secs,
+            debounce.as_millis(),
             label
         );
 
         loop {
-            tokio::time::sleep(interval).await;
+            // Wait for either the fallback timer or an SSE-driven notification.
+            tokio::select! {
+                _ = tokio::time::sleep(fallback_interval) => {}
+                _ = notify.notified() => {
+                    // Debounce: wait a short time so rapid-fire events coalesce.
+                    tokio::time::sleep(debounce).await;
+                }
+            }
 
             // Read current offset.
             let offset = {
@@ -3230,10 +3897,46 @@ pub fn spawn_session_relay_watcher_labeled(
             let mut all_task_chunks: Vec<serde_json::Value> = Vec::new();
             let mut groups: Vec<(String, Vec<String>)> = Vec::new();
 
+            // Collect subagent thread links for this parent session so we can
+            // replace "task" tool outputs with links to the child threads.
+            let subagent_links: Vec<String> = {
+                let s = slack_state.lock().await;
+                s.subagent_threads
+                    .iter()
+                    .filter(|(_child_sid, (_ch, _ts, parent_sid))| parent_sid == &session_id)
+                    .map(|(_child_sid, (ch, ts, _parent_sid))| slack_thread_link(ch, ts))
+                    .collect()
+            };
+
             for msg in &new_messages {
                 // Collect task_update chunks from tool parts.
                 if !msg.tools.is_empty() {
-                    all_task_chunks.extend(build_task_chunks(&msg.tools));
+                    let mut chunks = build_task_chunks(&msg.tools);
+                    // For "task" tool calls, replace the output with a link to
+                    // the subagent's dedicated thread (if one exists).
+                    if !subagent_links.is_empty() {
+                        let mut link_idx = 0;
+                        for chunk in &mut chunks {
+                            let is_task = chunk
+                                .get("title")
+                                .and_then(|t| t.as_str())
+                                .map(|t| t.starts_with("`task`:"))
+                                .unwrap_or(false);
+                            if is_task {
+                                let link = if link_idx < subagent_links.len() {
+                                    &subagent_links[link_idx]
+                                } else {
+                                    subagent_links.last().unwrap()
+                                };
+                                chunk["output"] = serde_json::Value::String(format!(
+                                    ":thread: Subagent thread: {}",
+                                    link
+                                ));
+                                link_idx += 1;
+                            }
+                        }
+                    }
+                    all_task_chunks.extend(chunks);
                 }
 
                 // Group text by role for the markdown portion.
