@@ -1459,7 +1459,7 @@ pub fn build_triage_prompt(projects: &[(String, String)], user_text: &str) -> St
 The user sent a message via Slack. Your job is to:
 1. Determine which project they are referring to
 2. Whether they specified a model preference (e.g., "use claude", "with gpt-4", "sonnet")
-3. Rewrite their message to remove any routing instructions, leaving only the actual task/question for the target project
+3. Rewrite their message to contain ONLY the actual task or question — strip ALL routing metadata
 
 Available projects:
 {project_list}
@@ -1468,7 +1468,7 @@ User's message:
 "{user_text}"
 
 Respond with EXACTLY this JSON format (no markdown, no explanation):
-{{"project_name": "<name>", "project_path": "<path>", "model": "<model or null>", "rewritten_query": "<the user's actual task/question with routing instructions removed>", "confidence": <0.0-1.0>}}
+{{"project_name": "<name>", "project_path": "<path>", "model": "<model or null>", "rewritten_query": "<the user's actual task/question with ALL routing metadata removed>", "confidence": <0.0-1.0>}}
 
 If you cannot determine the project with reasonable confidence (>0.5), respond:
 {{"project_name": null, "project_path": null, "model": null, "rewritten_query": null, "confidence": 0.0, "error": "Could not determine which project you mean. Please specify the project name."}}
@@ -1478,7 +1478,12 @@ Rules:
 - If the message mentions a file path, match the project whose path is a prefix.
 - If only one project exists, assume it's the target unless the message explicitly says otherwise.
 - For model detection, look for keywords like "claude", "sonnet", "opus", "gpt", "o1", "gemini", etc.
-- For rewritten_query: strip phrases like "in the X project", "send this to Y", "direct this to Z", "using model W", etc. Keep only the substantive task or question. If the entire message is just routing with no real task, set rewritten_query to the original message.
+- CRITICAL — rewritten_query rules:
+  - Remove ALL project names, project paths, session names, session IDs, model preferences, and routing instructions.
+  - Strip phrases like "in the X project", "send this to Y", "direct this to Z", "using model W", "in session ABC", "@session", "@list-sessions", etc.
+  - The rewritten_query must read as a clean, standalone message — as if the user typed it directly to a coding assistant with no routing context.
+  - Keep ONLY the substantive task, question, or instruction.
+  - If the entire message is just routing with no real task, set rewritten_query to the original message.
 "#
     )
 }
@@ -1526,6 +1531,673 @@ pub fn parse_triage_response(
         None,
         Some("Could not parse triage response. Please specify the project explicitly.".to_string()),
     )
+}
+
+// ── Top-Level @ Command Helpers ─────────────────────────────────────────
+
+/// Convert an epoch-seconds timestamp to a human-readable relative time string
+/// like "2 minutes ago", "3 hours ago", "yesterday", etc.
+fn human_readable_elapsed(epoch_secs: u64) -> String {
+    let now = chrono::Utc::now().timestamp() as u64;
+    if epoch_secs == 0 || epoch_secs > now {
+        return "unknown".to_string();
+    }
+    let diff = now - epoch_secs;
+    if diff < 60 {
+        return "just now".to_string();
+    }
+    let minutes = diff / 60;
+    if minutes < 60 {
+        return if minutes == 1 {
+            "1 minute ago".to_string()
+        } else {
+            format!("{} minutes ago", minutes)
+        };
+    }
+    let hours = minutes / 60;
+    if hours < 24 {
+        return if hours == 1 {
+            "1 hour ago".to_string()
+        } else {
+            format!("{} hours ago", hours)
+        };
+    }
+    let days = hours / 24;
+    if days == 1 {
+        return "yesterday".to_string();
+    }
+    if days < 30 {
+        return format!("{} days ago", days);
+    }
+    let months = days / 30;
+    if months < 12 {
+        return if months == 1 {
+            "1 month ago".to_string()
+        } else {
+            format!("{} months ago", months)
+        };
+    }
+    let years = months / 12;
+    if years == 1 {
+        "1 year ago".to_string()
+    } else {
+        format!("{} years ago", years)
+    }
+}
+
+/// Handle the `@list-projects` top-level command.
+/// Posts a list of all configured projects (excluding slack-triage) to the Slack
+/// channel as a threaded reply.
+pub async fn handle_list_projects_command(
+    projects: &[(String, String)], // (name, path)
+    channel: &str,
+    ts: &str,
+    bot_token: &str,
+) {
+    let client = reqwest::Client::new();
+    let project_list = if projects.is_empty() {
+        "No projects configured.".to_string()
+    } else {
+        projects
+            .iter()
+            .map(|(name, path)| format!("• *{}*  `{}`", name, path))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let msg = format!(
+        ":package: *Available Projects ({})* :\n{}",
+        projects.len(),
+        project_list,
+    );
+    let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+}
+
+/// Metadata about a session, passed to @ command handlers.
+#[derive(Clone, Debug)]
+pub struct SessionMeta {
+    pub id: String,
+    pub title: String,
+    pub parent_id: String,
+    pub updated: u64,
+    pub project_idx: usize,
+    pub project_name: String,
+    pub project_dir: String,
+}
+
+/// Build a specialized AI prompt that asks the triage AI to match a user query
+/// against the list of known projects and return the matching project path.
+fn build_project_match_prompt(projects: &[(String, String)], user_query: &str) -> String {
+    let project_list: String = projects
+        .iter()
+        .enumerate()
+        .map(|(i, (name, path))| format!("  {}. \"{}\" — {}", i + 1, name, path))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        r#"You are helping route a Slack command that lists sessions in a project.
+
+The user typed `@list-sessions {user_query}`.
+Your job is to determine which project they are referring to.
+
+Available projects:
+{project_list}
+
+Respond with EXACTLY this JSON format (no markdown, no explanation):
+{{"project_name": "<name>", "project_path": "<path>", "confidence": <0.0-1.0>}}
+
+If you cannot determine the project with reasonable confidence (>0.5), respond:
+{{"project_name": null, "project_path": null, "confidence": 0.0, "error": "Could not determine which project you mean. Available: {available}"}}
+
+Rules:
+- Match project names loosely (abbreviations, partial names, typos are OK).
+- If only one project exists, assume it is the target.
+- The "error" field should list the available project names so the user knows what to type.
+"#,
+        user_query = user_query,
+        project_list = project_list,
+        available = projects
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
+}
+
+/// Build a specialized AI prompt that asks the triage AI to match a user query
+/// against the list of all sessions and return the matching session ID.
+fn build_session_match_prompt(sessions: &[SessionMeta], user_query: &str) -> String {
+    let session_list: String = sessions
+        .iter()
+        .filter(|s| s.parent_id.is_empty()) // skip subagents
+        .map(|s| {
+            let short_id = &s.id[..8.min(s.id.len())];
+            let title = if s.title.is_empty() {
+                "(untitled)".to_string()
+            } else {
+                s.title.clone()
+            };
+            let updated = if s.updated > 0 {
+                chrono::DateTime::from_timestamp(s.updated as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string())
+                    .unwrap_or_else(|| "unknown".to_string())
+            } else {
+                "unknown".to_string()
+            };
+            format!(
+                "  - ID: {} | Title: \"{}\" | Project: \"{}\" | Updated: {}",
+                short_id, title, s.project_name, updated
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        r#"You are helping route a Slack command to a specific coding session.
+
+The user typed `@session {user_query} <message>`.
+Your job is to:
+1. Determine which session they are referring to by "{user_query}"
+2. Rewrite the message portion to contain ONLY the actual task or question — strip ALL routing metadata
+
+Available sessions:
+{session_list}
+
+Respond with EXACTLY this JSON format (no markdown, no explanation):
+{{"session_id": "<full session id>", "session_title": "<title>", "project_name": "<project>", "rewritten_query": "<the user's actual task/question with ALL routing metadata removed>", "confidence": <0.0-1.0>}}
+
+If you cannot determine the session with reasonable confidence (>0.5), respond:
+{{"session_id": null, "confidence": 0.0, "error": "Could not determine which session you mean.", "candidates": ["<id_prefix>: <title> (project)", ...]}}
+
+Rules:
+- Match session titles loosely (abbreviations, partial names, keywords are OK).
+- Also match by session ID prefix (e.g. "abc123" should match a session whose ID starts with "abc123").
+- Prefer more recently updated sessions if multiple match equally well.
+- The "candidates" field in error responses should list the top 5 closest matches.
+- CRITICAL — rewritten_query rules:
+  - The message the user wants to send follows the session identifier. Extract it and clean it.
+  - Remove ALL session names, session IDs, project names, project paths, and routing instructions from the message.
+  - Strip phrases like "in session X", "to session Y", "in the Z project", "@session", etc.
+  - The rewritten_query must read as a clean, standalone message — as if the user typed it directly to a coding assistant.
+  - Keep ONLY the substantive task, question, or instruction.
+  - If there is no message beyond the session identifier, set rewritten_query to null.
+"#,
+        user_query = user_query,
+        session_list = session_list,
+    )
+}
+/// Helper: get the triage session ID by fetching sessions from the triage project.
+/// Returns the session ID, or an empty string if none found.
+async fn get_triage_session_id(
+    client: &reqwest::Client,
+    base_url: &str,
+    triage_dir: &str,
+) -> String {
+    let sessions_url = format!("{}/session", base_url);
+    let sessions_resp = client
+        .get(&sessions_url)
+        .header("x-opencode-directory", triage_dir)
+        .header("Accept", "application/json")
+        .send()
+        .await;
+
+    match sessions_resp {
+        Ok(resp) => {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let items: Vec<&serde_json::Value> = if let Some(arr) = body.as_array() {
+                arr.iter().collect()
+            } else if let Some(obj) = body.as_object() {
+                obj.values().collect()
+            } else {
+                vec![]
+            };
+            let triage_session = items.iter().find(|s| {
+                let dir = s.get("directory").and_then(|v| v.as_str()).unwrap_or("");
+                dir == triage_dir
+            });
+            triage_session
+                .and_then(|s| s.get("id").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_string()
+        }
+        Err(e) => {
+            warn!("@ command: failed to fetch triage sessions: {}", e);
+            String::new()
+        }
+    }
+}
+
+/// Helper: send a prompt to the triage AI and wait for its JSON response.
+/// Returns the raw AI response text, or an error string.
+async fn send_triage_and_wait(
+    client: &reqwest::Client,
+    base_url: &str,
+    triage_dir: &str,
+    session_id: &str,
+    prompt: &str,
+) -> Result<String, String> {
+    send_user_message(client, base_url, triage_dir, session_id, prompt)
+        .await
+        .map_err(|e| format!("Failed to send triage prompt: {}", e))?;
+
+    // Wait for the AI to respond.
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let messages = fetch_all_session_messages(client, base_url, triage_dir, session_id)
+        .await
+        .map_err(|e| format!("Failed to fetch triage response: {}", e))?;
+
+    let ai_response = messages
+        .iter()
+        .rev()
+        .find(|(role, _)| role == "assistant")
+        .map(|(_, text)| text.clone())
+        .unwrap_or_default();
+
+    if ai_response.is_empty() {
+        Err("Triage AI did not respond.".to_string())
+    } else {
+        Ok(ai_response)
+    }
+}
+
+/// Handle `@list-sessions <fuzzy project name>` using AI triage for project matching.
+///
+/// Sends a specialized prompt to the triage AI to fuzzy-match the project,
+/// then fetches and formats the last 5 sessions for that project.
+pub async fn handle_list_sessions_command(
+    query: &str,
+    projects: &[(String, String)], // (name, path)
+    sessions: &[SessionMeta],      // all sessions across projects
+    channel: &str,
+    ts: &str,
+    bot_token: &str,
+    base_url: &str,
+) {
+    let client = reqwest::Client::new();
+
+    // Get the triage project directory.
+    let triage_dir = match triage_project_dir() {
+        Ok(d) => d.to_string_lossy().to_string(),
+        Err(e) => {
+            let msg = format!(
+                ":x: Internal error — could not locate triage project: {}",
+                e
+            );
+            let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+            return;
+        }
+    };
+
+    // Get triage session.
+    let session_id = get_triage_session_id(&client, base_url, &triage_dir).await;
+    if session_id.is_empty() {
+        let msg = ":x: No triage session available. Please ensure the Slack triage project has at least one session.";
+        let _ = post_message(&client, bot_token, channel, msg, Some(ts)).await;
+        return;
+    }
+
+    // Build specialized project-matching prompt and send to triage AI.
+    let prompt = build_project_match_prompt(projects, query);
+    let ai_response =
+        match send_triage_and_wait(&client, base_url, &triage_dir, &session_id, &prompt).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                let msg = format!(":x: Triage failed: {}", e);
+                let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+                return;
+            }
+        };
+
+    // Parse the AI response as JSON.
+    let parsed: serde_json::Value = match serde_json::from_str(&ai_response) {
+        Ok(v) => v,
+        Err(_) => {
+            // Try to extract JSON from markdown code fences.
+            let stripped = ai_response
+                .trim()
+                .strip_prefix("```json")
+                .or_else(|| ai_response.trim().strip_prefix("```"))
+                .unwrap_or(&ai_response)
+                .trim()
+                .strip_suffix("```")
+                .unwrap_or(&ai_response)
+                .trim();
+            match serde_json::from_str(stripped) {
+                Ok(v) => v,
+                Err(_) => {
+                    let available = projects
+                        .iter()
+                        .map(|(n, _)| format!("`{}`", n))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let msg = format!(
+                        ":warning: Could not parse AI response for project matching. Available projects: {}",
+                        available
+                    );
+                    let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+                    return;
+                }
+            }
+        }
+    };
+
+    // Check for error.
+    if let Some(err) = parsed
+        .get("error")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        let msg = format!(":warning: {}", err);
+        let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+        return;
+    }
+
+    let project_path = parsed
+        .get("project_path")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("");
+    let project_name = parsed
+        .get("project_name")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("");
+
+    if project_path.is_empty() {
+        let available = projects
+            .iter()
+            .map(|(n, _)| format!("`{}`", n))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let msg = format!(
+            ":warning: No project matched \"{}\". Available: {}",
+            query, available
+        );
+        let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+        return;
+    }
+
+    // Filter sessions for this project (skip subagents).
+    let mut project_sessions: Vec<&SessionMeta> = sessions
+        .iter()
+        .filter(|s| s.project_dir == project_path && s.parent_id.is_empty())
+        .collect();
+
+    // Sort by updated time descending, take last 5.
+    project_sessions.sort_by(|a, b| b.updated.cmp(&a.updated));
+    let recent: Vec<_> = project_sessions.into_iter().take(5).collect();
+
+    if recent.is_empty() {
+        let msg = format!(
+            ":inbox_tray: No sessions found in project *{}* (`{}`)",
+            project_name, project_path
+        );
+        let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+        return;
+    }
+
+    let session_list = recent
+        .iter()
+        .map(|s| {
+            let short_id = &s.id[..8.min(s.id.len())];
+            let title = if s.title.is_empty() {
+                format!("Session {}", short_id)
+            } else {
+                s.title.clone()
+            };
+            let updated = if s.updated > 0 {
+                human_readable_elapsed(s.updated)
+            } else {
+                "unknown".to_string()
+            };
+            format!("• *{}*  (ID: `{}`, updated: {})", title, short_id, updated)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let msg = format!(
+        ":clipboard: *Recent sessions in {} ({})* :\n{}",
+        project_name,
+        recent.len(),
+        session_list,
+    );
+    let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+}
+
+/// Handle `@session <fuzzy session name> <message>` using AI triage for session matching.
+///
+/// Sends a specialized prompt to the triage AI to fuzzy-match the session,
+/// then routes the message to the matched session.
+pub async fn handle_session_command(
+    session_query: &str,
+    message_text: &str,
+    all_sessions: &[SessionMeta],
+    channel: &str,
+    ts: &str,
+    bot_token: &str,
+    base_url: &str,
+    buffer_secs: u64,
+    slack_state: Arc<Mutex<SlackState>>,
+) {
+    let client = reqwest::Client::new();
+
+    // Get the triage project directory.
+    let triage_dir = match triage_project_dir() {
+        Ok(d) => d.to_string_lossy().to_string(),
+        Err(e) => {
+            let msg = format!(
+                ":x: Internal error — could not locate triage project: {}",
+                e
+            );
+            let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+            return;
+        }
+    };
+
+    // Get triage session.
+    let triage_session_id = get_triage_session_id(&client, base_url, &triage_dir).await;
+    if triage_session_id.is_empty() {
+        let msg = ":x: No triage session available. Please ensure the Slack triage project has at least one session.";
+        let _ = post_message(&client, bot_token, channel, msg, Some(ts)).await;
+        return;
+    }
+
+    // Build specialized session-matching prompt and send to triage AI.
+    let prompt = build_session_match_prompt(all_sessions, session_query);
+    let ai_response =
+        match send_triage_and_wait(&client, base_url, &triage_dir, &triage_session_id, &prompt)
+            .await
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                let msg = format!(":x: Triage failed: {}", e);
+                let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+                return;
+            }
+        };
+
+    // Parse the AI response as JSON.
+    let parsed: serde_json::Value = match serde_json::from_str(&ai_response) {
+        Ok(v) => v,
+        Err(_) => {
+            // Try to extract JSON from markdown code fences.
+            let stripped = ai_response
+                .trim()
+                .strip_prefix("```json")
+                .or_else(|| ai_response.trim().strip_prefix("```"))
+                .unwrap_or(&ai_response)
+                .trim()
+                .strip_suffix("```")
+                .unwrap_or(&ai_response)
+                .trim();
+            match serde_json::from_str(stripped) {
+                Ok(v) => v,
+                Err(_) => {
+                    let msg = ":warning: Could not parse AI response for session matching. Use `@list-sessions <project>` to find session names.";
+                    let _ = post_message(&client, bot_token, channel, msg, Some(ts)).await;
+                    return;
+                }
+            }
+        }
+    };
+
+    // Check for error / low confidence.
+    if let Some(err) = parsed
+        .get("error")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        let mut msg = format!(":warning: {}", err);
+        if let Some(candidates) = parsed.get("candidates").and_then(|v| v.as_array()) {
+            let list: Vec<String> = candidates
+                .iter()
+                .filter_map(|c| c.as_str().map(|s| format!("• {}", s)))
+                .collect();
+            if !list.is_empty() {
+                msg.push_str(&format!(
+                    "\n\nDid you mean one of these?\n{}",
+                    list.join("\n")
+                ));
+            }
+        }
+        let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+        return;
+    }
+
+    // Extract matched session ID. The AI returns the full session ID.
+    let matched_session_id_raw = parsed
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("");
+
+    if matched_session_id_raw.is_empty() {
+        let msg = ":warning: AI could not match a session. Use `@list-sessions <project>` to find session names.";
+        let _ = post_message(&client, bot_token, channel, msg, Some(ts)).await;
+        return;
+    }
+
+    // The AI might return a prefix; find the full session by prefix match.
+    let matched_meta = all_sessions
+        .iter()
+        .find(|s| s.id == matched_session_id_raw || s.id.starts_with(matched_session_id_raw));
+
+    let matched_meta = match matched_meta {
+        Some(m) => m,
+        None => {
+            let msg = format!(
+                ":warning: AI matched session ID `{}` but it was not found in the session list.",
+                matched_session_id_raw
+            );
+            let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+            return;
+        }
+    };
+
+    let session_id = matched_meta.id.clone();
+    let session_name = if matched_meta.title.is_empty() {
+        format!("Session {}", &session_id[..8.min(session_id.len())])
+    } else {
+        matched_meta.title.clone()
+    };
+    let project_name = matched_meta.project_name.clone();
+    let project_dir = matched_meta.project_dir.clone();
+    let pidx = matched_meta.project_idx;
+
+    // Record thread→session mapping.
+    {
+        let mut s = slack_state.lock().await;
+        s.thread_sessions
+            .insert(ts.to_string(), (pidx, session_id.clone()));
+        s.session_threads
+            .insert(session_id.clone(), (channel.to_string(), ts.to_string()));
+        s.metrics.messages_routed += 1;
+        s.metrics.last_routed_at = Some(std::time::Instant::now());
+        s.log(
+            SlackLogLevel::Info,
+            format!(
+                "@ command routed to project \"{}\" session {}",
+                project_name,
+                &session_id[..8.min(session_id.len())]
+            ),
+        );
+    }
+
+    // Record current message offset so relay only shows new messages.
+    match fetch_all_session_messages(&client, base_url, &project_dir, &session_id).await {
+        Ok(msgs) => {
+            let mut s = slack_state.lock().await;
+            s.session_msg_offset.insert(session_id.clone(), msgs.len());
+            debug!(
+                "@ command: recorded msg offset {} for session {}",
+                msgs.len(),
+                session_id
+            );
+        }
+        Err(e) => {
+            warn!(
+                "@ command: failed to fetch msg offset for session {}: {}",
+                session_id, e
+            );
+        }
+    }
+
+    // Use the AI's rewritten query if available, otherwise fall back to raw message.
+    let final_message = parsed
+        .get("rewritten_query")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty() && *s != "null")
+        .unwrap_or(message_text);
+
+    // Send the user message to the session.
+    match send_user_message(&client, base_url, &project_dir, &session_id, final_message).await {
+        Ok(()) => {
+            info!("@ command: user message sent to session {}", session_id);
+            let ack = format!(
+                "relayed to project: {}, session: {}",
+                project_name, session_name
+            );
+            let _ = post_message(&client, bot_token, channel, &ack, Some(ts)).await;
+        }
+        Err(e) => {
+            error!("@ command: failed to send message to session: {}", e);
+            let msg = format!(":x: Failed to send message: {}", e);
+            let _ = post_message(&client, bot_token, channel, &msg, Some(ts)).await;
+            return;
+        }
+    }
+
+    // Spawn relay watcher (if not already running).
+    let already_watching = {
+        let s = slack_state.lock().await;
+        s.relay_abort_handles.contains_key(&session_id)
+    };
+    if !already_watching {
+        let handle = spawn_session_relay_watcher(
+            session_id.clone(),
+            project_dir,
+            channel.to_string(),
+            ts.to_string(),
+            bot_token.to_string(),
+            base_url.to_string(),
+            buffer_secs,
+            slack_state.clone(),
+        );
+        let mut s = slack_state.lock().await;
+        s.relay_abort_handles
+            .insert(session_id.clone(), handle.abort_handle());
+
+        // Persist session map to disk.
+        let map = SlackSessionMap {
+            session_threads: s.session_threads.clone(),
+            thread_sessions: s.thread_sessions.clone(),
+            msg_offsets: s.session_msg_offset.clone(),
+        };
+        if let Err(e) = map.save() {
+            warn!("@ command: failed to persist session map: {}", e);
+        }
+    }
 }
 
 // ── Response Batching ───────────────────────────────────────────────────
@@ -1788,8 +2460,11 @@ impl ToolPart {
             // Strip XML-like tags and truncate output for Slack display.
             let cleaned = strip_xml_tags(&self.output);
             if !cleaned.is_empty() {
-                let truncated = if cleaned.len() > 500 {
-                    let mut end = 500;
+                // Use a larger limit for "task" (subagent) tool calls so that
+                // the full subagent response is visible inside the task card.
+                let max_len: usize = if self.tool == "task" { 4000 } else { 500 };
+                let truncated = if cleaned.len() > max_len {
+                    let mut end = max_len;
                     while !cleaned.is_char_boundary(end) && end > 0 {
                         end -= 1;
                     }
@@ -2205,9 +2880,10 @@ pub async fn handle_thread_slash_command(
     base_url: &str,
     slack_state: &Arc<Mutex<SlackState>>,
     watcher_inserted: bool,
+    watcher_removed: bool,
 ) -> bool {
     let trimmed = text.trim();
-    let (cmd, _args) = match trimmed.split_once(char::is_whitespace) {
+    let (cmd, args) = match trimmed.split_once(char::is_whitespace) {
         Some((c, a)) => (c, a.trim()),
         None => (trimmed, ""),
     };
@@ -2237,6 +2913,8 @@ pub async fn handle_thread_slash_command(
                 base_url,
                 slack_state,
                 watcher_inserted,
+                watcher_removed,
+                args,
             )
             .await;
             true
@@ -2257,7 +2935,9 @@ pub async fn handle_thread_slash_command(
     }
 }
 
-/// `/stop` — Abort the OpenCode session, stop the relay watcher, and finalize the stream.
+/// `@stop` — Cancel the running OpenCode session (abort LLM generation and tool
+/// execution).  The relay watcher and stream are left intact so that the final
+/// state is still delivered to Slack once the session becomes idle.
 async fn do_stop_command(
     channel: &str,
     thread_ts: &str,
@@ -2265,81 +2945,41 @@ async fn do_stop_command(
     project_dir: &str,
     bot_token: &str,
     base_url: &str,
-    slack_state: &Arc<Mutex<SlackState>>,
+    _slack_state: &Arc<Mutex<SlackState>>,
 ) {
     let client = reqwest::Client::new();
-    let mut aborted_session = false;
-    let mut stopped_watcher = false;
-    let mut stopped_stream = false;
 
-    // 1. Abort the OpenCode session via server API.
-    //    This calls POST /session/{id}/abort which cancels any running LLM
-    //    generation and tool execution on the server side.
+    // Abort the OpenCode session via server API.
+    // This calls POST /session/{id}/abort which cancels any running LLM
+    // generation and tool execution on the server side.
     let api = crate::api::ApiClient::new();
-    match api.abort_session(base_url, project_dir, session_id).await {
+    let msg = match api.abort_session(base_url, project_dir, session_id).await {
         Ok(()) => {
-            aborted_session = true;
             tracing::info!(
-                "Slack /stop: aborted session {} via API",
+                "Slack @stop: aborted session {} via API",
                 &session_id[..8.min(session_id.len())]
             );
+            ":octagonal_sign: Session interrupted. The relay watcher will deliver any remaining output.".to_string()
         }
         Err(e) => {
             tracing::warn!(
-                "Slack /stop: failed to abort session {}: {}",
+                "Slack @stop: failed to abort session {}: {}",
                 &session_id[..8.min(session_id.len())],
                 e
             );
+            format!(":warning: Failed to stop session: {}", e)
         }
-    }
-
-    {
-        let mut s = slack_state.lock().await;
-
-        // 2. Abort the relay watcher task.
-        if let Some(handle) = s.relay_abort_handles.remove(session_id) {
-            handle.abort();
-            stopped_watcher = true;
-            tracing::info!(
-                "Slack /stop: aborted relay watcher for session {}",
-                &session_id[..8.min(session_id.len())]
-            );
-        }
-
-        // 3. Stop the active stream (finalize typing indicator).
-        if let Some(stream_ts) = s.streaming_messages.remove(session_id) {
-            if let Err(e) = stop_stream(&client, bot_token, channel, &stream_ts).await {
-                tracing::warn!("Slack /stop: stopStream failed: {}", e);
-            } else {
-                stopped_stream = true;
-            }
-        }
-    }
-
-    // 4. Post a confirmation message in the thread.
-    let mut parts = Vec::new();
-    if aborted_session {
-        parts.push("session interrupted");
-    }
-    if stopped_watcher {
-        parts.push("relay watcher stopped");
-    }
-    if stopped_stream {
-        parts.push("stream finalized");
-    }
-    let msg = if parts.is_empty() {
-        ":octagonal_sign: Nothing active to stop for this thread.".to_string()
-    } else {
-        format!(":octagonal_sign: Stopped: {}.", parts.join(", "))
     };
     let _ = post_message(&client, bot_token, channel, &msg, Some(thread_ts)).await;
 }
 
-/// `@watcher` — Start a continuation + hang protection watcher for this session.
+/// `@watcher` — Start or stop a continuation + hang protection watcher for this session.
 ///
-/// The actual `WatcherConfig` insertion happens inline in `app.rs` (synchronous
-/// context with `&mut self` access).  The `watcher_inserted` flag tells us whether
-/// that succeeded so we can post the right confirmation to Slack.
+/// The actual `WatcherConfig` insertion/removal happens inline in `app.rs`
+/// (synchronous context with `&mut self` access).  The `watcher_inserted` and
+/// `watcher_removed` flags tell us what happened so we can post the right
+/// confirmation to Slack.  `args` is the subcommand text after `@watcher`
+/// (e.g. "stop", "off", "remove", or "").
 async fn do_watcher_command(
     channel: &str,
     thread_ts: &str,
@@ -2350,9 +2990,28 @@ async fn do_watcher_command(
     base_url: &str,
     slack_state: &Arc<Mutex<SlackState>>,
     watcher_inserted: bool,
+    watcher_removed: bool,
+    args: &str,
 ) {
     let client = reqwest::Client::new();
 
+    let is_stop = matches!(args, "stop" | "off" | "remove");
+
+    // --- Watcher removal case (`@watcher stop` / `off` / `remove`) ---
+    if watcher_removed {
+        let msg = ":no_entry_sign: Watcher removed for this thread.";
+        let _ = post_message(&client, bot_token, channel, msg, Some(thread_ts)).await;
+        return;
+    }
+
+    // User asked to stop but no watcher was active.
+    if is_stop {
+        let msg = ":information_source: No watcher is active for this thread.";
+        let _ = post_message(&client, bot_token, channel, msg, Some(thread_ts)).await;
+        return;
+    }
+
+    // --- Watcher insertion case (`@watcher` with no subcommand) ---
     if watcher_inserted {
         let msg =
             ":eyes: Watcher enabled for this thread.\n• Idle timeout: 15s\n• Hang detection: 180s";
@@ -2650,24 +3309,88 @@ pub fn spawn_session_relay_watcher_labeled(
                     )
                     .await
                     {
-                        tracing::warn!(
-                            "Slack relay: appendStream failed ({}), falling back to post",
-                            e
-                        );
-                        // Stream may have been stopped externally; fall back to post.
-                        let formatted =
-                            format!("{}\n─────────────────────────────────────────────", chunk);
-                        let _ = post_message(
-                            &client,
-                            &bot_token,
-                            &channel,
-                            &formatted,
-                            Some(&thread_ts),
-                        )
-                        .await;
-                        // Clear the stale stream reference.
-                        let mut s = slack_state.lock().await;
-                        s.streaming_messages.remove(&session_id);
+                        let err_str = format!("{}", e);
+                        tracing::warn!("Slack relay: appendStream failed ({})", err_str,);
+
+                        if err_str.contains("stream_mode_mismatch") {
+                            // The stream was started without task_display_mode
+                            // but we're now trying to append task_update chunks.
+                            // Fix: stop the old stream and start a fresh one
+                            // with proper task mode.
+                            tracing::info!(
+                                "Slack relay: restarting stream with task_display_mode for session {}",
+                                &session_id[..8.min(session_id.len())]
+                            );
+                            let _ = stop_stream(&client, &bot_token, &channel, stream_ts).await;
+                            {
+                                let mut s = slack_state.lock().await;
+                                s.streaming_messages.remove(&session_id);
+                            }
+
+                            // Gather remaining text chunks (current + rest).
+                            let remaining_text = text_chunks[i..].join("");
+                            let empty_chunks: Vec<serde_json::Value> = vec![];
+                            let restart_chunks: &[serde_json::Value] = if has_task_chunks {
+                                &all_task_chunks
+                            } else {
+                                &empty_chunks
+                            };
+                            match start_stream(
+                                &client,
+                                &bot_token,
+                                &channel,
+                                &thread_ts,
+                                Some(&remaining_text),
+                                Some(restart_chunks),
+                                Some("timeline"),
+                            )
+                            .await
+                            {
+                                Ok(new_ts) => {
+                                    tracing::info!(
+                                        "Slack relay: restarted stream {} for session {}",
+                                        new_ts,
+                                        &session_id[..8.min(session_id.len())]
+                                    );
+                                    let mut s = slack_state.lock().await;
+                                    s.streaming_messages.insert(session_id.clone(), new_ts);
+                                }
+                                Err(e2) => {
+                                    tracing::warn!(
+                                        "Slack relay: restart startStream also failed ({}), falling back to post",
+                                        e2
+                                    );
+                                    let formatted = format!(
+                                        "{}\n─────────────────────────────────────────────",
+                                        remaining_text
+                                    );
+                                    let _ = post_message(
+                                        &client,
+                                        &bot_token,
+                                        &channel,
+                                        &formatted,
+                                        Some(&thread_ts),
+                                    )
+                                    .await;
+                                }
+                            }
+                        } else {
+                            // Non-mode-mismatch error: stream may have been
+                            // stopped externally; fall back to post.
+                            let formatted =
+                                format!("{}\n─────────────────────────────────────────────", chunk);
+                            let _ = post_message(
+                                &client,
+                                &bot_token,
+                                &channel,
+                                &formatted,
+                                Some(&thread_ts),
+                            )
+                            .await;
+                            // Clear the stale stream reference.
+                            let mut s = slack_state.lock().await;
+                            s.streaming_messages.remove(&session_id);
+                        }
                         break;
                     }
                 }
