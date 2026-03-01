@@ -16,6 +16,7 @@ pub mod neovim_pane;
 pub mod remote_popup;
 pub mod session_selector;
 pub mod sidebar;
+pub mod slack_log_panel;
 pub mod status_bar;
 pub mod submodule_popup;
 pub mod tag_popup;
@@ -282,10 +283,25 @@ fn render_overlays(frame: &mut Frame, app: &App, size: Rect) {
             app.config_panel_selected,
             app.config.settings.follow_edits_in_neovim,
             app.config.settings.unfocused_dim_percent,
+            app.config.settings.slack.enabled,
+            app.config.settings.slack.relay_buffer_secs,
         );
         panel.render_popup(size, frame.buffer_mut());
     }
 
+    if app.show_slack_log {
+        if let Some(ref slack_state_arc) = app.slack_state {
+            if let Ok(state) = slack_state_arc.try_lock() {
+                let panel = slack_log_panel::SlackLogPanel::new(
+                    &app.theme,
+                    &state.event_log,
+                    &state.metrics,
+                    app.slack_log_scroll,
+                );
+                panel.render_popup(size, frame.buffer_mut());
+            }
+        }
+    }
     if app.session_selector.is_some() {
         session_selector::render_session_selector(app, size, frame.buffer_mut());
     }

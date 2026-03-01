@@ -354,6 +354,12 @@ pub fn build_space_children(kb: &KeyBindings) -> Vec<RuntimeKeyBinding> {
             CommandAction::ContextInput,
             NORMAL_MODES,
         ),
+        rk_leaf(
+            parse(&kb.leader_slack),
+            "Slack",
+            CommandAction::SlackConnect,
+            NORMAL_MODES,
+        ),
         {
             let swap_children = vec![
                 rk_leaf(

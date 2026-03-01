@@ -120,6 +120,10 @@ struct WatcherOverlayInfo {
     timeout_secs: u64,
     /// Seconds elapsed since session went idle (None if busy or children active).
     idle_elapsed_secs: Option<u64>,
+    /// Seconds since last activity across all signals (None if not busy or no watcher).
+    hang_silent_secs: Option<u64>,
+    /// Configured hang detection timeout in seconds.
+    hang_timeout_secs: u64,
 }
 
 impl<'a> TerminalPane<'a> {
@@ -150,11 +154,19 @@ impl<'a> TerminalPane<'a> {
             None
         };
 
+        let hang_silent_secs = if is_busy && !children_active {
+            self.app.hang_silent_secs(session_id)
+        } else {
+            None
+        };
+
         Some(WatcherOverlayInfo {
             is_busy,
             children_active,
             timeout_secs: watcher.idle_timeout_secs,
             idle_elapsed_secs,
+            hang_silent_secs,
+            hang_timeout_secs: watcher.hang_timeout_secs,
         })
     }
 
@@ -190,35 +202,73 @@ impl<'a> TerminalPane<'a> {
         spans.push(Span::raw(" "));
 
         if info.is_busy || info.children_active {
-            // Running state — pulsing dot
-            let dot_color = lerp_color(theme.background_panel, theme.warning, self.app.pulse_phase);
-            spans.push(Span::styled(
-                "\u{25CF}",
-                Style::default().fg(dot_color).bg(theme.background_panel),
-            ));
+            // Check for hang condition: busy with no activity past threshold
+            let is_hung = !info.children_active
+                && info
+                    .hang_silent_secs
+                    .map(|s| s >= info.hang_timeout_secs)
+                    .unwrap_or(false);
 
-            if info.children_active {
+            if is_hung {
+                // Hang warning — pulsing red dot
+                let dot_color =
+                    lerp_color(theme.background_panel, theme.error, self.app.pulse_phase);
                 spans.push(Span::styled(
-                    " running ",
+                    "\u{25CF}",
+                    Style::default().fg(dot_color).bg(theme.background_panel),
+                ));
+                spans.push(Span::styled(
+                    " \u{26A0} running ",
                     Style::default()
-                        .fg(theme.warning)
+                        .fg(theme.error)
                         .bg(theme.background_panel)
                         .add_modifier(Modifier::BOLD),
                 ));
+
+                let silent = info.hang_silent_secs.unwrap_or(0);
+                let silent_display = if silent >= 60 {
+                    format!("{}m{}s", silent / 60, silent % 60)
+                } else {
+                    format!("{}s", silent)
+                };
                 spans.push(Span::styled(
-                    "(subagent active)",
+                    format!("\u{2014} no activity for {} (possibly hung)", silent_display),
                     Style::default()
                         .fg(theme.text_muted)
                         .bg(theme.background_panel),
                 ));
             } else {
+                // Normal running state — pulsing dot
+                let dot_color =
+                    lerp_color(theme.background_panel, theme.warning, self.app.pulse_phase);
                 spans.push(Span::styled(
-                    " running",
-                    Style::default()
-                        .fg(theme.warning)
-                        .bg(theme.background_panel)
-                        .add_modifier(Modifier::BOLD),
+                    "\u{25CF}",
+                    Style::default().fg(dot_color).bg(theme.background_panel),
                 ));
+
+                if info.children_active {
+                    spans.push(Span::styled(
+                        " running ",
+                        Style::default()
+                            .fg(theme.warning)
+                            .bg(theme.background_panel)
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                    spans.push(Span::styled(
+                        "(subagent active)",
+                        Style::default()
+                            .fg(theme.text_muted)
+                            .bg(theme.background_panel),
+                    ));
+                } else {
+                    spans.push(Span::styled(
+                        " running",
+                        Style::default()
+                            .fg(theme.warning)
+                            .bg(theme.background_panel)
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                }
             }
         } else if let Some(elapsed) = info.idle_elapsed_secs {
             // Idle state with countdown

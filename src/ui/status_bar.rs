@@ -183,6 +183,30 @@ impl<'a> Widget for StatusBar<'a> {
             ));
         }
 
+        // Slack connection status indicator
+        if let Some(ref slack_state_arc) = self.app.slack_state {
+            if let Ok(state) = slack_state_arc.try_lock() {
+                let (icon, color) = match &state.status {
+                    crate::slack::SlackConnectionStatus::Connected => {
+                        (" \u{e0b1} ", self.app.theme.success) // nf-pl-left_soft_divider or use a simple icon
+                    }
+                    crate::slack::SlackConnectionStatus::Disconnected => {
+                        (" \u{f10c} ", self.app.theme.text_muted) // circle outline
+                    }
+                    crate::slack::SlackConnectionStatus::Reconnecting => {
+                        (" \u{f141} ", self.app.theme.warning) // ellipsis
+                    }
+                    crate::slack::SlackConnectionStatus::AuthError(_) => {
+                        (" \u{f00d} ", self.app.theme.error) // x mark
+                    }
+                };
+                spans.push(Span::raw("  "));
+                spans.push(Span::styled(
+                    format!("{}{}", icon, "Slack"),
+                    Style::default().fg(color),
+                ));
+            }
+        }
         if let Some((ref msg, ts)) = self.app.toast_message {
             if ts.elapsed() < std::time::Duration::from_secs(2) {
                 spans.push(Span::raw("  "));

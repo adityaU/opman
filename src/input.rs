@@ -362,6 +362,10 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
         return handle_config_panel_keys(app, key);
     }
 
+    if app.show_slack_log {
+        return handle_slack_log_keys(app, key);
+    }
+
     if app.session_selector.is_some() {
         return handle_session_selector_keys(app, &key);
     }
@@ -997,6 +1001,22 @@ fn handle_session_search_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     Ok(())
 }
 
+fn handle_slack_log_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => {
+            app.show_slack_log = false;
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.slack_log_scroll = app.slack_log_scroll.saturating_add(1);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.slack_log_scroll = app.slack_log_scroll.saturating_sub(1);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn handle_config_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => {
@@ -1028,7 +1048,7 @@ fn handle_config_panel_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 }
 
 fn config_panel_setting_count() -> usize {
-    2
+    4
 }
 
 fn toggle_config_setting(app: &mut App) {
@@ -1036,6 +1056,9 @@ fn toggle_config_setting(app: &mut App) {
         0 => {
             app.config.settings.follow_edits_in_neovim =
                 !app.config.settings.follow_edits_in_neovim;
+        }
+        2 => {
+            app.config.settings.slack.enabled = !app.config.settings.slack.enabled;
         }
         _ => {}
     }
@@ -1045,13 +1068,20 @@ fn toggle_config_setting(app: &mut App) {
 }
 
 /// Adjust a numeric setting by `delta` (clamped to valid range).
-/// Only applies to percentage-type settings; ignored for booleans.
+/// Only applies to percentage-type or seconds-type settings; ignored for booleans.
 fn adjust_config_setting(app: &mut App, delta: i16) {
     match app.config_panel_selected {
         1 => {
             let cur = app.config.settings.unfocused_dim_percent as i16;
             app.config.settings.unfocused_dim_percent =
                 cur.saturating_add(delta).clamp(0, 100) as u8;
+        }
+        3 => {
+            // Relay buffer: 1–60 seconds, step by 1 instead of 5.
+            let step = if delta > 0 { 1i64 } else { -1i64 };
+            let cur = app.config.settings.slack.relay_buffer_secs as i64;
+            app.config.settings.slack.relay_buffer_secs =
+                cur.saturating_add(step).clamp(1, 60) as u64;
         }
         _ => return,
     }
@@ -1487,6 +1517,165 @@ fn execute_command_action(app: &mut App, action: CommandAction) -> Result<()> {
             } else {
                 open_watcher_modal(app);
             }
+        }
+        CommandAction::SlackConnect => {
+            // If Slack auth exists, show status. Otherwise, prompt for OAuth.
+            match crate::slack::SlackAuth::load() {
+                Ok(Some(auth)) => {
+                    if auth.app_token.is_empty() {
+                        app.toast_message = Some((
+                            "Slack: bot_token present but app_token missing. Add it to slack_auth.yaml.".to_string(),
+                            std::time::Instant::now(),
+                        ));
+                    } else if app.slack_state.is_some() {
+                        // Already connected — show status.
+                        app.toast_message = Some((
+                            "Slack: already connected via Socket Mode.".to_string(),
+                            std::time::Instant::now(),
+                        ));
+                    } else {
+                        // Have full credentials but not started — start now.
+                        let slack_state = std::sync::Arc::new(tokio::sync::Mutex::new(
+                            crate::slack::SlackState::new(),
+                        ));
+                        app.slack_state = Some(slack_state.clone());
+                        app.slack_auth = Some(auth.clone());
+
+                        let bg_tx = app.bg_tx.clone();
+                        let auth_clone = auth.clone();
+                        tokio::spawn(async move {
+                            let (slack_event_tx, mut slack_event_rx) =
+                                tokio::sync::mpsc::unbounded_channel();
+                            tokio::spawn(crate::slack::spawn_socket_mode(
+                                auth_clone,
+                                slack_event_tx,
+                            ));
+                            while let Some(event) = slack_event_rx.recv().await {
+                                let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(event));
+                            }
+                        });
+
+                        let batch_secs = app.config.settings.slack.response_batch_secs;
+                        let state_batch = slack_state;
+                        let auth_batch = auth;
+                        tokio::spawn(async move {
+                            let (event_tx, _) = tokio::sync::mpsc::unbounded_channel();
+                            crate::slack::spawn_response_batcher(
+                                auth_batch,
+                                state_batch,
+                                batch_secs,
+                                event_tx,
+                            )
+                            .await;
+                        });
+
+                        app.toast_message = Some((
+                            "Slack: connecting via Socket Mode...".to_string(),
+                            std::time::Instant::now(),
+                        ));
+                    }
+                }
+                Ok(None) => {
+                    app.toast_message = Some((
+                        "No slack_auth.yaml found. Create it with your tokens.".to_string(),
+                        std::time::Instant::now(),
+                    ));
+                }
+                Err(e) => {
+                    app.toast_message = Some((
+                        format!("Failed to load Slack auth: {}", e),
+                        std::time::Instant::now(),
+                    ));
+                }
+            }
+        }
+        CommandAction::SlackOAuth => {
+            // Trigger OAuth flow if we have credentials for client_id/client_secret.
+            match crate::slack::SlackAuth::load() {
+                Ok(Some(auth)) if !auth.client_id.is_empty() && !auth.client_secret.is_empty() => {
+                    let client_id = auth.client_id.clone();
+                    let client_secret = auth.client_secret.clone();
+                    let bg_tx = app.bg_tx.clone();
+                    app.toast_message = Some((
+                        "Slack: starting OAuth flow, check your browser...".to_string(),
+                        std::time::Instant::now(),
+                    ));
+                    tokio::spawn(async move {
+                        let result = crate::slack::run_oauth_flow(&client_id, &client_secret).await;
+                        let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                            crate::slack::SlackBackgroundEvent::OAuthComplete(result),
+                        ));
+                    });
+                }
+                Ok(Some(_)) => {
+                    app.toast_message = Some((
+                        "Slack: client_id/client_secret missing in slack_auth.yaml".to_string(),
+                        std::time::Instant::now(),
+                    ));
+                }
+                Ok(None) => {
+                    app.toast_message = Some((
+                        "No slack_auth.yaml found. Create it with client_id and client_secret first.".to_string(),
+                        std::time::Instant::now(),
+                    ));
+                }
+                Err(e) => {
+                    app.toast_message = Some((
+                        format!("Slack auth error: {}", e),
+                        std::time::Instant::now(),
+                    ));
+                }
+            }
+        }
+        CommandAction::SlackDisconnect => {
+            if app.slack_state.is_some() {
+                app.slack_state = None;
+                app.slack_auth = None;
+                app.toast_message = Some((
+                    "Slack: disconnected.".to_string(),
+                    std::time::Instant::now(),
+                ));
+            } else {
+                app.toast_message = Some((
+                    "Slack: not connected.".to_string(),
+                    std::time::Instant::now(),
+                ));
+            }
+        }
+        CommandAction::SlackStatus => {
+            let status_msg = if let Some(ref slack_state_arc) = app.slack_state {
+                if let Ok(state) = slack_state_arc.try_lock() {
+                    let conn = match &state.status {
+                        crate::slack::SlackConnectionStatus::Connected => "Connected",
+                        crate::slack::SlackConnectionStatus::Disconnected => "Disconnected",
+                        crate::slack::SlackConnectionStatus::Reconnecting => "Reconnecting...",
+                        crate::slack::SlackConnectionStatus::AuthError(e) => {
+                            if e.is_empty() {
+                                "Auth Error"
+                            } else {
+                                "Auth Error (see logs)"
+                            }
+                        }
+                    };
+                    let threads = state.thread_sessions.len();
+                    let buffers = state.response_buffers.len();
+                    let m = &state.metrics;
+                    format!(
+                        "Slack: {} | routed:{} fail:{} replies:{} batches:{} reconnect:{} | {} threads | {} pending",
+                        conn, m.messages_routed, m.triage_failures, m.thread_replies,
+                        m.batches_sent, m.reconnections, threads, buffers
+                    )
+                } else {
+                    "Slack: state locked (busy)".to_string()
+                }
+            } else {
+                "Slack: not initialized".to_string()
+            };
+            app.toast_message = Some((status_msg, std::time::Instant::now()));
+        }
+        CommandAction::SlackLogs => {
+            app.show_slack_log = !app.show_slack_log;
+            app.slack_log_scroll = 0;
         }
         CommandAction::ConfigPanel => {
             app.show_config_panel = !app.show_config_panel;
@@ -2203,6 +2392,11 @@ fn open_watcher_modal(app: &mut App) {
         message_scroll: 0,
         idle_timeout_secs: 10,
         timeout_input: "10".to_string(),
+        hang_message_lines: vec!["The previous attempt appears to have hung. Please retry the last step.".to_string()],
+        hang_message_cursor_row: 0,
+        hang_message_cursor_col: 0,
+        hang_timeout_secs: 180,
+        hang_timeout_input: "180".to_string(),
     });
 
     // Fetch messages for the first selected session
@@ -2291,6 +2485,12 @@ fn handle_watcher_modal_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         WatcherField::TimeoutInput => {
             handle_watcher_timeout_keys(app, key)?;
+        }
+        WatcherField::HangMessage => {
+            handle_watcher_hang_message_keys(app, key)?;
+        }
+        WatcherField::HangTimeoutInput => {
+            handle_watcher_hang_timeout_keys(app, key)?;
         }
     }
     Ok(())
@@ -2454,6 +2654,82 @@ fn handle_watcher_timeout_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     Ok(())
 }
 
+fn handle_watcher_hang_message_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            submit_watcher(app);
+        }
+        KeyCode::Enter => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_insert_newline();
+            }
+        }
+        KeyCode::Backspace => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_backspace();
+            }
+        }
+        KeyCode::Left => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_cursor_left();
+            }
+        }
+        KeyCode::Right => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_cursor_right();
+            }
+        }
+        KeyCode::Up => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_cursor_up();
+            }
+        }
+        KeyCode::Down => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_cursor_down();
+            }
+        }
+        KeyCode::Char(c) => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_insert_char(c);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_watcher_hang_timeout_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Char(c) if c.is_ascii_digit() => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_timeout_input.push(c);
+                if let Ok(val) = m.hang_timeout_input.parse::<u64>() {
+                    m.hang_timeout_secs = val;
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if let Some(ref mut m) = app.watcher_modal {
+                m.hang_timeout_input.pop();
+                if m.hang_timeout_input.is_empty() {
+                    m.hang_timeout_secs = 0;
+                } else if let Ok(val) = m.hang_timeout_input.parse::<u64>() {
+                    m.hang_timeout_secs = val;
+                }
+            }
+        }
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            submit_watcher(app);
+        }
+        KeyCode::Enter => {
+            submit_watcher(app);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn submit_watcher(app: &mut App) {
     use crate::app::WatcherConfig;
 
@@ -2496,15 +2772,13 @@ fn submit_watcher(app: &mut App) {
         continuation_message: msg.clone(),
         include_original: modal.include_original,
         original_message: original_message.clone(),
+        hang_message: modal.hang_message_text(),
+        hang_timeout_secs: modal.hang_timeout_secs.max(30),
     };
 
-    app.session_watchers
-        .insert(session_id.clone(), config);
+    app.session_watchers.insert(session_id.clone(), config);
     app.toast_message = Some((
-        format!(
-            "Watcher added for session ({}s timeout)",
-            timeout_secs
-        ),
+        format!("Watcher added for session ({}s timeout)", timeout_secs),
         std::time::Instant::now(),
     ));
 

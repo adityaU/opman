@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::mpsc;
-use tracing::{debug, info};
+use tracing::{debug, error, info, warn};
 
 use crate::command_palette::CommandPalette;
 use crate::config::{Config, ProjectEntry};
@@ -108,6 +109,8 @@ pub enum BackgroundEvent {
         /// Sessions absent from the map are idle.
         busy_sessions: Vec<String>,
     },
+    /// Event from the Slack integration subsystem.
+    SlackEvent(crate::slack::SlackBackgroundEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -533,6 +536,11 @@ pub struct App {
     /// Currently selected row in the config panel.
     pub config_panel_selected: usize,
 
+    /// When true, the Slack log panel overlay is shown.
+    pub show_slack_log: bool,
+    /// Scroll offset for the Slack log panel.
+    pub slack_log_scroll: usize,
+
     /// Cross-project session selector overlay state.
     pub session_selector: Option<SessionSelectorState>,
 
@@ -592,6 +600,16 @@ pub struct App {
     /// Set during render by the StatusBar widget via interior mutability so the
     /// mouse handler can detect clicks on the URL.  None when no URL is displayed.
     pub status_bar_url_range: std::cell::Cell<Option<(u16, u16)>>,
+    /// Shared atomic timestamp (epoch millis) updated by the MCP socket server
+    /// on every request/response.  Read by the main loop to detect MCP activity.
+    pub last_mcp_activity_ms: Arc<std::sync::atomic::AtomicU64>,
+    /// Per-session timestamp of the last `message.updated` SSE event.
+    /// Used by hang detection to tell if the LLM is still streaming tokens.
+    pub last_message_event_at: HashMap<String, std::time::Instant>,
+    /// Slack integration state.
+    pub slack_state: Option<std::sync::Arc<tokio::sync::Mutex<crate::slack::SlackState>>>,
+    /// Slack auth credentials (loaded at startup if available).
+    pub slack_auth: Option<crate::slack::SlackAuth>,
 }
 
 /// State for context input overlay (multi-line text entry for OpenCode sessions).
@@ -692,6 +710,7 @@ impl ContextInputState {
 /// Configuration for a session watcher that sends a continuation message
 /// when the session goes idle for a configured duration.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WatcherConfig {
     pub session_id: String,
     pub project_idx: usize,
@@ -700,6 +719,14 @@ pub struct WatcherConfig {
     pub include_original: bool,
     /// The full text of the selected original user message (if any).
     pub original_message: Option<String>,
+    /// Message sent after aborting a hung session.  When the session is busy but
+    /// shows no MCP / PTY / message activity for `hang_timeout_secs`, the watcher
+    /// will abort the session and send this message to retry.
+    pub hang_message: String,
+    /// Timeout in seconds for hang detection.  When the session has been busy
+    /// with no activity signals (MCP, PTY output, SSE messages) for this many
+    /// seconds, the overlay shows a "possibly hung" warning.  Default: 180 (3min).
+    pub hang_timeout_secs: u64,
 }
 
 /// Which field is focused in the watcher modal right panel.
@@ -710,6 +737,8 @@ pub enum WatcherField {
     IncludeOriginal,
     OriginalMessageList,
     TimeoutInput,
+    HangMessage,
+    HangTimeoutInput,
 }
 
 /// A session entry shown in the watcher modal left sidebar.
@@ -726,6 +755,7 @@ pub struct WatcherSessionEntry {
 
 /// A user message from a session, for the "re-inject original" picker.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SessionMessage {
     pub role: String,
     pub text: String,
@@ -756,11 +786,23 @@ pub struct WatcherModalState {
     pub idle_timeout_secs: u64,
     /// Timeout input buffer (for typing numbers).
     pub timeout_input: String,
+    /// Hang detection message lines (multi-line editor).
+    pub hang_message_lines: Vec<String>,
+    pub hang_message_cursor_row: usize,
+    pub hang_message_cursor_col: usize,
+    /// Hang detection timeout seconds.
+    pub hang_timeout_secs: u64,
+    /// Hang timeout input buffer (for typing numbers).
+    pub hang_timeout_input: String,
 }
 
 impl WatcherModalState {
     pub fn message_text(&self) -> String {
         self.message_lines.join("\n")
+    }
+
+    pub fn hang_message_text(&self) -> String {
+        self.hang_message_lines.join("\n")
     }
 
     pub fn insert_char(&mut self, c: char) {
@@ -838,6 +880,93 @@ impl WatcherModalState {
         }
     }
 
+    // ── Hang message editor methods ──
+
+    pub fn hang_insert_char(&mut self, c: char) {
+        self.hang_message_lines[self.hang_message_cursor_row]
+            .insert(self.hang_message_cursor_col, c);
+        self.hang_message_cursor_col += c.len_utf8();
+    }
+
+    pub fn hang_insert_newline(&mut self) {
+        let rest = self.hang_message_lines[self.hang_message_cursor_row]
+            [self.hang_message_cursor_col..]
+            .to_string();
+        self.hang_message_lines[self.hang_message_cursor_row]
+            .truncate(self.hang_message_cursor_col);
+        self.hang_message_cursor_row += 1;
+        self.hang_message_lines
+            .insert(self.hang_message_cursor_row, rest);
+        self.hang_message_cursor_col = 0;
+    }
+
+    pub fn hang_backspace(&mut self) {
+        if self.hang_message_cursor_col > 0 {
+            let prev = self.hang_message_lines[self.hang_message_cursor_row]
+                [..self.hang_message_cursor_col]
+                .chars()
+                .last()
+                .unwrap_or(' ');
+            self.hang_message_cursor_col -= prev.len_utf8();
+            self.hang_message_lines[self.hang_message_cursor_row]
+                .remove(self.hang_message_cursor_col);
+        } else if self.hang_message_cursor_row > 0 {
+            let line = self.hang_message_lines.remove(self.hang_message_cursor_row);
+            self.hang_message_cursor_row -= 1;
+            self.hang_message_cursor_col =
+                self.hang_message_lines[self.hang_message_cursor_row].len();
+            self.hang_message_lines[self.hang_message_cursor_row].push_str(&line);
+        }
+    }
+
+    pub fn hang_cursor_left(&mut self) {
+        if self.hang_message_cursor_col > 0 {
+            let prev = self.hang_message_lines[self.hang_message_cursor_row]
+                [..self.hang_message_cursor_col]
+                .chars()
+                .last()
+                .unwrap_or(' ');
+            self.hang_message_cursor_col -= prev.len_utf8();
+        } else if self.hang_message_cursor_row > 0 {
+            self.hang_message_cursor_row -= 1;
+            self.hang_message_cursor_col =
+                self.hang_message_lines[self.hang_message_cursor_row].len();
+        }
+    }
+
+    pub fn hang_cursor_right(&mut self) {
+        let line_len = self.hang_message_lines[self.hang_message_cursor_row].len();
+        if self.hang_message_cursor_col < line_len {
+            let next = self.hang_message_lines[self.hang_message_cursor_row]
+                [self.hang_message_cursor_col..]
+                .chars()
+                .next()
+                .unwrap_or(' ');
+            self.hang_message_cursor_col += next.len_utf8();
+        } else if self.hang_message_cursor_row + 1 < self.hang_message_lines.len() {
+            self.hang_message_cursor_row += 1;
+            self.hang_message_cursor_col = 0;
+        }
+    }
+
+    pub fn hang_cursor_up(&mut self) {
+        if self.hang_message_cursor_row > 0 {
+            self.hang_message_cursor_row -= 1;
+            self.hang_message_cursor_col = self
+                .hang_message_cursor_col
+                .min(self.hang_message_lines[self.hang_message_cursor_row].len());
+        }
+    }
+
+    pub fn hang_cursor_down(&mut self) {
+        if self.hang_message_cursor_row + 1 < self.hang_message_lines.len() {
+            self.hang_message_cursor_row += 1;
+            self.hang_message_cursor_col = self
+                .hang_message_cursor_col
+                .min(self.hang_message_lines[self.hang_message_cursor_row].len());
+        }
+    }
+
     /// Cycle to the next field.
     pub fn next_field(&mut self) {
         self.active_field = match self.active_field {
@@ -851,14 +980,16 @@ impl WatcherModalState {
                 }
             }
             WatcherField::OriginalMessageList => WatcherField::TimeoutInput,
-            WatcherField::TimeoutInput => WatcherField::SessionList,
+            WatcherField::TimeoutInput => WatcherField::HangMessage,
+            WatcherField::HangMessage => WatcherField::HangTimeoutInput,
+            WatcherField::HangTimeoutInput => WatcherField::SessionList,
         };
     }
 
     /// Cycle to the previous field.
     pub fn prev_field(&mut self) {
         self.active_field = match self.active_field {
-            WatcherField::SessionList => WatcherField::TimeoutInput,
+            WatcherField::SessionList => WatcherField::HangTimeoutInput,
             WatcherField::Message => WatcherField::SessionList,
             WatcherField::IncludeOriginal => WatcherField::Message,
             WatcherField::OriginalMessageList => WatcherField::IncludeOriginal,
@@ -869,6 +1000,8 @@ impl WatcherModalState {
                     WatcherField::IncludeOriginal
                 }
             }
+            WatcherField::HangMessage => WatcherField::TimeoutInput,
+            WatcherField::HangTimeoutInput => WatcherField::HangMessage,
         };
     }
 }
@@ -956,6 +1089,8 @@ impl App {
             popout_windows: Vec::new(),
             show_config_panel: false,
             config_panel_selected: 0,
+            show_slack_log: false,
+            slack_log_scroll: 0,
             session_selector: None,
             todo_panel: None,
             session_stats: HashMap::new(),
@@ -975,6 +1110,10 @@ impl App {
             session_children: HashMap::new(),
             needs_redraw: true,
             status_bar_url_range: std::cell::Cell::new(None),
+            last_mcp_activity_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            last_message_event_at: HashMap::new(),
+            slack_state: None,
+            slack_auth: None,
         }
     }
 
@@ -986,6 +1125,64 @@ impl App {
     /// Returns a mutable reference to the currently active project.
     pub fn active_project_mut(&mut self) -> Option<&mut Project> {
         self.projects.get_mut(self.active_project)
+    }
+
+    /// Returns how many seconds the given session has been busy with no
+    /// detectable activity (MCP requests, PTY output, SSE message events).
+    /// Returns `None` if the session is not busy or not watched.
+    pub fn hang_silent_secs(&self, session_id: &str) -> Option<u64> {
+        // Must be in active_sessions.
+        if !self.active_sessions.contains(session_id) {
+            return None;
+        }
+        // Must have a watcher configured.
+        let _watcher = self.session_watchers.get(session_id)?;
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Signal 1: MCP activity (shared atomic, project-wide).
+        let mcp_ms = self
+            .last_mcp_activity_ms
+            .load(std::sync::atomic::Ordering::Acquire);
+
+        // Signal 2: PTY output for this session.
+        let pty_ms = self
+            .session_ownership
+            .get(session_id)
+            .and_then(|&pidx| self.projects.get(pidx))
+            .and_then(|p| p.ptys.get(session_id))
+            .map(|pty| {
+                pty.last_output_at
+                    .load(std::sync::atomic::Ordering::Acquire)
+            })
+            .unwrap_or(0);
+
+        // Signal 3: SSE message.updated events for this session.
+        let msg_ms = self
+            .last_message_event_at
+            .get(session_id)
+            .map(|inst| {
+                // Convert Instant to epoch millis (approximate).
+                let elapsed = inst.elapsed();
+                now_ms.saturating_sub(elapsed.as_millis() as u64)
+            })
+            .unwrap_or(0);
+
+        // Most recent activity across all signals.
+        let latest_ms = mcp_ms.max(pty_ms).max(msg_ms);
+
+        if latest_ms == 0 {
+            // No activity recorded at all.  Fall back to a reasonable default:
+            // treat as "silent since we started tracking" which could be a long time.
+            // Return a large value so the hang warning shows quickly.
+            return Some(300);
+        }
+
+        let silent_ms = now_ms.saturating_sub(latest_ms);
+        Some(silent_ms / 1000)
     }
 
     /// Check (and consume) the `dirty` flag on every PTY that is currently
@@ -1733,6 +1930,61 @@ impl App {
                         .entry(session.parent_id.clone())
                         .or_default()
                         .insert(session.id.clone());
+
+                    // Spawn a Slack relay watcher for the subagent so its
+                    // output streams into the parent's Slack thread.
+                    if let Some(ref slack_st) = self.slack_state {
+                        let parent_thread = {
+                            let s = slack_st.blocking_lock();
+                            s.session_threads.get(&session.parent_id).cloned()
+                        };
+                        if let Some((channel, thread_ts)) = parent_thread {
+                            let already_watching = {
+                                let s = slack_st.blocking_lock();
+                                s.relay_abort_handles.contains_key(&session.id)
+                            };
+                            if !already_watching {
+                                let base_url = crate::app::base_url().to_string();
+                                let project_dir = self
+                                    .projects
+                                    .get(project_idx)
+                                    .map(|p| p.path.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+                                let bot_token = self
+                                    .slack_auth
+                                    .as_ref()
+                                    .map(|a| a.bot_token.clone())
+                                    .unwrap_or_default();
+                                // Use a faster poll for subagents (they're typically short-lived).
+                                let buffer_secs =
+                                    (self.config.settings.slack.relay_buffer_secs / 2).max(2);
+                                let child_id = session.id.clone();
+                                let st = slack_st.clone();
+                                if !project_dir.is_empty() && !bot_token.is_empty() {
+                                    let handle = crate::slack::spawn_session_relay_watcher_labeled(
+                                        child_id.clone(),
+                                        project_dir,
+                                        channel,
+                                        thread_ts,
+                                        bot_token,
+                                        base_url,
+                                        buffer_secs,
+                                        st.clone(),
+                                        Some(":robot_face: *Subagent:*".to_string()),
+                                    );
+                                    // Use blocking_lock since we're on the sync main loop.
+                                    let mut s = st.blocking_lock();
+                                    s.relay_abort_handles
+                                        .insert(child_id.clone(), handle.abort_handle());
+                                    tracing::info!(
+                                        child_session = %child_id,
+                                        parent_session = %session.parent_id,
+                                        "Slack: spawned subagent relay watcher"
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if let Some(project) = self.projects.get_mut(project_idx) {
@@ -1825,7 +2077,10 @@ impl App {
                     }
                 }
             }
-            BackgroundEvent::SseSessionIdle { session_id, .. } => {
+            BackgroundEvent::SseSessionIdle {
+                session_id,
+                project_idx: _,
+            } => {
                 let has_active_children = self
                     .session_children
                     .get(&session_id)
@@ -1876,6 +2131,9 @@ impl App {
                         self.try_trigger_watcher(&parent_id, false);
                     }
                 }
+
+                // Slack relay is now handled by live polling watchers
+                // (spawn_session_relay_watcher), not by idle events.
             }
             BackgroundEvent::SseSessionBusy { session_id } => {
                 tracing::debug!(
@@ -1890,6 +2148,8 @@ impl App {
                     tracing::info!(session_id = %session_id, "Watcher: cancelled pending timer (session busy)");
                     abort_handle.abort();
                 }
+                // Slack relay uses streaming now — stream starts on first
+                // content in the relay watcher, no placeholder needed.
             }
             BackgroundEvent::SseFileEdited {
                 project_idx,
@@ -2101,6 +2361,9 @@ impl App {
                 stats.reasoning_tokens = reasoning_tokens;
                 stats.cache_read = cache_read;
                 stats.cache_write = cache_write;
+                // Update last message event timestamp for hang detection.
+                self.last_message_event_at
+                    .insert(session_id.clone(), std::time::Instant::now());
                 debug!(
                     session_id,
                     cost, input_tokens, output_tokens, "SSE: message.updated with token/cost data"
@@ -2147,6 +2410,998 @@ impl App {
                         }
                     }
                 }
+            }
+            BackgroundEvent::SlackEvent(slack_event) => {
+                self.handle_slack_event(slack_event);
+            }
+        }
+    }
+
+    /// Handle an event from the Slack integration subsystem.
+    fn handle_slack_event(&mut self, event: crate::slack::SlackBackgroundEvent) {
+        use crate::slack::SlackBackgroundEvent;
+
+        match event {
+            SlackBackgroundEvent::ConnectionStatus(status) => {
+                info!("Slack connection status: {:?}", status);
+
+                // On first successful connection, ensure the triage project
+                // exists in the runtime project list with SSE listeners and a session.
+                if matches!(status, crate::slack::SlackConnectionStatus::Connected) {
+                    if let Ok(triage_dir) = crate::slack::triage_project_dir() {
+                        let _ = std::fs::create_dir_all(&triage_dir);
+                        let triage_canon = std::fs::canonicalize(&triage_dir)
+                            .unwrap_or_else(|_| triage_dir.clone());
+                        let already_present = self.projects.iter().any(|p| p.path == triage_canon);
+                        if !already_present {
+                            info!("Auto-adding slack-triage project on first connection");
+                            self.add_project(ProjectEntry {
+                                name: "slack-triage".to_string(),
+                                path: triage_canon.to_string_lossy().to_string(),
+                                terminal_command: None,
+                            });
+                            let _ = self.config.save();
+                        }
+
+                        // Ensure SSE listener + session poller are running for the triage project.
+                        // Find the triage project index.
+                        if let Some(triage_idx) =
+                            self.projects.iter().position(|p| p.path == triage_canon)
+                        {
+                            let dir_str = triage_canon.to_string_lossy().to_string();
+
+                            // Spawn SSE listener and session poller if the project was
+                            // just added (they wouldn't have been started at app boot).
+                            if !already_present {
+                                info!("Spawning SSE listener and session poller for slack-triage project (idx={})", triage_idx);
+                                crate::sse::spawn_sse_listener(
+                                    &self.bg_tx,
+                                    triage_idx,
+                                    dir_str.clone(),
+                                );
+                                crate::sse::spawn_session_poller(
+                                    &self.bg_tx,
+                                    triage_idx,
+                                    dir_str.clone(),
+                                );
+                                crate::sse::spawn_provider_fetcher(
+                                    &self.bg_tx,
+                                    triage_idx,
+                                    dir_str,
+                                );
+                            }
+
+                            // If the triage project has no sessions, trigger new session creation.
+                            if self.projects[triage_idx].sessions.is_empty() {
+                                info!("Triggering new session for slack-triage project");
+                                self.pending_new_session = Some(triage_idx);
+                            }
+                        }
+                    }
+
+                    // Restore persisted session→thread mappings and re-attach watchers.
+                    if let Some(ref state) = self.slack_state {
+                        match crate::slack::SlackSessionMap::load() {
+                            Ok(map) => {
+                                if !map.session_threads.is_empty() {
+                                    info!(
+                                        "Slack: restoring {} session mapping(s) from disk",
+                                        map.session_threads.len()
+                                    );
+                                    // Collect project paths before entering async context.
+                                    let project_paths: Vec<String> = self
+                                        .projects
+                                        .iter()
+                                        .map(|p| p.path.to_string_lossy().to_string())
+                                        .collect();
+                                    let bot_token = self
+                                        .slack_auth
+                                        .as_ref()
+                                        .map(|a| a.bot_token.clone())
+                                        .unwrap_or_default();
+                                    let buffer_secs = self.config.settings.slack.relay_buffer_secs;
+                                    let base_url = crate::app::base_url().to_string();
+                                    let st = state.clone();
+
+                                    tokio::spawn(async move {
+                                        let mut s = st.lock().await;
+                                        s.thread_sessions = map.thread_sessions;
+                                        s.session_threads = map.session_threads.clone();
+                                        s.session_msg_offset = map.msg_offsets;
+
+                                        // Spawn watchers for each restored mapping.
+                                        for (session_id, (channel, thread_ts)) in
+                                            &map.session_threads
+                                        {
+                                            if s.relay_abort_handles.contains_key(session_id) {
+                                                continue;
+                                            }
+                                            // Find the project directory for this session.
+                                            let project_dir = s
+                                                .thread_sessions
+                                                .values()
+                                                .find(|(_, sid)| sid == session_id)
+                                                .and_then(|(pidx, _)| project_paths.get(*pidx))
+                                                .cloned()
+                                                .unwrap_or_default();
+
+                                            if project_dir.is_empty() {
+                                                tracing::warn!(
+                                                    "Slack: skipping watcher restore for session {} (project not found)",
+                                                    &session_id[..8.min(session_id.len())]
+                                                );
+                                                continue;
+                                            }
+
+                                            let handle = crate::slack::spawn_session_relay_watcher(
+                                                session_id.clone(),
+                                                project_dir,
+                                                channel.clone(),
+                                                thread_ts.clone(),
+                                                bot_token.clone(),
+                                                base_url.clone(),
+                                                buffer_secs,
+                                                st.clone(),
+                                            );
+                                            s.relay_abort_handles
+                                                .insert(session_id.clone(), handle.abort_handle());
+                                            info!(
+                                                "Slack: restored relay watcher for session {}",
+                                                &session_id[..8.min(session_id.len())]
+                                            );
+                                        }
+                                    });
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Slack: failed to load session map from disk: {}",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if let Some(ref state) = self.slack_state {
+                    let st = state.clone();
+                    let is_reconnect =
+                        matches!(status, crate::slack::SlackConnectionStatus::Connected);
+                    tokio::spawn(async move {
+                        let mut s = st.lock().await;
+                        s.log(
+                            crate::slack::SlackLogLevel::Info,
+                            format!("Connection status: {:?}", status),
+                        );
+                        if is_reconnect
+                            && !matches!(s.status, crate::slack::SlackConnectionStatus::Connected)
+                        {
+                            s.metrics.reconnections += 1;
+                        }
+                        s.status = status;
+                    });
+                }
+                self.needs_redraw = true;
+            }
+            SlackBackgroundEvent::IncomingMessage {
+                text,
+                channel,
+                ts,
+                user: _,
+            } => {
+                info!("Slack: incoming top-level message, starting triage");
+                if let Some(ref state) = self.slack_state {
+                    let st = state.clone();
+                    let preview = text.chars().take(80).collect::<String>();
+                    tokio::spawn(async move {
+                        st.lock().await.log(
+                            crate::slack::SlackLogLevel::Info,
+                            format!("Incoming message: {}...", preview),
+                        );
+                    });
+                }
+                // Spawn triage: send the message to the triage session for project detection.
+                let projects: Vec<(String, String)> = self
+                    .projects
+                    .iter()
+                    .filter(|p| p.name != "slack-triage")
+                    .map(|p| (p.name.clone(), p.path.to_string_lossy().to_string()))
+                    .collect();
+                let prompt = crate::slack::build_triage_prompt(&projects, &text);
+                let bg_tx = self.bg_tx.clone();
+                let base_url = crate::app::base_url().to_string();
+                let original_text = text.clone();
+
+                // For triage, we use the triage project dir.
+                if let Ok(triage_dir) = crate::slack::triage_project_dir() {
+                    let triage_dir_str = triage_dir.to_string_lossy().to_string();
+                    tokio::spawn(async move {
+                        let client = reqwest::Client::new();
+                        // For triage, we need a session in the triage project.
+                        // Fetch existing sessions or the AI will create one.
+                        // For now, send as a system message to any session in triage project.
+                        // The triage prompt asks the AI to respond with JSON.
+                        // We'll use a simpler approach: call the Slack AI directly via the
+                        // existing opencode API.
+                        info!("Triage: sending prompt to detect project");
+
+                        // Fetch sessions for the triage project.
+                        let sessions_url = format!("{}/session", base_url);
+                        let sessions_resp = client
+                            .get(&sessions_url)
+                            .header("x-opencode-directory", &triage_dir_str)
+                            .header("Accept", "application/json")
+                            .send()
+                            .await;
+
+                        let session_id = match sessions_resp {
+                            Ok(resp) => {
+                                let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                                // Collect sessions into a vec of Value refs.
+                                let items: Vec<&serde_json::Value> =
+                                    if let Some(arr) = body.as_array() {
+                                        arr.iter().collect()
+                                    } else if let Some(obj) = body.as_object() {
+                                        obj.values().collect()
+                                    } else {
+                                        vec![]
+                                    };
+                                // Filter to sessions whose directory matches the triage project.
+                                // Without this filter, the server may return sessions from other projects.
+                                let triage_session = items.iter().find(|s| {
+                                    let dir =
+                                        s.get("directory").and_then(|v| v.as_str()).unwrap_or("");
+                                    dir == triage_dir_str
+                                });
+                                debug!(
+                                    "Triage: found {} sessions total, filtered to triage dir: {}",
+                                    items.len(),
+                                    triage_session.is_some()
+                                );
+                                triage_session
+                                    .and_then(|s| s.get("id").and_then(|v| v.as_str()))
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            Err(e) => {
+                                warn!("Triage: failed to fetch sessions: {}", e);
+                                String::new()
+                            }
+                        };
+
+                        if session_id.is_empty() {
+                            // No session available for triage — tell the user.
+                            let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                SlackBackgroundEvent::TriageResult {
+                                    thread_ts: ts.clone(),
+                                    channel: channel.clone(),
+                                    original_text,
+                                    rewritten_query: None,
+                                    project_path: None,
+                                    model: None,
+                                    error: Some("No triage session available. Please ensure the Slack triage project has at least one session.".to_string()),
+                                },
+                            ));
+                            return;
+                        }
+
+                        // Send the triage prompt as a user message.
+                        match crate::slack::send_user_message(
+                            &client,
+                            &base_url,
+                            &triage_dir_str,
+                            &session_id,
+                            &prompt,
+                        )
+                        .await
+                        {
+                            Ok(()) => {
+                                info!("Triage prompt sent, waiting for response...");
+                                // Wait a bit for the AI to respond, then fetch the response.
+                                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+                                // Fetch the latest messages to find the AI's response.
+                                match crate::slack::fetch_all_session_messages(
+                                    &client,
+                                    &base_url,
+                                    &triage_dir_str,
+                                    &session_id,
+                                )
+                                .await
+                                {
+                                    Ok(messages) => {
+                                        // Find the last assistant message.
+                                        let ai_response = messages
+                                            .iter()
+                                            .rev()
+                                            .find(|(role, _)| role == "assistant")
+                                            .map(|(_, text)| text.clone())
+                                            .unwrap_or_default();
+
+                                        let (project_path, model, rewritten_query, error) =
+                                            crate::slack::parse_triage_response(&ai_response);
+
+                                        let _ =
+                                            bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                                SlackBackgroundEvent::TriageResult {
+                                                    thread_ts: ts,
+                                                    channel,
+                                                    original_text,
+                                                    rewritten_query,
+                                                    project_path,
+                                                    model,
+                                                    error,
+                                                },
+                                            ));
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to fetch triage response: {}", e);
+                                        let _ =
+                                            bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                                SlackBackgroundEvent::TriageResult {
+                                                    thread_ts: ts,
+                                                    channel,
+                                                    original_text,
+                                                    rewritten_query: None,
+                                                    project_path: None,
+                                                    model: None,
+                                                    error: Some(format!(
+                                                        "Failed to fetch triage response: {}",
+                                                        e
+                                                    )),
+                                                },
+                                            ));
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to send triage prompt: {}", e);
+                                let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                    SlackBackgroundEvent::TriageResult {
+                                        thread_ts: ts,
+                                        channel,
+                                        original_text,
+                                        rewritten_query: None,
+                                        project_path: None,
+                                        model: None,
+                                        error: Some(format!("Triage failed: {}", e)),
+                                    },
+                                ));
+                            }
+                        }
+                    });
+                } else {
+                    // triage_project_dir() failed — can't triage at all.
+                    error!("Slack: triage_project_dir() failed, cannot route message");
+                    if let Some(ref auth) = self.slack_auth {
+                        let bot_token = auth.bot_token.clone();
+                        let ch = channel.clone();
+                        let tts = ts.clone();
+                        tokio::spawn(async move {
+                            let client = reqwest::Client::new();
+                            let _ = crate::slack::post_message(
+                                &client,
+                                &bot_token,
+                                &ch,
+                                "opman: Internal error — could not locate triage project directory. \
+                                 Please check your config.",
+                                Some(&tts),
+                            )
+                            .await;
+                        });
+                    }
+                }
+            }
+            SlackBackgroundEvent::TriageResult {
+                thread_ts,
+                channel,
+                original_text,
+                rewritten_query,
+                project_path,
+                model: _model,
+                error,
+            } => {
+                if let Some(ref rq) = rewritten_query {
+                    info!(
+                        "Slack triage: rewritten query: \"{}\"",
+                        rq.chars().take(120).collect::<String>()
+                    );
+                }
+                if let Some(err) = error {
+                    warn!("Slack triage error: {}", err);
+                    // Increment triage failure metric and log.
+                    if let Some(ref state) = self.slack_state {
+                        let st = state.clone();
+                        let err_msg = err.clone();
+                        tokio::spawn(async move {
+                            let mut s = st.lock().await;
+                            s.metrics.triage_failures += 1;
+                            s.log(
+                                crate::slack::SlackLogLevel::Error,
+                                format!("Triage failed: {}", err_msg),
+                            );
+                        });
+                    }
+                    // Post error back to Slack thread.
+                    if let Some(ref auth) = self.slack_auth {
+                        let bot_token = auth.bot_token.clone();
+                        let ch = channel.clone();
+                        let tts = thread_ts.clone();
+                        let msg = format!("opman: {}", err);
+                        tokio::spawn(async move {
+                            let client = reqwest::Client::new();
+                            let _ = crate::slack::post_message(
+                                &client,
+                                &bot_token,
+                                &ch,
+                                &msg,
+                                Some(&tts),
+                            )
+                            .await;
+                        });
+                    }
+                    return;
+                }
+
+                if let Some(ref path) = project_path {
+                    // Find the matching project.
+                    let project_idx = self
+                        .projects
+                        .iter()
+                        .position(|p| p.path.to_string_lossy() == path.as_str());
+
+                    if let Some(pidx) = project_idx {
+                        let project = &self.projects[pidx];
+                        let idle_minutes = self.config.settings.slack.idle_session_minutes;
+
+                        info!(
+                            "Slack triage: target project \"{}\" (idx={}) has {} sessions, {} active_sessions total",
+                            project.name,
+                            pidx,
+                            project.sessions.len(),
+                            self.active_sessions.len(),
+                        );
+
+                        // Find a free session.
+                        if let Some(session_id) = crate::slack::find_free_session(
+                            &project.sessions,
+                            &self.active_sessions,
+                            idle_minutes,
+                        ) {
+                            info!(
+                                "Slack: routing message to session {} in project {}",
+                                session_id, project.name
+                            );
+
+                            // Send the rewritten query, record mappings, and spawn relay watcher.
+                            let base_url = crate::app::base_url().to_string();
+                            let project_dir = project.path.to_string_lossy().to_string();
+                            let sid = session_id.clone();
+                            let text = rewritten_query
+                                .clone()
+                                .unwrap_or_else(|| original_text.clone());
+                            let bot_token = self
+                                .slack_auth
+                                .as_ref()
+                                .map(|a| a.bot_token.clone())
+                                .unwrap_or_default();
+                            let ch = channel.clone();
+                            let tts = thread_ts.clone();
+                            let pname = project.name.clone();
+                            let sname = project
+                                .sessions
+                                .iter()
+                                .find(|s| s.id == session_id)
+                                .map(|s| s.title.clone())
+                                .unwrap_or_else(|| session_id.clone());
+                            let slack_state = self.slack_state.clone();
+                            let buffer_secs = self.config.settings.slack.relay_buffer_secs;
+
+                            tokio::spawn(async move {
+                                let client = reqwest::Client::new();
+
+                                // Record the thread→session mapping and update metrics.
+                                if let Some(ref st) = slack_state {
+                                    let mut s = st.lock().await;
+                                    s.thread_sessions.insert(tts.clone(), (pidx, sid.clone()));
+                                    s.session_threads
+                                        .insert(sid.clone(), (ch.clone(), tts.clone()));
+                                    s.metrics.messages_routed += 1;
+                                    s.metrics.last_routed_at = Some(std::time::Instant::now());
+                                    s.log(
+                                        crate::slack::SlackLogLevel::Info,
+                                        format!(
+                                            "Routed message to project \"{}\" session {}",
+                                            pname,
+                                            &sid[..8.min(sid.len())]
+                                        ),
+                                    );
+                                }
+
+                                // Record current message count so we only relay
+                                // messages that appear after this point.
+                                if let Some(ref st) = slack_state {
+                                    match crate::slack::fetch_all_session_messages(
+                                        &client,
+                                        &base_url,
+                                        &project_dir,
+                                        &sid,
+                                    )
+                                    .await
+                                    {
+                                        Ok(msgs) => {
+                                            let mut s = st.lock().await;
+                                            s.session_msg_offset.insert(sid.clone(), msgs.len());
+                                            tracing::debug!(
+                                                "Slack: recorded msg offset {} for session {}",
+                                                msgs.len(),
+                                                sid
+                                            );
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                "Slack: failed to fetch msg offset for session {}: {}",
+                                                sid,
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+
+                                // Send the user message to the session.
+                                match crate::slack::send_user_message(
+                                    &client,
+                                    &base_url,
+                                    &project_dir,
+                                    &sid,
+                                    &text,
+                                )
+                                .await
+                                {
+                                    Ok(()) => {
+                                        info!("Slack: user message sent to session {}", sid);
+                                        let ack = format!(
+                                            "relayed to project: {}, session: {}",
+                                            pname, sname
+                                        );
+                                        let _ = crate::slack::post_message(
+                                            &client,
+                                            &bot_token,
+                                            &ch,
+                                            &ack,
+                                            Some(&tts),
+                                        )
+                                        .await;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to send message to session: {}", e);
+                                        let msg = format!("opman: Failed to send message: {}", e);
+                                        let _ = crate::slack::post_message(
+                                            &client,
+                                            &bot_token,
+                                            &ch,
+                                            &msg,
+                                            Some(&tts),
+                                        )
+                                        .await;
+                                    }
+                                }
+
+                                // Spawn a live relay watcher for this session (if one isn't running).
+                                if let Some(ref st) = slack_state {
+                                    let already_watching = {
+                                        let s = st.lock().await;
+                                        s.relay_abort_handles.contains_key(&sid)
+                                    };
+                                    if !already_watching {
+                                        let handle = crate::slack::spawn_session_relay_watcher(
+                                            sid.clone(),
+                                            project_dir.clone(),
+                                            ch.clone(),
+                                            tts.clone(),
+                                            bot_token.clone(),
+                                            base_url.clone(),
+                                            buffer_secs,
+                                            st.clone(),
+                                        );
+                                        let mut s = st.lock().await;
+                                        s.relay_abort_handles
+                                            .insert(sid.clone(), handle.abort_handle());
+                                        // Persist session map to disk.
+                                        let map = crate::slack::SlackSessionMap {
+                                            session_threads: s.session_threads.clone(),
+                                            thread_sessions: s.thread_sessions.clone(),
+                                            msg_offsets: s.session_msg_offset.clone(),
+                                        };
+                                        if let Err(e) = map.save() {
+                                            tracing::warn!(
+                                                "Slack: failed to persist session map: {}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            // No free session.
+                            warn!("Slack: no free session in project {}", project.name);
+                            if let Some(ref auth) = self.slack_auth {
+                                let bot_token = auth.bot_token.clone();
+                                let ch = channel.clone();
+                                let tts = thread_ts.clone();
+                                let pname = project.name.clone();
+                                tokio::spawn(async move {
+                                    let client = reqwest::Client::new();
+                                    let msg = format!(
+                                        "opman: No free session in project \"{}\". \
+                                         All sessions are busy or recently active. \
+                                         Please create a new session in opman first.",
+                                        pname
+                                    );
+                                    let _ = crate::slack::post_message(
+                                        &client,
+                                        &bot_token,
+                                        &ch,
+                                        &msg,
+                                        Some(&tts),
+                                    )
+                                    .await;
+                                });
+                            }
+                        }
+                    } else {
+                        // Project path from triage AI didn't match any loaded project.
+                        warn!("Slack: no project found at path {:?}", path);
+                        if let Some(ref auth) = self.slack_auth {
+                            let bot_token = auth.bot_token.clone();
+                            let ch = channel.clone();
+                            let tts = thread_ts.clone();
+                            let err_path = path.clone();
+                            let available: Vec<String> = self
+                                .projects
+                                .iter()
+                                .filter(|p| p.name != "slack-triage")
+                                .map(|p| format!("\"{}\" ({})", p.name, p.path.to_string_lossy()))
+                                .collect();
+                            tokio::spawn(async move {
+                                let client = reqwest::Client::new();
+                                let msg = format!(
+                                    "opman: Could not find project at path \"{}\". \
+                                     Available projects: {}",
+                                    err_path,
+                                    if available.is_empty() {
+                                        "(none)".to_string()
+                                    } else {
+                                        available.join(", ")
+                                    }
+                                );
+                                let _ = crate::slack::post_message(
+                                    &client,
+                                    &bot_token,
+                                    &ch,
+                                    &msg,
+                                    Some(&tts),
+                                )
+                                .await;
+                            });
+                        }
+                    }
+                } else {
+                    // Triage AI couldn't determine which project the user meant.
+                    warn!("Slack: triage returned no project_path for message");
+                    if let Some(ref auth) = self.slack_auth {
+                        let bot_token = auth.bot_token.clone();
+                        let ch = channel.clone();
+                        let tts = thread_ts.clone();
+                        let available: Vec<String> = self
+                            .projects
+                            .iter()
+                            .filter(|p| p.name != "slack-triage")
+                            .map(|p| p.name.clone())
+                            .collect();
+                        tokio::spawn(async move {
+                            let client = reqwest::Client::new();
+                            let msg = format!(
+                                "opman: Could not determine which project you're referring to. \
+                                 Please mention the project name explicitly. \
+                                 Available projects: {}",
+                                if available.is_empty() {
+                                    "(none)".to_string()
+                                } else {
+                                    available.join(", ")
+                                }
+                            );
+                            let _ = crate::slack::post_message(
+                                &client,
+                                &bot_token,
+                                &ch,
+                                &msg,
+                                Some(&tts),
+                            )
+                            .await;
+                        });
+                    }
+                }
+            }
+            SlackBackgroundEvent::IncomingThreadReply {
+                text,
+                channel,
+                ts: _,
+                thread_ts,
+                user: _,
+            } => {
+                // Look up which session this thread is mapped to.
+                if let Some(ref state) = self.slack_state {
+                    let trimmed = text.trim().to_string();
+
+                    // ── Slash command check ──────────────────────────
+                    if trimmed.starts_with('@') {
+                        let st = state.clone();
+                        let base_url = crate::app::base_url().to_string();
+                        let bot_token = self
+                            .slack_auth
+                            .as_ref()
+                            .map(|a| a.bot_token.clone())
+                            .unwrap_or_default();
+                        let projects: Vec<(usize, String)> = self
+                            .projects
+                            .iter()
+                            .enumerate()
+                            .map(|(i, p)| (i, p.path.to_string_lossy().to_string()))
+                            .collect();
+
+                        // For @watcher we need mutable access to session_watchers.
+                        // Since session_watchers lives on App (not in the async
+                        // SlackState), we handle it inline before spawning.
+                        let mut watcher_inserted = false;
+                        let mut watcher_trigger_sid: Option<String> = None;
+                        if trimmed == "@watcher" || trimmed.starts_with("@watcher ") {
+                            if let Ok(s) = state.try_lock() {
+                                if let Some((pidx, session_id)) = s.thread_sessions.get(&thread_ts)
+                                {
+                                    let sid = session_id.clone();
+                                    let pidx_val = *pidx;
+                                    drop(s);
+                                    let config = crate::app::WatcherConfig {
+                                        session_id: sid.clone(),
+                                        project_idx: pidx_val,
+                                        idle_timeout_secs: 15,
+                                        continuation_message: "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.".to_string(),
+                                        include_original: false,
+                                        original_message: None,
+                                        hang_message: "You appear to be stuck or hanging. Please abort your current approach and try a different strategy.".to_string(),
+                                        hang_timeout_secs: 180,
+                                    };
+                                    self.session_watchers.insert(sid.clone(), config);
+                                    watcher_inserted = true;
+                                    watcher_trigger_sid = Some(sid.clone());
+                                    tracing::info!(
+                                        "Slack @watcher: enabled watcher for session {}",
+                                        &sid[..8.min(sid.len())]
+                                    );
+                                }
+                            }
+                        }
+
+                        tokio::spawn(async move {
+                            let s = st.lock().await;
+                            if let Some((pidx, session_id)) = s.thread_sessions.get(&thread_ts) {
+                                let sid = session_id.clone();
+                                let pidx_val = *pidx;
+                                let project_dir = projects
+                                    .iter()
+                                    .find(|(i, _)| *i == pidx_val)
+                                    .map(|(_, p)| p.clone())
+                                    .unwrap_or_default();
+                                drop(s);
+
+                                crate::slack::handle_thread_slash_command(
+                                    &trimmed,
+                                    &channel,
+                                    &thread_ts,
+                                    &sid,
+                                    pidx_val,
+                                    &project_dir,
+                                    &bot_token,
+                                    &base_url,
+                                    &st,
+                                    watcher_inserted,
+                                )
+                                .await;
+                            } else {
+                                drop(s);
+                                let client = reqwest::Client::new();
+                                let _ = crate::slack::post_message(
+                                    &client,
+                                    &bot_token,
+                                    &channel,
+                                    ":warning: No session mapped to this thread.",
+                                    Some(&thread_ts),
+                                )
+                                .await;
+                            }
+                        });
+
+                        // Trigger watcher immediately if session already idle.
+                        // Done after the `if let Some(ref state)` borrow is no
+                        // longer needed (the tokio::spawn captured `st` clone).
+                        if let Some(sid) = watcher_trigger_sid {
+                            if !self.active_sessions.contains(&sid) {
+                                let has_active_children = self
+                                    .session_children
+                                    .get(&sid)
+                                    .map(|children| {
+                                        children
+                                            .iter()
+                                            .any(|cid| self.active_sessions.contains(cid))
+                                    })
+                                    .unwrap_or(false);
+                                self.try_trigger_watcher(&sid, has_active_children);
+                            }
+                        }
+
+                        return; // Skip normal thread reply handling.
+                    }
+
+                    // ── Normal thread reply ─────────────────────────
+                    let st = state.clone();
+                    let base_url = crate::app::base_url().to_string();
+                    let projects: Vec<(String, String)> = self
+                        .projects
+                        .iter()
+                        .map(|p| {
+                            (
+                                p.path.to_string_lossy().to_string(),
+                                p.path.to_string_lossy().to_string(),
+                            )
+                        })
+                        .collect();
+
+                    tokio::spawn(async move {
+                        let mut s = st.lock().await;
+                        if let Some((_pidx, session_id)) = s.thread_sessions.get(&thread_ts) {
+                            let client = reqwest::Client::new();
+                            // Find the project directory for this session.
+                            let project_dir = projects
+                                .get(*_pidx)
+                                .map(|(_, path)| path.clone())
+                                .unwrap_or_default();
+                            let sid = session_id.clone();
+
+                            // Send as system message (thread reply = system injection).
+                            if let Err(e) = crate::slack::send_system_message(
+                                &client,
+                                &base_url,
+                                &project_dir,
+                                &sid,
+                                &text,
+                            )
+                            .await
+                            {
+                                error!("Failed to inject thread reply as system message: {}", e);
+                                s.log(
+                                    crate::slack::SlackLogLevel::Error,
+                                    format!("Thread reply injection failed: {}", e),
+                                );
+                            } else {
+                                info!(
+                                    "Slack: thread reply injected as system message to session {}",
+                                    sid
+                                );
+                                // Update message offset so the watcher only relays the new response.
+                                // Update message offset so we only relay the new response.
+                                match crate::slack::fetch_all_session_messages(
+                                    &client,
+                                    &base_url,
+                                    &project_dir,
+                                    &sid,
+                                )
+                                .await
+                                {
+                                    Ok(msgs) => {
+                                        s.session_msg_offset.insert(sid.clone(), msgs.len());
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Slack: failed to update msg offset after thread reply: {}",
+                                            e
+                                        );
+                                    }
+                                }
+                                s.metrics.thread_replies += 1;
+                                s.log(
+                                    crate::slack::SlackLogLevel::Info,
+                                    format!(
+                                        "Thread reply injected to session {}",
+                                        &sid[..8.min(sid.len())]
+                                    ),
+                                );
+                            }
+                        } else {
+                            warn!(
+                                "Slack: thread reply for unknown thread_ts={}, ignoring",
+                                thread_ts
+                            );
+                            s.log(
+                                crate::slack::SlackLogLevel::Warn,
+                                format!("Thread reply for unknown thread {}, ignored", thread_ts),
+                            );
+                        }
+                    });
+                }
+            }
+            SlackBackgroundEvent::ResponseBatch {
+                channel,
+                thread_ts,
+                text,
+            } => {
+                // Post the batch to Slack and update metrics.
+                let slack_state = self.slack_state.clone();
+                if let Some(ref auth) = self.slack_auth {
+                    let bot_token = auth.bot_token.clone();
+                    tokio::spawn(async move {
+                        let client = reqwest::Client::new();
+                        let chunks = crate::slack::chunk_for_slack(&text, 39_000);
+                        for chunk in chunks {
+                            let _ = crate::slack::post_message(
+                                &client,
+                                &bot_token,
+                                &channel,
+                                &chunk,
+                                Some(&thread_ts),
+                            )
+                            .await;
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        }
+                        if let Some(ref state) = slack_state {
+                            let mut s = state.lock().await;
+                            s.metrics.batches_sent += 1;
+                            s.log(
+                                crate::slack::SlackLogLevel::Info,
+                                format!("Response batch sent to thread {}", thread_ts),
+                            );
+                        }
+                    });
+                }
+            }
+            SlackBackgroundEvent::OAuthComplete(result) => {
+                match result {
+                    Ok(auth) => {
+                        info!("Slack OAuth completed successfully");
+                        self.toast_message = Some((
+                            "Slack connected! Add app_token to slack_auth.yaml".to_string(),
+                            std::time::Instant::now(),
+                        ));
+                        if let Some(ref state) = self.slack_state {
+                            let st = state.clone();
+                            tokio::spawn(async move {
+                                st.lock().await.log(
+                                    crate::slack::SlackLogLevel::Info,
+                                    "OAuth completed successfully".to_string(),
+                                );
+                            });
+                        }
+                        self.slack_auth = Some(auth);
+                    }
+                    Err(e) => {
+                        error!("Slack OAuth failed: {}", e);
+                        self.toast_message = Some((
+                            format!("Slack OAuth failed: {}", e),
+                            std::time::Instant::now(),
+                        ));
+                        if let Some(ref state) = self.slack_state {
+                            let st = state.clone();
+                            let err_msg = e.to_string();
+                            tokio::spawn(async move {
+                                st.lock().await.log(
+                                    crate::slack::SlackLogLevel::Error,
+                                    format!("OAuth failed: {}", err_msg),
+                                );
+                            });
+                        }
+                    }
+                }
+                self.needs_redraw = true;
             }
         }
     }

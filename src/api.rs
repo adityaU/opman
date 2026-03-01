@@ -388,4 +388,39 @@ impl ApiClient {
 
         Ok(messages)
     }
+
+    /// Abort an active session, stopping any ongoing AI processing.
+    ///
+    /// Uses `POST /session/{id}/abort`. The server calls `SessionPrompt.cancel()`
+    /// internally, which interrupts the running LLM generation and tool execution.
+    pub async fn abort_session(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        let url = format!("{}/session/{}/abort", base_url, session_id);
+        debug!(url, session_id, "Aborting session");
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to send abort request to opencode session")?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!(
+                "Session abort rejected by server: HTTP {} — {}",
+                status,
+                body
+            );
+        }
+
+        Ok(())
+    }
 }

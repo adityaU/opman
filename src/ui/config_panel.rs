@@ -5,10 +5,11 @@ use ratatui::widgets::{Block, Clear, Widget};
 
 use crate::theme::ThemeColors;
 
-/// A single setting entry – either a boolean toggle or a numeric percentage.
+/// A single setting entry – either a boolean toggle, a numeric percentage, or seconds.
 pub enum SettingValue {
     Bool(bool),
     Percent(u8),
+    Seconds(u64),
 }
 
 pub struct ConfigPanel<'a> {
@@ -23,6 +24,8 @@ impl<'a> ConfigPanel<'a> {
         selected: usize,
         follow_edits_in_neovim: bool,
         unfocused_dim_percent: u8,
+        slack_enabled: bool,
+        relay_buffer_secs: u64,
     ) -> Self {
         let settings = vec![
             (
@@ -32,6 +35,11 @@ impl<'a> ConfigPanel<'a> {
             (
                 "Unfocused panel dimming",
                 SettingValue::Percent(unfocused_dim_percent),
+            ),
+            ("Slack integration", SettingValue::Bool(slack_enabled)),
+            (
+                "Slack relay buffer (sec)",
+                SettingValue::Seconds(relay_buffer_secs),
             ),
         ];
         Self {
@@ -131,6 +139,16 @@ impl<'a> ConfigPanel<'a> {
                 }
                 SettingValue::Percent(pct) => {
                     let control = format!("◀ {:>3}% ▶  ", pct);
+                    buf.set_string(inner_x, cy, &control, control_style);
+                    buf.set_string(
+                        inner_x + control.chars().count() as u16,
+                        cy,
+                        label,
+                        label_style,
+                    );
+                }
+                SettingValue::Seconds(secs) => {
+                    let control = format!("◀ {:>3}s ▶  ", secs);
                     buf.set_string(inner_x, cy, &control, control_style);
                     buf.set_string(
                         inner_x + control.chars().count() as u16,

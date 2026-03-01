@@ -55,6 +55,11 @@ pub enum CommandAction {
     ContextInput,
     PopOutPanels,
     SessionWatcher,
+    SlackConnect,
+    SlackOAuth,
+    SlackDisconnect,
+    SlackStatus,
+    SlackLogs,
 }
 
 pub struct CommandEntry {
@@ -292,6 +297,36 @@ pub fn build_commands(keys: &KeyBindings) -> Vec<CommandEntry> {
             shorthand: "watcher watch".into(),
             keys_hint: leader_hint(keys, "w"),
             action: CommandAction::SessionWatcher,
+        },
+        CommandEntry {
+            name: "Slack Connect".into(),
+            shorthand: "slack connect".into(),
+            keys_hint: leader_hint(keys, &keys.leader_slack),
+            action: CommandAction::SlackConnect,
+        },
+        CommandEntry {
+            name: "Slack OAuth Login".into(),
+            shorthand: "slack oauth login auth".into(),
+            keys_hint: "".into(),
+            action: CommandAction::SlackOAuth,
+        },
+        CommandEntry {
+            name: "Slack Disconnect".into(),
+            shorthand: "slack disconnect stop".into(),
+            keys_hint: "".into(),
+            action: CommandAction::SlackDisconnect,
+        },
+        CommandEntry {
+            name: "Slack Status".into(),
+            shorthand: "slack status info".into(),
+            keys_hint: "".into(),
+            action: CommandAction::SlackStatus,
+        },
+        CommandEntry {
+            name: "Slack Logs".into(),
+            shorthand: "slack logs events debug".into(),
+            keys_hint: "".into(),
+            action: CommandAction::SlackLogs,
         },
     ]
 }

@@ -9,6 +9,7 @@ mod mcp_time;
 mod nvim_rpc;
 mod pty;
 mod server;
+mod slack;
 mod sse;
 mod theme;
 mod theme_gen;
@@ -82,6 +83,49 @@ async fn main() -> Result<()> {
         return mcp_neovim::run_mcp_neovim_bridge(project_path)
             .await
             .map_err(Into::into);
+    }
+
+    // ── Slack manifest: `opman --slack-manifest` ──────────────────────
+    if args.iter().any(|a| a == "--slack-manifest") {
+        const MANIFEST: &str = include_str!("../slack-app-manifest.yaml");
+        // Try to copy to clipboard (macOS: pbcopy, Linux: xclip/xsel)
+        let copied = std::process::Command::new("pbcopy")
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(ref mut stdin) = child.stdin {
+                    stdin.write_all(MANIFEST.as_bytes())?;
+                }
+                child.wait()
+            })
+            .map(|s| s.success())
+            .unwrap_or(false)
+            || std::process::Command::new("xclip")
+                .args(["-selection", "clipboard"])
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .and_then(|mut child| {
+                    use std::io::Write;
+                    if let Some(ref mut stdin) = child.stdin {
+                        stdin.write_all(MANIFEST.as_bytes())?;
+                    }
+                    child.wait()
+                })
+                .map(|s| s.success())
+                .unwrap_or(false);
+
+        println!("{}", MANIFEST);
+        if copied {
+            eprintln!("\n✓ Manifest copied to clipboard");
+        }
+        eprintln!("\nTo create your Slack app:");
+        eprintln!("  1. Go to https://api.slack.com/apps → Create New App → From a manifest");
+        eprintln!("  2. Select your workspace and paste the manifest above");
+        eprintln!("  3. After creating, generate an App-Level Token with `connections:write` scope");
+        eprintln!("  4. Install the app to your workspace");
+        eprintln!("  5. Run `opman --slack-setup` with your Client ID, Client Secret, and App Token");
+        return Ok(());
     }
 
     // ── Check for --no-* MCP flags ──────────────────────────────────
@@ -202,6 +246,7 @@ async fn main() -> Result<()> {
                         app.bg_tx.clone(),
                         i,
                         app.nvim_registry.clone(),
+                        app.last_mcp_activity_ms.clone(),
                     );
                 }
                 if let Err(e) = mcp::write_opencode_json(
@@ -252,6 +297,62 @@ async fn main() -> Result<()> {
         }
     }
 
+    // 6b. Start Slack integration if enabled and credentials are available.
+    if app.config.settings.slack.enabled {
+        match slack::SlackAuth::load() {
+            Ok(Some(auth)) => {
+                if !auth.app_token.is_empty() && !auth.bot_token.is_empty() {
+                    info!("Slack integration enabled, starting Socket Mode...");
+                    let slack_state =
+                        std::sync::Arc::new(tokio::sync::Mutex::new(slack::SlackState::new()));
+                    app.slack_state = Some(slack_state.clone());
+                    app.slack_auth = Some(auth.clone());
+
+                    // Note: triage project is auto-added on first Slack
+                    // connection (see handle_slack_event / ConnectionStatus::Connected).
+
+                    // Spawn Socket Mode listener.
+                    let bg_tx_slack = app.bg_tx.clone();
+                    let auth_clone = auth.clone();
+                    tokio::spawn(async move {
+                        let (slack_event_tx, mut slack_event_rx) =
+                            tokio::sync::mpsc::unbounded_channel();
+
+                        // Spawn the WebSocket listener.
+                        tokio::spawn(slack::spawn_socket_mode(auth_clone, slack_event_tx));
+
+                        // Forward Slack events to the main app background event channel.
+                        while let Some(event) = slack_event_rx.recv().await {
+                            let _ = bg_tx_slack.send(app::BackgroundEvent::SlackEvent(event));
+                        }
+                    });
+
+                    // Spawn response batcher.
+                    let batch_secs = app.config.settings.slack.response_batch_secs;
+                    let auth_batch = auth;
+                    let state_batch = slack_state;
+                    tokio::spawn(async move {
+                        let (event_tx, _event_rx) = tokio::sync::mpsc::unbounded_channel();
+                        slack::spawn_response_batcher(
+                            auth_batch,
+                            state_batch,
+                            batch_secs,
+                            event_tx,
+                        )
+                        .await;
+                    });
+                } else {
+                    info!("Slack enabled but missing tokens in slack_auth.yaml (need bot_token + app_token)");
+                }
+            }
+            Ok(None) => {
+                info!("Slack enabled but no slack_auth.yaml found. Run OAuth to connect.");
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load Slack auth: {}", e);
+            }
+        }
+    }
     // 7. Main event loop — TUI renders on first iteration (instant startup!)
     let result = run_event_loop(&mut terminal, &mut app, watcher_rx, bg_rx).await;
 
@@ -348,7 +449,9 @@ fn spawn_session_fetch(bg_tx: &mpsc::UnboundedSender<BackgroundEvent>, projects:
                     });
                 }
                 Err(_) => {
-                    let _ = tx.send(BackgroundEvent::SessionFetchFailed { project_idx: *project_idx });
+                    let _ = tx.send(BackgroundEvent::SessionFetchFailed {
+                        project_idx: *project_idx,
+                    });
                 }
             }
             // Also fetch session status to bootstrap active_sessions.
@@ -608,6 +711,10 @@ async fn run_event_loop(
         // Also drive the pulse when watcher countdowns are active (session
         // may be idle, but we still need the pulsing dot in the overlay).
         let has_watcher_countdown = !app.watcher_idle_since.is_empty();
+        let has_busy_watcher = app
+            .active_sessions
+            .iter()
+            .any(|sid| app.session_watchers.contains_key(sid));
         if !app.active_sessions.is_empty() || has_watcher_countdown {
             let elapsed = last_blink_toggle.elapsed().as_secs_f64();
             // 1.5s full cycle, smooth sine wave clamped to 0.35..=1.0
@@ -623,7 +730,9 @@ async fn run_event_loop(
             }
             // Force a redraw at least once per second during watcher
             // countdown so the elapsed/remaining seconds tick in the overlay.
-            if has_watcher_countdown
+            // Also force redraw for busy watched sessions so hang detection
+            // timer updates in the overlay.
+            if (has_watcher_countdown || has_busy_watcher)
                 && last_countdown_redraw.elapsed() >= Duration::from_secs(1)
             {
                 app.needs_redraw = true;
@@ -884,17 +993,14 @@ async fn run_event_loop(
                                     crossterm::event::MouseButton::Left,
                                 ) = mouse_event.kind
                                 {
-                                    if let Some((start_x, end_x)) =
-                                        app.status_bar_url_range.get()
-                                    {
+                                    if let Some((start_x, end_x)) = app.status_bar_url_range.get() {
                                         let col = mouse_event.column;
                                         if col >= start_x && col < end_x {
                                             let url = crate::app::base_url();
                                             use std::io::Write as _;
                                             use std::process::{Command, Stdio};
-                                            if let Ok(mut child) = Command::new("pbcopy")
-                                                .stdin(Stdio::piped())
-                                                .spawn()
+                                            if let Ok(mut child) =
+                                                Command::new("pbcopy").stdin(Stdio::piped()).spawn()
                                             {
                                                 if let Some(stdin) = child.stdin.as_mut() {
                                                     let _ = stdin.write_all(url.as_bytes());

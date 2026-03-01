@@ -1,0 +1,45 @@
+# Slack App Manifest for opman
+#
+# Each user creates their own Slack app from this manifest:
+#   1. Go to https://api.slack.com/apps
+#   2. Click "Create New App" → "From a manifest"
+#   3. Select your workspace
+#   4. Paste this YAML and click "Create"
+#   5. Under "Basic Information", note your Client ID and Client Secret
+#   6. Under "Basic Information" → "App-Level Tokens", generate a token
+#      with the `connections:write` scope (name it anything, e.g. "socket")
+#   7. Install the app to your workspace
+#   8. Run `opman --slack-setup` and enter your Client ID, Client Secret,
+#      and App-Level Token when prompted
+#
+# This creates a personal bot that only listens to YOUR DMs.
+# Multiple users in the same workspace can each have their own instance.
+
+display_information:
+  name: opman
+  description: Personal AI coding assistant bridge — routes Slack DMs to OpenCode sessions
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: opman
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - im:history
+      - im:read
+      - im:write
+      - users:read
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.im
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

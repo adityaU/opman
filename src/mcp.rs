@@ -2,6 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -211,6 +212,7 @@ pub fn spawn_socket_server(
     request_tx: mpsc::UnboundedSender<crate::app::BackgroundEvent>,
     project_idx: usize,
     nvim_registry: NvimSocketRegistry,
+    last_mcp_activity_ms: Arc<AtomicU64>,
 ) -> PathBuf {
     let sock_path = socket_path_for_project(project_path);
 
@@ -261,6 +263,7 @@ pub fn spawn_socket_server(
             let nvim = nvim_locks.clone();
             let term = term_locks.clone();
             let registry = nvim_registry.clone();
+            let activity_ms = last_mcp_activity_ms.clone();
 
             tokio::spawn(async move {
                 let (reader, mut writer) = stream.into_split();
@@ -277,6 +280,15 @@ pub fn spawn_socket_server(
                     }
                 }
 
+                // Helper: update MCP activity timestamp.
+                fn update_activity(ts: &AtomicU64) {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    ts.store(now, Ordering::Release);
+                }
+
                 let request: SocketRequest = match serde_json::from_str(line.trim()) {
                     Ok(r) => r,
                     Err(e) => {
@@ -288,6 +300,9 @@ pub fn spawn_socket_server(
                         return;
                     }
                 };
+
+                // Mark MCP activity on request arrival.
+                update_activity(&activity_ms);
 
                 // Handle ephemeral_lock / ephemeral_unlock directly (no main-loop round-trip)
                 match request.op.as_str() {
@@ -441,6 +456,7 @@ pub fn spawn_socket_server(
                         let json = serde_json::to_string(&response).unwrap();
                         let _ = writer.write_all(json.as_bytes()).await;
                         let _ = writer.write_all(b"\n").await;
+                        update_activity(&activity_ms);
 
                         drop(_nvim_guards);
                         return;
@@ -478,6 +494,8 @@ pub fn spawn_socket_server(
                     }
                 };
                 let _ = write_result;
+                // Mark MCP activity on response completion.
+                update_activity(&activity_ms);
 
                 // Release locks (dropped when guards go out of scope)
                 drop(_nvim_guards);

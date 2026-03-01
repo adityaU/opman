@@ -319,7 +319,7 @@ fn render_config_panel(
     y += 1;
 
     // Message editor area (up to 4 rows)
-    let msg_rows = 4u16.min(area.y + area.height - y - 6); // leave room for other fields
+    let msg_rows = 4u16.min((area.y + area.height).saturating_sub(y + 14)); // leave room for other fields + hang detection
     let msg_area_height = msg_rows as usize;
 
     if state.active_field == WatcherField::Message {
@@ -479,6 +479,112 @@ fn render_config_panel(
             );
         }
     }
+
+    // ── Separator ──
+    y += 2;
+    if y >= area.y + area.height - 1 {
+        return;
+    }
+    let sep_label = "─── Hang Detection ───";
+    buf.set_string(cx, y, sep_label, Style::default().fg(theme.text_muted));
+    y += 1;
+    if y >= area.y + area.height - 1 {
+        return;
+    }
+
+    // ── Hang Message ──
+    let hang_msg_label = "Hang Retry Message:";
+    let hang_msg_label_style = if state.active_field == WatcherField::HangMessage {
+        Style::default()
+            .fg(theme.primary)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(theme.text_muted)
+    };
+    buf.set_string(cx, y, hang_msg_label, hang_msg_label_style);
+    y += 1;
+
+    // Hang message editor area (up to 3 rows)
+    let hang_msg_rows = 3u16.min(area.y + area.height - y - 3);
+    let hang_msg_area_height = hang_msg_rows as usize;
+
+    if state.active_field == WatcherField::HangMessage {
+        render_hang_message_editor(buf, cx, y, cw, hang_msg_area_height, state, theme);
+    } else {
+        // Render hang message text (read-only view)
+        for (i, line) in state
+            .hang_message_lines
+            .iter()
+            .enumerate()
+            .take(hang_msg_area_height)
+        {
+            let row_y = y + i as u16;
+            if row_y >= area.y + area.height {
+                break;
+            }
+            let display = if line.len() > cw {
+                &line[..cw]
+            } else {
+                line.as_str()
+            };
+            buf.set_string(cx, row_y, display, Style::default().fg(theme.text));
+        }
+        if state.hang_message_lines.is_empty()
+            || (state.hang_message_lines.len() == 1 && state.hang_message_lines[0].is_empty())
+        {
+            buf.set_string(
+                cx,
+                y,
+                "(empty - type a message)",
+                Style::default().fg(theme.text_muted),
+            );
+        }
+    }
+    y += hang_msg_rows;
+
+    // ── Hang Timeout Input ──
+    if y >= area.y + area.height - 1 {
+        return;
+    }
+    y += 1; // spacing
+    if y >= area.y + area.height - 1 {
+        return;
+    }
+    let hang_timeout_focused = state.active_field == WatcherField::HangTimeoutInput;
+    let hang_timeout_label = "Hang timeout (seconds): ";
+    let hang_timeout_label_style = if hang_timeout_focused {
+        Style::default()
+            .fg(theme.primary)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(theme.text_muted)
+    };
+    buf.set_string(cx, y, hang_timeout_label, hang_timeout_label_style);
+
+    let hang_val_x = cx + hang_timeout_label.len() as u16;
+    let hang_val_text = &state.hang_timeout_input;
+    buf.set_string(
+        hang_val_x,
+        y,
+        hang_val_text,
+        Style::default().fg(theme.text),
+    );
+
+    // Block cursor for hang timeout input
+    if hang_timeout_focused {
+        let cursor_x = hang_val_x + hang_val_text.len() as u16;
+        if cursor_x < area.x + area.width {
+            buf.set_string(
+                cursor_x,
+                y,
+                " ",
+                Style::default()
+                    .bg(theme.text)
+                    .fg(theme.background)
+                    .add_modifier(Modifier::BOLD),
+            );
+        }
+    }
 }
 
 fn render_multiline_editor(
@@ -490,17 +596,63 @@ fn render_multiline_editor(
     state: &crate::app::WatcherModalState,
     theme: &ThemeColors,
 ) {
+    render_multiline_editor_generic(
+        buf,
+        cx,
+        y,
+        cw,
+        height,
+        &state.message_lines,
+        state.message_cursor_row,
+        state.message_cursor_col,
+        theme,
+    );
+}
+
+fn render_hang_message_editor(
+    buf: &mut Buffer,
+    cx: u16,
+    y: u16,
+    cw: usize,
+    height: usize,
+    state: &crate::app::WatcherModalState,
+    theme: &ThemeColors,
+) {
+    render_multiline_editor_generic(
+        buf,
+        cx,
+        y,
+        cw,
+        height,
+        &state.hang_message_lines,
+        state.hang_message_cursor_row,
+        state.hang_message_cursor_col,
+        theme,
+    );
+}
+
+fn render_multiline_editor_generic(
+    buf: &mut Buffer,
+    cx: u16,
+    y: u16,
+    cw: usize,
+    height: usize,
+    lines: &[String],
+    cursor_row: usize,
+    cursor_col: usize,
+    theme: &ThemeColors,
+) {
     // Build visual rows with wrapping (same approach as context_input.rs)
     let mut vrows: Vec<(usize, usize, usize)> = Vec::new();
     let mut cursor_vrow: usize = 0;
 
-    for (li, line_text) in state.message_lines.iter().enumerate() {
+    for (li, line_text) in lines.iter().enumerate() {
         if cw == 0 {
             vrows.push((li, 0, line_text.len()));
             continue;
         }
         if line_text.is_empty() {
-            if li == state.message_cursor_row {
+            if li == cursor_row {
                 cursor_vrow = vrows.len();
             }
             vrows.push((li, 0, 0));
@@ -522,10 +674,10 @@ fn render_multiline_editor(
                 let ch = line_text[pos..].chars().next().unwrap();
                 end += ch.len_utf8();
             }
-            if li == state.message_cursor_row
-                && state.message_cursor_col >= chunk_start
-                && (state.message_cursor_col < end
-                    || (state.message_cursor_col == end && end == line_text.len()))
+            if li == cursor_row
+                && cursor_col >= chunk_start
+                && (cursor_col < end
+                    || (cursor_col == end && end == line_text.len()))
             {
                 cursor_vrow = vrows.len();
             }
@@ -549,12 +701,11 @@ fn render_multiline_editor(
         }
 
         let (li, byte_start, byte_end) = vrows[vrow_idx];
-        let chunk = &state.message_lines[li][byte_start..byte_end];
+        let chunk = &lines[li][byte_start..byte_end];
         let is_cursor_vrow = vrow_idx == cursor_vrow;
 
         if is_cursor_vrow {
-            let cursor_byte = state
-                .message_cursor_col
+            let cursor_byte = cursor_col
                 .min(byte_end)
                 .saturating_sub(byte_start);
             let before = &chunk[..cursor_byte.min(chunk.len())];
@@ -635,8 +786,14 @@ fn render_hint_bar(
             ]);
         }
         WatcherField::TimeoutInput => {}
+        WatcherField::HangMessage => {
+            spans.extend(vec![
+                Span::styled("Enter", Style::default().fg(theme.accent)),
+                Span::styled(" newline  ", Style::default().fg(theme.text_muted)),
+            ]);
+        }
+        WatcherField::HangTimeoutInput => {}
     }
-
     spans.extend(vec![
         Span::styled("Ctrl+D", Style::default().fg(theme.success)),
         Span::styled(" submit  ", Style::default().fg(theme.text_muted)),

@@ -32,6 +32,9 @@ pub struct Settings {
     /// 0 = no dimming, 100 = fully black.  Default is 20.
     #[serde(default = "default_unfocused_dim_percent")]
     pub unfocused_dim_percent: u8,
+    /// Slack integration settings.
+    #[serde(default)]
+    pub slack: crate::slack::SlackSettings,
 }
 
 impl Default for Settings {
@@ -40,6 +43,7 @@ impl Default for Settings {
             follow_edits_in_neovim: false,
             default_terminal_command: None,
             unfocused_dim_percent: 20,
+            slack: crate::slack::SlackSettings::default(),
         }
     }
 }
@@ -141,7 +145,8 @@ pub struct KeyBindings {
     pub leader_todo: String,
     #[serde(default = "default_leader_context")]
     pub leader_context: String,
-
+    #[serde(default = "default_leader_slack")]
+    pub leader_slack: String,
     // ── Leader → Terminal sub-bindings ──────────────────────────────
     #[serde(default = "default_terminal_toggle")]
     pub terminal_toggle: String,
@@ -316,6 +321,9 @@ fn default_leader_todo() -> String {
 fn default_leader_context() -> String {
     "i".into()
 }
+fn default_leader_slack() -> String {
+    "S".into()
+}
 fn default_leader_project() -> String {
     "p".into()
 }
@@ -426,6 +434,7 @@ impl Default for KeyBindings {
             leader_quit: default_leader_quit(),
             leader_todo: default_leader_todo(),
             leader_context: default_leader_context(),
+            leader_slack: default_leader_slack(),
             terminal_toggle: default_terminal_toggle(),
             terminal_new_tab: default_terminal_new_tab(),
             terminal_next_tab: default_terminal_next_tab(),

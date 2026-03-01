@@ -31,6 +31,11 @@ include_dir = "0.7"
 similar = "2"
 rmpv = "1.3"
 rmp = "0.8"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+serde_yaml = "0.9"
+url = "2"
+open = "5"
+rand = "0.8"
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

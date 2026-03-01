@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
@@ -35,6 +35,10 @@ pub struct PtyInstance {
     /// Cleared by the render loop after drawing.  Used to skip
     /// expensive terminal re-renders when the screen hasn't changed.
     pub dirty: Arc<AtomicBool>,
+    /// Epoch-millis timestamp of the last PTY output.  Updated by the reader
+    /// thread whenever bytes arrive.  Read by hang detection to determine if
+    /// a long-running tool call is still producing output.
+    pub last_output_at: Arc<AtomicU64>,
 }
 
 impl std::fmt::Debug for PtyInstance {
@@ -132,12 +136,14 @@ impl PtyInstance {
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
         let dirty = Arc::new(AtomicBool::new(true));
+        let last_output_at = Arc::new(AtomicU64::new(0));
 
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
         let dirty_clone = Arc::clone(&dirty);
+        let output_at_clone = Arc::clone(&last_output_at);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone, output_at_clone);
         });
 
         debug!(url, rows, cols, "PTY instance spawned");
@@ -154,6 +160,7 @@ impl PtyInstance {
             command_state,
             nvim_listen_addr: None,
             dirty,
+            last_output_at,
         })
     }
 
@@ -169,6 +176,7 @@ impl PtyInstance {
         parser: Arc<Mutex<vt100::Parser>>,
         command_state: Arc<Mutex<CommandState>>,
         dirty: Arc<AtomicBool>,
+        last_output_at: Arc<AtomicU64>,
     ) {
         let mut buf = [0u8; 4096];
         let mut leftover: Vec<u8> = Vec::new();
@@ -189,6 +197,11 @@ impl PtyInstance {
                         p.process(&buf[..n]);
                     }
                     dirty.store(true, Ordering::Release);
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    last_output_at.store(now, Ordering::Release);
 
                     // Keep trailing bytes for OSC sequences split across reads
                     let keep = data.len().min(32);
@@ -423,12 +436,14 @@ impl PtyInstance {
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
         let dirty = Arc::new(AtomicBool::new(true));
+        let last_output_at = Arc::new(AtomicU64::new(0));
 
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
         let dirty_clone = Arc::clone(&dirty);
+        let output_at_clone = Arc::clone(&last_output_at);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone, output_at_clone);
         });
 
         debug!(%shell, rows, cols, ?working_dir, "Shell PTY instance spawned");
@@ -445,6 +460,7 @@ impl PtyInstance {
             command_state,
             nvim_listen_addr: None,
             dirty,
+            last_output_at,
         };
         Ok(pty)
     }
@@ -536,12 +552,14 @@ impl PtyInstance {
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
         let dirty = Arc::new(AtomicBool::new(true));
+        let last_output_at = Arc::new(AtomicU64::new(0));
 
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
         let dirty_clone = Arc::clone(&dirty);
+        let output_at_clone = Arc::clone(&last_output_at);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone, output_at_clone);
         });
 
         debug!(
@@ -564,6 +582,7 @@ impl PtyInstance {
             command_state,
             nvim_listen_addr: Some(listen_path),
             dirty,
+            last_output_at,
         })
     }
 
@@ -622,12 +641,14 @@ impl PtyInstance {
         let command_state = Arc::new(Mutex::new(CommandState::Idle));
 
         let dirty = Arc::new(AtomicBool::new(true));
+        let last_output_at = Arc::new(AtomicU64::new(0));
 
         let parser_clone = Arc::clone(&parser);
         let cmd_state_clone = Arc::clone(&command_state);
         let dirty_clone = Arc::clone(&dirty);
+        let output_at_clone = Arc::clone(&last_output_at);
         std::thread::spawn(move || {
-            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone);
+            Self::read_pty_output(reader, parser_clone, cmd_state_clone, dirty_clone, output_at_clone);
         });
         Ok(Self {
             parser,
@@ -641,6 +662,7 @@ impl PtyInstance {
             command_state,
             nvim_listen_addr: None,
             dirty,
+            last_output_at,
         })
     }
 }
