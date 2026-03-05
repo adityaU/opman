@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web-ui/package-lock.json
+
+      - name: Build web UI
+        run: npm ci && npm run build
+        working-directory: web-ui
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:

@@ -1,6 +1,6 @@
 [package]
 name = "opman"
-version = "0.3.10"
+version = "0.4.0"
 edition = "2021"
 description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
 
@@ -36,6 +36,16 @@ serde_yaml = "0.9"
 url = "2"
 open = "5"
 rand = "0.8"
+axum = { version = "0.8", features = ["tokio"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "set-header"] }
+rust-embed = { version = "8", features = ["interpolate-folder-path"] }
+mime_guess = "2"
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+async-stream = "0.3"
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

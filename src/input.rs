@@ -1063,7 +1063,7 @@ fn toggle_config_setting(app: &mut App) {
         _ => {}
     }
     if let Err(e) = app.config.save() {
-        eprintln!("Failed to save config: {}", e);
+        tracing::warn!("Failed to save config: {}", e);
     }
 }
 
@@ -1086,7 +1086,7 @@ fn adjust_config_setting(app: &mut App, delta: i16) {
         _ => return,
     }
     if let Err(e) = app.config.save() {
-        eprintln!("Failed to save config: {}", e);
+        tracing::warn!("Failed to save config: {}", e);
     }
 }
 

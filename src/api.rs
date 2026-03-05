@@ -526,4 +526,118 @@ impl ApiClient {
 
         Ok(())
     }
+    /// Execute a slash command on a session via the OpenCode command API.
+    ///
+    /// Uses `POST /session/{id}/command` with `{ command, arguments, model? }`.
+    /// Returns the server's JSON response body (shape varies by command).
+    pub async fn execute_session_command(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+        command: &str,
+        arguments: &str,
+        model: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/session/{}/command", base_url, session_id);
+        debug!(
+            url,
+            session_id, command, arguments, "Executing session command"
+        );
+
+        let mut body = serde_json::json!({
+            "command": command,
+            "arguments": arguments,
+        });
+        if let Some(m) = model {
+            body["model"] = serde_json::Value::String(m.to_string());
+        }
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to execute session command")?;
+
+        let status = resp.status();
+        let response_body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+
+        if !status.is_success() {
+            let err_msg = response_body
+                .get("error")
+                .and_then(|e| e.as_str())
+                .unwrap_or("unknown error");
+            anyhow::bail!(
+                "Session command '{}' rejected: HTTP {} — {}",
+                command,
+                status,
+                err_msg
+            );
+        }
+
+        Ok(response_body)
+    }
+
+    /// List all available commands (built-in + custom) from the OpenCode server.
+    ///
+    /// Uses `GET /command` with the project directory header.
+    /// Returns the raw JSON response (array of command definitions).
+    #[allow(dead_code)]
+    pub async fn list_commands(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/command", base_url);
+        debug!(url, project_dir, "Listing available commands");
+
+        let resp = self
+            .client
+            .get(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to list commands from opencode server")?;
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .context("Failed to parse command list response")?;
+
+        Ok(body)
+    }
+
+    /// Fetch all available providers and their models from the OpenCode server.
+    ///
+    /// Uses `GET /provider` with the project directory header.
+    /// Returns the raw JSON response (array of provider objects with models).
+    pub async fn fetch_providers(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/provider", base_url);
+        debug!(url, project_dir, "Fetching providers and models");
+
+        let resp = self
+            .client
+            .get(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch providers from opencode server")?;
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .context("Failed to parse provider response")?;
+
+        Ok(body)
+    }
 }

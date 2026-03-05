@@ -1,21 +1,24 @@
 mod api;
 mod app;
+mod blockkit;
 mod command_palette;
 mod config;
 mod input;
+mod integrations;
 mod mcp;
 mod mcp_neovim;
 mod mcp_time;
 mod nvim_rpc;
 mod pty;
 mod server;
-mod slack;
+use integrations::slack;
 mod sse;
 mod theme;
 mod theme_gen;
 mod todo_db;
 mod ui;
 mod vim_mode;
+mod web;
 mod which_key;
 
 use std::io;
@@ -43,24 +46,23 @@ use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Log to file if OPENCODE_LOG_FILE is set, otherwise stderr
-    let log_file_path = std::env::var("OPENCODE_LOG_FILE").ok();
-    let log_writer: Box<dyn io::Write + Send> = if let Some(ref path) = log_file_path {
-        Box::new(
-            std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-                .expect("Failed to open log file"),
-        )
-    } else {
-        Box::new(io::stderr())
-    };
+    // Always log to file: <config_dir>/opman/opman.log
+    let log_dir = dirs::config_dir()
+        .expect("Could not determine config directory")
+        .join("opman");
+    std::fs::create_dir_all(&log_dir).expect("Failed to create log directory");
+    let log_path = log_dir.join("opman.log");
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .expect("Failed to open log file");
+    let log_writer: Box<dyn io::Write + Send> = Box::new(log_file);
     tracing_subscriber::fmt()
         .with_writer(std::sync::Mutex::new(log_writer))
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new("warn,notify=error,walkdir=error")
+                tracing_subscriber::EnvFilter::new("info,notify=error,walkdir=error")
             }),
         )
         .init();
@@ -122,9 +124,13 @@ async fn main() -> Result<()> {
         eprintln!("\nTo create your Slack app:");
         eprintln!("  1. Go to https://api.slack.com/apps → Create New App → From a manifest");
         eprintln!("  2. Select your workspace and paste the manifest above");
-        eprintln!("  3. After creating, generate an App-Level Token with `connections:write` scope");
+        eprintln!(
+            "  3. After creating, generate an App-Level Token with `connections:write` scope"
+        );
         eprintln!("  4. Install the app to your workspace");
-        eprintln!("  5. Run `opman --slack-setup` with your Client ID, Client Secret, and App Token");
+        eprintln!(
+            "  5. Run `opman --slack-setup` with your Client ID, Client Secret, and App Token"
+        );
         return Ok(());
     }
 
@@ -134,6 +140,28 @@ async fn main() -> Result<()> {
     let enable_neovim_mcp = !no_mcp && !args.iter().any(|a| a == "--no-neovim-mcp");
     let enable_time_mcp = !no_mcp && !args.iter().any(|a| a == "--no-time-mcp");
     let enable_any_mcp = enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp;
+
+    // ── Parse --web-* flags for the web UI server ────────────────────
+    let web_port: Option<u16> = args
+        .iter()
+        .position(|a| a == "--web-port")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|v| v.parse().ok());
+    let web_user = args
+        .iter()
+        .position(|a| a == "--web-user")
+        .and_then(|i| args.get(i + 1).cloned())
+        .or_else(|| std::env::var("OPMAN_WEB_USER").ok())
+        .unwrap_or_default();
+    let web_pass = args
+        .iter()
+        .position(|a| a == "--web-pass")
+        .and_then(|i| args.get(i + 1).cloned())
+        .or_else(|| std::env::var("OPMAN_WEB_PASS").ok())
+        .unwrap_or_default();
+    let web_only = args.iter().any(|a| a == "--web-only");
+    let enable_web =
+        web_only || args.iter().any(|a| a == "--web") || web_port.is_some() || !web_user.is_empty();
 
     info!("opman starting");
 
@@ -166,6 +194,38 @@ async fn main() -> Result<()> {
     // Generate theme files for PTY programs (neovim, zsh, gitui)
     if let Err(e) = theme_gen::write_theme_files(&app.theme) {
         tracing::warn!("Failed to write theme files: {}", e);
+    }
+
+    // 3b. Start web UI server (if enabled) — fully independent, no TUI coupling
+    let (web_actual_port, web_state_handle): (u16, Option<web::WebStateHandle>) = if enable_web {
+        let (actual_port, wsh) = web::start_web_server(web::WebConfig {
+            port: web_port,
+            username: web_user,
+            password: web_pass,
+        });
+        info!("Web UI available at http://localhost:{}", actual_port);
+        // Set the initial theme so web clients can fetch it immediately
+        let initial_theme = web::WebThemeColors::from_theme(&app.theme);
+        let wsh_clone = wsh.clone();
+        tokio::spawn(async move {
+            wsh_clone.set_theme(initial_theme).await;
+        });
+        (actual_port, Some(wsh))
+    } else {
+        (0, None)
+    };
+    // ── web-only mode: skip the TUI entirely, run headless ────────
+    if web_only {
+        info!("Running in web-only mode (no TUI)");
+        // The WebStateHandle manages its own background pollers (session_poller,
+        // opencode_sse_listener) so we don't need the App's event loop.
+        // Just block until Ctrl+C.
+        println!("opman web-only mode — web UI at http://localhost:{}", web_actual_port);
+        println!("Press Ctrl+C to stop.");
+        tokio::signal::ctrl_c().await.ok();
+        server::kill_server(&server_handle);
+        info!("opman shut down (web-only)");
+        return Ok(());
     }
 
     // 4. Setup terminal — TUI renders IMMEDIATELY after this
@@ -354,7 +414,8 @@ async fn main() -> Result<()> {
         }
     }
     // 7. Main event loop — TUI renders on first iteration (instant startup!)
-    let result = run_event_loop(&mut terminal, &mut app, watcher_rx, bg_rx).await;
+    let result =
+        run_event_loop(&mut terminal, &mut app, watcher_rx, bg_rx, web_state_handle).await;
 
     // 8. Cleanup (always runs, even if event loop errored)
     disable_raw_mode().ok();
@@ -561,6 +622,7 @@ async fn run_event_loop(
     app: &mut App,
     watcher_rx: std::sync::mpsc::Receiver<notify::Event>,
     mut bg_rx: mpsc::UnboundedReceiver<BackgroundEvent>,
+    web_state_handle: Option<web::WebStateHandle>,
 ) -> Result<()> {
     let mut last_session_fetch = Instant::now();
     let mut last_theme_reload = Instant::now();
@@ -696,6 +758,16 @@ async fn run_event_loop(
                 app.update_ptys_for_theme();
                 last_theme_reload = Instant::now();
                 app.needs_redraw = true;
+
+                // Broadcast theme change to web UI clients
+                if let Some(ref wsh) = web_state_handle {
+                    let colors = web::WebThemeColors::from_theme(&app.theme);
+                    let wsh = wsh.clone();
+                    tokio::spawn(async move {
+                        wsh.set_theme(colors).await;
+                    });
+                }
+
                 tracing::debug!("Theme reloaded from KV store change");
                 continue;
             }
