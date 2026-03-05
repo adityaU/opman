@@ -214,6 +214,18 @@ async fn main() -> Result<()> {
     } else {
         (0, None)
     };
+
+    // ── Spawn Cloudflare tunnel if configured ────────────────────────
+    let _tunnel_handle: Option<web::TunnelHandle> = if enable_web {
+        if let Some(mode) = web::detect_tunnel_mode() {
+            Some(web::spawn_tunnel(mode, web_actual_port).await)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     // ── web-only mode: skip the TUI entirely, run headless ────────
     if web_only {
         info!("Running in web-only mode (no TUI)");
@@ -221,6 +233,9 @@ async fn main() -> Result<()> {
         // opencode_sse_listener) so we don't need the App's event loop.
         // Just block until Ctrl+C.
         println!("opman web-only mode — web UI at http://localhost:{}", web_actual_port);
+        if _tunnel_handle.is_some() {
+            println!("  (also exposed via Cloudflare tunnel — see URL above)");
+        }
         println!("Press Ctrl+C to stop.");
         tokio::signal::ctrl_c().await.ok();
         server::kill_server(&server_handle);

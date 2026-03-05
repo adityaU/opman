@@ -39,11 +39,13 @@ pub mod pty_manager;
 mod sse;
 mod static_files;
 pub mod types;
+mod tunnel;
 mod web_state;
 
 // Re-export public API used by main.rs
 pub use types::ServerState;
 pub use types::WebThemeColors;
+pub use tunnel::{detect_tunnel_mode, spawn_tunnel, TunnelHandle};
 pub use web_state::WebStateHandle;
 
 use axum::routing::{get, post};

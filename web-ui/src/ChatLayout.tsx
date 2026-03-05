@@ -75,9 +75,6 @@ export function ChatLayout() {
     refreshMessages,
     clearPermission,
     clearQuestion,
-    loadMoreMessages,
-    hasMoreMessages,
-    isLoadingMore,
   } = sse;
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -435,9 +432,6 @@ export function ChatLayout() {
             messages={messages}
             sessionStatus={sessionStatus}
             activeSessionId={activeSessionId}
-            onLoadMore={loadMoreMessages}
-            hasMoreMessages={hasMoreMessages}
-            isLoadingMore={isLoadingMore}
           />
 
           {/* Permission dock */}

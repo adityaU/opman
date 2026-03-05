@@ -274,54 +274,26 @@ export function createEventsSSE(): EventSource {
 
 // ── Session messages ───────────────────────────────────
 
-/** Pagination options for message fetching */
-export interface MessagePaginationOptions {
-  limit?: number;
-  offset?: number;
-  /** Fetch the last N messages (convenience for initial load). */
-  tail?: number;
-}
-
-/** Response from the paginated messages endpoint */
-export interface PaginatedMessages {
-  messages: Message[];
-  total: number;
-  /** The actual offset used (especially useful with `tail`). */
-  offset: number;
-}
-
-/** Fetch messages for a session with optional pagination.
- *  Returns { messages, total } so the caller knows if more exist. */
+/** Fetch all messages for a session, sorted by creation time. */
 export async function fetchSessionMessages(
-  sessionId: string,
-  options?: MessagePaginationOptions
-): Promise<PaginatedMessages> {
-  const params = new URLSearchParams();
-  if (options?.limit !== undefined) params.set("limit", String(options.limit));
-  if (options?.offset !== undefined) params.set("offset", String(options.offset));
-  if (options?.tail !== undefined) params.set("tail", String(options.tail));
-  const query = params.toString() ? `?${params.toString()}` : "";
+  sessionId: string
+): Promise<Message[]> {
+  const data = await apiFetch<unknown>(`/session/${sessionId}/messages`);
 
-  const data = await apiFetch<unknown>(`/session/${sessionId}/messages${query}`);
-
-  // New response format: { messages: [...], total: N, offset: M }
+  // Response format: { messages: [...] }
   if (data && typeof data === "object" && !Array.isArray(data)) {
     const resp = data as Record<string, unknown>;
-    if ("messages" in resp && "total" in resp) {
-      const messages = Array.isArray(resp.messages) ? (resp.messages as Message[]) : [];
-      const total = typeof resp.total === "number" ? resp.total : messages.length;
-      const offset = typeof resp.offset === "number" ? resp.offset : 0;
-      return { messages, total, offset };
+    if ("messages" in resp && Array.isArray(resp.messages)) {
+      return resp.messages as Message[];
     }
     // Legacy fallback: object keyed by message ID
-    const messages = Object.values(resp) as Message[];
-    return { messages, total: messages.length, offset: 0 };
+    return Object.values(resp) as Message[];
   }
   // Legacy fallback: plain array
   if (Array.isArray(data)) {
-    return { messages: data as Message[], total: data.length, offset: 0 };
+    return data as Message[];
   }
-  return { messages: [], total: 0, offset: 0 };
+  return [];
 }
 
 /** Model reference for the message endpoint */

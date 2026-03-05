@@ -7,44 +7,17 @@ interface Props {
   messages: Message[];
   sessionStatus: "idle" | "busy";
   activeSessionId: string | null;
-  /** Called when user scrolls to the top and more messages are available. */
-  onLoadMore?: () => void;
-  /** Whether there are older messages to load. */
-  hasMoreMessages?: boolean;
-  /** Whether a "load more" request is currently in flight. */
-  isLoadingMore?: boolean;
 }
-
-/** Threshold in pixels from the top to trigger loading more messages. */
-const SCROLL_TOP_THRESHOLD = 80;
 
 export function MessageTimeline({
   messages,
   sessionStatus,
   activeSessionId,
-  onLoadMore,
-  hasMoreMessages,
-  isLoadingMore,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   /** Tracks whether we should auto-scroll to bottom (user is near bottom). */
   const shouldAutoScrollRef = useRef(true);
-  /** Used to preserve scroll position when prepending older messages. */
-  const prevScrollHeightRef = useRef(0);
-  const wasLoadingMoreRef = useRef(false);
-
-  // Detect when "load more" finishes and restore scroll position
-  useEffect(() => {
-    if (wasLoadingMoreRef.current && !isLoadingMore && containerRef.current) {
-      // Older messages were prepended — adjust scrollTop so the same content
-      // stays in view (the container's scrollHeight grew by the prepended amount).
-      const newScrollHeight = containerRef.current.scrollHeight;
-      const delta = newScrollHeight - prevScrollHeightRef.current;
-      containerRef.current.scrollTop += delta;
-    }
-    wasLoadingMoreRef.current = !!isLoadingMore;
-  }, [isLoadingMore]);
 
   // Auto-scroll to bottom on new messages (only if user was already near bottom)
   useEffect(() => {
@@ -53,28 +26,15 @@ export function MessageTimeline({
     }
   }, [messages.length, sessionStatus]);
 
-  // Scroll listener: detect scroll-to-top (load more) and track if user is near bottom
+  // Scroll listener: track if user is near bottom for auto-scroll decision
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Track whether user is near the bottom (for auto-scroll decision)
     const distFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     shouldAutoScrollRef.current = distFromBottom < 100;
-
-    // Trigger "load more" when scrolled near the top
-    if (
-      container.scrollTop < SCROLL_TOP_THRESHOLD &&
-      hasMoreMessages &&
-      !isLoadingMore &&
-      onLoadMore
-    ) {
-      // Save current scroll height so we can restore position after prepend
-      prevScrollHeightRef.current = container.scrollHeight;
-      onLoadMore();
-    }
-  }, [hasMoreMessages, isLoadingMore, onLoadMore]);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -113,18 +73,6 @@ export function MessageTimeline({
   return (
     <div className="message-timeline" ref={containerRef}>
       <div className="message-timeline-inner">
-        {/* Loading indicator at top when fetching older messages */}
-        {isLoadingMore && (
-          <div className="message-loading-more">
-            <Loader2 size={14} className="spin" />
-            <span>Loading older messages...</span>
-          </div>
-        )}
-        {hasMoreMessages && !isLoadingMore && (
-          <div className="message-load-more-hint">
-            <span>Scroll up for older messages</span>
-          </div>
-        )}
         {messages.map((msg, idx) => {
           const prevRole = idx > 0 ? messages[idx - 1].info.role : null;
           const isContinuation = prevRole === msg.info.role;

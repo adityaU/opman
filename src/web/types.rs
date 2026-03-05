@@ -285,18 +285,6 @@ pub struct SessionSseQuery {
     pub project_dir: Option<String>,
 }
 
-/// Pagination query params for message fetching.
-#[derive(Deserialize)]
-pub struct MessagePaginationQuery {
-    /// Maximum number of messages to return (default: all).
-    pub limit: Option<usize>,
-    /// Number of messages to skip from the start (default: 0).
-    pub offset: Option<usize>,
-    /// Fetch the last N messages (convenience for initial load).
-    /// When set, overrides `offset` to `max(0, total - tail)`.
-    pub tail: Option<usize>,
-}
-
 // ── Shared Axum state ───────────────────────────────────────────────
 
 /// Shared state available to all Axum handlers via `State<ServerState>`.

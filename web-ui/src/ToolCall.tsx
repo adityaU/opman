@@ -37,19 +37,19 @@ interface Props {
  *   3. Plain text
  */
 export function ToolCall({ part }: Props) {
-  const [expanded, setExpanded] = useState(false);
-
   const toolName = part.tool || part.toolName || "unknown";
   const shortName = formatToolName(toolName);
+
+  // Detect special tool types
+  const isTodoWrite = toolName.includes("todowrite") || toolName.includes("todo_write");
+
+  const [expanded, setExpanded] = useState(isTodoWrite);
 
   const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
   const isCompleted = status === "completed";
   const isRunning = status === "running" || status === "pending";
-
-  // Detect special tool types
-  const isTodoWrite = toolName.includes("todowrite") || toolName.includes("todo_write");
   const isEditTool = toolName.includes("edit") && !toolName.includes("neovim");
 
   const durationMs =

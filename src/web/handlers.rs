@@ -6,7 +6,7 @@
 //! State queries use the independent `WebStateHandle` (no TUI dependency).
 //! Terminal I/O goes directly to the `WebPtyManager` (independent web PTYs).
 
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -421,19 +421,13 @@ async fn resolve_project_dir(state: &ServerState) -> WebResult<String> {
         .ok_or(WebError::BadRequest("No active project".into()))
 }
 
-/// GET /api/session/:id/messages — fetch messages for a session.
+/// GET /api/session/:id/messages — fetch all messages for a session.
 ///
-/// Supports optional pagination via query params:
-///   ?limit=N  — maximum number of messages to return (default: all)
-///   ?offset=M — number of messages to skip from the start (default: 0)
-///
-/// Returns `{ messages: [...], total: N }` so the frontend can determine
-/// whether more messages are available for infinite-scroll.
+/// Returns `{ "messages": [...] }` sorted by creation time.
 pub async fn get_session_messages(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Path(session_id): axum::extract::Path<String>,
-    Query(pagination): Query<MessagePaginationQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
     let base = base_url().to_string();
@@ -461,35 +455,14 @@ pub async fn get_session_messages(
     };
 
     // Sort by info.time.created to ensure chronological order.
-    // serde_json's BTreeMap key ordering usually preserves this, but this
-    // is a safety net for when the upstream format changes.
     all_messages.sort_by(|a, b| {
         let time_a = a.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
         let time_b = b.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
         time_a.cmp(&time_b)
     });
 
-    let total = all_messages.len();
-
-    // `tail=N` is a convenience: it sets offset = max(0, total - N) and limit = N.
-    let (offset, limit) = if let Some(tail) = pagination.tail {
-        let off = total.saturating_sub(tail);
-        (off, tail)
-    } else {
-        (pagination.offset.unwrap_or(0), pagination.limit.unwrap_or(total))
-    };
-
-    let sliced: Vec<serde_json::Value> = if offset >= total {
-        vec![]
-    } else {
-        let end = std::cmp::min(offset + limit, total);
-        all_messages[offset..end].to_vec()
-    };
-
     Ok(Json(serde_json::json!({
-        "messages": sliced,
-        "total": total,
-        "offset": offset,
+        "messages": all_messages,
     })))
 }
 
