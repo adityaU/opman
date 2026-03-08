@@ -139,6 +139,14 @@ struct Cli {
     #[arg(long, value_name = "REGION", env = "OPMAN_CF_TUNNEL_REGION")]
     tunnel_region: Option<String>,
 
+    /// Hardcode Cloudflare edge IP:port addresses, bypassing DNS discovery
+    /// entirely.  Accepts one or more addresses (comma-separated or repeated).
+    /// Example: --tunnel-edge-ip 198.41.192.167:7844 --tunnel-edge-ip 198.41.200.13:7844
+    /// This is the nuclear option for corporate networks that block all
+    /// Cloudflare DNS lookups.
+    #[arg(long, value_name = "ADDR", env = "OPMAN_CF_TUNNEL_EDGE_IP", value_delimiter = ',')]
+    tunnel_edge_ip: Vec<String>,
+
     // ── MCP control ─────────────────────────────────────────────────
 
     /// Disable all MCP integrations
@@ -412,6 +420,7 @@ async fn main() -> Result<()> {
             let tunnel_opts = web::TunnelOptions {
                 protocol: cli.tunnel_protocol.clone(),
                 region: cli.tunnel_region.clone(),
+                edge_ips: cli.tunnel_edge_ip.clone(),
             };
             Some(web::spawn_tunnel(mode, web_actual_port, &tunnel_opts).await)
         } else {

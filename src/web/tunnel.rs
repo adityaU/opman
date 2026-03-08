@@ -84,6 +84,9 @@ pub struct TunnelOptions {
     pub protocol: Option<String>,
     /// Override the edge region (e.g. "us").
     pub region: Option<String>,
+    /// Static edge IP:port addresses — bypasses DNS discovery entirely.
+    /// Maps to cloudflared's hidden `--edge` flag / `TUNNEL_EDGE` env var.
+    pub edge_ips: Vec<String>,
 }
 
 /// Spawn the `cloudflared` tunnel process.
@@ -693,7 +696,7 @@ async fn spawn_quick(local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(C
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-/// Append protocol/region flags to a cloudflared arg vector.
+/// Append protocol/region/edge flags to a cloudflared arg vector.
 fn apply_tunnel_opts_to_args(args: &mut Vec<String>, opts: &TunnelOptions) {
     if let Some(ref proto) = opts.protocol {
         args.extend([
@@ -706,16 +709,26 @@ fn apply_tunnel_opts_to_args(args: &mut Vec<String>, opts: &TunnelOptions) {
     if let Some(ref region) = opts.region {
         args.extend(["--region".to_string(), region.clone()]);
     }
+    // Static edge addresses — each gets its own --edge flag.
+    // This bypasses DNS discovery entirely inside cloudflared.
+    for addr in &opts.edge_ips {
+        args.extend(["--edge".to_string(), addr.clone()]);
+    }
 }
 
-/// Set environment variables on a `Command` for protocol/region overrides.
+/// Set environment variables on a `Command` for protocol/region/edge overrides.
 fn apply_tunnel_opts_to_env(cmd: &mut Command, opts: &TunnelOptions) {
     if let Some(ref proto) = opts.protocol {
         cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
         cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
     }
-    // cloudflared doesn't have a documented env var for region, but setting
-    // the flag is enough; we include this hook for future-proofing.
+    if let Some(ref region) = opts.region {
+        cmd.env("TUNNEL_REGION", region);
+    }
+    // TUNNEL_EDGE env var accepts comma-separated addresses
+    if !opts.edge_ips.is_empty() {
+        cmd.env("TUNNEL_EDGE", opts.edge_ips.join(","));
+    }
 }
 
 /// Extract a tunnel URL from a cloudflared log line.
