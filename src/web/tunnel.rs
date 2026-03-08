@@ -77,6 +77,15 @@ fn tunnel_data_dir() -> anyhow::Result<PathBuf> {
 
 // ── Public entry point ──────────────────────────────────────────────
 
+/// Extra cloudflared options passed through from CLI flags.
+#[derive(Debug, Clone, Default)]
+pub struct TunnelOptions {
+    /// Override the transport protocol (e.g. "http2").
+    pub protocol: Option<String>,
+    /// Override the edge region (e.g. "us").
+    pub region: Option<String>,
+}
+
 /// Spawn the `cloudflared` tunnel process.
 ///
 /// For **local-managed** tunnels the function ensures a certificate, tunnel,
@@ -87,14 +96,14 @@ fn tunnel_data_dir() -> anyhow::Result<PathBuf> {
 /// URL to appear in stderr and prints it.
 ///
 /// Returns a `TunnelHandle` whose `Drop` kills the child process.
-pub async fn spawn_tunnel(mode: TunnelMode, local_port: u16, protocol: Option<&str>) -> TunnelHandle {
+pub async fn spawn_tunnel(mode: TunnelMode, local_port: u16, opts: &TunnelOptions) -> TunnelHandle {
     let result = match &mode {
         TunnelMode::LocalManaged {
             hostname,
             tunnel_name,
-        } => spawn_local_managed(hostname, tunnel_name, local_port, protocol).await,
-        TunnelMode::Named { token } => spawn_named(token, local_port, protocol).await,
-        TunnelMode::Quick => spawn_quick(local_port, protocol).await,
+        } => spawn_local_managed(hostname, tunnel_name, local_port, opts).await,
+        TunnelMode::Named { token } => spawn_named(token, local_port, opts).await,
+        TunnelMode::Quick => spawn_quick(local_port, opts).await,
     };
 
     match result {
@@ -124,7 +133,7 @@ async fn spawn_local_managed(
     hostname: &str,
     tunnel_name: &str,
     local_port: u16,
-    protocol: Option<&str>,
+    opts: &TunnelOptions,
 ) -> anyhow::Result<(Child, Option<PathBuf>)> {
     let data_dir = tunnel_data_dir()?;
     let cert_path = data_dir.join("cert.pem");
@@ -165,7 +174,7 @@ async fn spawn_local_managed(
         &tunnel_json_path,
         hostname,
         local_port,
-        protocol,
+        opts,
     )?;
 
     // Step 5: Run tunnel
@@ -175,26 +184,21 @@ async fn spawn_local_managed(
     );
 
     let mut args = vec![
-        "--no-autoupdate",
-        "--origincert",
-        cert_path.to_str().unwrap_or_default(),
-        "--config",
-        config_path.to_str().unwrap_or_default(),
-        "tunnel",
+        "--no-autoupdate".to_string(),
+        "--origincert".to_string(),
+        cert_path.to_str().unwrap_or_default().to_string(),
+        "--config".to_string(),
+        config_path.to_str().unwrap_or_default().to_string(),
+        "tunnel".to_string(),
     ];
-    if let Some(proto) = protocol {
-        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
-    }
-    args.extend(["run", tunnel_name]);
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["run".to_string(), tunnel_name.to_string()]);
 
     info!("cloudflared args: {:?}", args);
 
     let mut cmd = Command::new("cloudflared");
     cmd.args(&args);
-    if let Some(proto) = protocol {
-        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
-        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
-    }
+    apply_tunnel_opts_to_env(&mut cmd, opts);
     let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -521,7 +525,7 @@ fn generate_config(
     tunnel_json_path: &Path,
     hostname: &str,
     local_port: u16,
-    protocol: Option<&str>,
+    opts: &TunnelOptions,
 ) -> anyhow::Result<()> {
     let mut config = serde_json::json!({
         "tunnel": tunnel_uuid,
@@ -540,10 +544,16 @@ fn generate_config(
         ]
     });
     // When a protocol override is requested, bake it into the config file as well
-    if let Some(proto) = protocol {
+    if let Some(ref proto) = opts.protocol {
         config.as_object_mut().unwrap().insert(
             "protocol".to_string(),
-            serde_json::Value::String(proto.to_string()),
+            serde_json::Value::String(proto.clone()),
+        );
+    }
+    if let Some(ref region) = opts.region {
+        config.as_object_mut().unwrap().insert(
+            "region".to_string(),
+            serde_json::Value::String(region.clone()),
         );
     }
 
@@ -557,24 +567,19 @@ fn generate_config(
 // ── Remote-managed (named) tunnel ───────────────────────────────────
 
 /// `cloudflared tunnel run --token <token>`
-async fn spawn_named(token: &str, local_port: u16, protocol: Option<&str>) -> anyhow::Result<(Child, Option<PathBuf>)> {
+async fn spawn_named(token: &str, local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
         "Starting named Cloudflare tunnel (port {})",
         local_port
     );
 
-    let mut args = vec!["tunnel"];
-    if let Some(proto) = protocol {
-        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
-    }
-    args.extend(["run", "--token", token]);
+    let mut args = vec!["tunnel".to_string()];
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["run".to_string(), "--token".to_string(), token.to_string()]);
 
     let mut cmd = Command::new("cloudflared");
     cmd.args(&args);
-    if let Some(proto) = protocol {
-        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
-        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
-    }
+    apply_tunnel_opts_to_env(&mut cmd, opts);
     let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -607,24 +612,19 @@ async fn spawn_named(token: &str, local_port: u16, protocol: Option<&str>) -> an
 // ── Quick (ephemeral) tunnel ────────────────────────────────────────
 
 /// `cloudflared tunnel --url http://localhost:<port>`
-async fn spawn_quick(local_port: u16, protocol: Option<&str>) -> anyhow::Result<(Child, Option<PathBuf>)> {
+async fn spawn_quick(local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
         "Starting quick Cloudflare tunnel → http://localhost:{local_port}"
     );
 
     let local_url = format!("http://localhost:{local_port}");
-    let mut args = vec!["tunnel"];
-    if let Some(proto) = protocol {
-        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
-    }
-    args.extend(["--url", &local_url]);
+    let mut args = vec!["tunnel".to_string()];
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["--url".to_string(), local_url]);
 
     let mut cmd = Command::new("cloudflared");
     cmd.args(&args);
-    if let Some(proto) = protocol {
-        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
-        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
-    }
+    apply_tunnel_opts_to_env(&mut cmd, opts);
     let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -693,6 +693,31 @@ async fn spawn_quick(local_port: u16, protocol: Option<&str>) -> anyhow::Result<
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+/// Append protocol/region flags to a cloudflared arg vector.
+fn apply_tunnel_opts_to_args(args: &mut Vec<String>, opts: &TunnelOptions) {
+    if let Some(ref proto) = opts.protocol {
+        args.extend([
+            "--protocol".to_string(),
+            proto.clone(),
+            "--edge-ip-version".to_string(),
+            "4".to_string(),
+        ]);
+    }
+    if let Some(ref region) = opts.region {
+        args.extend(["--region".to_string(), region.clone()]);
+    }
+}
+
+/// Set environment variables on a `Command` for protocol/region overrides.
+fn apply_tunnel_opts_to_env(cmd: &mut Command, opts: &TunnelOptions) {
+    if let Some(ref proto) = opts.protocol {
+        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
+        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
+    }
+    // cloudflared doesn't have a documented env var for region, but setting
+    // the flag is enough; we include this hook for future-proofing.
+}
+
 /// Extract a tunnel URL from a cloudflared log line.
 fn extract_tunnel_url(line: &str) -> Option<String> {
     if let Some(start) = line.find("https://") {
@@ -749,13 +774,14 @@ mod tests {
     #[test]
     fn test_generate_config() {
         let tmp = std::env::temp_dir().join("opman_test_config.json");
+        let opts = TunnelOptions::default();
         generate_config(
             &tmp,
             "test-uuid-1234",
             Path::new("/tmp/tunnel.json"),
             "test.example.com",
             8080,
-            None,
+            &opts,
         )
         .unwrap();
 

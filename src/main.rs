@@ -134,6 +134,11 @@ struct Cli {
     #[arg(long, value_name = "PROTO", env = "OPMAN_CF_TUNNEL_PROTOCOL")]
     tunnel_protocol: Option<String>,
 
+    /// Force cloudflared to connect to a specific region (e.g. "us").
+    /// Can help on corporate networks that block Cloudflare edge DNS.
+    #[arg(long, value_name = "REGION", env = "OPMAN_CF_TUNNEL_REGION")]
+    tunnel_region: Option<String>,
+
     // ── MCP control ─────────────────────────────────────────────────
 
     /// Disable all MCP integrations
@@ -404,7 +409,11 @@ async fn main() -> Result<()> {
     // ── Spawn Cloudflare tunnel if configured ────────────────────────
     let _tunnel_handle: Option<web::TunnelHandle> = if enable_web {
         if let Some(mode) = tunnel_mode {
-            Some(web::spawn_tunnel(mode, web_actual_port, cli.tunnel_protocol.as_deref()).await)
+            let tunnel_opts = web::TunnelOptions {
+                protocol: cli.tunnel_protocol.clone(),
+                region: cli.tunnel_region.clone(),
+            };
+            Some(web::spawn_tunnel(mode, web_actual_port, &tunnel_opts).await)
         } else {
             None
         }

@@ -46,7 +46,7 @@ mod web_state;
 // Re-export public API used by main.rs
 pub use types::ServerState;
 pub use types::WebThemeColors;
-pub use tunnel::{spawn_tunnel, TunnelHandle, TunnelMode};
+pub use tunnel::{spawn_tunnel, TunnelHandle, TunnelMode, TunnelOptions};
 pub use web_state::WebStateHandle;
 
 use axum::routing::{delete, get, post};
