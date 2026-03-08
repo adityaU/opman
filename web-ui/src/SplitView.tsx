@@ -19,8 +19,10 @@ interface SplitViewProps {
 }
 
 async function loadMessages(sessionId: string): Promise<Message[]> {
-  try { return await fetchSessionMessages(sessionId); }
-  catch { return []; }
+  try {
+    const resp = await fetchSessionMessages(sessionId);
+    return resp.messages;
+  } catch { return []; }
 }
 
 /** Hook: fetch + poll messages for a session, polling every 3s while busy. */

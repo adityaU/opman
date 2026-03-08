@@ -28,7 +28,6 @@ function PermissionCard({
 
   // Auto-focus the "Allow Once" button when the card mounts
   useEffect(() => {
-    // Small delay to ensure the DOM is ready
     const timer = setTimeout(() => {
       allowOnceRef.current?.focus();
     }, 50);
@@ -56,16 +55,23 @@ function PermissionCard({
       <div className="permission-header">
         <ShieldAlert size={16} className="permission-icon" />
         <span className="permission-title">Permission Required</span>
-        <span className="permission-hint">Enter=allow, A=always, Esc=reject</span>
+        <span className="permission-hint">Enter = allow &middot; A = always &middot; Esc = reject</span>
       </div>
       <div className="permission-body">
-        <div className="permission-tool">{perm.toolName}</div>
+        <div className="permission-tool">{perm.toolName || "Unknown permission"}</div>
         {perm.description && (
           <div className="permission-desc">{perm.description}</div>
         )}
-        {perm.args && Object.keys(perm.args).length > 0 && (
+        {perm.patterns && perm.patterns.length > 0 && (
+          <div className="permission-patterns">
+            {perm.patterns.map((p, i) => (
+              <code key={i} className="permission-pattern">{p}</code>
+            ))}
+          </div>
+        )}
+        {perm.metadata && Object.keys(perm.metadata).length > 0 && (
           <pre className="permission-args">
-            {JSON.stringify(perm.args, null, 2)}
+            {JSON.stringify(perm.metadata, null, 2)}
           </pre>
         )}
       </div>

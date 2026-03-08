@@ -13,8 +13,83 @@ import {
   type ActivityEvent,
   type ClientPresence,
 } from "../api";
-import type { Message, MessagePart, PermissionRequest, QuestionRequest, OpenCodeEvent } from "../types";
+import type { Message, MessagePart, PermissionRequest, QuestionRequest, QuestionItem, OpenCodeEvent } from "../types";
 import { applyThemeToCss } from "../utils/theme";
+
+// ── Upstream SSE → frontend type transformers ─────────────────────
+
+/** Build a human-readable description for a permission request from upstream fields. */
+function formatPermissionDescription(props: Record<string, unknown>): string | undefined {
+  const permission = (props.permission ?? "") as string;
+  const patterns = Array.isArray(props.patterns) ? (props.patterns as string[]) : [];
+
+  const parts: string[] = [];
+  if (permission) parts.push(permission);
+  if (patterns.length > 0) parts.push(patterns.join(", "));
+  return parts.length > 0 ? parts.join(": ") : undefined;
+}
+
+/** Derive a title for a question request from upstream fields.
+ *  Upstream QuestionRequest has no `title`; we use the first question's header or fall back. */
+function deriveQuestionTitle(
+  props: Record<string, unknown>,
+  rawQuestions: unknown[],
+): string {
+  // Check if there's a title directly (future-proofing)
+  if (typeof props.title === "string" && props.title) return props.title;
+  // Use first question's header
+  if (rawQuestions.length > 0) {
+    const first = rawQuestions[0] as Record<string, unknown>;
+    if (typeof first.header === "string" && first.header) return first.header;
+  }
+  return "Question";
+}
+
+/**
+ * Transform an upstream QuestionInfo object to the frontend QuestionItem type.
+ *
+ * Upstream QuestionInfo: { question, header, options: [{label, description}], multiple, custom }
+ * Frontend QuestionItem: { text, header, type, options: string[], optionDescriptions, multiple, custom }
+ */
+function transformQuestionInfo(raw: unknown): QuestionItem {
+  const info = raw as Record<string, unknown>;
+  const question = (info.question ?? info.text ?? "") as string;
+  const header = (info.header ?? "") as string;
+  const multiple = Boolean(info.multiple);
+  // `custom` defaults to true in upstream opencode (allows free-text alongside options)
+  const custom = info.custom !== undefined ? Boolean(info.custom) : true;
+
+  // Parse options array — upstream sends [{label, description}]
+  const rawOptions = Array.isArray(info.options) ? info.options : [];
+  const optionLabels: string[] = [];
+  const optionDescs: string[] = [];
+  for (const opt of rawOptions) {
+    if (typeof opt === "string") {
+      optionLabels.push(opt);
+      optionDescs.push("");
+    } else if (opt && typeof opt === "object") {
+      const o = opt as Record<string, unknown>;
+      optionLabels.push((o.label ?? "") as string);
+      optionDescs.push((o.description ?? "") as string);
+    }
+  }
+
+  // Derive the question type from the structure
+  let type: QuestionItem["type"] = "text";
+  if (optionLabels.length > 0) {
+    type = "select";
+  }
+
+  return {
+    text: question,
+    header: header || undefined,
+    type,
+    options: optionLabels.length > 0 ? optionLabels : undefined,
+    optionDescriptions: optionDescs.some((d) => d.length > 0) ? optionDescs : undefined,
+    multiple,
+    custom,
+  };
+}
 
 /** Watcher status pushed via SSE (mirrors backend WatcherStatusEvent). */
 export interface WatcherStatus {
@@ -46,6 +121,12 @@ export interface SSEState {
   sessionStatus: "idle" | "busy";
   /** True while loading messages for a newly-selected session */
   isLoadingMessages: boolean;
+  /** True while loading older messages (pagination scroll-up) */
+  isLoadingOlder: boolean;
+  /** True if there are older messages available to load */
+  hasOlderMessages: boolean;
+  /** Total message count in the session (reported by server) */
+  totalMessageCount: number;
   /** Latest watcher status from SSE (null = no watcher or deleted). */
   watcherStatus: WatcherStatus | null;
   /** Messages for subagent sessions, keyed by session ID. */
@@ -75,6 +156,8 @@ export interface SSEState {
   /** Add an optimistic user message that shows immediately.
    *  It will be removed when the real server message arrives via refreshMessages/SSE. */
   addOptimisticMessage: (text: string) => void;
+  /** Load older messages (pagination). Returns true if more messages exist. */
+  loadOlderMessages: () => Promise<boolean>;
 }
 
 // ── Helpers for extracting message ID ──────────────────────────────
@@ -278,6 +361,9 @@ function removePart(map: MessageMap, messageID: string, partID: string): boolean
 
 // ── Hook ───────────────────────────────────────────────────────────
 
+/** Number of messages to load per page. */
+const MESSAGE_PAGE_SIZE = 50;
+
 export function useSSE(): SSEState {
   const [appState, setAppState] = useState<AppState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -287,6 +373,9 @@ export function useSSE(): SSEState {
   const [questions, setQuestions] = useState<QuestionRequest[]>([]);
   const [sessionStatus, setSessionStatus] = useState<"idle" | "busy">("idle");
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [watcherStatus, setWatcherStatus] = useState<WatcherStatus | null>(null);
   const [subagentMessages, setSubagentMessages] = useState<Map<string, Message[]>>(new Map());
   const [fileEditCount, setFileEditCount] = useState(0);
@@ -324,7 +413,8 @@ export function useSSE(): SSEState {
       const gen = sessionGenRef.current;
       // Only flush if the session hasn't changed
       if (gen === sessionGenRef.current) {
-        setMessages(mapToSortedArray(messageMapRef.current));
+        const sorted = mapToSortedArray(messageMapRef.current);
+        setMessages(sorted);
       }
     }, 16); // ~1 frame at 60fps
   }, []);
@@ -368,6 +458,47 @@ export function useSSE(): SSEState {
   /** No-op — messages are fully SSE-driven. Kept for interface compat. */
   const refreshMessages = useCallback(async () => {}, []);
 
+  /** Load older messages (pagination — prepend to the map).
+   *  Returns true if even more older messages remain. */
+  const loadOlderMessages = useCallback(async (): Promise<boolean> => {
+    const sid = activeSessionRef.current;
+    if (!sid || isLoadingOlder) return false;
+
+    // Find the oldest message timestamp currently in the map
+    const map = messageMapRef.current;
+    let oldestTs = Infinity;
+    for (const msg of map.values()) {
+      const ts = getMessageTime(msg);
+      if (ts > 0 && ts < oldestTs) oldestTs = ts;
+    }
+    if (oldestTs === Infinity) return false; // no messages loaded yet
+
+    setIsLoadingOlder(true);
+    try {
+      const gen = sessionGenRef.current;
+      const resp = await fetchSessionMessages(sid, {
+        limit: MESSAGE_PAGE_SIZE,
+        before: oldestTs,
+      });
+      if (gen !== sessionGenRef.current) return false; // stale
+
+      // Merge older messages into the existing map (won't overwrite newer ones)
+      for (const msg of resp.messages) {
+        const id = msg.info.messageID || msg.info.id || "";
+        if (id && !map.has(id)) {
+          map.set(id, msg);
+        }
+      }
+      setMessages(mapToSortedArray(map));
+      setHasOlderMessages(resp.has_more);
+      return resp.has_more;
+    } catch {
+      return false;
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [isLoadingOlder]);
+
   const clearPermission = useCallback((id: string) => {
     setPermissions((prev) => prev.filter((p) => p.id !== id));
   }, []);
@@ -389,23 +520,27 @@ export function useSSE(): SSEState {
       // Clear the message map for the new session
       messageMapRef.current = new Map();
       setMessages([]);
+      setHasOlderMessages(false);
+      setTotalMessageCount(0);
       // Clear live activity events for the new session
       setLiveActivityEvents([]);
 
       if (sid) {
         setIsLoadingMessages(true);
 
-        // Initial REST fetch to populate message history
-        fetchSessionMessages(sid)
-          .then((msgs) => {
+        // Initial REST fetch — only the latest page of messages
+        fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
+          .then((resp) => {
             if (gen !== sessionGenRef.current) return; // stale
             const newMap: MessageMap = new Map();
-            for (const msg of msgs) {
+            for (const msg of resp.messages) {
               const id = msg.info.messageID || msg.info.id || "";
               if (id) newMap.set(id, msg);
             }
             messageMapRef.current = newMap;
             setMessages(mapToSortedArray(newMap));
+            setHasOlderMessages(resp.has_more);
+            setTotalMessageCount(resp.total);
           })
           .catch(() => {
             if (gen !== sessionGenRef.current) return;
@@ -673,12 +808,16 @@ export function useSSE(): SSEState {
           refreshState();
           break;
         case "permission.asked": {
+          // Upstream shape: { id, sessionID, permission, patterns, metadata }
           const perm: PermissionRequest = {
             id: (props.id ?? props.requestID ?? "") as string,
             sessionID: (props.sessionID ?? "") as string,
-            toolName: (props.toolName ?? "") as string,
-            description: props.description as string | undefined,
-            args: props.args as Record<string, unknown> | undefined,
+            toolName: (props.permission ?? props.toolName ?? "") as string,
+            description: formatPermissionDescription(props),
+            patterns: Array.isArray(props.patterns) ? (props.patterns as string[]) : undefined,
+            metadata: (props.metadata && typeof props.metadata === "object")
+              ? props.metadata as Record<string, unknown>
+              : undefined,
             time: Date.now(),
           };
           if (perm.id && perm.sessionID === activeSessionRef.current) {
@@ -687,11 +826,14 @@ export function useSSE(): SSEState {
           break;
         }
         case "question.asked": {
+          // Upstream shape: { id, sessionID, questions: QuestionInfo[] }
+          // QuestionInfo: { question, header, options: [{label, description}], multiple, custom }
+          const rawQuestions = Array.isArray(props.questions) ? props.questions : [];
           const q: QuestionRequest = {
             id: (props.id ?? props.requestID ?? "") as string,
             sessionID: (props.sessionID ?? "") as string,
-            title: (props.title ?? "") as string,
-            questions: (props.questions ?? []) as QuestionRequest["questions"],
+            title: deriveQuestionTitle(props, rawQuestions),
+            questions: rawQuestions.map(transformQuestionInfo),
             time: Date.now(),
           };
           if (q.id && q.sessionID === activeSessionRef.current) {
@@ -764,6 +906,9 @@ export function useSSE(): SSEState {
     questions,
     sessionStatus,
     isLoadingMessages,
+    isLoadingOlder,
+    hasOlderMessages,
+    totalMessageCount,
     watcherStatus,
     subagentMessages,
     fileEditCount,
@@ -780,5 +925,6 @@ export function useSSE(): SSEState {
     clearMcpEditorOpen,
     clearMcpTerminalFocus,
     addOptimisticMessage,
+    loadOlderMessages,
   };
 }

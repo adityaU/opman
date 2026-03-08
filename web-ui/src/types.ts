@@ -45,7 +45,7 @@ export interface ToolPartState {
   status?: "completed" | "pending" | "running" | "error";
   title?: string;
   time?: { start?: number; end?: number };
-  metadata?: { truncated?: boolean };
+  metadata?: { truncated?: boolean; sessionId?: string; model?: string; [key: string]: unknown };
   attachments?: unknown[];
 }
 
@@ -99,9 +99,13 @@ export interface Message {
 export interface PermissionRequest {
   id: string;
   sessionID: string;
+  /** Permission kind, e.g. "edit", "bash", "read" (mapped from upstream `permission` field) */
   toolName: string;
   description?: string;
-  args?: Record<string, unknown>;
+  /** File/glob patterns relevant to this permission */
+  patterns?: string[];
+  /** Raw metadata from upstream (tool args, context, etc.) */
+  metadata?: Record<string, unknown>;
   time: number;
 }
 
@@ -114,10 +118,19 @@ export interface QuestionRequest {
 }
 
 export interface QuestionItem {
+  /** The question text to display */
   text: string;
+  /** Short label for the question group */
+  header?: string;
   type: "text" | "select" | "confirm";
+  /** Option labels for select/confirm types */
   options?: string[];
+  /** Option descriptions (parallel to options array) */
+  optionDescriptions?: string[];
+  /** Allow selecting multiple options */
   multiple?: boolean;
+  /** Allow custom free-text input even when options are present */
+  custom?: boolean;
 }
 
 // ── Provider & Model types ──────────────────────────────────────────

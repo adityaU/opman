@@ -331,26 +331,60 @@ export function createEventsSSE(): EventSource {
 
 // ── Session messages ───────────────────────────────────
 
-/** Fetch all messages for a session, sorted by creation time. */
-export async function fetchSessionMessages(
-  sessionId: string
-): Promise<Message[]> {
-  const data = await apiFetch<unknown>(`/session/${sessionId}/messages`);
+/** Pagination options for fetchSessionMessages. */
+export interface MessagePageOptions {
+  /** Max number of messages to return. Omit or 0 for all. */
+  limit?: number;
+  /** Only return messages created before this Unix-ms timestamp (exclusive). */
+  before?: number;
+}
 
-  // Response format: { messages: [...] }
+/** Response shape from the paginated messages endpoint. */
+export interface MessagePageResponse {
+  messages: Message[];
+  /** True if there are older messages available before this page. */
+  has_more: boolean;
+  /** Total number of messages in the session (before pagination). */
+  total: number;
+}
+
+/** Fetch messages for a session with optional pagination.
+ *
+ *  - No options → returns ALL messages (backward compatible).
+ *  - `{ limit: 50 }` → returns the 50 most recent messages.
+ *  - `{ limit: 50, before: ts }` → returns 50 messages before `ts`.
+ */
+export async function fetchSessionMessages(
+  sessionId: string,
+  page?: MessagePageOptions
+): Promise<MessagePageResponse> {
+  const params = new URLSearchParams();
+  if (page?.limit && page.limit > 0) params.set("limit", String(page.limit));
+  if (page?.before) params.set("before", String(page.before));
+  const qs = params.toString();
+  const url = `/session/${sessionId}/messages${qs ? `?${qs}` : ""}`;
+
+  const data = await apiFetch<unknown>(url);
+
+  // New paginated response: { messages: [...], has_more, total }
   if (data && typeof data === "object" && !Array.isArray(data)) {
     const resp = data as Record<string, unknown>;
     if ("messages" in resp && Array.isArray(resp.messages)) {
-      return resp.messages as Message[];
+      return {
+        messages: resp.messages as Message[],
+        has_more: resp.has_more === true,
+        total: typeof resp.total === "number" ? resp.total : resp.messages.length,
+      };
     }
     // Legacy fallback: object keyed by message ID
-    return Object.values(resp) as Message[];
+    const msgs = Object.values(resp) as Message[];
+    return { messages: msgs, has_more: false, total: msgs.length };
   }
   // Legacy fallback: plain array
   if (Array.isArray(data)) {
-    return data as Message[];
+    return { messages: data as Message[], has_more: false, total: data.length };
   }
-  return [];
+  return { messages: [], has_more: false, total: 0 };
 }
 
 /** Model reference for the message endpoint */
@@ -1210,10 +1244,17 @@ export async function registerPresence(
 
 /** Deregister this client's presence (on tab close). */
 export async function deregisterPresence(clientId: string): Promise<void> {
-  await apiDelete("/presence");
-  // Note: body not supported by DELETE in our helper, but the backend
-  // can extract from query or we can send as POST. For simplicity,
-  // we'll use a POST to a different endpoint or accept it via query.
+  const res = await fetch("/api/presence", {
+    method: "DELETE",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: clientId }),
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.reload();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
 }
 
 export async function fetchMissions(): Promise<MissionsListResponse> {

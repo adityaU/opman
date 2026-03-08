@@ -176,29 +176,31 @@ describe("apiFetch (via fetchAppState)", () => {
 describe("fetchSessionMessages", () => {
   it("extracts from { messages: [...] } format", async () => {
     const msgs = [{ info: { role: "user" }, parts: [] }];
-    mockFetch({ ok: true, json: () => Promise.resolve({ messages: msgs }) });
+    mockFetch({ ok: true, json: () => Promise.resolve({ messages: msgs, has_more: false, total: 1 }) });
     const result = await fetchSessionMessages("sid1");
-    expect(result).toEqual(msgs);
+    expect(result.messages).toEqual(msgs);
+    expect(result.has_more).toBe(false);
+    expect(result.total).toBe(1);
   });
 
   it("handles legacy object-keyed format", async () => {
     const msg1 = { info: { role: "user" }, parts: [] };
     mockFetch({ ok: true, json: () => Promise.resolve({ msg1 }) });
     const result = await fetchSessionMessages("sid1");
-    expect(result).toEqual([msg1]);
+    expect(result.messages).toEqual([msg1]);
   });
 
   it("handles plain array format", async () => {
     const msgs = [{ info: { role: "user" }, parts: [] }];
     mockFetch({ ok: true, json: () => Promise.resolve(msgs) });
     const result = await fetchSessionMessages("sid1");
-    expect(result).toEqual(msgs);
+    expect(result.messages).toEqual(msgs);
   });
 
   it("returns empty array for unexpected format", async () => {
     mockFetch({ ok: true, json: () => Promise.resolve(42) });
     const result = await fetchSessionMessages("sid1");
-    expect(result).toEqual([]);
+    expect(result.messages).toEqual([]);
   });
 });
 

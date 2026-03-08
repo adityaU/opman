@@ -1276,6 +1276,13 @@ pub struct ServerState {
     pub password: String,
     /// Broadcast channel for app events (state changes, busy/idle, etc.).
     pub event_tx: broadcast::Sender<WebEvent>,
+    /// Broadcast channel for raw upstream opencode SSE events.
+    /// Each value is the raw JSON string from the upstream `/event` stream
+    /// (already extracted from the `data:` SSE field).  The web
+    /// `session_events_stream` subscribes here instead of opening a separate
+    /// upstream connection (the opencode server may limit concurrent SSE
+    /// consumers per project).
+    pub raw_sse_tx: broadcast::Sender<String>,
     /// Handle to the web PTY manager (independent from TUI PTYs).
     pub pty_mgr: WebPtyHandle,
     /// Shared HTTP client for proxying requests to the opencode server.

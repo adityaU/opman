@@ -79,6 +79,9 @@ pub fn start_web_server(
     nvim_registry: crate::mcp::NvimSocketRegistry,
 ) -> (u16, WebStateHandle) {
     let (event_tx, _event_rx) = broadcast::channel::<WebEvent>(1000);
+    // Raw upstream SSE events — re-broadcast to web clients so we don't need
+    // a separate upstream connection per browser tab.
+    let (raw_sse_tx, _) = broadcast::channel::<String>(2000);
 
     // Generate JWT secret (random per run — sessions don't survive restart)
     let jwt_secret: Vec<u8> = {
@@ -95,7 +98,7 @@ pub fn start_web_server(
         tracing::warn!("Failed to load config for web state: {e}, using defaults");
         Config::default()
     });
-    let web_state = WebStateHandle::new(&app_config, event_tx.clone());
+    let web_state = WebStateHandle::new(&app_config, event_tx.clone(), raw_sse_tx.clone());
     let web_state_ret = web_state.clone();
 
     let shared_state = ServerState {
@@ -104,6 +107,7 @@ pub fn start_web_server(
         username: config.username,
         password: config.password,
         event_tx,
+        raw_sse_tx,
         pty_mgr,
         http_client: reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))

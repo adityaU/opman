@@ -11,6 +11,14 @@ interface Props {
   activeSessionId: string | null;
   /** True while messages are being fetched for a newly-selected session */
   isLoadingMessages?: boolean;
+  /** True while older messages are being fetched (pagination) */
+  isLoadingOlder?: boolean;
+  /** True if there are older messages available to load */
+  hasOlderMessages?: boolean;
+  /** Total message count in the session (for display) */
+  totalMessageCount?: number;
+  /** Callback to load older messages (pagination). Returns true if more exist. */
+  onLoadOlder?: () => Promise<boolean>;
   /** App state containing all projects and sessions (optional for subagent views) */
   appState?: AppState | null;
   /** Default model display string (e.g. "claude-sonnet-4-20250514") */
@@ -29,6 +37,8 @@ interface Props {
   onToggleBookmark?: (messageId: string, sessionId: string, role: string, preview: string) => void;
   /** Reports scroll direction when cumulative delta exceeds threshold (mobile input autohide) */
   onScrollDirection?: (direction: "up" | "down") => void;
+  /** Callback to navigate to a child/subagent session */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 /** A group of consecutive messages sharing the same role. */
@@ -125,6 +135,10 @@ export function MessageTimeline({
   sessionStatus,
   activeSessionId,
   isLoadingMessages = false,
+  isLoadingOlder = false,
+  hasOlderMessages = false,
+  totalMessageCount = 0,
+  onLoadOlder,
   appState,
   defaultModel,
   onSendPrompt,
@@ -134,12 +148,15 @@ export function MessageTimeline({
   isBookmarked,
   onToggleBookmark,
   onScrollDirection,
+  onOpenSession,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   /** Tracks whether we should auto-scroll to bottom (user is near bottom). */
   const shouldAutoScrollRef = useRef(true);
   /** Show "Jump to bottom" button when user scrolls up */
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  /** Guard against duplicate loadOlder calls */
+  const loadOlderLockRef = useRef(false);
 
   // ── Scroll direction detection (for mobile input autohide) ──
   const lastScrollTopRef = useRef(0);
@@ -195,21 +212,69 @@ export function MessageTimeline({
   // ── Auto-scroll ──
 
   // Scroll listener: track if user is near bottom + detect scroll direction
+  // + trigger load-older when near top
+  //
+  // Key behavior:
+  //  - tailing mode (shouldAutoScrollRef=true) is ON by default
+  //  - only turns OFF when user explicitly scrolls UP (negative delta)
+  //  - turns back ON when user scrolls to bottom or clicks "Jump to bottom"
+  //  - content growth (new messages appended) does NOT disable tailing
+  const programmaticScrollRef = useRef(false);
+
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const distFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     const nearBottom = distFromBottom < 100;
-    shouldAutoScrollRef.current = nearBottom;
-    setShowJumpToBottom(!nearBottom);
+
+    // If this scroll was triggered by our own programmatic scroll, skip logic
+    if (programmaticScrollRef.current) {
+      programmaticScrollRef.current = false;
+      setShowJumpToBottom(!nearBottom);
+      return;
+    }
+
+    const currentScrollTop = container.scrollTop;
+    const delta = currentScrollTop - lastScrollTopRef.current;
+    lastScrollTopRef.current = currentScrollTop;
+
+    // User scrolled UP → disable tailing
+    if (delta < -5) {
+      shouldAutoScrollRef.current = false;
+    }
+
+    // User reached bottom → re-enable tailing
+    if (nearBottom) {
+      shouldAutoScrollRef.current = true;
+    }
+
+    setShowJumpToBottom(!shouldAutoScrollRef.current && !nearBottom);
+
+    // ── Load older messages when near top ──
+    if (
+      onLoadOlder &&
+      hasOlderMessages &&
+      !loadOlderLockRef.current &&
+      container.scrollTop < 200
+    ) {
+      loadOlderLockRef.current = true;
+      const prevScrollHeight = container.scrollHeight;
+      onLoadOlder().finally(() => {
+        // Restore scroll position after older messages are prepended
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight;
+          const heightDiff = newScrollHeight - prevScrollHeight;
+          if (heightDiff > 0) {
+            container.scrollTop += heightDiff;
+          }
+          loadOlderLockRef.current = false;
+        });
+      });
+    }
 
     // ── Scroll direction detection (rAF-throttled) ──
     if (onScrollDirection) {
-      const currentScrollTop = container.scrollTop;
-      const delta = currentScrollTop - lastScrollTopRef.current;
-      lastScrollTopRef.current = currentScrollTop;
-
       // If direction reversed, reset cumulative delta
       if ((cumulativeDeltaRef.current > 0 && delta < 0) ||
           (cumulativeDeltaRef.current < 0 && delta > 0)) {
@@ -230,7 +295,7 @@ export function MessageTimeline({
         });
       }
     }
-  }, [onScrollDirection]);
+  }, [onScrollDirection, onLoadOlder, hasOlderMessages]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -247,10 +312,18 @@ export function MessageTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleScroll, messages.length]);
 
-  // Auto-scroll to bottom on new messages (only if user was already near bottom)
+  // Derive a lightweight "content fingerprint" so auto-scroll fires when
+  // streaming text is appended to the last message (not just new messages).
+  const lastMsg = messages[messages.length - 1];
+  const contentFingerprint = lastMsg
+    ? (lastMsg.info?.parts?.length ?? 0)
+    : 0;
+
+  // Auto-scroll to bottom on new messages / content changes (tailing mode)
   useEffect(() => {
     if (!shouldAutoScrollRef.current) return;
 
+    programmaticScrollRef.current = true;
     if (useVirtual) {
       virtualizer.scrollToIndex(itemCount - 1, { align: "end" });
     } else {
@@ -259,10 +332,11 @@ export function MessageTimeline({
         container.scrollTop = container.scrollHeight;
       }
     }
-  }, [messages.length, sessionStatus, useVirtual, itemCount, virtualizer]);
+  }, [messages.length, sessionStatus, useVirtual, itemCount, virtualizer, contentFingerprint]);
 
-  // Jump to bottom handler
+  // Jump to bottom handler — re-enables tailing mode
   const scrollToBottom = useCallback(() => {
+    programmaticScrollRef.current = true;
     if (useVirtual) {
       virtualizer.scrollToIndex(itemCount - 1, { align: "end" });
     } else {
@@ -413,6 +487,14 @@ export function MessageTimeline({
     );
   }
 
+  // ── Subtle loading indicator when fetching older messages on scroll ──
+
+  const olderMessagesIndicator = isLoadingOlder ? (
+    <div className="load-older-messages">
+      <span className="load-older-spinner">Loading older messages...</span>
+    </div>
+  ) : null;
+
   // ── Virtualized rendering (large sessions) ──
 
   if (useVirtual) {
@@ -420,6 +502,7 @@ export function MessageTimeline({
 
     return (
       <div className="message-timeline" ref={containerRef} role="log" aria-live="polite" aria-label="Chat messages">
+        {olderMessagesIndicator}
         <div
           className="message-timeline-inner"
           style={{
@@ -444,7 +527,7 @@ export function MessageTimeline({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <MessageTurn group={group} childSessions={childSessions} onRetry={onSendPrompt} subagentMessages={subagentMessages} searchMatchIds={searchMatchIds} activeSearchMatchId={activeSearchMatchId} isBookmarked={isBookmarked} onToggleBookmark={onToggleBookmark} sessionId={activeSessionId} />
+                <MessageTurn group={group} childSessions={childSessions} onRetry={onSendPrompt} subagentMessages={subagentMessages} searchMatchIds={searchMatchIds} activeSearchMatchId={activeSearchMatchId} isBookmarked={isBookmarked} onToggleBookmark={onToggleBookmark} sessionId={activeSessionId} onOpenSession={onOpenSession} />
               </div>
             );
           })}
@@ -464,9 +547,10 @@ export function MessageTimeline({
   return (
     <div className="message-timeline" ref={containerRef} role="log" aria-live="polite" aria-label="Chat messages">
       <div className="message-timeline-inner">
+        {olderMessagesIndicator}
         {groups.map((group) => (
           <div key={group.key} data-group-key={group.key}>
-            <MessageTurn group={group} childSessions={childSessions} onRetry={onSendPrompt} subagentMessages={subagentMessages} searchMatchIds={searchMatchIds} activeSearchMatchId={activeSearchMatchId} isBookmarked={isBookmarked} onToggleBookmark={onToggleBookmark} sessionId={activeSessionId} />
+            <MessageTurn group={group} childSessions={childSessions} onRetry={onSendPrompt} subagentMessages={subagentMessages} searchMatchIds={searchMatchIds} activeSearchMatchId={activeSearchMatchId} isBookmarked={isBookmarked} onToggleBookmark={onToggleBookmark} sessionId={activeSessionId} onOpenSession={onOpenSession} />
           </div>
         ))}
       </div>

@@ -148,6 +148,9 @@ pub struct WebStateHandle {
     inner: Arc<RwLock<WebStateInner>>,
     /// Broadcast channel for notifying SSE clients of state changes.
     event_tx: broadcast::Sender<WebEvent>,
+    /// Broadcast channel for raw upstream opencode SSE event data.
+    /// The session_events_stream subscribes here to forward events to the browser.
+    raw_sse_tx: broadcast::Sender<String>,
     persist_path: PathBuf,
     persist_tx: mpsc::UnboundedSender<()>,
 }
@@ -156,7 +159,13 @@ impl WebStateHandle {
     /// Create the web state from config, start background pollers.
     ///
     /// `event_tx` is the broadcast channel that SSE clients subscribe to.
-    pub fn new(config: &Config, event_tx: broadcast::Sender<WebEvent>) -> Self {
+    /// `raw_sse_tx` is the broadcast channel for re-broadcasting raw upstream
+    /// opencode SSE events to web clients.
+    pub fn new(
+        config: &Config,
+        event_tx: broadcast::Sender<WebEvent>,
+        raw_sse_tx: broadcast::Sender<String>,
+    ) -> Self {
         let persist_path = assistant_state_path();
         let persisted = load_persisted_assistant_state(&persist_path);
 
@@ -208,7 +217,7 @@ impl WebStateHandle {
 
         let (persist_tx, persist_rx) = mpsc::unbounded_channel();
 
-        let handle = Self { inner, event_tx, persist_path, persist_tx };
+        let handle = Self { inner, event_tx, raw_sse_tx, persist_path, persist_tx };
 
         // Spawn background tasks
         handle.spawn_persist_worker(persist_rx);
@@ -1721,6 +1730,9 @@ fn load_persisted_assistant_state(path: &PathBuf) -> PersistedAssistantState {
 
 /// Connect to the opencode server's SSE `/event` endpoint and process
 /// `message.updated` events to capture session stats.
+/// Also re-broadcasts raw event data on `handle.raw_sse_tx` so the web
+/// `session_events_stream` can forward them to browser clients without
+/// opening a separate upstream connection.
 async fn run_opencode_sse(
     handle: &WebStateHandle,
     base_url: &str,
@@ -1746,6 +1758,8 @@ async fn run_opencode_sse(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
         let text = String::from_utf8_lossy(&chunk);
+        // Normalize CRLF → LF
+        let text = text.replace("\r\n", "\n");
         buffer.push_str(&text);
 
         // Process complete SSE messages (separated by double newline)
@@ -1754,6 +1768,9 @@ async fn run_opencode_sse(
             buffer.drain(..2); // consume the "\n\n" separator
 
             if let Some(data) = extract_sse_data(&message) {
+                // Re-broadcast the raw event data to web clients
+                let _ = handle.raw_sse_tx.send(data.clone());
+
                 handle_web_sse_event(handle, &data, project_dir).await;
             }
         }

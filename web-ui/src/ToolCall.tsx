@@ -26,6 +26,41 @@ interface Props {
   childSession?: { id: string; title: string } | null;
   /** SSE-driven subagent messages, keyed by session ID */
   subagentMessages?: Map<string, Message[]>;
+  /** Callback to navigate to a child session */
+  onOpenSession?: (sessionId: string) => void;
+}
+
+/**
+ * Extract the child session ID for a task tool part.
+ *
+ * The upstream opencode task tool sets the spawned child session ID via
+ * `ctx.metadata({ sessionId })`, which lands at `state.metadata.sessionId`.
+ * This is the authoritative source.
+ *
+ * `state.input.task_id` is only present when the model passes an existing
+ * session ID to resume a prior task — used as a secondary source.
+ *
+ * Falls back to the positionally-matched `childSession.id` from appState.
+ */
+function getTaskSessionId(
+  part: MessagePart,
+  childSession?: { id: string; title: string } | null,
+): string | null {
+  // Primary: read from state.metadata.sessionId (set by upstream opencode task tool)
+  const metaSessionId = part.state?.metadata?.sessionId;
+  if (typeof metaSessionId === "string" && metaSessionId.length > 0) {
+    return metaSessionId;
+  }
+  // Secondary: state.input.task_id (resume case — model passes prior session ID)
+  const input = part.state?.input;
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const taskId = (input as Record<string, unknown>).task_id;
+    if (typeof taskId === "string" && taskId.length > 0) {
+      return taskId;
+    }
+  }
+  // Tertiary: positionally-matched session from appState
+  return childSession?.id ?? null;
 }
 
 /**
@@ -41,7 +76,7 @@ interface Props {
  *   2. Task result markdown: <task_result>markdown</task_result>
  *   3. Plain text
  */
-export const ToolCall = React.memo(function ToolCall({ part, childSession, subagentMessages }: Props) {
+export const ToolCall = React.memo(function ToolCall({ part, childSession, subagentMessages, onOpenSession }: Props) {
   const toolName = part.tool || part.toolName || "unknown";
   const shortName = formatToolName(toolName);
 
@@ -57,8 +92,17 @@ export const ToolCall = React.memo(function ToolCall({ part, childSession, subag
   const isRunning = status === "running" || status === "pending";
   const isEditTool = toolName.includes("edit") && !toolName.includes("neovim");
 
-  // Auto-expand: todowrite always, bash/running tools while they have live output
-  const [expanded, setExpanded] = useState(isTodoWrite);
+  // For task tools, resolve the child session ID from the part data
+  const taskSessionId = isTaskTool ? getTaskSessionId(part, childSession) : null;
+
+  // For task tools, check if we have live subagent messages
+  const hasSubagentMessages = isTaskTool && taskSessionId
+    ? (subagentMessages?.get(taskSessionId)?.length ?? 0) > 0
+    : false;
+
+  // Auto-expand: todowrite always, bash/running tools while they have live output,
+  // task tools when running OR completed (so fetched history is visible)
+  const [expanded, setExpanded] = useState(isTodoWrite || (isTaskTool && (isRunning || isCompleted || isError)));
   const [userToggled, setUserToggled] = useState(false);
 
   // Auto-expand running bash tools so live output is visible
@@ -67,6 +111,13 @@ export const ToolCall = React.memo(function ToolCall({ part, childSession, subag
       setExpanded(true);
     }
   }, [userToggled, isBashTool, isRunning]);
+
+  // Auto-expand task tools when they start running or receive subagent messages
+  React.useEffect(() => {
+    if (!userToggled && isTaskTool && (isRunning || hasSubagentMessages)) {
+      setExpanded(true);
+    }
+  }, [userToggled, isTaskTool, isRunning, hasSubagentMessages]);
 
   const handleToggle = () => {
     setUserToggled(true);
@@ -138,7 +189,7 @@ export const ToolCall = React.memo(function ToolCall({ part, childSession, subag
           ) : (
             <>
               {/* Input / Arguments — syntax highlighted JSON or diff */}
-              {hasInput && (
+              {hasInput && !isTaskTool && (
                 <div className="tool-call-section">
                   <div className="tool-call-section-label">Input</div>
                   {isEditTool ? (
@@ -149,38 +200,45 @@ export const ToolCall = React.memo(function ToolCall({ part, childSession, subag
                 </div>
               )}
 
-              {/* Output / Result — smart rendering */}
-              {hasOutput && (
-                <div className="tool-call-section">
-                  <div className="tool-call-section-label">Output</div>
-                  {state?.metadata?.truncated && (
-                    <span className="tool-call-truncated">[truncated] </span>
+              {/* Task tool: show SubagentSession live output as the primary content */}
+              {isTaskTool && taskSessionId ? (
+                <SubagentSession
+                  sessionId={taskSessionId}
+                  title={state?.title || childSession?.title || "Task"}
+                  messages={subagentMessages?.get(taskSessionId)}
+                  isRunning={isRunning}
+                  isCompleted={isCompleted}
+                  isError={isError}
+                  onOpenSession={onOpenSession}
+                />
+              ) : (
+                <>
+                  {/* Output / Result — smart rendering */}
+                  {hasOutput && (
+                    <div className="tool-call-section">
+                      <div className="tool-call-section-label">Output</div>
+                      {state?.metadata?.truncated && (
+                        <span className="tool-call-truncated">[truncated] </span>
+                      )}
+                      <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning} />
+                    </div>
                   )}
-                  {isTaskTool && childSession ? (
-                    <SubagentSession
-                      sessionId={childSession.id}
-                      title={state?.title || childSession.title || "Task"}
-                      messages={subagentMessages?.get(childSession.id)}
-                    />
-                  ) : (
-                    <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning && isBashTool} />
-                  )}
-                </div>
-              )}
 
-              {/* Live output placeholder for running bash tools with no output yet */}
-              {!hasOutput && isRunning && isBashTool && (
-                <div className="tool-call-section">
-                  <div className="tool-call-section-label">Output</div>
-                  <pre className="tool-call-pre tool-call-live-output">
-                    <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
-                  </pre>
-                </div>
+                  {/* Live output placeholder for running tools with no output yet */}
+                  {!hasOutput && isRunning && (
+                    <div className="tool-call-section">
+                      <div className="tool-call-section-label">Output</div>
+                      <pre className="tool-call-pre tool-call-live-output">
+                        <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
+                      </pre>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
 
-          {!isTodoWrite && !hasInput && !hasOutput && (
+          {!isTodoWrite && !isTaskTool && !hasInput && !hasOutput && (
             <div className="tool-call-section">
               <pre className="tool-call-pre tool-call-empty">
                 No data available

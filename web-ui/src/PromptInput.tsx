@@ -7,7 +7,7 @@ import React, {
   type DragEvent,
   type ClipboardEvent,
 } from "react";
-import { Send, Square, Cpu, ChevronDown, Loader2, Bot, Paperclip, X, Image as ImageIcon } from "lucide-react";
+import { Send, Square, Cpu, ChevronDown, Loader2, Bot, Paperclip, X, Image as ImageIcon, Brain } from "lucide-react";
 import { SlashCommandPopover } from "./SlashCommandPopover";
 import { fetchAgents, type AgentInfo, type ImageAttachment } from "./api";
 
@@ -43,6 +43,8 @@ interface Props {
   currentAgent: string;
   onAgentChange: (agent: string) => void;
   activeMemoryLabels?: string[];
+  /** Open the memory modal */
+  onOpenMemory?: () => void;
   /** Reports whether the textarea has non-empty content (for mobile input autohide guard) */
   onContentChange?: (hasContent: boolean) => void;
 }
@@ -75,6 +77,7 @@ export function PromptInput({
   currentAgent,
   onAgentChange,
   activeMemoryLabels = [],
+  onOpenMemory,
   onContentChange,
 }: Props) {
   const [text, setText] = useState("");
@@ -413,16 +416,21 @@ export function PromptInput({
               </div>
             )}
           </div>
-        </div>
 
-        {activeMemoryLabels.length > 0 && (
-          <div className="prompt-memory-strip">
-            <span className="prompt-memory-strip-label">Memory applied</span>
-            {activeMemoryLabels.slice(0, 4).map((label) => (
-              <span key={label} className="prompt-memory-chip">{label}</span>
-            ))}
-          </div>
-        )}
+          {/* Memory chip (compact count in selector row) */}
+          {activeMemoryLabels.length > 0 && (
+            <button
+              className="prompt-chip prompt-chip-memory"
+              onClick={onOpenMemory}
+              title={activeMemoryLabels.join(", ")}
+            >
+              <Brain size={11} />
+              <span className="prompt-chip-label">
+                {activeMemoryLabels.length} {activeMemoryLabels.length === 1 ? "memory" : "memories"}
+              </span>
+            </button>
+          )}
+        </div>
 
         {/* Attachment previews */}
         {attachments.length > 0 && (

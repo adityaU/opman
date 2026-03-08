@@ -27,6 +27,8 @@ interface Props {
   onToggleBookmark?: (messageId: string, sessionId: string, role: string, preview: string) => void;
   /** Current session ID (for bookmarks) */
   sessionId?: string | null;
+  /** Callback to navigate to a child session */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 /** Render a model reference as a display string. */
@@ -149,7 +151,7 @@ const markdownComponents = {
   },
 };
 
-export const MessageTurn = React.memo(function MessageTurn({ group, childSessions, onRetry, subagentMessages, searchMatchIds, activeSearchMatchId, isBookmarked, onToggleBookmark, sessionId }: Props) {
+export const MessageTurn = React.memo(function MessageTurn({ group, childSessions, onRetry, subagentMessages, searchMatchIds, activeSearchMatchId, isBookmarked, onToggleBookmark, sessionId, onOpenSession }: Props) {
   const { role, messages } = group;
   const [copied, setCopied] = useState(false);
 
@@ -315,7 +317,7 @@ export const MessageTurn = React.memo(function MessageTurn({ group, childSession
           <>
             {/* Interleaved text and tool parts - render all text segments
                 then all tool calls (tool calls usually come between text) */}
-            {renderInterleavedContent(allParts, childSessions || [], subagentMessages)}
+            {renderInterleavedContent(allParts, childSessions || [], subagentMessages, onOpenSession)}
           </>
         ) : (
           /* Simple case: all text, no tools */
@@ -379,6 +381,7 @@ function renderInterleavedContent(
   allParts: { part: MessagePart; msgIdx: number }[],
   childSessions: SessionInfo[],
   subagentMessages?: Map<string, Message[]>,
+  onOpenSession?: (sessionId: string) => void,
 ) {
   const elements: React.ReactNode[] = [];
   let currentTextChunks: string[] = [];
@@ -415,6 +418,7 @@ function renderInterleavedContent(
           part={part}
           childSession={matched}
           subagentMessages={subagentMessages}
+          onOpenSession={onOpenSession}
         />
       );
     }

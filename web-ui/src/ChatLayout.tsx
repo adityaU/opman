@@ -134,6 +134,9 @@ export function ChatLayout() {
     questions,
     sessionStatus,
     isLoadingMessages,
+    isLoadingOlder,
+    hasOlderMessages,
+    totalMessageCount,
     watcherStatus,
     subagentMessages,
     fileEditCount,
@@ -147,6 +150,7 @@ export function ChatLayout() {
     clearMcpEditorOpen,
     clearMcpTerminalFocus,
     addOptimisticMessage,
+    loadOlderMessages,
   } = sse;
 
   // Read initial URL state once on mount for panel defaults
@@ -1658,6 +1662,10 @@ export function ChatLayout() {
             sessionStatus={sessionStatus}
             activeSessionId={activeSessionId}
             isLoadingMessages={isLoadingMessages}
+            isLoadingOlder={isLoadingOlder}
+            hasOlderMessages={hasOlderMessages}
+            totalMessageCount={totalMessageCount}
+            onLoadOlder={loadOlderMessages}
             appState={appState}
             defaultModel={defaultModelDisplay}
             onSendPrompt={handleSend}
@@ -1667,6 +1675,7 @@ export function ChatLayout() {
             isBookmarked={isBookmarked}
             onToggleBookmark={toggleBookmark}
             onScrollDirection={handleScrollDirection}
+            onOpenSession={(sessionId) => handleSelectSession(sessionId, appState?.active_project ?? 0)}
           />
 
           {/* Mobile input wrapper — wraps docks + prompt for autohide animation */}
@@ -1701,6 +1710,7 @@ export function ChatLayout() {
               currentAgent={selectedAgent}
               onAgentChange={handleAgentChange}
               activeMemoryLabels={activeMemoryItems.map((item) => item.label)}
+              onOpenMemory={openMemory}
               onContentChange={handlePromptContentChange}
             />
           </div>

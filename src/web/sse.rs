@@ -184,11 +184,15 @@ pub async fn events_stream(
     Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
-// ── Session event stream (proxy from opencode server) ───────────────
+// ── Session event stream (re-broadcast from internal SSE listener) ──
 
-/// GET /api/session/events — proxy the opencode server's SSE `/event` stream
-/// to the web client. Forwards all events as-is (message.updated, session.status,
-/// permission.asked, question.asked, file.edited, todo.updated, etc.).
+/// GET /api/session/events — forward opencode server events to the web client.
+///
+/// Instead of opening a separate upstream SSE connection (the opencode server
+/// may limit concurrent SSE consumers per project), this endpoint subscribes
+/// to the `raw_sse_tx` broadcast channel that is fed by the `web_state`'s
+/// internal SSE listener.  Every raw event JSON string is forwarded as an
+/// `"opencode"` SSE event to the browser.
 pub async fn session_events_stream(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -198,77 +202,25 @@ pub async fn session_events_stream(
         return Err(WebError::Unauthorized);
     }
 
-    let project_dir = match &params.project_dir {
-        Some(d) => d.clone(),
-        None => state
-            .web_state
-            .get_working_dir()
-            .await
-            .map(|p| p.to_string_lossy().to_string())
-            .ok_or(WebError::BadRequest("No active project".into()))?,
-    };
-
-    let base = crate::app::base_url().to_string();
+    let mut raw_rx = state.raw_sse_tx.subscribe();
 
     let stream = async_stream::stream! {
-        use futures::StreamExt;
-
-        let client = reqwest::Client::new();
-        let resp = match client
-            .get(format!("{}/event", base))
-            .header("Accept", "text/event-stream")
-            .header("x-opencode-directory", &project_dir)
-            .send()
-            .await
-        {
-            Ok(r) if r.status().is_success() => r,
-            Ok(r) => {
-                let status = r.status();
-                yield Ok::<_, Infallible>(
-                    SseEvent::default()
-                        .event("error")
-                        .data(format!("Upstream returned {}", status)),
-                );
-                return;
-            }
-            Err(e) => {
-                yield Ok::<_, Infallible>(
-                    SseEvent::default()
-                        .event("error")
-                        .data(format!("Connection failed: {}", e)),
-                );
-                return;
-            }
-        };
-
-        let mut byte_stream = resp.bytes_stream();
-        let mut buffer = String::new();
-
-        while let Some(chunk) = byte_stream.next().await {
-            let chunk = match chunk {
-                Ok(c) => c,
-                Err(_) => break,
-            };
-            let text = String::from_utf8_lossy(&chunk);
-            buffer.push_str(&text);
-
-            // Process complete SSE messages (separated by double newline)
-            while let Some(boundary) = buffer.find("\n\n") {
-                let message: String = buffer.drain(..boundary).collect();
-                buffer.drain(..2); // consume the "\n\n" separator
-
-                // Forward the raw SSE data as an "opencode" event
-                let mut data_parts = Vec::new();
-                for line in message.lines() {
-                    if let Some(stripped) = line.strip_prefix("data:") {
-                        data_parts.push(stripped.trim().to_string());
-                    }
-                }
-                if !data_parts.is_empty() {
-                    let data = data_parts.join("\n");
+        tracing::info!("Session SSE: web client subscribed to raw_sse_tx broadcast");
+        loop {
+            match raw_rx.recv().await {
+                Ok(data) => {
                     yield Ok::<_, Infallible>(
                         SseEvent::default().event("opencode").data(data),
                     );
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::debug!("Session SSE: web client lagged by {} events", n);
+                    // Continue — the client will miss some events but can recover
+                    // via a full state refresh triggered by the app events SSE.
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    tracing::info!("Session SSE: raw_sse_tx channel closed, ending stream");
+                    break;
                 }
             }
         }
