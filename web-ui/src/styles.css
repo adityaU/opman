@@ -337,7 +337,9 @@
 
 html {
     line-height: 1.5;
-    -webkit-text-size-adjust: 100%
+    -webkit-text-size-adjust: 100%;
+    background: var(--color-bg, #0a0a0a);
+    color-scheme: dark
 }
 
 html,body,#root {
@@ -5948,7 +5950,9 @@ code[class*=language-],pre[class*=language-] {
         min-width: 0;
         overflow: visible;
         flex-shrink: 0;
-        opacity: 1!important
+        opacity: 1!important;
+        border: none;
+        box-shadow: none
     }
 
     .chat-content>.resize-handle:first-of-type {

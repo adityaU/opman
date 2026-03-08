@@ -79,7 +79,7 @@ describe("PermissionDock", () => {
   it("renders args when provided", () => {
     render(
       <PermissionDock
-        permissions={[makePerm({ args: { cmd: "ls -la" } })]}
+        permissions={[makePerm({ metadata: { cmd: "ls -la" } })]}
         onReply={onReply}
       />
     );
@@ -88,7 +88,7 @@ describe("PermissionDock", () => {
 
   it("does not render args when empty object", () => {
     const { container } = render(
-      <PermissionDock permissions={[makePerm({ args: {} })]} onReply={onReply} />
+      <PermissionDock permissions={[makePerm({ metadata: {} })]} onReply={onReply} />
     );
     expect(container.querySelector(".permission-args")).toBeNull();
   });

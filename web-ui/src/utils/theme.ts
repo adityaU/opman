@@ -19,6 +19,9 @@ export function applyThemeToCss(colors: ThemeColors) {
   root.setProperty("--color-success", colors.success);
   root.setProperty("--color-info", colors.info);
 
+  // Sync browser / PWA status-bar chrome to the app background color
+  syncMetaThemeColor(colors.background);
+
   // Semantic aliases (used widely in component CSS)
   root.setProperty("--color-surface", colors.background_panel);
   root.setProperty("--color-text-secondary", colors.text_muted);
@@ -55,4 +58,30 @@ export function withAlpha(hex: string, alpha: number): string {
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Update the browser / PWA chrome colour that paints behind the status-bar
+ * and the mobile navigation gesture area.  Works for both the standard
+ * `<meta name="theme-color">` and the Apple-specific variant.
+ *
+ * Also syncs the `html` element background so safe-area zones (top status bar,
+ * bottom gesture pill) are filled with the correct colour on iOS standalone
+ * and Android PWA.
+ */
+function syncMetaThemeColor(color: string) {
+  // 1. Standard theme-color meta (Android Chrome top status bar + tab colour)
+  let meta = document.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]'
+  );
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.appendChild(meta);
+  }
+  meta.content = color;
+
+  // 2. Keep <html> background in sync for safe-area zones (iOS standalone,
+  //    Android PWA, and any viewport-fit=cover edges).
+  document.documentElement.style.setProperty("background", color);
 }

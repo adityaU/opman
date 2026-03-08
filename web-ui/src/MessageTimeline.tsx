@@ -316,7 +316,7 @@ export function MessageTimeline({
   // streaming text is appended to the last message (not just new messages).
   const lastMsg = messages[messages.length - 1];
   const contentFingerprint = lastMsg
-    ? (lastMsg.info?.parts?.length ?? 0)
+    ? (lastMsg.parts?.length ?? 0)
     : 0;
 
   // Auto-scroll to bottom on new messages / content changes (tailing mode)
