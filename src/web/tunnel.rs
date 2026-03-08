@@ -174,12 +174,12 @@ async fn spawn_local_managed(
 
     let mut child = Command::new("cloudflared")
         .args([
-            "tunnel",
             "--no-autoupdate",
             "--origincert",
             cert_path.to_str().unwrap_or_default(),
             "--config",
             config_path.to_str().unwrap_or_default(),
+            "tunnel",
             "run",
             tunnel_name,
         ])
@@ -194,23 +194,25 @@ async fn spawn_local_managed(
 
     println!("\n  Tunnel: https://{hostname}\n");
 
-    // Drain stderr in background
+    // Drain stderr in background — log every line so issues are visible
     if let Some(stderr) = child.stderr.take() {
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                debug!("[cloudflared] {line}");
+                // Always log at info level so tunnel output appears in the log file
+                info!("[cloudflared] {line}");
                 if line.contains("Registered tunnel connection")
                     || line.contains("Connection registered")
                 {
-                    info!("[tunnel] {line}");
                     println!("[tunnel] {line}");
                 }
                 if line.contains("ERR") || line.contains("error") {
-                    warn!("[tunnel] {line}");
+                    error!("[tunnel] {line}");
                 }
             }
+            // If we get here, cloudflared's stderr closed — process likely exited
+            warn!("[tunnel] cloudflared process stderr closed — tunnel may have exited");
         });
     }
 
