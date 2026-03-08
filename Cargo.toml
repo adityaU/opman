@@ -36,16 +36,17 @@ serde_yaml = "0.9"
 url = "2"
 open = "5"
 rand = "0.8"
-axum = { version = "0.8", features = ["tokio"] }
+axum = { version = "0.8", features = ["tokio", "ws"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
-rust-embed = { version = "8", features = ["interpolate-folder-path"] }
+rust-embed = { version = "8", features = ["interpolate-folder-path", "compression"] }
 mime_guess = "2"
 base64 = "0.22"
 sha2 = "0.10"
 hmac = "0.12"
 async-stream = "0.3"
+clap = { version = "4", features = ["derive", "env"] }
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).
@@ -56,8 +57,8 @@ overflow-checks = false
 [profile.release]
 # Optimise aggressively for size.
 opt-level = "z"          # "z" = size over speed (smaller than "s")
-lto = "thin"             # thin LTO: good dead-code removal, fast enough to be practical
+lto = true               # fat LTO: maximum dead-code removal across all crates
 codegen-units = 1        # single CGU = more inlining + DCE across the whole crate
 panic = "abort"          # removes unwinding machinery (~saves ~10-15% on Rust binaries)
-strip = "none"           # keep all symbols (debuginfo + symbol table)
-debug = true             # full DWARF debug info
+strip = true             # remove all symbols + debug info from release binary
+debug = false            # no DWARF debug info in release

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useEscape } from "./hooks/useKeyboard";
+import { useFocusTrap } from "./hooks/useFocusTrap";
 import { useProviders } from "./hooks/useProviders";
 import { Search, Cpu, Check, RefreshCw } from "lucide-react";
 
@@ -15,6 +16,7 @@ interface FlatModel {
   modelId: string;
   modelName: string;
   contextWindow?: number;
+  outputLimit?: number;
   isConnected: boolean;
   isDefault: boolean;
 }
@@ -26,8 +28,10 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
   const [showAll, setShowAll] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEscape(onClose);
+  useFocusTrap(modalRef);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -50,6 +54,7 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
             modelId,
             modelName: name,
             contextWindow: modelInfo.limit?.context,
+            outputLimit: modelInfo.limit?.output,
             isConnected: providers.connected.has(p.id),
             isDefault: providers.defaults[p.id] === modelId,
           });
@@ -118,7 +123,7 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="model-picker" onClick={(e) => e.stopPropagation()}>
+      <div className="model-picker" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Choose model" ref={modalRef}>
         <div className="model-picker-header">
           <Cpu size={16} />
           <span>Choose Model</span>
@@ -155,6 +160,7 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
             onClick={providers.refresh}
             disabled={providers.loading}
             title="Refresh providers"
+            aria-label="Refresh providers"
           >
             <RefreshCw size={12} className={providers.loading ? "spinning" : ""} />
           </button>
@@ -186,13 +192,23 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
                   </span>
                   <span className="model-picker-provider">
                     {model.providerName}
+                    {model.modelId !== model.modelName && (
+                      <span className="model-picker-id"> &middot; {model.modelId}</span>
+                    )}
                   </span>
                 </div>
-                {model.contextWindow && (
-                  <span className="model-picker-ctx">
-                    {Math.round(model.contextWindow / 1000)}K ctx
-                  </span>
-                )}
+                <div className="model-picker-item-right">
+                  {model.contextWindow && (
+                    <span className="model-picker-ctx">
+                      {Math.round(model.contextWindow / 1000)}K ctx
+                    </span>
+                  )}
+                  {model.outputLimit && (
+                    <span className="model-picker-out">
+                      {Math.round(model.outputLimit / 1000)}K out
+                    </span>
+                  )}
+                </div>
               </button>
             ))
           )}

@@ -3,6 +3,12 @@
 /** A single message part (text, tool call, tool result, etc.) */
 export interface MessagePart {
   type: string;
+
+  // Common fields present on all parts from SSE events
+  id?: string;            // part ID (from SSE message.part.updated)
+  sessionID?: string;     // session this part belongs to
+  messageID?: string;     // message this part belongs to
+
   // Text part
   text?: string;
 
@@ -14,6 +20,11 @@ export interface MessagePart {
   // Step parts (type: "step-start" / "step-finish")
   stepID?: string;
 
+  // Subtask part (type: "subtask")
+  prompt?: string;
+  description?: string;
+  agent?: string;
+
   // Legacy / fallback fields
   toolCallId?: string;
   toolName?: string;
@@ -23,6 +34,8 @@ export interface MessagePart {
   // File reference
   filename?: string;
   url?: string;
+  mime?: string;
+  source?: string;
 }
 
 /** State of a tool part as returned by the API */
@@ -41,14 +54,33 @@ export type ModelRef =
   | string
   | { modelID: string; providerID: string };
 
-/** Message info metadata */
+/** Message info metadata — matches opencode's Message (UserMessage | AssistantMessage) */
 export interface MessageInfo {
   role: "user" | "assistant" | "system" | "tool";
+  /** Message ID — called `id` in SSE events, `messageID` in REST responses */
   messageID?: string;
-  time?: number;
+  id?: string;
+  sessionID?: string;
+  time?: number | { created?: number; completed?: number };
   model?: ModelRef;
   modelID?: string;
+  providerID?: string;
   system?: boolean;
+  agent?: string;
+  cost?: number;
+  tokens?: {
+    input?: number;
+    output?: number;
+    reasoning?: number;
+    total?: number;
+    cache?: { read?: number; write?: number };
+  };
+  error?: unknown;
+  finish?: string;
+  parentID?: string;
+  mode?: string;
+  path?: { cwd?: string; root?: string };
+  variant?: string;
 }
 
 /** A single message in a session */
@@ -125,6 +157,10 @@ export interface TodoItem {
 
 export type OpenCodeEventType =
   | "message.updated"
+  | "message.removed"
+  | "message.part.updated"
+  | "message.part.delta"
+  | "message.part.removed"
   | "session.status"
   | "session.created"
   | "session.updated"

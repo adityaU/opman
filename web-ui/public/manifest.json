@@ -1,0 +1,17 @@
+{
+  "name": "opman",
+  "short_name": "opman",
+  "description": "OpenCode Manager — AI-powered coding assistant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

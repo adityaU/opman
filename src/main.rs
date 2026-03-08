@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     Event,
@@ -43,6 +44,196 @@ use tracing::info;
 
 use crate::app::{App, BackgroundEvent};
 use crate::config::Config;
+use crate::web::TunnelMode;
+
+// ── CLI definition ──────────────────────────────────────────────────
+
+/// Parse a "truthy" string into a bool.
+/// Accepts: `1`, `true`, `yes`, `on`, `quick` → `true`.
+/// Accepts: `0`, `false`, `no`, `off` → `false`.
+fn parse_truthy(s: &str) -> Result<bool, String> {
+    match s.trim().to_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" | "quick" => Ok(true),
+        "0" | "false" | "no" | "off" | "" => Ok(false),
+        other => Err(format!(
+            "invalid value '{other}' (expected: true/false/1/0/yes/no/on/off)"
+        )),
+    }
+}
+
+#[derive(Parser)]
+#[command(
+    name = "opman",
+    version,
+    about = "Terminal multiplexer wrapper for the opencode CLI — multi-project management",
+    long_about = "opman is a terminal UI that wraps the opencode CLI, providing\n\
+                  multi-project management, a web UI, Cloudflare tunnel support,\n\
+                  MCP tool integrations, and more."
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+
+    // ── Web UI ──────────────────────────────────────────────────────
+
+    /// Enable the web UI server
+    #[arg(long)]
+    web: bool,
+
+    /// Run in web-only mode (no TUI)
+    #[arg(long)]
+    web_only: bool,
+
+    /// Port for the web UI server (default: random available port)
+    #[arg(long, value_name = "PORT")]
+    web_port: Option<u16>,
+
+    /// Username for web UI authentication
+    #[arg(long, value_name = "USER", env = "OPMAN_WEB_USER")]
+    web_user: Option<String>,
+
+    /// Password for web UI authentication
+    #[arg(long, value_name = "PASS", env = "OPMAN_WEB_PASS")]
+    web_pass: Option<String>,
+
+    // ── Cloudflare Tunnel ───────────────────────────────────────────
+
+    /// Enable Cloudflare quick tunnel (ephemeral trycloudflare.com URL).
+    /// Requires --web-user and --web-pass.
+    #[arg(
+        long,
+        env = "OPMAN_CF_TUNNEL",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        value_parser = parse_truthy,
+    )]
+    tunnel: bool,
+
+    /// Cloudflare named tunnel token (remote-managed). Enables a persistent
+    /// tunnel using `cloudflared tunnel run --token <TOKEN>`.
+    /// Ingress must be configured in the Cloudflare dashboard.
+    /// Requires --web-user and --web-pass.
+    #[arg(long, value_name = "TOKEN", env = "OPMAN_CF_TUNNEL_TOKEN")]
+    tunnel_token: Option<String>,
+
+    /// External hostname for a locally-managed Cloudflare tunnel
+    /// (e.g. "opman.example.com"). On first run, opens a browser for
+    /// Cloudflare login. The tunnel, DNS record, and ingress config are
+    /// created and managed automatically. Requires --web-user and --web-pass.
+    #[arg(long, value_name = "HOSTNAME", env = "OPMAN_CF_TUNNEL_HOSTNAME")]
+    tunnel_hostname: Option<String>,
+
+    /// Name for the locally-managed tunnel (default: "opman").
+    /// Only used with --tunnel-hostname.
+    #[arg(long, value_name = "NAME", env = "OPMAN_CF_TUNNEL_NAME", default_value = "opman")]
+    tunnel_name: String,
+
+    // ── MCP control ─────────────────────────────────────────────────
+
+    /// Disable all MCP integrations
+    #[arg(long)]
+    no_mcp: bool,
+
+    /// Disable the terminal MCP server
+    #[arg(long)]
+    no_terminal_mcp: bool,
+
+    /// Disable the neovim MCP server
+    #[arg(long)]
+    no_neovim_mcp: bool,
+
+    /// Disable the time MCP server
+    #[arg(long)]
+    no_time_mcp: bool,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Run the MCP stdio bridge for a project
+    Mcp {
+        /// Path to the project directory
+        project_path: PathBuf,
+    },
+
+    /// Run the time MCP bridge
+    McpTime,
+
+    /// Run the neovim MCP bridge for a project
+    McpNvim {
+        /// Path to the project directory
+        project_path: PathBuf,
+    },
+
+    /// Print the Slack app manifest and copy to clipboard
+    SlackManifest,
+}
+
+impl Cli {
+    /// Determine the tunnel mode from CLI flags and env vars.
+    ///
+    /// Priority: `--tunnel-hostname` > `--tunnel-token` > `--tunnel`.
+    /// Env vars (`OPMAN_CF_TUNNEL_HOSTNAME`, `OPMAN_CF_TUNNEL_TOKEN`,
+    /// `OPMAN_CF_TUNNEL`) are handled by clap's `env` attribute.
+    fn tunnel_mode(&self) -> Option<TunnelMode> {
+        // Local-managed tunnel: user provides hostname, we handle everything
+        if let Some(ref hostname) = self.tunnel_hostname {
+            let hostname = hostname.trim().to_string();
+            if !hostname.is_empty() {
+                return Some(TunnelMode::LocalManaged {
+                    hostname,
+                    tunnel_name: self.tunnel_name.clone(),
+                });
+            }
+        }
+        // Remote-managed tunnel: user provides dashboard token
+        if let Some(ref token) = self.tunnel_token {
+            let token = token.trim().to_string();
+            if !token.is_empty() {
+                return Some(TunnelMode::Named { token });
+            }
+        }
+        if self.tunnel {
+            return Some(TunnelMode::Quick);
+        }
+        None
+    }
+
+    /// Whether the web server should be enabled.
+    fn enable_web(&self) -> bool {
+        self.web_only
+            || self.web
+            || self.web_port.is_some()
+            || self.web_user.as_deref().map_or(false, |u| !u.is_empty())
+            || self.tunnel_mode().is_some()
+    }
+
+    /// Validate CLI argument combinations. Returns an error message on failure.
+    fn validate(&self) -> Result<(), String> {
+        let tunnel = self.tunnel_mode();
+
+        // Tunnel requires authentication
+        if tunnel.is_some() {
+            let has_user = self.web_user.as_deref().map_or(false, |u| !u.is_empty());
+            let has_pass = self.web_pass.as_deref().map_or(false, |p| !p.is_empty());
+            if !has_user || !has_pass {
+                return Err(
+                    "Cloudflare tunnel requires authentication.\n\
+                     Provide --web-user and --web-pass (or OPMAN_WEB_USER / OPMAN_WEB_PASS)\n\
+                     to secure the web UI before exposing it via tunnel."
+                        .to_string(),
+                );
+            }
+        }
+
+        // web-only implies web
+        if self.web_only && !self.enable_web() {
+            // This can't really happen since web_only => enable_web(), but just in case.
+            return Err("--web-only requires the web server to be enabled.".to_string());
+        }
+
+        Ok(())
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -67,44 +258,26 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    // ── MCP bridge mode: `opman --mcp <project_path>` ─────
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() >= 3 && args[1] == "--mcp" {
-        let project_path = PathBuf::from(&args[2]);
-        return mcp::run_mcp_bridge(project_path).await.map_err(Into::into);
-    }
+    // ── Parse CLI arguments ─────────────────────────────────────────
+    let cli = Cli::parse();
 
-    // ── Time MCP bridge mode: `opman --mcp-time` ──────────
-    if args.len() >= 2 && args[1] == "--mcp-time" {
-        return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
-    }
-
-    // ── Neovim MCP bridge mode: `opman --mcp-nvim <project_path>` ──
-    if args.len() >= 3 && args[1] == "--mcp-nvim" {
-        let project_path = PathBuf::from(&args[2]);
-        return mcp_neovim::run_mcp_neovim_bridge(project_path)
-            .await
-            .map_err(Into::into);
-    }
-
-    // ── Slack manifest: `opman --slack-manifest` ──────────────────────
-    if args.iter().any(|a| a == "--slack-manifest") {
-        const MANIFEST: &str = include_str!("../slack-app-manifest.yaml");
-        // Try to copy to clipboard (macOS: pbcopy, Linux: xclip/xsel)
-        let copied = std::process::Command::new("pbcopy")
-            .stdin(std::process::Stdio::piped())
-            .spawn()
-            .and_then(|mut child| {
-                use std::io::Write;
-                if let Some(ref mut stdin) = child.stdin {
-                    stdin.write_all(MANIFEST.as_bytes())?;
-                }
-                child.wait()
-            })
-            .map(|s| s.success())
-            .unwrap_or(false)
-            || std::process::Command::new("xclip")
-                .args(["-selection", "clipboard"])
+    // ── Handle subcommands (early exit) ──────────────────────────────
+    match cli.command {
+        Some(Commands::Mcp { project_path }) => {
+            return mcp::run_mcp_bridge(project_path).await.map_err(Into::into);
+        }
+        Some(Commands::McpTime) => {
+            return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
+        }
+        Some(Commands::McpNvim { project_path }) => {
+            return mcp_neovim::run_mcp_neovim_bridge(project_path)
+                .await
+                .map_err(Into::into);
+        }
+        Some(Commands::SlackManifest) => {
+            const MANIFEST: &str = include_str!("../slack-app-manifest.yaml");
+            // Try to copy to clipboard (macOS: pbcopy, Linux: xclip/xsel)
+            let copied = std::process::Command::new("pbcopy")
                 .stdin(std::process::Stdio::piped())
                 .spawn()
                 .and_then(|mut child| {
@@ -115,53 +288,57 @@ async fn main() -> Result<()> {
                     child.wait()
                 })
                 .map(|s| s.success())
-                .unwrap_or(false);
+                .unwrap_or(false)
+                || std::process::Command::new("xclip")
+                    .args(["-selection", "clipboard"])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            stdin.write_all(MANIFEST.as_bytes())?;
+                        }
+                        child.wait()
+                    })
+                    .map(|s| s.success())
+                    .unwrap_or(false);
 
-        println!("{}", MANIFEST);
-        if copied {
-            eprintln!("\n✓ Manifest copied to clipboard");
+            println!("{}", MANIFEST);
+            if copied {
+                eprintln!("\n✓ Manifest copied to clipboard");
+            }
+            eprintln!("\nTo create your Slack app:");
+            eprintln!("  1. Go to https://api.slack.com/apps → Create New App → From a manifest");
+            eprintln!("  2. Select your workspace and paste the manifest above");
+            eprintln!(
+                "  3. After creating, generate an App-Level Token with `connections:write` scope"
+            );
+            eprintln!("  4. Install the app to your workspace");
+            return Ok(());
         }
-        eprintln!("\nTo create your Slack app:");
-        eprintln!("  1. Go to https://api.slack.com/apps → Create New App → From a manifest");
-        eprintln!("  2. Select your workspace and paste the manifest above");
-        eprintln!(
-            "  3. After creating, generate an App-Level Token with `connections:write` scope"
-        );
-        eprintln!("  4. Install the app to your workspace");
-        eprintln!(
-            "  5. Run `opman --slack-setup` with your Client ID, Client Secret, and App Token"
-        );
-        return Ok(());
+        None => {} // Default mode: run the TUI
     }
 
-    // ── Check for --no-* MCP flags ──────────────────────────────────
-    let no_mcp = args.iter().any(|a| a == "--no-mcp");
-    let enable_terminal_mcp = !no_mcp && !args.iter().any(|a| a == "--no-terminal-mcp");
-    let enable_neovim_mcp = !no_mcp && !args.iter().any(|a| a == "--no-neovim-mcp");
-    let enable_time_mcp = !no_mcp && !args.iter().any(|a| a == "--no-time-mcp");
+    // ── Validate CLI argument combinations ───────────────────────────
+    if let Err(msg) = cli.validate() {
+        eprintln!("error: {msg}");
+        std::process::exit(2);
+    }
+
+    // ── Derive computed flags ────────────────────────────────────────
+    let enable_web = cli.enable_web();
+    let tunnel_mode = cli.tunnel_mode();
+
+    let no_mcp = cli.no_mcp;
+    let enable_terminal_mcp = !no_mcp && !cli.no_terminal_mcp;
+    let enable_neovim_mcp = !no_mcp && !cli.no_neovim_mcp;
+    let enable_time_mcp = !no_mcp && !cli.no_time_mcp;
     let enable_any_mcp = enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp;
 
-    // ── Parse --web-* flags for the web UI server ────────────────────
-    let web_port: Option<u16> = args
-        .iter()
-        .position(|a| a == "--web-port")
-        .and_then(|i| args.get(i + 1))
-        .and_then(|v| v.parse().ok());
-    let web_user = args
-        .iter()
-        .position(|a| a == "--web-user")
-        .and_then(|i| args.get(i + 1).cloned())
-        .or_else(|| std::env::var("OPMAN_WEB_USER").ok())
-        .unwrap_or_default();
-    let web_pass = args
-        .iter()
-        .position(|a| a == "--web-pass")
-        .and_then(|i| args.get(i + 1).cloned())
-        .or_else(|| std::env::var("OPMAN_WEB_PASS").ok())
-        .unwrap_or_default();
-    let web_only = args.iter().any(|a| a == "--web-only");
-    let enable_web =
-        web_only || args.iter().any(|a| a == "--web") || web_port.is_some() || !web_user.is_empty();
+    let web_port = cli.web_port;
+    let web_user = cli.web_user.unwrap_or_default();
+    let web_pass = cli.web_pass.unwrap_or_default();
+    let web_only = cli.web_only;
 
     info!("opman starting");
 
@@ -198,11 +375,14 @@ async fn main() -> Result<()> {
 
     // 3b. Start web UI server (if enabled) — fully independent, no TUI coupling
     let (web_actual_port, web_state_handle): (u16, Option<web::WebStateHandle>) = if enable_web {
-        let (actual_port, wsh) = web::start_web_server(web::WebConfig {
-            port: web_port,
-            username: web_user,
-            password: web_pass,
-        });
+        let (actual_port, wsh) = web::start_web_server(
+            web::WebConfig {
+                port: web_port,
+                username: web_user,
+                password: web_pass,
+            },
+            app.nvim_registry.clone(),
+        );
         info!("Web UI available at http://localhost:{}", actual_port);
         // Set the initial theme so web clients can fetch it immediately
         let initial_theme = web::WebThemeColors::from_theme(&app.theme);
@@ -217,7 +397,7 @@ async fn main() -> Result<()> {
 
     // ── Spawn Cloudflare tunnel if configured ────────────────────────
     let _tunnel_handle: Option<web::TunnelHandle> = if enable_web {
-        if let Some(mode) = web::detect_tunnel_mode() {
+        if let Some(mode) = tunnel_mode {
             Some(web::spawn_tunnel(mode, web_actual_port).await)
         } else {
             None

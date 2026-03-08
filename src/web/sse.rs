@@ -122,6 +122,50 @@ pub async fn events_stream(
                                 );
                             }
                         }
+                        WebEvent::WatcherStatusChanged(watcher_event) => {
+                            if let Ok(json) = serde_json::to_string(watcher_event) {
+                                yield Ok::<_, Infallible>(
+                                    SseEvent::default().event("watcher_status").data(json),
+                                );
+                            }
+                        }
+                        WebEvent::McpEditorOpen { path, line } => {
+                            let payload = serde_json::json!({ "path": path, "line": line });
+                            yield Ok::<_, Infallible>(
+                                SseEvent::default().event("mcp_editor_open").data(payload.to_string()),
+                            );
+                        }
+                        WebEvent::McpEditorNavigate { line } => {
+                            let payload = serde_json::json!({ "line": line });
+                            yield Ok::<_, Infallible>(
+                                SseEvent::default().event("mcp_editor_navigate").data(payload.to_string()),
+                            );
+                        }
+                        WebEvent::McpTerminalFocus { id } => {
+                            yield Ok::<_, Infallible>(
+                                SseEvent::default().event("mcp_terminal_focus").data(id.clone()),
+                            );
+                        }
+                        WebEvent::McpAgentActivity { tool, active } => {
+                            let payload = serde_json::json!({ "tool": tool, "active": active });
+                            yield Ok::<_, Infallible>(
+                                SseEvent::default().event("mcp_agent_activity").data(payload.to_string()),
+                            );
+                        }
+                        WebEvent::ActivityEvent(activity) => {
+                            if let Ok(json) = serde_json::to_string(activity) {
+                                yield Ok::<_, Infallible>(
+                                    SseEvent::default().event("activity_event").data(json),
+                                );
+                            }
+                        }
+                        WebEvent::PresenceChanged(snapshot) => {
+                            if let Ok(json) = serde_json::to_string(snapshot) {
+                                yield Ok::<_, Infallible>(
+                                    SseEvent::default().event("presence_changed").data(json),
+                                );
+                            }
+                        }
                     }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -210,8 +254,8 @@ pub async fn session_events_stream(
 
             // Process complete SSE messages (separated by double newline)
             while let Some(boundary) = buffer.find("\n\n") {
-                let message = buffer[..boundary].to_string();
-                buffer = buffer[boundary + 2..].to_string();
+                let message: String = buffer.drain(..boundary).collect();
+                buffer.drain(..2); // consume the "\n\n" separator
 
                 // Forward the raw SSE data as an "opencode" event
                 let mut data_parts = Vec::new();

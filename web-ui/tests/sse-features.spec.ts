@@ -89,6 +89,12 @@ async function setupDynamicMockAPI(page: Page) {
   let currentMessages = MOCK_MESSAGES;
   let currentStats = MOCK_STATS;
 
+  // Catch-all: prevent any unmocked /api/* request from hitting the real
+  // backend. Registered first = lowest priority in Playwright.
+  await page.route("**/api/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
+  );
+
   await page.route("**/api/auth/verify", (route) =>
     route.fulfill({
       status: 200,
@@ -224,6 +230,47 @@ async function setupDynamicMockAPI(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) })
   );
 
+  await page.route("**/api/presence", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ clients: [] }) })
+  );
+
+  await page.route("**/api/agents", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ id: "default", name: "Default Agent", system_prompt: "" }]),
+    })
+  );
+
+  // OpenSpec assistant endpoints
+  await page.route("**/api/memory", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ memory: [] }) })
+  );
+
+  await page.route("**/api/autonomy", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ mode: "observe", updated_at: new Date().toISOString() }),
+    })
+  );
+
+  await page.route("**/api/routines", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routines: [], runs: [] }) })
+  );
+
+  await page.route("**/api/missions", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ missions: [] }) })
+  );
+
+  await page.route("**/api/delegation", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) })
+  );
+
+  await page.route("**/api/workspaces", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workspaces: [] }) })
+  );
+
   return {
     setAppState(state: typeof MOCK_APP_STATE) {
       currentAppState = state;
@@ -328,7 +375,7 @@ test.describe("SSE: App-level events (/api/events)", () => {
 
     // Initially should show 2 sessions
     await expect(page.getByText("Test Session")).toBeVisible();
-    await expect(page.locator(".sidebar-session-group")).toHaveCount(2);
+    await expect(page.locator(".sb-session-group")).toHaveCount(2);
 
     // Update mock state to add a third session
     mocks.setAppState({
@@ -369,8 +416,8 @@ test.describe("SSE: App-level events (/api/events)", () => {
     // Status should change to "busy"
     await expect(page.locator(".status-bar-status")).toHaveText("busy", { timeout: 3_000 });
 
-    // The "Thinking..." indicator should appear
-    await expect(page.locator(".message-thinking")).toBeVisible({ timeout: 3_000 });
+    // The stop button should appear (pulsing abort button replaces thinking indicator)
+    await expect(page.locator(".prompt-abort-btn")).toBeVisible({ timeout: 3_000 });
   });
 
   test("session_idle event restores status bar to ready", async ({ page }) => {
@@ -449,14 +496,31 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
     await expect(page.getByText("Hello, how are you?")).toBeVisible();
     await expect(page.getByText("This is a new streamed message")).not.toBeVisible();
 
-    // Update mock to return new messages
-    mocks.setMessages(UPDATED_MESSAGES as any);
-
-    // Dispatch message.updated for the active session
+    // Dispatch message.updated for the active session — creates the message entry
     await dispatchSessionSSE(page, {
       type: "message.updated",
       properties: {
-        info: { sessionID: SESSION_ID, messageID: "msg_004" },
+        info: {
+          sessionID: SESSION_ID,
+          messageID: "msg_004",
+          role: "assistant",
+          time: 1700000400,
+          model: { modelID: "claude-sonnet-4-20250514", providerID: "anthropic" },
+        },
+      },
+    });
+
+    // Dispatch message.part.updated — adds the text part to the message
+    await dispatchSessionSSE(page, {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          sessionID: SESSION_ID,
+          messageID: "msg_004",
+          id: "part_004_0",
+          type: "text",
+          text: "This is a new streamed message from the assistant!",
+        },
       },
     });
 
@@ -578,9 +642,9 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
     await expect(page.locator(".permission-desc")).toContainText("Write to /src/main.ts");
 
     // Should have action buttons
-    await expect(page.getByText("Allow Once")).toBeVisible();
-    await expect(page.getByText("Always Allow")).toBeVisible();
-    await expect(page.getByText("Reject")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Allow Once" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Always Allow" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
   });
 
   test("permission.asked for different session does NOT show dialog", async ({ page }) => {
@@ -637,7 +701,7 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
     await expect(page.locator(".question-option").filter({ hasText: "Svelte" })).toBeVisible();
 
     // Should have Submit button
-    await expect(page.getByText("Submit")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit answers" })).toBeVisible();
   });
 
   test("question.asked with confirm type shows Yes/No options", async ({ page }) => {
@@ -681,7 +745,7 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
   test("session.created triggers state refresh", async ({ page }) => {
     const mocks = await setupAndNavigate(page);
 
-    await expect(page.locator(".sidebar-session-group")).toHaveCount(2);
+    await expect(page.locator(".sb-session-group")).toHaveCount(2);
 
     // Update state to include new session
     mocks.setAppState({
@@ -715,25 +779,24 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
 
 // ── Tests: Busy indicator ─────────────────────────────
 
-test.describe("SSE: Busy indicator in message timeline", () => {
-  test("shows thinking spinner when busy, hides when idle", async ({ page }) => {
+test.describe("SSE: Busy indicator in prompt input", () => {
+  test("shows stop button when busy, hides when idle", async ({ page }) => {
     await setupAndNavigate(page);
 
-    // No thinking indicator initially
-    await expect(page.locator(".message-thinking")).not.toBeVisible();
+    // No stop button initially
+    await expect(page.locator(".prompt-abort-btn")).not.toBeVisible();
 
     // Make busy
     await dispatchAppSSE(page, "session_busy", SESSION_ID);
 
-    // Thinking indicator should appear
-    await expect(page.locator(".message-thinking")).toBeVisible({ timeout: 3_000 });
-    await expect(page.locator(".message-thinking")).toContainText("Thinking");
+    // Stop button should appear
+    await expect(page.locator(".prompt-abort-btn")).toBeVisible({ timeout: 3_000 });
 
     // Make idle
     await dispatchAppSSE(page, "session_idle", SESSION_ID);
 
-    // Thinking indicator should disappear
-    await expect(page.locator(".message-thinking")).not.toBeVisible({ timeout: 3_000 });
+    // Stop button should disappear
+    await expect(page.locator(".prompt-abort-btn")).not.toBeVisible({ timeout: 3_000 });
   });
 });
 
@@ -781,5 +844,96 @@ test.describe("SSE: Multiple rapid events (broadcast channel)", () => {
     });
 
     await expect(page.locator(".status-bar-status")).toHaveText("ready", { timeout: 3_000 });
+  });
+});
+
+// ── Tests: New session flow ───────────────────────────
+
+test.describe("SSE: New session via + button", () => {
+  test("clicking + creates new session and re-enables input", async ({ page }) => {
+    const mocks = await setupAndNavigate(page);
+
+    // 1. Initially the textarea should be enabled (active session exists)
+    const textarea = page.locator(".prompt-textarea");
+    await expect(textarea).toBeVisible();
+    await expect(textarea).not.toBeDisabled();
+    await expect(textarea).not.toHaveAttribute("placeholder", /Select a session/);
+
+    // Model chip should be enabled
+    const modelChip = page.locator(".prompt-chip").first();
+    await expect(modelChip).not.toBeDisabled();
+
+    // 2. When the user clicks "+", the backend clears active_session.
+    //    Simulate this: after POST /api/session/new succeeds, refreshState()
+    //    returns state with active_session = null.
+    const stateWithNoActiveSession = {
+      ...MOCK_APP_STATE,
+      projects: [
+        {
+          ...MOCK_APP_STATE.projects[0],
+          active_session: null,
+        },
+      ],
+    };
+    mocks.setAppState(stateWithNoActiveSession);
+
+    // Click the "+" new session button
+    const newBtn = page.locator(".sb-new-btn");
+    await expect(newBtn).toBeVisible();
+    await newBtn.click();
+
+    // 3. The textarea and model chip should become disabled
+    await expect(textarea).toBeDisabled({ timeout: 3_000 });
+    await expect(textarea).toHaveAttribute("placeholder", /Select a session/);
+    await expect(modelChip).toBeDisabled();
+
+    // 4. Simulate what happens when the backend creates a session:
+    //    The server emits state_changed SSE, and refreshState() now returns
+    //    a state with the new session as active.
+    const NEW_SESSION_ID = "ses_new_from_plus";
+    const stateWithNewSession = {
+      ...MOCK_APP_STATE,
+      projects: [
+        {
+          ...MOCK_APP_STATE.projects[0],
+          active_session: NEW_SESSION_ID,
+          sessions: [
+            ...MOCK_APP_STATE.projects[0].sessions,
+            {
+              id: NEW_SESSION_ID,
+              title: "New Session",
+              parentID: "",
+              directory: "/home/user/my-project",
+              time: { created: 1700005000, updated: 1700005000 },
+            },
+          ],
+        },
+      ],
+    };
+    mocks.setAppState(stateWithNewSession);
+
+    // Mock the messages endpoint for the new session
+    await page.route(`**/api/session/${NEW_SESSION_ID}/messages*`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ messages: [], total: 0 }),
+      })
+    );
+
+    // Dispatch state_changed SSE event (backend sends this after session.created)
+    await dispatchAppSSE(page, "state_changed", "");
+
+    // 5. The textarea and model chip should be re-enabled
+    await expect(textarea).not.toBeDisabled({ timeout: 5_000 });
+    await expect(textarea).not.toHaveAttribute("placeholder", /Select a session/);
+    await expect(modelChip).not.toBeDisabled({ timeout: 3_000 });
+
+    // 6. The new session should appear in the sidebar
+    await expect(page.locator(".sb-session-title", { hasText: "New Session" })).toBeVisible({ timeout: 3_000 });
+
+    // 7. User should be able to type in the textarea
+    await textarea.fill("Hello from new session");
+    await expect(textarea).toHaveValue("Hello from new session");
   });
 });

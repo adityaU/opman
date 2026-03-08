@@ -35,6 +35,7 @@
 mod auth;
 mod error;
 mod handlers;
+mod mcp_ws;
 pub mod pty_manager;
 mod sse;
 mod static_files;
@@ -45,11 +46,12 @@ mod web_state;
 // Re-export public API used by main.rs
 pub use types::ServerState;
 pub use types::WebThemeColors;
-pub use tunnel::{detect_tunnel_mode, spawn_tunnel, TunnelHandle};
+pub use tunnel::{spawn_tunnel, TunnelHandle, TunnelMode};
 pub use web_state::WebStateHandle;
 
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use tokio::sync::broadcast;
 use tracing::{error, info};
 
@@ -72,7 +74,10 @@ pub struct WebConfig {
 /// Returns `(actual_port, web_state_handle)`. The handle allows the TUI's
 /// main loop to push theme changes into the web state (which broadcasts
 /// them to connected SSE clients).
-pub fn start_web_server(config: WebConfig) -> (u16, WebStateHandle) {
+pub fn start_web_server(
+    config: WebConfig,
+    nvim_registry: crate::mcp::NvimSocketRegistry,
+) -> (u16, WebStateHandle) {
     let (event_tx, _event_rx) = broadcast::channel::<WebEvent>(1000);
 
     // Generate JWT secret (random per run — sessions don't survive restart)
@@ -100,6 +105,12 @@ pub fn start_web_server(config: WebConfig) -> (u16, WebStateHandle) {
         password: config.password,
         event_tx,
         pty_mgr,
+        http_client: reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new()),
+        nvim_registry,
     };
 
     let app = build_router(shared_state);
@@ -149,6 +160,8 @@ fn build_router(state: ServerState) -> Router {
         .route("/theme/switch", post(handlers::switch_theme))
         // Actions (independent web state)
         .route("/project/switch", post(handlers::switch_project))
+        .route("/project/add", post(handlers::add_project))
+        .route("/project/remove", post(handlers::remove_project))
         .route("/session/select", post(handlers::select_session))
         .route("/session/new", post(handlers::new_session))
         .route("/panel/toggle", post(handlers::toggle_panel))
@@ -162,6 +175,18 @@ fn build_router(state: ServerState) -> Router {
         .route("/pty/stream", get(sse::terminal_stream))
         // App events SSE
         .route("/events", get(sse::events_stream))
+        // ── Context Window ───────────────────────────────────────────
+        .route("/context-window", get(handlers::get_context_window))
+        // ── File Edits / Diff Review ─────────────────────────────────
+        .route(
+            "/session/{session_id}/file-edits",
+            get(handlers::get_file_edits),
+        )
+        // ── Cross-Session Search ─────────────────────────────────────
+        .route(
+            "/project/{project_idx}/search",
+            get(handlers::search_messages),
+        )
         // ── Proxy endpoints (opencode server) ────────────────────────
         .route(
             "/session/{session_id}/messages",
@@ -176,6 +201,10 @@ fn build_router(state: ServerState) -> Router {
             post(handlers::abort_session),
         )
         .route(
+            "/session/{session_id}",
+            delete(handlers::delete_session).patch(handlers::rename_session),
+        )
+        .route(
             "/session/{session_id}/command",
             post(handlers::execute_command),
         )
@@ -183,6 +212,9 @@ fn build_router(state: ServerState) -> Router {
             "/session/{session_id}/todos",
             get(handlers::get_session_todos),
         )
+        // ── Multi-session dashboard ──────────────────────────────────
+        .route("/sessions/overview", get(handlers::sessions_overview))
+        .route("/sessions/tree", get(handlers::sessions_tree))
         .route("/providers", get(handlers::get_providers))
         .route("/commands", get(handlers::get_commands))
         .route(
@@ -194,10 +226,72 @@ fn build_router(state: ServerState) -> Router {
             post(handlers::reply_question),
         )
         // Session events SSE (proxied from opencode)
-        .route("/session/events", get(sse::session_events_stream));
+        .route("/session/events", get(sse::session_events_stream))
+        // ── Git API (shell out to git CLI) ───────────────────────────
+        .route("/git/status", get(handlers::git_status))
+        .route("/git/diff", get(handlers::git_diff))
+        .route("/git/log", get(handlers::git_log))
+        .route("/git/stage", post(handlers::git_stage))
+        .route("/git/unstage", post(handlers::git_unstage))
+        .route("/git/commit", post(handlers::git_commit))
+        .route("/git/discard", post(handlers::git_discard))
+        .route("/git/show", get(handlers::git_show))
+        .route("/git/branches", get(handlers::git_branches))
+        .route("/git/checkout", post(handlers::git_checkout))
+        .route("/git/range-diff", get(handlers::git_range_diff))
+        .route("/git/context-summary", get(handlers::git_context_summary))
+        // ── File browsing / editing ──────────────────────────────────
+        .route("/agents", get(handlers::get_agents))
+        .route("/files", get(handlers::browse_files))
+        .route("/file/read", get(handlers::read_file))
+        .route("/file/raw", get(handlers::read_file_raw))
+        .route("/file/write", post(handlers::write_file))
+        .route("/editor/lsp/diagnostics", get(handlers::editor_lsp_diagnostics))
+        .route("/editor/lsp/hover", get(handlers::editor_lsp_hover))
+        .route("/editor/lsp/definition", get(handlers::editor_lsp_definition))
+        .route("/editor/lsp/format", post(handlers::editor_lsp_format))
+        // ── Session Watcher ──────────────────────────────────────────
+        .route("/watchers", get(handlers::list_watchers))
+        .route("/watcher", post(handlers::create_watcher))
+        .route("/watcher/sessions", get(handlers::get_watcher_sessions))
+        .route(
+            "/watcher/{session_id}",
+            get(handlers::get_watcher).delete(handlers::delete_watcher),
+        )
+        .route("/watcher/{session_id}/messages", get(handlers::get_watcher_messages))
+        // ── Session Continuity: Presence + Activity ──────────────────
+        .route("/presence", get(handlers::get_presence).post(handlers::register_presence).delete(handlers::deregister_presence))
+        .route("/activity", get(handlers::get_activity_feed))
+        // ── Missions ───────────────────────────────────────────────
+        .route("/missions", get(handlers::list_missions).post(handlers::create_mission))
+        .route(
+            "/missions/{mission_id}",
+            axum::routing::patch(handlers::update_mission).delete(handlers::delete_mission),
+        )
+        // ── Personal Memory ─────────────────────────────────────
+        .route("/memory", get(handlers::list_personal_memory).post(handlers::create_personal_memory))
+        .route(
+            "/memory/{memory_id}",
+            axum::routing::patch(handlers::update_personal_memory).delete(handlers::delete_personal_memory),
+        )
+        // ── Autonomy Controls ──────────────────────────────────
+        .route("/autonomy", get(handlers::get_autonomy_settings).post(handlers::update_autonomy_settings))
+        // ── Routines ───────────────────────────────────────────
+        .route("/routines", get(handlers::list_routines).post(handlers::create_routine))
+        .route("/routines/{routine_id}", axum::routing::patch(handlers::update_routine).delete(handlers::delete_routine))
+        .route("/routines/{routine_id}/run", post(handlers::run_routine))
+        // ── Delegation Board ─────────────────────────────────
+        .route("/delegation", get(handlers::list_delegated_work).post(handlers::create_delegated_work))
+        .route("/delegation/{item_id}", axum::routing::patch(handlers::update_delegated_work).delete(handlers::delete_delegated_work))
+        // ── Workspace Snapshots ─────────────────────────────────────
+        .route("/workspaces", get(handlers::list_workspaces).post(handlers::save_workspace).delete(handlers::delete_workspace))
+        // ── MCP WebSocket (AI agent tool bridge) ─────────────────────
+        .route("/mcp/ws", get(mcp_ws::websocket_handler));
 
     Router::new()
+        .route("/health", get(handlers::health))
         .nest("/api", api_routes)
         .fallback(static_files::serve)
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB global body limit
         .with_state(state)
 }

@@ -6,7 +6,7 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: "http://localhost:5199",
-    headless: false,
+    headless: true,
   },
   webServer: {
     command: "npx vite --port 5199 --strictPort",

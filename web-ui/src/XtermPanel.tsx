@@ -19,6 +19,43 @@ function uuid(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function getTerminalTheme() {
+  const css = getComputedStyle(document.documentElement);
+  const text = css.getPropertyValue("--color-text").trim() || "var(--color-text)";
+  const muted = css.getPropertyValue("--color-text-muted").trim() || "var(--color-text-muted)";
+  const primary = css.getPropertyValue("--color-primary").trim() || "var(--color-primary)";
+  const secondary = css.getPropertyValue("--color-secondary").trim() || "var(--color-secondary)";
+  const accent = css.getPropertyValue("--color-accent").trim() || "var(--color-accent)";
+  const success = css.getPropertyValue("--color-success").trim() || "var(--color-success)";
+  const warning = css.getPropertyValue("--color-warning").trim() || "var(--color-warning)";
+  const error = css.getPropertyValue("--color-error").trim() || "var(--color-error)";
+  const info = css.getPropertyValue("--color-info").trim() || "var(--color-info)";
+  const panel = css.getPropertyValue("--color-bg-panel").trim() || "var(--color-bg-panel)";
+  return {
+    background: "transparent",
+    foreground: text,
+    cursor: text,
+    selectionBackground: `color-mix(in srgb, ${secondary} 28%, transparent)`,
+    black: panel,
+    red: error,
+    green: success,
+    yellow: warning,
+    blue: secondary,
+    magenta: accent,
+    cyan: info,
+    white: text,
+    brightBlack: muted,
+    brightRed: error,
+    brightGreen: success,
+    brightYellow: warning,
+    brightBlue: secondary,
+    brightMagenta: accent,
+    brightCyan: info,
+    brightWhite: primary,
+    selectionForeground: text,
+  };
+}
+
 export function XtermPanel({ kind, focused, sessionId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -55,28 +92,8 @@ export function XtermPanel({ kind, focused, sessionId }: Props) {
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
       fontSize: 13,
       lineHeight: 1.2,
-      theme: {
-        background: "#1a1b26",
-        foreground: "#c0caf5",
-        cursor: "#c0caf5",
-        selectionBackground: "#33467c",
-        black: "#1a1b26",
-        red: "#f7768e",
-        green: "#9ece6a",
-        yellow: "#e0af68",
-        blue: "#7aa2f7",
-        magenta: "#bb9af7",
-        cyan: "#7dcfff",
-        white: "#a9b1d6",
-        brightBlack: "#414868",
-        brightRed: "#f7768e",
-        brightGreen: "#9ece6a",
-        brightYellow: "#e0af68",
-        brightBlue: "#7aa2f7",
-        brightMagenta: "#bb9af7",
-        brightCyan: "#7dcfff",
-        brightWhite: "#c0caf5",
-      },
+      allowTransparency: true,
+      theme: getTerminalTheme(),
       allowProposedApi: true,
     });
 

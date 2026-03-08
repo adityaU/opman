@@ -24,11 +24,20 @@ pub struct ProjectInfo {
 }
 
 impl ApiClient {
-    /// Create a new API client.
+    /// Create a new API client with a default reqwest Client.
+    ///
+    /// Prefer `with_client()` to share a single connection pool.
     pub fn new() -> Self {
         Self {
             client: Client::new(),
         }
+    }
+
+    /// Create an API client backed by a shared reqwest Client.
+    ///
+    /// Reuses TCP connections and avoids per-call connection-pool overhead.
+    pub fn with_client(client: Client) -> Self {
+        Self { client }
     }
 
     /// Fetch the list of sessions from a running opencode server.

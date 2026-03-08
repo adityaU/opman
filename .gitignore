@@ -13,6 +13,9 @@
 
 # AI agent artifacts
 .sisyphus/
+.opencode/
+.openspec/
+openspec/
 docs/
 opencode.json
 

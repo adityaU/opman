@@ -2,8 +2,9 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import type { MessagePart } from "./types";
+
+import type { MessagePart, Message } from "./types";
+import { SubagentSession } from "./SubagentSession";
 import {
   ChevronDown,
   ChevronRight,
@@ -21,6 +22,10 @@ import {
 
 interface Props {
   part: MessagePart;
+  /** Pre-matched child session for task tools (matched by parent in MessageTurn) */
+  childSession?: { id: string; title: string } | null;
+  /** SSE-driven subagent messages, keyed by session ID */
+  subagentMessages?: Map<string, Message[]>;
 }
 
 /**
@@ -36,14 +41,14 @@ interface Props {
  *   2. Task result markdown: <task_result>markdown</task_result>
  *   3. Plain text
  */
-export function ToolCall({ part }: Props) {
+export const ToolCall = React.memo(function ToolCall({ part, childSession, subagentMessages }: Props) {
   const toolName = part.tool || part.toolName || "unknown";
   const shortName = formatToolName(toolName);
 
   // Detect special tool types
   const isTodoWrite = toolName.includes("todowrite") || toolName.includes("todo_write");
-
-  const [expanded, setExpanded] = useState(isTodoWrite);
+  const isTaskTool = toolName === "task";
+  const isBashTool = toolName.includes("bash") || toolName.includes("shell") || toolName.includes("terminal");
 
   const state = part.state;
   const status = state?.status || "pending";
@@ -51,6 +56,22 @@ export function ToolCall({ part }: Props) {
   const isCompleted = status === "completed";
   const isRunning = status === "running" || status === "pending";
   const isEditTool = toolName.includes("edit") && !toolName.includes("neovim");
+
+  // Auto-expand: todowrite always, bash/running tools while they have live output
+  const [expanded, setExpanded] = useState(isTodoWrite);
+  const [userToggled, setUserToggled] = useState(false);
+
+  // Auto-expand running bash tools so live output is visible
+  React.useEffect(() => {
+    if (!userToggled && isBashTool && isRunning) {
+      setExpanded(true);
+    }
+  }, [userToggled, isBashTool, isRunning]);
+
+  const handleToggle = () => {
+    setUserToggled(true);
+    setExpanded(!expanded);
+  };
 
   const durationMs =
     state?.time?.start && state?.time?.end
@@ -71,7 +92,7 @@ export function ToolCall({ part }: Props) {
     <div className={`tool-call ${isError ? "tool-call-error" : ""}`}>
       <button
         className="tool-call-header"
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleToggle}
       >
         <span className="tool-call-icon">
           {expanded ? (
@@ -135,7 +156,25 @@ export function ToolCall({ part }: Props) {
                   {state?.metadata?.truncated && (
                     <span className="tool-call-truncated">[truncated] </span>
                   )}
-                  <ToolOutput output={outputData!} toolName={toolName} />
+                  {isTaskTool && childSession ? (
+                    <SubagentSession
+                      sessionId={childSession.id}
+                      title={state?.title || childSession.title || "Task"}
+                      messages={subagentMessages?.get(childSession.id)}
+                    />
+                  ) : (
+                    <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning && isBashTool} />
+                  )}
+                </div>
+              )}
+
+              {/* Live output placeholder for running bash tools with no output yet */}
+              {!hasOutput && isRunning && isBashTool && (
+                <div className="tool-call-section">
+                  <div className="tool-call-section-label">Output</div>
+                  <pre className="tool-call-pre tool-call-live-output">
+                    <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
+                  </pre>
                 </div>
               )}
             </>
@@ -152,7 +191,7 @@ export function ToolCall({ part }: Props) {
       )}
     </div>
   );
-}
+});
 
 // ── ToolInput: Syntax-highlighted JSON or plain text ────
 
@@ -167,7 +206,7 @@ function ToolInput({ data }: { data: Record<string, unknown> | string }) {
   if (isJson) {
     return (
       <SyntaxHighlighter
-        style={oneDark}
+        useInlineStyles={false}
         language="json"
         PreTag="div"
         customStyle={{
@@ -176,6 +215,7 @@ function ToolInput({ data }: { data: Record<string, unknown> | string }) {
           fontSize: "0.75rem",
           maxHeight: "300px",
           overflow: "auto",
+          whiteSpace: "pre",
         }}
       >
         {formatted}
@@ -196,11 +236,21 @@ const TASK_RESULT_RE = /<task_result>([\s\S]*?)<\/task_result>/;
 function ToolOutput({
   output,
   toolName,
+  isLive,
 }: {
   output: string;
   toolName: string;
+  isLive?: boolean;
 }) {
   const parsed = useMemo(() => parseOutput(output), [output]);
+  const liveRef = React.useRef<HTMLPreElement>(null);
+
+  // Auto-scroll live output to bottom
+  React.useEffect(() => {
+    if (isLive && liveRef.current) {
+      liveRef.current.scrollTop = liveRef.current.scrollHeight;
+    }
+  }, [isLive, output]);
 
   if (parsed.type === "file") {
     const lang = guessLanguage(parsed.path);
@@ -210,7 +260,7 @@ function ToolOutput({
           <span className="tool-output-file-path">{parsed.path}</span>
         </div>
         <SyntaxHighlighter
-          style={oneDark}
+          useInlineStyles={false}
           language={lang}
           PreTag="div"
           showLineNumbers
@@ -220,6 +270,7 @@ function ToolOutput({
             fontSize: "0.75rem",
             maxHeight: "400px",
             overflow: "auto",
+            whiteSpace: "pre",
           }}
         >
           {parsed.content}
@@ -239,7 +290,11 @@ function ToolOutput({
   }
 
   // Plain text output
-  return <pre className="tool-call-pre">{output}</pre>;
+  return (
+    <pre ref={liveRef} className={`tool-call-pre${isLive ? " tool-call-live-output" : ""}`}>
+      {output}
+    </pre>
+  );
 }
 
 // ── TodoList: Render todowrite input as checklist ────────
@@ -375,7 +430,7 @@ interface ParsedOutput {
   path: string;
 }
 
-function parseOutput(output: string): ParsedOutput {
+export function parseOutput(output: string): ParsedOutput {
   // Check for file content XML pattern
   const fileMatch = FILE_CONTENT_RE.exec(output);
   if (fileMatch) {
@@ -437,7 +492,7 @@ const EXT_TO_LANG: Record<string, string> = {
   makefile: "makefile",
 };
 
-function guessLanguage(path: string): string {
+export function guessLanguage(path: string): string {
   const filename = path.split("/").pop() || "";
   const lower = filename.toLowerCase();
 
@@ -453,7 +508,7 @@ function guessLanguage(path: string): string {
 // ── Helper functions ─────────────────────────────────
 
 /** Shorten tool names by removing common prefixes (provider_provider_action -> action) */
-function formatToolName(name: string): string {
+export function formatToolName(name: string): string {
   const parts = name.split("_");
   if (parts.length >= 3 && parts[0] === parts[1]) {
     return parts.slice(2).join("_");
@@ -465,7 +520,7 @@ function formatToolName(name: string): string {
 }
 
 /** Format milliseconds as a human-readable duration */
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const s = ms / 1000;
   if (s < 60) return `${s.toFixed(1)}s`;

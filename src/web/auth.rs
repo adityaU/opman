@@ -70,8 +70,19 @@ pub fn verify_jwt(token: &str, secret: &[u8]) -> Option<String> {
     let unsigned = format!("{}.{}", parts[0], parts[1]);
     let mut mac = HmacSha256::new_from_slice(secret).ok()?;
     mac.update(unsigned.as_bytes());
-    let expected_sig = BASE64.encode(mac.finalize().into_bytes());
-    if expected_sig != parts[2] {
+
+    // Constant-time signature verification to prevent timing attacks.
+    let expected_sig = BASE64.decode(BASE64.encode(mac.finalize().into_bytes())).ok()?;
+    let provided_sig = BASE64.decode(parts[2]).ok()?;
+    if expected_sig.len() != provided_sig.len() {
+        return None;
+    }
+    // Constant-time comparison: always compare all bytes regardless of mismatch position.
+    let mut diff: u8 = 0;
+    for (a, b) in expected_sig.iter().zip(provided_sig.iter()) {
+        diff |= a ^ b;
+    }
+    if diff != 0 {
         return None;
     }
 
@@ -171,4 +182,86 @@ pub fn check_auth_manual(
     token
         .and_then(|t| verify_jwt(&t, &state.jwt_secret))
         .is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_secret() -> Vec<u8> {
+        b"test-secret-key-32-bytes-long!!".to_vec()
+    }
+
+    // ── create_jwt / verify_jwt round-trip ────────────────────
+    #[test]
+    fn jwt_round_trip() {
+        let secret = test_secret();
+        let token = create_jwt("alice", &secret).expect("create_jwt failed");
+        let subject = verify_jwt(&token, &secret);
+        assert_eq!(subject, Some("alice".to_string()));
+    }
+
+    #[test]
+    fn jwt_different_usernames() {
+        let secret = test_secret();
+        let t1 = create_jwt("alice", &secret).unwrap();
+        let t2 = create_jwt("bob", &secret).unwrap();
+        assert_ne!(t1, t2);
+        assert_eq!(verify_jwt(&t1, &secret), Some("alice".to_string()));
+        assert_eq!(verify_jwt(&t2, &secret), Some("bob".to_string()));
+    }
+
+    // ── Tampered tokens ──────────────────────────────────────
+    #[test]
+    fn jwt_tampered_signature_rejected() {
+        let secret = test_secret();
+        let token = create_jwt("alice", &secret).unwrap();
+        let mut tampered = token.clone();
+        let last = tampered.pop().unwrap();
+        tampered.push(if last == 'A' { 'B' } else { 'A' });
+        assert_eq!(verify_jwt(&tampered, &secret), None);
+    }
+
+    #[test]
+    fn jwt_wrong_secret_rejected() {
+        let secret = test_secret();
+        let token = create_jwt("alice", &secret).unwrap();
+        let wrong_secret = b"wrong-secret-key-32-bytes-long!";
+        assert_eq!(verify_jwt(&token, wrong_secret), None);
+    }
+
+    // ── Malformed tokens ─────────────────────────────────────
+    #[test]
+    fn jwt_empty_string_rejected() {
+        assert_eq!(verify_jwt("", &test_secret()), None);
+    }
+
+    #[test]
+    fn jwt_too_few_parts_rejected() {
+        assert_eq!(verify_jwt("abc.def", &test_secret()), None);
+    }
+
+    #[test]
+    fn jwt_too_many_parts_rejected() {
+        assert_eq!(verify_jwt("a.b.c.d", &test_secret()), None);
+    }
+
+    #[test]
+    fn jwt_garbage_base64_rejected() {
+        assert_eq!(verify_jwt("!!!.@@@.###", &test_secret()), None);
+    }
+
+    #[test]
+    fn jwt_empty_username_works() {
+        let secret = test_secret();
+        let token = create_jwt("", &secret).unwrap();
+        assert_eq!(verify_jwt(&token, &secret), Some("".to_string()));
+    }
+
+    #[test]
+    fn jwt_token_has_three_dot_separated_parts() {
+        let secret = test_secret();
+        let token = create_jwt("user", &secret).unwrap();
+        assert_eq!(token.split('.').count(), 3);
+    }
 }

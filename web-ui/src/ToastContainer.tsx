@@ -23,7 +23,7 @@ export function ToastContainer({ toasts, onDismiss }: Props) {
         <div key={toast.id} className={`toast toast-${toast.type}`}>
           <span className="toast-icon">{ICONS[toast.type]}</span>
           <span className="toast-message">{toast.message}</span>
-          <button className="toast-close" onClick={() => onDismiss(toast.id)}>
+          <button className="toast-close" onClick={() => onDismiss(toast.id)} aria-label="Dismiss notification">
             <X size={12} />
           </button>
         </div>

@@ -17,7 +17,7 @@ test.describe("Login page", () => {
     await page.goto("/");
     await page.waitForSelector(".login-container", { timeout: 10_000 });
 
-    await expect(page.locator("h1")).toHaveText("opman");
+    await expect(page.locator("h1")).toHaveText("opencode");
     await expect(page.locator('input[type="text"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
@@ -103,11 +103,11 @@ test.describe("Chat layout", () => {
     const sidebar = page.locator(".chat-sidebar");
     await expect(sidebar).toBeVisible();
 
-    // Sessions use class "sidebar-session-group" (one per parent session)
-    await expect(sidebar.locator(".sidebar-session-group")).toHaveCount(2);
+    // Sessions use class "sb-session-group" (one per parent session)
+    await expect(sidebar.locator(".sb-session-group")).toHaveCount(2);
 
     // The active session row should have the "active" class
-    const activeSessions = sidebar.locator(".sidebar-session-row.active");
+    const activeSessions = sidebar.locator(".sb-session.active");
     await expect(activeSessions).toHaveCount(1);
   });
 
@@ -117,8 +117,8 @@ test.describe("Chat layout", () => {
   });
 
   test("sidebar has new session button", async ({ page }) => {
-    // The new session button uses class "chat-sidebar-new-btn"
-    const newBtn = page.locator(".chat-sidebar-new-btn");
+    // The new session button uses class "sb-new-btn"
+    const newBtn = page.locator(".sb-new-btn");
     await expect(newBtn).toBeVisible();
   });
 
@@ -156,7 +156,7 @@ test.describe("Message timeline", () => {
     );
 
     await expect(
-      codeBlock.first().locator(".code-copy-btn")
+      codeBlock.first().locator('.code-block-action-btn[aria-label="Copy code"]')
     ).toBeVisible();
   });
 
@@ -176,7 +176,9 @@ test.describe("Message timeline", () => {
   });
 
   test("displays message cost", async ({ page }) => {
-    await expect(page.getByText("$0.0032")).toBeVisible();
+    // msg_002 ($0.0032) and msg_003 ($0.005) are grouped together as
+    // consecutive assistant messages, so the displayed cost is the sum.
+    await expect(page.getByText("$0.0082")).toBeVisible();
   });
 
   test("shows role labels", async ({ page }) => {
@@ -215,7 +217,7 @@ test.describe("Prompt input", () => {
     const textarea = page.locator(".prompt-textarea");
     await expect(textarea).toHaveAttribute(
       "placeholder",
-      "Type a message... (/ for commands)"
+      "Type a message... (/ for commands, paste or drop images)"
     );
   });
 

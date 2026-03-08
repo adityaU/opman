@@ -1,46 +1,68 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { fetchThemes, switchTheme } from "./api";
 import type { ThemePreview, ThemeColors } from "./api";
-import { Palette, Search, Check, Loader2, X } from "lucide-react";
+import { useFocusTrap } from "./hooks/useFocusTrap";
+import { applyThemeToCss } from "./utils/theme";
+import { Palette, Search, Loader2, X, Layers, Square } from "lucide-react";
+
+export type ThemeMode = "glassy" | "flat";
+
+const THEME_MODE_KEY = "opman-theme-mode";
+
+/** Read persisted theme mode from localStorage */
+export function getPersistedThemeMode(): ThemeMode {
+  try {
+    const v = localStorage.getItem(THEME_MODE_KEY);
+    if (v === "glassy") return "glassy";
+  } catch { /* ignore */ }
+  return "flat";
+}
+
+/** Persist theme mode to localStorage */
+function persistThemeMode(mode: ThemeMode) {
+  try {
+    localStorage.setItem(THEME_MODE_KEY, mode);
+  } catch { /* ignore */ }
+}
+
+/** Apply or remove the flat-theme class on <html> */
+export function applyThemeMode(mode: ThemeMode) {
+  const root = document.documentElement;
+  if (mode === "flat") {
+    root.classList.add("flat-theme");
+  } else {
+    root.classList.remove("flat-theme");
+  }
+}
 
 interface Props {
   onClose: () => void;
   onThemeApplied: (colors: ThemeColors) => void;
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
 }
 
-/** Apply theme colors as CSS custom properties on :root for live preview */
-function previewTheme(colors: ThemeColors) {
-  const root = document.documentElement;
-  root.style.setProperty("--color-primary", colors.primary);
-  root.style.setProperty("--color-secondary", colors.secondary);
-  root.style.setProperty("--color-accent", colors.accent);
-  root.style.setProperty("--color-bg", colors.background);
-  root.style.setProperty("--color-bg-panel", colors.background_panel);
-  root.style.setProperty("--color-bg-element", colors.background_element);
-  root.style.setProperty("--color-text", colors.text);
-  root.style.setProperty("--color-text-muted", colors.text_muted);
-  root.style.setProperty("--color-border", colors.border);
-  root.style.setProperty("--color-border-active", colors.border_active);
-  root.style.setProperty("--color-border-subtle", colors.border_subtle);
-  root.style.setProperty("--color-error", colors.error);
-  root.style.setProperty("--color-warning", colors.warning);
-  root.style.setProperty("--color-success", colors.success);
-  root.style.setProperty("--color-info", colors.info);
-}
-
-export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
+export function ThemeSelectorModal({
+  onClose,
+  onThemeApplied,
+  themeMode,
+  onThemeModeChange,
+}: Props) {
   const [themes, setThemes] = useState<ThemePreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [applying, setApplying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(modalRef);
 
   // Save the original theme so we can revert on cancel
   const originalTheme = useRef<Record<string, string>>({});
+  const originalMode = useRef<ThemeMode>(themeMode);
 
   useEffect(() => {
-    // Capture current CSS vars
     const root = document.documentElement;
     const vars = [
       "--color-primary", "--color-secondary", "--color-accent",
@@ -54,8 +76,8 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
       saved[v] = getComputedStyle(root).getPropertyValue(v).trim();
     }
     originalTheme.current = saved;
+    originalMode.current = themeMode;
 
-    // Fetch themes
     fetchThemes()
       .then((data) => {
         setThemes(data);
@@ -72,7 +94,6 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
     return themes.filter((t) => t.name.toLowerCase().includes(lower));
   }, [themes, filter]);
 
-  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
@@ -84,7 +105,7 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (filtered[selectedIdx]) {
-          applyTheme(filtered[selectedIdx]);
+          handleApplyTheme(filtered[selectedIdx]);
         }
       } else if (e.key === "Escape") {
         revertAndClose();
@@ -93,43 +114,44 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
     [filtered, selectedIdx]
   );
 
-  // Reset selected index when filter changes
   useEffect(() => {
     setSelectedIdx(0);
   }, [filter]);
 
-  // Live preview on hover / selection change
   const handleHover = useCallback((theme: ThemePreview) => {
-    previewTheme(theme.colors);
+    applyThemeToCss(theme.colors);
   }, []);
 
-  // Live preview on arrow key selection
   useEffect(() => {
     if (filtered[selectedIdx]) {
-      previewTheme(filtered[selectedIdx].colors);
+      applyThemeToCss(filtered[selectedIdx].colors);
     }
   }, [selectedIdx, filtered]);
 
   const revertAndClose = useCallback(() => {
-    // Revert to original theme
     const root = document.documentElement;
     for (const [k, v] of Object.entries(originalTheme.current)) {
       root.style.setProperty(k, v);
     }
+    // Revert mode if changed
+    if (themeMode !== originalMode.current) {
+      onThemeModeChange(originalMode.current);
+      applyThemeMode(originalMode.current);
+      persistThemeMode(originalMode.current);
+    }
     onClose();
-  }, [onClose]);
+  }, [onClose, themeMode, onThemeModeChange]);
 
-  const applyTheme = useCallback(
+  const handleApplyTheme = useCallback(
     async (theme: ThemePreview) => {
       setApplying(true);
       try {
         const colors = await switchTheme(theme.name);
-        previewTheme(colors);
+        applyThemeToCss(colors);
         onThemeApplied(colors);
         onClose();
       } catch {
-        // If switch fails, still apply the preview colors locally
-        previewTheme(theme.colors);
+        applyThemeToCss(theme.colors);
         onThemeApplied(theme.colors);
         onClose();
       } finally {
@@ -139,23 +161,65 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
     [onClose, onThemeApplied]
   );
 
+  const handleModeSwitch = useCallback(
+    (mode: ThemeMode) => {
+      onThemeModeChange(mode);
+      applyThemeMode(mode);
+      persistThemeMode(mode);
+    },
+    [onThemeModeChange]
+  );
+
   return (
     <div className="modal-backdrop" onClick={revertAndClose}>
       <div
         className="theme-selector"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Appearance settings"
+        ref={modalRef}
       >
         {/* Header */}
         <div className="theme-selector-header">
           <Palette size={14} />
-          <span>Select Theme</span>
-          <span className="theme-selector-count">
-            {filtered.length} theme{filtered.length !== 1 ? "s" : ""}
-          </span>
-          <button className="theme-selector-close" onClick={revertAndClose}>
+          <span>Appearance</span>
+          <button className="theme-selector-close" onClick={revertAndClose} aria-label="Close appearance settings">
             <X size={14} />
           </button>
+        </div>
+
+        {/* Mode switcher */}
+        <div className="theme-mode-switcher">
+          <button
+            className={`theme-mode-option ${themeMode === "glassy" ? "active" : ""}`}
+            onClick={() => handleModeSwitch("glassy")}
+          >
+            <Layers size={16} />
+            <div className="theme-mode-text">
+              <span className="theme-mode-label">Glassy</span>
+              <span className="theme-mode-desc">Translucent blur effects</span>
+            </div>
+          </button>
+          <button
+            className={`theme-mode-option ${themeMode === "flat" ? "active" : ""}`}
+            onClick={() => handleModeSwitch("flat")}
+          >
+            <Square size={16} />
+            <div className="theme-mode-text">
+              <span className="theme-mode-label">Flat</span>
+              <span className="theme-mode-desc">Solid opaque surfaces</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Divider with label */}
+        <div className="theme-section-label">
+          <span>Color Themes</span>
+          <span className="theme-selector-count">
+            {filtered.length}
+          </span>
         </div>
 
         {/* Search */}
@@ -185,38 +249,19 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
               <button
                 key={theme.name}
                 className={`theme-card ${idx === selectedIdx ? "selected" : ""}`}
-                onClick={() => applyTheme(theme)}
+                onClick={() => handleApplyTheme(theme)}
                 onMouseEnter={() => {
                   handleHover(theme);
                   setSelectedIdx(idx);
                 }}
               >
-                {/* Color swatches */}
-                <div className="theme-card-swatches">
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.background }}
-                  />
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.primary }}
-                  />
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.secondary }}
-                  />
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.accent }}
-                  />
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.success }}
-                  />
-                  <span
-                    className="theme-swatch"
-                    style={{ background: theme.colors.error }}
-                  />
+                {/* Color preview bar */}
+                <div className="theme-card-preview">
+                  <span style={{ background: theme.colors.background, flex: 2 }} />
+                  <span style={{ background: theme.colors.primary, flex: 1 }} />
+                  <span style={{ background: theme.colors.secondary, flex: 1 }} />
+                  <span style={{ background: theme.colors.accent, flex: 1 }} />
+                  <span style={{ background: theme.colors.text, flex: 1 }} />
                 </div>
                 <span className="theme-card-name">{theme.name}</span>
                 {applying && idx === selectedIdx && (
@@ -227,7 +272,7 @@ export function ThemeSelectorModal({ onClose, onThemeApplied }: Props) {
           )}
         </div>
 
-        {/* Footer hint */}
+        {/* Footer */}
         <div className="theme-selector-footer">
           <kbd>Up/Down</kbd> Navigate
           <kbd>Enter</kbd> Apply

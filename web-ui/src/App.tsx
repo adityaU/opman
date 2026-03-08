@@ -2,9 +2,17 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getToken, setToken, verifyToken, login } from "./api";
 import { LoginPage } from "./LoginPage";
 import { ChatLayout } from "./ChatLayout";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+
+  // Apply persisted theme mode (glassy/flat) immediately on mount,
+  // before auth check completes — so the login page gets the right mode.
+  useEffect(() => {
+    applyThemeMode(getPersistedThemeMode());
+  }, []);
 
   useEffect(() => {
     verifyToken().then((ok) => setAuthed(ok));
@@ -40,5 +48,9 @@ export function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  return <ChatLayout />;
+  return (
+    <ErrorBoundary>
+      <ChatLayout />
+    </ErrorBoundary>
+  );
 }

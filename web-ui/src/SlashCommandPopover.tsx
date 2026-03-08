@@ -29,6 +29,20 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "share", description: "Share session" },
   { name: "agent", description: "Switch agent type", args: "<agent>" },
   { name: "clear", description: "Clear conversation" },
+  // Modal commands
+  { name: "keys", description: "Show keyboard shortcuts" },
+  { name: "todos", description: "Show session todos" },
+  { name: "sessions", description: "Search sessions across projects" },
+  { name: "context", description: "Send context to session" },
+  { name: "settings", description: "Open settings" },
+  { name: "assistant-center", description: "Open the assistant cockpit" },
+  { name: "inbox", description: "Open the assistant inbox" },
+  { name: "missions", description: "Open mission tracking" },
+  { name: "memory", description: "Open personal memory" },
+  { name: "autonomy", description: "Adjust assistant autonomy" },
+  { name: "routines", description: "Manage assistant routines" },
+  { name: "delegation", description: "Open delegation board" },
+  { name: "workspaces", description: "Open workspaces and recipes" },
 ];
 
 export function SlashCommandPopover({

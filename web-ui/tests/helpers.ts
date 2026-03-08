@@ -174,6 +174,14 @@ export const MOCK_THEME = {
  * so the app skips the login screen.
  */
 export async function setupMockAPI(page: Page) {
+  // Catch-all: prevent any unmocked /api/* request from hitting the real
+  // backend. Playwright checks routes in REVERSE registration order, so
+  // this is registered first (lowest priority) and specific routes below
+  // override it.
+  await page.route("**/api/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
+  );
+
   // Mock all API routes before navigating
   await page.route("**/api/auth/verify", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) })
@@ -270,6 +278,57 @@ export async function setupMockAPI(page: Page) {
 
   await page.route("**/api/session/*/todos", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) })
+  );
+
+  await page.route("**/api/session/*/permission", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) })
+  );
+
+  await page.route("**/api/session/*/question", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) })
+  );
+
+  await page.route("**/api/presence", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ clients: [] }) })
+  );
+
+  await page.route("**/api/agents", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        { id: "default", name: "Default Agent", system_prompt: "" },
+      ]),
+    })
+  );
+
+  // ── OpenSpec assistant endpoints (memory, autonomy, routines, etc.) ──
+  await page.route("**/api/memory", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ memory: [] }) })
+  );
+
+  await page.route("**/api/autonomy", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ mode: "observe", updated_at: new Date().toISOString() }),
+    })
+  );
+
+  await page.route("**/api/routines", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routines: [], runs: [] }) })
+  );
+
+  await page.route("**/api/missions", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ missions: [] }) })
+  );
+
+  await page.route("**/api/delegation", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) })
+  );
+
+  await page.route("**/api/workspaces", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workspaces: [] }) })
   );
 }
 
