@@ -165,6 +165,7 @@ async fn spawn_local_managed(
         &tunnel_json_path,
         hostname,
         local_port,
+        protocol,
     )?;
 
     // Step 5: Run tunnel
@@ -182,12 +183,19 @@ async fn spawn_local_managed(
         "tunnel",
     ];
     if let Some(proto) = protocol {
-        args.extend(["--protocol", proto]);
+        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
     }
     args.extend(["run", tunnel_name]);
 
-    let mut child = Command::new("cloudflared")
-        .args(&args)
+    info!("cloudflared args: {:?}", args);
+
+    let mut cmd = Command::new("cloudflared");
+    cmd.args(&args);
+    if let Some(proto) = protocol {
+        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
+        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
+    }
+    let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -513,8 +521,9 @@ fn generate_config(
     tunnel_json_path: &Path,
     hostname: &str,
     local_port: u16,
+    protocol: Option<&str>,
 ) -> anyhow::Result<()> {
-    let config = serde_json::json!({
+    let mut config = serde_json::json!({
         "tunnel": tunnel_uuid,
         "credentials-file": tunnel_json_path.to_str().unwrap_or_default(),
         "ingress": [
@@ -530,6 +539,13 @@ fn generate_config(
             }
         ]
     });
+    // When a protocol override is requested, bake it into the config file as well
+    if let Some(proto) = protocol {
+        config.as_object_mut().unwrap().insert(
+            "protocol".to_string(),
+            serde_json::Value::String(proto.to_string()),
+        );
+    }
 
     let content = serde_json::to_string_pretty(&config)?;
     std::fs::write(config_path, &content)?;
@@ -549,12 +565,17 @@ async fn spawn_named(token: &str, local_port: u16, protocol: Option<&str>) -> an
 
     let mut args = vec!["tunnel"];
     if let Some(proto) = protocol {
-        args.extend(["--protocol", proto]);
+        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
     }
     args.extend(["run", "--token", token]);
 
-    let mut child = Command::new("cloudflared")
-        .args(&args)
+    let mut cmd = Command::new("cloudflared");
+    cmd.args(&args);
+    if let Some(proto) = protocol {
+        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
+        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
+    }
+    let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -594,12 +615,17 @@ async fn spawn_quick(local_port: u16, protocol: Option<&str>) -> anyhow::Result<
     let local_url = format!("http://localhost:{local_port}");
     let mut args = vec!["tunnel"];
     if let Some(proto) = protocol {
-        args.extend(["--protocol", proto]);
+        args.extend(["--protocol", proto, "--edge-ip-version", "4"]);
     }
     args.extend(["--url", &local_url]);
 
-    let mut child = Command::new("cloudflared")
-        .args(&args)
+    let mut cmd = Command::new("cloudflared");
+    cmd.args(&args);
+    if let Some(proto) = protocol {
+        cmd.env("TUNNEL_TRANSPORT_PROTOCOL", proto);
+        cmd.env("TUNNEL_EDGE_IP_VERSION", "4");
+    }
+    let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -729,6 +755,7 @@ mod tests {
             Path::new("/tmp/tunnel.json"),
             "test.example.com",
             8080,
+            None,
         )
         .unwrap();
 
