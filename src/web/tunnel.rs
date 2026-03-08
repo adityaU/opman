@@ -87,14 +87,14 @@ fn tunnel_data_dir() -> anyhow::Result<PathBuf> {
 /// URL to appear in stderr and prints it.
 ///
 /// Returns a `TunnelHandle` whose `Drop` kills the child process.
-pub async fn spawn_tunnel(mode: TunnelMode, local_port: u16) -> TunnelHandle {
+pub async fn spawn_tunnel(mode: TunnelMode, local_port: u16, protocol: Option<&str>) -> TunnelHandle {
     let result = match &mode {
         TunnelMode::LocalManaged {
             hostname,
             tunnel_name,
-        } => spawn_local_managed(hostname, tunnel_name, local_port).await,
-        TunnelMode::Named { token } => spawn_named(token, local_port).await,
-        TunnelMode::Quick => spawn_quick(local_port).await,
+        } => spawn_local_managed(hostname, tunnel_name, local_port, protocol).await,
+        TunnelMode::Named { token } => spawn_named(token, local_port, protocol).await,
+        TunnelMode::Quick => spawn_quick(local_port, protocol).await,
     };
 
     match result {
@@ -124,6 +124,7 @@ async fn spawn_local_managed(
     hostname: &str,
     tunnel_name: &str,
     local_port: u16,
+    protocol: Option<&str>,
 ) -> anyhow::Result<(Child, Option<PathBuf>)> {
     let data_dir = tunnel_data_dir()?;
     let cert_path = data_dir.join("cert.pem");
@@ -172,17 +173,21 @@ async fn spawn_local_managed(
         hostname, local_port
     );
 
+    let mut args = vec![
+        "--no-autoupdate",
+        "--origincert",
+        cert_path.to_str().unwrap_or_default(),
+        "--config",
+        config_path.to_str().unwrap_or_default(),
+        "tunnel",
+    ];
+    if let Some(proto) = protocol {
+        args.extend(["--protocol", proto]);
+    }
+    args.extend(["run", tunnel_name]);
+
     let mut child = Command::new("cloudflared")
-        .args([
-            "--no-autoupdate",
-            "--origincert",
-            cert_path.to_str().unwrap_or_default(),
-            "--config",
-            config_path.to_str().unwrap_or_default(),
-            "tunnel",
-            "run",
-            tunnel_name,
-        ])
+        .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -536,14 +541,20 @@ fn generate_config(
 // ── Remote-managed (named) tunnel ───────────────────────────────────
 
 /// `cloudflared tunnel run --token <token>`
-async fn spawn_named(token: &str, local_port: u16) -> anyhow::Result<(Child, Option<PathBuf>)> {
+async fn spawn_named(token: &str, local_port: u16, protocol: Option<&str>) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
         "Starting named Cloudflare tunnel (port {})",
         local_port
     );
 
+    let mut args = vec!["tunnel"];
+    if let Some(proto) = protocol {
+        args.extend(["--protocol", proto]);
+    }
+    args.extend(["run", "--token", token]);
+
     let mut child = Command::new("cloudflared")
-        .args(["tunnel", "run", "--token", token])
+        .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -575,17 +586,20 @@ async fn spawn_named(token: &str, local_port: u16) -> anyhow::Result<(Child, Opt
 // ── Quick (ephemeral) tunnel ────────────────────────────────────────
 
 /// `cloudflared tunnel --url http://localhost:<port>`
-async fn spawn_quick(local_port: u16) -> anyhow::Result<(Child, Option<PathBuf>)> {
+async fn spawn_quick(local_port: u16, protocol: Option<&str>) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
         "Starting quick Cloudflare tunnel → http://localhost:{local_port}"
     );
 
+    let local_url = format!("http://localhost:{local_port}");
+    let mut args = vec!["tunnel"];
+    if let Some(proto) = protocol {
+        args.extend(["--protocol", proto]);
+    }
+    args.extend(["--url", &local_url]);
+
     let mut child = Command::new("cloudflared")
-        .args([
-            "tunnel",
-            "--url",
-            &format!("http://localhost:{local_port}"),
-        ])
+        .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())

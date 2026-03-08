@@ -128,6 +128,12 @@ struct Cli {
     #[arg(long, value_name = "NAME", env = "OPMAN_CF_TUNNEL_NAME", default_value = "opman")]
     tunnel_name: String,
 
+    /// Force cloudflared to use a specific protocol (e.g. "http2").
+    /// Useful on networks where SRV DNS lookups for QUIC are blocked
+    /// (e.g. corporate-managed machines).
+    #[arg(long, value_name = "PROTO", env = "OPMAN_CF_TUNNEL_PROTOCOL")]
+    tunnel_protocol: Option<String>,
+
     // ── MCP control ─────────────────────────────────────────────────
 
     /// Disable all MCP integrations
@@ -398,7 +404,7 @@ async fn main() -> Result<()> {
     // ── Spawn Cloudflare tunnel if configured ────────────────────────
     let _tunnel_handle: Option<web::TunnelHandle> = if enable_web {
         if let Some(mode) = tunnel_mode {
-            Some(web::spawn_tunnel(mode, web_actual_port).await)
+            Some(web::spawn_tunnel(mode, web_actual_port, cli.tunnel_protocol.as_deref()).await)
         } else {
             None
         }
