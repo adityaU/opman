@@ -1644,9 +1644,11 @@ impl WebStateHandle {
     /// Listen to the opencode server's SSE `/event` stream to capture
     /// session stats (cost/tokens) from `message.updated` events.
     ///
-    /// Spawns one SSE connection per project directory. Every 30 seconds the
+    /// Spawns one SSE connection per project directory. Every 2 minutes the
     /// connections are torn down and re-established so we pick up any new
-    /// projects and drop stale connections.
+    /// projects and drop stale connections. Individual connections also
+    /// self-terminate via the heartbeat watchdog in `run_opencode_sse` if
+    /// the upstream goes silent for >60s.
     fn spawn_opencode_sse_listener(&self) {
         let handle = self.clone();
 
@@ -1691,8 +1693,8 @@ impl WebStateHandle {
                     handles.push(h);
                 }
 
-                // Reconnect loop: check every 5 minutes if we need to restart
-                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                // Reconnect loop: check every 2 minutes if we need to restart
+                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
             }
         });
     }
@@ -1733,6 +1735,11 @@ fn load_persisted_assistant_state(path: &PathBuf) -> PersistedAssistantState {
 /// Also re-broadcasts raw event data on `handle.raw_sse_tx` so the web
 /// `session_events_stream` can forward them to browser clients without
 /// opening a separate upstream connection.
+///
+/// Includes a heartbeat watchdog: if no data arrives within 60 seconds
+/// (upstream opencode sends heartbeats every ~10s, axum keepalive every 15s),
+/// the connection is considered stale and the function returns an error so the
+/// caller can reconnect.
 async fn run_opencode_sse(
     handle: &WebStateHandle,
     base_url: &str,
@@ -1740,7 +1747,12 @@ async fn run_opencode_sse(
 ) -> anyhow::Result<()> {
     use futures::StreamExt;
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        // No overall timeout — SSE streams are long-lived.
+        // The heartbeat watchdog below handles stale connections.
+        .build()?;
+
     let response = client
         .get(format!("{}/event", base_url))
         .header("Accept", "text/event-stream")
@@ -1755,23 +1767,45 @@ async fn run_opencode_sse(
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        let text = String::from_utf8_lossy(&chunk);
-        // Normalize CRLF → LF
-        let text = text.replace("\r\n", "\n");
-        buffer.push_str(&text);
+    // Heartbeat watchdog: if no bytes arrive within this duration, treat as stale.
+    let stale_timeout = std::time::Duration::from_secs(60);
 
-        // Process complete SSE messages (separated by double newline)
-        while let Some(boundary) = buffer.find("\n\n") {
-            let message: String = buffer.drain(..boundary).collect();
-            buffer.drain(..2); // consume the "\n\n" separator
+    loop {
+        let chunk = tokio::time::timeout(stale_timeout, stream.next()).await;
 
-            if let Some(data) = extract_sse_data(&message) {
-                // Re-broadcast the raw event data to web clients
-                let _ = handle.raw_sse_tx.send(data.clone());
+        match chunk {
+            Err(_elapsed) => {
+                // Timed out waiting for data — connection is stale.
+                anyhow::bail!(
+                    "Upstream SSE stale for {}s (no data received)",
+                    stale_timeout.as_secs()
+                );
+            }
+            Ok(None) => {
+                // Stream ended normally.
+                break;
+            }
+            Ok(Some(Err(e))) => {
+                anyhow::bail!("Upstream SSE read error: {}", e);
+            }
+            Ok(Some(Ok(chunk))) => {
+                let text = String::from_utf8_lossy(&chunk);
+                // Normalize CRLF → LF
+                let text = text.replace("\r\n", "\n");
+                buffer.push_str(&text);
 
-                handle_web_sse_event(handle, &data, project_dir).await;
+                // Process complete SSE messages (separated by double newline)
+                while let Some(boundary) = buffer.find("\n\n") {
+                    let message: String = buffer.drain(..boundary).collect();
+                    buffer.drain(..2); // consume the "\n\n" separator
+
+                    if let Some(data) = extract_sse_data(&message) {
+                        // Re-broadcast the raw event data to web clients
+                        let _ = handle.raw_sse_tx.send(data.clone());
+
+                        handle_web_sse_event(handle, &data, project_dir).await;
+                    }
+                }
             }
         }
     }

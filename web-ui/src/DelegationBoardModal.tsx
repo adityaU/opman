@@ -16,7 +16,7 @@ export function DelegationBoardModal({ onClose, missions, activeSessionId, onOpe
   const [items, setItems] = useState<DelegatedWorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
-  const [assignee, setAssignee] = useState("coder");
+  const [assignee, setAssignee] = useState("build");
   const [scope, setScope] = useState("");
   const [missionId, setMissionId] = useState("");
   const [subagentSessionId, setSubagentSessionId] = useState("");

@@ -4,14 +4,21 @@ import { HelpCircle, Send } from "lucide-react";
 
 interface Props {
   questions: QuestionRequest[];
+  /** When set, questions from other sessions show a "subagent" badge */
+  activeSessionId?: string | null;
   onReply: (requestId: string, answers: string[][]) => void;
 }
 
-export const QuestionDock = React.memo(function QuestionDock({ questions, onReply }: Props) {
+export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply }: Props) {
   return (
     <div className="question-dock" role="region" aria-label="Questions">
       {questions.map((q) => (
-        <QuestionCard key={q.id} question={q} onReply={onReply} />
+        <QuestionCard
+          key={q.id}
+          question={q}
+          isCrossSession={!!activeSessionId && q.sessionID !== activeSessionId}
+          onReply={onReply}
+        />
       ))}
     </div>
   );
@@ -19,9 +26,11 @@ export const QuestionDock = React.memo(function QuestionDock({ questions, onRepl
 
 function QuestionCard({
   question,
+  isCrossSession,
   onReply,
 }: {
   question: QuestionRequest;
+  isCrossSession: boolean;
   onReply: (requestId: string, answers: string[][]) => void;
 }) {
   const [answers, setAnswers] = useState<string[][]>(
@@ -102,6 +111,7 @@ function QuestionCard({
       <div className="question-header">
         <HelpCircle size={16} className="question-icon" />
         <span className="question-title">{question.title || "Question"}</span>
+        {isCrossSession && <span className="question-badge-subagent">subagent</span>}
         <span className="question-hint">Enter = submit</span>
       </div>
       <div className="question-body">

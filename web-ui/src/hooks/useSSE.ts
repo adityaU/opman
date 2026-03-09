@@ -145,6 +145,10 @@ export interface SSEState {
   presenceClients: ClientPresence[];
   /** Live activity events for the active session (newest last). */
   liveActivityEvents: ActivityEvent[];
+  /** Permission requests from non-active sessions (e.g. subagent in another session). */
+  crossSessionPermissions: PermissionRequest[];
+  /** Question requests from non-active sessions (e.g. subagent in another session). */
+  crossSessionQuestions: QuestionRequest[];
   refreshState: () => Promise<void>;
   refreshMessages: () => Promise<void>;
   clearPermission: (id: string) => void;
@@ -385,6 +389,8 @@ export function useSSE(): SSEState {
   const [mcpAgentActivity, setMcpAgentActivity] = useState<Map<string, boolean>>(new Map());
   const [presenceClients, setPresenceClients] = useState<ClientPresence[]>([]);
   const [liveActivityEvents, setLiveActivityEvents] = useState<ActivityEvent[]>([]);
+  const [crossSessionPermissions, setCrossSessionPermissions] = useState<PermissionRequest[]>([]);
+  const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
   const activeSessionRef = useRef<string | null>(null);
 
   /**
@@ -455,8 +461,46 @@ export function useSSE(): SSEState {
     }
   }, []);
 
-  /** No-op — messages are fully SSE-driven. Kept for interface compat. */
-  const refreshMessages = useCallback(async () => {}, []);
+  /**
+   * Re-fetch the current session's messages from REST to recover events
+   * missed during SSE disconnection or lag.
+   */
+  const refreshMessages = useCallback(async () => {
+    const sid = activeSessionRef.current;
+    if (!sid) return;
+
+    const gen = sessionGenRef.current;
+    try {
+      const resp = await fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE });
+      if (gen !== sessionGenRef.current) return; // session changed while fetching
+
+      // Merge fetched messages into the existing map (upsert — preserves
+      // any parts that SSE already streamed ahead of the REST response).
+      const map = messageMapRef.current;
+      for (const msg of resp.messages) {
+        const id = msg.info.messageID || msg.info.id || "";
+        if (!id) continue;
+        const existing = map.get(id);
+        if (!existing) {
+          map.set(id, msg);
+        } else {
+          // Merge: prefer the REST version's info (more complete) but keep
+          // any parts that are already present (streaming parts may be newer).
+          map.set(id, {
+            ...existing,
+            info: { ...existing.info, ...msg.info },
+            metadata: msg.metadata ?? existing.metadata,
+            parts: existing.parts.length > 0 ? existing.parts : msg.parts,
+          });
+        }
+      }
+      setMessages(mapToSortedArray(map));
+      setHasOlderMessages(resp.has_more);
+      setTotalMessageCount(resp.total);
+    } catch (e) {
+      console.error("refreshMessages failed:", e);
+    }
+  }, []);
 
   /** Load older messages (pagination — prepend to the map).
    *  Returns true if even more older messages remain. */
@@ -572,9 +616,46 @@ export function useSSE(): SSEState {
       if (colors) applyThemeToCss(colors);
     });
 
+    // ── SSE recovery state ──────────────────────────────────────
+    /** Timestamp (ms) of last event received from either SSE stream. */
+    let lastEventTime = Date.now();
+    /** Whether the session SSE has reconnected after an error (needs recovery). */
+    let sessionSseNeedsRecovery = false;
+    /** Whether the app SSE has reconnected after an error (needs recovery). */
+    let appSseNeedsRecovery = false;
+    /** Stale-connection watchdog interval handle. */
+    let watchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+    /** Mark that we received an event (resets stale timer). */
+    function touchEvent() {
+      lastEventTime = Date.now();
+    }
+
+    /** Perform recovery after SSE reconnection: refetch state + messages. */
+    function recoverAfterReconnect() {
+      console.info("[SSE] Recovering after reconnection — refetching state and messages");
+      refreshState();
+      refreshMessages();
+    }
+
     // App events SSE (state changes, busy/idle, stats, theme)
     const appSSE = createEventsSSE();
-    appSSE.addEventListener("state_changed", () => refreshState());
+
+    // App SSE: heartbeat + recovery handlers
+    appSSE.addEventListener("heartbeat", () => { touchEvent(); });
+    appSSE.onerror = () => {
+      console.warn("[SSE] App events connection error — EventSource will auto-reconnect");
+      appSseNeedsRecovery = true;
+    };
+    appSSE.onopen = () => {
+      touchEvent();
+      if (appSseNeedsRecovery) {
+        appSseNeedsRecovery = false;
+        recoverAfterReconnect();
+      }
+    };
+
+    appSSE.addEventListener("state_changed", () => { touchEvent(); refreshState(); });
     appSSE.addEventListener("session_busy", (e: MessageEvent) => {
       setBusySessions((prev) => new Set([...prev, e.data]));
       if (e.data === activeSessionRef.current) setSessionStatus("busy");
@@ -666,7 +747,28 @@ export function useSSE(): SSEState {
 
     // Session events SSE (proxied from opencode server)
     const sessionSSE = createSessionEventsSSE();
+
+    // Session SSE: heartbeat + recovery handlers
+    sessionSSE.addEventListener("heartbeat", () => { touchEvent(); });
+    sessionSSE.addEventListener("lagged", () => {
+      // Server told us we missed events — do a full recovery.
+      console.warn("[SSE] Session events lagged — recovering missed events");
+      recoverAfterReconnect();
+    });
+    sessionSSE.onerror = () => {
+      console.warn("[SSE] Session events connection error — EventSource will auto-reconnect");
+      sessionSseNeedsRecovery = true;
+    };
+    sessionSSE.onopen = () => {
+      touchEvent();
+      if (sessionSseNeedsRecovery) {
+        sessionSseNeedsRecovery = false;
+        recoverAfterReconnect();
+      }
+    };
+
     sessionSSE.addEventListener("opencode", (e: MessageEvent) => {
+      touchEvent();
       const event = parseOpenCodeEvent(e.data);
       if (!event) return;
       handleOpenCodeEvent(event);
@@ -809,6 +911,8 @@ export function useSSE(): SSEState {
           break;
         case "permission.asked": {
           // Upstream shape: { id, sessionID, permission, patterns, metadata }
+          // Subagent permissions use the PARENT session ID, so they surface
+          // here even when a subagent spawns the request.
           const perm: PermissionRequest = {
             id: (props.id ?? props.requestID ?? "") as string,
             sessionID: (props.sessionID ?? "") as string,
@@ -820,8 +924,25 @@ export function useSSE(): SSEState {
               : undefined,
             time: Date.now(),
           };
-          if (perm.id && perm.sessionID === activeSessionRef.current) {
-            setPermissions((prev) => [...prev.filter((p) => p.id !== perm.id), perm]);
+          if (perm.id) {
+            // Show permissions for the active session (includes subagent
+            // permissions that carry the parent session ID).
+            if (perm.sessionID === activeSessionRef.current) {
+              setPermissions((prev) => [...prev.filter((p) => p.id !== perm.id), perm]);
+            } else {
+              // Cross-session permission: stash so ChatLayout can show a
+              // notification / badge even when viewing a different session.
+              setCrossSessionPermissions((prev) => [...prev.filter((p) => p.id !== perm.id), perm]);
+            }
+          }
+          break;
+        }
+        case "permission.replied": {
+          // Permission was answered (possibly from another client / TUI).
+          const requestID = (props.requestID ?? props.id ?? "") as string;
+          if (requestID) {
+            setPermissions((prev) => prev.filter((p) => p.id !== requestID));
+            setCrossSessionPermissions((prev) => prev.filter((p) => p.id !== requestID));
           }
           break;
         }
@@ -836,8 +957,22 @@ export function useSSE(): SSEState {
             questions: rawQuestions.map(transformQuestionInfo),
             time: Date.now(),
           };
-          if (q.id && q.sessionID === activeSessionRef.current) {
-            setQuestions((prev) => [...prev.filter((qp) => qp.id !== q.id), q]);
+          if (q.id) {
+            if (q.sessionID === activeSessionRef.current) {
+              setQuestions((prev) => [...prev.filter((qp) => qp.id !== q.id), q]);
+            } else {
+              setCrossSessionQuestions((prev) => [...prev.filter((qp) => qp.id !== q.id), q]);
+            }
+          }
+          break;
+        }
+        case "question.replied":
+        case "question.rejected": {
+          // Question was answered/dismissed (possibly from another client).
+          const requestID = (props.requestID ?? props.id ?? "") as string;
+          if (requestID) {
+            setQuestions((prev) => prev.filter((q) => q.id !== requestID));
+            setCrossSessionQuestions((prev) => prev.filter((q) => q.id !== requestID));
           }
           break;
         }
@@ -852,9 +987,35 @@ export function useSSE(): SSEState {
       }
     }
 
+    // ── Stale-connection watchdog ───────────────────────────────
+    // If we haven't received any event (including heartbeats) in 45 seconds,
+    // the SSE connection is likely stale. Force close + reconnect via the
+    // EventSource auto-reconnect mechanism by closing and re-opening.
+    const STALE_THRESHOLD_MS = 45_000;
+    watchdogInterval = setInterval(() => {
+      const elapsed = Date.now() - lastEventTime;
+      if (elapsed > STALE_THRESHOLD_MS) {
+        console.warn(
+          `[SSE] No events received in ${Math.round(elapsed / 1000)}s — forcing reconnect`,
+        );
+        // Close both SSE connections. EventSource won't auto-reconnect after
+        // close(), but the effect cleanup + re-mount will re-establish them
+        // if the component is still mounted. For a lighter approach, we just
+        // trigger a recovery fetch — the axum keepalive should eventually
+        // make EventSource reconnect on its own if the TCP connection dropped.
+        recoverAfterReconnect();
+        // Reset the timer so we don't spam recovery
+        lastEventTime = Date.now();
+      }
+    }, 10_000);
+
     return () => {
       appSSE.close();
       sessionSSE.close();
+      if (watchdogInterval) {
+        clearInterval(watchdogInterval);
+        watchdogInterval = null;
+      }
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
@@ -864,7 +1025,7 @@ export function useSSE(): SSEState {
         flushSubagentTimerRef.current = null;
       }
     };
-  }, [refreshState, flushMessages, flushSubagentMessages]);
+  }, [refreshState, refreshMessages, flushMessages, flushSubagentMessages]);
 
   /** Add an optimistic user message to the timeline.
    *  Uses a special `__optimistic__` prefix so it's identifiable.
@@ -918,6 +1079,8 @@ export function useSSE(): SSEState {
     mcpAgentActivity,
     presenceClients,
     liveActivityEvents,
+    crossSessionPermissions,
+    crossSessionQuestions,
     refreshState,
     refreshMessages,
     clearPermission,

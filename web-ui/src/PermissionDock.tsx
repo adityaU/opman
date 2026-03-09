@@ -4,14 +4,21 @@ import { ShieldAlert, Check, CheckCheck, X } from "lucide-react";
 
 interface Props {
   permissions: PermissionRequest[];
+  /** When set, permissions from other sessions show a "subagent" badge */
+  activeSessionId?: string | null;
   onReply: (requestId: string, reply: "once" | "always" | "reject") => void;
 }
 
-export const PermissionDock = React.memo(function PermissionDock({ permissions, onReply }: Props) {
+export const PermissionDock = React.memo(function PermissionDock({ permissions, activeSessionId, onReply }: Props) {
   return (
     <div className="permission-dock" role="alertdialog" aria-label="Permission requests">
       {permissions.map((perm) => (
-        <PermissionCard key={perm.id} perm={perm} onReply={onReply} />
+        <PermissionCard
+          key={perm.id}
+          perm={perm}
+          isCrossSession={!!activeSessionId && perm.sessionID !== activeSessionId}
+          onReply={onReply}
+        />
       ))}
     </div>
   );
@@ -19,9 +26,11 @@ export const PermissionDock = React.memo(function PermissionDock({ permissions, 
 
 function PermissionCard({
   perm,
+  isCrossSession,
   onReply,
 }: {
   perm: PermissionRequest;
+  isCrossSession: boolean;
   onReply: (requestId: string, reply: "once" | "always" | "reject") => void;
 }) {
   const allowOnceRef = useRef<HTMLButtonElement>(null);
@@ -55,6 +64,7 @@ function PermissionCard({
       <div className="permission-header">
         <ShieldAlert size={16} className="permission-icon" />
         <span className="permission-title">Permission Required</span>
+        {isCrossSession && <span className="permission-badge-subagent">subagent</span>}
         <span className="permission-hint">Enter = allow &middot; A = always &middot; Esc = reject</span>
       </div>
       <div className="permission-body">

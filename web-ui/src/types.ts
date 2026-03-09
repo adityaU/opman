@@ -179,7 +179,10 @@ export type OpenCodeEventType =
   | "session.updated"
   | "session.deleted"
   | "permission.asked"
+  | "permission.replied"
   | "question.asked"
+  | "question.replied"
+  | "question.rejected"
   | "file.edited"
   | "todo.updated";
 

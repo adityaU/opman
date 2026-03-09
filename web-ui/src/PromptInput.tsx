@@ -7,15 +7,39 @@ import React, {
   type DragEvent,
   type ClipboardEvent,
 } from "react";
-import { Send, Square, Cpu, ChevronDown, Loader2, Bot, Paperclip, X, Image as ImageIcon, Brain } from "lucide-react";
+import { Send, Square, Cpu, ChevronDown, Loader2, Bot, Paperclip, X, Image as ImageIcon, Brain, AtSign } from "lucide-react";
 import { SlashCommandPopover } from "./SlashCommandPopover";
 import { fetchAgents, type AgentInfo, type ImageAttachment } from "./api";
 
+/** Default agent colours keyed by id (mirrors opencode's agentColor utility) */
+const AGENT_COLORS: Record<string, string> = {
+  coder: "#3b82f6",   // blue
+  task: "#f59e0b",    // amber
+  ask: "#8b5cf6",     // purple
+  build: "#10b981",   // emerald
+  docs: "#06b6d4",    // cyan
+  plan: "#f43f5e",    // rose
+};
+
+/** Resolve the display colour for an agent */
+function agentColor(id: string, custom?: string): string | undefined {
+  if (custom) return custom;
+  return AGENT_COLORS[id] ?? AGENT_COLORS[id.toLowerCase()];
+}
+
 /** Fallback agents if fetch fails or is pending */
 const DEFAULT_AGENTS: AgentInfo[] = [
-  { id: "coder", label: "Coder", description: "Default coding agent" },
-  { id: "task", label: "Task", description: "Autonomous task agent" },
+  { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
+  { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
 ];
+
+/**
+ * Filter agents the same way opencode does: hide agents with mode "subagent"
+ * and those explicitly marked hidden.
+ */
+function selectableAgents(agents: AgentInfo[]): AgentInfo[] {
+  return agents.filter((a) => a.mode !== "subagent" && !a.hidden);
+}
 
 /** Max file size for image attachments (10 MB) */
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -35,6 +59,7 @@ interface Props {
   onAbort: () => void;
   onCommand: (command: string, args?: string) => void;
   onOpenModelPicker: () => void;
+  onOpenAgentPicker: () => void;
   isBusy: boolean;
   isSending?: boolean;
   disabled: boolean;
@@ -69,6 +94,7 @@ export function PromptInput({
   onAbort,
   onCommand,
   onOpenModelPicker,
+  onOpenAgentPicker,
   isBusy,
   isSending,
   disabled,
@@ -82,21 +108,36 @@ export function PromptInput({
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
-  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
-  const [agents, setAgents] = useState<AgentInfo[]>(DEFAULT_AGENTS);
+  const [allAgents, setAllAgents] = useState<AgentInfo[]>(DEFAULT_AGENTS);
+  const [agentMentions, setAgentMentions] = useState<string[]>([]);
+  const [showAtPopover, setShowAtPopover] = useState(false);
+  const [atFilter, setAtFilter] = useState("");
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const agentDropdownRef = useRef<HTMLDivElement>(null);
+  const atPopoverRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCountRef = useRef(0);
+
+  // Derive the selectable agents (filter out subagent/hidden, like opencode)
+  const agents = selectableAgents(allAgents);
+  // All non-primary agents available for @mention (subagents excluded from selector
+  // but all non-hidden agents with mode !== "primary" can be mentioned inline)
+  const mentionableAgents = allAgents.filter((a) => !a.hidden && a.mode !== "primary");
 
   // Fetch agents from server on mount
   useEffect(() => {
     fetchAgents().then((fetched) => {
-      if (fetched.length > 0) setAgents(fetched);
+      if (fetched.length > 0) {
+        setAllAgents(fetched);
+        // Auto-select the first selectable agent if none is currently selected
+        const selectable = selectableAgents(fetched);
+        if (selectable.length > 0 && (!currentAgent || !selectable.some((a) => a.id === currentAgent))) {
+          onAgentChange(selectable[0].id);
+        }
+      }
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-resize textarea
   useEffect(() => {
@@ -111,17 +152,18 @@ export function PromptInput({
     textareaRef.current?.focus();
   }, [sessionId]);
 
-  // Close agent dropdown on outside click
+  // Close @agent popover on outside click
   useEffect(() => {
-    if (!showAgentDropdown) return;
+    if (!showAtPopover) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (agentDropdownRef.current && !agentDropdownRef.current.contains(e.target as Node)) {
-        setShowAgentDropdown(false);
+      if (atPopoverRef.current && !atPopoverRef.current.contains(e.target as Node)) {
+        setShowAtPopover(false);
+        setAtFilter("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showAgentDropdown]);
+  }, [showAtPopover]);
 
   // ── Attachment helpers ────────────────────────────────
 
@@ -238,6 +280,7 @@ export function PromptInput({
     onSend(trimmed || "Attached image(s)", attachments.length > 0 ? attachments : undefined);
     setText("");
     setAttachments([]);
+    setAgentMentions([]);
     onContentChange?.(false);
   }, [text, attachments, onSend, onCommand, onContentChange]);
 
@@ -255,13 +298,13 @@ export function PromptInput({
         setShowSlash(true);
       }
 
-      // Escape closes slash popover or agent dropdown
+      // Escape closes slash popover or @mention popover
       if (e.key === "Escape") {
         if (showSlash) setShowSlash(false);
-        if (showAgentDropdown) setShowAgentDropdown(false);
+        if (showAtPopover) { setShowAtPopover(false); setAtFilter(""); }
       }
     },
-    [handleSubmit, text, showSlash, showAgentDropdown]
+    [handleSubmit, text, showSlash, showAtPopover]
   );
 
   const handleChange = useCallback(
@@ -274,10 +317,54 @@ export function PromptInput({
       } else {
         setShowSlash(false);
       }
+      // Detect @agent mention trigger: look for @ followed by word chars at the cursor
+      const el = e.target;
+      const pos = el.selectionStart ?? val.length;
+      const before = val.slice(0, pos);
+      const atMatch = before.match(/@(\w*)$/);
+      if (atMatch && mentionableAgents.length > 0) {
+        setShowAtPopover(true);
+        setAtFilter(atMatch[1].toLowerCase());
+      } else {
+        setShowAtPopover(false);
+        setAtFilter("");
+      }
       // Notify parent about content state (for mobile input autohide guard)
       onContentChange?.(val.trim().length > 0);
     },
-    [onContentChange]
+    [onContentChange, mentionableAgents]
+  );
+
+  /** Handle selecting an agent from the @mention popover */
+  const handleAtAgentSelect = useCallback(
+    (agentId: string) => {
+      setShowAtPopover(false);
+      setAtFilter("");
+      // Replace the @partial text in the textarea with the full @agent mention
+      const el = textareaRef.current;
+      if (!el) return;
+      const pos = el.selectionStart ?? text.length;
+      const before = text.slice(0, pos);
+      const after = text.slice(pos);
+      const atIdx = before.lastIndexOf("@");
+      if (atIdx === -1) return;
+      const newText = before.slice(0, atIdx) + after;
+      setText(newText);
+      // Add to mentions if not already there
+      if (!agentMentions.includes(agentId)) {
+        setAgentMentions((prev) => [...prev, agentId]);
+      }
+      // Re-focus textarea
+      setTimeout(() => {
+        const t = textareaRef.current;
+        if (t) {
+          t.focus();
+          const newPos = atIdx;
+          t.setSelectionRange(newPos, newPos);
+        }
+      }, 0);
+    },
+    [text, agentMentions]
   );
 
   // Commands that execute immediately without needing args
@@ -326,15 +413,6 @@ export function PromptInput({
     [onCommand, onContentChange]
   );
 
-  const handleAgentSelect = useCallback(
-    (agentId: string) => {
-      setShowAgentDropdown(false);
-      onAgentChange(agentId);
-      textareaRef.current?.focus();
-    },
-    [onAgentChange]
-  );
-
   /** Shorten model ID for display */
   function shortModelName(modelId: string): string {
     const parts = modelId.split("/");
@@ -342,7 +420,14 @@ export function PromptInput({
     return name.length > 30 ? name.slice(0, 28) + "\u2026" : name;
   }
 
-  const agentLabel = agents.find((a) => a.id === currentAgent)?.label || currentAgent;
+  const currentAgentInfo = agents.find((a) => a.id === currentAgent);
+  const agentLabel = currentAgentInfo?.label || currentAgent;
+  const chipColor = agentColor(currentAgent, currentAgentInfo?.color);
+
+  // Filter mentionable agents by the @filter text
+  const filteredMentionAgents = mentionableAgents.filter(
+    (a) => atFilter === "" || a.id.toLowerCase().includes(atFilter) || a.label.toLowerCase().includes(atFilter)
+  );
 
   return (
     <div
@@ -370,6 +455,30 @@ export function PromptInput({
         />
       )}
 
+      {/* @agent mention popover — positioned above input like slash commands */}
+      {showAtPopover && filteredMentionAgents.length > 0 && (
+        <div className="prompt-at-popover" ref={atPopoverRef}>
+          {filteredMentionAgents.map((agent) => {
+            const color = agentColor(agent.id, agent.color);
+            return (
+              <button
+                key={agent.id}
+                className="prompt-at-popover-item"
+                onClick={() => handleAtAgentSelect(agent.id)}
+              >
+                {color ? (
+                  <span className="prompt-agent-dot" style={{ backgroundColor: color }} />
+                ) : (
+                  <AtSign size={12} />
+                )}
+                <span className="prompt-at-popover-name">{agent.label}</span>
+                <span className="prompt-at-popover-desc">{agent.description}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="prompt-input-wrapper">
         {/* Inline selector chips row */}
         <div className="prompt-selectors">
@@ -387,35 +496,25 @@ export function PromptInput({
             <ChevronDown size={9} />
           </button>
 
-          {/* Agent chip */}
-          <div className="prompt-chip-container" ref={agentDropdownRef}>
-            <button
-              className="prompt-chip"
-              onClick={() => setShowAgentDropdown((v) => !v)}
-              title="Change agent"
-              disabled={disabled}
-            >
+          {/* Agent chip (colour-coded like opencode) — opens modal */}
+          <button
+            className="prompt-chip"
+            onClick={onOpenAgentPicker}
+            title="Change agent"
+            disabled={disabled}
+            style={chipColor ? { borderColor: `${chipColor}33` } : undefined}
+          >
+            {chipColor ? (
+              <span
+                className="prompt-agent-dot"
+                style={{ backgroundColor: chipColor }}
+              />
+            ) : (
               <Bot size={11} />
-              <span className="prompt-chip-label">{agentLabel}</span>
-              <ChevronDown size={9} />
-            </button>
-
-            {/* Agent dropdown */}
-            {showAgentDropdown && (
-              <div className="prompt-chip-dropdown">
-                {agents.map((agent) => (
-                  <button
-                    key={agent.id}
-                    className={`prompt-chip-dropdown-item ${agent.id === currentAgent ? "active" : ""}`}
-                    onClick={() => handleAgentSelect(agent.id)}
-                  >
-                    <span className="prompt-chip-dropdown-name">{agent.label}</span>
-                    <span className="prompt-chip-dropdown-desc">{agent.description}</span>
-                  </button>
-                ))}
-              </div>
             )}
-          </div>
+            <span className="prompt-chip-label">{agentLabel}</span>
+            <ChevronDown size={9} />
+          </button>
 
           {/* Memory chip (compact count in selector row) */}
           {activeMemoryLabels.length > 0 && (
@@ -431,6 +530,34 @@ export function PromptInput({
             </button>
           )}
         </div>
+
+        {/* @agent mention pills */}
+        {agentMentions.length > 0 && (
+          <div className="prompt-agent-mentions">
+            {agentMentions.map((id) => {
+              const info = allAgents.find((a) => a.id === id);
+              const color = agentColor(id, info?.color);
+              return (
+                <span
+                  key={id}
+                  className="prompt-agent-pill"
+                  style={color ? { borderColor: `${color}44`, backgroundColor: `${color}11` } : undefined}
+                >
+                  <AtSign size={10} />
+                  <span>{info?.label || id}</span>
+                  <button
+                    className="prompt-agent-pill-remove"
+                    onClick={() => setAgentMentions((prev) => prev.filter((m) => m !== id))}
+                    title={`Remove @${info?.label || id}`}
+                    aria-label={`Remove @${info?.label || id} mention`}
+                  >
+                    <X size={9} />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {/* Attachment previews */}
         {attachments.length > 0 && (

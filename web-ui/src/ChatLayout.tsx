@@ -12,6 +12,7 @@ import { PromptInput } from "./PromptInput";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { ModelPickerModal } from "./ModelPickerModal";
+import { AgentPickerModal } from "./AgentPickerModal";
 import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
 import { TerminalPanel } from "./TerminalPanel";
@@ -132,6 +133,8 @@ export function ChatLayout() {
     busySessions,
     permissions,
     questions,
+    crossSessionPermissions,
+    crossSessionQuestions,
     sessionStatus,
     isLoadingMessages,
     isLoadingOlder,
@@ -195,6 +198,7 @@ export function ChatLayout() {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [themeSelectorOpen, setThemeSelectorOpen] = useState(false);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [todoPanelOpen, setTodoPanelOpen] = useState(false);
@@ -244,7 +248,7 @@ export function ChatLayout() {
     new Set()
   );
   const [selectedModel, setSelectedModel] = useState<ModelRef | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState("coder");
+  const [selectedAgent, setSelectedAgent] = useState("");
   const [sending, setSending] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(getPersistedThemeMode);
 
@@ -302,6 +306,18 @@ export function ChatLayout() {
     ? appState.projects[appState.active_project] ?? null
     : null;
   const activeSessionId = activeProject?.active_session ?? null;
+
+  // Merge cross-session permissions/questions into the dock arrays so subagent
+  // requests from child sessions surface in the parent session's UI.
+  const allPermissions = useMemo(
+    () => [...permissions, ...crossSessionPermissions],
+    [permissions, crossSessionPermissions]
+  );
+  const allQuestions = useMemo(
+    () => [...questions, ...crossSessionQuestions],
+    [questions, crossSessionQuestions]
+  );
+
   const activeMemoryItems = useMemo(
     () =>
       personalMemory.filter((item) => {
@@ -620,6 +636,8 @@ export function ChatLayout() {
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
   const openModelPicker = useCallback(() => setModelPickerOpen(true), []);
   const closeModelPicker = useCallback(() => setModelPickerOpen(false), []);
+  const openAgentPicker = useCallback(() => setAgentPickerOpen(true), []);
+  const closeAgentPicker = useCallback(() => setAgentPickerOpen(false), []);
   const closeThemeSelector = useCallback(() => setThemeSelectorOpen(false), []);
   const openCheatsheet = useCallback(() => setCheatsheetOpen(true), []);
 
@@ -760,7 +778,8 @@ export function ChatLayout() {
           activeSessionId,
           injectMemoryGuidance(text, activeMemoryItems),
           selectedModel ?? undefined,
-          images
+          images,
+          selectedAgent || undefined
         );
         // SSE will deliver the real server message — no REST fetch needed.
       } catch (e) {
@@ -769,7 +788,7 @@ export function ChatLayout() {
         setSending(false);
       }
     },
-    [activeSessionId, sending, selectedModel, addToast, addOptimisticMessage, activeMemoryItems]
+    [activeSessionId, sending, selectedModel, selectedAgent, addToast, addOptimisticMessage, activeMemoryItems]
   );
 
   const handleAbort = useCallback(async () => {
@@ -806,7 +825,7 @@ export function ChatLayout() {
           const resp = await newSession(appState.active_project);
           refreshState();
           setSelectedModel(null);
-          setSelectedAgent("coder");
+          setSelectedAgent("");
           addToast("New session created", "success");
         } catch {
           addToast("Failed to create session", "error");
@@ -966,10 +985,9 @@ export function ChatLayout() {
         return;
       }
 
-      // /agent <name> — switch agent type locally + on server
+      // /agent — open agent picker modal
       if (command === "agent") {
-        const agentName = (args || "coder").trim();
-        handleAgentChange(agentName);
+        setAgentPickerOpen(true);
         return;
       }
 
@@ -1020,7 +1038,7 @@ export function ChatLayout() {
         refreshState();
         setMobileSidebarOpen(false);
         setSelectedModel(null);
-        setSelectedAgent("coder");
+        setSelectedAgent("");
       } catch {
         addToast("Failed to switch session", "error");
       }
@@ -1073,7 +1091,7 @@ export function ChatLayout() {
       // refreshState() will pick up the new active_session from web_state.
       refreshState();
       setSelectedModel(null);
-      setSelectedAgent("coder");
+      setSelectedAgent("");
       addToast("New session created", "success");
     } catch {
       addToast("Failed to create session", "error");
@@ -1086,7 +1104,7 @@ export function ChatLayout() {
         await switchProject(index);
         refreshState();
         setSelectedModel(null);
-        setSelectedAgent("coder");
+        setSelectedAgent("");
       } catch {
         addToast("Failed to switch project", "error");
       }
@@ -1543,6 +1561,7 @@ export function ChatLayout() {
       handler: () => {
         if (commandPaletteOpen) setCommandPaletteOpen(false);
         else if (modelPickerOpen) setModelPickerOpen(false);
+        else if (agentPickerOpen) setAgentPickerOpen(false);
         else if (themeSelectorOpen) setThemeSelectorOpen(false);
         else if (cheatsheetOpen) setCheatsheetOpen(false);
         else if (todoPanelOpen) setTodoPanelOpen(false);
@@ -1681,17 +1700,19 @@ export function ChatLayout() {
           {/* Mobile input wrapper — wraps docks + prompt for autohide animation */}
           <div className={`mobile-input-wrapper${mobileInputHidden ? " mobile-input-hidden" : ""}`}>
             {/* Permission dock */}
-            {permissions.length > 0 && (
+            {allPermissions.length > 0 && (
               <PermissionDock
-                permissions={permissions}
+                permissions={allPermissions}
+                activeSessionId={activeSessionId}
                 onReply={handlePermissionReply}
               />
             )}
 
             {/* Question dock */}
-            {questions.length > 0 && (
+            {allQuestions.length > 0 && (
               <QuestionDock
-                questions={questions}
+                questions={allQuestions}
+                activeSessionId={activeSessionId}
                 onReply={handleQuestionReply}
               />
             )}
@@ -1702,6 +1723,7 @@ export function ChatLayout() {
               onAbort={handleAbort}
               onCommand={handleCommand}
               onOpenModelPicker={openModelPicker}
+              onOpenAgentPicker={openAgentPicker}
               isBusy={sessionStatus === "busy"}
               isSending={sending}
               disabled={!activeSessionId}
@@ -1850,6 +1872,15 @@ export function ChatLayout() {
           onClose={closeModelPicker}
           sessionId={activeSessionId}
           onModelSelected={handleModelSelected}
+        />
+      )}
+
+      {/* Agent picker modal */}
+      {agentPickerOpen && (
+        <AgentPickerModal
+          onClose={closeAgentPicker}
+          currentAgent={selectedAgent}
+          onAgentSelected={handleAgentChange}
         />
       )}
 
@@ -2052,8 +2083,8 @@ export function ChatLayout() {
             delegatedWork={delegatedWorkCache}
             memoryItems={activeMemoryItems}
             assistantSignals={assistantSignals}
-            permissions={permissions}
-            questions={questions}
+            permissions={allPermissions}
+            questions={allQuestions}
             workspaces={workspaceCache}
             resumeBriefing={resumeBriefing}
             latestDailySummary={latestDailySummary}
@@ -2151,8 +2182,8 @@ export function ChatLayout() {
         <Suspense fallback={null}>
           <InboxModal
             onClose={closeInbox}
-            permissions={permissions}
-            questions={questions}
+            permissions={allPermissions}
+            questions={allQuestions}
             watcherStatus={watcherStatus}
             signals={assistantSignals}
             activityEvents={sse.liveActivityEvents}
@@ -2189,8 +2220,8 @@ export function ChatLayout() {
             projects={appState.projects}
             activeProjectIndex={appState.active_project}
             activeSessionId={activeSessionId}
-            permissions={permissions}
-            questions={questions}
+            permissions={allPermissions}
+            questions={allQuestions}
             activityEvents={sse.liveActivityEvents}
             onOpenInbox={() => {
               setMissionsOpen(false);

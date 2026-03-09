@@ -345,6 +345,9 @@ pub struct SendMessageRequest {
     /// Optional model override — sent through to the upstream opencode API.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<ModelRef>,
+    /// Optional agent name — sent through to the upstream opencode API per-message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
 }
 
 /// Request to execute a slash command on a session.
@@ -639,11 +642,26 @@ pub struct SessionsTreeResponse {
 // ── Agent types ─────────────────────────────────────────────────────
 
 /// An agent entry returned by `GET /api/agents`.
+///
+/// Fields mirror the opencode Agent type so the frontend can filter and display
+/// agents the same way opencode does (e.g. hide subagents, colour-code chips).
 #[derive(Serialize, Clone)]
 pub struct AgentEntry {
     pub id: String,
     pub label: String,
     pub description: String,
+    /// "primary", "subagent", or "all".
+    #[serde(default)]
+    pub mode: String,
+    /// Whether the agent should be hidden from the selector.
+    #[serde(default)]
+    pub hidden: bool,
+    /// Whether this is a built-in agent (coder, task, etc.).
+    #[serde(default)]
+    pub native: bool,
+    /// Optional display colour (CSS colour string).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 // ── File browsing types ─────────────────────────────────────────────

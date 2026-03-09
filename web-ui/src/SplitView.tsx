@@ -129,9 +129,9 @@ export function SplitView({
 
   const inputProps = (sid: string | null, busy: boolean, sending: boolean,
     onSend: (t: string, i?: ImageAttachment[]) => void, onAbort: () => void) => ({
-    onSend, onAbort, onCommand: noopCmd, onOpenModelPicker: noopVoid,
+    onSend, onAbort, onCommand: noopCmd, onOpenModelPicker: noopVoid, onOpenAgentPicker: noopVoid,
     isBusy: busy, isSending: sending, disabled: !sid, sessionId: sid,
-    currentModel: selectedModel ?? null, currentAgent: "coder" as const, onAgentChange: noopAgent,
+    currentModel: selectedModel ?? null, currentAgent: "", onAgentChange: noopAgent,
   });
 
   return (

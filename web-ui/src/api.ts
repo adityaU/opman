@@ -403,12 +403,13 @@ export interface ImageAttachment {
   name: string;
 }
 
-/** Send a message to a session, optionally overriding the model and including images */
+/** Send a message to a session, optionally overriding the model/agent and including images */
 export async function sendMessage(
   sessionId: string,
   text: string,
   model?: ModelRef,
-  images?: ImageAttachment[]
+  images?: ImageAttachment[],
+  agent?: string
 ): Promise<unknown> {
   const parts: Record<string, unknown>[] = [{ type: "text", text }];
   if (images && images.length > 0) {
@@ -419,6 +420,9 @@ export async function sendMessage(
   const body: Record<string, unknown> = { parts };
   if (model) {
     body.model = model;
+  }
+  if (agent) {
+    body.agent = agent;
   }
   return apiPost(`/session/${sessionId}/message`, body);
 }
@@ -526,6 +530,14 @@ export interface AgentInfo {
   id: string;
   label: string;
   description: string;
+  /** "primary" | "subagent" | "all" — controls selector visibility */
+  mode?: string;
+  /** Whether the agent should be hidden from the selector */
+  hidden?: boolean;
+  /** Whether this is a built-in agent */
+  native?: boolean;
+  /** Optional CSS colour for the agent chip */
+  color?: string;
 }
 
 /** Fetch available agents from the project's opencode config */
@@ -535,8 +547,8 @@ export async function fetchAgents(): Promise<AgentInfo[]> {
   } catch {
     // Fallback to defaults if endpoint not available
     return [
-      { id: "coder", label: "Coder", description: "Default coding agent" },
-      { id: "task", label: "Task", description: "Autonomous task agent" },
+      { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
+      { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
     ];
   }
 }
