@@ -75,7 +75,7 @@
         z-index: 10;
         max-height: 50vh;
         opacity: 1;
-        overflow: hidden;
+        overflow: visible;
         transition: max-height .3s cubic-bezier(.4,0,.2,1), opacity .2s ease;
         will-change: max-height, opacity;
         margin-bottom: 0
@@ -84,6 +84,7 @@
     .mobile-input-wrapper.mobile-input-hidden {
         max-height: 0;
         opacity: 0;
+        overflow: hidden;
         pointer-events: none
     }
 
