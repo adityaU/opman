@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BellRing, ChevronRight } from "lucide-react";
 import type { ActivityEvent } from "../api";
-import { computeMissionHandoff, computeSessionHandoff } from "../api";
+import { computeSessionHandoff } from "../api";
 import type { InboxItem, HandoffBrief } from "../api/intelligence";
 import type { PermissionRequest, QuestionRequest } from "../types";
 import { toPermissionInputs, toQuestionInputs } from "../hooks/intelligenceAdapters";
@@ -39,20 +39,14 @@ export function InboxRow({
     const permInputs = toPermissionInputs(permissions);
     const qInputs = toQuestionInputs(questions);
 
-    if (item.mission_id) {
-      computeMissionHandoff({
-        mission_id: item.mission_id,
-        permissions: permInputs,
-        questions: qInputs,
-      }).then(setHandoff).catch(() => {});
-    } else if (item.session_id) {
+    if (item.session_id) {
       computeSessionHandoff({
         session_id: item.session_id,
         permissions: permInputs,
         questions: qInputs,
       }).then(setHandoff).catch(() => {});
     }
-  }, [item.mission_id, item.session_id, permissions, questions]);
+  }, [item.session_id, permissions, questions]);
 
   const priorityLabel = item.priority === "high" ? "High" : item.priority === "medium" ? "Medium" : "Low";
 

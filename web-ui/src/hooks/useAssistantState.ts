@@ -142,6 +142,25 @@ export function useAssistantState(
       .catch(() => {});
   }, [missionsOpen, routinesOpen, assistantCenterOpen]);
 
+  // Live mission updates from SSE
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const mission = (e as CustomEvent).detail as Mission;
+      if (!mission?.id) return;
+      setMissionCache((prev) => {
+        const idx = prev.findIndex((m) => m.id === mission.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = mission;
+          return next;
+        }
+        return [mission, ...prev];
+      });
+    };
+    window.addEventListener("opman:mission-updated", handler);
+    return () => window.removeEventListener("opman:mission-updated", handler);
+  }, []);
+
   useEffect(() => {
     fetchDelegatedWork()
       .then((resp) => setDelegatedWorkCache(resp.items ?? []))

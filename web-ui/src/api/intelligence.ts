@@ -122,18 +122,6 @@ export interface HandoffBrief {
   links: HandoffLink[];
 }
 
-export async function computeMissionHandoff(req: {
-  mission_id: string;
-  permissions: PermissionInput[];
-  questions: QuestionInput[];
-}): Promise<HandoffBrief | null> {
-  try {
-    return await apiPost<HandoffBrief>("/handoff/mission", req);
-  } catch {
-    return null;
-  }
-}
-
 export async function computeSessionHandoff(req: {
   session_id: string;
   permissions: PermissionInput[];
@@ -205,7 +193,7 @@ export async function addSignal(req: {
 
 export interface AssistantCenterStats {
   active_missions: number;
-  blocked_missions: number;
+  paused_missions: number;
   total_missions: number;
   pending_permissions: number;
   pending_questions: number;

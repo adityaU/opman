@@ -1,17 +1,14 @@
 //! Backend intelligence: inbox aggregation.
 //!
-//! Mirrors the logic previously in `web-ui/src/inbox.ts`.
+//! The inbox now focuses on permissions, questions, watchers, and signals.
+//! Mission-specific inbox items have been removed — missions now manage
+//! their own lifecycle via the loop engine.
 
 use super::super::types::*;
 
 impl super::WebStateHandle {
     /// Build a unified, priority-sorted inbox from all sources.
-    ///
-    /// The backend reads missions from its own state. Transient data
-    /// (permissions, questions, watcher status, signals) are passed in
-    /// from the frontend since they originate from the SSE stream.
     pub async fn build_inbox(&self, req: InboxRequest) -> Vec<InboxItem> {
-        let missions = self.list_missions().await;
         let mut items = Vec::new();
 
         // 1. Permissions → high-priority, unresolved
@@ -47,31 +44,7 @@ impl super::WebStateHandle {
             });
         }
 
-        // 3. Blocked missions → high-priority, unresolved
-        for m in &missions {
-            if matches!(m.status, MissionStatus::Blocked) {
-                let ts = chrono::DateTime::parse_from_rfc3339(&m.updated_at)
-                    .map(|dt| dt.timestamp_millis() as f64)
-                    .unwrap_or(0.0);
-                items.push(InboxItem {
-                    id: format!("inbox-mission-{}", m.id),
-                    source: InboxItemSource::Mission,
-                    title: format!("Blocked: {}", m.title),
-                    description: if m.next_action.is_empty() {
-                        m.goal.clone()
-                    } else {
-                        m.next_action.clone()
-                    },
-                    priority: InboxItemPriority::High,
-                    state: InboxItemState::Unresolved,
-                    created_at: ts,
-                    session_id: m.session_id.clone(),
-                    mission_id: Some(m.id.clone()),
-                });
-            }
-        }
-
-        // 4. Watcher triggered → medium-priority, informational
+        // 3. Watcher triggered → medium-priority, informational
         if let Some(ref ws) = req.watcher_status {
             if ws.action == "triggered" {
                 items.push(InboxItem {
@@ -91,7 +64,7 @@ impl super::WebStateHandle {
             }
         }
 
-        // 5. Signals → informational
+        // 4. Signals → informational
         for s in &req.signals {
             let priority = if s.kind == "watcher_trigger" {
                 InboxItemPriority::Medium

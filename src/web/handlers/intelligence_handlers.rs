@@ -3,8 +3,7 @@
 //! These endpoints return server-computed derived views. The frontend
 //! passes transient SSE data (permissions, questions, signals, watcher
 //! status) in POST request bodies; the backend reads its own persisted
-//! state (missions, memory, routines, delegation, workspaces, autonomy)
-//! and computes the result server-side.
+//! state and computes the result server-side.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -31,18 +30,6 @@ pub async fn compute_recommendations(
 ) -> impl IntoResponse {
     let recommendations = state.web_state.build_recommendations(req).await;
     Json(RecommendationsResponse { recommendations })
-}
-
-/// POST /api/handoff/mission — mission handoff brief.
-pub async fn compute_mission_handoff(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-    Json(req): Json<MissionHandoffRequest>,
-) -> impl IntoResponse {
-    match state.web_state.build_mission_handoff(req).await {
-        Some(brief) => Json(serde_json::to_value(brief).unwrap()).into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
-    }
 }
 
 /// POST /api/handoff/session — session handoff brief.

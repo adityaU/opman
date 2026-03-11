@@ -143,7 +143,7 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
           <select className="routines-select" value={missionId} onChange={(e) => setMissionId(e.target.value)}>
             <option value="">No mission link</option>
             {missions.map((mission) => (
-              <option key={mission.id} value={mission.id}>{mission.title}</option>
+              <option key={mission.id} value={mission.id}>{mission.goal}</option>
             ))}
           </select>
           <div className="routines-create-footer">
@@ -201,7 +201,7 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
                             >
                               <option value="">No mission link</option>
                               {missions.map((mission) => (
-                                <option key={mission.id} value={mission.id}>{mission.title}</option>
+                                <option key={mission.id} value={mission.id}>{mission.goal}</option>
                               ))}
                             </select>
                           </>

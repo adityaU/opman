@@ -1,6 +1,6 @@
-import type { MissionStatus, PersonalMemoryItem, ProjectInfo } from "../api";
+import type { PersonalMemoryItem, ProjectInfo, MissionState } from "../api";
 import type { PermissionRequest, QuestionRequest } from "../types";
-import type { ActivityEvent, Mission } from "../api";
+import type { ActivityEvent } from "../api";
 
 export interface MissionsModalProps {
   onClose: () => void;
@@ -12,16 +12,14 @@ export interface MissionsModalProps {
   activityEvents?: ActivityEvent[];
   onOpenInbox?: () => void;
   activeMemoryItems?: PersonalMemoryItem[];
-  onOpenMissionSource?: (missionId: string) => void;
 }
 
-export interface MissionHandoffCardProps {
-  mission: Mission;
-  permissions: PermissionRequest[];
-  questions: QuestionRequest[];
-  activityEvents: ActivityEvent[];
-  onOpenInbox?: () => void;
-  onOpenMissionSource?: (missionId: string) => void;
-}
-
-export const STATUS_OPTIONS: MissionStatus[] = ["planned", "active", "blocked", "completed"];
+export const STATE_ORDER: MissionState[] = [
+  "executing",
+  "evaluating",
+  "pending",
+  "paused",
+  "completed",
+  "failed",
+  "cancelled",
+];

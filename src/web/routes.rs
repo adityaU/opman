@@ -140,14 +140,20 @@ pub(super) fn build_router(state: ServerState) -> Router {
                 .delete(handlers::deregister_presence),
         )
         .route("/activity", get(handlers::get_activity_feed))
-        // ── Missions ───────────────────────────────────────────────
+        // ── Missions (v2: goal-driven loop) ──────────────────────────
         .route(
             "/missions",
             get(handlers::list_missions).post(handlers::create_mission),
         )
         .route(
             "/missions/{mission_id}",
-            axum::routing::patch(handlers::update_mission).delete(handlers::delete_mission),
+            get(handlers::get_mission)
+                .patch(handlers::update_mission)
+                .delete(handlers::delete_mission),
+        )
+        .route(
+            "/missions/{mission_id}/action",
+            post(handlers::mission_action),
         )
         // ── Personal Memory ─────────────────────────────────────
         .route(
@@ -196,7 +202,6 @@ pub(super) fn build_router(state: ServerState) -> Router {
         // ── Computed Intelligence (backend-driven) ───────────────────
         .route("/inbox", post(handlers::compute_inbox))
         .route("/recommendations", post(handlers::compute_recommendations))
-        .route("/handoff/mission", post(handlers::compute_mission_handoff))
         .route("/handoff/session", post(handlers::compute_session_handoff))
         .route("/resume-briefing", post(handlers::compute_resume_briefing))
         .route("/daily-summary", post(handlers::compute_daily_summary))

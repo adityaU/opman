@@ -1,19 +1,16 @@
 //! Backend intelligence: recommendations engine.
 //!
-//! Mirrors the logic previously in `web-ui/src/recommendations.ts`.
+//! Mission-specific recommendations have been removed. The new mission
+//! model manages its own lifecycle via the loop engine.
 
 use super::super::types::*;
 
 impl super::WebStateHandle {
     /// Compute prioritised assistant recommendations.
-    ///
-    /// Reads missions, memory, routines, delegation, workspaces, and autonomy
-    /// from its own state. Transient permissions/questions are passed in.
     pub async fn build_recommendations(
         &self,
         req: RecommendationsRequest,
     ) -> Vec<AssistantRecommendation> {
-        let missions = self.list_missions().await;
         let memory = self.list_personal_memory().await;
         let (routines, _runs) = self.list_routines().await;
         let delegated = self.list_delegated_work().await;
@@ -58,26 +55,7 @@ impl super::WebStateHandle {
             next_id += 1;
         }
 
-        // 3. Blocked missions → high
-        let blocked_count = missions
-            .iter()
-            .filter(|m| matches!(m.status, MissionStatus::Blocked))
-            .count();
-        if blocked_count > 0 {
-            recs.push(AssistantRecommendation {
-                id: format!("rec-{}", next_id),
-                title: "Unblock mission flow".to_string(),
-                rationale: format!(
-                    "{} mission(s) are blocked and need your intervention.",
-                    blocked_count
-                ),
-                action: RecommendationAction::OpenMissions,
-                priority: InboxItemPriority::High,
-            });
-            next_id += 1;
-        }
-
-        // 4. No memory → medium: teach assistant
+        // 3. No memory → medium: teach assistant
         if memory.is_empty() {
             recs.push(AssistantRecommendation {
                 id: format!("rec-{}", next_id),
@@ -91,7 +69,7 @@ impl super::WebStateHandle {
             next_id += 1;
         }
 
-        // 5. No daily summary routine → medium
+        // 4. No daily summary routine → medium
         if !has_daily_summary_routine {
             recs.push(AssistantRecommendation {
                 id: format!("rec-{}", next_id),
@@ -105,7 +83,7 @@ impl super::WebStateHandle {
             next_id += 1;
         }
 
-        // 6. Delegation overload → medium
+        // 5. Delegation overload → medium
         let incomplete_delegations = delegated
             .iter()
             .filter(|d| !matches!(d.status, DelegationStatus::Completed))
@@ -125,7 +103,7 @@ impl super::WebStateHandle {
             next_id += 1;
         }
 
-        // 7. No recipe workspaces → low
+        // 6. No recipe workspaces → low
         let has_recipe = workspaces.iter().any(|w| w.is_recipe);
         if !has_recipe {
             recs.push(AssistantRecommendation {
@@ -140,7 +118,7 @@ impl super::WebStateHandle {
             next_id += 1;
         }
 
-        // 8. Observe mode → low: upgrade
+        // 7. Observe mode → low: upgrade
         if is_observe {
             recs.push(AssistantRecommendation {
                 id: format!("rec-{}", next_id),

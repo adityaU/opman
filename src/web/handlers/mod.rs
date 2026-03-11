@@ -76,7 +76,8 @@ pub use watcher_handlers::{
 
 pub use dashboard_handlers::{
     sessions_overview, sessions_tree, get_presence, register_presence, deregister_presence,
-    get_activity_feed, list_missions, create_mission, update_mission, delete_mission,
+    get_activity_feed, list_missions, get_mission, create_mission, update_mission,
+    delete_mission, mission_action,
     list_personal_memory, create_personal_memory, update_personal_memory, delete_personal_memory,
     get_autonomy_settings, update_autonomy_settings,
 };
@@ -88,7 +89,7 @@ pub use dashboard_ext_handlers::{
 };
 
 pub use intelligence_handlers::{
-    compute_inbox, compute_recommendations, compute_mission_handoff,
+    compute_inbox, compute_recommendations,
     compute_session_handoff, compute_resume_briefing, compute_daily_summary,
     list_signals, add_signal, compute_assistant_stats, list_workspace_templates,
     list_active_memory,

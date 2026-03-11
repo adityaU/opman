@@ -22,11 +22,11 @@ impl super::WebStateHandle {
 
         let active_missions = missions
             .iter()
-            .filter(|m| matches!(m.status, MissionStatus::Active))
+            .filter(|m| matches!(m.state, MissionState::Executing | MissionState::Evaluating))
             .count();
-        let blocked_missions = missions
+        let paused_missions = missions
             .iter()
-            .filter(|m| matches!(m.status, MissionStatus::Blocked))
+            .filter(|m| matches!(m.state, MissionState::Paused))
             .count();
         let active_delegations = delegated
             .iter()
@@ -42,7 +42,7 @@ impl super::WebStateHandle {
 
         AssistantCenterStats {
             active_missions,
-            blocked_missions,
+            paused_missions,
             total_missions: missions.len(),
             pending_permissions: req.permissions.len(),
             pending_questions: req.questions.len(),
@@ -144,10 +144,6 @@ impl super::WebStateHandle {
     // ── Filtered Memory ─────────────────────────────────────────────
 
     /// Return memory items filtered to the active scope.
-    ///
-    /// Active scope means: global items, project-scoped items matching the
-    /// given `project_index`, and session-scoped items matching the given
-    /// `session_id`.
     pub async fn list_active_memory(
         &self,
         project_index: Option<usize>,

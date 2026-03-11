@@ -203,6 +203,8 @@ pub(super) async fn handle_web_sse_event(
                 match status_props.status.status_type.as_str() {
                     "idle" => {
                         handle.try_trigger_watcher(&sid).await;
+                        // Mission loop: check if a mission needs evaluation or continuation
+                        handle.try_advance_mission(&sid).await;
                     }
                     "busy" | "retry" => {
                         handle.cancel_watcher_timer(&sid).await;

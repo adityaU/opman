@@ -36,17 +36,24 @@ pub(super) fn sync_all(
     conn.execute("DELETE FROM signals", [])?;
 
     for m in missions {
+        let eval_history_json =
+            serde_json::to_string(&m.eval_history).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
-            "INSERT INTO missions (id,title,goal,next_action,status,project_index,\
-             session_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            "INSERT INTO missions (id,goal,session_id,project_index,state,\
+             iteration,max_iterations,last_verdict,last_eval_summary,\
+             eval_history,created_at,updated_at) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
             params![
                 m.id,
-                m.title,
                 m.goal,
-                m.next_action,
-                status_str(&m.status),
-                m.project_index as i64,
                 m.session_id,
+                m.project_index as i64,
+                state_str(&m.state),
+                m.iteration as i64,
+                m.max_iterations as i64,
+                m.last_verdict.as_ref().map(verdict_str),
+                m.last_eval_summary,
+                eval_history_json,
                 m.created_at,
                 m.updated_at
             ],
@@ -136,12 +143,24 @@ pub(super) fn sync_all(
 
 // ── String conversion helpers ───────────────────────────────────────
 
-fn status_str(s: &MissionStatus) -> &'static str {
+fn state_str(s: &MissionState) -> &'static str {
     match s {
-        MissionStatus::Planned => "planned",
-        MissionStatus::Active => "active",
-        MissionStatus::Blocked => "blocked",
-        MissionStatus::Completed => "completed",
+        MissionState::Pending => "pending",
+        MissionState::Executing => "executing",
+        MissionState::Evaluating => "evaluating",
+        MissionState::Paused => "paused",
+        MissionState::Completed => "completed",
+        MissionState::Cancelled => "cancelled",
+        MissionState::Failed => "failed",
+    }
+}
+
+fn verdict_str(v: &EvalVerdict) -> &'static str {
+    match v {
+        EvalVerdict::Achieved => "achieved",
+        EvalVerdict::Continue => "continue",
+        EvalVerdict::Blocked => "blocked",
+        EvalVerdict::Failed => "failed",
     }
 }
 

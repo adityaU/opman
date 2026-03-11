@@ -238,7 +238,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
             activeProjectIndex={p.appState.active_project} activeSessionId={p.activeSessionId}
             permissions={p.allPermissions} questions={p.allQuestions}
             activityEvents={p.liveActivityEvents} onOpenInbox={nav("missions", "inbox")}
-            activeMemoryItems={p.activeMemoryItems} onOpenMissionSource={() => o("missions")}
+            activeMemoryItems={p.activeMemoryItems}
           />
         </L>
       )}

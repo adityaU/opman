@@ -1,2 +1,2 @@
 export { MissionsModal } from "./MissionsModal";
-export type { MissionsModalProps, MissionHandoffCardProps } from "./types";
+export type { MissionsModalProps } from "./types";

@@ -83,7 +83,7 @@ export function DelegationBoardModal({ onClose, missions, activeSessionId, onOpe
             <select className="delegation-select" value={missionId} onChange={(e) => setMissionId(e.target.value)}>
               <option value="">No mission link</option>
               {missions.map((mission) => (
-                <option key={mission.id} value={mission.id}>{mission.title}</option>
+                <option key={mission.id} value={mission.id}>{mission.goal}</option>
               ))}
             </select>
             <input className="delegation-input" value={subagentSessionId} onChange={(e) => setSubagentSessionId(e.target.value)} placeholder="Subagent session ID (optional)" />

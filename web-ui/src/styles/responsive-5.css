@@ -20,7 +20,7 @@
         align-items: stretch
     }
 
-    .assistant-inbox-item-actions button,.memory-create-btn,.memory-delete-btn,.missions-item-status,.missions-create-btn,.missions-delete-btn {
+    .assistant-inbox-item-actions button,.memory-create-btn,.memory-delete-btn,.missions-create-btn,.missions-delete-btn,.missions-action-btn {
         width: 100%
     }
 

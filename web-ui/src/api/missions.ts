@@ -1,17 +1,37 @@
 import { apiFetch, apiPost, apiDelete, apiPatch } from "./client";
 
-// ── Mission types ─────────────────────────────────────
+// ── Mission types (v2: goal-driven loop) ──────────────
 
-export type MissionStatus = "planned" | "active" | "blocked" | "completed";
+export type MissionState =
+  | "pending"
+  | "executing"
+  | "evaluating"
+  | "paused"
+  | "completed"
+  | "cancelled"
+  | "failed";
+
+export type EvalVerdict = "achieved" | "continue" | "blocked" | "failed";
+
+export interface EvalRecord {
+  iteration: number;
+  verdict: EvalVerdict;
+  summary: string;
+  next_step?: string | null;
+  timestamp: string;
+}
 
 export interface Mission {
   id: string;
-  title: string;
   goal: string;
-  next_action: string;
-  status: MissionStatus;
+  session_id: string;
   project_index: number;
-  session_id: string | null;
+  state: MissionState;
+  iteration: number;
+  max_iterations: number;
+  last_verdict?: EvalVerdict | null;
+  last_eval_summary?: string | null;
+  eval_history?: EvalRecord[];
   created_at: string;
   updated_at: string;
 }
@@ -21,27 +41,27 @@ export interface MissionsListResponse {
 }
 
 export interface CreateMissionRequest {
-  title: string;
   goal: string;
-  next_action: string;
-  status?: MissionStatus;
-  project_index: number;
   session_id?: string | null;
+  project_index?: number;
+  max_iterations?: number;
 }
 
 export interface UpdateMissionRequest {
-  title?: string;
   goal?: string;
-  next_action?: string;
-  status?: MissionStatus;
-  project_index?: number;
-  session_id?: string | null;
+  max_iterations?: number;
 }
+
+export type MissionAction = "start" | "pause" | "resume" | "cancel";
 
 // ── Mission API ───────────────────────────────────────
 
 export async function fetchMissions(): Promise<MissionsListResponse> {
   return apiFetch<MissionsListResponse>("/missions");
+}
+
+export async function fetchMission(missionId: string): Promise<Mission> {
+  return apiFetch<Mission>(`/missions/${encodeURIComponent(missionId)}`);
 }
 
 export async function createMission(req: CreateMissionRequest): Promise<Mission> {
@@ -57,6 +77,13 @@ export async function updateMission(
 
 export async function deleteMission(missionId: string): Promise<void> {
   return apiDelete(`/missions/${encodeURIComponent(missionId)}`);
+}
+
+export async function missionAction(
+  missionId: string,
+  action: MissionAction
+): Promise<Mission> {
+  return apiPost<Mission>(`/missions/${encodeURIComponent(missionId)}/action`, { action });
 }
 
 // ── Personal Memory types ─────────────────────────────

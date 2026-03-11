@@ -49,6 +49,10 @@ pub enum WebEvent {
     ActivityEvent(ActivityEventPayload),
     /// Presence changed — a client connected/disconnected or focused a session.
     PresenceChanged(PresenceSnapshot),
+    /// Mission state changed (created, updated, state transition).
+    MissionUpdated {
+        mission: serde_json::Value,
+    },
     /// Initial value — never sent to clients.
     #[allow(dead_code)]
     Noop,

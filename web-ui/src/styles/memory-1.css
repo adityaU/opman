@@ -231,7 +231,7 @@
     background: var(--theme-error-soft)
 }
 
-.memory-input,.memory-textarea,.memory-select,.routines-input,.routines-select,.delegation-input,.delegation-textarea,.delegation-select,.missions-input,.missions-textarea,.missions-select,.missions-item-next,.workspace-mgr-save input {
+.memory-input,.memory-textarea,.memory-select,.routines-input,.routines-select,.delegation-input,.delegation-textarea,.delegation-select,.missions-input,.missions-textarea,.missions-select,.workspace-mgr-save input {
     min-height: 42px;
     padding: 10px 12px;
     border-radius: 12px;
@@ -244,11 +244,11 @@
     min-height: 96px
 }
 
-.memory-input::placeholder,.memory-textarea::placeholder,.routines-input::placeholder,.delegation-input::placeholder,.delegation-textarea::placeholder,.missions-input::placeholder,.missions-textarea::placeholder,.missions-item-next::placeholder,.workspace-mgr-save input::placeholder {
+.memory-input::placeholder,.memory-textarea::placeholder,.routines-input::placeholder,.delegation-input::placeholder,.delegation-textarea::placeholder,.missions-input::placeholder,.missions-textarea::placeholder,.workspace-mgr-save input::placeholder {
     color: color-mix(in srgb,var(--color-text-muted) 82%,transparent)
 }
 
-.memory-input:focus,.memory-textarea:focus,.memory-select:focus,.routines-input:focus,.routines-select:focus,.delegation-input:focus,.delegation-textarea:focus,.delegation-select:focus,.missions-input:focus,.missions-textarea:focus,.missions-select:focus,.missions-item-next:focus,.workspace-mgr-save input:focus {
+.memory-input:focus,.memory-textarea:focus,.memory-select:focus,.routines-input:focus,.routines-select:focus,.delegation-input:focus,.delegation-textarea:focus,.delegation-select:focus,.missions-input:focus,.missions-textarea:focus,.missions-select:focus,.workspace-mgr-save input:focus {
     border-color: color-mix(in srgb,var(--color-primary) 55%,transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb,var(--color-primary) 16%,transparent)
 }

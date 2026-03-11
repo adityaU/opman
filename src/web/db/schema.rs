@@ -5,17 +5,20 @@ use rusqlite::Connection;
 pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     conn.execute_batch(
         "
-        -- ── Missions ────────────────────────────────────────────────
+        -- ── Missions (v2: goal-driven loop) ─────────────────────────────
         CREATE TABLE IF NOT EXISTS missions (
-            id            TEXT PRIMARY KEY,
-            title         TEXT NOT NULL,
-            goal          TEXT NOT NULL DEFAULT '',
-            next_action   TEXT NOT NULL DEFAULT '',
-            status        TEXT NOT NULL DEFAULT 'planned',
-            project_index INTEGER NOT NULL DEFAULT 0,
-            session_id    TEXT,
-            created_at    TEXT NOT NULL,
-            updated_at    TEXT NOT NULL
+            id              TEXT PRIMARY KEY,
+            goal            TEXT NOT NULL DEFAULT '',
+            session_id      TEXT NOT NULL DEFAULT '',
+            project_index   INTEGER NOT NULL DEFAULT 0,
+            state           TEXT NOT NULL DEFAULT 'pending',
+            iteration       INTEGER NOT NULL DEFAULT 0,
+            max_iterations  INTEGER NOT NULL DEFAULT 10,
+            last_verdict    TEXT,
+            last_eval_summary TEXT,
+            eval_history    TEXT NOT NULL DEFAULT '[]',
+            created_at      TEXT NOT NULL,
+            updated_at      TEXT NOT NULL
         );
 
         -- ── Personal Memory ─────────────────────────────────────────
@@ -90,8 +93,8 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
         );
 
         -- ── Indexes ─────────────────────────────────────────────────
-        CREATE INDEX IF NOT EXISTS idx_missions_status
-            ON missions(status);
+        CREATE INDEX IF NOT EXISTS idx_missions_state
+            ON missions(state);
         CREATE INDEX IF NOT EXISTS idx_missions_session
             ON missions(session_id);
         CREATE INDEX IF NOT EXISTS idx_memory_scope

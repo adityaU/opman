@@ -177,6 +177,11 @@ pub async fn events_stream(
                                         );
                                     }
                                 }
+                                WebEvent::MissionUpdated { mission } => {
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("mission_updated").data(mission.to_string()),
+                                    );
+                                }
                             }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {

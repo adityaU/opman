@@ -1,4 +1,4 @@
-//! Multi-session dashboard: overview, tree, presence, activity, and missions.
+//! Multi-session dashboard: overview, tree, presence, activity, and missions (v2).
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -85,33 +85,45 @@ pub async fn get_activity_feed(
     })
 }
 
-// ── Missions ────────────────────────────────────────────────────────
+// ── Missions (v2: goal-driven loop) ─────────────────────────────────
 
-/// GET /api/missions — list all saved missions.
+/// GET /api/missions — list all missions.
 pub async fn list_missions(
     State(state): State<ServerState>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let missions = state.web_state.list_missions().await;
-    Json(super::super::types::MissionsListResponse { missions })
+    Json(MissionsListResponse { missions })
 }
 
-/// POST /api/missions — create a mission.
+/// GET /api/missions/{mission_id} — get a single mission by ID.
+pub async fn get_mission(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(mission_id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match state.web_state.get_mission(&mission_id).await {
+        Some(mission) => Json(serde_json::to_value(mission).unwrap()).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// POST /api/missions — create a new mission.
 pub async fn create_mission(
     State(state): State<ServerState>,
     _auth: AuthUser,
-    Json(req): Json<super::super::types::CreateMissionRequest>,
+    Json(req): Json<CreateMissionRequest>,
 ) -> impl IntoResponse {
     let mission = state.web_state.create_mission(req).await;
     (StatusCode::CREATED, Json(mission))
 }
 
-/// PATCH /api/missions/{mission_id} — update an existing mission.
+/// PATCH /api/missions/{mission_id} — update mission fields.
 pub async fn update_mission(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Path(mission_id): axum::extract::Path<String>,
-    Json(req): Json<super::super::types::UpdateMissionRequest>,
+    Json(req): Json<UpdateMissionRequest>,
 ) -> impl IntoResponse {
     match state.web_state.update_mission(&mission_id, req).await {
         Some(mission) => (StatusCode::OK, Json(mission)).into_response(),
@@ -131,6 +143,25 @@ pub async fn delete_mission(
         StatusCode::NOT_FOUND
     }
 }
+
+/// POST /api/missions/{mission_id}/action — perform a lifecycle action.
+pub async fn mission_action(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(mission_id): axum::extract::Path<String>,
+    Json(req): Json<MissionActionRequest>,
+) -> impl IntoResponse {
+    match state.web_state.mission_action(&mission_id, req.action).await {
+        Ok(mission) => (StatusCode::OK, Json(mission)).into_response(),
+        Err(msg) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": msg })),
+        )
+            .into_response(),
+    }
+}
+
+// ── Personal Memory ─────────────────────────────────────────────────
 
 /// GET /api/memory — list all personal memory items.
 pub async fn list_personal_memory(

@@ -105,7 +105,7 @@ pub struct SignalsResponse {
 #[derive(Debug, Clone, Serialize)]
 pub struct AssistantCenterStats {
     pub active_missions: usize,
-    pub blocked_missions: usize,
+    pub paused_missions: usize,
     pub total_missions: usize,
     pub pending_permissions: usize,
     pub pending_questions: usize,

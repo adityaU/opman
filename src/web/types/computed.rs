@@ -40,7 +40,6 @@ pub enum InboxItemSource {
 #[serde(rename_all = "snake_case")]
 pub enum RecommendationAction {
     OpenInbox,
-    OpenMissions,
     OpenMemory,
     #[allow(dead_code)]
     OpenRoutines,
@@ -118,16 +117,6 @@ pub struct InboxRequest {
 /// Request body for `POST /api/recommendations`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct RecommendationsRequest {
-    #[serde(default)]
-    pub permissions: Vec<PermissionInput>,
-    #[serde(default)]
-    pub questions: Vec<QuestionInput>,
-}
-
-/// Request body for `POST /api/handoff/mission`.
-#[derive(Debug, Clone, Deserialize)]
-pub struct MissionHandoffRequest {
-    pub mission_id: String,
     #[serde(default)]
     pub permissions: Vec<PermissionInput>,
     #[serde(default)]

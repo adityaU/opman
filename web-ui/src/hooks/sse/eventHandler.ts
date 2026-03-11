@@ -1,5 +1,5 @@
 import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../types";
-import type { SessionStats, ActivityEvent, ClientPresence } from "../../api";
+import type { SessionStats, ActivityEvent, ClientPresence, Mission } from "../../api";
 import { applyThemeToCss } from "../../utils/theme";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen } from "./types";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
@@ -298,6 +298,14 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
           return next.length > 200 ? next.slice(-200) : next;
         });
       }
+    } catch { /* ignore */ }
+  });
+
+  // Mission loop updates
+  appSSE.addEventListener("mission_updated", (e: MessageEvent) => {
+    try {
+      const mission = JSON.parse(e.data) as Mission;
+      window.dispatchEvent(new CustomEvent("opman:mission-updated", { detail: mission }));
     } catch { /* ignore */ }
   });
 }

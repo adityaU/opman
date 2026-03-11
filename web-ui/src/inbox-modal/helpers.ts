@@ -7,7 +7,7 @@ export function formatSource(source: InboxItemSource): string {
     case "question":
       return "Question";
     case "mission":
-      return "Blocked mission";
+      return "Paused mission";
     case "watcher":
       return "Watcher";
     case "completion":

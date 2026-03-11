@@ -80,7 +80,7 @@ export function AssistantCenterModal({
   }, [permissions, questions]);
 
   const inboxNeedsYou = stats
-    ? stats.pending_permissions + stats.pending_questions + stats.blocked_missions
+    ? stats.pending_permissions + stats.pending_questions + stats.paused_missions
     : permissions.length + questions.length;
 
   const runRecommendation = (recommendation: AssistantRecommendation) => {
@@ -183,7 +183,7 @@ export function AssistantCenterModal({
             icon={<Target size={16} />}
             title="Missions"
             value={stats ? `${stats.total_missions}` : "..."}
-            description={stats ? `${stats.blocked_missions} blocked, ${stats.active_missions} active` : "Loading..."}
+            description={stats ? `${stats.paused_missions} paused, ${stats.active_missions} active` : "Loading..."}
             onClick={onOpenMissions}
           />
           <AssistantCenterCard

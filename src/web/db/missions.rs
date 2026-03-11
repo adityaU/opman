@@ -1,4 +1,4 @@
-//! Mission CRUD backed by SQLite.
+//! Mission CRUD backed by SQLite (v2: goal-driven loop model).
 
 use rusqlite::params;
 
@@ -11,23 +11,34 @@ impl Db {
         let conn = self.conn();
         let mut stmt = conn
             .prepare(
-                "SELECT id, title, goal, next_action, status,
-                        project_index, session_id, created_at, updated_at
+                "SELECT id, goal, session_id, project_index, state,
+                        iteration, max_iterations, last_verdict,
+                        last_eval_summary, eval_history,
+                        created_at, updated_at
                  FROM missions ORDER BY updated_at DESC",
             )
             .expect("prepare list_missions");
 
         stmt.query_map([], |row| {
+            let eval_history_json: String = row.get(9)?;
+            let eval_history: Vec<EvalRecord> =
+                serde_json::from_str(&eval_history_json).unwrap_or_default();
+            let last_verdict_str: Option<String> = row.get(7)?;
+            let last_verdict = last_verdict_str.and_then(|s| parse_eval_verdict(&s));
+
             Ok(Mission {
                 id: row.get(0)?,
-                title: row.get(1)?,
-                goal: row.get(2)?,
-                next_action: row.get(3)?,
-                status: parse_mission_status(&row.get::<_, String>(4)?),
-                project_index: row.get::<_, i64>(5)? as usize,
-                session_id: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                goal: row.get(1)?,
+                session_id: row.get(2)?,
+                project_index: row.get::<_, i64>(3)? as usize,
+                state: parse_mission_state(&row.get::<_, String>(4)?),
+                iteration: row.get::<_, i64>(5)? as u32,
+                max_iterations: row.get::<_, i64>(6)? as u32,
+                last_verdict,
+                last_eval_summary: row.get(8)?,
+                eval_history,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
             })
         })
         .expect("query list_missions")
@@ -35,22 +46,30 @@ impl Db {
         .collect()
     }
 
-    /// Insert a new mission.
+    /// Insert a new mission (used by tests; runtime uses db_sync snapshot).
+    #[allow(dead_code)]
     pub fn insert_mission(&self, m: &Mission) {
         let conn = self.conn();
+        let eval_history_json =
+            serde_json::to_string(&m.eval_history).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
             "INSERT INTO missions
-                (id, title, goal, next_action, status,
-                 project_index, session_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                (id, goal, session_id, project_index, state,
+                 iteration, max_iterations, last_verdict,
+                 last_eval_summary, eval_history,
+                 created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 m.id,
-                m.title,
                 m.goal,
-                m.next_action,
-                mission_status_str(&m.status),
-                m.project_index as i64,
                 m.session_id,
+                m.project_index as i64,
+                mission_state_str(&m.state),
+                m.iteration as i64,
+                m.max_iterations as i64,
+                m.last_verdict.as_ref().map(eval_verdict_str),
+                m.last_eval_summary,
+                eval_history_json,
                 m.created_at,
                 m.updated_at,
             ],
@@ -62,18 +81,25 @@ impl Db {
     #[allow(dead_code)]
     pub fn update_mission_row(&self, m: &Mission) -> bool {
         let conn = self.conn();
+        let eval_history_json =
+            serde_json::to_string(&m.eval_history).unwrap_or_else(|_| "[]".to_string());
         let changed = conn
             .execute(
-                "UPDATE missions SET title=?1, goal=?2, next_action=?3,
-                    status=?4, project_index=?5, session_id=?6, updated_at=?7
-                 WHERE id=?8",
+                "UPDATE missions SET goal=?1, session_id=?2, project_index=?3,
+                    state=?4, iteration=?5, max_iterations=?6,
+                    last_verdict=?7, last_eval_summary=?8,
+                    eval_history=?9, updated_at=?10
+                 WHERE id=?11",
                 params![
-                    m.title,
                     m.goal,
-                    m.next_action,
-                    mission_status_str(&m.status),
-                    m.project_index as i64,
                     m.session_id,
+                    m.project_index as i64,
+                    mission_state_str(&m.state),
+                    m.iteration as i64,
+                    m.max_iterations as i64,
+                    m.last_verdict.as_ref().map(eval_verdict_str),
+                    m.last_eval_summary,
+                    eval_history_json,
                     m.updated_at,
                     m.id,
                 ],
@@ -93,21 +119,47 @@ impl Db {
     }
 }
 
-fn mission_status_str(s: &MissionStatus) -> &'static str {
+fn mission_state_str(s: &MissionState) -> &'static str {
     match s {
-        MissionStatus::Planned => "planned",
-        MissionStatus::Active => "active",
-        MissionStatus::Blocked => "blocked",
-        MissionStatus::Completed => "completed",
+        MissionState::Pending => "pending",
+        MissionState::Executing => "executing",
+        MissionState::Evaluating => "evaluating",
+        MissionState::Paused => "paused",
+        MissionState::Completed => "completed",
+        MissionState::Cancelled => "cancelled",
+        MissionState::Failed => "failed",
     }
 }
 
-fn parse_mission_status(s: &str) -> MissionStatus {
+fn parse_mission_state(s: &str) -> MissionState {
     match s {
-        "active" => MissionStatus::Active,
-        "blocked" => MissionStatus::Blocked,
-        "completed" => MissionStatus::Completed,
-        _ => MissionStatus::Planned,
+        "executing" => MissionState::Executing,
+        "evaluating" => MissionState::Evaluating,
+        "paused" => MissionState::Paused,
+        "completed" => MissionState::Completed,
+        "cancelled" => MissionState::Cancelled,
+        "failed" => MissionState::Failed,
+        // Legacy: map old statuses to pending
+        "planned" | "active" | "blocked" | _ => MissionState::Pending,
+    }
+}
+
+fn eval_verdict_str(v: &EvalVerdict) -> &'static str {
+    match v {
+        EvalVerdict::Achieved => "achieved",
+        EvalVerdict::Continue => "continue",
+        EvalVerdict::Blocked => "blocked",
+        EvalVerdict::Failed => "failed",
+    }
+}
+
+fn parse_eval_verdict(s: &str) -> Option<EvalVerdict> {
+    match s {
+        "achieved" => Some(EvalVerdict::Achieved),
+        "continue" => Some(EvalVerdict::Continue),
+        "blocked" => Some(EvalVerdict::Blocked),
+        "failed" => Some(EvalVerdict::Failed),
+        _ => None,
     }
 }
 
@@ -120,19 +172,31 @@ mod tests {
         let db = Db::open_memory().unwrap();
         let m = Mission {
             id: "m-1".into(),
-            title: "Ship v2".into(),
-            goal: "Release".into(),
-            next_action: "Write tests".into(),
-            status: MissionStatus::Active,
+            goal: "Ship v2 release".into(),
+            session_id: "sess-1".into(),
             project_index: 0,
-            session_id: Some("sess-1".into()),
+            state: MissionState::Executing,
+            iteration: 2,
+            max_iterations: 10,
+            last_verdict: Some(EvalVerdict::Continue),
+            last_eval_summary: Some("Tests passing, need docs".into()),
+            eval_history: vec![EvalRecord {
+                iteration: 1,
+                verdict: EvalVerdict::Continue,
+                summary: "Initial implementation done".into(),
+                next_step: Some("Add tests".into()),
+                timestamp: "2025-01-01T00:00:00Z".into(),
+            }],
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };
         db.insert_mission(&m);
         let list = db.list_missions();
         assert_eq!(list.len(), 1);
-        assert_eq!(list[0].title, "Ship v2");
+        assert_eq!(list[0].goal, "Ship v2 release");
+        assert_eq!(list[0].iteration, 2);
+        assert_eq!(list[0].eval_history.len(), 1);
+        assert!(matches!(list[0].last_verdict, Some(EvalVerdict::Continue)));
         assert!(db.delete_mission_row("m-1"));
         assert!(db.list_missions().is_empty());
     }

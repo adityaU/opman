@@ -1,106 +1,14 @@
 //! Backend intelligence: handoffs, resume briefing, daily summary.
 //!
-//! Mirrors logic from `web-ui/src/handoffs.ts`, `resumeBriefing.ts`,
-//! and `dailySummary.ts`.
+//! Mission handoff has been removed — the new mission model handles its own
+//! loop lifecycle. Session handoffs and resume briefing remain.
 
 use super::super::types::*;
 
 impl super::WebStateHandle {
-    // ── Mission Handoff ─────────────────────────────────────────────
-
-    /// Build a handoff brief for a specific mission.
-    pub async fn build_mission_handoff(
-        &self,
-        req: MissionHandoffRequest,
-    ) -> Option<HandoffBrief> {
-        let missions = self.list_missions().await;
-        let mission = missions.iter().find(|m| m.id == req.mission_id)?;
-
-        let session_id = mission.session_id.as_deref().unwrap_or("");
-
-        // Filter permissions/questions to this mission's session
-        let session_perms: Vec<&PermissionInput> = req
-            .permissions
-            .iter()
-            .filter(|p| p.session_id == session_id)
-            .collect();
-        let session_questions: Vec<&QuestionInput> = req
-            .questions
-            .iter()
-            .filter(|q| q.session_id == session_id)
-            .collect();
-
-        // Activity events for context
-        let activity = if !session_id.is_empty() {
-            self.get_activity_feed(session_id).await
-        } else {
-            Vec::new()
-        };
-        let recent: Vec<&ActivityEventPayload> =
-            activity.iter().rev().take(3).collect();
-
-        // Blockers
-        let mut blockers: Vec<String> = Vec::new();
-        for p in &session_perms {
-            blockers.push(format!("Permission needed: {}", p.tool_name));
-        }
-        for q in &session_questions {
-            blockers.push(format!("Question pending: {}", q.title));
-        }
-        if matches!(mission.status, MissionStatus::Blocked) && blockers.is_empty() {
-            blockers.push("Mission is marked blocked".to_string());
-        }
-
-        // Recent changes
-        let recent_changes: Vec<String> = if recent.is_empty() {
-            vec![mission.goal.clone()]
-        } else {
-            recent.iter().map(|e| e.summary.clone()).collect()
-        };
-
-        // Next action
-        let next_action = if let Some(first_blocker) = blockers.first() {
-            first_blocker.clone()
-        } else if !mission.next_action.is_empty() {
-            mission.next_action.clone()
-        } else {
-            "Continue working on this mission".to_string()
-        };
-
-        // Links
-        let mut links = vec![HandoffLink {
-            kind: "mission".to_string(),
-            label: mission.title.clone(),
-            source_id: Some(mission.id.clone()),
-        }];
-        for p in &session_perms {
-            links.push(HandoffLink {
-                kind: "permission".to_string(),
-                label: p.tool_name.clone(),
-                source_id: Some(p.id.clone()),
-            });
-        }
-        for q in &session_questions {
-            links.push(HandoffLink {
-                kind: "question".to_string(),
-                label: q.title.clone(),
-                source_id: Some(q.id.clone()),
-            });
-        }
-
-        Some(HandoffBrief {
-            title: format!("Mission: {}", mission.title),
-            summary: mission.goal.clone(),
-            blockers,
-            recent_changes,
-            next_action,
-            links,
-        })
-    }
-
     // ── Session Handoff ─────────────────────────────────────────────
 
-    /// Build a handoff brief for a session (no specific mission).
+    /// Build a handoff brief for a session.
     pub async fn build_session_handoff(
         &self,
         req: SessionHandoffRequest,
@@ -185,25 +93,6 @@ impl super::WebStateHandle {
         req: ResumeBriefingRequest,
     ) -> Option<ResumeBriefing> {
         let active_sid = req.active_session_id.as_deref().unwrap_or("");
-        let missions = self.list_missions().await;
-
-        // Find the active mission for the current session
-        let active_mission = missions.iter().find(|m| {
-            m.session_id.as_deref() == Some(active_sid)
-                && !matches!(m.status, MissionStatus::Completed)
-        });
-
-        // Build mission handoff if applicable
-        let mission_brief = if let Some(m) = active_mission {
-            self.build_mission_handoff(MissionHandoffRequest {
-                mission_id: m.id.clone(),
-                permissions: req.permissions.clone(),
-                questions: req.questions.clone(),
-            })
-            .await
-        } else {
-            None
-        };
 
         // Build session handoff
         let session_brief = self
@@ -214,6 +103,31 @@ impl super::WebStateHandle {
             })
             .await;
 
+        // Check for active missions on this session
+        let missions = self.list_missions().await;
+        let active_mission = missions.iter().find(|m| {
+            m.session_id == active_sid
+                && matches!(
+                    m.state,
+                    MissionState::Executing | MissionState::Evaluating | MissionState::Paused
+                )
+        });
+
+        let mission_context = active_mission.map(|m| {
+            let state_str = match m.state {
+                MissionState::Executing => "executing",
+                MissionState::Evaluating => "evaluating",
+                MissionState::Paused => "paused",
+                _ => "active",
+            };
+            format!(
+                "Mission ({state_str}, iteration {}/{}): {}",
+                m.iteration,
+                if m.max_iterations == 0 { "∞".to_string() } else { m.max_iterations.to_string() },
+                m.goal
+            )
+        });
+
         // Recent signal titles
         let recent_signals: Vec<&str> = req
             .signals
@@ -222,13 +136,15 @@ impl super::WebStateHandle {
             .map(|s| s.title.as_str())
             .collect();
 
-        if mission_brief.is_none() && session_brief.is_none() && recent_signals.is_empty() {
+        if session_brief.is_none() && mission_context.is_none() && recent_signals.is_empty() {
             return None;
         }
 
-        let source = mission_brief.as_ref().or(session_brief.as_ref());
-
-        if let Some(src) = source {
+        if let Some(src) = session_brief.as_ref() {
+            let mut summary = src.summary.clone();
+            if let Some(ref mc) = mission_context {
+                summary = format!("{} • {}", mc, summary);
+            }
             let signal_part = if recent_signals.is_empty() {
                 String::new()
             } else {
@@ -236,8 +152,14 @@ impl super::WebStateHandle {
             };
             Some(ResumeBriefing {
                 title: src.title.clone(),
-                summary: format!("{}{}", src.summary, signal_part),
+                summary: format!("{}{}", summary, signal_part),
                 next_action: src.next_action.clone(),
+            })
+        } else if let Some(mc) = mission_context {
+            Some(ResumeBriefing {
+                title: "Active mission".to_string(),
+                summary: mc,
+                next_action: "Check mission progress".to_string(),
             })
         } else {
             Some(ResumeBriefing {
@@ -265,13 +187,9 @@ impl super::WebStateHandle {
 
         let active_count = missions
             .iter()
-            .filter(|m| matches!(m.status, MissionStatus::Active))
+            .filter(|m| matches!(m.state, MissionState::Executing | MissionState::Evaluating))
             .count();
-        let blocked_count = missions
-            .iter()
-            .filter(|m| matches!(m.status, MissionStatus::Blocked))
-            .count();
-        let needs_you = req.permissions.len() + req.questions.len() + blocked_count;
+        let needs_you = req.permissions.len() + req.questions.len();
 
         let signal_titles: Vec<&str> = req
             .signals
