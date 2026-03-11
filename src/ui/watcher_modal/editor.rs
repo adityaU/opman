@@ -123,8 +123,9 @@ fn render_multiline_editor_generic(
         let is_cursor_vrow = vrow_idx == cursor_vrow;
 
         if is_cursor_vrow {
-            let cursor_byte = cursor_col.min(byte_end).saturating_sub(byte_start);
-            let before = &chunk[..cursor_byte.min(chunk.len())];
+            let raw_cursor_byte = cursor_col.min(byte_end).saturating_sub(byte_start);
+            let cursor_byte = crate::util::floor_char_boundary(chunk, raw_cursor_byte);
+            let before = &chunk[..cursor_byte];
             let (cursor_ch, cursor_ch_len) = if cursor_byte < chunk.len() {
                 let ch = chunk[cursor_byte..].chars().next().unwrap();
                 (

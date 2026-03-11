@@ -115,7 +115,7 @@ pub(crate) async fn maybe_rotate_stream(
                         relay_text.len(),
                         offset,
                         total_count,
-                        &relay_text[..relay_text.len().min(300)]
+                        crate::util::truncate_str(relay_text, 300)
                     );
                 }
             }

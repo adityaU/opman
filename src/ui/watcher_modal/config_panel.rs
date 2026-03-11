@@ -40,7 +40,10 @@ pub(super) fn render_config_panel(
     // Session info header
     let info = format!("{} / {}", selected_entry.project_name, selected_entry.title);
     let info_display = if info.len() > cw {
-        format!("{}...", &info[..cw.saturating_sub(3).min(info.len())])
+        format!(
+            "{}...",
+            crate::util::truncate_str(&info, cw.saturating_sub(3))
+        )
     } else {
         info
     };
@@ -210,7 +213,10 @@ fn render_original_message_list(
             // Truncate message preview
             let preview = msg.text.replace('\n', " ");
             let preview = if preview.len() > cw.saturating_sub(2) {
-                format!("{}...", &preview[..cw.saturating_sub(5).min(preview.len())])
+                format!(
+                    "{}...",
+                    crate::util::truncate_str(&preview, cw.saturating_sub(5))
+                )
             } else {
                 preview
             };

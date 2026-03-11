@@ -151,7 +151,10 @@ pub(super) fn render_session_list(
             let avail = max_w.saturating_sub(2); // indicator width
             let full = format!("{}/{}", proj, entry.title);
             if full.len() > avail {
-                format!("{}...", &full[..avail.saturating_sub(3).min(full.len())])
+                format!(
+                    "{}...",
+                    crate::util::truncate_str(&full, avail.saturating_sub(3))
+                )
             } else {
                 full
             }

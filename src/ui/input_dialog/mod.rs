@@ -115,15 +115,25 @@ impl<'a> InputDialog<'a> {
 
     fn render_input_line(&self, area: Rect, buf: &mut Buffer) {
         let input_text = &self.app.input_buffer;
-        let cursor_pos = self.app.input_cursor;
+        let raw_cursor = self.app.input_cursor;
+        let cursor_pos = crate::util::floor_char_boundary(input_text, raw_cursor);
 
-        let before_cursor = &input_text[..cursor_pos.min(input_text.len())];
-        let cursor_char = input_text.get(cursor_pos..cursor_pos + 1).unwrap_or(" ");
-        let after_cursor = if cursor_pos + 1 < input_text.len() {
-            &input_text[cursor_pos + 1..]
+        let before_cursor = &input_text[..cursor_pos];
+        let (cursor_char, cursor_char_len) = if cursor_pos < input_text.len() {
+            let ch = input_text[cursor_pos..].chars().next().unwrap();
+            (
+                &input_text[cursor_pos..cursor_pos + ch.len_utf8()],
+                ch.len_utf8(),
+            )
         } else {
-            ""
+            (" ", 0)
         };
+        let after_cursor =
+            if cursor_char_len > 0 && cursor_pos + cursor_char_len <= input_text.len() {
+                &input_text[cursor_pos + cursor_char_len..]
+            } else {
+                ""
+            };
 
         let input_line = Line::from(vec![
             Span::raw(before_cursor),

@@ -101,7 +101,7 @@ pub(crate) async fn build_relay_content(
             "Slack relay: relay_text DIFFERS from relay_text_raw — converted_len={}, raw_len={}, raw_preview={:?}",
             relay_text.len(),
             relay_text_raw.len(),
-            &relay_text_raw[..relay_text_raw.len().min(400)]
+            crate::util::truncate_str(&relay_text_raw, 400)
         );
     } else {
         tracing::info!(

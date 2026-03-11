@@ -101,7 +101,7 @@ pub(super) fn handle_events_api_payload(
             "Slack incoming message: channel={} ts={} text={}...",
             channel,
             ts,
-            &text[..text.len().min(50)]
+            crate::util::truncate_str(&text, 50)
         );
         let _ = event_tx.send(SlackBackgroundEvent::IncomingMessage {
             text: text.to_string(),

@@ -132,7 +132,7 @@ pub(super) fn render_results(
             let title_max = remaining.saturating_sub(time_width);
             let title_display = if session_title.len() > title_max {
                 let avail = title_max.saturating_sub(1);
-                format!("{}…", &session_title[..avail.min(session_title.len())])
+                format!("{}…", crate::util::truncate_str(&session_title, avail))
             } else {
                 session_title.clone()
             };

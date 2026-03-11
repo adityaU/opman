@@ -223,7 +223,7 @@ pub(crate) async fn start_new_stream(
                 relay_text.len(),
                 offset,
                 total_count,
-                &relay_text[..relay_text.len().min(200)]
+                crate::util::truncate_str(relay_text, 200)
             );
             let mut s = slack_state.lock().await;
             s.streaming_messages.insert(session_id.to_owned(), stream_ts);

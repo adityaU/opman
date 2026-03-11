@@ -124,7 +124,8 @@ impl<'a> ContextInput<'a> {
                         || (state.cursor_col == end && end == line_text.len()))
                 {
                     cursor_vrow = vrows.len();
-                    _cursor_vcol = line_text[chunk_start..state.cursor_col.min(end)]
+                    _cursor_vcol = line_text[chunk_start
+                        ..crate::util::floor_char_boundary(line_text, state.cursor_col.min(end))]
                         .chars()
                         .count();
                 }
@@ -155,8 +156,9 @@ impl<'a> ContextInput<'a> {
             let is_cursor_vrow = vrow_idx == cursor_vrow;
 
             if is_cursor_vrow {
-                let cursor_byte = state.cursor_col.min(byte_end).saturating_sub(byte_start);
-                let before = &chunk[..cursor_byte.min(chunk.len())];
+                let raw_cursor_byte = state.cursor_col.min(byte_end).saturating_sub(byte_start);
+                let cursor_byte = crate::util::floor_char_boundary(chunk, raw_cursor_byte);
+                let before = &chunk[..cursor_byte];
                 let (cursor_ch, cursor_ch_len) = if cursor_byte < chunk.len() {
                     let ch = chunk[cursor_byte..].chars().next().unwrap();
                     (

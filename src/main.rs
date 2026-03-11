@@ -25,6 +25,7 @@ mod theme_gen;
 mod todo_db;
 mod ui;
 mod vim_mode;
+mod util;
 mod web;
 mod which_key;
 
