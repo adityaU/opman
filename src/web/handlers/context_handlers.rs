@@ -26,6 +26,27 @@ pub async fn get_session_todos(
     Ok(Json(todos))
 }
 
+/// PUT /api/session/:id/todos — replace all todos for a session (full-replace semantics).
+///
+/// Accepts a JSON array of `TodoItem` objects. Writes them to the opencode
+/// SQLite database using the same logic as the TUI's todo panel.
+pub async fn update_session_todos(
+    State(_state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+    Json(todos): Json<Vec<crate::app::TodoItem>>,
+) -> WebResult<impl IntoResponse> {
+    let sid = session_id.clone();
+    let todo_list = todos.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::todo_db::save_todos_to_db(&sid, &todo_list)
+    })
+    .await
+    .map_err(|e| WebError::Internal(format!("join error: {e}")))?
+    .map_err(|e| WebError::Internal(format!("Failed to save todos: {e}")))?;
+    Ok(Json(todos))
+}
+
 /// Query params for `GET /api/context-window?session_id=...`.
 #[derive(serde::Deserialize)]
 pub struct ContextWindowQuery {

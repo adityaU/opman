@@ -65,7 +65,7 @@ pub use editor_handlers::{
     editor_lsp_diagnostics, editor_lsp_hover, editor_lsp_definition, editor_lsp_format,
 };
 
-pub use context_handlers::{get_session_todos, get_context_window};
+pub use context_handlers::{get_session_todos, update_session_todos, get_context_window};
 
 pub use search_handlers::{get_file_edits, search_messages};
 

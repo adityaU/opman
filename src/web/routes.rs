@@ -74,7 +74,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
         )
         .route(
             "/session/{session_id}/todos",
-            get(handlers::get_session_todos),
+            get(handlers::get_session_todos).put(handlers::update_session_todos),
         )
         // ── Multi-session dashboard ──────────────────────────────────
         .route("/sessions/overview", get(handlers::sessions_overview))

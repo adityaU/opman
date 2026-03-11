@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, apiDelete, apiPatch } from "./client";
+import { apiFetch, apiPost, apiDelete, apiPatch, apiPut } from "./client";
 import type { Message, Provider, SlashCommand, TodoItem } from "../types";
 
 // ── Message pagination ────────────────────────────────
@@ -162,6 +162,14 @@ export async function replyQuestion(
 
 export async function fetchSessionTodos(sessionId: string): Promise<TodoItem[]> {
   return apiFetch<TodoItem[]>(`/session/${sessionId}/todos`);
+}
+
+/** Full-replace all todos for a session. Mirrors the TUI's save_todos_to_db semantics. */
+export async function updateSessionTodos(
+  sessionId: string,
+  todos: Array<{ content: string; status: string; priority: string }>
+): Promise<TodoItem[]> {
+  return apiPut<TodoItem[]>(`/session/${sessionId}/todos`, todos);
 }
 
 // ── Agents ────────────────────────────────────────────

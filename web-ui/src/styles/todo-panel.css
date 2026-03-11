@@ -285,3 +285,133 @@
     font-size: var(--font-size-2xs);
     margin-right: 2px
 }
+
+/* ── Interactive todo elements ──────────────────────── */
+
+.todo-icon-clickable {
+    cursor: pointer;
+    transition: transform var(--transition-fast), opacity var(--transition-fast)
+}
+
+.todo-icon-clickable:hover {
+    transform: scale(1.2);
+    opacity: .8
+}
+
+.todo-priority-clickable {
+    cursor: pointer;
+    transition: transform var(--transition-fast), opacity var(--transition-fast)
+}
+
+.todo-priority-clickable:hover {
+    transform: scale(1.2);
+    opacity: .8
+}
+
+.todo-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    flex-shrink: 0
+}
+
+.todo-panel-item:hover .todo-item-actions,
+.todo-panel-item.selected .todo-item-actions {
+    opacity: 1
+}
+
+.todo-action-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.todo-action-btn:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+.todo-action-btn-danger:hover {
+    color: var(--color-error);
+    background: #e06c750d
+}
+
+.todo-edit-input {
+    flex: 1;
+    background: var(--white-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    padding: 3px 8px;
+    outline: none;
+    font-family: inherit;
+    min-width: 0
+}
+
+.todo-edit-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent)
+}
+
+.todo-panel-item-editing {
+    background: var(--white-4)
+}
+
+.todo-panel-action-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.todo-panel-action-btn:hover {
+    color: var(--color-text)
+}
+
+.todo-copy-flash {
+    font-size: var(--font-size-2xs);
+    color: var(--color-success);
+    animation: todo-flash 0.8s ease-out forwards
+}
+
+@keyframes todo-flash {
+    0% { opacity: 1 }
+    70% { opacity: 1 }
+    100% { opacity: 0 }
+}
+
+.todo-panel-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    margin-top: var(--space-2)
+}
+
+.todo-panel-create-btn:hover {
+    color: var(--color-text);
+    border-color: var(--color-border)
+}

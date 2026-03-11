@@ -106,3 +106,27 @@ export async function apiPatch<T = void>(
   if (text) return JSON.parse(text) as T;
   return undefined as unknown as T;
 }
+
+/** PUT helper */
+export async function apiPut<T = void>(
+  path: string,
+  body?: unknown
+): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.reload();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const text = await res.text();
+  if (text) return JSON.parse(text) as T;
+  return undefined as unknown as T;
+}

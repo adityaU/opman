@@ -193,7 +193,11 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       break;
     }
 
-    case "todo.updated": break;
+    case "todo.updated":
+      window.dispatchEvent(new CustomEvent("opman:todo-updated", {
+        detail: { sessionID: (props.sessionID as string) || "" },
+      }));
+      break;
     case "file.edited": ctx.setFileEditCount((prev) => prev + 1); break;
   }
 }
