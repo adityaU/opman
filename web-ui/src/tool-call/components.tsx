@@ -30,6 +30,7 @@ export function ToolInput({ data }: { data: Record<string, unknown> | string }) 
         useInlineStyles={false}
         language="json"
         PreTag="div"
+        codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
         customStyle={{
           margin: 0,
           borderRadius: "4px",
@@ -82,6 +83,7 @@ export function ToolOutput({
           language={lang}
           PreTag="div"
           showLineNumbers
+          codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
           customStyle={{
             margin: 0,
             borderRadius: "0 0 4px 4px",

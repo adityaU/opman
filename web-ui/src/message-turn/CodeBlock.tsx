@@ -76,6 +76,7 @@ export function CodeBlock({ language, code }: { language: string; code: string }
           useInlineStyles={false}
           language={language}
           PreTag="div"
+          codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
           customStyle={{
             margin: 0,
             padding: 0,

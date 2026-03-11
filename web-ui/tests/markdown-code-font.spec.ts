@@ -2,7 +2,6 @@ import { test, expect, Page } from "@playwright/test";
 import {
   setupMockAPI,
   SESSION_ID,
-  MOCK_MESSAGES,
 } from "./helpers";
 
 /**
@@ -105,20 +104,14 @@ async function setupFontTestPage(page: Page) {
 }
 
 /**
- * Check that a computed font-family contains a monospace font.
- * We look for common monospace font names or the generic "monospace" keyword.
+ * Check that a computed font-family starts with IBM Plex Mono (our --font-mono stack).
  */
-function assertMonospace(fontFamily: string, context: string) {
+function assertIBMPlexMono(fontFamily: string, context: string) {
   const lower = fontFamily.toLowerCase();
-  const hasMonospace =
-    lower.includes("monospace") ||
-    lower.includes("ibm plex mono") ||
-    lower.includes("jetbrains mono") ||
-    lower.includes("fira code") ||
-    lower.includes("consolas") ||
-    lower.includes("menlo") ||
-    lower.includes("courier");
-  expect(hasMonospace, `Expected monospace font for ${context}, got: "${fontFamily}"`).toBe(true);
+  expect(
+    lower.includes("ibm plex mono"),
+    `Expected IBM Plex Mono for ${context}, got: "${fontFamily}"`
+  ).toBe(true);
 }
 
 // ─────────────────────────────────────────────────────
@@ -130,7 +123,7 @@ test.describe("Markdown code font rendering", () => {
     await setupFontTestPage(page);
   });
 
-  test("message-turn fenced code block uses monospace font", async ({ page }) => {
+  test("message-turn fenced code block uses IBM Plex Mono", async ({ page }) => {
     // Wait for the code-block-wrapper to appear (from the assistant message)
     const codeBlock = page.locator(".code-block-wrapper").first();
     await expect(codeBlock).toBeVisible({ timeout: 10_000 });
@@ -142,20 +135,20 @@ test.describe("Markdown code font rendering", () => {
     const fontFamily = await codeEl.evaluate(
       (el) => window.getComputedStyle(el).fontFamily
     );
-    assertMonospace(fontFamily, "message-turn fenced code block <code>");
+    assertIBMPlexMono(fontFamily, "message-turn fenced code block <code>");
   });
 
-  test("message-turn inline code uses monospace font", async ({ page }) => {
+  test("message-turn inline code uses IBM Plex Mono", async ({ page }) => {
     const inlineCode = page.locator(".inline-code").first();
     await expect(inlineCode).toBeVisible({ timeout: 10_000 });
 
     const fontFamily = await inlineCode.evaluate(
       (el) => window.getComputedStyle(el).fontFamily
     );
-    assertMonospace(fontFamily, "message-turn inline code");
+    assertIBMPlexMono(fontFamily, "message-turn inline code");
   });
 
-  test("tool-call output markdown code block uses monospace font", async ({ page }) => {
+  test("tool-call output markdown code block uses IBM Plex Mono", async ({ page }) => {
     // Expand the task tool call to show output
     const toolCalls = page.locator(".tool-call");
     // The first tool-call is the "task" tool — click its header to expand
@@ -179,7 +172,7 @@ test.describe("Markdown code font rendering", () => {
       const fontFamily = await codeEl.evaluate(
         (el) => window.getComputedStyle(el).fontFamily
       );
-      assertMonospace(fontFamily, "tool-output markdown fenced code (CodeBlock)");
+      assertIBMPlexMono(fontFamily, "tool-output markdown fenced code (CodeBlock)");
     } else {
       // Fallback: check any code element inside the tool markdown
       const codeEl = toolMarkdown.locator("code").first();
@@ -188,11 +181,11 @@ test.describe("Markdown code font rendering", () => {
       const fontFamily = await codeEl.evaluate(
         (el) => window.getComputedStyle(el).fontFamily
       );
-      assertMonospace(fontFamily, "tool-output markdown fenced code (fallback)");
+      assertIBMPlexMono(fontFamily, "tool-output markdown fenced code (fallback)");
     }
   });
 
-  test("tool-call JSON input uses monospace font", async ({ page }) => {
+  test("tool-call JSON input uses IBM Plex Mono", async ({ page }) => {
     // The read_file tool should have JSON input
     const toolCalls = page.locator(".tool-call");
     // Click on all tool headers to expand them
@@ -211,18 +204,18 @@ test.describe("Markdown code font rendering", () => {
       const fontFamily = await syntaxCode.evaluate(
         (el) => window.getComputedStyle(el).fontFamily
       );
-      assertMonospace(fontFamily, "tool-call JSON input code");
+      assertIBMPlexMono(fontFamily, "tool-call JSON input code");
     }
   });
 
-  test("code-block line numbers use monospace font", async ({ page }) => {
+  test("code-block line numbers use IBM Plex Mono", async ({ page }) => {
     const lineNumbers = page.locator(".code-block-line-numbers").first();
     await expect(lineNumbers).toBeVisible({ timeout: 10_000 });
 
     const fontFamily = await lineNumbers.evaluate(
       (el) => window.getComputedStyle(el).fontFamily
     );
-    assertMonospace(fontFamily, "code-block line numbers");
+    assertIBMPlexMono(fontFamily, "code-block line numbers");
   });
 
   test("screenshot of rendered code blocks", async ({ page }) => {

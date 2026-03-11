@@ -78,13 +78,13 @@ html.flat-theme .code-block-line-numbers {
 code[class*=language-],pre[class*=language-] {
     color: var(--color-text);
     background: var(--color-bg-element);
-    font-family: var(--font-mono);
+    font-family: var(--font-mono)!important;
     font-size: var(--font-size-sm);
     line-height: 1.6
 }
 
 .code-block-wrapper code,.code-block-wrapper pre {
-    font-family: var(--font-mono);
+    font-family: var(--font-mono)!important;
     font-size: var(--font-size-sm);
     line-height: 1.6
 }
