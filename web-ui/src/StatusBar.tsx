@@ -1,7 +1,7 @@
 import React from "react";
 import type { ProjectInfo, SessionStats, ClientPresence, PersonalMemoryItem, AutonomyMode } from "./api";
 import type { WatcherStatus } from "./hooks/useSSE";
-import type { AssistantRecommendation } from "./recommendations";
+import type { AssistantRecommendation } from "./api";
 import { WatcherStatusIndicator } from "./WatcherStatusBar";
 import {
   PanelLeft,

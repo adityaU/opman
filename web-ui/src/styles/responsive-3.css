@@ -1,0 +1,193 @@
+@media(max-width: 768px) {
+    .session-graph-header button,.session-dashboard-header button,.activity-feed-header button,.assistant-inbox-header button,.assistant-center-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.notification-prefs-header button,.workspace-mgr-header button {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center
+    }
+
+    .session-dashboard-metrics {
+        grid-template-columns: repeat(2,1fr)
+    }
+
+    .pr-description-modal-overlay {
+        align-items: flex-end
+    }
+
+    .pr-description-modal {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        max-height: calc(85vh - env(safe-area-inset-top,0px));
+        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards;
+        padding-bottom: env(safe-area-inset-bottom,0px)
+    }
+
+    .pr-description-modal:before {
+        content: "";
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: var(--white-20);
+        border-radius: 9999px;
+        margin: 8px auto 0;
+        flex-shrink: 0
+    }
+
+    .pr-description-modal-close {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center
+    }
+}
+
+@media(max-width: 768px) {
+    .mobile-dock {
+        display:block
+    }
+
+    .mobile-dock-fab {
+        display: flex
+    }
+
+    .mobile-compose-btn {
+        display: flex
+    }
+
+    .chat-layout {
+        padding-bottom: 0
+    }
+
+    .message-timeline {
+        padding-bottom: var(--space-6)
+    }
+
+    /* On mobile the wrapper becomes a real positioned container with collapse transition.
+       Dock and input are mutually exclusive — when input is visible, dock is hidden,
+       so no extra bottom margin is needed for the dock. */
+
+    .mobile-input-wrapper {
+        display: block;
+        position: relative;
+        z-index: 10;
+        max-height: 50vh;
+        opacity: 1;
+        overflow: hidden;
+        transition: max-height .3s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+        will-change: max-height, opacity;
+        margin-bottom: 0
+    }
+
+    .mobile-input-wrapper.mobile-input-hidden {
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none
+    }
+
+    .chat-main {
+        overflow: hidden
+    }
+}
+
+@media(max-width: 768px) {
+    .mobile-panel-sheet {
+        display: none;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: calc(4.5rem + env(safe-area-inset-bottom,0));
+        z-index: 60;
+        background: var(--color-bg, #0a0a0a);
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        overflow: hidden;
+        transform: translateY(100%);
+        opacity: 0;
+        transition: transform .35s cubic-bezier(.34,1.56,.64,1),opacity .25s ease
+    }
+
+    .mobile-panel-sheet.mobile-panel-active {
+        display: flex;
+        transform: translateY(0);
+        opacity: 1;
+        animation: sheet-slide-up .35s cubic-bezier(.34,1.56,.64,1) forwards
+    }
+}
+
+/* ── Standalone / PWA mode: cover the gesture pill / home indicator ──
+   When the app is saved to the home screen (display-mode: standalone),
+   viewport-fit=cover extends the page behind the system home indicator.
+   We add bottom padding to the chat layout so all content sits above
+   the gesture pill, and paint a solid background behind it.
+   Also target iOS standalone via the -webkit media query. ── */
+
+@media (max-width: 768px) and (display-mode: standalone) {
+    .chat-layout {
+        /* Push all flow content inside both safe-area edges so nothing
+           sits behind the status-bar/notch (top) or gesture pill (bottom). */
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    /* The mobile header already adds safe-area-inset-top internally —
+       avoid double-padding by removing it when layout handles it. */
+    .chat-mobile-header {
+        padding-top: 8px
+    }
+
+    /* The mobile responsive rule sets prompt bottom to 0 — in standalone
+       we need the safe-area inset so the input clears the gesture pill */
+    .prompt-input-container {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+    }
+}
+
+/* iOS standalone detection (older WebKit doesn't support display-mode query) */
+@media (max-width: 768px) {
+    @supports (-webkit-touch-callout: none) {
+        /* On iOS with viewport-fit=cover the safe-area env() values are
+           non-zero in standalone mode. In Safari browser the browser chrome
+           already insets for us (values are 0), so applying unconditionally
+           is safe. */
+        .chat-layout {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        .chat-mobile-header {
+            padding-top: 8px
+        }
+
+        .prompt-input-container {
+            padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+        }
+    }
+}
+
+@keyframes sheet-slide-up {
+    0% {
+        transform: translateY(30px);
+        opacity: 0
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1
+    }
+}
+
+@media(max-width: 768px) {
+    .mobile-panel-sheet>*:last-child {
+        flex: 1;
+        min-height: 0;
+        width: 100%
+    }
+
+    .mobile-sheet-handle {
+        display: block
+    }
+}

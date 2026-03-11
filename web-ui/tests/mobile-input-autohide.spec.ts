@@ -112,7 +112,7 @@ test.describe("Mobile input autohide", () => {
   });
 
   test("compose button is not visible when input is shown", async ({ page }) => {
-    await expect(page.locator(".mobile-compose-btn")).not.toBeAttached();
+    await expect(page.locator(".mobile-compose-btn")).not.toHaveClass(/visible/);
   });
 
   test("scrolling up hides the input area", async ({ page }) => {
@@ -163,7 +163,7 @@ test.describe("Mobile input autohide", () => {
     await expect(wrapper).toHaveClass(/mobile-input-hidden/, { timeout: 2_000 });
 
     // Compose button should appear
-    await expect(page.locator(".mobile-compose-btn")).toBeAttached();
+    await expect(page.locator(".mobile-compose-btn")).toHaveClass(/visible/, { timeout: 2_000 });
   });
 
   test("compose button appears when input is hidden", async ({ page }) => {
@@ -175,7 +175,7 @@ test.describe("Mobile input autohide", () => {
     await scrollTimeline(page, -200);
 
     await expect(page.locator(".mobile-input-wrapper")).toHaveClass(/mobile-input-hidden/, { timeout: 2_000 });
-    await expect(page.locator(".mobile-compose-btn")).toBeAttached();
+    await expect(page.locator(".mobile-compose-btn")).toHaveClass(/visible/, { timeout: 2_000 });
   });
 
   test("compose button tap reveals input and focuses textarea", async ({ page }) => {
@@ -194,8 +194,8 @@ test.describe("Mobile input autohide", () => {
     // Input should be visible again
     await expect(page.locator(".mobile-input-wrapper")).not.toHaveClass(/mobile-input-hidden/, { timeout: 2_000 });
 
-    // Compose button should disappear
-    await expect(page.locator(".mobile-compose-btn")).not.toBeAttached();
+    // Compose button should disappear (no longer has "visible" class)
+    await expect(page.locator(".mobile-compose-btn")).not.toHaveClass(/visible/, { timeout: 2_000 });
   });
 
   test("input does not hide when textarea has content", async ({ page }) => {

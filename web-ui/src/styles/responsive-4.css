@@ -1,0 +1,121 @@
+@media(max-width: 768px) {
+    html.flat-theme .chat-sidebar {
+        background:var(--color-bg);
+        border-right: .0625rem solid var(--color-border);
+        box-shadow: .25rem 0 1.5rem var(--black-20)
+    }
+
+    html.flat-theme .sb-project-header {
+        color: var(--color-text-muted);
+        border-bottom: .03125rem solid var(--color-border-subtle)
+    }
+
+    html.flat-theme .sb-session.active {
+        background: color-mix(in srgb,var(--color-primary) 14%,transparent);
+        border: .03125rem solid color-mix(in srgb,var(--color-primary) 20%,transparent)
+    }
+
+    html.flat-theme .mobile-panel-header {
+        background: var(--color-bg);
+        border-bottom-color: var(--color-border)
+    }
+
+    html.flat-theme .mobile-cmd-btn {
+        background: var(--color-bg-element);
+        border-color: var(--color-border-subtle);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none
+    }
+
+    html.flat-theme .mobile-dock {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 4px 16px var(--black-14),0 2px 6px var(--black-8)
+    }
+
+    html.flat-theme .mobile-dock-fab {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 4px 16px var(--black-14),0 2px 6px var(--black-8);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none
+    }
+
+    html.flat-theme .mobile-compose-btn {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 4px 16px var(--black-14),0 2px 6px var(--black-8);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none
+    }
+
+    html.flat-theme .mobile-status-pill {
+        background: var(--color-bg-element);
+        border-color: var(--color-border-subtle);
+        box-shadow: 0 2px 8px var(--black-10);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none
+    }
+
+    html.flat-theme .mobile-sheet-handle {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .mobile-panel-sheet {
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0
+    }
+
+    html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .agent-picker,html.flat-theme .theme-selector,html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-theme .session-selector-modal,html.flat-theme .context-input-modal,html.flat-theme .settings-modal,html.flat-theme .watcher-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .cross-session-search-modal {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 -4px 24px var(--black-20)
+    }
+
+    html.flat-theme .command-palette:before,html.flat-theme .model-picker:before,html.flat-theme .agent-picker:before,html.flat-theme .theme-selector:before,html.flat-theme .cheatsheet-modal:before,html.flat-theme .todo-panel-modal:before,html.flat-theme .session-selector-modal:before,html.flat-theme .context-input-modal:before,html.flat-theme .settings-modal:before,html.flat-theme .watcher-modal:before,html.flat-theme .ctx-window-modal:before,html.flat-theme .diff-review-modal:before,html.flat-theme .cross-session-search-modal:before {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .sb-modal {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 -4px 24px var(--black-20)
+    }
+
+    html.flat-theme .sb-modal:before {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .session-graph-panel,html.flat-theme .session-dashboard-panel,html.flat-theme .activity-feed-panel,html.flat-theme .assistant-inbox-modal,html.flat-theme .assistant-center-modal,html.flat-theme .memory-modal,html.flat-theme .autonomy-modal,html.flat-theme .routines-modal,html.flat-theme .delegation-modal,html.flat-theme .missions-modal,html.flat-theme .notification-prefs-modal,html.flat-theme .workspace-mgr-modal {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 -4px 24px var(--black-20)
+    }
+
+    html.flat-theme .session-graph-panel:before,html.flat-theme .session-dashboard-panel:before,html.flat-theme .activity-feed-panel:before,html.flat-theme .assistant-inbox-modal:before,html.flat-theme .assistant-center-modal:before,html.flat-theme .memory-modal:before,html.flat-theme .autonomy-modal:before,html.flat-theme .routines-modal:before,html.flat-theme .delegation-modal:before,html.flat-theme .missions-modal:before,html.flat-theme .notification-prefs-modal:before,html.flat-theme .workspace-mgr-modal:before {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .pr-description-modal {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 -4px 24px var(--black-20)
+    }
+
+    html.flat-theme .pr-description-modal:before {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .search-modal {
+        background: var(--color-bg-panel);
+        border-color: var(--color-border);
+        box-shadow: 0 -4px 24px var(--black-20)
+    }
+
+    html.flat-theme .search-modal:before {
+        background: var(--color-border)
+    }
+
+    html.flat-theme .modal-backdrop,html.flat-theme .sb-modal-overlay,html.flat-theme .session-graph-overlay,html.flat-theme .session-dashboard-overlay,html.flat-theme .activity-feed-overlay,html.flat-theme .workspace-mgr-overlay,html.flat-theme .pr-description-modal-overlay,html.flat-theme .search-modal-backdrop {
+        background: var(--black-50)
+    }
+}

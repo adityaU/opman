@@ -1,0 +1,157 @@
+@media(max-width: 768px) {
+    :root {
+        --font-size-2xs: .875rem;
+        --font-size-xs: .875rem;
+        --font-size-sm: .9375rem;
+        --font-size-md: 1rem;
+        --font-size-base: 1.0625rem;
+        --font-size-lg: 1.1875rem;
+        --font-size-xl: 1.375rem
+    }
+
+    .chat-mobile-header {
+        display: flex;
+        padding-top: calc(env(safe-area-inset-top,0) + 8px);
+        padding-bottom: 4px
+    }
+
+    .mobile-cmd-btn,.mobile-panel-header {
+        display: flex
+    }
+
+    .chat-content>div:first-child:has(.chat-sidebar) {
+        width: 0!important;
+        min-width: 0;
+        overflow: visible;
+        flex-shrink: 0;
+        opacity: 1!important;
+        border: none;
+        box-shadow: none
+    }
+
+    .chat-content>.resize-handle:first-of-type {
+        display: none
+    }
+
+    .chat-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 70;
+        padding-top: env(safe-area-inset-top,0);
+        padding-bottom: env(safe-area-inset-bottom,0);
+        transform: translate(-100%);
+        max-width: 85vw;
+        width: 18.75rem;
+        transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+        background: linear-gradient(180deg,var(--white-6) 0%,var(--white-2) 50%,var(--white-3) 100%);
+        backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5) brightness(1.04);
+        -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5) brightness(1.04);
+        border-right: .5px solid var(--white-8);
+        box-shadow: 4px 0 16px var(--black-6),inset -1px 0 0 0 var(--white-4)
+    }
+
+    .chat-sidebar.mobile-open {
+        transform: translate(0)
+    }
+
+    .sidebar-close-btn {
+        display: flex;
+        width: 2.75rem;
+        height: 2.75rem
+    }
+
+    .sb-icon-btn {
+        width: 2.5rem;
+        height: 2.5rem
+    }
+
+    .sb-search-clear {
+        width: 1.75rem;
+        height: 1.75rem
+    }
+
+    .sb-project-header {
+        font-size: var(--font-size-xs);
+        padding: var(--space-2) var(--space-3)
+    }
+
+    .sb-session {
+        padding: var(--space-3) var(--space-3);
+        min-height: 2.75rem
+    }
+
+    .sb-session-icon {
+        width: 2rem;
+        height: 2rem
+    }
+
+    .sb-session-title {
+        font-size: var(--font-size-sm)
+    }
+
+    .sb-session-meta {
+        font-size: var(--font-size-2xs)
+    }
+
+    .sb-session-actions {
+        width: 2rem;
+        height: 2rem
+    }
+
+    .side-panel {
+        display: none!important
+    }
+
+    .prompt-hints,.message-timeline-shortcuts,.chat-status-bar {
+        display: none
+    }
+
+    .message-timeline-inner {
+        padding: 0 var(--space-2)
+    }
+
+    .message-turn {
+        gap: var(--space-2)
+    }
+
+    .message-turn-assistant,.message-turn-user {
+        padding-left: var(--space-2);
+        padding-right: var(--space-2)
+    }
+
+    .message-avatar {
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: var(--font-size-xs)
+    }
+
+    .message-body {
+        font-size: var(--font-size-md);
+        line-height: 1.7
+    }
+
+    .message-action-btn {
+        width: 2.25rem;
+        height: 2.25rem
+    }
+
+    .prompt-input-container {
+        padding: var(--space-2) var(--space-2) env(safe-area-inset-bottom, 4px)
+    }
+
+    .prompt-textarea {
+        font-size: var(--font-size-md)
+    }
+
+    .prompt-btn {
+        width: 2.5rem;
+        height: 2.5rem
+    }
+
+    .prompt-attach-btn {
+        width: 2.25rem;
+        height: 2.25rem
+    }
+}

@@ -80,8 +80,7 @@ impl<'a> SlackLogPanel<'a> {
         let metrics_y = title_y + 1;
         let metrics_line = format!(
             "routed:{} fail:{} replies:{} batches:{} reconnect:{}",
-            m.messages_routed, m.triage_failures, m.thread_replies,
-            m.batches_sent, m.reconnections,
+            m.messages_routed, m.triage_failures, m.thread_replies, m.batches_sent, m.reconnections,
         );
         buf.set_string(
             cx,
@@ -160,12 +159,7 @@ impl<'a> SlackLogPanel<'a> {
                 } else {
                     entry.message.clone()
                 };
-                buf.set_string(
-                    msg_x,
-                    cy,
-                    &msg,
-                    Style::default().fg(self.theme.text),
-                );
+                buf.set_string(msg_x, cy, &msg, Style::default().fg(self.theme.text));
 
                 cy += 1;
             }
@@ -174,11 +168,6 @@ impl<'a> SlackLogPanel<'a> {
         // ── Bottom hint ────────────────────────────────────────────────
         let hint = "↑↓ scroll · Esc close";
         let hint_y = popup_area.y + popup_area.height - 1;
-        buf.set_string(
-            cx,
-            hint_y,
-            hint,
-            Style::default().fg(self.theme.text_muted),
-        );
+        buf.set_string(cx, hint_y, hint, Style::default().fg(self.theme.text_muted));
     }
 }

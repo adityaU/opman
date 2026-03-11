@@ -1,0 +1,137 @@
+import { apiFetch, apiPost, getToken } from "./client";
+
+// ── Types ─────────────────────────────────────────────
+
+export interface SessionInfo {
+  id: string;
+  title: string;
+  parentID: string;
+  directory: string;
+  time: { created: number; updated: number };
+}
+
+export interface ProjectInfo {
+  name: string;
+  path: string;
+  index: number;
+  active_session: string | null;
+  sessions: SessionInfo[];
+  git_branch: string;
+  busy_sessions: string[];
+}
+
+export interface AppState {
+  projects: ProjectInfo[];
+  active_project: number;
+  panels: PanelVisibility;
+  focused: string;
+  /** Optional instance name from tunnel hostname, used as page title. */
+  instance_name?: string;
+}
+
+export interface PanelVisibility {
+  sidebar: boolean;
+  terminal_pane: boolean;
+  neovim_pane: boolean;
+  integrated_terminal: boolean;
+  git_panel: boolean;
+}
+
+export interface SessionStats {
+  cost: number;
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  cache_read: number;
+  cache_write: number;
+}
+
+/** Theme colors — 15 hex strings matching the TUI's ThemeColors struct. */
+export interface ThemeColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  background_panel: string;
+  background_element: string;
+  text: string;
+  text_muted: string;
+  border: string;
+  border_active: string;
+  border_subtle: string;
+  error: string;
+  warning: string;
+  success: string;
+  info: string;
+}
+
+// ── Auth ──────────────────────────────────────────────
+
+export async function login(
+  username: string,
+  password: string
+): Promise<string> {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) throw new Error("Invalid credentials");
+  const data = await res.json();
+  return data.token;
+}
+
+export async function verifyToken(): Promise<boolean> {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    const res = await fetch("/api/auth/verify", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ── State fetchers ────────────────────────────────────
+
+export async function fetchAppState(): Promise<AppState> {
+  return apiFetch<AppState>("/state");
+}
+
+export async function fetchSessionStats(
+  sessionId: string
+): Promise<SessionStats | null> {
+  try {
+    return await apiFetch<SessionStats>(`/session/${sessionId}/stats`);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTheme(): Promise<ThemeColors | null> {
+  try {
+    return await apiFetch<ThemeColors>("/theme");
+  } catch {
+    return null;
+  }
+}
+
+// ── Themes ────────────────────────────────────────────
+
+/** Theme preview with resolved colors */
+export interface ThemePreview {
+  name: string;
+  colors: ThemeColors;
+}
+
+/** Fetch all available themes with preview colors */
+export async function fetchThemes(): Promise<ThemePreview[]> {
+  return apiFetch<ThemePreview[]>("/themes");
+}
+
+/** Switch the active theme by name. Returns the new theme colors. */
+export async function switchTheme(name: string): Promise<ThemeColors> {
+  return apiPost<ThemeColors>("/theme/switch", { name });
+}

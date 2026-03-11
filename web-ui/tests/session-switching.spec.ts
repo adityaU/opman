@@ -58,10 +58,15 @@ const SESSION_2_MESSAGES = [
 async function setupDynamicSessionMocks(page: Page) {
   let activeSession = SESSION_ID;
 
-  // Catch-all
-  await page.route("**/api/**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
-  );
+  // Catch-all: use pathname check to avoid intercepting Vite source-file
+  // requests like /src/api/client.ts which match the old "**/api/**" glob.
+  await page.route(/\/api\//, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.startsWith("/api/")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+    }
+    return route.continue();
+  });
 
   await page.route("**/api/auth/verify", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) })

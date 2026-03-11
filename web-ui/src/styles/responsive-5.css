@@ -1,0 +1,30 @@
+@media(max-width: 768px) {
+    .assistant-center-grid {
+        grid-template-columns:1fr
+    }
+
+    .assistant-center-footer-actions {
+        flex-direction: column
+    }
+
+    .assistant-center-footer-actions button {
+        width: 100%
+    }
+
+    .assistant-inbox-item,.assistant-inbox-item-row,.assistant-inbox-item-actions,.memory-create-grid,.missions-create-grid {
+        grid-template-columns: 1fr
+    }
+
+    .assistant-inbox-item,.assistant-inbox-item-row,.assistant-inbox-item-actions,.memory-create-footer,.memory-item,.missions-create-footer,.missions-item,.missions-item-row,.missions-item-actions {
+        flex-direction: column;
+        align-items: stretch
+    }
+
+    .assistant-inbox-item-actions button,.memory-create-btn,.memory-delete-btn,.missions-item-status,.missions-create-btn,.missions-delete-btn {
+        width: 100%
+    }
+
+    .missions-delete-btn {
+        height: 44px
+    }
+}

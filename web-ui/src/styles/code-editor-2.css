@@ -1,0 +1,293 @@
+
+.breadcrumb-link:hover {
+    color: var(--color-primary, #fab283);
+    background: var(--white-4)
+}
+
+.code-editor-loading,.code-editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-6);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs)
+}
+
+.code-editor-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    opacity: .5
+}
+
+.code-editor-desktop {
+    flex-direction: row!important
+}
+
+.code-editor-explorer {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    min-width: 140px;
+    max-width: 300px;
+    flex-shrink: 0;
+    border-right: .5px solid var(--glass-border-dark, var(--white-6));
+    background: var(--white-1_5);
+    overflow: hidden
+}
+
+.explorer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    min-height: 32px;
+    flex-shrink: 0
+}
+
+.explorer-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em
+}
+
+.explorer-collapse-btn,.explorer-expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    flex-shrink: 0
+}
+
+.explorer-collapse-btn:hover,.explorer-expand-btn:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.explorer-expand-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1
+}
+
+.explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0
+}
+
+.explorer-tree-entry {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-base);
+    white-space: nowrap;
+    overflow: hidden
+}
+
+.explorer-tree-entry:hover {
+    background: var(--white-4)
+}
+
+.explorer-tree-entry .file-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-tree-entry .folder-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-tree-entry .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.explorer-tree-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-tree-file.active {
+    background: var(--white-7);
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-tree-file.active .file-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 6px 10px 2px;
+    flex-shrink: 0
+}
+
+.explorer-open-files {
+    flex-shrink: 0;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
+}
+
+.explorer-open-file {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 3px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background var(--transition-base);
+    color: var(--color-text)
+}
+
+.explorer-open-file:hover {
+    background: var(--white-4)
+}
+
+.explorer-open-file.active {
+    background: var(--white-7);
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-open-file.active .file-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-open-file .file-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-open-file .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.open-file-modified-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-warning, #f5a742);
+    flex-shrink: 0
+}
+
+.open-file-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-base);
+    flex-shrink: 0;
+    padding: 0
+}
+
+.explorer-open-file:hover .open-file-close {
+    opacity: .6
+}
+
+.open-file-close:hover {
+    opacity: 1!important;
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+html.flat-theme .explorer-open-files {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-open-file:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-open-file.active {
+    background: color-mix(in srgb,var(--color-primary) 12%,var(--color-bg-element))
+}
+
+.code-editor-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    position: relative
+}
+
+html.flat-theme .code-editor-explorer {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-header {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-tree-entry:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-tree-file.active {
+    background: color-mix(in srgb,var(--color-primary) 12%,var(--color-bg-element))
+}
+
+.file-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    overflow: auto;
+    padding: 16px
+}
+
+.file-preview-image {
+    background: repeating-conic-gradient(var(--white-3) 0% 25%,transparent 0% 50%) 0 0 / 16px 16px
+}
+
+.file-preview-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px
+}

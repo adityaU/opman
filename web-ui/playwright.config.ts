@@ -7,6 +7,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5199",
     headless: true,
+    // Block service workers so they cannot intercept fetch requests and
+    // bypass Playwright route handlers used for API mocking in tests.
+    serviceWorkers: "block",
   },
   webServer: {
     command: "npx vite --port 5199 --strictPort",

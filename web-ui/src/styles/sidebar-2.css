@@ -1,0 +1,288 @@
+
+.sb-session {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    position: relative
+}
+
+.sb-session:hover {
+    background: var(--white-5);
+    color: var(--color-text)
+}
+
+.sb-session.active {
+    background: color-mix(in srgb,var(--color-primary) 10%,transparent);
+    color: var(--color-text)
+}
+
+.sb-session.active .sb-session-icon {
+    color: var(--color-primary)
+}
+
+.sb-session.active .sb-session-title {
+    color: var(--color-text);
+    font-weight: 600
+}
+
+.sb-session-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    background: var(--white-4);
+    color: var(--color-text-muted);
+    transition: all var(--transition-fast)
+}
+
+.sb-session:hover .sb-session-icon {
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+.sb-session-icon.sub {
+    width: 22px;
+    height: 22px;
+    background: var(--white-3)
+}
+
+.sb-pin-icon {
+    color: var(--color-primary);
+    transform: rotate(-45deg)
+}
+
+.sb-session-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px
+}
+
+.sb-session-title {
+    font-size: var(--font-size-xs);
+    color: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3
+}
+
+.sb-session-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    opacity: .6
+}
+
+.sb-subagent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 5px;
+    height: 14px;
+    background: color-mix(in srgb,var(--color-accent) 12%,transparent);
+    color: var(--color-accent);
+    border-radius: 7px;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast)
+}
+
+.sb-subagent-badge:hover {
+    background: color-mix(in srgb,var(--color-accent) 20%,transparent)
+}
+
+.sb-busy-indicator {
+    position: absolute;
+    right: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--color-success);
+    animation: sb-pulse 2s ease-in-out infinite
+}
+
+.sb-subagents {
+    padding-left: var(--space-4);
+    margin-left: var(--space-5);
+    border-left: 1px solid var(--white-6)
+}
+
+.sb-session-sub {
+    padding: var(--space-1) var(--space-2)
+}
+
+.sb-session-sub .sb-session-title {
+    font-size: var(--font-size-2xs)
+}
+
+.sb-empty {
+    padding: var(--space-4) var(--space-3);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    opacity: .5
+}
+
+.sb-show-more {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--color-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: all var(--transition-fast)
+}
+
+.sb-show-more:hover {
+    background: var(--white-4);
+    color: var(--color-primary)
+}
+
+.sb-session-actions {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast)
+}
+
+.sb-session:hover .sb-session-actions {
+    display: flex
+}
+
+.sb-session-actions:hover {
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+.sb-context-menu {
+    position: fixed;
+    z-index: 9999;
+    min-width: 140px;
+    padding: var(--space-1);
+    background: var(--white-8);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(2);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(2);
+    border: .5px solid var(--white-12);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px var(--black-20),0 2px 8px var(--black-8);
+    animation: sb-ctx-in .12s ease-out
+}
+
+@keyframes sb-ctx-in {
+    0% {
+        opacity: 0;
+        transform: scale(.95) translateY(-4px)
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0)
+    }
+}
+
+.sb-context-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-2);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.sb-context-item:hover {
+    background: var(--white-8)
+}
+
+.sb-context-item.sb-context-danger {
+    color: var(--color-error)
+}
+
+.sb-context-item.sb-context-danger:hover {
+    background: #ef44441f
+}
+
+.sb-modal-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--black-40);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: sb-overlay-in .15s ease-out
+}
+
+@keyframes sb-overlay-in {
+    0% {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+.sb-modal {
+    width: 340px;
+    max-width: 90vw;
+    padding: var(--space-4);
+    background: var(--white-6);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(2);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(2);
+    border: .5px solid var(--white-12);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px var(--black-30),0 4px 16px var(--black-12);
+    animation: sb-modal-in .2s ease-out
+}
+
+@keyframes sb-modal-in {
+    0% {
+        opacity: 0;
+        transform: scale(.95) translateY(8px)
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0)
+    }
+}

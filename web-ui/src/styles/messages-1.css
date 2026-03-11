@@ -1,0 +1,291 @@
+@keyframes spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
+.message-timeline {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-4) 0;
+    padding-bottom: var(--space-6);
+    position: relative
+}
+
+.message-timeline-inner {
+    max-width: var(--chat-max-width);
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+    padding-bottom: 5.625rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 100%
+}
+
+.jump-to-bottom {
+    position: sticky;
+    bottom: 5px;
+    left: 50%;
+    transform: translate(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    border: .5px solid var(--white-12);
+    border-radius: var(--radius-full);
+    background: var(--white-8);
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(2);
+    -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(2);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    z-index: 10;
+    transition: all var(--transition-fast);
+    box-shadow: 0 4px 12px var(--black-12);
+    width: fit-content;
+    margin: 0 auto
+}
+
+.jump-to-bottom:hover {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb,var(--color-primary) 40%,transparent);
+    background: var(--white-12)
+}
+
+/* ── Load older messages indicator ── */
+
+.load-older-messages {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-2) var(--space-4);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.load-older-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: .5px solid var(--white-12);
+    border-radius: var(--radius-full);
+    background: var(--white-8);
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(2);
+    -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(2);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: 0 4px 12px var(--black-12);
+}
+
+.load-older-btn:hover {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: var(--white-12);
+}
+
+.load-older-count {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+}
+
+.load-older-spinner {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-3);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.message-timeline-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.message-timeline-welcome {
+    text-align: center;
+    color: var(--color-text-muted);
+    max-width: 480px;
+    padding: var(--space-8)
+}
+
+.message-timeline-welcome h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--space-2)
+}
+
+.message-timeline-welcome p {
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-4);
+    line-height: 1.6
+}
+
+.message-timeline-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    justify-content: center;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.message-timeline-shortcuts kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--white-5);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    margin-right: var(--space-1)
+}
+
+.new-session-welcome {
+    max-width: 560px
+}
+
+.new-session-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    align-items: center
+}
+
+.new-session-info-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted)
+}
+
+.new-session-directory {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    background: var(--white-4);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-md);
+    padding: 2px 8px;
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.new-session-model-badge {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    background: rgba(var(--color-accent-rgb, 88, 166, 255),.12);
+    border: .5px solid rgba(var(--color-accent-rgb, 88, 166, 255),.2);
+    border-radius: var(--radius-full);
+    padding: 2px 10px;
+    color: var(--color-accent, #58a6ff)
+}
+
+.new-session-prompts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4)
+}
+
+.new-session-prompt-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--white-3);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    text-align: left;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all .2s ease
+}
+
+.new-session-prompt-card:hover {
+    background: var(--white-6);
+    border-color: var(--white-15);
+    color: var(--color-text)
+}
+
+.new-session-prompt-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+    opacity: .6
+}
+
+.new-session-prompt-card:hover .new-session-prompt-icon {
+    opacity: 1;
+    color: var(--color-accent, #58a6ff)
+}
+
+@media(max-width: 600px) {
+    .new-session-prompts {
+        grid-template-columns:1fr
+    }
+
+    .new-session-welcome {
+        max-width: 100%;
+        padding: var(--space-4)
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translate(-400px)
+    }
+
+    to {
+        transform: translate(400px)
+    }
+}
+
+.message-shimmer {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-2)
+}
+
+.shimmer-turn {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-4) 0
+}
+
+.shimmer-turn.shimmer-assistant {
+    background: linear-gradient(165deg,var(--white-3) 0%,transparent 100%);
+    border-radius: var(--radius-lg);
+    padding-left: var(--space-3);
+    padding-right: var(--space-3)
+}
+
+.shimmer-turn.shimmer-user {
+    background: linear-gradient(165deg,var(--white-1_5) 0%,transparent 100%);
+    border-radius: var(--radius-lg);
+    padding-left: var(--space-3);
+    padding-right: var(--space-3)
+}
+
+.shimmer-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-bg-element);
+    position: relative;
+    overflow: hidden
+}

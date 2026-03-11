@@ -1,0 +1,89 @@
+
+.pr-description-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--color-accent, #7c3aed);
+    font-weight: 600
+}
+
+.pr-description-commits h4 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--color-text, #e6edf3)
+}
+
+.pr-description-commits ul {
+    list-style: none;
+    margin: 0;
+    padding: 0
+}
+
+.pr-description-commits li {
+    padding: 3px 0;
+    font-size: 11px;
+    color: var(--color-muted, #8b949e);
+    line-height: 1.4
+}
+
+.pr-description-commits code {
+    font-family: var(--font-mono, "JetBrains Mono", monospace);
+    color: var(--color-accent, #7c3aed);
+    font-size: 11px;
+    margin-right: 6px
+}
+
+.pr-description-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 10px;
+    background: #7c3aed1a;
+    border-radius: 4px;
+    color: var(--color-accent, #7c3aed);
+    font-size: 11px
+}
+
+.git-panel {
+    background: var(--color-bg-panel, var(--color-bg))
+}
+
+.git-panel-toolbar-row,.git-panel-tabs,.git-ai-actions,.git-commit-form,.git-section,.git-log-view,.git-diff-fullview,.git-commit-detail {
+    margin: 10px 12px 0
+}
+
+.git-panel-tabs,.git-ai-actions {
+    padding: 8px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface)
+}
+
+.git-tab,.git-branch-toggle,.git-file-action {
+    border-radius: 12px
+}
+
+.git-branch-toggle,.git-branch-filter,.git-commit-input {
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-element)
+}
+
+.git-commit-input {
+    min-height: 92px
+}
+
+.git-file-row,.git-log-entry,.git-commit-file-header {
+    border-radius: 14px
+}
+
+.git-file-row:hover,.git-log-entry:hover,.git-commit-file-header:hover {
+    background: var(--color-surface-hover)
+}
+
+.git-diff-body,.git-commit-file-body,.pr-description-modal-body {
+    background: var(--color-bg-element)
+}

@@ -1,0 +1,238 @@
+.status-bar-left,.status-bar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2)
+}
+
+.status-bar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 22px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all var(--transition-base)
+}
+
+.status-bar-btn:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+.status-bar-btn.active {
+    color: var(--color-primary)
+}
+
+.status-bar-project {
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.status-bar-branch {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-secondary)
+}
+
+.status-bar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%
+}
+
+.status-bar-dot.idle {
+    background: var(--color-text-muted);
+    opacity: .3
+}
+
+.status-bar-dot.busy {
+    background: var(--color-success);
+    animation: dot-pulse 1.5s ease-in-out infinite
+}
+
+.status-bar-status {
+    color: var(--color-text-muted)
+}
+
+.status-bar-tokens {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-muted)
+}
+
+.status-bar-token-limit {
+    opacity: .6
+}
+
+.status-bar-token-pct {
+    opacity: .7;
+    font-size: .85em
+}
+
+.status-bar-tokens.context-ok {
+    color: var(--color-success, #7fd88f)
+}
+
+.status-bar-tokens.context-warning {
+    color: var(--color-warning, #f5a742)
+}
+
+.status-bar-tokens.context-critical {
+    color: var(--color-error, #e06c75)
+}
+
+.status-bar-cost {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    color: var(--color-warning)
+}
+
+.status-bar-pulse {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 9999px;
+    font-size: var(--font-size-2xs);
+    line-height: 1.3;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background .15s ease,border-color .15s ease,color .15s ease;
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.status-bar-pulse:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-text-muted);
+    color: var(--color-text)
+}
+
+.status-bar-pulse span {
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.status-bar-pulse-high {
+    border-color: var(--color-warning);
+    color: var(--color-warning);
+    animation: pulse-chip 2.5s ease-in-out infinite
+}
+
+.status-bar-pulse-high:hover {
+    background: color-mix(in srgb,var(--color-warning) 12%,transparent);
+    border-color: var(--color-warning);
+    color: var(--color-warning)
+}
+
+.status-bar-pulse-medium {
+    border-color: var(--color-info, var(--color-accent));
+    color: var(--color-info, var(--color-accent))
+}
+
+.status-bar-pulse-medium:hover {
+    background: color-mix(in srgb,var(--color-info, var(--color-accent)) 12%,transparent)
+}
+
+.status-bar-pulse-low {
+    border-color: var(--color-border);
+    color: var(--color-text-muted)
+}
+
+.status-bar-pulse-low:hover {
+    color: var(--color-text-secondary)
+}
+
+.status-bar-tokens-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm, 4px);
+    transition: background .15s ease
+}
+
+.status-bar-tokens-btn:hover {
+    background: var(--white-8, rgba(255,255,255,.08))
+}
+
+.status-bar-tokens-btn:focus-visible {
+    outline: 1px solid var(--color-primary, #60a5fa);
+    outline-offset: 1px
+}
+
+.status-bar-presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 11px;
+    color: var(--color-muted, #8b949e);
+    cursor: default
+}
+
+.status-bar-presence-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3fb950
+}
+
+.status-bar-presence-count {
+    font-weight: 500
+}
+
+.status-bar-autonomy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 11px;
+    border-radius: 999px
+}
+
+.status-bar-autonomy-observe {
+    color: var(--color-muted, #8b949e)
+}
+
+.status-bar-autonomy-nudge {
+    color: var(--color-warning)
+}
+
+.status-bar-autonomy-continue {
+    color: var(--color-primary)
+}
+
+.status-bar-autonomy-autonomous {
+    color: var(--color-success)
+}
+
+.status-bar-workspace {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 11px;
+    color: var(--color-primary);
+    cursor: default
+}
+
+.status-bar-workspace span {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}

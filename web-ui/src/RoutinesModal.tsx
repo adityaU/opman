@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEscape } from "./hooks/useKeyboard";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { Clock3, Pencil, Play, Plus, Save, Trash2, X } from "lucide-react";
-import { createRoutine, deleteRoutine, fetchRoutines, runRoutine, updateRoutine } from "./api";
+import { createRoutine, deleteRoutine, fetchRoutines, runRoutine, updateRoutine, computeDailySummary } from "./api";
 import type { Mission, RoutineAction, RoutineDefinition, RoutineRunRecord, RoutineTrigger } from "./api";
-import { buildRoutineSummary } from "./dailySummary";
 
 interface Props {
   onClose: () => void;
@@ -65,11 +64,25 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
 
   const handleRun = useCallback(async (id: string) => {
     const routine = routines.find((entry) => entry.id === id);
-    const run = await runRoutine(id, {
-      summary: routine ? buildRoutineSummary(routine, { activeSessionId, missions }) : undefined,
-    });
+    let summary: string | undefined;
+    if (routine?.trigger === "daily_summary") {
+      try {
+        const resp = await computeDailySummary({
+          routine_id: routine.id,
+          permissions: [],
+          questions: [],
+          signals: [],
+        });
+        summary = resp.summary;
+      } catch {
+        summary = `Daily summary for ${routine.name}`;
+      }
+    } else if (routine) {
+      summary = `Ran routine: ${routine.name}`;
+    }
+    const run = await runRoutine(id, { summary });
     setRuns((prev) => [run, ...prev]);
-  }, [routines, activeSessionId, missions]);
+  }, [routines]);
 
   const startEdit = useCallback((routine: RoutineDefinition) => {
     setEditingId(routine.id);

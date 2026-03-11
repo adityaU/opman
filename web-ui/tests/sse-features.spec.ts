@@ -89,11 +89,15 @@ async function setupDynamicMockAPI(page: Page) {
   let currentMessages = MOCK_MESSAGES;
   let currentStats = MOCK_STATS;
 
-  // Catch-all: prevent any unmocked /api/* request from hitting the real
-  // backend. Registered first = lowest priority in Playwright.
-  await page.route("**/api/**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
-  );
+  // Catch-all: use pathname check to avoid intercepting Vite source-file
+  // requests like /src/api/client.ts which match the old "**/api/**" glob.
+  await page.route(/\/api\//, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.startsWith("/api/")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+    }
+    return route.continue();
+  });
 
   await page.route("**/api/auth/verify", (route) =>
     route.fulfill({
@@ -647,7 +651,7 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
     await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
   });
 
-  test("permission.asked for different session does NOT show dialog", async ({ page }) => {
+  test("permission.asked for different session shows dialog with subagent badge", async ({ page }) => {
     await setupAndNavigate(page);
 
     await dispatchSessionSSE(page, {
@@ -656,12 +660,14 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
         id: "perm_other",
         sessionID: "ses_other_session",
         toolName: "write_file",
-        description: "Should not appear",
+        description: "Should appear with subagent badge",
       },
     });
 
-    await page.waitForTimeout(500);
-    await expect(page.locator(".permission-card")).not.toBeVisible();
+    // Cross-session permissions DO appear (with subagent badge) since they are
+    // merged into allPermissions for visibility.
+    await expect(page.locator(".permission-card")).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator(".permission-badge-subagent")).toBeVisible();
   });
 
   test("question.asked shows question dialog with title and options", async ({ page }) => {
@@ -725,7 +731,7 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
     await expect(page.locator(".question-option").filter({ hasText: "No" })).toBeVisible();
   });
 
-  test("question.asked for different session does NOT show dialog", async ({ page }) => {
+  test("question.asked for different session shows dialog with cross-session indicator", async ({ page }) => {
     await setupAndNavigate(page);
 
     await dispatchSessionSSE(page, {
@@ -733,13 +739,13 @@ test.describe("SSE: Session-level events (/api/session/events)", () => {
       properties: {
         id: "q_other",
         sessionID: "ses_other_session",
-        title: "Should not appear",
+        title: "Cross-session question",
         questions: [{ text: "Hidden", type: "text" }],
       },
     });
 
-    await page.waitForTimeout(500);
-    await expect(page.locator(".question-card")).not.toBeVisible();
+    // Cross-session questions DO appear since they are merged into allQuestions.
+    await expect(page.locator(".question-card")).toBeVisible({ timeout: 3_000 });
   });
 
   test("session.created triggers state refresh", async ({ page }) => {

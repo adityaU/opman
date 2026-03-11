@@ -33,13 +33,15 @@ async function setupDynamicMocks(page: Page) {
   //    routes below.
   //    NOTE: Playwright checks routes in REVERSE registration order.
   //    So we register the catch-all first (lowest priority).
-  await page.route("**/api/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    })
-  );
+  // Catch-all: use pathname check to avoid intercepting Vite source-file
+  // requests like /src/api/client.ts which match the old "**/api/**" glob.
+  await page.route(/\/api\//, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.startsWith("/api/")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+    }
+    return route.continue();
+  });
 
   // Intercept specific API requests (these override the catch-all)
   await page.route("**/api/auth/verify", (route) =>

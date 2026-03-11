@@ -1,31 +1,24 @@
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useEscape } from "./hooks/useKeyboard";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { Bot, Brain, BriefcaseBusiness, Clock3, Inbox, Layers, Target, X } from "lucide-react";
-import type {
-  AutonomyMode,
-  DelegatedWorkItem,
-  Mission,
-  PersonalMemoryItem,
-  RoutineDefinition,
-  WorkspaceSnapshot,
+import type { AutonomyMode } from "./api";
+import {
+  computeRecommendations, computeAssistantStats,
 } from "./api";
-import type { AssistantSignal } from "./inbox";
+import type {
+  AssistantRecommendation, AssistantCenterStats, ResumeBriefing,
+} from "./api/intelligence";
 import type { PermissionRequest, QuestionRequest } from "./types";
-import type { ResumeBriefing } from "./resumeBriefing";
-import { buildRecommendations, type AssistantRecommendation } from "./recommendations";
+import type { AssistantSignal } from "./hooks/useAssistantState";
+import { toPermissionInputs, toQuestionInputs } from "./hooks/intelligenceAdapters";
 
 interface Props {
   onClose: () => void;
   autonomyMode: AutonomyMode;
-  missions: Mission[];
-  routines: RoutineDefinition[];
-  delegatedWork: DelegatedWorkItem[];
-  memoryItems: PersonalMemoryItem[];
-  assistantSignals: AssistantSignal[];
   permissions: PermissionRequest[];
   questions: QuestionRequest[];
-  workspaces: WorkspaceSnapshot[];
+  assistantSignals: AssistantSignal[];
   resumeBriefing?: ResumeBriefing | null;
   latestDailySummary?: string | null;
   onQuickSetupDailySummary?: () => void;
@@ -43,14 +36,9 @@ interface Props {
 export function AssistantCenterModal({
   onClose,
   autonomyMode,
-  missions,
-  routines,
-  delegatedWork,
-  memoryItems,
-  assistantSignals,
   permissions,
   questions,
-  workspaces,
+  assistantSignals,
   resumeBriefing,
   latestDailySummary,
   onQuickSetupDailySummary,
@@ -69,37 +57,31 @@ export function AssistantCenterModal({
   const modalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(modalRef);
 
-  const stats = useMemo(() => {
-    const blockedMissions = missions.filter((item) => item.status === "blocked").length;
-    const activeMissions = missions.filter((item) => item.status === "active").length;
-    const activeDelegation = delegatedWork.filter((item) => item.status !== "completed").length;
-    const recipes = workspaces.filter((item) => item.is_recipe).length;
-    const inboxNeedsYou = permissions.length + questions.length + blockedMissions;
-    const scheduledRoutines = routines.filter((item) => item.trigger === "daily_summary").length;
-    return {
-      blockedMissions,
-      activeMissions,
-      activeDelegation,
-      recipes,
-      inboxNeedsYou,
-      scheduledRoutines,
-    };
-  }, [missions, delegatedWork, workspaces, permissions, questions]);
+  // ── Backend-computed stats ──
+  const [stats, setStats] = useState<AssistantCenterStats | null>(null);
+  useEffect(() => {
+    computeAssistantStats({
+      permissions: toPermissionInputs(permissions),
+      questions: toQuestionInputs(questions),
+    })
+      .then(setStats)
+      .catch(() => {});
+  }, [permissions, questions]);
 
-  const recommendations = useMemo(
-    () =>
-      buildRecommendations({
-        autonomyMode,
-        missions,
-        delegatedWork,
-        memoryItems,
-        routines,
-        permissions,
-        questions,
-        workspaces,
-      }),
-    [autonomyMode, missions, delegatedWork, memoryItems, routines, permissions, questions, workspaces]
-  );
+  // ── Backend-computed recommendations ──
+  const [recommendations, setRecommendations] = useState<AssistantRecommendation[]>([]);
+  useEffect(() => {
+    computeRecommendations({
+      permissions: toPermissionInputs(permissions),
+      questions: toQuestionInputs(questions),
+    })
+      .then((resp) => setRecommendations(resp.recommendations))
+      .catch(() => {});
+  }, [permissions, questions]);
+
+  const inboxNeedsYou = stats
+    ? stats.pending_permissions + stats.pending_questions + stats.blocked_missions
+    : permissions.length + questions.length;
 
   const runRecommendation = (recommendation: AssistantRecommendation) => {
     switch (recommendation.action) {
@@ -152,7 +134,9 @@ export function AssistantCenterModal({
         <div className="assistant-center-hero">
           <div className="assistant-center-mode">Mode: {formatMode(autonomyMode)}</div>
           <div className="assistant-center-summary">
-            {stats.inboxNeedsYou} needs attention • {stats.activeMissions} active missions • {assistantSignals.length} recent signals
+            {inboxNeedsYou} needs attention
+            {stats ? ` • ${stats.active_missions} active missions` : ""}
+            {" • "}{assistantSignals.length} recent signals
           </div>
         </div>
 
@@ -160,7 +144,7 @@ export function AssistantCenterModal({
           <div className="assistant-center-briefing">
             <div className="assistant-center-briefing-title">Back again</div>
             <div className="assistant-center-briefing-summary">{resumeBriefing.summary}</div>
-            <div className="assistant-center-briefing-next">Next: {resumeBriefing.nextAction}</div>
+            <div className="assistant-center-briefing-next">Next: {resumeBriefing.next_action}</div>
           </div>
         )}
 
@@ -191,42 +175,42 @@ export function AssistantCenterModal({
           <AssistantCenterCard
             icon={<Inbox size={16} />}
             title="Inbox"
-            value={`${stats.inboxNeedsYou}`}
+            value={`${inboxNeedsYou}`}
             description="Permissions, questions, and blocked work"
             onClick={onOpenInbox}
           />
           <AssistantCenterCard
             icon={<Target size={16} />}
             title="Missions"
-            value={`${missions.length}`}
-            description={`${stats.blockedMissions} blocked, ${stats.activeMissions} active`}
+            value={stats ? `${stats.total_missions}` : "..."}
+            description={stats ? `${stats.blocked_missions} blocked, ${stats.active_missions} active` : "Loading..."}
             onClick={onOpenMissions}
           />
           <AssistantCenterCard
             icon={<Brain size={16} />}
             title="Memory"
-            value={`${memoryItems.length}`}
+            value={stats ? `${stats.memory_items}` : "..."}
             description="Persistent preferences and working norms"
             onClick={onOpenMemory}
           />
           <AssistantCenterCard
             icon={<Clock3 size={16} />}
             title="Routines"
-            value={`${routines.length}`}
-            description={`${stats.scheduledRoutines} scheduled, ${routines.length - stats.scheduledRoutines} event-driven`}
+            value={stats ? `${stats.active_routines}` : "..."}
+            description="Scheduled and event-driven routines"
             onClick={onOpenRoutines}
           />
           <AssistantCenterCard
             icon={<BriefcaseBusiness size={16} />}
             title="Delegation"
-            value={`${delegatedWork.length}`}
-            description={`${stats.activeDelegation} not completed`}
+            value={stats ? `${stats.active_delegations}` : "..."}
+            description="Active delegated work items"
             onClick={onOpenDelegation}
           />
           <AssistantCenterCard
             icon={<Layers size={16} />}
-            title="Recipes"
-            value={`${stats.recipes}`}
+            title="Workspaces"
+            value={stats ? `${stats.workspace_count}` : "..."}
             description="Intent-oriented workspace launches"
             onClick={onOpenWorkspaces}
           />

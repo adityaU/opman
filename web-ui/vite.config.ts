@@ -15,45 +15,63 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "assistant-center": [
-            "./src/AssistantCenterModal.tsx",
-            "./src/recommendations.ts",
-            "./src/resumeBriefing.ts",
-            "./src/dailySummary.ts",
-            "./src/handoffs.ts",
-            "./src/inbox.ts",
-          ],
-          "assistant-modals": [
-            "./src/InboxModal.tsx",
-            "./src/MissionsModal.tsx",
-            "./src/MemoryModal.tsx",
-            "./src/AutonomyModal.tsx",
-            "./src/RoutinesModal.tsx",
-            "./src/DelegationBoardModal.tsx",
-            "./src/WorkspaceManagerModal.tsx",
-            "./src/NotificationPrefsModal.tsx",
-          ],
-          analytics: [
-            "./src/SessionGraph.tsx",
-            "./src/SessionDashboard.tsx",
-            "./src/ActivityFeed.tsx",
-          ],
-          editor: [
-            "./src/CodeEditorPanel.tsx",
-            "@uiw/react-codemirror",
-            "@codemirror/view",
-            "@codemirror/state",
-            "@codemirror/language",
-            "@codemirror/language-data",
-            "@codemirror/lint",
-          ],
-          terminal: [
-            "@xterm/xterm",
-            "@xterm/addon-fit",
-            "@xterm/addon-search",
-            "@xterm/addon-web-links",
-          ],
+        manualChunks(id) {
+          // React core + JSX runtime must be in their own chunk to avoid
+          // circular-dependency issues at module initialization time.
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/react-is/") ||
+            id.includes("node_modules/scheduler/")
+          ) {
+            return "vendor-react";
+          }
+
+          // Lucide icons (shared across many chunks)
+          if (id.includes("node_modules/lucide-react/")) {
+            return "vendor-icons";
+          }
+
+          // CodeMirror / editor
+          if (
+            id.includes("node_modules/@codemirror/") ||
+            id.includes("node_modules/@uiw/react-codemirror") ||
+            id.includes("node_modules/@lezer/") ||
+            id.includes("node_modules/crelt/") ||
+            id.includes("node_modules/style-mod/") ||
+            id.includes("node_modules/w3c-keyname/")
+          ) {
+            return "editor";
+          }
+          if (id.includes("/src/code-editor/")) return "editor";
+
+          // Terminal (xterm)
+          if (id.includes("node_modules/@xterm/")) return "terminal";
+
+          // App-level lazy chunks
+          if (id.includes("/src/AssistantCenterModal")) return "assistant-center";
+          if (id.includes("/src/api/intelligence")) return "assistant-center";
+
+          if (
+            id.includes("/src/InboxModal") ||
+            id.includes("/src/MissionsModal") ||
+            id.includes("/src/MemoryModal") ||
+            id.includes("/src/AutonomyModal") ||
+            id.includes("/src/RoutinesModal") ||
+            id.includes("/src/DelegationBoardModal") ||
+            id.includes("/src/WorkspaceManagerModal") ||
+            id.includes("/src/NotificationPrefsModal")
+          ) {
+            return "assistant-modals";
+          }
+
+          if (
+            id.includes("/src/SessionGraph") ||
+            id.includes("/src/SessionDashboard") ||
+            id.includes("/src/ActivityFeed")
+          ) {
+            return "analytics";
+          }
         },
       },
     },

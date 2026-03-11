@@ -175,11 +175,17 @@ export const MOCK_THEME = {
  */
 export async function setupMockAPI(page: Page) {
   // Catch-all: prevent any unmocked /api/* request from hitting the real
-  // backend. Playwright checks routes in REVERSE registration order, so
+  // backend (Vite proxies /api to 127.0.0.1:9090 which is not running in
+  // tests). Playwright checks routes in REVERSE registration order, so
   // this is registered first (lowest priority) and specific routes below
   // override it.
-  await page.route("**/api/**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
+  //
+  // We use a function predicate instead of a glob like "**/api/**" because
+  // the glob also matches Vite module-source requests for files under
+  // src/api/ (e.g. /src/api/client.ts) and would break module loading.
+  await page.route(
+    (url) => url.pathname.startsWith("/api/"),
+    (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
   );
 
   // Mock all API routes before navigating
@@ -303,6 +309,10 @@ export async function setupMockAPI(page: Page) {
   );
 
   // ── OpenSpec assistant endpoints (memory, autonomy, routines, etc.) ──
+  await page.route("**/api/memory/active*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ memory: [] }) })
+  );
+
   await page.route("**/api/memory", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ memory: [] }) })
   );
@@ -329,6 +339,35 @@ export async function setupMockAPI(page: Page) {
 
   await page.route("**/api/workspaces", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workspaces: [] }) })
+  );
+
+  // ── Intelligence / assistant-center endpoints ──
+  await page.route("**/api/recommendations", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ recommendations: [] }) })
+  );
+
+  await page.route("**/api/inbox", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [], signals: [] }) })
+  );
+
+  await page.route("**/api/signals", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ signals: [] }) })
+  );
+
+  await page.route("**/api/resume-briefing", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
+  );
+
+  await page.route("**/api/daily-summary", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ summary: "" }) })
+  );
+
+  await page.route("**/api/assistant-center/stats", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) })
+  );
+
+  await page.route("**/api/workspace-templates", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ templates: [] }) })
   );
 }
 

@@ -1,0 +1,320 @@
+.mobile-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px 6px 10px;
+    background: linear-gradient(135deg,var(--white-8) 0%,var(--white-4) 100%);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
+    border: .5px solid var(--white-12);
+    border-radius: var(--radius-full);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 1px 6px var(--black-6),0 1px 2px var(--black-3),inset 0 .5px 0 0 var(--white-8);
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-status-pill:active {
+    transform: scale(.95);
+    background: linear-gradient(135deg,var(--white-12) 0%,var(--white-6) 100%)
+}
+
+.mobile-pill-icon {
+    color: var(--color-primary);
+    flex-shrink: 0
+}
+
+.mobile-project-name {
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px
+}
+
+.mobile-pill-busy {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb,var(--color-primary) 60%,transparent);
+    animation: pill-pulse 1.5s ease-in-out infinite;
+    flex-shrink: 0
+}
+
+.mobile-cmd-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    background: linear-gradient(135deg,var(--white-6) 0%,var(--white-3) 100%);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.6);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.6);
+    border: .5px solid var(--white-10);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all .15s ease;
+    flex-shrink: 0;
+    pointer-events: auto;
+    box-shadow: 0 1px 6px var(--black-6);
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-cmd-btn:active {
+    transform: scale(.9);
+    color: var(--color-text);
+    background: linear-gradient(135deg,var(--white-10) 0%,var(--white-6) 100%)
+}
+
+.mobile-panel-header {
+    display: none;
+    height: 2.75rem;
+    padding: 0 var(--space-4);
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    border-bottom: .5px solid var(--white-6)
+}
+
+.mobile-panel-title {
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--color-text);
+    flex: 1
+}
+
+.mobile-sheet-handle {
+    display: none;
+    width: 36px;
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--white-20);
+    margin: 8px auto 0;
+    flex-shrink: 0
+}
+
+.mobile-dock {
+    display: none;
+    position: fixed;
+    bottom: calc(12px + env(safe-area-inset-bottom,0));
+    left: 50%;
+    transform: translate(-50%);
+    z-index: var(--z-sidebar);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    background: linear-gradient(165deg,var(--white-7) 0%,var(--white-3) 50%,var(--white-4) 100%);
+    border: .5px solid var(--white-10);
+    border-radius: var(--radius-full);
+    box-shadow: inset 0 .5px 0 0 var(--white-8),0 4px 16px var(--black-6),0 1px 4px var(--black-3);
+    padding: 6px 8px;
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1),
+                opacity .35s ease;
+    opacity: 1
+}
+
+.mobile-dock.dock-collapsed {
+    transform: translate(120vw);
+    opacity: 0;
+    pointer-events: none
+}
+
+/* ── Collapsed FAB — round menu button ─────────────────────── */
+
+.mobile-dock-fab {
+    display: none;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom,0));
+    right: 16px;
+    z-index: var(--z-sidebar);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: .5px solid var(--white-10);
+    background: linear-gradient(165deg,var(--white-7) 0%,var(--white-3) 50%,var(--white-4) 100%);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    box-shadow: inset 0 .5px 0 0 var(--white-8),
+                0 4px 16px var(--black-6),
+                0 1px 4px var(--black-3),
+                0 0 20px color-mix(in srgb,var(--color-primary) 15%,transparent);
+    color: var(--color-primary);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0);
+    opacity: 0;
+    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease;
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-dock-fab:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%,var(--white-6) 0%,transparent 70%);
+    pointer-events: none
+}
+
+.mobile-dock-fab.visible {
+    transform: scale(1);
+    opacity: 1
+}
+
+.mobile-dock-fab:active {
+    transform: scale(.88)
+}
+
+.mobile-dock:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%,var(--white-6) 0%,transparent 70%);
+    pointer-events: none
+}
+
+.mobile-dock-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    z-index: 1
+}
+
+.mobile-dock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+    -webkit-tap-highlight-color: transparent
+}
+
+/* Compose button inside the dock — collapses to zero width by default,
+   expands when input is hidden and dock is open */
+
+.dock-compose-btn {
+    width: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    pointer-events: none;
+    color: var(--color-primary);
+    transition: width .4s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease,
+                transform .2s cubic-bezier(.34,1.56,.64,1)
+}
+
+.dock-compose-btn.dock-compose-visible {
+    width: 48px;
+    opacity: 1;
+    pointer-events: auto
+}
+
+.mobile-dock-btn:active {
+    transform: scale(.85)
+}
+
+.mobile-dock-btn.active {
+    color: var(--color-primary);
+    background: linear-gradient(180deg,color-mix(in srgb,var(--color-primary) 12%,transparent),color-mix(in srgb,var(--color-primary) 4%,transparent))
+}
+
+.mobile-dock-btn.active:after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translate(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 10px color-mix(in srgb,var(--color-primary) 70%,transparent),0 0 20px color-mix(in srgb,var(--color-primary) 30%,transparent);
+    animation: dock-glow 2s ease-in-out infinite
+}
+
+.mobile-panel-sheet {
+    display: none
+}
+
+/* Mobile input wrapper — desktop: no special layout, just a pass-through container */
+
+.mobile-input-wrapper {
+    display: contents
+}
+
+/* Compose button — hidden on desktop, floating FAB on mobile.
+   Three states: default (hidden), .visible (shown), .consumed (animates into dock) */
+
+.mobile-compose-btn {
+    display: none;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom,0));
+    left: 16px;
+    z-index: var(--z-sidebar);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: .5px solid var(--white-10);
+    background: linear-gradient(165deg,var(--white-7) 0%,var(--white-3) 50%,var(--white-4) 100%);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.04);
+    box-shadow: inset 0 .5px 0 0 var(--white-8),
+                0 4px 16px var(--black-6),
+                0 1px 4px var(--black-3),
+                0 0 20px color-mix(in srgb,var(--color-primary) 15%,transparent);
+    color: var(--color-primary);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    /* Default: hidden */
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease,
+                left .45s cubic-bezier(.4,0,.2,1)
+}
+
+.mobile-compose-btn.visible {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto
+}
+
+.mobile-compose-btn.consumed {
+    /* Slide toward dock center and shrink — "absorbed" effect */
+    left: calc(50% - 26px);
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none
+}
+
+.mobile-compose-btn:active {
+    transform: scale(.88)
+}
