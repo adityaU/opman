@@ -35,7 +35,8 @@ export function ToolInput({ data }: { data: Record<string, unknown> | string }) 
           fontSize: "0.75rem",
           maxHeight: "300px",
           overflow: "auto",
-          whiteSpace: "pre",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
         }}
       >
         {formatted}
@@ -85,7 +86,8 @@ export function ToolOutput({
             fontSize: "0.75rem",
             maxHeight: "400px",
             overflow: "auto",
-            whiteSpace: "pre",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
           }}
         >
           {parsed.content}

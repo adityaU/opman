@@ -24,8 +24,8 @@
 
 .message-body pre {
     margin: 0;
-    white-space: pre;
-    overflow-x: auto
+    white-space: pre-wrap;
+    word-break: break-word
 }
 
 .inline-code {

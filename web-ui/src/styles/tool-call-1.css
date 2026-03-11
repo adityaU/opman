@@ -86,11 +86,10 @@
     padding: var(--space-2);
     font-family: var(--font-mono);
     font-size: var(--font-size-2xs);
-    overflow-x: auto;
     max-height: 300px;
     overflow-y: auto;
     white-space: pre-wrap;
-    word-break: break-all
+    word-break: break-word
 }
 
 .tool-output-file {

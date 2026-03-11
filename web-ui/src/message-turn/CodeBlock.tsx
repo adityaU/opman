@@ -9,7 +9,7 @@ import { LANG_EXTENSIONS } from "./types";
 /** Interactive code block with line numbers, word wrap, copy, and download */
 export function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false);
-  const [wordWrap, setWordWrap] = useState(false);
+  const [wordWrap, setWordWrap] = useState(true);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code).then(() => {
@@ -36,7 +36,7 @@ export function CodeBlock({ language, code }: { language: string; code: string }
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
   return (
-    <div className={`code-block-wrapper ${wordWrap ? "code-block-wrap" : ""}`}>
+    <div className={`code-block-wrapper ${wordWrap ? "" : "code-block-nowrap"}`}>
       <div className="code-block-header">
         <span>{language}</span>
         <div className="code-block-actions">
@@ -81,8 +81,9 @@ export function CodeBlock({ language, code }: { language: string; code: string }
             padding: 0,
             borderRadius: 0,
             background: "transparent",
-            whiteSpace: "pre",
-            overflowX: wordWrap ? "visible" : "auto",
+            whiteSpace: wordWrap ? "pre-wrap" : "pre",
+            wordBreak: wordWrap ? "break-word" : "normal",
+            overflowX: wordWrap ? "hidden" : "auto",
             flex: 1,
             minWidth: 0,
           }}
