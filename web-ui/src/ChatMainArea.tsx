@@ -170,14 +170,16 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
           onOpenSession={(sid: string) => p.handleSelectSession(sid, p.appState?.active_project ?? 0)}
         />
 
+        {/* Permission & question docks — always visible, independent of mobile input */}
+        {p.allPermissions.length > 0 && (
+          <PermissionDock permissions={p.allPermissions} activeSessionId={p.activeSessionId} onReply={p.handlePermissionReply} />
+        )}
+        {p.allQuestions.length > 0 && (
+          <QuestionDock questions={p.allQuestions} activeSessionId={p.activeSessionId} onReply={p.handleQuestionReply} />
+        )}
+
         {/* Mobile input wrapper */}
         <div className={`mobile-input-wrapper${p.mobileInputHidden ? " mobile-input-hidden" : ""}`}>
-          {p.allPermissions.length > 0 && (
-            <PermissionDock permissions={p.allPermissions} activeSessionId={p.activeSessionId} onReply={p.handlePermissionReply} />
-          )}
-          {p.allQuestions.length > 0 && (
-            <QuestionDock questions={p.allQuestions} activeSessionId={p.activeSessionId} onReply={p.handleQuestionReply} />
-          )}
           <PromptInput
             onSend={p.handleSend}
             onAbort={p.handleAbort}
