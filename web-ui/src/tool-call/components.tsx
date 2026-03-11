@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { TodoItem } from "./types";
 import { parseOutput, guessLanguage } from "./helpers";
+import { markdownComponents } from "../message-turn/CodeBlock";
 
 // ── ToolInput: Syntax-highlighted JSON or plain text ────
 
@@ -37,6 +38,7 @@ export function ToolInput({ data }: { data: Record<string, unknown> | string }) 
           overflow: "auto",
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
+          fontFamily: "var(--font-mono)",
         }}
       >
         {formatted}
@@ -88,6 +90,7 @@ export function ToolOutput({
             overflow: "auto",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            fontFamily: "var(--font-mono)",
           }}
         >
           {parsed.content}
@@ -99,7 +102,7 @@ export function ToolOutput({
   if (parsed.type === "markdown") {
     return (
       <div className="tool-output-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
           {parsed.content}
         </ReactMarkdown>
       </div>

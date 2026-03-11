@@ -86,6 +86,7 @@ export function CodeBlock({ language, code }: { language: string; code: string }
             overflowX: wordWrap ? "hidden" : "auto",
             flex: 1,
             minWidth: 0,
+            fontFamily: "var(--font-mono)",
           }}
         >
           {code}
