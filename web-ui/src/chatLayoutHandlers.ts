@@ -61,7 +61,7 @@ const MODAL_COMMANDS: Record<string, string> = {
 const TOGGLE_COMMANDS = new Set(["terminal", "neovim", "nvim", "git", "split-view"]);
 
 export const LOCAL_COMMANDS = new Set([
-  "new", ...Object.keys(MODAL_COMMANDS), ...TOGGLE_COMMANDS,
+  "new", "cancel", ...Object.keys(MODAL_COMMANDS), ...TOGGLE_COMMANDS,
 ]);
 
 /* ── Factory functions ──────────────────────────────────── */
@@ -113,6 +113,18 @@ export function createHandleAgentChange(deps: HandlerDeps) {
 
 export function createHandleCommand(deps: HandlerDeps) {
   return async (command: string, args?: string) => {
+    // /cancel — abort the running session (same as the Stop button)
+    if (command === "cancel") {
+      if (!deps.activeSessionId) return;
+      try {
+        await abortSession(deps.activeSessionId);
+        deps.addToast("Session cancelled", "info");
+      } catch {
+        deps.addToast("Failed to cancel session", "error");
+      }
+      return;
+    }
+
     // /new — create a new session
     if (command === "new") {
       if (!deps.appState) return;

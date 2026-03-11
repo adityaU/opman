@@ -17,6 +17,7 @@ interface Props {
 const BUILTIN_COMMANDS: SlashCommand[] = [
   // Web-local commands
   { name: "new", description: "Start a new session" },
+  { name: "cancel", description: "Cancel / abort the running session" },
   { name: "terminal", description: "Toggle terminal panel" },
   // Built-in opencode server commands (not in /command API but valid)
   { name: "model", description: "Change the AI model", args: "<model>" },

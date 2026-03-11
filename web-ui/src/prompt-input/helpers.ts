@@ -66,7 +66,7 @@ export function shortModelName(modelId: string): string {
 
 /** Commands that execute immediately without needing args */
 export const NO_ARG_COMMANDS = new Set([
-  "new", "compact", "undo", "redo", "share", "fork", "terminal", "clear", "models",
+  "new", "cancel", "compact", "undo", "redo", "share", "fork", "terminal", "clear", "models",
   "keys", "keybindings", "todos", "sessions", "context", "settings",
   "gquota", "quota", "quota_status",
   "tokens_today", "tokens_daily", "tokens_weekly", "tokens_monthly", "tokens_all", "tokens_session",
