@@ -7,6 +7,7 @@ import {
   XCircle,
   Loader2,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { SubagentSession } from "../SubagentSession";
 import { ToolCallProps } from "./types";
@@ -73,6 +74,11 @@ export const ToolCall = React.memo(function ToolCall({
   const outputData = state?.output;
   const hasOutput = outputData != null && outputData.length > 0;
 
+  // Extract error text for display when tool errored
+  const errorText = isError
+    ? state?.error || (hasOutput ? null : "Tool call failed")
+    : null;
+
   return (
     <div className={`tool-call ${isError ? "tool-call-error" : ""}`}>
       <button className="tool-call-header" onClick={handleToggle}>
@@ -111,51 +117,60 @@ export const ToolCall = React.memo(function ToolCall({
               <TodoList input={inputData!} />
             </div>
           ) : (
-            <>
-              {hasInput && !isTaskTool && (
-                <div className="tool-call-section">
-                  <div className="tool-call-section-label">Input</div>
-                  {isEditTool ? (
-                    <EditDiffView input={inputData!} />
-                  ) : (
-                    <ToolInput data={inputData!} />
-                  )}
-                </div>
-              )}
+              <>
+                {hasInput && !isTaskTool && (
+                  <div className="tool-call-section">
+                    <div className="tool-call-section-label">Input</div>
+                    {isEditTool ? (
+                      <EditDiffView input={inputData!} />
+                    ) : (
+                      <ToolInput data={inputData!} />
+                    )}
+                  </div>
+                )}
 
-              {isTaskTool && taskSessionId ? (
-                <SubagentSession
-                  sessionId={taskSessionId}
-                  title={state?.title || childSession?.title || "Task"}
-                  messages={subagentMessages?.get(taskSessionId)}
-                  isRunning={isRunning}
-                  isCompleted={isCompleted}
-                  isError={isError}
-                  onOpenSession={onOpenSession}
-                />
-              ) : (
-                <>
-                  {hasOutput && (
-                    <div className="tool-call-section">
-                      <div className="tool-call-section-label">Output</div>
-                      {state?.metadata?.truncated && (
-                        <span className="tool-call-truncated">[truncated] </span>
-                      )}
-                      <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning} />
-                    </div>
-                  )}
+                {isTaskTool && taskSessionId ? (
+                  <SubagentSession
+                    sessionId={taskSessionId}
+                    title={state?.title || childSession?.title || "Task"}
+                    messages={subagentMessages?.get(taskSessionId)}
+                    isRunning={isRunning}
+                    isCompleted={isCompleted}
+                    isError={isError}
+                    onOpenSession={onOpenSession}
+                  />
+                ) : (
+                  <>
+                    {hasOutput && (
+                      <div className="tool-call-section">
+                        <div className="tool-call-section-label">Output</div>
+                        {state?.metadata?.truncated && (
+                          <span className="tool-call-truncated">[truncated] </span>
+                        )}
+                        <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning} />
+                      </div>
+                    )}
 
-                  {!hasOutput && isRunning && (
-                    <div className="tool-call-section">
-                      <div className="tool-call-section-label">Output</div>
-                      <pre className="tool-call-pre tool-call-live-output">
-                        <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
-                      </pre>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+                    {errorText && (
+                      <div className="tool-call-section">
+                        <div className="tool-call-error-banner">
+                          <AlertTriangle size={12} />
+                          <span>{errorText}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!hasOutput && !errorText && isRunning && (
+                      <div className="tool-call-section">
+                        <div className="tool-call-section-label">Output</div>
+                        <pre className="tool-call-pre tool-call-live-output">
+                          <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
           )}
 
           {!isTodoWrite && !isTaskTool && !hasInput && !hasOutput && (

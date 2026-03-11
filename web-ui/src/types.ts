@@ -42,6 +42,7 @@ export interface MessagePart {
 export interface ToolPartState {
   input?: Record<string, unknown> | string;
   output?: string;
+  error?: string;
   status?: "completed" | "pending" | "running" | "error";
   title?: string;
   time?: { start?: number; end?: number };

@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark } from "lucide-react";
+import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle } from "lucide-react";
 
 import { ToolCall } from "../ToolCall";
 import type { MessageTurnProps, MessagePart, Message, SessionInfo } from "./types";
@@ -88,6 +88,21 @@ export const MessageTurn = React.memo(function MessageTurn({
       if (msg.metadata?.cost) sum += msg.metadata.cost;
     }
     return sum;
+  }, [messages]);
+
+  // Extract error from any message in the group
+  const errorText = useMemo(() => {
+    for (const msg of messages) {
+      if (msg.info.error) {
+        if (typeof msg.info.error === "string") return msg.info.error;
+        if (typeof msg.info.error === "object" && msg.info.error !== null) {
+          const e = msg.info.error as Record<string, unknown>;
+          return (e.message || e.error || JSON.stringify(msg.info.error)) as string;
+        }
+        return String(msg.info.error);
+      }
+    }
+    return null;
   }, [messages]);
 
   // Flatten all parts from all messages in the group, keeping order
@@ -188,6 +203,14 @@ export const MessageTurn = React.memo(function MessageTurn({
               </ReactMarkdown>
             </div>
           )
+        )}
+
+        {/* Error banner */}
+        {errorText && (
+          <div className="message-error-banner">
+            <AlertTriangle size={14} />
+            <span>{errorText}</span>
+          </div>
         )}
 
         {/* Action bar — shown on hover */}
