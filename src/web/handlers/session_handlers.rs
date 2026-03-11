@@ -296,3 +296,17 @@ pub async fn reply_question(
         .map_err(|e| WebError::Internal(format!("{e}")))?;
     Ok(StatusCode::OK)
 }
+
+/// GET /api/pending — return pending permissions and questions across all sessions.
+pub async fn get_pending(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+) -> WebResult<impl IntoResponse> {
+    let ws = state.web_state.inner.read().await;
+    let permissions: Vec<&serde_json::Value> = ws.pending_permissions.values().collect();
+    let questions: Vec<&serde_json::Value> = ws.pending_questions.values().collect();
+    Ok(Json(serde_json::json!({
+        "permissions": permissions,
+        "questions": questions,
+    })))
+}

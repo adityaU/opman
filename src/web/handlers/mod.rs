@@ -47,6 +47,7 @@ pub use pty_handlers::{spawn_pty, pty_write, pty_resize, pty_kill, pty_list};
 pub use session_handlers::{
     get_session_messages, send_message, abort_session, delete_session, rename_session,
     execute_command, get_providers, get_commands, reply_permission, reply_question,
+    get_pending,
 };
 
 pub use git_handlers::{

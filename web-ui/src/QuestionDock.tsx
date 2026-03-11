@@ -10,16 +10,51 @@ interface Props {
 }
 
 export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply }: Props) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Clamp activeTab when questions list changes
+  useEffect(() => {
+    if (activeTab >= questions.length) {
+      setActiveTab(Math.max(0, questions.length - 1));
+    }
+  }, [questions.length, activeTab]);
+
+  if (questions.length === 0) return null;
+
+  const showTabs = questions.length > 1;
+  const activeQ = questions[Math.min(activeTab, questions.length - 1)];
+
   return (
     <div className="question-dock" role="region" aria-label="Questions">
-      {questions.map((q) => (
+      {showTabs && (
+        <div className="dock-tabs dock-tabs--question">
+          {questions.map((q, idx) => (
+            <button
+              key={q.id}
+              className={`dock-tab dock-tab--question ${idx === activeTab ? "dock-tab--active" : ""}`}
+              onClick={() => setActiveTab(idx)}
+              aria-selected={idx === activeTab}
+              role="tab"
+            >
+              <HelpCircle size={12} />
+              <span className="dock-tab-label">
+                {q.title || `Question ${idx + 1}`}
+              </span>
+              {!!activeSessionId && q.sessionID !== activeSessionId && (
+                <span className="dock-tab-badge">sub</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {activeQ && (
         <QuestionCard
-          key={q.id}
-          question={q}
-          isCrossSession={!!activeSessionId && q.sessionID !== activeSessionId}
+          key={activeQ.id}
+          question={activeQ}
+          isCrossSession={!!activeSessionId && activeQ.sessionID !== activeSessionId}
           onReply={onReply}
         />
-      ))}
+      )}
     </div>
   );
 });

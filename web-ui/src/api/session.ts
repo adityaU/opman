@@ -158,6 +158,24 @@ export async function replyQuestion(
   return apiPost(`/question/${requestId}/reply`, { answers });
 }
 
+/** Pending permissions/questions tracked server-side (survives page reload). */
+export interface PendingResponse {
+  permissions: Record<string, unknown>[];
+  questions: Record<string, unknown>[];
+}
+
+export async function fetchPending(): Promise<PendingResponse> {
+  try {
+    const data = await apiFetch<PendingResponse>("/pending");
+    return {
+      permissions: Array.isArray(data?.permissions) ? data.permissions : [],
+      questions: Array.isArray(data?.questions) ? data.questions : [],
+    };
+  } catch {
+    return { permissions: [], questions: [] };
+  }
+}
+
 // ── Todos ─────────────────────────────────────────────
 
 export async function fetchSessionTodos(sessionId: string): Promise<TodoItem[]> {

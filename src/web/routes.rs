@@ -89,6 +89,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/question/{request_id}/reply",
             post(handlers::reply_question),
         )
+        .route("/pending", get(handlers::get_pending))
         // Session events SSE (proxied from opencode)
         .route("/session/events", get(sse::session_events_stream))
         // ── Git API (shell out to git CLI) ───────────────────────────

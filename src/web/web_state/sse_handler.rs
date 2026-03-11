@@ -261,6 +261,51 @@ pub(super) async fn handle_web_sse_event(
                 }
             }
         }
+        // ── Permission & question tracking (for reload recovery) ──
+        "permission.asked" => {
+            let request_id = event.properties
+                .get("id").or_else(|| event.properties.get("requestID"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !request_id.is_empty() {
+                let mut state = inner.write().await;
+                state.pending_permissions.insert(request_id, event.properties);
+            }
+        }
+        "permission.replied" => {
+            let request_id = event.properties
+                .get("requestID").or_else(|| event.properties.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !request_id.is_empty() {
+                let mut state = inner.write().await;
+                state.pending_permissions.remove(&request_id);
+            }
+        }
+        "question.asked" => {
+            let request_id = event.properties
+                .get("id").or_else(|| event.properties.get("requestID"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !request_id.is_empty() {
+                let mut state = inner.write().await;
+                state.pending_questions.insert(request_id, event.properties);
+            }
+        }
+        "question.replied" | "question.rejected" => {
+            let request_id = event.properties
+                .get("requestID").or_else(|| event.properties.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !request_id.is_empty() {
+                let mut state = inner.write().await;
+                state.pending_questions.remove(&request_id);
+            }
+        }
         _ => {
             // Ignore other event types
         }

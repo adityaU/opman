@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import type { PermissionRequest } from "./types";
 import { ShieldAlert, Check, CheckCheck, X } from "lucide-react";
 
@@ -10,16 +10,51 @@ interface Props {
 }
 
 export const PermissionDock = React.memo(function PermissionDock({ permissions, activeSessionId, onReply }: Props) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Clamp activeTab when permissions list changes
+  useEffect(() => {
+    if (activeTab >= permissions.length) {
+      setActiveTab(Math.max(0, permissions.length - 1));
+    }
+  }, [permissions.length, activeTab]);
+
+  if (permissions.length === 0) return null;
+
+  const showTabs = permissions.length > 1;
+  const activePerm = permissions[Math.min(activeTab, permissions.length - 1)];
+
   return (
     <div className="permission-dock" role="alertdialog" aria-label="Permission requests">
-      {permissions.map((perm) => (
+      {showTabs && (
+        <div className="dock-tabs dock-tabs--permission">
+          {permissions.map((perm, idx) => (
+            <button
+              key={perm.id}
+              className={`dock-tab dock-tab--permission ${idx === activeTab ? "dock-tab--active" : ""}`}
+              onClick={() => setActiveTab(idx)}
+              aria-selected={idx === activeTab}
+              role="tab"
+            >
+              <ShieldAlert size={12} />
+              <span className="dock-tab-label">
+                {perm.toolName || `Permission ${idx + 1}`}
+              </span>
+              {!!activeSessionId && perm.sessionID !== activeSessionId && (
+                <span className="dock-tab-badge">sub</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {activePerm && (
         <PermissionCard
-          key={perm.id}
-          perm={perm}
-          isCrossSession={!!activeSessionId && perm.sessionID !== activeSessionId}
+          key={activePerm.id}
+          perm={activePerm}
+          isCrossSession={!!activeSessionId && activePerm.sessionID !== activeSessionId}
           onReply={onReply}
         />
-      ))}
+      )}
     </div>
   );
 });

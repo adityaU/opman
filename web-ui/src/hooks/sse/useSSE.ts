@@ -7,6 +7,7 @@ import {
   fetchSessionMessages,
   fetchSessionStats,
   fetchTheme,
+  fetchPending,
   type AppState,
   type SessionStats,
   type ActivityEvent,
@@ -18,6 +19,7 @@ import { applyThemeToCss } from "../../utils/theme";
 import type { SSEState, WatcherStatus } from "./types";
 import { type MessageMap, mapToSortedArray, getMessageTime } from "./messageMap";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
+import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
 /** Number of messages to load per page. */
 const MESSAGE_PAGE_SIZE = 50;
@@ -94,6 +96,73 @@ export function useSSE(): SSEState {
       });
     } catch (e) {
       console.error("Failed to fetch state:", e);
+    }
+  }, []);
+
+  /** Hydrate pending permissions/questions from server-side tracking (survives reload). */
+  const hydratePending = useCallback(async () => {
+    try {
+      const pending = await fetchPending();
+      const activeSid = activeSessionRef.current;
+      const perms: PermissionRequest[] = [];
+      const crossPerms: PermissionRequest[] = [];
+      for (const raw of pending.permissions) {
+        const props = raw as Record<string, unknown>;
+        const perm: PermissionRequest = {
+          id: (props.id ?? props.requestID ?? "") as string,
+          sessionID: (props.sessionID ?? "") as string,
+          toolName: (props.permission ?? props.toolName ?? "") as string,
+          description: formatPermissionDescription(props),
+          patterns: Array.isArray(props.patterns) ? (props.patterns as string[]) : undefined,
+          metadata: (props.metadata && typeof props.metadata === "object")
+            ? props.metadata as Record<string, unknown> : undefined,
+          time: typeof props.time === "number" ? props.time : Date.now(),
+        };
+        if (!perm.id) continue;
+        if (activeSid && perm.sessionID === activeSid) {
+          perms.push(perm);
+        } else {
+          crossPerms.push(perm);
+        }
+      }
+      const qs: QuestionRequest[] = [];
+      const crossQs: QuestionRequest[] = [];
+      for (const raw of pending.questions) {
+        const props = raw as Record<string, unknown>;
+        const rawQuestions = Array.isArray(props.questions) ? props.questions : [];
+        const q: QuestionRequest = {
+          id: (props.id ?? props.requestID ?? "") as string,
+          sessionID: (props.sessionID ?? "") as string,
+          title: deriveQuestionTitle(props, rawQuestions),
+          questions: rawQuestions.map(transformQuestionInfo),
+          time: typeof props.time === "number" ? props.time : Date.now(),
+        };
+        if (!q.id) continue;
+        if (activeSid && q.sessionID === activeSid) {
+          qs.push(q);
+        } else {
+          crossQs.push(q);
+        }
+      }
+      // Merge with existing state (SSE may have already delivered some)
+      setPermissions((prev) => {
+        const ids = new Set(prev.map((p) => p.id));
+        return [...prev, ...perms.filter((p) => !ids.has(p.id))];
+      });
+      setCrossSessionPermissions((prev) => {
+        const ids = new Set(prev.map((p) => p.id));
+        return [...prev, ...crossPerms.filter((p) => !ids.has(p.id))];
+      });
+      setQuestions((prev) => {
+        const ids = new Set(prev.map((q) => q.id));
+        return [...prev, ...qs.filter((q) => !ids.has(q.id))];
+      });
+      setCrossSessionQuestions((prev) => {
+        const ids = new Set(prev.map((q) => q.id));
+        return [...prev, ...crossQs.filter((q) => !ids.has(q.id))];
+      });
+    } catch (e) {
+      console.error("hydratePending failed:", e);
     }
   }, []);
 
@@ -200,6 +269,8 @@ export function useSSE(): SSEState {
           .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
           .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
         fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+        // Hydrate pending permissions/questions from server-side tracking
+        hydratePending();
       } else { setIsLoadingMessages(false); }
     }
   }, [appState]);
@@ -214,7 +285,7 @@ export function useSSE(): SSEState {
     const touchEvent = () => { lastEventTime = Date.now(); };
     const recoverAfterReconnect = () => {
       console.info("[SSE] Recovering after reconnection");
-      refreshState(); refreshMessages();
+      refreshState(); refreshMessages(); hydratePending();
     };
 
     // App SSE
@@ -259,7 +330,7 @@ export function useSSE(): SSEState {
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
     };
-  }, [refreshState, refreshMessages, flushMessages, flushSubagentMessages]);
+  }, [refreshState, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
 
   return {
     appState, messages, stats, busySessions, permissions, questions,

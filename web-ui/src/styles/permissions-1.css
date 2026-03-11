@@ -5,6 +5,77 @@
     padding: var(--space-2) var(--space-4)
 }
 
+/* ── Dock tabs (shown when multiple pending items) ──────── */
+
+.dock-tabs {
+    display: flex;
+    gap: var(--space-1);
+    max-width: var(--chat-max-width);
+    margin: 0 auto var(--space-2);
+    padding: 0 var(--space-1);
+    overflow-x: auto;
+    scrollbar-width: none
+}
+
+.dock-tabs::-webkit-scrollbar { display: none }
+
+.dock-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border: 1px solid var(--color-border-subtle);
+    border-bottom: none;
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    white-space: nowrap;
+    flex-shrink: 0
+}
+
+.dock-tab:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text)
+}
+
+.dock-tab--active {
+    color: var(--color-text);
+    background: var(--color-surface)
+}
+
+.dock-tab--permission.dock-tab--active {
+    border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
+    color: var(--color-warning)
+}
+
+.dock-tab--question.dock-tab--active {
+    border-color: color-mix(in srgb, var(--color-info) 32%, var(--color-border));
+    color: var(--color-info)
+}
+
+.dock-tab-label {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.dock-tab-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
+    padding: 0 4px;
+    border-radius: var(--radius-sm);
+    line-height: 1.5
+}
+
 .permission-card,.question-card {
     max-width: var(--chat-max-width);
     margin: 0 auto var(--space-2);

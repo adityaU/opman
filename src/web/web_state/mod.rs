@@ -107,6 +107,12 @@ pub(super) struct WebStateInner {
     // ── Signals ─────────────────────────────────────────────────
     /// Persisted assistant signals (newest first, max 100).
     pub(super) signals: Vec<SignalInput>,
+    // ── Pending permissions & questions (ephemeral, from SSE) ──
+    /// Pending permission requests, keyed by request ID.
+    /// Stored as raw JSON so the frontend receives the same shape as SSE events.
+    pub(super) pending_permissions: HashMap<String, serde_json::Value>,
+    /// Pending question requests, keyed by request ID.
+    pub(super) pending_questions: HashMap<String, serde_json::Value>,
 }
 
 /// Internal watcher config (stored on the server side).
@@ -253,6 +259,8 @@ impl WebStateHandle {
             delegated_work,
             workspaces,
             signals,
+            pending_permissions: HashMap::new(),
+            pending_questions: HashMap::new(),
         }));
 
         let (persist_tx, persist_rx) = mpsc::unbounded_channel();
