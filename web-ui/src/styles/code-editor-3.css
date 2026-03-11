@@ -102,29 +102,33 @@
 .markdown-viewer h1 {
     font-size: 1.6em;
     margin: .6em 0 .3em;
-    font-weight: 700
+    font-weight: 700;
+    color: var(--color-text)
 }
 
 .markdown-viewer h2 {
     font-size: 1.3em;
     margin: .5em 0 .3em;
-    font-weight: 600
+    font-weight: 600;
+    color: var(--color-text)
 }
 
 .markdown-viewer h3 {
     font-size: 1.1em;
     margin: .4em 0 .2em;
-    font-weight: 600
+    font-weight: 600;
+    color: var(--color-text)
 }
 
 .markdown-viewer h4 {
     font-size: 1em;
     margin: .3em 0 .2em;
-    font-weight: 600
+    font-weight: 600;
+    color: var(--color-text)
 }
 
 .markdown-viewer code {
-    background: var(--white-6);
+    background: var(--color-bg-element);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: var(--font-mono, monospace);
@@ -132,11 +136,10 @@
 }
 
 .markdown-viewer pre {
-    background: var(--black-30);
+    background: var(--color-bg-element);
     padding: 12px 16px;
     border-radius: 6px;
-    white-space: pre-wrap;
-    word-break: break-word;
+    overflow-x: auto;
     margin: .5em 0
 }
 
@@ -147,9 +150,13 @@
 }
 
 .markdown-viewer a {
-    color: var(--color-primary, #fab283);
+    color: var(--color-secondary);
     text-decoration: underline;
     text-underline-offset: 2px
+}
+
+.markdown-viewer a:hover {
+    color: var(--color-primary)
 }
 
 .markdown-viewer hr {
@@ -169,6 +176,52 @@
 .markdown-viewer img {
     max-width: 100%;
     border-radius: 6px;
+    margin: .5em 0
+}
+
+.markdown-viewer blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding-left: var(--space-3);
+    color: var(--color-text-muted);
+    margin: .5em 0
+}
+
+.markdown-viewer ul, .markdown-viewer ol {
+    padding-left: 1.5em;
+    margin: .4em 0
+}
+
+.markdown-viewer li {
+    margin: .2em 0
+}
+
+.markdown-viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: .5em 0;
+    font-size: 12px
+}
+
+.markdown-viewer th, .markdown-viewer td {
+    padding: 6px 10px;
+    border: .5px solid var(--color-border-subtle);
+    text-align: left
+}
+
+.markdown-viewer th {
+    background: var(--color-bg-element);
+    font-weight: 600
+}
+
+.markdown-viewer .inline-code {
+    background: var(--color-bg-element);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono, monospace);
+    font-size: .9em
+}
+
+.markdown-viewer .code-block-wrapper {
     margin: .5em 0
 }
 
@@ -196,10 +249,6 @@ html.flat-theme .csv-viewer th {
 
 html.flat-theme .csv-viewer td {
     border-color: var(--color-border-subtle)
-}
-
-html.flat-theme .markdown-viewer pre {
-    background: var(--color-bg-element)
 }
 
 html.flat-theme .new-session-directory {

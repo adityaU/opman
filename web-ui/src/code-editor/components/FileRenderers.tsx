@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { File } from "lucide-react";
 import { rawFileUrl, type FileReadResponse } from "../../api";
+import { markdownComponents } from "../../message-turn/CodeBlock";
 
 // ── CSV ─────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export function CsvViewer({ content }: { content: string }) {
 export function MarkdownViewer({ content }: { content: string }) {
   return (
     <div className="markdown-viewer">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
     </div>
   );
 }
