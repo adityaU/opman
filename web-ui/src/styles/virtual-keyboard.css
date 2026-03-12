@@ -1,8 +1,8 @@
 /* ── Virtual-keyboard-aware bottom-sheet positioning ──
    When the software keyboard is open (`data-vkb-open` on <html>),
    mobile bottom-sheet modals flip to top-alignment so they stay
-   visible above the keyboard. When the keyboard closes, they
-   return to normal bottom-sheet positioning. ── */
+   visible above the keyboard. `--vkb-height` is set to the actual
+   visual viewport height (px) so modals cap to visible space. ── */
 
 /* ── Backdrop containers: flex-end → flex-start ── */
 @media (max-width: 768px) {
@@ -33,7 +33,7 @@
         align-items: flex-start
     }
 
-    /* ── Panel styling: rounded corners flip to bottom, animation flips ── */
+    /* ── Panel styling: rounded corners flip, animation flips, max-height capped ── */
     [data-vkb-open] .command-palette,
     [data-vkb-open] .model-picker,
     [data-vkb-open] .agent-picker,
@@ -48,12 +48,14 @@
     [data-vkb-open] .diff-review-modal,
     [data-vkb-open] .cross-session-search-modal {
         border-radius: 0 0 20px 20px;
-        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
+        max-height: var(--vkb-height, 50vh)
     }
 
     [data-vkb-open] .sb-modal {
         border-radius: 0 0 20px 20px;
-        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
+        max-height: var(--vkb-height, 50vh)
     }
 
     [data-vkb-open] .session-graph-panel,
@@ -69,15 +71,17 @@
     [data-vkb-open] .notification-prefs-modal,
     [data-vkb-open] .workspace-mgr-modal {
         border-radius: 0 0 20px 20px;
-        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
+        max-height: var(--vkb-height, 50vh)
     }
 
     [data-vkb-open] .pr-description-modal {
         border-radius: 0 0 20px 20px;
-        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
+        max-height: var(--vkb-height, 50vh)
     }
 
-    /* ── Drag-handle pill: move to bottom of panel instead of top ── */
+    /* ── Drag-handle pill: hide when coming from top ── */
     [data-vkb-open] .command-palette:before,
     [data-vkb-open] .model-picker:before,
     [data-vkb-open] .agent-picker:before,
@@ -108,7 +112,7 @@
         display: none
     }
 
-    /* ── Safe-area padding: swap bottom→top for panels that used padding-bottom ── */
+    /* ── Safe-area padding: swap bottom→top ── */
     [data-vkb-open] .command-palette,
     [data-vkb-open] .model-picker,
     [data-vkb-open] .agent-picker,
@@ -137,6 +141,58 @@
     [data-vkb-open] .pr-description-modal {
         padding-bottom: 0;
         padding-top: env(safe-area-inset-top, 0px)
+    }
+
+    /* ── Headers: sticky at top + never shrink ──
+       Ensures the header row (close button, title) always stays
+       visible at the top of the modal even when content scrolls. ── */
+
+    /* Family A: .modal-backdrop modals */
+    [data-vkb-open] .command-palette-input-row,
+    [data-vkb-open] .model-picker-header,
+    [data-vkb-open] .agent-picker-header,
+    [data-vkb-open] .theme-selector-header,
+    [data-vkb-open] .cheatsheet-header,
+    [data-vkb-open] .todo-panel-header,
+    [data-vkb-open] .session-selector-header,
+    [data-vkb-open] .context-input-header,
+    [data-vkb-open] .settings-header,
+    [data-vkb-open] .watcher-modal-header,
+    [data-vkb-open] .ctx-window-header,
+    [data-vkb-open] .diff-review-header,
+    [data-vkb-open] .cross-session-search-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        flex-shrink: 0;
+        background: inherit
+    }
+
+    /* Family B: *-overlay modals */
+    [data-vkb-open] .session-graph-header,
+    [data-vkb-open] .session-dashboard-header,
+    [data-vkb-open] .activity-feed-header,
+    [data-vkb-open] .assistant-inbox-header,
+    [data-vkb-open] .assistant-center-header,
+    [data-vkb-open] .memory-header,
+    [data-vkb-open] .autonomy-header,
+    [data-vkb-open] .routines-header,
+    [data-vkb-open] .delegation-header,
+    [data-vkb-open] .missions-header,
+    [data-vkb-open] .notification-prefs-header,
+    [data-vkb-open] .workspace-mgr-header,
+    [data-vkb-open] .pr-description-modal-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        flex-shrink: 0;
+        background: inherit
+    }
+
+    /* For ctx-window-modal which has overflow-y:auto on the modal itself
+       (not on a separate body div), the header needs sticky to stay pinned. */
+    [data-vkb-open] .ctx-window-modal {
+        overflow-y: auto
     }
 }
 

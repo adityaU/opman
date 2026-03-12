@@ -4,8 +4,12 @@ import { useEffect, useRef } from "react";
  * Detects whether a virtual (software) keyboard is open on mobile devices
  * using the Visual Viewport API.
  *
- * When the keyboard is open, sets `data-vkb-open` on `<html>` so CSS can
- * reposition bottom-sheet modals to start from the top instead.
+ * When the keyboard is open:
+ * - Sets `data-vkb-open` on `<html>` so CSS can reposition bottom-sheet
+ *   modals to start from the top instead.
+ * - Sets `--vkb-height` CSS custom property on `<html>` to the actual
+ *   visible viewport height (px) so modals can cap their max-height to
+ *   the space above the keyboard.
  *
  * Heuristic: the keyboard is considered open when `visualViewport.height`
  * is significantly smaller than `window.innerHeight` (threshold: 150 px).
@@ -15,7 +19,6 @@ export function useVirtualKeyboard(): void {
   const openRef = useRef(false);
 
   useEffect(() => {
-    // Only useful on mobile-width viewports with the Visual Viewport API.
     const vv = window.visualViewport;
     if (!vv) return;
 
@@ -34,7 +37,17 @@ export function useVirtualKeyboard(): void {
           document.documentElement.setAttribute("data-vkb-open", "");
         } else {
           document.documentElement.removeAttribute("data-vkb-open");
+          document.documentElement.style.removeProperty("--vkb-height");
         }
+      }
+
+      // Continuously update the available height while keyboard is open
+      // so modals track the actual visible area.
+      if (isOpen) {
+        document.documentElement.style.setProperty(
+          "--vkb-height",
+          `${Math.round(vv.height)}px`,
+        );
       }
     }
 
@@ -50,6 +63,7 @@ export function useVirtualKeyboard(): void {
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
       document.documentElement.removeAttribute("data-vkb-open");
+      document.documentElement.style.removeProperty("--vkb-height");
       openRef.current = false;
     };
   }, []);
