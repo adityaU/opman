@@ -10,6 +10,8 @@ export interface EventHandlerContext {
   activeSessionRef: { current: string | null };
   messageMapRef: { current: MessageMap };
   subagentMapsRef: { current: Map<string, MessageMap> };
+  /** LRU cache of previously-visited sessions — events for cached sessions update in background. */
+  sessionCacheRef: { current: Map<string, { messageMap: MessageMap; subagentMaps: Map<string, MessageMap>; lastAccess: number }> };
   flushMessages: () => void;
   flushSubagentMessages: () => void;
   refreshState: () => void;
@@ -35,6 +37,16 @@ function getOrCreateSubMap(
   return subMap;
 }
 
+/** Try to get the message map for a non-active session from the session cache.
+ *  Returns the cached session's message map if found, otherwise null. */
+function getCachedMessageMap(
+  ctx: EventHandlerContext,
+  sessionId: string,
+): MessageMap | null {
+  const cached = ctx.sessionCacheRef.current.get(sessionId);
+  return cached ? cached.messageMap : null;
+}
+
 /** Route an opencode SSE event to the appropriate React state updaters. */
 export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEvent): void {
   const props = event.properties || {};
@@ -47,6 +59,10 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
 
       // Route to subagent map if not the active session
       if (ctx.activeSessionRef.current && msgSessionId && msgSessionId !== ctx.activeSessionRef.current) {
+        // Also update the session cache if this session is cached (background update)
+        const cachedMap = getCachedMessageMap(ctx, msgSessionId);
+        if (cachedMap) upsertMessageInfo(cachedMap, info);
+
         const subMap = getOrCreateSubMap(ctx.subagentMapsRef, msgSessionId);
         if (upsertMessageInfo(subMap, info)) ctx.flushSubagentMessages();
         break;
@@ -76,6 +92,10 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       const partSessionId = (part.sessionID as string) || "";
 
       if (ctx.activeSessionRef.current && partSessionId && partSessionId !== ctx.activeSessionRef.current) {
+        // Also update the session cache if this session is cached (background update)
+        const cachedMap = getCachedMessageMap(ctx, partSessionId);
+        if (cachedMap) upsertPart(cachedMap, part);
+
         const subMap = getOrCreateSubMap(ctx.subagentMapsRef, partSessionId);
         if (upsertPart(subMap, part)) ctx.flushSubagentMessages();
         break;
@@ -93,6 +113,10 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       if (!messageID || !partID || !delta) break;
 
       if (ctx.activeSessionRef.current && sessionID && sessionID !== ctx.activeSessionRef.current) {
+        // Also update the session cache if this session is cached (background update)
+        const cachedMap = getCachedMessageMap(ctx, sessionID);
+        if (cachedMap) applyPartDelta(cachedMap, sessionID, messageID, partID, field, delta);
+
         const subMap = getOrCreateSubMap(ctx.subagentMapsRef, sessionID);
         if (applyPartDelta(subMap, sessionID, messageID, partID, field, delta)) ctx.flushSubagentMessages();
         break;
@@ -103,14 +127,38 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
 
     case "message.removed": {
       const msgId = (props.messageID as string) || "";
-      if (msgId && removeMessage(ctx.messageMapRef.current, msgId)) ctx.flushMessages();
+      const rmSessionId = (props.sessionID as string) || "";
+      if (!msgId) break;
+
+      if (ctx.activeSessionRef.current && rmSessionId && rmSessionId !== ctx.activeSessionRef.current) {
+        // Update cached session if present
+        const cachedMap = getCachedMessageMap(ctx, rmSessionId);
+        if (cachedMap) removeMessage(cachedMap, msgId);
+        // Also update subagent map
+        const subMap = ctx.subagentMapsRef.current.get(rmSessionId);
+        if (subMap && removeMessage(subMap, msgId)) ctx.flushSubagentMessages();
+        break;
+      }
+      if (removeMessage(ctx.messageMapRef.current, msgId)) ctx.flushMessages();
       break;
     }
 
     case "message.part.removed": {
       const msgId = (props.messageID as string) || "";
       const partId = (props.partID as string) || "";
-      if (msgId && partId && removePart(ctx.messageMapRef.current, msgId, partId)) ctx.flushMessages();
+      const rpSessionId = (props.sessionID as string) || "";
+      if (!msgId || !partId) break;
+
+      if (ctx.activeSessionRef.current && rpSessionId && rpSessionId !== ctx.activeSessionRef.current) {
+        // Update cached session if present
+        const cachedMap = getCachedMessageMap(ctx, rpSessionId);
+        if (cachedMap) removePart(cachedMap, msgId, partId);
+        // Also update subagent map
+        const subMap = ctx.subagentMapsRef.current.get(rpSessionId);
+        if (subMap && removePart(subMap, msgId, partId)) ctx.flushSubagentMessages();
+        break;
+      }
+      if (removePart(ctx.messageMapRef.current, msgId, partId)) ctx.flushMessages();
       break;
     }
 

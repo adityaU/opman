@@ -24,6 +24,21 @@ import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo
 /** Number of messages to load per page. */
 const MESSAGE_PAGE_SIZE = 50;
 
+/** Maximum number of sessions to keep cached in memory. */
+const MAX_SESSION_CACHE = 20;
+
+/** Cached state for a previously-visited session. */
+interface CachedSession {
+  messageMap: MessageMap;
+  subagentMaps: Map<string, MessageMap>;
+  stats: SessionStats | null;
+  hasOlderMessages: boolean;
+  totalMessageCount: number;
+  liveActivityEvents: ActivityEvent[];
+  /** Timestamp of last access — used for LRU eviction. */
+  lastAccess: number;
+}
+
 export function useSSE(): SSEState {
   const [appState, setAppState] = useState<AppState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,6 +68,71 @@ export function useSSE(): SSEState {
   const sessionGenRef = useRef(0);
   const messageMapRef = useRef<MessageMap>(new Map());
   const subagentMapsRef = useRef<Map<string, MessageMap>>(new Map());
+
+  /** LRU session cache — keeps previously-visited sessions in memory for instant switching. */
+  const sessionCacheRef = useRef<Map<string, CachedSession>>(new Map());
+
+  /** Mirror of React state values needed by the cache save function (refs can be read synchronously). */
+  const statsRef = useRef<SessionStats | null>(null);
+  const hasOlderRef = useRef(false);
+  const totalCountRef = useRef(0);
+  const liveActivityRef = useRef<ActivityEvent[]>([]);
+
+  // Keep cache-related refs in sync with React state
+  useEffect(() => { statsRef.current = stats; }, [stats]);
+  useEffect(() => { hasOlderRef.current = hasOlderMessages; }, [hasOlderMessages]);
+  useEffect(() => { totalCountRef.current = totalMessageCount; }, [totalMessageCount]);
+  useEffect(() => { liveActivityRef.current = liveActivityEvents; }, [liveActivityEvents]);
+
+  // ── Session cache helpers ──────────────────────────────────────
+  /** Save the current active session's state into the cache. */
+  const saveCurrentSessionToCache = useCallback(() => {
+    const sid = activeSessionRef.current;
+    if (!sid) return;
+    const cache = sessionCacheRef.current;
+    cache.set(sid, {
+      messageMap: messageMapRef.current,
+      subagentMaps: subagentMapsRef.current,
+      stats: statsRef.current,
+      hasOlderMessages: hasOlderRef.current,
+      totalMessageCount: totalCountRef.current,
+      liveActivityEvents: liveActivityRef.current,
+      lastAccess: Date.now(),
+    });
+    // LRU eviction
+    if (cache.size > MAX_SESSION_CACHE) {
+      let oldestKey: string | null = null;
+      let oldestTime = Infinity;
+      for (const [key, entry] of cache) {
+        if (entry.lastAccess < oldestTime) {
+          oldestTime = entry.lastAccess;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey) cache.delete(oldestKey);
+    }
+  }, []);
+
+  /** Restore a session from the cache if available. Returns true if restored. */
+  const restoreSessionFromCache = useCallback((sid: string): boolean => {
+    const cached = sessionCacheRef.current.get(sid);
+    if (!cached) return false;
+    cached.lastAccess = Date.now();
+    messageMapRef.current = cached.messageMap;
+    subagentMapsRef.current = cached.subagentMaps;
+    setMessages(mapToSortedArray(cached.messageMap));
+    setStats(cached.stats);
+    setHasOlderMessages(cached.hasOlderMessages);
+    setTotalMessageCount(cached.totalMessageCount);
+    setLiveActivityEvents(cached.liveActivityEvents);
+    // Flush subagent messages
+    const result = new Map<string, Message[]>();
+    for (const [subSid, map] of cached.subagentMaps) {
+      result.set(subSid, mapToSortedArray(map));
+    }
+    setSubagentMessages(result);
+    return true;
+  }, []);
 
   // ── Flush helpers (debounced to ~1 frame) ─────────────────────
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,29 +331,79 @@ export function useSSE(): SSEState {
     const proj = appState.projects[appState.active_project];
     const sid = proj?.active_session ?? null;
     if (sid !== activeSessionRef.current) {
+      // Save current session to cache before switching away
+      saveCurrentSessionToCache();
+
       sessionGenRef.current += 1;
       const gen = sessionGenRef.current;
       activeSessionRef.current = sid;
-      messageMapRef.current = new Map();
-      setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
+
       if (sid) {
-        setIsLoadingMessages(true);
-        fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
-          .then((resp) => {
-            if (gen !== sessionGenRef.current) return;
-            const newMap: MessageMap = new Map();
-            for (const msg of resp.messages) { const id = msg.info.messageID || msg.info.id || ""; if (id) newMap.set(id, msg); }
-            messageMapRef.current = newMap;
-            setMessages(mapToSortedArray(newMap)); setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
-          })
-          .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
-          .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
-        fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+        // Try to restore from cache (instant switch)
+        const restored = restoreSessionFromCache(sid);
+        if (restored) {
+          // Cache hit — show cached data immediately, then background-refresh
+          // to pick up any messages that arrived while this session was inactive
+          setIsLoadingMessages(false);
+          fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
+            .then((resp) => {
+              if (gen !== sessionGenRef.current) return;
+              const map = messageMapRef.current;
+              let changed = false;
+              for (const msg of resp.messages) {
+                const id = msg.info.messageID || msg.info.id || "";
+                if (!id) continue;
+                const existing = map.get(id);
+                if (!existing) {
+                  map.set(id, msg);
+                  changed = true;
+                } else {
+                  // Merge updated info/parts (same logic as refreshMessages)
+                  map.set(id, {
+                    ...existing,
+                    info: { ...existing.info, ...msg.info },
+                    metadata: msg.metadata ?? existing.metadata,
+                    parts: existing.parts.length > 0 ? existing.parts : msg.parts,
+                  });
+                  changed = true;
+                }
+              }
+              if (changed) setMessages(mapToSortedArray(map));
+              setHasOlderMessages(resp.has_more);
+              setTotalMessageCount(resp.total);
+            })
+            .catch(() => {});
+          fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+        } else {
+          // Cache miss — fresh fetch with loading indicator
+          messageMapRef.current = new Map();
+          subagentMapsRef.current = new Map();
+          setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
+          setSubagentMessages(new Map());
+          setIsLoadingMessages(true);
+          fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
+            .then((resp) => {
+              if (gen !== sessionGenRef.current) return;
+              const newMap: MessageMap = new Map();
+              for (const msg of resp.messages) { const id = msg.info.messageID || msg.info.id || ""; if (id) newMap.set(id, msg); }
+              messageMapRef.current = newMap;
+              setMessages(mapToSortedArray(newMap)); setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
+            })
+            .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
+            .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
+          fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+        }
         // Hydrate pending permissions/questions from server-side tracking
         hydratePending();
-      } else { setIsLoadingMessages(false); }
+      } else {
+        messageMapRef.current = new Map();
+        subagentMapsRef.current = new Map();
+        setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
+        setSubagentMessages(new Map());
+        setIsLoadingMessages(false);
+      }
     }
-  }, [appState]);
+  }, [appState, saveCurrentSessionToCache, restoreSessionFromCache]);
 
   // ── SSE connections (set up once on mount) ────────────────────
   useEffect(() => {
@@ -308,7 +438,8 @@ export function useSSE(): SSEState {
       const event = parseOpenCodeEvent(e.data);
       if (!event) return;
       handleOpenCodeEvent(
-        { activeSessionRef, messageMapRef, subagentMapsRef, flushMessages, flushSubagentMessages,
+        { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
+          flushMessages, flushSubagentMessages,
           refreshState, setStats, setSessionStatus, setPermissions, setQuestions,
           setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
         event,
