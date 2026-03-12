@@ -308,4 +308,12 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
       window.dispatchEvent(new CustomEvent("opman:mission-updated", { detail: mission }));
     } catch { /* ignore */ }
   });
+
+  // Toast notifications from TUI
+  appSSE.addEventListener("toast", (e: MessageEvent) => {
+    try {
+      const data = JSON.parse(e.data) as { message: string; level: string };
+      window.dispatchEvent(new CustomEvent("opman:toast", { detail: data }));
+    } catch { /* ignore */ }
+  });
 }

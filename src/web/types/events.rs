@@ -53,6 +53,12 @@ pub enum WebEvent {
     MissionUpdated {
         mission: serde_json::Value,
     },
+    /// Toast notification from the TUI (status bar messages).
+    Toast {
+        message: String,
+        /// One of: "info", "success", "warning", "error".
+        level: String,
+    },
     /// Initial value — never sent to clients.
     #[allow(dead_code)]
     Noop,

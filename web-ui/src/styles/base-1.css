@@ -183,7 +183,7 @@
     color: var(--color-text);
     pointer-events: auto;
     animation: toast-slide-in .3s cubic-bezier(.34,1.56,.64,1);
-    max-width: 360px
+    max-width: 420px
 }
 
 @keyframes toast-slide-in {
@@ -205,7 +205,66 @@
 }
 
 .toast-message {
-    flex: 1
+    flex: 1;
+    min-width: 0
+}
+
+.toast-markdown p {
+    margin: 0;
+    line-height: 1.4
+}
+
+.toast-markdown p + p {
+    margin-top: var(--space-1)
+}
+
+.toast-markdown code {
+    font-family: var(--font-mono);
+    font-size: .85em;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.toast-markdown pre {
+    margin: var(--space-1) 0;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--white-4);
+    overflow-x: auto;
+    font-size: var(--font-size-xs)
+}
+
+.toast-markdown pre code {
+    padding: 0;
+    background: none
+}
+
+.toast-markdown a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px
+}
+
+.toast-markdown a:hover {
+    opacity: .8
+}
+
+.toast-markdown ul,
+.toast-markdown ol {
+    margin: var(--space-1) 0;
+    padding-left: var(--space-3);
+    line-height: 1.4
+}
+
+.toast-markdown strong {
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.toast-markdown em {
+    font-style: italic
 }
 
 .toast-close {

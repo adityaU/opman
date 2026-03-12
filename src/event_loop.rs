@@ -30,6 +30,8 @@ pub(crate) async fn run_event_loop(
     // Previous pulse_phase value, used to detect changes worth redrawing.
     let mut prev_pulse_phase: f64 = 0.0;
     let mut last_countdown_redraw = Instant::now();
+    // Track last toast message to detect new toasts for web broadcast.
+    let mut prev_toast_msg: Option<String> = None;
 
     loop {
         // ── 1. Draw the UI only when something actually changed ──────
@@ -94,6 +96,17 @@ pub(crate) async fn run_event_loop(
             if ts.elapsed() > std::time::Duration::from_secs(2) {
                 app.toast_message = None;
                 app.needs_redraw = true;
+            }
+        }
+
+        // ── 7.8. Broadcast new toasts to web clients ──────────────────
+        {
+            let current_msg = app.toast_message.as_ref().map(|(m, _)| m.clone());
+            if current_msg != prev_toast_msg {
+                if let (Some(ref msg), Some(ref wsh)) = (&current_msg, &web_state_handle) {
+                    wsh.broadcast_toast(msg.clone(), "info");
+                }
+                prev_toast_msg = current_msg;
             }
         }
 

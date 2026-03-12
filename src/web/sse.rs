@@ -182,6 +182,12 @@ pub async fn events_stream(
                                         SseEvent::default().event("mission_updated").data(mission.to_string()),
                                     );
                                 }
+                                WebEvent::Toast { message, level } => {
+                                    let payload = serde_json::json!({ "message": message, "level": level });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("toast").data(payload.to_string()),
+                                    );
+                                }
                             }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {

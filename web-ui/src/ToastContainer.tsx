@@ -1,4 +1,7 @@
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { markdownComponents } from "./message-turn/CodeBlock";
 import type { Toast } from "./hooks/useToast";
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from "lucide-react";
 
@@ -22,7 +25,11 @@ export function ToastContainer({ toasts, onDismiss }: Props) {
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast toast-${toast.type}`}>
           <span className="toast-icon">{ICONS[toast.type]}</span>
-          <span className="toast-message">{toast.message}</span>
+          <div className="toast-message toast-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {toast.message}
+            </ReactMarkdown>
+          </div>
           <button className="toast-close" onClick={() => onDismiss(toast.id)} aria-label="Dismiss notification">
             <X size={12} />
           </button>

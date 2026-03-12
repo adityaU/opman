@@ -62,6 +62,21 @@ export function ChatLayout() {
   const providers = useProviders();
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
+  // ── Bridge SSE toast events into the toast system ──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { message: string; level: string } | undefined;
+      if (!detail?.message) return;
+      const validLevels = ["success", "error", "info", "warning"] as const;
+      const level = validLevels.includes(detail.level as typeof validLevels[number])
+        ? (detail.level as typeof validLevels[number])
+        : "info";
+      addToast(detail.message, level, 4000);
+    };
+    window.addEventListener("opman:toast", handler);
+    return () => window.removeEventListener("opman:toast", handler);
+  }, [addToast]);
+
   // ── Panels ──
   const panels = usePanelState({
     initialPanels: { sidebar: true, terminal: false, editor: false, git: false },

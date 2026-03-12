@@ -10,6 +10,14 @@ use super::WebProject;
 impl super::WebStateHandle {
     // ── Mutations ───────────────────────────────────────────────────
 
+    /// Broadcast a toast notification to all connected web clients.
+    pub fn broadcast_toast(&self, message: String, level: &str) {
+        let _ = self.event_tx.send(WebEvent::Toast {
+            message,
+            level: level.to_string(),
+        });
+    }
+
     /// Set the theme colors and broadcast a `ThemeChanged` event to SSE clients.
     pub async fn set_theme(&self, theme: WebThemeColors) {
         {
