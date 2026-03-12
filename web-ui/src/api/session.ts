@@ -158,6 +158,10 @@ export async function replyQuestion(
   return apiPost(`/question/${requestId}/reply`, { answers });
 }
 
+export async function rejectQuestion(requestId: string): Promise<void> {
+  return apiPost(`/question/${requestId}/reject`, {});
+}
+
 /** Pending permissions/questions tracked server-side (survives page reload). */
 export interface PendingResponse {
   permissions: Record<string, unknown>[];

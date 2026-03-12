@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { QuestionRequest } from "./types";
-import { HelpCircle, Send } from "lucide-react";
+import { HelpCircle, Send, X } from "lucide-react";
 
 interface Props {
   questions: QuestionRequest[];
   /** When set, questions from other sessions show a "subagent" badge */
   activeSessionId?: string | null;
   onReply: (requestId: string, answers: string[][]) => void;
+  onDismiss: (requestId: string) => void;
 }
 
-export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply }: Props) {
+export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply, onDismiss }: Props) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Clamp activeTab when questions list changes
@@ -53,6 +54,7 @@ export const QuestionDock = React.memo(function QuestionDock({ questions, active
           question={activeQ}
           isCrossSession={!!activeSessionId && activeQ.sessionID !== activeSessionId}
           onReply={onReply}
+          onDismiss={onDismiss}
         />
       )}
     </div>
@@ -63,10 +65,12 @@ function QuestionCard({
   question,
   isCrossSession,
   onReply,
+  onDismiss,
 }: {
   question: QuestionRequest;
   isCrossSession: boolean;
   onReply: (requestId: string, answers: string[][]) => void;
+  onDismiss: (requestId: string) => void;
 }) {
   const [answers, setAnswers] = useState<string[][]>(
     question.questions.map(() => [])
@@ -125,11 +129,29 @@ function QuestionCard({
     });
   };
 
-  // Handle Enter to submit from anywhere in the card
+  /** True when every sub-question has at least one answer (selected option or custom text). */
+  const hasAnswer = useMemo(() => {
+    return question.questions.every((q, idx) => {
+      const selected = answers[idx] || [];
+      const customText = customTexts[idx]?.trim();
+      if (q.type === "text") return (selected[0] || "").trim().length > 0;
+      return selected.length > 0 || (customText ? customText.length > 0 : false);
+    });
+  }, [question.questions, answers, customTexts]);
+
+  const handleDismiss = useCallback(() => {
+    onDismiss(question.id);
+  }, [question.id, onDismiss]);
+
+  // Handle Enter to submit (only when answered) and Escape to dismiss
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Enter submits (Cmd/Ctrl+Enter for text inputs to allow normal Enter in text)
-      if (e.key === "Enter") {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleDismiss();
+        return;
+      }
+      if (e.key === "Enter" && hasAnswer) {
         const target = e.target as HTMLElement;
         const isTextInput = target.tagName === "INPUT" && (target as HTMLInputElement).type === "text";
         if (!isTextInput || e.metaKey || e.ctrlKey) {
@@ -138,7 +160,7 @@ function QuestionCard({
         }
       }
     },
-    [handleSubmit]
+    [handleSubmit, handleDismiss, hasAnswer]
   );
 
   return (
@@ -147,7 +169,15 @@ function QuestionCard({
         <HelpCircle size={16} className="question-icon" />
         <span className="question-title">{question.title || "Question"}</span>
         {isCrossSession && <span className="question-badge-subagent">subagent</span>}
-        <span className="question-hint">Enter = submit</span>
+        <span className="question-hint">Enter = submit &middot; Esc = dismiss</span>
+        <button
+          className="question-dismiss-btn"
+          onClick={handleDismiss}
+          aria-label="Dismiss question"
+          title="Dismiss (Esc)"
+        >
+          <X size={14} />
+        </button>
       </div>
       <div className="question-body">
         {question.questions.map((q, idx) => (
@@ -237,7 +267,12 @@ function QuestionCard({
         ))}
       </div>
       <div className="question-actions">
-        <button className="question-submit-btn" onClick={handleSubmit} aria-label="Submit answers">
+        <button
+          className="question-submit-btn"
+          onClick={handleSubmit}
+          disabled={!hasAnswer}
+          aria-label="Submit answers"
+        >
           <Send size={14} />
           Submit
         </button>

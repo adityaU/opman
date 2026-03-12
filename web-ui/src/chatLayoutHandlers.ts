@@ -1,6 +1,6 @@
 import {
   sendMessage, abortSession, executeCommand,
-  replyPermission, replyQuestion, selectSession, newSession, switchProject,
+  replyPermission, replyQuestion, rejectQuestion, selectSession, newSession, switchProject,
 } from "./api";
 import type { ImageAttachment, PersonalMemoryItem } from "./api";
 
@@ -179,6 +179,17 @@ export function createHandleQuestionReply(deps: HandlerDeps) {
       deps.clearQuestion(requestId);
     } catch {
       deps.addToast("Failed to send answer", "error");
+    }
+  };
+}
+
+export function createHandleQuestionDismiss(deps: HandlerDeps) {
+  return async (requestId: string) => {
+    try {
+      await rejectQuestion(requestId);
+      deps.clearQuestion(requestId);
+    } catch {
+      deps.addToast("Failed to dismiss question", "error");
     }
   };
 }

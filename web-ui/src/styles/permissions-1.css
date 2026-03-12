@@ -253,14 +253,48 @@
     border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border))
 }
 
-.question-submit-btn:hover {
+.question-submit-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    transform: none;
+    filter: none
+}
+
+.question-submit-btn:hover:not(:disabled) {
     transform: translateY(-1px);
     filter: brightness(1.06)
 }
 
-.question-submit-btn:active {
+.question-submit-btn:active:not(:disabled) {
     transform: translateY(0);
     filter: brightness(.96)
+}
+
+.question-dismiss-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin-left: var(--space-2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-element);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color .15s, background .15s, border-color .15s
+}
+
+.question-dismiss-btn:hover {
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-error) 30%, var(--color-border))
+}
+
+.question-dismiss-btn:active {
+    filter: brightness(.94)
 }
 
 .question-item {

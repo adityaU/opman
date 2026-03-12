@@ -29,8 +29,10 @@ export function useToast() {
     (message: string, type: Toast["type"] = "info", durationMs = 3000) => {
       const id = ++nextId;
       setToasts((prev) => [...prev, { id, message, type }]);
-      const timer = setTimeout(() => removeToast(id), durationMs);
-      timersRef.current.set(id, timer);
+      if (durationMs > 0) {
+        const timer = setTimeout(() => removeToast(id), durationMs);
+        timersRef.current.set(id, timer);
+      }
       return id;
     },
     [removeToast]

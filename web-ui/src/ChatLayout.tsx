@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSSE } from "./hooks/useSSE";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useToast } from "./hooks/useToast";
@@ -76,6 +76,40 @@ export function ChatLayout() {
     window.addEventListener("opman:toast", handler);
     return () => window.removeEventListener("opman:toast", handler);
   }, [addToast]);
+
+  // ── Persistent toasts for cross-session questions / permissions ──
+  const crossToastMapRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    const map = crossToastMapRef.current;
+    const currentIds = new Set<string>();
+
+    // Show toasts for cross-session permissions
+    for (const perm of crossSessionPermissions) {
+      currentIds.add(perm.id);
+      if (!map.has(perm.id)) {
+        const label = perm.toolName || "Permission";
+        const tid = addToast(`**Permission request** from another session: *${label}*`, "warning", 0);
+        map.set(perm.id, tid);
+      }
+    }
+    // Show toasts for cross-session questions
+    for (const q of crossSessionQuestions) {
+      currentIds.add(q.id);
+      if (!map.has(q.id)) {
+        const label = q.title || "Question";
+        const tid = addToast(`**Question** from another session: *${label}*`, "info", 0);
+        map.set(q.id, tid);
+      }
+    }
+    // Remove toasts for resolved items
+    for (const [reqId, toastId] of map.entries()) {
+      if (!currentIds.has(reqId)) {
+        removeToast(toastId);
+        map.delete(reqId);
+      }
+    }
+  }, [crossSessionPermissions, crossSessionQuestions, addToast, removeToast]);
 
   // ── Panels ──
   const panels = usePanelState({
@@ -216,7 +250,7 @@ export function ChatLayout() {
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
         sending={model.sending} currentModel={model.currentModel}
-        allPermissions={allPermissions} allQuestions={allQuestions}
+        allPermissions={permissions} allQuestions={questions}
         activeMemoryItems={assistant.activeMemoryItems}
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
         mcpAgentActivity={mcpAgentActivity} fileEditCount={fileEditCount}
@@ -232,6 +266,7 @@ export function ChatLayout() {
         handleSend={handlers.handleSend} handleAbort={handlers.handleAbort}
         handleCommand={handlers.handleCommand} handlePermissionReply={handlers.handlePermissionReply}
         handleQuestionReply={handlers.handleQuestionReply}
+        handleQuestionDismiss={handlers.handleQuestionDismiss}
         handleSelectSession={handlers.handleSelectSession} handleNewSession={handlers.handleNewSession}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
         handleSearchMatchesChanged={callbacks.handleSearchMatchesChanged}

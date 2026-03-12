@@ -63,6 +63,7 @@ export interface ChatMainAreaProps {
   handleCommand: (command: string, args?: string) => Promise<void>;
   handlePermissionReply: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;
   handleQuestionReply: (requestId: string, answers: string[][]) => Promise<void>;
+  handleQuestionDismiss: (requestId: string) => Promise<void>;
   handleSelectSession: (sessionId: string, projectIdx: number) => Promise<void>;
   handleNewSession: () => Promise<void>;
   handleSwitchProject: (index: number) => Promise<void>;
@@ -175,7 +176,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
           <PermissionDock permissions={p.allPermissions} activeSessionId={p.activeSessionId} onReply={p.handlePermissionReply} />
         )}
         {p.allQuestions.length > 0 && (
-          <QuestionDock questions={p.allQuestions} activeSessionId={p.activeSessionId} onReply={p.handleQuestionReply} />
+          <QuestionDock questions={p.allQuestions} activeSessionId={p.activeSessionId} onReply={p.handleQuestionReply} onDismiss={p.handleQuestionDismiss} />
         )}
 
         {/* Mobile input wrapper */}

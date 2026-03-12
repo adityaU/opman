@@ -44,8 +44,8 @@ describe("PermissionDock", () => {
         onReply={onReply}
       />
     );
-    expect(screen.getByText("bash")).toBeTruthy();
-    expect(screen.getByText("write")).toBeTruthy();
+    expect(screen.getAllByText("bash").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("write").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders tool name", () => {
@@ -180,6 +180,6 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm()]} onReply={onReply} />
     );
-    expect(screen.getByText("Enter=allow, A=always, Esc=reject")).toBeTruthy();
+    expect(screen.getByText("Enter = allow · A = always · Esc = reject")).toBeTruthy();
   });
 });

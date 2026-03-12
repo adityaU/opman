@@ -4,6 +4,7 @@ import type { PersonalMemoryItem } from "../api";
 import {
   createHandleSend, createHandleAbort, createHandleAgentChange,
   createHandleCommand, createHandlePermissionReply, createHandleQuestionReply,
+  createHandleQuestionDismiss,
   createHandleSelectSession, createHandleNewSession, createHandleSwitchProject,
   createHandleModelSelected,
 } from "../chatLayoutHandlers";
@@ -56,6 +57,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const handleCommand = useMemo(() => createHandleCommand(deps), [deps]);
   const handlePermissionReply = useMemo(() => createHandlePermissionReply(deps), [deps]);
   const handleQuestionReply = useMemo(() => createHandleQuestionReply(deps), [deps]);
+  const handleQuestionDismiss = useMemo(() => createHandleQuestionDismiss(deps), [deps]);
   const handleSelectSession = useMemo(() => createHandleSelectSession(deps), [deps]);
   const handleNewSession = useMemo(() => createHandleNewSession(deps), [deps]);
   const handleSwitchProject = useMemo(() => createHandleSwitchProject(deps), [deps]);
@@ -63,7 +65,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
 
   return {
     handleSend, handleAbort, handleAgentChange, handleCommand,
-    handlePermissionReply, handleQuestionReply, handleSelectSession,
+    handlePermissionReply, handleQuestionReply, handleQuestionDismiss,
+    handleSelectSession,
     handleNewSession, handleSwitchProject, handleModelSelected,
   };
 }
