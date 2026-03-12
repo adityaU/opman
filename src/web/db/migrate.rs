@@ -27,105 +27,134 @@ pub fn run_schema_migrations(db: &Db) {
 /// v2 columns: id, goal, session_id, project_index, state, iteration, max_iterations,
 ///             last_verdict, last_eval_summary, eval_history, created_at, updated_at
 ///
-/// Strategy: check for old `title` column. If it exists, we have v1 data.
-/// Recreate the table with v2 schema, migrating any existing rows.
+/// Strategy: check for the v2 `state` column. If it already exists, we're done.
+/// If not, check for the v1 `title` column to extract old data, then drop and
+/// recreate the table with v2 schema.
 fn migrate_missions_v2(db: &Db) {
     let conn = db.conn();
+
+    // If the `state` column already exists, we're on v2 — nothing to do.
+    let has_state = conn.prepare("SELECT state FROM missions LIMIT 0").is_ok();
+    if has_state {
+        return;
+    }
 
     // Check if old `title` column exists (v1 indicator)
     let has_title = conn.prepare("SELECT title FROM missions LIMIT 0").is_ok();
 
-    if !has_title {
-        // Already on v2 schema or fresh install — nothing to do
-        return;
-    }
+    if has_title {
+        info!("migrating missions table from v1 to v2 (goal-driven loop)");
 
-    info!("migrating missions table from v1 to v2 (goal-driven loop)");
+        // Read existing v1 data
+        struct V1Mission {
+            id: String,
+            title: String,
+            goal: String,
+            session_id: Option<String>,
+            project_index: i64,
+            created_at: String,
+            updated_at: String,
+        }
 
-    // Read existing v1 data
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, title, goal, next_action, status, project_index,
-                    session_id, created_at, updated_at
-             FROM missions",
-        )
-        .expect("read v1 missions");
+        let old_missions: Vec<V1Mission> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, title, goal, next_action, status, project_index,
+                            session_id, created_at, updated_at
+                     FROM missions",
+                )
+                .expect("read v1 missions");
 
-    struct V1Mission {
-        id: String,
-        title: String,
-        goal: String,
-        session_id: Option<String>,
-        project_index: i64,
-        created_at: String,
-        updated_at: String,
-    }
-
-    let old_missions: Vec<V1Mission> = stmt
-        .query_map([], |row| {
-            Ok(V1Mission {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                goal: row.get(2)?,
-                session_id: row.get(6)?,
-                project_index: row.get(5)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-            })
-        })
-        .expect("query v1 missions")
-        .filter_map(|r| r.ok())
-        .collect();
-    drop(stmt);
-
-    // Drop and recreate with v2 schema
-    conn.execute_batch(
-        "DROP TABLE IF EXISTS missions;
-         CREATE TABLE missions (
-            id              TEXT PRIMARY KEY,
-            goal            TEXT NOT NULL DEFAULT '',
-            session_id      TEXT NOT NULL DEFAULT '',
-            project_index   INTEGER NOT NULL DEFAULT 0,
-            state           TEXT NOT NULL DEFAULT 'pending',
-            iteration       INTEGER NOT NULL DEFAULT 0,
-            max_iterations  INTEGER NOT NULL DEFAULT 10,
-            last_verdict    TEXT,
-            last_eval_summary TEXT,
-            eval_history    TEXT NOT NULL DEFAULT '[]',
-            created_at      TEXT NOT NULL,
-            updated_at      TEXT NOT NULL
-         );
-         CREATE INDEX IF NOT EXISTS idx_missions_state ON missions(state);
-         CREATE INDEX IF NOT EXISTS idx_missions_session ON missions(session_id);",
-    )
-    .expect("recreate missions table v2");
-
-    // Re-insert old data mapped to v2 model
-    // Goal = old title + goal combined; state = pending
-    for m in &old_missions {
-        let goal = if m.goal.is_empty() {
-            m.title.clone()
-        } else {
-            format!("{}: {}", m.title, m.goal)
+            let rows: Vec<V1Mission> = stmt
+                .query_map([], |row| {
+                    Ok(V1Mission {
+                        id: row.get(0)?,
+                        title: row.get(1)?,
+                        goal: row.get(2)?,
+                        session_id: row.get(6)?,
+                        project_index: row.get(5)?,
+                        created_at: row.get(7)?,
+                        updated_at: row.get(8)?,
+                    })
+                })
+                .expect("query v1 missions")
+                .filter_map(|r| r.ok())
+                .collect();
+            rows
         };
-        let session_id = m.session_id.as_deref().unwrap_or("");
-        conn.execute(
-            "INSERT INTO missions (id, goal, session_id, project_index, state,
-             iteration, max_iterations, eval_history, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 'pending', 0, 10, '[]', ?5, ?6)",
-            params![
-                m.id,
-                goal,
-                session_id,
-                m.project_index,
-                m.created_at,
-                m.updated_at
-            ],
-        )
-        .expect("re-insert mission v2");
-    }
 
-    info!("migrated {} missions from v1 to v2", old_missions.len());
+        // Drop and recreate with v2 schema
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS missions;
+             CREATE TABLE missions (
+                id              TEXT PRIMARY KEY,
+                goal            TEXT NOT NULL DEFAULT '',
+                session_id      TEXT NOT NULL DEFAULT '',
+                project_index   INTEGER NOT NULL DEFAULT 0,
+                state           TEXT NOT NULL DEFAULT 'pending',
+                iteration       INTEGER NOT NULL DEFAULT 0,
+                max_iterations  INTEGER NOT NULL DEFAULT 10,
+                last_verdict    TEXT,
+                last_eval_summary TEXT,
+                eval_history    TEXT NOT NULL DEFAULT '[]',
+                created_at      TEXT NOT NULL,
+                updated_at      TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_missions_state ON missions(state);
+             CREATE INDEX IF NOT EXISTS idx_missions_session ON missions(session_id);",
+        )
+        .expect("recreate missions table v2");
+
+        // Re-insert old data mapped to v2 model
+        for m in &old_missions {
+            let goal = if m.goal.is_empty() {
+                m.title.clone()
+            } else {
+                format!("{}: {}", m.title, m.goal)
+            };
+            let session_id = m.session_id.as_deref().unwrap_or("");
+            conn.execute(
+                "INSERT INTO missions (id, goal, session_id, project_index, state,
+                 iteration, max_iterations, eval_history, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, 'pending', 0, 10, '[]', ?5, ?6)",
+                params![
+                    m.id,
+                    goal,
+                    session_id,
+                    m.project_index,
+                    m.created_at,
+                    m.updated_at
+                ],
+            )
+            .expect("re-insert mission v2");
+        }
+
+        info!("migrated {} missions from v1 to v2", old_missions.len());
+    } else {
+        // Intermediate/unknown schema without `state` — drop and recreate clean.
+        // Any existing rows are from an incompatible schema and cannot be preserved.
+        warn!("missions table missing `state` column — recreating with v2 schema");
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS missions;
+             CREATE TABLE missions (
+                id              TEXT PRIMARY KEY,
+                goal            TEXT NOT NULL DEFAULT '',
+                session_id      TEXT NOT NULL DEFAULT '',
+                project_index   INTEGER NOT NULL DEFAULT 0,
+                state           TEXT NOT NULL DEFAULT 'pending',
+                iteration       INTEGER NOT NULL DEFAULT 0,
+                max_iterations  INTEGER NOT NULL DEFAULT 10,
+                last_verdict    TEXT,
+                last_eval_summary TEXT,
+                eval_history    TEXT NOT NULL DEFAULT '[]',
+                created_at      TEXT NOT NULL,
+                updated_at      TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_missions_state ON missions(state);
+             CREATE INDEX IF NOT EXISTS idx_missions_session ON missions(session_id);",
+        )
+        .expect("recreate missions table v2 (from intermediate)");
+    }
 }
 
 // ── Legacy JSON migration ───────────────────────────────────────────
@@ -240,6 +269,7 @@ fn legacy_json_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Connection;
 
     #[test]
     fn migrate_empty_db_from_json() {
@@ -255,6 +285,110 @@ mod tests {
         // Running schema migrations twice should be safe
         run_schema_migrations(&db);
         run_schema_migrations(&db);
+        assert!(db.list_missions().is_empty());
+    }
+
+    /// Helper: build a Db from a raw Connection that already has a legacy schema.
+    fn db_from_raw(conn: Connection) -> Db {
+        Db {
+            conn: std::sync::Arc::new(std::sync::Mutex::new(conn)),
+        }
+    }
+
+    /// Regression test: an existing v1 missions table (has `title`, no `state`)
+    /// should be migrated to v2 without error.
+    #[test]
+    fn migrate_v1_missions_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+
+        // Create the v1 missions table (as it existed before v2 redesign)
+        conn.execute_batch(
+            "CREATE TABLE missions (
+                id            TEXT PRIMARY KEY,
+                title         TEXT NOT NULL DEFAULT '',
+                goal          TEXT NOT NULL DEFAULT '',
+                next_action   TEXT NOT NULL DEFAULT '',
+                status        TEXT NOT NULL DEFAULT 'active',
+                project_index INTEGER NOT NULL DEFAULT 0,
+                session_id    TEXT,
+                created_at    TEXT NOT NULL,
+                updated_at    TEXT NOT NULL
+            );",
+        )
+        .unwrap();
+
+        // Insert a v1 mission
+        conn.execute(
+            "INSERT INTO missions (id, title, goal, next_action, status,
+             project_index, created_at, updated_at)
+             VALUES ('m1', 'Ship v1', 'Release the first version', 'Write tests',
+                     'active', 0, '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+
+        // Also create remaining tables so the rest of the code works
+        super::super::schema::create_tables(&conn).unwrap();
+
+        let db = db_from_raw(conn);
+
+        // This is the critical call — must not panic
+        run_schema_migrations(&db);
+
+        // Indexes must succeed now that `state` column exists
+        {
+            let conn = db.conn();
+            super::super::schema::create_indexes(&conn).unwrap();
+        }
+
+        // The old mission should have been migrated
+        let missions = db.list_missions();
+        assert_eq!(missions.len(), 1);
+        assert_eq!(missions[0].id, "m1");
+        assert!(missions[0].goal.contains("Ship v1"));
+    }
+
+    /// Regression test: a missions table with neither `title` nor `state`
+    /// (intermediate/corrupt schema) should be dropped and recreated cleanly.
+    #[test]
+    fn migrate_intermediate_missions_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+
+        // Create an intermediate missions table (no `title`, no `state`)
+        conn.execute_batch(
+            "CREATE TABLE missions (
+                id         TEXT PRIMARY KEY,
+                goal       TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );",
+        )
+        .unwrap();
+
+        // Insert a row in the broken schema
+        conn.execute(
+            "INSERT INTO missions (id, goal, created_at, updated_at)
+             VALUES ('m1', 'orphan', '2025-01-01', '2025-01-01')",
+            [],
+        )
+        .unwrap();
+
+        // Create remaining tables
+        super::super::schema::create_tables(&conn).unwrap();
+
+        let db = db_from_raw(conn);
+
+        // Must not panic — should drop and recreate
+        run_schema_migrations(&db);
+
+        {
+            let conn = db.conn();
+            super::super::schema::create_indexes(&conn).unwrap();
+        }
+
+        // Old incompatible rows are dropped
         assert!(db.list_missions().is_empty());
     }
 }

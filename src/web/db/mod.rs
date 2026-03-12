@@ -4,15 +4,15 @@
 //! Uses a single `rusqlite::Connection` wrapped in a `Mutex` for
 //! thread-safe access from async handlers (via `spawn_blocking`).
 
-mod schema;
-mod missions;
-mod memory;
-mod routines;
 mod delegation;
-mod workspaces;
+mod memory;
+pub(crate) mod migrate;
+mod missions;
+mod routines;
+mod schema;
 mod settings;
 mod signals;
-pub(crate) mod migrate;
+mod workspaces;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -52,9 +52,21 @@ impl Db {
 
         info!("opened assistant database at {}", path.display());
 
-        Ok(Self {
+        let db = Self {
             conn: Arc::new(Mutex::new(conn)),
-        })
+        };
+
+        // Run schema migrations before creating indexes — migrations may
+        // drop/recreate tables to add missing columns (e.g. `state` on
+        // missions), so indexes that reference those columns must come after.
+        migrate::run_schema_migrations(&db);
+
+        {
+            let conn = db.conn();
+            schema::create_indexes(&conn)?;
+        }
+
+        Ok(db)
     }
 
     /// Open an in-memory database (for tests).
@@ -63,9 +75,15 @@ impl Db {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         schema::create_tables(&conn)?;
-        Ok(Self {
+        let db = Self {
             conn: Arc::new(Mutex::new(conn)),
-        })
+        };
+        migrate::run_schema_migrations(&db);
+        {
+            let conn = db.conn();
+            schema::create_indexes(&conn)?;
+        }
+        Ok(db)
     }
 
     /// Acquire the connection lock. All public CRUD methods use this.

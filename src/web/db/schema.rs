@@ -2,6 +2,8 @@
 
 use rusqlite::Connection;
 
+/// Create all tables (IF NOT EXISTS). Safe to call on existing databases
+/// — will not alter existing table schemas (use migrations for that).
 pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     conn.execute_batch(
         "
@@ -91,8 +93,16 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
             created_at REAL NOT NULL DEFAULT 0,
             session_id TEXT
         );
+        ",
+    )?;
+    Ok(())
+}
 
-        -- ── Indexes ─────────────────────────────────────────────────
+/// Create indexes. Called AFTER schema migrations have ensured all columns
+/// exist, so column references are guaranteed valid.
+pub(super) fn create_indexes(conn: &Connection) -> anyhow::Result<()> {
+    conn.execute_batch(
+        "
         CREATE INDEX IF NOT EXISTS idx_missions_state
             ON missions(state);
         CREATE INDEX IF NOT EXISTS idx_missions_session
