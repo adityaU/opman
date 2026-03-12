@@ -8,6 +8,8 @@ use super::state::WebSessionTime;
 
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct WebSessionStats {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub session_id: String,
     pub cost: f64,
     pub input_tokens: u64,
     pub output_tokens: u64,

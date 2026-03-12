@@ -38,6 +38,7 @@ export interface PanelVisibility {
 }
 
 export interface SessionStats {
+  session_id?: string;
   cost: number;
   input_tokens: number;
   output_tokens: number;

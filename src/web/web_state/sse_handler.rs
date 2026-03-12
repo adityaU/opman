@@ -74,6 +74,7 @@ pub(super) async fn handle_web_sse_event(
                 let cache_write = cache.get("write").and_then(|v| v.as_u64()).unwrap_or(0);
 
                 let stats = WebSessionStats {
+                    session_id: session_id.clone(),
                     cost,
                     input_tokens: input,
                     output_tokens: output,

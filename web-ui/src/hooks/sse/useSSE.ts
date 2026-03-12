@@ -28,7 +28,7 @@ const MESSAGE_PAGE_SIZE = 50;
 const MAX_SESSION_CACHE = 20;
 
 /** Cached state for a previously-visited session. */
-interface CachedSession {
+export interface CachedSession {
   messageMap: MessageMap;
   subagentMaps: Map<string, MessageMap>;
   stats: SessionStats | null;
@@ -421,7 +421,7 @@ export function useSSE(): SSEState {
     // App SSE
     const appSSE = createEventsSSE();
     setupAppSSEListeners(appSSE, {
-      activeSessionRef, refreshState, touchEvent, recoverAfterReconnect,
+      activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
       setBusySessions, setSessionStatus, setStats, setWatcherStatus,
       setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId,
       setMcpAgentActivity, setPresenceClients, setLiveActivityEvents,

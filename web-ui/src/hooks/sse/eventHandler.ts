@@ -2,6 +2,7 @@ import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../ty
 import type { SessionStats, ActivityEvent, ClientPresence, Mission } from "../../api";
 import { applyThemeToCss } from "../../utils/theme";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen } from "./types";
+import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart } from "./messageMap";
 
@@ -11,7 +12,7 @@ export interface EventHandlerContext {
   messageMapRef: { current: MessageMap };
   subagentMapsRef: { current: Map<string, MessageMap> };
   /** LRU cache of previously-visited sessions — events for cached sessions update in background. */
-  sessionCacheRef: { current: Map<string, { messageMap: MessageMap; subagentMaps: Map<string, MessageMap>; lastAccess: number }> };
+  sessionCacheRef: { current: Map<string, CachedSession> };
   flushMessages: () => void;
   flushSubagentMessages: () => void;
   refreshState: () => void;
@@ -47,6 +48,14 @@ function getCachedMessageMap(
   return cached ? cached.messageMap : null;
 }
 
+/** Get the full CachedSession entry for a non-active session, or null. */
+function getCachedSession(
+  ctx: EventHandlerContext,
+  sessionId: string,
+): CachedSession | null {
+  return ctx.sessionCacheRef.current.get(sessionId) ?? null;
+}
+
 /** Route an opencode SSE event to the appropriate React state updaters. */
 export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEvent): void {
   const props = event.properties || {};
@@ -60,8 +69,23 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       // Route to subagent map if not the active session
       if (ctx.activeSessionRef.current && msgSessionId && msgSessionId !== ctx.activeSessionRef.current) {
         // Also update the session cache if this session is cached (background update)
-        const cachedMap = getCachedMessageMap(ctx, msgSessionId);
-        if (cachedMap) upsertMessageInfo(cachedMap, info);
+        const cached = getCachedSession(ctx, msgSessionId);
+        if (cached) {
+          upsertMessageInfo(cached.messageMap, info);
+          // Update cached stats from message cost/tokens
+          if (info.cost !== undefined || info.tokens !== undefined) {
+            const tokens = info.tokens as Record<string, unknown> | undefined;
+            const cacheTokens = tokens?.cache as Record<string, number> | undefined;
+            cached.stats = {
+              cost: (info.cost as number) ?? cached.stats?.cost ?? 0,
+              input_tokens: (tokens?.input as number) ?? cached.stats?.input_tokens ?? 0,
+              output_tokens: (tokens?.output as number) ?? cached.stats?.output_tokens ?? 0,
+              reasoning_tokens: (tokens?.reasoning as number) ?? cached.stats?.reasoning_tokens ?? 0,
+              cache_read: cacheTokens?.read ?? cached.stats?.cache_read ?? 0,
+              cache_write: cacheTokens?.write ?? cached.stats?.cache_write ?? 0,
+            };
+          }
+        }
 
         const subMap = getOrCreateSubMap(ctx.subagentMapsRef, msgSessionId);
         if (upsertMessageInfo(subMap, info)) ctx.flushSubagentMessages();
@@ -132,8 +156,10 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
 
       if (ctx.activeSessionRef.current && rmSessionId && rmSessionId !== ctx.activeSessionRef.current) {
         // Update cached session if present
-        const cachedMap = getCachedMessageMap(ctx, rmSessionId);
-        if (cachedMap) removeMessage(cachedMap, msgId);
+        const cached = getCachedSession(ctx, rmSessionId);
+        if (cached && removeMessage(cached.messageMap, msgId)) {
+          cached.totalMessageCount = Math.max(0, cached.totalMessageCount - 1);
+        }
         // Also update subagent map
         const subMap = ctx.subagentMapsRef.current.get(rmSessionId);
         if (subMap && removeMessage(subMap, msgId)) ctx.flushSubagentMessages();
@@ -178,9 +204,16 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
 
     case "session.created":
     case "session.updated":
-    case "session.deleted":
       ctx.refreshState();
       break;
+
+    case "session.deleted": {
+      // Evict deleted session from the LRU cache
+      const deletedSid = (props.sessionID ?? props.id ?? "") as string;
+      if (deletedSid) ctx.sessionCacheRef.current.delete(deletedSid);
+      ctx.refreshState();
+      break;
+    }
 
     case "permission.asked": {
       const perm: PermissionRequest = {
@@ -246,12 +279,20 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
         detail: { sessionID: (props.sessionID as string) || "" },
       }));
       break;
-    case "file.edited": ctx.setFileEditCount((prev) => prev + 1); break;
+    case "file.edited": {
+      const editSessionId = (props.sessionID as string) || "";
+      // Only increment for the active session (or if no sessionID is provided for backward compat)
+      if (!editSessionId || editSessionId === ctx.activeSessionRef.current) {
+        ctx.setFileEditCount((prev) => prev + 1);
+      }
+      break;
+    }
   }
 }
 /** Setters for app-level SSE events (used by setupAppSSE). */
 export interface AppSSEContext {
   activeSessionRef: { current: string | null };
+  sessionCacheRef: { current: Map<string, CachedSession> };
   refreshState: () => void;
   touchEvent: () => void;
   recoverAfterReconnect: () => void;
@@ -292,7 +333,18 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
     if (e.data === ctx.activeSessionRef.current) ctx.setSessionStatus("idle");
   });
   appSSE.addEventListener("stats_updated", (e: MessageEvent) => {
-    try { ctx.setStats(JSON.parse(e.data)); } catch { /* ignore */ }
+    try {
+      const data = JSON.parse(e.data) as SessionStats;
+      const statsSid = data.session_id || "";
+      // If the stats belong to the active session (or no session_id for backward compat), update display
+      if (!statsSid || statsSid === ctx.activeSessionRef.current) {
+        ctx.setStats(data);
+      } else {
+        // Update cached session stats in the background
+        const cached = ctx.sessionCacheRef.current.get(statsSid);
+        if (cached) cached.stats = data;
+      }
+    } catch { /* ignore */ }
   });
   appSSE.addEventListener("theme_changed", (e: MessageEvent) => {
     try { applyThemeToCss(JSON.parse(e.data)); } catch { /* ignore */ }
@@ -345,6 +397,15 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
           const next = [...prev, data];
           return next.length > 200 ? next.slice(-200) : next;
         });
+      } else if (data.session_id) {
+        // Append to cached session's activity events (background update)
+        const cached = ctx.sessionCacheRef.current.get(data.session_id);
+        if (cached) {
+          cached.liveActivityEvents = [...cached.liveActivityEvents, data];
+          if (cached.liveActivityEvents.length > 200) {
+            cached.liveActivityEvents = cached.liveActivityEvents.slice(-200);
+          }
+        }
       }
     } catch { /* ignore */ }
   });
