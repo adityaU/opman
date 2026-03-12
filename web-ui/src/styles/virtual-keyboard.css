@@ -33,7 +33,7 @@
         align-items: flex-start
     }
 
-    /* ── Panel styling: rounded corners flip, animation flips, max-height capped ── */
+    /* ── Panel styling: no radius (flush to top), animation flips, max-height capped ── */
     [data-vkb-open] .command-palette,
     [data-vkb-open] .model-picker,
     [data-vkb-open] .agent-picker,
@@ -47,13 +47,13 @@
     [data-vkb-open] .ctx-window-modal,
     [data-vkb-open] .diff-review-modal,
     [data-vkb-open] .cross-session-search-modal {
-        border-radius: 0 0 20px 20px;
+        border-radius: 0;
         animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
         max-height: var(--vkb-height, 50vh)
     }
 
     [data-vkb-open] .sb-modal {
-        border-radius: 0 0 20px 20px;
+        border-radius: 0;
         animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
         max-height: var(--vkb-height, 50vh)
     }
@@ -70,13 +70,13 @@
     [data-vkb-open] .missions-modal,
     [data-vkb-open] .notification-prefs-modal,
     [data-vkb-open] .workspace-mgr-modal {
-        border-radius: 0 0 20px 20px;
+        border-radius: 0;
         animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
         max-height: var(--vkb-height, 50vh)
     }
 
     [data-vkb-open] .pr-description-modal {
-        border-radius: 0 0 20px 20px;
+        border-radius: 0;
         animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards;
         max-height: var(--vkb-height, 50vh)
     }
