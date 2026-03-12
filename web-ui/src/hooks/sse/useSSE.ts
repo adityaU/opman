@@ -66,6 +66,27 @@ export function useSSE(): SSEState {
   const appliedTitleRef = useRef<string | null>(null);
 
   const sessionGenRef = useRef(0);
+
+  // Keep refs in sync so reclassifyInteractions can read current values synchronously.
+  const permissionsRef = useRef<PermissionRequest[]>([]);
+  const questionsRef = useRef<QuestionRequest[]>([]);
+  const crossPermissionsRef = useRef<PermissionRequest[]>([]);
+  const crossQuestionsRef = useRef<QuestionRequest[]>([]);
+  useEffect(() => { permissionsRef.current = permissions; }, [permissions]);
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
+  useEffect(() => { crossPermissionsRef.current = crossSessionPermissions; }, [crossSessionPermissions]);
+  useEffect(() => { crossQuestionsRef.current = crossSessionQuestions; }, [crossSessionQuestions]);
+
+  /** Reclassify all pending permissions/questions when the active session changes.
+   *  Items belonging to `newSid` become active; everything else becomes cross-session. */
+  const reclassifyInteractions = useCallback((newSid: string | null) => {
+    const allPerms = [...permissionsRef.current, ...crossPermissionsRef.current];
+    const allQs = [...questionsRef.current, ...crossQuestionsRef.current];
+    setPermissions(newSid ? allPerms.filter((p) => p.sessionID === newSid) : []);
+    setCrossSessionPermissions(newSid ? allPerms.filter((p) => p.sessionID !== newSid) : allPerms);
+    setQuestions(newSid ? allQs.filter((q) => q.sessionID === newSid) : []);
+    setCrossSessionQuestions(newSid ? allQs.filter((q) => q.sessionID !== newSid) : allQs);
+  }, []);
   const messageMapRef = useRef<MessageMap>(new Map());
   const subagentMapsRef = useRef<Map<string, MessageMap>>(new Map());
 
@@ -338,6 +359,12 @@ export function useSSE(): SSEState {
       const gen = sessionGenRef.current;
       activeSessionRef.current = sid;
 
+      // Reclassify permissions/questions based on new active session.
+      // Items belonging to the new active session move to the active arrays;
+      // everything else goes to cross-session.  This prevents stale questions
+      // from a previous session from lingering in the inline dock.
+      reclassifyInteractions(sid);
+
       if (sid) {
         // Try to restore from cache (instant switch)
         const restored = restoreSessionFromCache(sid);
@@ -403,7 +430,7 @@ export function useSSE(): SSEState {
         setIsLoadingMessages(false);
       }
     }
-  }, [appState, saveCurrentSessionToCache, restoreSessionFromCache]);
+  }, [appState, saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions]);
 
   // ── SSE connections (set up once on mount) ────────────────────
   useEffect(() => {
