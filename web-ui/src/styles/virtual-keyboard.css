@@ -1,0 +1,154 @@
+/* ── Virtual-keyboard-aware bottom-sheet positioning ──
+   When the software keyboard is open (`data-vkb-open` on <html>),
+   mobile bottom-sheet modals flip to top-alignment so they stay
+   visible above the keyboard. When the keyboard closes, they
+   return to normal bottom-sheet positioning. ── */
+
+/* ── Backdrop containers: flex-end → flex-start ── */
+@media (max-width: 768px) {
+    [data-vkb-open] .modal-backdrop {
+        align-items: flex-start;
+        padding-top: env(safe-area-inset-top, 0px)
+    }
+
+    [data-vkb-open] .sb-modal-overlay {
+        align-items: flex-start
+    }
+
+    [data-vkb-open] .session-graph-overlay,
+    [data-vkb-open] .session-dashboard-overlay,
+    [data-vkb-open] .activity-feed-overlay,
+    [data-vkb-open] .assistant-inbox-overlay,
+    [data-vkb-open] .assistant-center-overlay,
+    [data-vkb-open] .memory-overlay,
+    [data-vkb-open] .autonomy-overlay,
+    [data-vkb-open] .routines-overlay,
+    [data-vkb-open] .delegation-overlay,
+    [data-vkb-open] .missions-overlay,
+    [data-vkb-open] .workspace-mgr-overlay {
+        align-items: flex-start
+    }
+
+    [data-vkb-open] .pr-description-modal-overlay {
+        align-items: flex-start
+    }
+
+    /* ── Panel styling: rounded corners flip to bottom, animation flips ── */
+    [data-vkb-open] .command-palette,
+    [data-vkb-open] .model-picker,
+    [data-vkb-open] .agent-picker,
+    [data-vkb-open] .theme-selector,
+    [data-vkb-open] .cheatsheet-modal,
+    [data-vkb-open] .todo-panel-modal,
+    [data-vkb-open] .session-selector-modal,
+    [data-vkb-open] .context-input-modal,
+    [data-vkb-open] .settings-modal,
+    [data-vkb-open] .watcher-modal,
+    [data-vkb-open] .ctx-window-modal,
+    [data-vkb-open] .diff-review-modal,
+    [data-vkb-open] .cross-session-search-modal {
+        border-radius: 0 0 20px 20px;
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+    }
+
+    [data-vkb-open] .sb-modal {
+        border-radius: 0 0 20px 20px;
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+    }
+
+    [data-vkb-open] .session-graph-panel,
+    [data-vkb-open] .session-dashboard-panel,
+    [data-vkb-open] .activity-feed-panel,
+    [data-vkb-open] .assistant-inbox-modal,
+    [data-vkb-open] .assistant-center-modal,
+    [data-vkb-open] .memory-modal,
+    [data-vkb-open] .autonomy-modal,
+    [data-vkb-open] .routines-modal,
+    [data-vkb-open] .delegation-modal,
+    [data-vkb-open] .missions-modal,
+    [data-vkb-open] .notification-prefs-modal,
+    [data-vkb-open] .workspace-mgr-modal {
+        border-radius: 0 0 20px 20px;
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+    }
+
+    [data-vkb-open] .pr-description-modal {
+        border-radius: 0 0 20px 20px;
+        animation: modal-sheet-down .3s cubic-bezier(.4, 0, .2, 1) forwards
+    }
+
+    /* ── Drag-handle pill: move to bottom of panel instead of top ── */
+    [data-vkb-open] .command-palette:before,
+    [data-vkb-open] .model-picker:before,
+    [data-vkb-open] .agent-picker:before,
+    [data-vkb-open] .theme-selector:before,
+    [data-vkb-open] .cheatsheet-modal:before,
+    [data-vkb-open] .todo-panel-modal:before,
+    [data-vkb-open] .session-selector-modal:before,
+    [data-vkb-open] .context-input-modal:before,
+    [data-vkb-open] .settings-modal:before,
+    [data-vkb-open] .watcher-modal:before,
+    [data-vkb-open] .ctx-window-modal:before,
+    [data-vkb-open] .diff-review-modal:before,
+    [data-vkb-open] .cross-session-search-modal:before,
+    [data-vkb-open] .sb-modal:before,
+    [data-vkb-open] .session-graph-panel:before,
+    [data-vkb-open] .session-dashboard-panel:before,
+    [data-vkb-open] .activity-feed-panel:before,
+    [data-vkb-open] .assistant-inbox-modal:before,
+    [data-vkb-open] .assistant-center-modal:before,
+    [data-vkb-open] .memory-modal:before,
+    [data-vkb-open] .autonomy-modal:before,
+    [data-vkb-open] .routines-modal:before,
+    [data-vkb-open] .delegation-modal:before,
+    [data-vkb-open] .missions-modal:before,
+    [data-vkb-open] .notification-prefs-modal:before,
+    [data-vkb-open] .workspace-mgr-modal:before,
+    [data-vkb-open] .pr-description-modal:before {
+        display: none
+    }
+
+    /* ── Safe-area padding: swap bottom→top for panels that used padding-bottom ── */
+    [data-vkb-open] .command-palette,
+    [data-vkb-open] .model-picker,
+    [data-vkb-open] .agent-picker,
+    [data-vkb-open] .theme-selector,
+    [data-vkb-open] .cheatsheet-modal,
+    [data-vkb-open] .todo-panel-modal,
+    [data-vkb-open] .session-selector-modal,
+    [data-vkb-open] .context-input-modal,
+    [data-vkb-open] .settings-modal,
+    [data-vkb-open] .watcher-modal,
+    [data-vkb-open] .ctx-window-modal,
+    [data-vkb-open] .diff-review-modal,
+    [data-vkb-open] .cross-session-search-modal,
+    [data-vkb-open] .session-graph-panel,
+    [data-vkb-open] .session-dashboard-panel,
+    [data-vkb-open] .activity-feed-panel,
+    [data-vkb-open] .assistant-inbox-modal,
+    [data-vkb-open] .assistant-center-modal,
+    [data-vkb-open] .memory-modal,
+    [data-vkb-open] .autonomy-modal,
+    [data-vkb-open] .routines-modal,
+    [data-vkb-open] .delegation-modal,
+    [data-vkb-open] .missions-modal,
+    [data-vkb-open] .notification-prefs-modal,
+    [data-vkb-open] .workspace-mgr-modal,
+    [data-vkb-open] .pr-description-modal {
+        padding-bottom: 0;
+        padding-top: env(safe-area-inset-top, 0px)
+    }
+}
+
+/* ── Animation: slide down from top ── */
+@keyframes modal-sheet-down {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1
+    }
+}

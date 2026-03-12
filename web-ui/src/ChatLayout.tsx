@@ -8,6 +8,7 @@ import { useModalState } from "./hooks/useModalState";
 import type { ModalName } from "./hooks/useModalState";
 import { usePanelState } from "./hooks/usePanelState";
 import { useMobileState } from "./hooks/useMobileState";
+import { useVirtualKeyboard } from "./hooks/useVirtualKeyboard";
 import { useModelState } from "./hooks/useModelState";
 import { useAssistantState } from "./hooks/useAssistantState";
 import { useUrlRestore } from "./hooks/useUrlRestore";
@@ -127,6 +128,7 @@ export function ChatLayout() {
 
   // ── Mobile ──
   const mobile = useMobileState();
+  useVirtualKeyboard();
 
   // ── Model / Agent ──
   const model = useModelState(messages, providers);
