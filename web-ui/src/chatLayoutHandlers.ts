@@ -56,6 +56,7 @@ const MODAL_COMMANDS: Record<string, string> = {
   "assistant-center": "assistantCenter", inbox: "inbox",
   memory: "memory", autonomy: "autonomy", routines: "routines",
   delegation: "delegation", missions: "missions", workspaces: "workspaceManager",
+  system: "systemMonitor", htop: "systemMonitor", monitor: "systemMonitor",
 };
 
 const TOGGLE_COMMANDS = new Set(["terminal", "neovim", "nvim", "git", "split-view"]);

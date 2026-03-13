@@ -107,6 +107,13 @@ export default function CodeEditorPanel({
     saving: explorer.saving,
     handleSave: explorer.handleSave,
     handleRevert: explorer.handleRevert,
+    // File management
+    onCreateFile: explorer.handleCreateFile,
+    onCreateDir: explorer.handleCreateDir,
+    onDeleteFile: explorer.handleDeleteFile,
+    onDeleteDir: explorer.handleDeleteDir,
+    onUploadFiles: explorer.handleUploadFiles,
+    fileActionBusy: explorer.fileActionBusy,
   };
 
   if (editor.isDesktop) {
@@ -127,6 +134,7 @@ export default function CodeEditorPanel({
         setSaveStatus={explorer.setSaveStatus}
         closeFile={explorer.closeFile}
         loadFile={explorer.loadFile}
+        currentPath={explorer.currentPath}
       />
     );
   }
@@ -140,6 +148,7 @@ export default function CodeEditorPanel({
       loadDirectory={explorer.loadDirectory}
       onEntryClick={handleEntryClick}
       onBackToBrowser={handleBackToBrowser}
+      currentPath={explorer.currentPath}
     />
   );
 }

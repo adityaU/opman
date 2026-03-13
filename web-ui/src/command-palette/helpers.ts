@@ -11,16 +11,20 @@ export function filterItems(items: PaletteItem[], query: string): PaletteItem[] 
   );
 }
 
-/** Group filtered items by category */
+/** Group filtered items by category (globally, preserving first-seen order) */
 export function groupItems(filtered: PaletteItem[]): Array<{ category: string; items: PaletteItem[] }> {
-  const sections: Array<{ category: string; items: PaletteItem[] }> = [];
+  const map = new Map<string, PaletteItem[]>();
   for (const item of filtered) {
-    const current = sections[sections.length - 1];
-    if (current && current.category === item.category) {
-      current.items.push(item);
+    const existing = map.get(item.category);
+    if (existing) {
+      existing.push(item);
     } else {
-      sections.push({ category: item.category, items: [item] });
+      map.set(item.category, [item]);
     }
+  }
+  const sections: Array<{ category: string; items: PaletteItem[] }> = [];
+  for (const [category, items] of map) {
+    sections.push({ category, items });
   }
   return sections;
 }

@@ -26,7 +26,7 @@ pub struct GitDiffResponse {
     pub diff: String,
 }
 
-/// Query params for `GET /api/git/diff?file=...&staged=...`.
+/// Query params for `GET /api/git/diff?file=...&staged=...&repo=...`.
 #[derive(Deserialize)]
 pub struct GitDiffQuery {
     /// File path relative to repo root.
@@ -34,6 +34,9 @@ pub struct GitDiffQuery {
     /// If true, show staged (cached) diff. Default: false (unstaged).
     #[serde(default)]
     pub staged: bool,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// A single commit entry.
@@ -52,11 +55,14 @@ pub struct GitLogResponse {
     pub commits: Vec<GitLogEntry>,
 }
 
-/// Query params for `GET /api/git/log?limit=...`.
+/// Query params for `GET /api/git/log?limit=...&repo=...`.
 #[derive(Deserialize)]
 pub struct GitLogQuery {
     /// Max number of commits to return (default 50).
     pub limit: Option<u32>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Request body for `POST /api/git/stage`.
@@ -64,6 +70,9 @@ pub struct GitLogQuery {
 pub struct GitStageRequest {
     /// File paths to stage. Empty = stage all.
     pub files: Vec<String>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Request body for `POST /api/git/unstage`.
@@ -71,12 +80,18 @@ pub struct GitStageRequest {
 pub struct GitUnstageRequest {
     /// File paths to unstage. Empty = unstage all.
     pub files: Vec<String>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Request body for `POST /api/git/commit`.
 #[derive(Deserialize)]
 pub struct GitCommitRequest {
     pub message: String,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Response for `POST /api/git/commit`.
@@ -91,13 +106,19 @@ pub struct GitCommitResponse {
 pub struct GitDiscardRequest {
     /// File paths to discard changes for.
     pub files: Vec<String>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
-/// Query params for `GET /api/git/show?hash=...`.
+/// Query params for `GET /api/git/show?hash=...&repo=...`.
 #[derive(Deserialize)]
 pub struct GitShowQuery {
     /// Commit hash (full or short).
     pub hash: String,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Response for `GET /api/git/show`.
@@ -135,6 +156,9 @@ pub struct GitBranchesResponse {
 pub struct GitCheckoutRequest {
     /// Branch name to switch to.
     pub branch: String,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Response for `POST /api/git/checkout`.
@@ -149,13 +173,16 @@ pub struct GitCheckoutResponse {
     pub message: Option<String>,
 }
 
-/// Query params for `GET /api/git/range-diff?base=<branch>&limit=<n>`.
+/// Query params for `GET /api/git/range-diff?base=<branch>&limit=<n>&repo=...`.
 #[derive(Deserialize)]
 pub struct GitRangeDiffQuery {
     /// Base branch to diff against (e.g. "main", "origin/main"). Default: "main".
     pub base: Option<String>,
     /// Max number of commits to include (default 50).
     pub limit: Option<u32>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }
 
 /// Response for `GET /api/git/range-diff`.
@@ -188,4 +215,37 @@ pub struct GitContextSummaryResponse {
     pub untracked_count: usize,
     /// Short summary suitable for AI context injection.
     pub summary: String,
+}
+
+// ── Multi-repo discovery types ──────────────────────────────────────
+
+/// A discovered git repository within the workspace.
+#[derive(Serialize, Clone)]
+pub struct GitRepoEntry {
+    /// Relative path from the project root to the repo root (e.g. "." or "packages/core").
+    pub path: String,
+    /// Human-friendly name (directory name or "root").
+    pub name: String,
+    /// Current branch.
+    pub branch: String,
+    /// Quick change counts.
+    pub staged_count: usize,
+    pub unstaged_count: usize,
+    pub untracked_count: usize,
+}
+
+/// Response for `GET /api/git/repos`.
+#[derive(Serialize)]
+pub struct GitReposResponse {
+    /// All git repositories discovered under the workspace root.
+    pub repos: Vec<GitRepoEntry>,
+}
+
+/// Query param used by repo-scoped git endpoints: `?repo=<relative_path>`.
+/// When omitted, falls back to the project root (existing single-repo behaviour).
+#[derive(Deserialize, Default)]
+pub struct GitRepoScope {
+    /// Relative path to the repo root from the project dir (default: ".").
+    #[serde(default)]
+    pub repo: String,
 }

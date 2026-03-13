@@ -245,5 +245,11 @@ pub fn build_commands(keys: &KeyBindings) -> Vec<CommandEntry> {
             keys_hint: "".into(),
             action: CommandAction::SlackLogs,
         },
+        CommandEntry {
+            name: "Routines".into(),
+            shorthand: "routines automations".into(),
+            keys_hint: leader_hint(keys, &keys.leader_routine),
+            action: CommandAction::ToggleRoutinePanel,
+        },
     ]
 }

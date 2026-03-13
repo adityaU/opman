@@ -53,6 +53,8 @@ pub enum WebEvent {
     MissionUpdated {
         mission: serde_json::Value,
     },
+    /// Routine configuration or run state changed.
+    RoutineUpdated,
     /// Toast notification from the TUI (status bar messages).
     Toast {
         message: String,

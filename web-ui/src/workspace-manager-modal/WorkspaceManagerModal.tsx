@@ -139,6 +139,7 @@ export function WorkspaceManagerModal({
           </button>
         </div>
 
+        <div className="workspace-mgr-scrollable">
         <div className="workspace-mgr-save">
           <div className="workspace-mgr-save-fields">
             <input
@@ -238,6 +239,7 @@ export function WorkspaceManagerModal({
               ))
             )}
           </div>
+        </div>
         </div>
 
         <div className="workspace-mgr-footer">

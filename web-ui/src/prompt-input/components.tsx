@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  Cpu, ChevronDown, Bot, Brain, AtSign, X,
+  Cpu, ChevronDown, Brain, AtSign, X,
   ImageIcon, Paperclip, Send, Square, Loader2,
 } from "lucide-react";
 import type { AgentInfo, ImageAttachment } from "../api";
@@ -35,10 +35,8 @@ export function SelectorChips({
         <ChevronDown size={9} />
       </button>
       <button className="prompt-chip" onClick={onOpenAgentPicker} title="Change agent" disabled={disabled}
-        style={chipColor ? { borderColor: `${chipColor}33` } : undefined}>
-        {chipColor
-          ? <span className="prompt-agent-dot" style={{ backgroundColor: chipColor }} />
-          : <Bot size={11} />}
+        style={{ borderColor: `color-mix(in srgb, ${chipColor} 20%, transparent)` }}>
+        <span className="prompt-agent-dot" style={{ backgroundColor: chipColor }} />
         <span className="prompt-chip-label">{label}</span>
         <ChevronDown size={9} />
       </button>
@@ -71,7 +69,7 @@ export function AgentMentionPills({ agentMentions, allAgents, onRemove }: AgentM
         const color = agentColor(id, info?.color);
         return (
           <span key={id} className="prompt-agent-pill"
-            style={color ? { borderColor: `${color}44`, backgroundColor: `${color}11` } : undefined}>
+            style={{ borderColor: `color-mix(in srgb, ${color} 27%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 7%, transparent)` }}>
             <AtSign size={10} />
             <span>{info?.label || id}</span>
             <button className="prompt-agent-pill-remove" onClick={() => onRemove(id)}

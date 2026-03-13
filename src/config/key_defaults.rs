@@ -119,6 +119,9 @@ pub(crate) fn default_leader_context() -> String {
 pub(crate) fn default_leader_slack() -> String {
     "S".into()
 }
+pub(crate) fn default_leader_routine() -> String {
+    "R".into()
+}
 pub(crate) fn default_leader_project() -> String {
     "p".into()
 }

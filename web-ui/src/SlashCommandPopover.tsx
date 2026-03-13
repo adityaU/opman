@@ -44,6 +44,7 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "routines", description: "Manage assistant routines" },
   { name: "delegation", description: "Open delegation board" },
   { name: "workspaces", description: "Open workspaces and recipes" },
+  { name: "system", description: "Open system monitor (htop)" },
 ];
 
 export function SlashCommandPopover({

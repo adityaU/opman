@@ -13,12 +13,16 @@ export function useTerminalTabs() {
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const tabCounter = useRef(0);
 
-  // Close kind menu on outside click
+  // Close kind menu on outside click (use mousedown to avoid race with React onClick)
   useEffect(() => {
     if (!kindMenuOpen) return;
-    const handler = () => setKindMenuOpen(false);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    const handler = (e: MouseEvent) => {
+      const wrapper = document.querySelector(".term-tab-new-wrapper");
+      if (wrapper && wrapper.contains(e.target as Node)) return;
+      setKindMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [kindMenuOpen]);
 
   const createTab = useCallback((kind: PtyKind) => {

@@ -80,6 +80,10 @@ pub(super) fn render_overlays(frame: &mut Frame, app: &App, size: Rect) {
         super::todo_panel::render_todo_panel(app, size, frame.buffer_mut());
     }
 
+    if app.routine_panel.is_some() {
+        super::routine_panel::render_routine_panel(app, size, frame.buffer_mut());
+    }
+
     if app.context_input.is_some() {
         let ci = super::context_input::ContextInput::new(app);
         ci.render_popup(size, frame.buffer_mut());

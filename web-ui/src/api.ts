@@ -11,3 +11,4 @@ export * from "./api/watchers";
 export * from "./api/missions";
 export * from "./api/workflows";
 export * from "./api/intelligence";
+export * from "./api/system";

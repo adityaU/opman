@@ -1,13 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { fetchGitDiff, fetchGitRangeDiff } from "../../api";
 import type { GitFileEntry, PRModalData } from "../types";
 
 /**
  * AI-powered git actions: review, commit message generation, PR description.
+ * All operations forward the selected repo path to the API.
  */
 export function useAIActions(
   staged: GitFileEntry[],
   unstaged: GitFileEntry[],
+  selectedRepo: string | undefined,
   onSendToAI?: (text: string) => void,
   onError?: (msg: string) => void,
 ) {
@@ -17,6 +19,9 @@ export function useAIActions(
   const [prModalOpen, setPrModalOpen]                 = useState(false);
   const [prModalData, setPrModalData]                 = useState<PRModalData | null>(null);
 
+  const repoRef = useRef(selectedRepo);
+  repoRef.current = selectedRepo;
+
   // ── Review changes ────────────────────────────────────
 
   const handleAIReview = useCallback(async () => {
@@ -24,8 +29,8 @@ export function useAIActions(
     setAiReviewLoading(true);
     try {
       const [stagedDiff, unstagedDiff] = await Promise.all([
-        staged.length > 0  ? fetchGitDiff(undefined, true)  : Promise.resolve({ diff: "" }),
-        unstaged.length > 0 ? fetchGitDiff(undefined, false) : Promise.resolve({ diff: "" }),
+        staged.length > 0  ? fetchGitDiff(undefined, true, repoRef.current)  : Promise.resolve({ diff: "" }),
+        unstaged.length > 0 ? fetchGitDiff(undefined, false, repoRef.current) : Promise.resolve({ diff: "" }),
       ]);
       const combined = [stagedDiff.diff, unstagedDiff.diff].filter(Boolean).join("\n");
       if (!combined.trim()) { onError?.("No changes to review"); return; }
@@ -47,7 +52,7 @@ export function useAIActions(
     if (staged.length === 0) { onError?.("Stage some files first"); return; }
     setAiCommitMsgLoading(true);
     try {
-      const { diff } = await fetchGitDiff(undefined, true);
+      const { diff } = await fetchGitDiff(undefined, true, repoRef.current);
       if (!diff.trim()) { onError?.("No staged changes found"); return; }
       const fileList = staged.map((f) => `  ${f.status} ${f.path}`).join("\n");
       onSendToAI(
@@ -67,7 +72,7 @@ export function useAIActions(
     if (!onSendToAI) return;
     setAiPrLoading(true);
     try {
-      const rangeData = await fetchGitRangeDiff();
+      const rangeData = await fetchGitRangeDiff(undefined, undefined, repoRef.current);
       if (!rangeData.diff.trim() && rangeData.commits.length === 0) {
         onError?.("No commits found relative to base branch");
         return;

@@ -5,20 +5,30 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
+use super::common::{resolve_project_dir, resolve_repo_dir};
 
-/// GET /api/git/status — structured git status for the active project.
+/// Helper: resolve the git working directory, honouring `repo` scope query param.
+async fn git_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBuf> {
+    if repo.is_empty() || repo == "." {
+        let dir = resolve_project_dir(state).await?;
+        Ok(std::path::PathBuf::from(dir))
+    } else {
+        resolve_repo_dir(state, repo).await
+    }
+}
+
+/// GET /api/git/status?repo=... — structured git status for a repo.
 pub async fn git_status(
     State(state): State<ServerState>,
     _auth: AuthUser,
+    axum::extract::Query(scope): axum::extract::Query<GitRepoScope>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &scope.repo).await?;
 
     // Get branch name
     let branch_output = tokio::process::Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git: {e}")))?;
@@ -29,7 +39,7 @@ pub async fn git_status(
     // Get porcelain status
     let status_output = tokio::process::Command::new("git")
         .args(["status", "--porcelain=v1", "-uall"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git status: {e}")))?;
@@ -81,14 +91,13 @@ pub async fn git_status(
     }))
 }
 
-/// GET /api/git/diff?file=...&staged=... — get diff for a file or all files.
+/// GET /api/git/diff?file=...&staged=...&repo=... — get diff for a file or all files.
 pub async fn git_diff(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Query(query): axum::extract::Query<GitDiffQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &query.repo).await?;
 
     let mut args = vec!["diff".to_string()];
     if query.staged {
@@ -101,7 +110,7 @@ pub async fn git_diff(
 
     let output = tokio::process::Command::new("git")
         .args(&args)
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git diff: {e}")))?;
@@ -110,14 +119,13 @@ pub async fn git_diff(
     Ok(Json(GitDiffResponse { diff }))
 }
 
-/// GET /api/git/log?limit=50 — recent commits.
+/// GET /api/git/log?limit=50&repo=... — recent commits.
 pub async fn git_log(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Query(query): axum::extract::Query<GitLogQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &query.repo).await?;
     let limit = query.limit.unwrap_or(50).min(500); // Cap at 500 commits
 
     // Use a delimiter that won't appear in normal commit data
@@ -128,7 +136,7 @@ pub async fn git_log(
             &format!("--max-count={}", limit),
             &format!("--format={}", format),
         ])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git log: {e}")))?;
@@ -161,8 +169,7 @@ pub async fn git_stage(
     _auth: AuthUser,
     Json(req): Json<GitStageRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &req.repo).await?;
 
     let mut args = vec!["add".to_string()];
     if req.files.is_empty() {
@@ -174,7 +181,7 @@ pub async fn git_stage(
 
     let output = tokio::process::Command::new("git")
         .args(&args)
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git add: {e}")))?;
@@ -193,8 +200,7 @@ pub async fn git_unstage(
     _auth: AuthUser,
     Json(req): Json<GitUnstageRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &req.repo).await?;
 
     let mut args = vec!["restore".to_string(), "--staged".to_string()];
     if req.files.is_empty() {
@@ -206,7 +212,7 @@ pub async fn git_unstage(
 
     let output = tokio::process::Command::new("git")
         .args(&args)
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git restore: {e}")))?;
@@ -227,8 +233,7 @@ pub async fn git_commit(
     _auth: AuthUser,
     Json(req): Json<GitCommitRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &req.repo).await?;
 
     if req.message.trim().is_empty() {
         return Err(WebError::BadRequest("Commit message cannot be empty".into()));
@@ -236,7 +241,7 @@ pub async fn git_commit(
 
     let output = tokio::process::Command::new("git")
         .args(["commit", "-m", &req.message])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git commit: {e}")))?;
@@ -249,7 +254,7 @@ pub async fn git_commit(
     // Get the hash of the commit we just made
     let hash_output = tokio::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to get commit hash: {e}")))?;
@@ -270,8 +275,7 @@ pub async fn git_discard(
     _auth: AuthUser,
     Json(req): Json<GitDiscardRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &req.repo).await?;
 
     if req.files.is_empty() {
         return Err(WebError::BadRequest(
@@ -284,7 +288,7 @@ pub async fn git_discard(
 
     let output = tokio::process::Command::new("git")
         .args(&args)
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git checkout: {e}")))?;

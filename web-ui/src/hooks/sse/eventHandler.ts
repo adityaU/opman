@@ -18,6 +18,7 @@ export interface EventHandlerContext {
   refreshState: () => void;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
   setSessionStatus: React.Dispatch<React.SetStateAction<"idle" | "busy">>;
+  setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
   setPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
   setQuestions: React.Dispatch<React.SetStateAction<QuestionRequest[]>>;
   setCrossSessionPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
@@ -196,8 +197,17 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       else if (rawStatus && typeof rawStatus === "object") {
         statusStr = (rawStatus as Record<string, unknown>).type as string | undefined;
       }
+      const isBusy = statusStr === "busy" || statusStr === "retry";
+      // Keep busySessions in sync (mirrors the app-level SSE path)
+      if (sid) {
+        if (isBusy) {
+          ctx.setBusySessions((prev) => new Set([...prev, sid]));
+        } else {
+          ctx.setBusySessions((prev) => { const next = new Set(prev); next.delete(sid); return next; });
+        }
+      }
       if (sid === ctx.activeSessionRef.current) {
-        ctx.setSessionStatus(statusStr === "busy" || statusStr === "retry" ? "busy" : "idle");
+        ctx.setSessionStatus(isBusy ? "busy" : "idle");
       }
       break;
     }
@@ -416,6 +426,11 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
       const mission = JSON.parse(e.data) as Mission;
       window.dispatchEvent(new CustomEvent("opman:mission-updated", { detail: mission }));
     } catch { /* ignore */ }
+  });
+
+  // Routine updates
+  appSSE.addEventListener("routine_updated", () => {
+    window.dispatchEvent(new CustomEvent("opman:routine-updated"));
   });
 
   // Toast notifications from TUI

@@ -2,21 +2,8 @@ import type { AgentInfo, ImageAttachment } from "../api";
 
 // ── Agent colour helpers ────────────────────────────────────────
 
-/** Default agent colours keyed by id (mirrors opencode's agentColor utility) */
-export const AGENT_COLORS: Record<string, string> = {
-  coder: "#3b82f6",   // blue
-  task: "#f59e0b",    // amber
-  ask: "#8b5cf6",     // purple
-  build: "#10b981",   // emerald
-  docs: "#06b6d4",    // cyan
-  plan: "#f43f5e",    // rose
-};
-
-/** Resolve the display colour for an agent */
-export function agentColor(id: string, custom?: string): string | undefined {
-  if (custom) return custom;
-  return AGENT_COLORS[id] ?? AGENT_COLORS[id.toLowerCase()];
-}
+// Re-export the shared theme-derived agentColor utility
+export { agentColor } from "../utils/theme";
 
 /** Fallback agents if fetch fails or is pending */
 export const DEFAULT_AGENTS: AgentInfo[] = [
@@ -70,4 +57,5 @@ export const NO_ARG_COMMANDS = new Set([
   "keys", "keybindings", "todos", "sessions", "context", "settings",
   "gquota", "quota", "quota_status",
   "tokens_today", "tokens_daily", "tokens_weekly", "tokens_monthly", "tokens_all", "tokens_session",
+  "system", "htop", "monitor",
 ]);

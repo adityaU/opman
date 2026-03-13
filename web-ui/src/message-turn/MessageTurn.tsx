@@ -7,6 +7,7 @@ import { ToolCall } from "../ToolCall";
 import type { MessageTurnProps, MessagePart, Message, SessionInfo } from "./types";
 import { modelLabel } from "./helpers";
 import { markdownComponents } from "./CodeBlock";
+import { agentColor } from "../utils/theme";
 
 export const MessageTurn = React.memo(function MessageTurn({
   group,
@@ -77,6 +78,14 @@ export const MessageTurn = React.memo(function MessageTurn({
   const headerModel = useMemo(() => {
     for (const msg of messages) {
       if (msg.info.model) return msg.info.model;
+    }
+    return null;
+  }, [messages]);
+
+  // Collect agent info from the first message that has it
+  const headerAgent = useMemo(() => {
+    for (const msg of messages) {
+      if (msg.info.agent) return msg.info.agent;
     }
     return null;
   }, [messages]);
@@ -188,6 +197,13 @@ export const MessageTurn = React.memo(function MessageTurn({
               ${totalCost.toFixed(4)}
             </span>
           )}
+          {isAssistant && headerAgent && (
+            <span className="message-agent" style={{
+              color: agentColor(headerAgent),
+              borderColor: `color-mix(in srgb, ${agentColor(headerAgent)} 25%, transparent)`,
+              backgroundColor: `color-mix(in srgb, ${agentColor(headerAgent)} 10%, transparent)`,
+            }}>{headerAgent}</span>
+          )}
         </div>
 
         {/* Content: render in order */}
@@ -245,6 +261,9 @@ export const MessageTurn = React.memo(function MessageTurn({
               >
                 <RotateCcw size={13} />
               </button>
+            )}
+            {isAssistant && headerModel && (
+              <span className="message-actions-model">{modelLabel(headerModel)}</span>
             )}
           </div>
         )}

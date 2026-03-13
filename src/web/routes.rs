@@ -105,12 +105,18 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/git/checkout", post(handlers::git_checkout))
         .route("/git/range-diff", get(handlers::git_range_diff))
         .route("/git/context-summary", get(handlers::git_context_summary))
+        .route("/git/repos", get(handlers::git_repos))
         // ── File browsing / editing ──────────────────────────────────
         .route("/agents", get(handlers::get_agents))
         .route("/files", get(handlers::browse_files))
         .route("/file/read", get(handlers::read_file))
         .route("/file/raw", get(handlers::read_file_raw))
         .route("/file/write", post(handlers::write_file))
+        .route("/file/create", post(handlers::create_file))
+        .route("/file/delete", post(handlers::delete_file))
+        .route("/file/upload", post(handlers::upload_files))
+        .route("/dir/create", post(handlers::create_dir))
+        .route("/dir/delete", post(handlers::delete_dir))
         .route(
             "/editor/lsp/diagnostics",
             get(handlers::editor_lsp_diagnostics),
@@ -218,12 +224,15 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/workspace-templates",
             get(handlers::list_workspace_templates),
         )
-        .route("/memory/active", get(handlers::list_active_memory));
+        .route("/memory/active", get(handlers::list_active_memory))
+        // ── System Monitor ──────────────────────────────────────────
+        .route("/system/stats", get(handlers::get_system_stats))
+        .route("/system/stats/stream", get(sse::system_stats_stream));
 
     Router::new()
         .route("/health", get(handlers::health))
         .nest("/api", api_routes)
         .fallback(static_files::serve)
-        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB global body limit
+        .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .with_state(state)
 }

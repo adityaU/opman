@@ -215,12 +215,11 @@ fn render_no_shell(area: Rect, buf: &mut Buffer, theme: &crate::theme::ThemeColo
 fn render_selection(app: &App, content_area: Rect, buf: &mut Buffer) {
     if let Some(ref sel) = app.terminal_selection {
         if sel.panel_id == PanelId::IntegratedTerminal {
-            let (sr, sc, er, ec) =
-                if (sel.start_row, sel.start_col) <= (sel.end_row, sel.end_col) {
-                    (sel.start_row, sel.start_col, sel.end_row, sel.end_col)
-                } else {
-                    (sel.end_row, sel.end_col, sel.start_row, sel.start_col)
-                };
+            let (sr, sc, er, ec) = if (sel.start_row, sel.start_col) <= (sel.end_row, sel.end_col) {
+                (sel.start_row, sel.start_col, sel.end_row, sel.end_col)
+            } else {
+                (sel.end_row, sel.end_col, sel.start_row, sel.start_col)
+            };
 
             for row in sr..=er.min(content_area.height.saturating_sub(1)) {
                 let start_col = if row == sr { sc } else { 0 };

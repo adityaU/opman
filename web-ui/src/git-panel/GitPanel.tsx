@@ -5,7 +5,7 @@
  * - hooks: useViewNavigation, useGitData, useGitActions, useAIActions
  * - components: BreadcrumbNav, BranchSwitcher, GitTabBar,
  *               ChangesListView, LogListView, FileDiffView,
- *               CommitDetailView, PRModal
+ *               CommitDetailView, PRModal, RepoSwitcher
  */
 import { useState } from "react";
 import type { GitPanelProps, GitTab } from "./types";
@@ -22,22 +22,35 @@ import { LogListView } from "./components/LogListView";
 import { FileDiffView } from "./components/FileDiffView";
 import { CommitDetailView } from "./components/CommitDetailView";
 import { PRModal } from "./components/PRModal";
+import { RepoSwitcher } from "./components/RepoSwitcher";
 
 export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelProps) {
   const [tab, setTab] = useState<GitTab>("changes");
 
   const nav = useViewNavigation();
   const data = useGitData(projectPath, tab, nav.currentView, onError);
-  const actions = useGitActions(data.branch, data.setBranch, data.refreshStatus, onError);
-  const ai = useAIActions(data.staged, data.unstaged, onSendToAI, onError);
+  const actions = useGitActions(data.branch, data.setBranch, data.refreshStatus, data.selectedRepo, onError);
+  const ai = useAIActions(data.staged, data.unstaged, data.selectedRepo, onSendToAI, onError);
 
   const diffStyles = buildDiffStyles(data.themeColors);
   const totalChanges = data.staged.length + data.unstaged.length + data.untracked.length;
 
   return (
     <div className="git-panel">
-      {/* Toolbar: breadcrumbs + branch + refresh + tabs */}
+      {/* Toolbar: repo selector + breadcrumbs + branch + refresh + tabs */}
       <div className="git-panel-header">
+        {/* Repo selector — only show when multiple repos found */}
+        {data.repos.length > 1 && (
+          <RepoSwitcher
+            repos={data.repos}
+            selectedRepo={data.selectedRepo}
+            onSelect={(repoPath) => {
+              data.setSelectedRepo(repoPath);
+              nav.resetStack();
+            }}
+            loading={data.reposLoading}
+          />
+        )}
         <div className="git-panel-toolbar-row">
           <BreadcrumbNav
             viewStack={nav.viewStack} tab={tab}

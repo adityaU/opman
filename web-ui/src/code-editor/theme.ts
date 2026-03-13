@@ -29,7 +29,25 @@ const editorTheme = EditorView.theme(
       backgroundColor: "var(--color-bg)",
       color: "var(--color-text)",
     },
-    ".cm-scroller": { overflow: "auto", fontFamily: "var(--font-mono, monospace)" },
+    ".cm-scroller": {
+      overflow: "auto",
+      fontFamily: "var(--font-mono, monospace)",
+      scrollbarWidth: "auto",
+      scrollbarColor: "var(--color-border) transparent",
+    },
+    ".cm-scroller::-webkit-scrollbar": { width: "10px", height: "10px" },
+    ".cm-scroller::-webkit-scrollbar-track": { background: "transparent" },
+    ".cm-scroller::-webkit-scrollbar-thumb": {
+      background: "var(--color-border)",
+      borderRadius: "5px",
+      border: "2px solid transparent",
+      backgroundClip: "content-box",
+    },
+    ".cm-scroller::-webkit-scrollbar-thumb:hover": {
+      background: "var(--color-text-muted)",
+      backgroundClip: "content-box",
+    },
+    ".cm-scroller::-webkit-scrollbar-corner": { background: "transparent" },
     ".cm-content": { caretColor: "var(--color-primary)" },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--color-primary)" },
     ".cm-gutters": {

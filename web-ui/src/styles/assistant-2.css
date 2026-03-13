@@ -216,34 +216,34 @@
     cursor: pointer
 }
 
-.assistant-center-overlay,.assistant-inbox-overlay,.memory-overlay,.autonomy-overlay,.routines-overlay,.delegation-overlay,.missions-overlay,.workspace-mgr-overlay {
+.assistant-center-overlay,.assistant-inbox-overlay,.memory-overlay,.autonomy-overlay,.routines-overlay,.delegation-overlay,.missions-overlay,.workspace-mgr-overlay,.add-project-overlay,.sysm-overlay {
     backdrop-filter: blur(8px) saturate(1.05);
     -webkit-backdrop-filter: blur(8px) saturate(1.05)
 }
 
-.assistant-center-modal,.assistant-inbox-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.workspace-mgr-modal {
+.assistant-center-modal,.assistant-inbox-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.workspace-mgr-modal,.add-project-modal,.sysm-modal {
     border-radius: 22px;
     border: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 72%,transparent),transparent),var(--color-bg);
     box-shadow: 0 26px 80px #0000003d,0 8px 28px #00000024
 }
 
-.assistant-center-header,.assistant-inbox-header,.memory-header,.autonomy-header,.routines-header,.delegation-header,.missions-header,.workspace-mgr-header {
+.assistant-center-header,.assistant-inbox-header,.memory-header,.autonomy-header,.routines-header,.delegation-header,.missions-header,.workspace-mgr-header,.add-project-header,.sysm-header {
     padding: 16px 18px;
     border-bottom: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent)
 }
 
-.assistant-center-header-left,.assistant-inbox-header-left,.memory-header-left,.autonomy-header-left,.routines-header-left,.delegation-header-left,.missions-header-left,.workspace-mgr-header-left {
+.assistant-center-header-left,.assistant-inbox-header-left,.memory-header-left,.autonomy-header-left,.routines-header-left,.delegation-header-left,.missions-header-left,.workspace-mgr-header-left,.add-project-header-left,.sysm-header-left {
     gap: 10px
 }
 
-.assistant-center-header-left h3,.assistant-inbox-header-left h3,.memory-header-left h3,.autonomy-header-left h3,.routines-header-left h3,.delegation-header-left h3,.missions-header-left h3,.workspace-mgr-header-left h3 {
+.assistant-center-header-left h3,.assistant-inbox-header-left h3,.memory-header-left h3,.autonomy-header-left h3,.routines-header-left h3,.delegation-header-left h3,.missions-header-left h3,.workspace-mgr-header-left h3,.add-project-header-left h3,.sysm-header-left h3 {
     font-size: var(--font-size-base);
     letter-spacing: -.01em
 }
 
-.assistant-center-header button,.assistant-inbox-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.workspace-mgr-header button {
+.assistant-center-header button,.assistant-inbox-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.workspace-mgr-header button,.add-project-header button,.sysm-header button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -254,13 +254,13 @@
     transition: background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast)
 }
 
-.assistant-center-header button:hover,.assistant-inbox-header button:hover,.memory-header button:hover,.autonomy-header button:hover,.routines-header button:hover,.delegation-header button:hover,.missions-header button:hover,.workspace-mgr-header button:hover {
+.assistant-center-header button:hover,.assistant-inbox-header button:hover,.memory-header button:hover,.autonomy-header button:hover,.routines-header button:hover,.delegation-header button:hover,.missions-header button:hover,.workspace-mgr-header button:hover,.add-project-header button:hover,.sysm-header button:hover {
     background: var(--color-surface-hover);
     border-color: var(--color-border);
     transform: translateY(-1px)
 }
 
-.assistant-center-hero,.assistant-center-briefing,.assistant-center-daily-summary,.assistant-center-recommendations,.memory-create,.routines-create,.delegation-create,.missions-create,.workspace-mgr-save {
+.assistant-center-hero,.assistant-center-briefing,.assistant-center-daily-summary,.assistant-center-recommendations,.assistant-center-quick-routines,.memory-create,.routines-form,.delegation-create,.missions-create,.workspace-mgr-save,.add-project-nav,.add-project-search {
     margin: 12px 14px 0;
     padding: 14px;
     border-radius: 18px;
@@ -268,12 +268,12 @@
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 80%,transparent),transparent),var(--color-surface)
 }
 
-.assistant-center-grid,.assistant-inbox-body,.memory-body,.routines-body,.delegation-body,.missions-body,.workspace-mgr-body {
+.assistant-center-grid,.assistant-inbox-body,.memory-body,.routines-body,.delegation-body,.missions-body,.workspace-mgr-body,.add-project-body,.sysm-body {
     padding: 14px;
     gap: 12px
 }
 
-.assistant-inbox-filters,.workspace-mgr-footer,.assistant-center-footer-actions {
+.assistant-inbox-filters,.workspace-mgr-footer,.add-project-footer,.assistant-center-footer-actions {
     padding-left: 14px;
     padding-right: 14px
 }
@@ -282,7 +282,7 @@
     margin-top: 12px
 }
 
-.assistant-center-card,.assistant-inbox-item,.memory-item,.routines-item,.routines-run-item,.delegation-item,.missions-item,.workspace-mgr-item,.autonomy-item,.mission-handoff {
+.assistant-center-card,.assistant-inbox-item,.memory-item,.routines-item,.routines-run-item,.delegation-item,.missions-item,.workspace-mgr-item,.add-project-entry,.autonomy-item,.mission-handoff,.sysm-gauge,.sysm-stats-row,.sysm-cores,.sysm-table-wrap,.sysm-disk {
     border-radius: 18px;
     border: 1px solid var(--color-border-subtle);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface-hover) 52%,transparent),transparent 55%),var(--color-surface);

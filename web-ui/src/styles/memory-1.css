@@ -76,6 +76,10 @@
     color: var(--color-text, #e6edf3)
 }
 
+.memory-scrollable {
+    display: contents
+}
+
 .memory-create {
     display: flex;
     flex-direction: column;

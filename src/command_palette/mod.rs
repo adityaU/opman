@@ -62,6 +62,7 @@ pub enum CommandAction {
     SlackDisconnect,
     SlackStatus,
     SlackLogs,
+    ToggleRoutinePanel,
 }
 
 pub struct CommandEntry {

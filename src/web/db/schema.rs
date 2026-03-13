@@ -42,25 +42,38 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
             updated_at TEXT NOT NULL
         );
 
-        -- ── Routines ────────────────────────────────────────────────
+        -- ── Routines (v2: message-dispatch automation) ──────────────
         CREATE TABLE IF NOT EXISTS routines (
-            id         TEXT PRIMARY KEY,
-            name       TEXT NOT NULL,
-            trigger    TEXT NOT NULL DEFAULT 'manual',
-            action     TEXT NOT NULL DEFAULT 'review_mission',
-            mission_id TEXT,
-            session_id TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            trigger       TEXT NOT NULL DEFAULT 'manual',
+            action        TEXT NOT NULL DEFAULT 'send_message',
+            enabled       INTEGER NOT NULL DEFAULT 1,
+            cron_expr     TEXT,
+            timezone      TEXT,
+            target_mode   TEXT,
+            session_id    TEXT,
+            project_index INTEGER,
+            prompt        TEXT,
+            provider_id   TEXT,
+            model_id      TEXT,
+            mission_id    TEXT,
+            last_run_at   TEXT,
+            next_run_at   TEXT,
+            last_error    TEXT,
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
         );
 
         -- ── Routine Runs ────────────────────────────────────────────
         CREATE TABLE IF NOT EXISTS routine_runs (
-            id         TEXT PRIMARY KEY,
-            routine_id TEXT NOT NULL,
-            status     TEXT NOT NULL DEFAULT 'completed',
-            summary    TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            id                TEXT PRIMARY KEY,
+            routine_id        TEXT NOT NULL,
+            status            TEXT NOT NULL DEFAULT 'completed',
+            summary           TEXT NOT NULL DEFAULT '',
+            target_session_id TEXT,
+            duration_ms       INTEGER,
+            created_at        TEXT NOT NULL
         );
 
         -- ── Delegated Work ──────────────────────────────────────────

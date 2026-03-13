@@ -35,6 +35,7 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     onOpenDelegation,
     onOpenWorkspaceManager,
     onOpenMissions,
+    onOpenSystemMonitor,
     sessionId,
   } = props;
 
@@ -233,6 +234,13 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       description: "Save and restore workspace layouts",
       shortcut: "\u2318\u21E7L",
       handler: () => { onClose(); onOpenWorkspaceManager?.(); },
+    },
+    {
+      id: "system-monitor",
+      category: "System",
+      label: "System Monitor",
+      description: "htop-like system resource monitor",
+      handler: () => { onClose(); onOpenSystemMonitor?.(); },
     },
   ];
 

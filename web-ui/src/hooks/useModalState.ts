@@ -8,7 +8,7 @@ export type ModalName =
   | "sessionDashboard" | "activityFeed" | "notificationPrefs"
   | "assistantCenter" | "inbox" | "memory" | "autonomy"
   | "routines" | "delegation" | "missions" | "workspaceManager"
-  | "addProject";
+  | "addProject" | "systemMonitor";
 
 /** Escape-key dismiss priority, highest first. */
 const ESCAPE_PRIORITY: ModalName[] = [
@@ -18,7 +18,7 @@ const ESCAPE_PRIORITY: ModalName[] = [
   "searchBar", "crossSearch", "activityFeed", "notificationPrefs",
   "assistantCenter", "inbox", "memory", "autonomy",
   "routines", "delegation", "missions", "workspaceManager",
-  "addProject",
+  "addProject", "systemMonitor",
 ];
 
 type ModalOpenState = Record<ModalName, boolean>;

@@ -215,6 +215,26 @@ pub(super) fn execute_command_action_ext(app: &mut App, action: CommandAction) -
                 }
             }
         }
+        CommandAction::ToggleRoutinePanel => {
+            if app.routine_panel.is_some() {
+                app.routine_panel = None;
+            } else {
+                let has_web_state = app.web_state.is_some();
+                app.routine_panel = Some(crate::app::RoutinePanelState {
+                    routines: Vec::new(),
+                    selected: 0,
+                    scroll_offset: 0,
+                    running: None,
+                    loading: has_web_state,
+                    show_detail: false,
+                    editing: None,
+                    confirm_delete: None,
+                });
+                if has_web_state {
+                    super::routine::spawn_fetch_routines(app);
+                }
+            }
+        }
         // Actions already handled in command_action.rs — should not reach here
         _ => {}
     }

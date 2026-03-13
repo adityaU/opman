@@ -202,6 +202,74 @@ impl App {
             BackgroundEvent::SlackEvent(slack_event) => {
                 self.handle_slack_event(slack_event);
             }
+            BackgroundEvent::RoutinesFetched { routines } => {
+                debug!(count = routines.len(), "Routines fetched");
+                if let Some(ref mut panel) = self.routine_panel {
+                    panel.routines = routines;
+                    panel.loading = false;
+                    if panel.selected >= panel.routines.len() {
+                        panel.selected = panel.routines.len().saturating_sub(1);
+                    }
+                }
+            }
+            BackgroundEvent::RoutineRunCompleted {
+                routine_id,
+                success,
+                message,
+            } => {
+                debug!(routine_id, success, message, "Routine run completed");
+                if let Some(ref mut panel) = self.routine_panel {
+                    if panel.running.as_deref() == Some(&routine_id) {
+                        panel.running = None;
+                    }
+                }
+                let status = if success { "done" } else { "failed" };
+                self.toast_message = Some((
+                    format!("Routine {}: {}", status, message),
+                    std::time::Instant::now(),
+                ));
+            }
+            BackgroundEvent::RoutineCreated { routine } => {
+                debug!(id = %routine.id, name = %routine.name, "Routine created");
+                if let Some(ref mut panel) = self.routine_panel {
+                    panel.routines.push(routine.clone());
+                    panel.editing = None;
+                }
+                self.toast_message = Some((
+                    format!("Routine created: {}", routine.name),
+                    std::time::Instant::now(),
+                ));
+            }
+            BackgroundEvent::RoutineDeleted {
+                routine_id,
+                success,
+            } => {
+                debug!(routine_id, success, "Routine deleted");
+                if let Some(ref mut panel) = self.routine_panel {
+                    if success {
+                        let name = panel
+                            .routines
+                            .iter()
+                            .find(|r| r.id == routine_id)
+                            .map(|r| r.name.clone())
+                            .unwrap_or_default();
+                        panel.routines.retain(|r| r.id != routine_id);
+                        if panel.selected >= panel.routines.len() {
+                            panel.selected = panel.routines.len().saturating_sub(1);
+                        }
+                        self.toast_message = Some((
+                            format!("Routine deleted: {}", name),
+                            std::time::Instant::now(),
+                        ));
+                    } else {
+                        self.toast_message = Some((
+                            "Failed to delete routine".to_string(),
+                            std::time::Instant::now(),
+                        ));
+                    }
+                    panel.confirm_delete = None;
+                }
+            }
         }
     }
 

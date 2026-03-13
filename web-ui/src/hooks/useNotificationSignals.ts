@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { AssistantSignal } from "./useAssistantState";
 import {
   getClientId,
@@ -52,11 +52,21 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
   }, [activeSessionId]);
 
   // ── Browser notifications for session events ──
+  // Track previous status so we only fire on a genuine busy→idle transition,
+  // not when e.g. the user switches to an already-idle session.
+  const prevStatusRef = useRef(sessionStatus);
+  const prevSessionRef = useRef(activeSessionId);
   useEffect(() => {
     const prefs = loadNotificationPrefs();
+    const wasBusy = prevStatusRef.current === "busy";
+    const sameSession = prevSessionRef.current === activeSessionId;
+    prevStatusRef.current = sessionStatus;
+    prevSessionRef.current = activeSessionId;
+
     if (!prefs.enabled) return;
 
-    if (sessionStatus === "idle" && prefs.session_complete && autonomyMode !== "observe") {
+    // Only notify when the *same* session transitioned from busy→idle.
+    if (sessionStatus === "idle" && wasBusy && sameSession && prefs.session_complete && autonomyMode !== "observe") {
       setAssistantSignals((prev) => {
         const next: AssistantSignal = {
           id: `session-complete:${activeSessionId ?? "none"}:${Date.now()}`,

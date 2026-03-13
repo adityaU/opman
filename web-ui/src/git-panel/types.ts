@@ -1,7 +1,7 @@
 /**
  * Git panel domain types.
  */
-import type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors } from "../api";
+import type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors, GitRepoEntry } from "../api";
 
 // ── Navigation ──────────────────────────────────────────
 
@@ -44,4 +44,4 @@ export interface PRModalData {
 
 // ── Re-exports for convenience ──────────────────────────
 
-export type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors };
+export type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors, GitRepoEntry };

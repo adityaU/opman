@@ -34,12 +34,24 @@ export function useTerminalLifecycle(
     }
   }, [createTab]);
 
+  // Track pending tabs whose container refs weren't available yet
+  const pendingRef = useRef<Set<string>>(new Set());
+
   // Initialize xterm for each tab
   useEffect(() => {
+    let pendingRetry = false;
+
     for (const tab of tabs) {
       if (runtimesRef.current.has(tab.id)) continue;
       const container = containerRefs.current.get(tab.id);
-      if (!container) continue;
+      if (!container) {
+        // Container not in DOM yet — mark as pending for retry
+        pendingRef.current.add(tab.id);
+        pendingRetry = true;
+        continue;
+      }
+
+      pendingRef.current.delete(tab.id);
 
       const term = new Terminal({ ...TERM_OPTIONS, theme: getTerminalTheme() });
       const fitAddon = new FitAddon();
@@ -108,6 +120,16 @@ export function useTerminalLifecycle(
           );
           term.write("\r\n\x1b[31mFailed to spawn terminal process.\x1b[0m\r\n");
         });
+    }
+
+    // If any tabs were pending (container not yet rendered), retry after
+    // the next animation frame so React has time to commit the DOM.
+    if (pendingRetry) {
+      const raf = requestAnimationFrame(() => {
+        // Trigger a re-check by doing a harmless state poke
+        setTabs((prev) => [...prev]);
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [tabs, sessionId, runtimesRef, containerRefs, setTabs]);
 

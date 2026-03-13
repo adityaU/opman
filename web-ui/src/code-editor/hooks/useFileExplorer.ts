@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { browseFiles, readFile, classifyFile, type FileEntry } from "../../api";
+import { browseFiles, readFile, classifyFile, createFile, createDir, deleteFile, deleteDir, uploadFiles, type FileEntry } from "../../api";
 import type { OpenFileEntry, BreadcrumbEntry, FileRenderType } from "../types";
 
 export interface FileExplorerState {
@@ -36,6 +36,13 @@ export interface FileExplorerState {
   breadcrumbs: BreadcrumbEntry[];
   // Jump to line support
   pendingJumpRef: React.MutableRefObject<{ path: string; line: number } | null>;
+  // File management actions
+  handleCreateFile: (parentDir: string, name: string) => Promise<void>;
+  handleCreateDir: (parentDir: string, name: string) => Promise<void>;
+  handleDeleteFile: (filePath: string) => Promise<void>;
+  handleDeleteDir: (dirPath: string) => Promise<void>;
+  handleUploadFiles: (dir: string, files: FileList | File[]) => Promise<void>;
+  fileActionBusy: boolean;
 }
 
 export function useFileExplorer(
@@ -209,6 +216,111 @@ export function useFileExplorer(
     }
   }, [activeFilePath, activeEntry]);
 
+  // ── File management actions ──────────────────────────
+
+  const [fileActionBusy, setFileActionBusy] = useState(false);
+
+  const refreshDirSubtree = useCallback(async (dirPath: string) => {
+    // Refresh the root listing
+    await loadDirectory(currentPath);
+    // Refresh any expanded parent dirs in the tree
+    if (dirPath !== "." && expandedDirs.has(dirPath)) {
+      try {
+        const resp = await browseFiles(dirPath);
+        setDirChildren((prev) => ({ ...prev, [dirPath]: resp.entries }));
+      } catch { /* ignore */ }
+    }
+    // Also refresh the parent of the dir, if expanded
+    const parentDir = dirPath.includes("/") ? dirPath.substring(0, dirPath.lastIndexOf("/")) : ".";
+    if (parentDir !== dirPath && expandedDirs.has(parentDir)) {
+      try {
+        const resp = await browseFiles(parentDir);
+        setDirChildren((prev) => ({ ...prev, [parentDir]: resp.entries }));
+      } catch { /* ignore */ }
+    }
+  }, [currentPath, expandedDirs, loadDirectory]);
+
+  const handleCreateFile = useCallback(async (parentDir: string, name: string) => {
+    const fullPath = parentDir === "." ? name : `${parentDir}/${name}`;
+    setFileActionBusy(true);
+    try {
+      await createFile(fullPath);
+      await refreshDirSubtree(parentDir);
+    } catch (err) {
+      console.error("Failed to create file:", err);
+      onError?.("Failed to create file");
+    } finally {
+      setFileActionBusy(false);
+    }
+  }, [onError, refreshDirSubtree]);
+
+  const handleCreateDir = useCallback(async (parentDir: string, name: string) => {
+    const fullPath = parentDir === "." ? name : `${parentDir}/${name}`;
+    setFileActionBusy(true);
+    try {
+      await createDir(fullPath);
+      await refreshDirSubtree(parentDir);
+    } catch (err) {
+      console.error("Failed to create directory:", err);
+      onError?.("Failed to create directory");
+    } finally {
+      setFileActionBusy(false);
+    }
+  }, [onError, refreshDirSubtree]);
+
+  const handleDeleteFile = useCallback(async (filePath: string) => {
+    setFileActionBusy(true);
+    try {
+      await deleteFile(filePath);
+      // Close the file if open
+      const isOpen = openFiles.some((f) => f.path === filePath);
+      if (isOpen) closeFile(filePath);
+      const parentDir = filePath.includes("/") ? filePath.substring(0, filePath.lastIndexOf("/")) : ".";
+      await refreshDirSubtree(parentDir);
+    } catch (err) {
+      console.error("Failed to delete file:", err);
+      onError?.("Failed to delete file");
+    } finally {
+      setFileActionBusy(false);
+    }
+  }, [onError, openFiles, closeFile, refreshDirSubtree]);
+
+  const handleDeleteDir = useCallback(async (dirPath: string) => {
+    setFileActionBusy(true);
+    try {
+      await deleteDir(dirPath);
+      // Close any open files under that directory
+      const toClose = openFiles.filter((f) => f.path.startsWith(dirPath + "/") || f.path === dirPath);
+      toClose.forEach((f) => closeFile(f.path));
+      // Remove from expanded dirs
+      setExpandedDirs((prev) => {
+        const next = new Set(prev);
+        next.delete(dirPath);
+        return next;
+      });
+      const parentDir = dirPath.includes("/") ? dirPath.substring(0, dirPath.lastIndexOf("/")) : ".";
+      await refreshDirSubtree(parentDir);
+    } catch (err) {
+      console.error("Failed to delete directory:", err);
+      onError?.("Failed to delete directory");
+    } finally {
+      setFileActionBusy(false);
+    }
+  }, [onError, openFiles, closeFile, refreshDirSubtree]);
+
+  const handleUploadFiles = useCallback(async (dir: string, files: FileList | File[]) => {
+    setFileActionBusy(true);
+    try {
+      await uploadFiles(dir, files);
+      await refreshDirSubtree(dir);
+    } catch (err) {
+      console.error("Failed to upload files:", err);
+      onError?.("Failed to upload files");
+    } finally {
+      setFileActionBusy(false);
+    }
+  }, [onError, refreshDirSubtree]);
+
   // ── Effects ───────────────────────────────────────────
 
   useEffect(() => { loadDirectory("."); }, [loadDirectory]);
@@ -238,5 +350,7 @@ export function useFileExplorer(
     saveStatus, setSaveStatus, saving, handleSave, handleRevert,
     editedContent, setOpenFiles, onEditorChange,
     breadcrumbs, pendingJumpRef,
+    handleCreateFile, handleCreateDir, handleDeleteFile, handleDeleteDir,
+    handleUploadFiles, fileActionBusy,
   };
 }

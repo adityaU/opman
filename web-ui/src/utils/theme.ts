@@ -51,6 +51,49 @@ export const semanticEventColors = {
   status: "var(--color-text-muted)",
 } as const;
 
+// ── Agent colour helpers ────────────────────────────────────────
+
+/**
+ * Theme-derived colour palette for agent badges.
+ * Each entry is a CSS variable that adapts when the theme changes.
+ * The order is fixed so hash→index mapping is stable.
+ */
+const AGENT_PALETTE = [
+  "var(--color-primary)",
+  "var(--color-secondary)",
+  "var(--color-accent)",
+  "var(--color-info)",
+  "var(--color-success)",
+  "var(--color-warning)",
+  "var(--color-error)",
+] as const;
+
+/**
+ * Simple djb2-style string hash. Deterministic — same string always
+ * returns the same unsigned 32-bit number.
+ */
+function hashString(str: string): number {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+/**
+ * Resolve the display colour for an agent.
+ *
+ * 1. If the server provides a custom colour string, use it as-is.
+ * 2. Otherwise, hash the agent id to pick a stable index into the
+ *    theme colour palette.  Because the palette uses CSS variables,
+ *    the resolved colour automatically follows the active theme.
+ */
+export function agentColor(id: string, custom?: string): string {
+  if (custom) return custom;
+  const idx = hashString(id.toLowerCase()) % AGENT_PALETTE.length;
+  return AGENT_PALETTE[idx];
+}
+
 export function withAlpha(hex: string, alpha: number): string {
   const normalized = hex.replace("#", "");
   if (normalized.length !== 6) return `rgba(0, 0, 0, ${alpha})`;

@@ -156,9 +156,6 @@ export function ChatLayout() {
       assistantCenterOpen: modalState.modals.assistantCenter,
     },
     {
-      onOpenInbox: () => modalState.open("inbox"),
-      onOpenActivityFeed: () => modalState.open("activityFeed"),
-      onOpenMissions: () => modalState.open("missions"),
       onOpenAssistantCenter: () => modalState.open("assistantCenter"),
     },
   );

@@ -27,6 +27,7 @@ const DelegationBoardModal = lazy(() => import("./DelegationBoardModal").then(m 
 const AssistantCenterModal = lazy(() => import("./AssistantCenterModal").then(m => ({ default: m.AssistantCenterModal })));
 const MissionsModal = lazy(() => import("./MissionsModal").then(m => ({ default: m.MissionsModal })));
 const WorkspaceManagerModal = lazy(() => import("./WorkspaceManagerModal").then(m => ({ default: m.WorkspaceManagerModal })));
+const SystemMonitorModal = lazy(() => import("./SystemMonitorModal").then(m => ({ default: m.SystemMonitorModal })));
 
 export interface ModalLayerProps {
   modals: Record<string, boolean>;
@@ -128,6 +129,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
           onOpenAutonomy={() => o("autonomy")} onOpenRoutines={() => o("routines")}
           onOpenDelegation={() => o("delegation")} onOpenMissions={() => o("missions")}
           onOpenWorkspaceManager={() => o("workspaceManager")}
+          onOpenSystemMonitor={() => o("systemMonitor")}
           sessionId={p.activeSessionId}
         />
       )}
@@ -250,7 +252,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
         <L><AutonomyModal onClose={cl("autonomy")} mode={p.autonomyMode} onChange={p.onAutonomyChange} /></L>
       )}
       {m.routines && (
-        <L><RoutinesModal onClose={cl("routines")} missions={p.missionCache} activeSessionId={p.activeSessionId} autonomyMode={p.autonomyMode} /></L>
+        <L><RoutinesModal onClose={cl("routines")} missions={p.missionCache} activeSessionId={p.activeSessionId} autonomyMode={p.autonomyMode} appState={p.appState} /></L>
       )}
       {m.delegation && (
         <L><DelegationBoardModal onClose={cl("delegation")} missions={p.missionCache} activeSessionId={p.activeSessionId} onOpenSession={navSess} /></L>
@@ -260,6 +262,10 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
       )}
 
       {m.addProject && <AddProjectModal onClose={cl("addProject")} />}
+
+      {m.systemMonitor && (
+        <L><SystemMonitorModal onClose={cl("systemMonitor")} /></L>
+      )}
     </>
   );
 };

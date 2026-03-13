@@ -19,6 +19,7 @@ use crate::web::types::*;
 /// Migrations are idempotent — they check column existence before acting.
 pub fn run_schema_migrations(db: &Db) {
     migrate_missions_v2(db);
+    migrate_routines_v2(db);
 }
 
 /// Migrate missions table from v1 (CRUD tracker) to v2 (goal-driven loop).
@@ -155,6 +156,183 @@ fn migrate_missions_v2(db: &Db) {
         )
         .expect("recreate missions table v2 (from intermediate)");
     }
+}
+
+// ── Routines v2 migration ───────────────────────────────────────────
+
+/// Migrate routines table from v1 (simple metadata) to v2 (message-dispatch).
+///
+/// v1 columns: id, name, trigger, action, mission_id, session_id, created_at, updated_at
+/// v2 adds: enabled, cron_expr, timezone, target_mode, project_index, prompt,
+///          provider_id, model_id, last_run_at, next_run_at, last_error
+///
+/// Also migrates routine_runs to add target_session_id, duration_ms.
+///
+/// Strategy: check for the v2 `enabled` column. If it exists, done.
+/// If not, drop and recreate with v2 schema, preserving data.
+fn migrate_routines_v2(db: &Db) {
+    let conn = db.conn();
+
+    // If `enabled` column already exists, we're on v2.
+    let has_enabled = conn.prepare("SELECT enabled FROM routines LIMIT 0").is_ok();
+    if has_enabled {
+        return;
+    }
+
+    info!("migrating routines table from v1 to v2 (message-dispatch automation)");
+
+    // Read existing v1 routines
+    struct V1Routine {
+        id: String,
+        name: String,
+        trigger: String,
+        action: String,
+        mission_id: Option<String>,
+        session_id: Option<String>,
+        created_at: String,
+        updated_at: String,
+    }
+
+    let old_routines: Vec<V1Routine> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name, trigger, action, mission_id,
+                        session_id, created_at, updated_at
+                 FROM routines",
+            )
+            .unwrap_or_else(|_| {
+                // Table might not exist yet at all
+                return conn.prepare("SELECT 1 WHERE 0").unwrap();
+            });
+
+        stmt.query_map([], |row| {
+            Ok(V1Routine {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                trigger: row.get(2)?,
+                action: row.get(3)?,
+                mission_id: row.get(4)?,
+                session_id: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    };
+
+    // Read existing v1 routine runs
+    struct V1Run {
+        id: String,
+        routine_id: String,
+        status: String,
+        summary: String,
+        created_at: String,
+    }
+
+    let old_runs: Vec<V1Run> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, routine_id, status, summary, created_at
+                 FROM routine_runs",
+            )
+            .unwrap_or_else(|_| conn.prepare("SELECT 1 WHERE 0").unwrap());
+
+        stmt.query_map([], |row| {
+            Ok(V1Run {
+                id: row.get(0)?,
+                routine_id: row.get(1)?,
+                status: row.get(2)?,
+                summary: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
+    };
+
+    // Drop and recreate with v2 schema
+    conn.execute_batch(
+        "DROP TABLE IF EXISTS routines;
+         DROP TABLE IF EXISTS routine_runs;
+         CREATE TABLE routines (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            trigger       TEXT NOT NULL DEFAULT 'manual',
+            action        TEXT NOT NULL DEFAULT 'send_message',
+            enabled       INTEGER NOT NULL DEFAULT 1,
+            cron_expr     TEXT,
+            timezone      TEXT,
+            target_mode   TEXT,
+            session_id    TEXT,
+            project_index INTEGER,
+            prompt        TEXT,
+            provider_id   TEXT,
+            model_id      TEXT,
+            mission_id    TEXT,
+            last_run_at   TEXT,
+            next_run_at   TEXT,
+            last_error    TEXT,
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
+         );
+         CREATE TABLE routine_runs (
+            id                TEXT PRIMARY KEY,
+            routine_id        TEXT NOT NULL,
+            status            TEXT NOT NULL DEFAULT 'completed',
+            summary           TEXT NOT NULL DEFAULT '',
+            target_session_id TEXT,
+            duration_ms       INTEGER,
+            created_at        TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS idx_routine_runs_routine ON routine_runs(routine_id);",
+    )
+    .expect("recreate routines/runs tables v2");
+
+    // Re-insert old routines mapped to v2 model
+    for r in &old_routines {
+        // Map old action names to v2 (keep legacy actions, default new ones to send_message)
+        let action = r.action.as_str();
+        // Map old trigger: on_session_idle/daily_summary stay; manual stays
+        conn.execute(
+            "INSERT INTO routines (id, name, trigger, action, enabled, session_id,
+             mission_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8)",
+            params![
+                r.id,
+                r.name,
+                r.trigger,
+                action,
+                r.session_id,
+                r.mission_id,
+                r.created_at,
+                r.updated_at
+            ],
+        )
+        .expect("re-insert routine v2");
+    }
+
+    // Re-insert old runs
+    for run in &old_runs {
+        conn.execute(
+            "INSERT INTO routine_runs (id, routine_id, status, summary, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                run.id,
+                run.routine_id,
+                run.status,
+                run.summary,
+                run.created_at
+            ],
+        )
+        .expect("re-insert routine_run v2");
+    }
+
+    info!(
+        "migrated {} routines and {} runs from v1 to v2",
+        old_routines.len(),
+        old_runs.len()
+    );
 }
 
 // ── Legacy JSON migration ───────────────────────────────────────────

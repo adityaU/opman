@@ -7,6 +7,7 @@ mod mouse;
 mod overlays;
 mod popout;
 mod pty_keys;
+mod routine;
 mod sidebar;
 mod todo;
 mod watcher;
@@ -96,6 +97,10 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
 
     if app.todo_panel.is_some() {
         return todo::handle_todo_panel_keys(app, key);
+    }
+
+    if app.routine_panel.is_some() {
+        return routine::handle_routine_panel_keys(app, key);
     }
 
     if app.context_input.is_some() {

@@ -24,6 +24,7 @@ mod intelligence_misc;
 mod mutations;
 mod presence;
 mod queries;
+pub(super) mod scheduler;
 mod sse;
 mod sse_handler;
 mod watchers;
@@ -113,6 +114,9 @@ pub(super) struct WebStateInner {
     pub(super) pending_permissions: HashMap<String, serde_json::Value>,
     /// Pending question requests, keyed by request ID.
     pub(super) pending_questions: HashMap<String, serde_json::Value>,
+    // ── Idle-routine cooldown ───────────────────────────────────
+    /// Last time each OnSessionIdle routine fired, to prevent self-loops.
+    pub(super) routine_idle_cooldown: HashMap<String, Instant>,
 }
 
 /// Internal watcher config (stored on the server side).
@@ -261,6 +265,7 @@ impl WebStateHandle {
             signals,
             pending_permissions: HashMap::new(),
             pending_questions: HashMap::new(),
+            routine_idle_cooldown: HashMap::new(),
         }));
 
         let (persist_tx, persist_rx) = mpsc::unbounded_channel();
@@ -271,8 +276,17 @@ impl WebStateHandle {
         handle.spawn_persist_worker(persist_rx);
         handle.spawn_session_poller();
         handle.spawn_opencode_sse_listener();
+        handle.spawn_routine_scheduler();
 
         handle
+    }
+
+    /// Subscribe to internal web-state events (e.g. `RoutineUpdated`).
+    ///
+    /// Used by the TUI to receive push notifications when the web state
+    /// changes, without going through HTTP/SSE.
+    pub fn subscribe_events(&self) -> broadcast::Receiver<WebEvent> {
+        self.event_tx.subscribe()
     }
 }
 

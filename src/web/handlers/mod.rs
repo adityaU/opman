@@ -24,6 +24,7 @@ mod watcher_handlers;
 mod dashboard_handlers;
 mod dashboard_ext_handlers;
 mod intelligence_handlers;
+pub(crate) mod system_handlers;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -56,11 +57,11 @@ pub use git_handlers::{
 
 pub use git_ext_handlers::{git_show, git_branches, git_checkout, git_range_diff};
 
-pub use git_context_handlers::git_context_summary;
+pub use git_context_handlers::{git_context_summary, git_repos};
 
 pub use agents_handlers::get_agents;
 
-pub use files_handlers::{browse_files, read_file, read_file_raw, write_file};
+pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files};
 
 pub use editor_handlers::{
     editor_lsp_diagnostics, editor_lsp_hover, editor_lsp_definition, editor_lsp_format,
@@ -88,6 +89,8 @@ pub use dashboard_ext_handlers::{
     list_delegated_work, create_delegated_work, update_delegated_work, delete_delegated_work,
     list_workspaces, save_workspace, delete_workspace,
 };
+
+pub use system_handlers::get_system_stats;
 
 pub use intelligence_handlers::{
     compute_inbox, compute_recommendations,

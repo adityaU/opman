@@ -16,6 +16,7 @@ mod presence;
 mod requests;
 mod sessions;
 mod state;
+mod system;
 mod watchers;
 mod workspaces;
 
@@ -32,5 +33,6 @@ pub use presence::*;
 pub use requests::*;
 pub use sessions::*;
 pub use state::*;
+pub use system::*;
 pub use watchers::*;
 pub use workspaces::*;

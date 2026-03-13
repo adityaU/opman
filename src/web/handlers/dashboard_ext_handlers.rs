@@ -52,22 +52,31 @@ pub async fn delete_routine(
     }
 }
 
-/// POST /api/routines/{routine_id}/run — record a manual run.
+/// POST /api/routines/{routine_id}/run — execute a routine (send message or record manual run).
 pub async fn run_routine(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Path(routine_id): axum::extract::Path<String>,
     Json(req): Json<super::super::types::RunRoutineRequest>,
 ) -> impl IntoResponse {
-    Json(
-        state
+    // If a summary is provided (legacy client-side execution), just record the run
+    if let Some(summary) = req.summary {
+        let run = state
             .web_state
-            .record_routine_run(
-                &routine_id,
-                req.summary.unwrap_or_else(|| "Routine executed manually".to_string()),
-            )
-            .await,
-    )
+            .record_routine_run(&routine_id, summary, None, None, "completed")
+            .await;
+        return (StatusCode::OK, Json(serde_json::to_value(run).unwrap())).into_response();
+    }
+
+    // Otherwise, execute the routine server-side
+    match state.web_state.execute_routine(&routine_id).await {
+        Ok(run) => (StatusCode::OK, Json(serde_json::to_value(run).unwrap())).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
+    }
 }
 
 /// GET /api/delegation — list delegated work items.

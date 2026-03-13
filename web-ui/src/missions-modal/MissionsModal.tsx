@@ -125,6 +125,7 @@ export function MissionsModal({
           </button>
         </div>
 
+        <div className="missions-scrollable">
         <div className="missions-create">
           <textarea
             className="missions-textarea"
@@ -302,6 +303,7 @@ export function MissionsModal({
               ) : null
             )
           )}
+        </div>
         </div>
       </div>
     </div>

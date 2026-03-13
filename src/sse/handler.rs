@@ -62,7 +62,7 @@ pub(super) fn handle_sse_data(
                 "SSE: session.status — state change"
             );
             match props.status.status_type.as_str() {
-                "busy" => {
+                "busy" | "retry" => {
                     let _ = bg_tx.send(BackgroundEvent::SseSessionBusy {
                         session_id: props.session_id,
                     });

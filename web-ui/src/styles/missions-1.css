@@ -75,6 +75,10 @@
     color: var(--color-text, #e6edf3)
 }
 
+.missions-scrollable {
+    display: contents
+}
+
 .missions-create {
     display: flex;
     flex-direction: column;

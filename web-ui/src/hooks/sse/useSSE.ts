@@ -359,6 +359,14 @@ export function useSSE(): SSEState {
       const gen = sessionGenRef.current;
       activeSessionRef.current = sid;
 
+      // Immediately recompute sessionStatus from the authoritative busySessions set.
+      // Without this, switching to an idle session keeps the previous session's
+      // "busy" status (showing a stale stop button).
+      setBusySessions((prev) => {
+        setSessionStatus(sid && prev.has(sid) ? "busy" : "idle");
+        return prev;
+      });
+
       // Reclassify permissions/questions based on new active session.
       // Items belonging to the new active session move to the active arrays;
       // everything else goes to cross-session.  This prevents stale questions
@@ -467,7 +475,7 @@ export function useSSE(): SSEState {
       handleOpenCodeEvent(
         { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
           flushMessages, flushSubagentMessages,
-          refreshState, setStats, setSessionStatus, setPermissions, setQuestions,
+          refreshState, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
           setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
         event,
       );

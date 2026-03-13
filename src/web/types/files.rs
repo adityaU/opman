@@ -67,6 +67,46 @@ pub struct EditorFormatRequest {
     pub session_id: String,
 }
 
+// ── File management request/response types ──────────────────────────
+
+/// Request body for `POST /api/file/create`.
+#[derive(Deserialize)]
+pub struct FileCreateRequest {
+    /// Path relative to project root.
+    pub path: String,
+    /// Initial content (defaults to empty string).
+    #[serde(default)]
+    pub content: String,
+}
+
+/// Request body for `POST /api/dir/create`.
+#[derive(Deserialize)]
+pub struct DirCreateRequest {
+    /// Path relative to project root.
+    pub path: String,
+}
+
+/// Request body for `POST /api/file/delete`.
+#[derive(Deserialize)]
+pub struct FileDeleteRequest {
+    /// Path relative to project root.
+    pub path: String,
+}
+
+/// Request body for `POST /api/dir/delete`.
+#[derive(Deserialize)]
+pub struct DirDeleteRequest {
+    /// Path relative to project root.
+    pub path: String,
+}
+
+/// Response for upload endpoint.
+#[derive(Serialize)]
+pub struct FileUploadResponse {
+    /// Paths of uploaded files (relative to project root).
+    pub files: Vec<String>,
+}
+
 // ── File Edit / Diff Review types ───────────────────────────────────
 
 /// A single file edit event tracked during a session.

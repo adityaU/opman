@@ -28,9 +28,9 @@ export interface ChatMainAreaProps {
   selectedAgent: string;
   sending: boolean;
   currentModel: string | null;
+  activeMemoryItems: any[];
   allPermissions: any[];
   allQuestions: any[];
-  activeMemoryItems: any[];
   mcpEditorOpenPath: string | null;
   mcpEditorOpenLine: number | null;
   mcpAgentActivity: Map<string, any>;

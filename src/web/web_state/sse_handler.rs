@@ -206,6 +206,8 @@ pub(super) async fn handle_web_sse_event(
                         handle.try_trigger_watcher(&sid).await;
                         // Mission loop: check if a mission needs evaluation or continuation
                         handle.try_advance_mission(&sid).await;
+                        // Fire any on_session_idle routines bound to this session
+                        handle.try_fire_idle_routines(&sid).await;
                     }
                     "busy" | "retry" => {
                         handle.cancel_watcher_timer(&sid).await;

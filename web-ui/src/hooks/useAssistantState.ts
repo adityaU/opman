@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type {
   PersonalMemoryItem, AutonomyMode, Mission,
   RoutineDefinition, RoutineRunRecord, DelegatedWorkItem, WorkspaceSnapshot,
 } from "../api";
 import {
   fetchPersonalMemory, fetchAutonomySettings, fetchRoutines,
-  fetchMissions, fetchDelegatedWork, fetchWorkspaces, runRoutine,
-  computeRecommendations, computeResumeBriefing, computeDailySummary,
+  fetchMissions, fetchDelegatedWork, fetchWorkspaces,
+  computeRecommendations, computeResumeBriefing,
   fetchActiveMemory,
 } from "../api";
-import type { AssistantRecommendation, ResumeBriefing, SignalInput } from "../api/intelligence";
+import type { AssistantRecommendation, ResumeBriefing } from "../api/intelligence";
 import type { PermissionRequest, QuestionRequest } from "../types";
 import { toPermissionInputs, toQuestionInputs, toSignalInputs } from "./intelligenceAdapters";
 
@@ -35,8 +35,7 @@ export interface UseAssistantStateOptions {
 }
 
 export interface UseAssistantStateCallbacks {
-  onOpenInbox: () => void; onOpenActivityFeed: () => void;
-  onOpenMissions: () => void; onOpenAssistantCenter: () => void;
+  onOpenAssistantCenter: () => void;
 }
 
 export function useAssistantState(
@@ -44,7 +43,7 @@ export function useAssistantState(
   cbs: UseAssistantStateCallbacks,
 ) {
   const {
-    appState, activeSessionId, activeProject, sessionStatus,
+    appState, activeSessionId, activeProject,
     permissions, questions, liveActivityEvents,
     memoryOpen, autonomyOpen, routinesOpen, missionsOpen,
     delegationOpen, workspaceManagerOpen, assistantCenterOpen,
@@ -59,7 +58,6 @@ export function useAssistantState(
   const [routineRunCache, setRoutineRunCache] = useState<RoutineRunRecord[]>([]);
   const [delegatedWorkCache, setDelegatedWorkCache] = useState<DelegatedWorkItem[]>([]);
   const [workspaceCache, setWorkspaceCache] = useState<WorkspaceSnapshot[]>([]);
-  const [executedAutoRoutineIds, setExecutedAutoRoutineIds] = useState<string[]>([]);
   const [resumeBriefing, setResumeBriefing] = useState<ResumeBriefing | null>(null);
   const [latestDailySummary, setLatestDailySummary] = useState<string | null>(null);
   const [activeWorkspaceName, setActiveWorkspaceName] = useState<string | null>(null);
@@ -67,6 +65,16 @@ export function useAssistantState(
   const [assistantPulse, setAssistantPulse] = useState<AssistantRecommendation | null>(null);
 
   const lastVisibleAtRef = useRef(Date.now());
+
+  // ── Shared routine refresh helper ──
+  const refreshRoutines = useCallback(() => {
+    fetchRoutines()
+      .then((resp) => {
+        setRoutineCache(resp.routines ?? []);
+        setRoutineRunCache(resp.runs ?? []);
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Backend-driven active memory ──
   useEffect(() => {
@@ -128,13 +136,8 @@ export function useAssistantState(
   }, [autonomyOpen]);
 
   useEffect(() => {
-    fetchRoutines()
-      .then((resp) => {
-        setRoutineCache(resp.routines ?? []);
-        setRoutineRunCache(resp.runs ?? []);
-      })
-      .catch(() => {});
-  }, [routinesOpen, assistantCenterOpen]);
+    refreshRoutines();
+  }, [routinesOpen, assistantCenterOpen, refreshRoutines]);
 
   useEffect(() => {
     fetchMissions()
@@ -161,6 +164,13 @@ export function useAssistantState(
     return () => window.removeEventListener("opman:mission-updated", handler);
   }, []);
 
+  // Live routine updates from SSE — refetch routine cache when backend signals a change
+  useEffect(() => {
+    const handler = () => { refreshRoutines(); };
+    window.addEventListener("opman:routine-updated", handler);
+    return () => window.removeEventListener("opman:routine-updated", handler);
+  }, [refreshRoutines]);
+
   useEffect(() => {
     fetchDelegatedWork()
       .then((resp) => setDelegatedWorkCache(resp.items ?? []))
@@ -173,105 +183,10 @@ export function useAssistantState(
       .catch(() => {});
   }, [workspaceManagerOpen, assistantCenterOpen]);
 
-  // ── Auto-routine execution (backend computes summary) ──
-  useEffect(() => {
-    if (autonomyMode !== "continue" && autonomyMode !== "autonomous") return;
-    if (sessionStatus !== "idle" || !activeSessionId) return;
-
-    const routine = routineCache.find(
-      (item) => item.trigger === "on_session_idle" && item.session_id === activeSessionId,
-    );
-    if (!routine) return;
-    if (executedAutoRoutineIds.includes(`${routine.id}:${activeSessionId}`)) return;
-
-    // Ask backend to compute the routine summary
-    computeDailySummary({
-      routine_id: routine.id,
-      permissions: toPermissionInputs(permissions),
-      questions: toQuestionInputs(questions),
-      signals: toSignalInputs(assistantSignals),
-    })
-      .then((resp) => runRoutine(routine.id, { summary: resp.summary }))
-      .catch(() => runRoutine(routine.id, {}));
-
-    if (routine.action === "open_inbox") {
-      cbs.onOpenInbox();
-    } else if (routine.action === "open_activity_feed") {
-      cbs.onOpenActivityFeed();
-    } else if (routine.action === "review_mission" && routine.mission_id) {
-      cbs.onOpenMissions();
-    }
-
-    setAssistantSignals((prev) => {
-      const id = `routine-auto:${routine.id}:${activeSessionId}`;
-      if (prev.some((signal) => signal.id === id)) return prev;
-      return [
-        {
-          id,
-          kind: "watcher_trigger" as const,
-          title: `Routine: ${routine.name}`,
-          body: `Auto-run ready for ${routine.action}`,
-          createdAt: Date.now(),
-          sessionId: activeSessionId,
-        },
-        ...prev,
-      ].slice(0, 25);
-    });
-
-    setExecutedAutoRoutineIds((prev) => [...prev, `${routine.id}:${activeSessionId}`]);
-  }, [autonomyMode, sessionStatus, activeSessionId, routineCache, executedAutoRoutineIds]);
-
-  // ── Reset executed auto-routine IDs when session becomes busy ──
-  useEffect(() => {
-    if (sessionStatus === "busy") {
-      setExecutedAutoRoutineIds([]);
-    }
-  }, [sessionStatus]);
-
-  // ── Daily summary routine (backend-computed) ──
-  useEffect(() => {
-    if (autonomyMode !== "continue" && autonomyMode !== "autonomous") return;
-
-    const routine = routineCache.find((item) => item.trigger === "daily_summary");
-    if (!routine) return;
-
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const ranToday = routineRunCache.some(
-      (run) => run.routine_id === routine.id && run.created_at.slice(0, 10) === todayKey,
-    );
-    if (ranToday) return;
-
-    computeDailySummary({
-      routine_id: routine.id,
-      permissions: toPermissionInputs(permissions),
-      questions: toQuestionInputs(questions),
-      signals: toSignalInputs(assistantSignals),
-    })
-      .then((resp) => {
-        setLatestDailySummary(resp.summary);
-        return runRoutine(routine.id, { summary: resp.summary });
-      })
-      .then((run) => {
-        setRoutineRunCache((prev) => [run, ...prev]);
-      })
-      .catch(() => {});
-
-    setAssistantSignals((prev) => {
-      const id = `routine-daily:${routine.id}:${todayKey}`;
-      if (prev.some((signal) => signal.id === id)) return prev;
-      return [
-        {
-          id,
-          kind: "session_complete" as const,
-          title: `Daily summary: ${routine.name}`,
-          body: "Computing daily summary...",
-          createdAt: Date.now(),
-          sessionId: activeSessionId,
-        },
-        ...prev,
-      ].slice(0, 25);
-    });
-  }, [autonomyMode, routineCache, routineRunCache, activeSessionId, missionCache, permissions, questions, assistantSignals]);
+  // ── NOTE: on_session_idle and daily_summary routines are now fully ──
+  // ── backend-driven. The frontend only displays status; it never ──
+  // ── initiates idle-triggered automations. This ensures reliable ──
+  // ── execution even when the browser tab is backgrounded. ──
 
   // ── Derive latest daily summary from run cache ──
   useEffect(() => {
@@ -293,7 +208,6 @@ export function useAssistantState(
     routineRunCache, setRoutineRunCache,
     delegatedWorkCache, setDelegatedWorkCache,
     workspaceCache, setWorkspaceCache,
-    executedAutoRoutineIds, setExecutedAutoRoutineIds,
     resumeBriefing, setResumeBriefing,
     latestDailySummary, setLatestDailySummary,
     activeWorkspaceName, setActiveWorkspaceName,

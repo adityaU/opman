@@ -28,6 +28,7 @@ export interface CommandPaletteProps {
   onOpenDelegation?: () => void;
   onOpenWorkspaceManager?: () => void;
   onOpenMissions?: () => void;
+  onOpenSystemMonitor?: () => void;
   sessionId: string | null;
 }
 

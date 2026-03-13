@@ -6,22 +6,31 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
+use super::common::{resolve_project_dir, resolve_repo_dir};
 
-/// GET /api/git/show?hash=... — show a commit's diff and metadata.
+/// Helper: resolve the git working directory, honouring `repo` scope.
+async fn git_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBuf> {
+    if repo.is_empty() || repo == "." {
+        let dir = resolve_project_dir(state).await?;
+        Ok(std::path::PathBuf::from(dir))
+    } else {
+        resolve_repo_dir(state, repo).await
+    }
+}
+
+/// GET /api/git/show?hash=...&repo=... — show a commit's diff and metadata.
 pub async fn git_show(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Query(query): axum::extract::Query<GitShowQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &query.repo).await?;
 
     // Get commit metadata
     let format = "%H%x1f%an%x1f%aI%x1f%B";
     let meta_output = tokio::process::Command::new("git")
         .args(["show", "--no-patch", &format!("--format={}", format), &query.hash])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git show: {e}")))?;
@@ -47,7 +56,7 @@ pub async fn git_show(
     // Get diff
     let diff_output = tokio::process::Command::new("git")
         .args(["show", "--format=", "--patch", &query.hash])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to get commit diff: {e}")))?;
@@ -57,7 +66,7 @@ pub async fn git_show(
     // Get changed files list
     let files_output = tokio::process::Command::new("git")
         .args(["show", "--format=", "--name-status", &query.hash])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to get commit files: {e}")))?;
@@ -88,18 +97,18 @@ pub async fn git_show(
     }))
 }
 
-/// GET /api/git/branches — list all local and remote branches.
+/// GET /api/git/branches?repo=... — list all local and remote branches.
 pub async fn git_branches(
     State(state): State<ServerState>,
     _auth: AuthUser,
+    axum::extract::Query(scope): axum::extract::Query<GitRepoScope>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &scope.repo).await?;
 
     // Get current branch
     let head_output = tokio::process::Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git: {e}")))?;
@@ -110,7 +119,7 @@ pub async fn git_branches(
     // Get local branches
     let local_output = tokio::process::Command::new("git")
         .args(["branch", "--format=%(refname:short)"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to list local branches: {e}")))?;
@@ -123,7 +132,7 @@ pub async fn git_branches(
     // Get remote branches
     let remote_output = tokio::process::Command::new("git")
         .args(["branch", "-r", "--format=%(refname:short)"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to list remote branches: {e}")))?;
@@ -146,8 +155,7 @@ pub async fn git_checkout(
     _auth: AuthUser,
     Json(req): Json<GitCheckoutRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &req.repo).await?;
 
     // Validate branch name (basic safety check)
     if req.branch.is_empty()
@@ -160,7 +168,7 @@ pub async fn git_checkout(
 
     let output = tokio::process::Command::new("git")
         .args(["checkout", &req.branch])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git checkout: {e}")))?;
@@ -187,22 +195,19 @@ pub async fn git_checkout(
 }
 
 /// GET /api/git/range-diff — get commit log + cumulative diff between base branch and HEAD.
-///
-/// Useful for "Draft PR Description" — gathers all commits and changes relative to a base branch.
 pub async fn git_range_diff(
     State(state): State<ServerState>,
     _auth: AuthUser,
     Query(query): Query<GitRangeDiffQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let dir = resolve_project_dir(&state).await?;
-    let dir_path = std::path::Path::new(&dir);
+    let dir_path = git_dir(&state, &query.repo).await?;
     let base = query.base.unwrap_or_else(|| "main".to_string());
     let limit = query.limit.unwrap_or(50);
 
     // Get current branch
     let branch_out = tokio::process::Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git rev-parse: {e}")))?;
@@ -216,7 +221,7 @@ pub async fn git_range_diff(
             &format!("--max-count={}", limit),
             "--format=%H\x1f%h\x1f%an\x1f%aI\x1f%s",
         ])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git log: {e}")))?;
@@ -242,7 +247,7 @@ pub async fn git_range_diff(
     // Get cumulative diff
     let diff_out = tokio::process::Command::new("git")
         .args(["diff", &format!("{}...HEAD", base)])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git diff: {e}")))?;
@@ -251,7 +256,7 @@ pub async fn git_range_diff(
     // Count files changed
     let stat_out = tokio::process::Command::new("git")
         .args(["diff", &format!("{}...HEAD", base), "--stat"])
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .output()
         .await
         .ok();

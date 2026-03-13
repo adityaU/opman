@@ -16,6 +16,7 @@ pub mod neovim_pane;
 pub mod remote_popup;
 mod render_helpers;
 mod render_overlays;
+pub mod routine_panel;
 pub mod session_selector;
 pub mod sidebar;
 pub mod slack_log_panel;

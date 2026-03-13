@@ -116,6 +116,7 @@ pub struct App {
     pub slack_log_scroll: usize,
     pub session_selector: Option<SessionSelectorState>,
     pub todo_panel: Option<TodoPanelState>,
+    pub routine_panel: Option<RoutinePanelState>,
     pub session_stats: HashMap<String, SessionStats>,
     pub model_limits: HashMap<usize, ModelLimits>,
     pub neovim_mcp_enabled: bool,
@@ -138,6 +139,10 @@ pub struct App {
     pub slack_state: Option<Arc<tokio::sync::Mutex<crate::slack::SlackState>>>,
     pub slack_auth: Option<crate::slack::SlackAuth>,
     pub pending_slack_messages: Vec<PendingSlackMessage>,
+    /// Handle to the opman web state (routines, missions, etc.).
+    /// `None` when the web server is disabled.  Used by the TUI routine
+    /// panel to call routine methods directly (no HTTP round-trip needed).
+    pub web_state: Option<crate::web::WebStateHandle>,
 }
 
 impl App {
@@ -212,6 +217,7 @@ impl App {
             slack_log_scroll: 0,
             session_selector: None,
             todo_panel: None,
+            routine_panel: None,
             session_stats: HashMap::new(),
             model_limits: HashMap::new(),
             neovim_mcp_enabled: false,
@@ -234,6 +240,7 @@ impl App {
             slack_state: None,
             slack_auth: None,
             pending_slack_messages: Vec::new(),
+            web_state: None,
         }
     }
 

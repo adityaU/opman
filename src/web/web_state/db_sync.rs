@@ -82,15 +82,28 @@ pub(super) fn sync_all(
     )?;
     for r in routines {
         conn.execute(
-            "INSERT INTO routines (id,name,trigger,action,mission_id,\
-             session_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+            "INSERT INTO routines (id,name,trigger,action,enabled,cron_expr,timezone,\
+             target_mode,session_id,project_index,prompt,provider_id,model_id,\
+             mission_id,last_run_at,next_run_at,last_error,\
+             created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
             params![
                 r.id,
                 r.name,
                 trigger_str(&r.trigger),
                 action_str(&r.action),
-                r.mission_id,
+                r.enabled as i64,
+                r.cron_expr,
+                r.timezone,
+                r.target_mode.as_ref().map(target_mode_str),
                 r.session_id,
+                r.project_index.map(|v| v as i64),
+                r.prompt,
+                r.provider_id,
+                r.model_id,
+                r.mission_id,
+                r.last_run_at,
+                r.next_run_at,
+                r.last_error,
                 r.created_at,
                 r.updated_at
             ],
@@ -98,9 +111,18 @@ pub(super) fn sync_all(
     }
     for r in routine_runs {
         conn.execute(
-            "INSERT INTO routine_runs (id,routine_id,status,summary,created_at) \
-             VALUES (?1,?2,?3,?4,?5)",
-            params![r.id, r.routine_id, r.status, r.summary, r.created_at],
+            "INSERT INTO routine_runs (id,routine_id,status,summary,\
+             target_session_id,duration_ms,created_at) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            params![
+                r.id,
+                r.routine_id,
+                r.status,
+                r.summary,
+                r.target_session_id,
+                r.duration_ms.map(|v| v as i64),
+                r.created_at
+            ],
         )?;
     }
     for d in delegated {
@@ -184,6 +206,7 @@ fn mode_str(m: &AutonomyMode) -> &'static str {
 fn trigger_str(t: &RoutineTrigger) -> &'static str {
     match t {
         RoutineTrigger::Manual => "manual",
+        RoutineTrigger::Scheduled => "scheduled",
         RoutineTrigger::OnSessionIdle => "on_session_idle",
         RoutineTrigger::DailySummary => "daily_summary",
     }
@@ -191,9 +214,17 @@ fn trigger_str(t: &RoutineTrigger) -> &'static str {
 
 fn action_str(a: &RoutineAction) -> &'static str {
     match a {
+        RoutineAction::SendMessage => "send_message",
         RoutineAction::ReviewMission => "review_mission",
         RoutineAction::OpenInbox => "open_inbox",
         RoutineAction::OpenActivityFeed => "open_activity_feed",
+    }
+}
+
+fn target_mode_str(t: &RoutineTargetMode) -> &'static str {
+    match t {
+        RoutineTargetMode::ExistingSession => "existing_session",
+        RoutineTargetMode::NewSession => "new_session",
     }
 }
 

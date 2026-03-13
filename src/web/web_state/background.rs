@@ -69,6 +69,7 @@ impl super::WebStateHandle {
     pub(super) fn spawn_session_poller(&self) {
         let inner = self.inner.clone();
         let event_tx = self.event_tx.clone();
+        let handle_clone = self.clone();
 
         tokio::spawn(async move {
             let client = ApiClient::new();
@@ -191,10 +192,15 @@ impl super::WebStateHandle {
                     }
                 }
 
-                {
+                // Collect transitions before writing so we can fire side-effects
+                // outside the lock.
+                let (newly_busy, newly_idle) = {
                     let mut state = inner.write().await;
+                    let mut n_busy = Vec::new();
+                    let mut n_idle = Vec::new();
                     for id in &aggregated_busy {
                         if !state.busy_sessions.contains(id) {
+                            n_busy.push(id.clone());
                             let _ = event_tx.send(WebEvent::SessionBusy {
                                 session_id: id.clone(),
                             });
@@ -202,12 +208,25 @@ impl super::WebStateHandle {
                     }
                     for id in state.busy_sessions.iter() {
                         if !aggregated_busy.contains(id) {
+                            n_idle.push(id.clone());
                             let _ = event_tx.send(WebEvent::SessionIdle {
                                 session_id: id.clone(),
                             });
                         }
                     }
                     state.busy_sessions = aggregated_busy;
+                    (n_busy, n_idle)
+                };
+
+                // Fire side-effects for transitions detected by the poller
+                // (mirrors what the SSE handler does on real-time events).
+                for sid in &newly_idle {
+                    handle_clone.try_trigger_watcher(sid).await;
+                    handle_clone.try_advance_mission(sid).await;
+                    handle_clone.try_fire_idle_routines(sid).await;
+                }
+                for sid in &newly_busy {
+                    handle_clone.cancel_watcher_timer(sid).await;
                 }
 
                 if changed {

@@ -213,6 +213,12 @@ pub fn build_space_children(kb: &KeyBindings) -> Vec<RuntimeKeyBinding> {
             CommandAction::SlackConnect,
             NORMAL_MODES,
         ),
+        rk_leaf(
+            parse(&kb.leader_routine),
+            "Routines",
+            CommandAction::ToggleRoutinePanel,
+            NORMAL_MODES,
+        ),
         {
             let swap_children = vec![
                 rk_leaf(

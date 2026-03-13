@@ -3,22 +3,7 @@ import { useEscape } from "./hooks/useKeyboard";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { Search, Bot, Check } from "lucide-react";
 import { fetchAgents, type AgentInfo } from "./api";
-
-/** Default agent colours keyed by id (mirrors opencode's agentColor utility) */
-const AGENT_COLORS: Record<string, string> = {
-  coder: "#3b82f6",   // blue
-  task: "#f59e0b",    // amber
-  ask: "#8b5cf6",     // purple
-  build: "#10b981",   // emerald
-  docs: "#06b6d4",    // cyan
-  plan: "#f43f5e",    // rose
-};
-
-/** Resolve the display colour for an agent */
-function agentColor(id: string, custom?: string): string | undefined {
-  if (custom) return custom;
-  return AGENT_COLORS[id] ?? AGENT_COLORS[id.toLowerCase()];
-}
+import { agentColor } from "./utils/theme";
 
 /**
  * Filter agents the same way opencode does: hide agents with mode "subagent"

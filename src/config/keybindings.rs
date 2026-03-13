@@ -101,6 +101,8 @@ pub struct KeyBindings {
     pub leader_context: String,
     #[serde(default = "crate::config::key_defaults::default_leader_slack")]
     pub leader_slack: String,
+    #[serde(default = "crate::config::key_defaults::default_leader_routine")]
+    pub leader_routine: String,
     // ── Leader → Terminal sub-bindings ──────────────────────────────
     #[serde(default = "crate::config::key_defaults::default_terminal_toggle")]
     pub terminal_toggle: String,
@@ -197,6 +199,7 @@ impl Default for KeyBindings {
             leader_todo: key_defaults::default_leader_todo(),
             leader_context: key_defaults::default_leader_context(),
             leader_slack: key_defaults::default_leader_slack(),
+            leader_routine: key_defaults::default_leader_routine(),
             terminal_toggle: key_defaults::default_terminal_toggle(),
             terminal_new_tab: key_defaults::default_terminal_new_tab(),
             terminal_next_tab: key_defaults::default_terminal_next_tab(),

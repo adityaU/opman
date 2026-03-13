@@ -60,3 +60,40 @@ pub(super) async fn resolve_project_dir(state: &ServerState) -> WebResult<String
         .map(|p| p.to_string_lossy().to_string())
         .ok_or(WebError::BadRequest("No active project".into()))
 }
+
+/// Helper: resolve a specific git repo directory within the project.
+///
+/// When `repo` is empty or ".", returns the project root.
+/// Otherwise, resolves `repo` relative to the project root and ensures
+/// the target is within the project tree and is actually a git repo.
+pub(super) async fn resolve_repo_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBuf> {
+    let dir = resolve_project_dir(state).await?;
+    let base = std::path::Path::new(&dir);
+
+    if repo.is_empty() || repo == "." {
+        return Ok(base.to_path_buf());
+    }
+
+    let target = base.join(repo);
+
+    // Security: ensure within project
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
+    let canonical_target = target
+        .canonicalize()
+        .map_err(|_| WebError::NotFound("Repository path not found"))?;
+    if !canonical_target.starts_with(&canonical_base) {
+        return Err(WebError::BadRequest("Path traversal not allowed".into()));
+    }
+
+    // Verify it's actually a git repo
+    if !canonical_target.join(".git").exists() {
+        return Err(WebError::BadRequest(format!(
+            "Not a git repository: {}",
+            repo
+        )));
+    }
+
+    Ok(canonical_target)
+}

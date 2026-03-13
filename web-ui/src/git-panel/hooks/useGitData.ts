@@ -5,9 +5,10 @@ import {
   fetchGitLog,
   fetchGitShow,
   fetchGitBranches,
+  fetchGitRepos,
   fetchTheme,
 } from "../../api";
-import type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors, GitTab, GitView } from "../types";
+import type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors, GitTab, GitView, GitRepoEntry } from "../types";
 import { parseUnifiedDiff } from "../utils";
 
 // ── Return type ─────────────────────────────────────────
@@ -15,6 +16,12 @@ import { parseUnifiedDiff } from "../utils";
 export interface GitDataState {
   // theme
   themeColors: ThemeColors | null;
+  // repos
+  repos: GitRepoEntry[];
+  reposLoading: boolean;
+  selectedRepo: string | undefined;
+  setSelectedRepo: (repo: string | undefined) => void;
+  refreshRepos: () => Promise<void>;
   // status
   branch: string;
   setBranch: (b: string) => void;
@@ -56,6 +63,11 @@ export function useGitData(
   // Theme
   const [themeColors, setThemeColors] = useState<ThemeColors | null>(null);
 
+  // Repos
+  const [repos, setRepos] = useState<GitRepoEntry[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<string | undefined>(undefined);
+
   // Status
   const [branch, setBranch]       = useState("");
   const [staged, setStaged]       = useState<GitFileEntry[]>([]);
@@ -82,14 +94,36 @@ export function useGitData(
   const [diffNew, setDiffNew]         = useState("");
   const [diffLoading, setDiffLoading] = useState(false);
 
+  // Use a ref to hold selectedRepo for callbacks that need the current value
+  const selectedRepoRef = useRef(selectedRepo);
+  selectedRepoRef.current = selectedRepo;
+
   // ── Theme load ────────────────────────────────────────
   useEffect(() => { fetchTheme().then((t) => { if (t) setThemeColors(t); }); }, []);
+
+  // ── Repo discovery ────────────────────────────────────
+  const refreshRepos = useCallback(async () => {
+    setReposLoading(true);
+    try {
+      const resp = await fetchGitRepos();
+      setRepos(resp.repos);
+      // Auto-select first repo if nothing selected yet
+      if (resp.repos.length > 0 && !selectedRepoRef.current) {
+        setSelectedRepo(resp.repos[0].path);
+      }
+    } catch (err) {
+      console.error("Failed to fetch git repos:", err);
+      // Not all projects have git repos, so don't show error for this
+    } finally {
+      setReposLoading(false);
+    }
+  }, []);
 
   // ── Status refresh ────────────────────────────────────
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     try {
-      const s = await fetchGitStatus();
+      const s = await fetchGitStatus(selectedRepoRef.current);
       setBranch(s.branch);
       setStaged(s.staged);
       setUnstaged(s.unstaged);
@@ -106,7 +140,7 @@ export function useGitData(
   const refreshLog = useCallback(async () => {
     setLogLoading(true);
     try {
-      const resp = await fetchGitLog(50);
+      const resp = await fetchGitLog(50, selectedRepoRef.current);
       setCommits(resp.commits);
     } catch (err) {
       console.error("Failed to fetch git log:", err);
@@ -120,7 +154,7 @@ export function useGitData(
   const fetchBranchList = useCallback(async () => {
     setBranchesLoading(true);
     try {
-      const data = await fetchGitBranches();
+      const data = await fetchGitBranches(selectedRepoRef.current);
       setLocalBranches(data.local);
       setRemoteBranches(data.remote);
     } catch {
@@ -131,20 +165,31 @@ export function useGitData(
   }, [onError]);
 
   // ── Initial load ──────────────────────────────────────
-  useEffect(() => { refreshStatus(); }, [refreshStatus]);
+  useEffect(() => { refreshRepos(); }, [refreshRepos]);
 
-  // ── Project change reset ──────────────────────────────
-  const prevProjectPath = useRef(projectPath);
+  // When selectedRepo changes, refetch status (and log if visible)
   useEffect(() => {
-    if (projectPath === prevProjectPath.current) return;
-    prevProjectPath.current = projectPath;
+    if (selectedRepo === undefined) return;
     setBranch(""); setStaged([]); setUnstaged([]); setUntracked([]);
     setCommits([]); setCommitDetail(null);
     setDiffOld(""); setDiffNew("");
     setExpandedFiles(new Set());
     refreshStatus();
     if (tab === "log") refreshLog();
-  }, [projectPath, refreshStatus, refreshLog, tab]);
+  }, [selectedRepo]); // intentionally only depend on selectedRepo
+
+  // ── Project change reset ──────────────────────────────
+  const prevProjectPath = useRef(projectPath);
+  useEffect(() => {
+    if (projectPath === prevProjectPath.current) return;
+    prevProjectPath.current = projectPath;
+    setRepos([]); setSelectedRepo(undefined);
+    setBranch(""); setStaged([]); setUnstaged([]); setUntracked([]);
+    setCommits([]); setCommitDetail(null);
+    setDiffOld(""); setDiffNew("");
+    setExpandedFiles(new Set());
+    refreshRepos();
+  }, [projectPath, refreshRepos]);
 
   // ── Auto-load log on tab switch ───────────────────────
   useEffect(() => {
@@ -156,7 +201,7 @@ export function useGitData(
     if (currentView.kind !== "file-diff") return;
     const { file, staged: isStaged } = currentView;
     setDiffLoading(true);
-    fetchGitDiff(file, isStaged)
+    fetchGitDiff(file, isStaged, selectedRepoRef.current)
       .then((resp) => {
         const { oldText, newText } = parseUnifiedDiff(resp.diff);
         setDiffOld(oldText);
@@ -176,7 +221,7 @@ export function useGitData(
     setCommitDetailLoading(true);
     setCommitDetail(null);
     setExpandedFiles(new Set());
-    fetchGitShow(currentView.hash)
+    fetchGitShow(currentView.hash, selectedRepoRef.current)
       .then((resp) => setCommitDetail(resp))
       .catch((err) => {
         console.error("Failed to fetch commit detail:", err);
@@ -204,6 +249,7 @@ export function useGitData(
 
   return {
     themeColors,
+    repos, reposLoading, selectedRepo, setSelectedRepo, refreshRepos,
     branch, setBranch,
     staged, unstaged, untracked, loading, refreshStatus,
     commits, logLoading, refreshLog,

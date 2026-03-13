@@ -1,4 +1,6 @@
-use crate::app::{PermissionRequest, QuestionRequest, SessionInfo, SessionMessage, TodoItem};
+use crate::app::{
+    PermissionRequest, QuestionRequest, RoutineItem, SessionInfo, SessionMessage, TodoItem,
+};
 use crate::pty::PtyInstance;
 
 /// Events sent from background tokio tasks back to the main event loop.
@@ -106,4 +108,16 @@ pub enum BackgroundEvent {
     },
     /// Event from the Slack integration subsystem.
     SlackEvent(crate::slack::SlackBackgroundEvent),
+    /// Routines fetched via REST API (opman dashboard).
+    RoutinesFetched { routines: Vec<RoutineItem> },
+    /// A routine was executed (run completed or failed).
+    RoutineRunCompleted {
+        routine_id: String,
+        success: bool,
+        message: String,
+    },
+    /// A routine was created via TUI.
+    RoutineCreated { routine: RoutineItem },
+    /// A routine was deleted via TUI.
+    RoutineDeleted { routine_id: String, success: bool },
 }

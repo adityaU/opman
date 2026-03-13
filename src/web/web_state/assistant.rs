@@ -286,7 +286,7 @@ impl super::WebStateHandle {
             mission.iteration,
         );
 
-        self.send_to_session(&mission.session_id, &mission.project_index, &prompt).await;
+        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
     }
 
     /// Send the evaluator prompt into the session.
@@ -330,7 +330,7 @@ impl super::WebStateHandle {
             history_context,
         );
 
-        self.send_to_session(&mission.session_id, &mission.project_index, &prompt).await;
+        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
     }
 
     /// Send a continuation prompt after evaluation says "continue".
@@ -350,11 +350,20 @@ impl super::WebStateHandle {
             mission.iteration,
         );
 
-        self.send_to_session(&mission.session_id, &mission.project_index, &prompt).await;
+        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
     }
 
     /// Send a message to a session via the opencode proxy.
-    async fn send_to_session(&self, session_id: &str, project_index: &usize, message: &str) {
+    ///
+    /// An optional `ModelRef` can be provided to override the model for this message.
+    /// Returns `Ok(())` on success, or `Err(description)` on failure.
+    async fn send_to_session(
+        &self,
+        session_id: &str,
+        project_index: &usize,
+        message: &str,
+        model: Option<&crate::web::types::ModelRef>,
+    ) -> Result<(), String> {
         let dir = {
             let state = self.inner.read().await;
             state.projects.get(*project_index)
@@ -367,14 +376,21 @@ impl super::WebStateHandle {
                 session_id = %session_id,
                 "Cannot send message: no project directory found"
             );
-            return;
+            return Err("No project directory found".to_string());
         }
 
         let base = crate::app::base_url().to_string();
         let url = format!("{}/session/{}/message", base, session_id);
-        let body = serde_json::json!({
+
+        let mut body = serde_json::json!({
             "parts": [{ "type": "text", "text": message }]
         });
+        if let Some(model_ref) = model {
+            body["model"] = serde_json::json!({
+                "providerID": model_ref.provider_id,
+                "modelID": model_ref.model_id,
+            });
+        }
 
         let client = reqwest::Client::new();
         match client
@@ -388,22 +404,28 @@ impl super::WebStateHandle {
             Ok(resp) if resp.status().is_success() => {
                 tracing::debug!(
                     session_id = %session_id,
-                    "Mission message sent successfully"
+                    "Message sent successfully"
                 );
+                Ok(())
             }
             Ok(resp) => {
+                let status = resp.status();
+                let detail = resp.text().await.unwrap_or_default();
                 tracing::warn!(
                     session_id = %session_id,
-                    status = %resp.status(),
-                    "Mission message rejected by upstream"
+                    status = %status,
+                    detail = %detail,
+                    "Message rejected by upstream"
                 );
+                Err(format!("Upstream rejected message: HTTP {status}"))
             }
             Err(e) => {
                 tracing::warn!(
                     session_id = %session_id,
                     error = %e,
-                    "Failed to send mission message"
+                    "Failed to send message"
                 );
+                Err(format!("Failed to send message: {e}"))
             }
         }
     }
@@ -620,8 +642,19 @@ impl super::WebStateHandle {
             name: req.name,
             trigger: req.trigger,
             action: req.action,
-            mission_id: req.mission_id,
+            enabled: req.enabled,
+            cron_expr: req.cron_expr,
+            timezone: req.timezone,
+            target_mode: req.target_mode,
             session_id: req.session_id,
+            project_index: req.project_index,
+            prompt: req.prompt,
+            provider_id: req.provider_id,
+            model_id: req.model_id,
+            mission_id: req.mission_id,
+            last_run_at: None,
+            next_run_at: None,
+            last_error: None,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -629,6 +662,7 @@ impl super::WebStateHandle {
         state.routines.insert(routine.id.clone(), routine.clone());
         drop(state);
         self.schedule_persist();
+        self.broadcast_routine_update();
         routine
     }
 
@@ -646,16 +680,44 @@ impl super::WebStateHandle {
         if let Some(action) = req.action {
             routine.action = action;
         }
-        if let Some(mission_id) = req.mission_id {
-            routine.mission_id = mission_id;
+        if let Some(enabled) = req.enabled {
+            routine.enabled = enabled;
+        }
+        if let Some(cron_expr) = req.cron_expr {
+            routine.cron_expr = cron_expr;
+        }
+        if let Some(timezone) = req.timezone {
+            routine.timezone = timezone;
+        }
+        if let Some(target_mode) = req.target_mode {
+            routine.target_mode = target_mode;
         }
         if let Some(session_id) = req.session_id {
             routine.session_id = session_id;
         }
+        if let Some(project_index) = req.project_index {
+            routine.project_index = project_index;
+        }
+        if let Some(prompt) = req.prompt {
+            routine.prompt = prompt;
+        }
+        if let Some(provider_id) = req.provider_id {
+            routine.provider_id = provider_id;
+        }
+        if let Some(model_id) = req.model_id {
+            routine.model_id = model_id;
+        }
+        if let Some(mission_id) = req.mission_id {
+            routine.mission_id = mission_id;
+        }
         routine.updated_at = Utc::now().to_rfc3339();
         let updated = routine.clone();
+        let routine_id = updated.id.clone();
         drop(state);
         self.schedule_persist();
+        // Immediately recompute next_run_at if cron changed
+        self.recompute_next_run_if_scheduled(&routine_id).await;
+        self.broadcast_routine_update();
         Some(updated)
     }
 
@@ -666,27 +728,237 @@ impl super::WebStateHandle {
         drop(state);
         if removed {
             self.schedule_persist();
+            self.broadcast_routine_update();
         }
         removed
     }
 
     /// Record a routine run.
-    pub async fn record_routine_run(&self, routine_id: &str, summary: String) -> RoutineRunRecord {
+    pub async fn record_routine_run(
+        &self,
+        routine_id: &str,
+        summary: String,
+        target_session_id: Option<String>,
+        duration_ms: Option<u64>,
+        status: &str,
+    ) -> RoutineRunRecord {
+        let now = Utc::now().to_rfc3339();
         let run = RoutineRunRecord {
             id: format!("routine-run-{}", uuid_like_id()),
             routine_id: routine_id.to_string(),
-            status: "completed".to_string(),
+            status: status.to_string(),
             summary,
-            created_at: Utc::now().to_rfc3339(),
+            target_session_id,
+            duration_ms,
+            created_at: now.clone(),
         };
+
         let mut state = self.inner.write().await;
+        // Update last_run_at on the routine itself
+        if let Some(routine) = state.routines.get_mut(routine_id) {
+            routine.last_run_at = Some(now);
+            if status == "failed" {
+                routine.last_error = Some(run.summary.clone());
+            } else {
+                routine.last_error = None;
+            }
+        }
         state.routine_runs.insert(0, run.clone());
-        if state.routine_runs.len() > 50 {
-            state.routine_runs.truncate(50);
+        if state.routine_runs.len() > 100 {
+            state.routine_runs.truncate(100);
         }
         drop(state);
         self.schedule_persist();
+        self.broadcast_routine_update();
         run
+    }
+
+    /// Execute a routine: send its prompt to the target session.
+    /// Returns the run record.
+    pub async fn execute_routine(&self, routine_id: &str) -> Result<RoutineRunRecord, String> {
+        let routine = {
+            let state = self.inner.read().await;
+            state.routines.get(routine_id).cloned()
+                .ok_or_else(|| "Routine not found".to_string())?
+        };
+
+        if routine.action != RoutineAction::SendMessage {
+            // Legacy actions don't have backend execution — just record the run
+            let run = self.record_routine_run(
+                routine_id,
+                format!("Executed legacy action: {:?}", routine.action),
+                None, None, "completed",
+            ).await;
+            return Ok(run);
+        }
+
+        let prompt = routine.prompt.as_deref().unwrap_or("").trim();
+        if prompt.is_empty() {
+            let _run = self.record_routine_run(
+                routine_id, "No prompt configured".to_string(),
+                None, None, "failed",
+            ).await;
+            return Err(format!("Routine '{}' has no prompt configured", routine.name));
+        }
+
+        let start = std::time::Instant::now();
+
+        // Determine session ID
+        let session_id = match routine.target_mode.as_ref() {
+            Some(RoutineTargetMode::NewSession) => {
+                // Create a new session for this routine
+                let project_index = routine.project_index.unwrap_or(0);
+                match self.create_session_for_routine(project_index).await {
+                    Ok(id) => id,
+                    Err(e) => {
+                        let _run = self.record_routine_run(
+                            routine_id, format!("Failed to create session: {e}"),
+                            None, None, "failed",
+                        ).await;
+                        return Err(e);
+                    }
+                }
+            }
+            _ => {
+                // Use existing session
+                match routine.session_id.as_deref() {
+                    Some(id) if !id.is_empty() => id.to_string(),
+                    _ => {
+                        let _run = self.record_routine_run(
+                            routine_id, "No target session configured".to_string(),
+                            None, None, "failed",
+                        ).await;
+                        return Err("No target session configured".to_string());
+                    }
+                }
+            }
+        };
+
+        let project_index = routine.project_index.unwrap_or(0);
+
+        // Build optional model override from routine config
+        let model_ref = match (routine.provider_id.as_deref(), routine.model_id.as_deref()) {
+            (Some(pid), Some(mid)) if !pid.is_empty() && !mid.is_empty() => {
+                Some(crate::web::types::ModelRef {
+                    provider_id: pid.to_string(),
+                    model_id: mid.to_string(),
+                })
+            }
+            _ => None,
+        };
+
+        // Send the message
+        if let Err(e) = self.send_to_session(&session_id, &project_index, prompt, model_ref.as_ref()).await {
+            let elapsed = start.elapsed().as_millis() as u64;
+            let _run = self.record_routine_run(
+                routine_id,
+                format!("Failed to send message: {e}"),
+                Some(session_id),
+                Some(elapsed),
+                "failed",
+            ).await;
+            return Err(e);
+        }
+
+        let elapsed = start.elapsed().as_millis() as u64;
+
+        let run = self.record_routine_run(
+            routine_id,
+            format!("Sent message to session {}", &session_id[..session_id.len().min(12)]),
+            Some(session_id),
+            Some(elapsed),
+            "completed",
+        ).await;
+
+        Ok(run)
+    }
+
+    /// Fire any enabled `OnSessionIdle` routines bound to the given session.
+    ///
+    /// Called from the SSE handler when a session transitions to "idle".
+    /// A 60-second cooldown per routine prevents infinite self-loops
+    /// (routine sends message → session busy → session idle → routine fires again).
+    pub(super) async fn try_fire_idle_routines(&self, session_id: &str) {
+        let now = std::time::Instant::now();
+        let cooldown = std::time::Duration::from_secs(60);
+
+        let due_ids: Vec<String> = {
+            let state = self.inner.read().await;
+            state
+                .routines
+                .values()
+                .filter(|r| {
+                    r.enabled
+                        && r.trigger == super::super::types::RoutineTrigger::OnSessionIdle
+                        && r.action == super::super::types::RoutineAction::SendMessage
+                        && r.session_id.as_deref() == Some(session_id)
+                })
+                .filter(|r| {
+                    // Skip if this routine fired within the cooldown window
+                    state
+                        .routine_idle_cooldown
+                        .get(&r.id)
+                        .map_or(true, |last| now.duration_since(*last) >= cooldown)
+                })
+                .map(|r| r.id.clone())
+                .collect()
+        };
+
+        for id in due_ids {
+            // Record the fire time *before* executing so that even if execution
+            // is slow, subsequent idle transitions are suppressed.
+            {
+                let mut state = self.inner.write().await;
+                state.routine_idle_cooldown.insert(id.clone(), now);
+            }
+            tracing::debug!(routine_id = %id, session_id = %session_id, "firing on_session_idle routine");
+            if let Err(e) = self.execute_routine(&id).await {
+                tracing::warn!(routine_id = %id, error = %e, "on_session_idle routine failed");
+            }
+        }
+    }
+
+    /// Create a new session for a routine, returning the session ID.
+    async fn create_session_for_routine(&self, project_index: usize) -> Result<String, String> {
+        let dir = {
+            let state = self.inner.read().await;
+            state.projects.get(project_index)
+                .map(|p| p.path.to_string_lossy().to_string())
+                .unwrap_or_default()
+        };
+
+        if dir.is_empty() {
+            return Err("No project directory found".to_string());
+        }
+
+        let base = crate::app::base_url().to_string();
+        let url = format!("{}/session", base);
+
+        let client = reqwest::Client::new();
+        match client
+            .post(&url)
+            .header("x-opencode-directory", &dir)
+            .header("Accept", "application/json")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                let body: serde_json::Value = resp.json().await
+                    .map_err(|e| format!("Failed to parse session response: {e}"))?;
+                body.get("id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| "No session ID in response".to_string())
+            }
+            Ok(resp) => Err(format!("Failed to create session: HTTP {}", resp.status())),
+            Err(e) => Err(format!("Failed to create session: {e}")),
+        }
+    }
+
+    /// Broadcast a routine update event via SSE.
+    fn broadcast_routine_update(&self) {
+        let _ = self.event_tx.send(WebEvent::RoutineUpdated);
     }
 
 }

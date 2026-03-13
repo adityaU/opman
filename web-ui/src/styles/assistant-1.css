@@ -214,6 +214,138 @@
     cursor: pointer
 }
 
+/* ── Quick-run routines section ────────────────────── */
+
+.assistant-center-quick-routines {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border, #21262d);
+}
+
+.assistant-center-routine-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.assistant-center-routine-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #21262d);
+    background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+    color: var(--color-text, #e6edf3);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.assistant-center-routine-btn:hover {
+    border-color: var(--color-border-active, #388bfd);
+    background: color-mix(in srgb, var(--color-border-active, #388bfd) 10%, var(--color-surface, #161b22));
+}
+
+.assistant-center-routine-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.assistant-center-routine-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-info, #58a6ff);
+}
+
+.assistant-center-routine-name {
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.assistant-center-routine-cron {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-muted, #8b949e);
+    opacity: 0.7;
+}
+
+.assistant-center-routine-running {
+    font-size: 10px;
+    color: var(--color-warning, #d29922);
+    font-weight: 600;
+}
+
+.assistant-center-routine-more {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #21262d);
+    background: transparent;
+    color: var(--color-muted, #8b949e);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.assistant-center-routine-more:hover {
+    color: var(--color-text, #e6edf3);
+    border-color: var(--color-border-active, #388bfd);
+}
+
+/* ── Quick-run error banner ────────────────────────── */
+
+.assistant-center-routine-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-top: 6px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-error, #f85149) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-error, #f85149) 30%, var(--color-border, #21262d));
+    color: var(--color-error, #f85149);
+    font-size: 12px;
+}
+
+.assistant-center-routine-error-dismiss {
+    background: none;
+    border: none;
+    color: var(--color-error, #f85149);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+    opacity: 0.7;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.assistant-center-routine-error-dismiss:hover {
+    opacity: 1;
+}
+
+/* ── Flat-theme overrides for routine quick-run ────── */
+
+html.flat-theme .assistant-center-routine-btn {
+    background: var(--color-surface, #161b22);
+}
+
+html.flat-theme .assistant-center-routine-btn:hover {
+    background: color-mix(in srgb, var(--color-border-active, #388bfd) 10%, var(--color-surface, #161b22));
+}
+
+html.flat-theme .assistant-center-routine-error {
+    background: color-mix(in srgb, var(--color-error, #f85149) 10%, var(--color-surface, #161b22));
+}
+
+html.flat-theme .assistant-center-routine-more {
+    background: var(--color-surface, #161b22);
+}
+
 .assistant-inbox-modal {
     display: flex;
     flex-direction: column;

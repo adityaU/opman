@@ -2,16 +2,28 @@ import { apiFetch, apiPost, apiDelete, apiPatch } from "./client";
 
 // ── Routine types ─────────────────────────────────────
 
-export type RoutineTrigger = "manual" | "on_session_idle" | "daily_summary";
-export type RoutineAction = "review_mission" | "open_inbox" | "open_activity_feed";
+export type RoutineTrigger = "manual" | "scheduled" | "on_session_idle" | "daily_summary";
+export type RoutineAction = "send_message" | "review_mission" | "open_inbox" | "open_activity_feed";
+export type RoutineTargetMode = "existing_session" | "new_session";
 
 export interface RoutineDefinition {
   id: string;
   name: string;
   trigger: RoutineTrigger;
   action: RoutineAction;
-  mission_id: string | null;
+  enabled: boolean;
+  cron_expr: string | null;
+  timezone: string | null;
+  target_mode: RoutineTargetMode | null;
   session_id: string | null;
+  project_index: number | null;
+  prompt: string | null;
+  provider_id: string | null;
+  model_id: string | null;
+  mission_id: string | null;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +33,8 @@ export interface RoutineRunRecord {
   routine_id: string;
   status: string;
   summary: string;
+  target_session_id: string | null;
+  duration_ms: number | null;
   created_at: string;
 }
 
@@ -39,8 +53,16 @@ export async function createRoutine(req: {
   name: string;
   trigger: RoutineTrigger;
   action: RoutineAction;
-  mission_id?: string | null;
+  enabled?: boolean;
+  cron_expr?: string | null;
+  timezone?: string | null;
+  target_mode?: RoutineTargetMode | null;
   session_id?: string | null;
+  project_index?: number | null;
+  prompt?: string | null;
+  provider_id?: string | null;
+  model_id?: string | null;
+  mission_id?: string | null;
 }): Promise<RoutineDefinition> {
   return apiPost<RoutineDefinition>("/routines", req);
 }
@@ -55,8 +77,16 @@ export async function updateRoutine(
     name?: string;
     trigger?: RoutineTrigger;
     action?: RoutineAction;
-    mission_id?: string | null;
+    enabled?: boolean;
+    cron_expr?: string | null;
+    timezone?: string | null;
+    target_mode?: RoutineTargetMode | null;
     session_id?: string | null;
+    project_index?: number | null;
+    prompt?: string | null;
+    provider_id?: string | null;
+    model_id?: string | null;
+    mission_id?: string | null;
   }
 ): Promise<RoutineDefinition> {
   return apiPatch<RoutineDefinition>(`/routines/${encodeURIComponent(routineId)}`, req);

@@ -165,6 +165,22 @@ code,pre,kbd,samp {
     height: 100%
 }
 
+.code-editor-body .cm-theme-none {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden
+}
+
+.code-editor-body > .csv-viewer,
+.code-editor-body > .markdown-viewer,
+.code-editor-body > .file-preview,
+.code-editor-body > .svg-viewer,
+.code-editor-body > .mermaid-viewer,
+.code-editor-body > .html-viewer-frame {
+    flex: 1;
+    min-height: 0
+}
+
 .code-editor-hover-card,.code-editor-diagnostics,.code-editor-loading-inline {
     flex-shrink: 0;
     padding: 10px 12px;

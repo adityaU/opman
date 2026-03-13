@@ -44,7 +44,7 @@
         justify-content: center
     }
 
-    .command-palette-shortcut,.theme-selector-footer,.cheatsheet-footer,.todo-panel-footer,.session-selector-footer,.context-input-hints,.settings-footer,.watcher-modal-footer,.ctx-window-footer,.diff-review-footer-hint,.search-modal-hint,.session-graph-footer,.workspace-mgr-footer kbd,.model-picker-tab-hint,.permission-hint,.question-hint,.login-footer {
+    .command-palette-shortcut,.theme-selector-footer,.cheatsheet-footer,.todo-panel-footer,.session-selector-footer,.context-input-hints,.settings-footer,.watcher-modal-footer,.ctx-window-footer,.diff-review-footer-hint,.search-modal-hint,.session-graph-footer,.workspace-mgr-footer kbd,.model-picker-tab-hint,.permission-hint,.question-hint,.login-footer,.sysm-footer {
         display: none
     }
 
@@ -84,11 +84,11 @@
         max-height: 50vh
     }
 
-    .session-graph-overlay,.session-dashboard-overlay,.activity-feed-overlay,.assistant-inbox-overlay,.assistant-center-overlay,.memory-overlay,.autonomy-overlay,.routines-overlay,.delegation-overlay,.missions-overlay,.workspace-mgr-overlay {
+    .session-graph-overlay,.session-dashboard-overlay,.activity-feed-overlay,.assistant-inbox-overlay,.assistant-center-overlay,.memory-overlay,.autonomy-overlay,.routines-overlay,.delegation-overlay,.missions-overlay,.workspace-mgr-overlay,.add-project-overlay,.sysm-overlay {
         align-items: flex-end
     }
 
-    .session-graph-panel,.session-dashboard-panel,.activity-feed-panel,.assistant-inbox-modal,.assistant-center-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.notification-prefs-modal,.workspace-mgr-modal {
+    .session-graph-panel,.session-dashboard-panel,.activity-feed-panel,.assistant-inbox-modal,.assistant-center-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.notification-prefs-modal,.workspace-mgr-modal,.add-project-modal,.sysm-modal {
         width: 100%;
         max-width: 100%;
         border-radius: 20px 20px 0 0;
@@ -97,7 +97,7 @@
         padding-bottom: env(safe-area-inset-bottom,0px)
     }
 
-    .session-graph-panel:before,.session-dashboard-panel:before,.activity-feed-panel:before,.assistant-inbox-modal:before,.assistant-center-modal:before,.memory-modal:before,.autonomy-modal:before,.routines-modal:before,.delegation-modal:before,.missions-modal:before,.notification-prefs-modal:before,.workspace-mgr-modal:before {
+    .session-graph-panel:before,.session-dashboard-panel:before,.activity-feed-panel:before,.assistant-inbox-modal:before,.assistant-center-modal:before,.memory-modal:before,.autonomy-modal:before,.routines-modal:before,.delegation-modal:before,.missions-modal:before,.notification-prefs-modal:before,.workspace-mgr-modal:before,.add-project-modal:before,.sysm-modal:before {
         content: "";
         display: block;
         width: 36px;

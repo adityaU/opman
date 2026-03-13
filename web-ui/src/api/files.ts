@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, getToken } from "./client";
+import { apiFetch, apiPost, getToken, authHeaders } from "./client";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -18,6 +18,10 @@ export interface FileReadResponse {
   path: string;
   content: string;
   language: string;
+}
+
+export interface FileUploadResponse {
+  uploaded: string[];
 }
 
 export type FileRenderType =
@@ -60,6 +64,48 @@ export function rawFileUrl(path: string): string {
   const token = getToken();
   const qs = `path=${encodeURIComponent(path)}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
   return `/api/file/raw?${qs}`;
+}
+
+// ── File / directory create / delete / upload ─────────
+
+export async function createFile(path: string, content?: string): Promise<void> {
+  return apiPost("/file/create", { path, content: content ?? "" });
+}
+
+export async function createDir(path: string): Promise<void> {
+  return apiPost("/dir/create", { path });
+}
+
+export async function deleteFile(path: string): Promise<void> {
+  return apiPost("/file/delete", { path });
+}
+
+export async function deleteDir(path: string): Promise<void> {
+  return apiPost("/dir/delete", { path });
+}
+
+export async function uploadFiles(
+  directory: string,
+  files: FileList | File[],
+): Promise<FileUploadResponse> {
+  const formData = new FormData();
+  formData.append("directory", directory);
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  const res = await fetch("/api/file/upload", {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: formData,
+  });
+  if (res.status === 401) {
+    const { clearToken } = await import("./client");
+    clearToken();
+    window.location.reload();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
 // ── File classification ───────────────────────────────

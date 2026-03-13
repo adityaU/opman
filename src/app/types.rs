@@ -286,6 +286,166 @@ impl TodoPanelState {
     }
 }
 
+/// A routine definition for TUI display purposes.
+/// Mirrors the web-state `RoutineDefinition` but uses plain strings for
+/// trigger/action so the UI renderer doesn't depend on web types.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RoutineItem {
+    pub id: String,
+    pub name: String,
+    pub trigger: String,
+    pub action: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub cron_expr: Option<String>,
+    #[serde(default)]
+    pub prompt: Option<String>,
+    #[serde(default)]
+    pub target_mode: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_error: Option<String>,
+}
+
+impl RoutineItem {
+    /// Convert a web-state `RoutineDefinition` into a TUI `RoutineItem`.
+    pub fn from_definition(def: &crate::web::types::RoutineDefinition) -> Self {
+        Self {
+            id: def.id.clone(),
+            name: def.name.clone(),
+            trigger: serde_json::to_value(&def.trigger)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| format!("{:?}", def.trigger)),
+            action: serde_json::to_value(&def.action)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| format!("{:?}", def.action)),
+            enabled: def.enabled,
+            cron_expr: def.cron_expr.clone(),
+            prompt: def.prompt.clone(),
+            target_mode: def.target_mode.as_ref().map(|tm| {
+                serde_json::to_value(tm)
+                    .ok()
+                    .and_then(|v| v.as_str().map(String::from))
+                    .unwrap_or_else(|| format!("{:?}", tm))
+            }),
+            session_id: def.session_id.clone(),
+            provider_id: def.provider_id.clone(),
+            model_id: def.model_id.clone(),
+            last_run_at: def.last_run_at.clone(),
+            next_run_at: def.next_run_at.clone(),
+            last_error: def.last_error.clone(),
+        }
+    }
+}
+
+/// State for the inline routine editor in the TUI panel.
+pub struct RoutineEditState {
+    /// None = creating new, Some(id) = editing existing
+    pub routine_id: Option<String>,
+    /// Which field is focused (0=name, 1=trigger, 2=prompt, 3=target_mode, 4=cron, 5=enabled)
+    pub focused_field: usize,
+    /// Total number of fields
+    pub field_count: usize,
+    /// Current field values
+    pub name: String,
+    pub trigger: String, // "manual" or "scheduled"
+    pub prompt: String,
+    pub target_mode: String, // "existing_session" or "new_session"
+    pub cron_expr: String,
+    pub enabled: bool,
+}
+
+impl RoutineEditState {
+    pub fn new_create() -> Self {
+        Self {
+            routine_id: None,
+            focused_field: 0,
+            field_count: 6,
+            name: String::new(),
+            trigger: "scheduled".to_string(),
+            prompt: String::new(),
+            target_mode: "new_session".to_string(),
+            cron_expr: "0 0 */6 * * *".to_string(),
+            enabled: true,
+        }
+    }
+
+    pub fn from_routine(routine: &RoutineItem) -> Self {
+        Self {
+            routine_id: Some(routine.id.clone()),
+            focused_field: 0,
+            field_count: 6,
+            name: routine.name.clone(),
+            trigger: routine.trigger.clone(),
+            prompt: routine.prompt.clone().unwrap_or_default(),
+            target_mode: routine
+                .target_mode
+                .clone()
+                .unwrap_or_else(|| "new_session".to_string()),
+            cron_expr: routine
+                .cron_expr
+                .clone()
+                .unwrap_or_else(|| "0 0 */6 * * *".to_string()),
+            enabled: routine.enabled,
+        }
+    }
+
+    pub fn focus_next(&mut self) {
+        if self.focused_field < self.field_count - 1 {
+            self.focused_field += 1;
+        }
+    }
+
+    pub fn focus_prev(&mut self) {
+        if self.focused_field > 0 {
+            self.focused_field -= 1;
+        }
+    }
+}
+
+/// State for the routine panel overlay.
+pub struct RoutinePanelState {
+    pub routines: Vec<RoutineItem>,
+    pub selected: usize,
+    pub scroll_offset: usize,
+    /// Set to Some(routine_id) while a run is in progress.
+    pub running: Option<String>,
+    /// True while the initial fetch is in-flight.
+    pub loading: bool,
+    /// True when the detail pane is shown for the selected routine.
+    pub show_detail: bool,
+    /// When Some, the panel is in create/edit mode.
+    pub editing: Option<RoutineEditState>,
+    /// Set to Some(routine_id) when waiting for delete confirmation.
+    pub confirm_delete: Option<String>,
+}
+
+impl RoutinePanelState {
+    pub fn move_up(&mut self) {
+        if self.selected > 0 {
+            self.selected -= 1;
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        if !self.routines.is_empty() && self.selected < self.routines.len() - 1 {
+            self.selected += 1;
+        }
+    }
+}
+
 /// State for terminal text search overlay.
 #[derive(Debug, Clone)]
 pub struct TerminalSearchState {

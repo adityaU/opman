@@ -123,6 +123,7 @@ export function MemoryModal({
           <button onClick={onClose} aria-label="Close memory"><X size={16} /></button>
         </div>
 
+        <div className="memory-scrollable">
         <div className="memory-create">
           <div className="memory-create-grid">
             <input className="memory-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Memory label" />
@@ -201,6 +202,7 @@ export function MemoryModal({
               ) : null
             )
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -61,6 +61,10 @@
     color: var(--color-text, #e6edf3)
 }
 
+.workspace-mgr-scrollable {
+    display: contents
+}
+
 .workspace-mgr-save {
     display: flex;
     align-items: center;

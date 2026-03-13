@@ -182,6 +182,11 @@ pub async fn events_stream(
                                         SseEvent::default().event("mission_updated").data(mission.to_string()),
                                     );
                                 }
+                                WebEvent::RoutineUpdated => {
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("routine_updated").data(""),
+                                    );
+                                }
                                 WebEvent::Toast { message, level } => {
                                     let payload = serde_json::json!({ "message": message, "level": level });
                                     yield Ok::<_, Infallible>(
@@ -273,6 +278,61 @@ pub async fn session_events_stream(
                     );
                 }
             }
+        }
+    };
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
+}
+
+// ── System stats stream ─────────────────────────────────────────────
+
+/// GET /api/system/stats/stream — SSE stream of system metrics at ~2s intervals.
+///
+/// Spawns a dedicated blocking thread that owns a persistent `sysinfo::System`
+/// instance so CPU usage deltas are computed correctly across ticks.
+pub async fn system_stats_stream(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Query(params): Query<SseTokenQuery>,
+) -> Result<impl IntoResponse, WebError> {
+    if !check_auth_manual(&state, &headers, &params.token) {
+        return Err(WebError::Unauthorized);
+    }
+
+    // Channel to bridge blocking thread → async SSE stream.
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(4);
+
+    // Persistent blocking thread that keeps the System alive for accurate CPU deltas.
+    tokio::task::spawn_blocking(move || {
+        use super::handlers::system_handlers::collect_system_stats_reuse;
+        use sysinfo::{System, Disks, Networks};
+
+        let mut sys = System::new_all();
+        // First refresh to seed CPU baseline — usage will be 0 here.
+        sys.refresh_all();
+        // Sleep briefly so the second sample produces real CPU numbers.
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        loop {
+            sys.refresh_all();
+            let disks = Disks::new_with_refreshed_list();
+            let networks = Networks::new_with_refreshed_list();
+            let stats = collect_system_stats_reuse(&sys, &disks, &networks);
+            if let Ok(json) = serde_json::to_string(&stats) {
+                if tx.blocking_send(json).is_err() {
+                    // Receiver dropped (client disconnected) — exit thread.
+                    break;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+    });
+
+    let stream = async_stream::stream! {
+        while let Some(json) = rx.recv().await {
+            yield Ok::<_, Infallible>(
+                SseEvent::default().event("system_stats").data(json),
+            );
         }
     };
 

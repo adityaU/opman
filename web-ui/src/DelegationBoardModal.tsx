@@ -75,6 +75,7 @@ export function DelegationBoardModal({ onClose, missions, activeSessionId, onOpe
           </button>
         </div>
 
+        <div className="delegation-scrollable">
         <div className="delegation-create">
           <input className="delegation-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Delegated task title" />
           <input className="delegation-input" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Assignee" />
@@ -150,6 +151,7 @@ export function DelegationBoardModal({ onClose, missions, activeSessionId, onOpe
               </div>
             ))
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -185,6 +185,34 @@ async fn main() -> Result<()> {
     let (web_actual_port, web_state_handle) =
         setup::setup_web_server(enable_web, web_port, &web_user, &web_pass, instance_name, &app).await;
 
+    // Make the web state handle available to the TUI (e.g. for routine panel)
+    if let Some(ref wsh) = web_state_handle {
+        app.web_state = Some(wsh.clone());
+
+        // Spawn a listener that pushes web-state events (e.g. RoutineUpdated)
+        // into the TUI background event channel so overlays refresh automatically.
+        let wsh2 = wsh.clone();
+        let bg_tx2 = bg_tx.clone();
+        tokio::spawn(async move {
+            let mut rx = wsh2.subscribe_events();
+            loop {
+                match rx.recv().await {
+                    Ok(crate::web::types::WebEvent::RoutineUpdated) => {
+                        let (defs, _) = wsh2.list_routines().await;
+                        let routines: Vec<crate::app::RoutineItem> =
+                            defs.iter().map(crate::app::RoutineItem::from_definition).collect();
+                        let _ = bg_tx2.send(crate::app::BackgroundEvent::RoutinesFetched { routines });
+                    }
+                    Ok(_) => {} // Ignore other web events for now
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::debug!("Web event listener lagged by {n} events");
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+    }
+
     // ── Spawn Cloudflare tunnel if configured ────────────────────────
     let _tunnel_handle: Option<web::TunnelHandle> = if enable_web {
         if let Some(mode) = tunnel_mode {

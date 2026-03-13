@@ -1,5 +1,5 @@
 @media(max-width: 768px) {
-    .session-graph-header button,.session-dashboard-header button,.activity-feed-header button,.assistant-inbox-header button,.assistant-center-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.notification-prefs-header button,.workspace-mgr-header button {
+    .session-graph-header button,.session-dashboard-header button,.activity-feed-header button,.assistant-inbox-header button,.assistant-center-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.notification-prefs-header button,.workspace-mgr-header button,.sysm-header button {
         min-width: 44px;
         min-height: 44px;
         display: flex;
@@ -101,10 +101,10 @@
         top: 0;
         left: 0;
         right: 0;
-        bottom: calc(4.5rem + env(safe-area-inset-bottom,0));
-        z-index: 60;
+        bottom: 0;
+        z-index: 40;
         background: var(--color-bg, #0a0a0a);
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        border-radius: 0;
         overflow: hidden;
         transform: translateY(100%);
         opacity: 0;
@@ -185,7 +185,9 @@
     .mobile-panel-sheet>*:last-child {
         flex: 1;
         min-height: 0;
-        width: 100%
+        width: 100%;
+        overflow: auto;
+        padding-bottom: calc(4.5rem + env(safe-area-inset-bottom,0))
     }
 
     .mobile-sheet-handle {

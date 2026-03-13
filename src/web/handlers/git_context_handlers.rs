@@ -1,4 +1,4 @@
-//! Git context summary handler for AI session injection.
+//! Git context summary handler for AI session injection, and multi-repo discovery.
 
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
@@ -120,4 +120,168 @@ pub async fn git_context_summary(
         untracked_count,
         summary,
     }))
+}
+
+/// GET /api/git/repos — discover all git repositories under the workspace root.
+///
+/// Walks the project directory looking for `.git` dirs (up to 4 levels deep).
+/// Returns basic status info for each discovered repo so the frontend can
+/// show a repo-switcher.
+pub async fn git_repos(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+) -> WebResult<impl IntoResponse> {
+    let dir = resolve_project_dir(&state).await?;
+    let base = std::path::Path::new(&dir);
+
+    let mut repos = Vec::new();
+
+    // Check if the project root itself is a git repo
+    if base.join(".git").exists() {
+        if let Some(entry) = quick_repo_info(base, ".").await {
+            repos.push(entry);
+        }
+    }
+
+    // Walk up to 4 levels deep looking for nested .git directories
+    discover_repos(base, base, 0, 4, &mut repos).await;
+
+    // Sort: root first, then alphabetically by path
+    repos.sort_by(|a, b| {
+        if a.path == "." {
+            std::cmp::Ordering::Less
+        } else if b.path == "." {
+            std::cmp::Ordering::Greater
+        } else {
+            a.path.to_lowercase().cmp(&b.path.to_lowercase())
+        }
+    });
+
+    Ok(Json(GitReposResponse { repos }))
+}
+
+/// Recursively discover git repos under `current_dir`, up to `max_depth`.
+async fn discover_repos(
+    base: &std::path::Path,
+    current: &std::path::Path,
+    depth: usize,
+    max_depth: usize,
+    repos: &mut Vec<GitRepoEntry>,
+) {
+    if depth >= max_depth {
+        return;
+    }
+
+    let mut dir_reader = match tokio::fs::read_dir(current).await {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+
+    while let Ok(Some(entry)) = dir_reader.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Skip hidden dirs, node_modules, target, vendor, etc.
+        if name.starts_with('.')
+            || name == "node_modules"
+            || name == "target"
+            || name == "vendor"
+            || name == "dist"
+            || name == "build"
+            || name == "__pycache__"
+        {
+            continue;
+        }
+
+        let path = entry.path();
+        let metadata = match entry.metadata().await {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+
+        if !metadata.is_dir() {
+            continue;
+        }
+
+        // Check if this subdir is a git repo
+        if path.join(".git").exists() {
+            let rel = path
+                .strip_prefix(base)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .to_string();
+            // Skip if we already found this repo (root case)
+            if repos.iter().any(|r| r.path == rel) {
+                continue;
+            }
+            if let Some(entry) = quick_repo_info(&path, &rel).await {
+                repos.push(entry);
+            }
+            // Don't descend into a git repo looking for more
+            continue;
+        }
+
+        // Recurse into subdirectory
+        Box::pin(discover_repos(base, &path, depth + 1, max_depth, repos)).await;
+    }
+}
+
+/// Get quick branch and change-count info for a repo.
+async fn quick_repo_info(repo_path: &std::path::Path, rel_path: &str) -> Option<GitRepoEntry> {
+    // Branch
+    let branch_out = tokio::process::Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(repo_path)
+        .output()
+        .await
+        .ok()?;
+    let branch = String::from_utf8_lossy(&branch_out.stdout)
+        .trim()
+        .to_string();
+
+    // Quick status
+    let status_out = tokio::process::Command::new("git")
+        .args(["status", "--porcelain=v1", "-uall"])
+        .current_dir(repo_path)
+        .output()
+        .await
+        .ok()?;
+    let status_text = String::from_utf8_lossy(&status_out.stdout);
+
+    let mut staged_count = 0usize;
+    let mut unstaged_count = 0usize;
+    let mut untracked_count = 0usize;
+    for line in status_text.lines() {
+        if line.len() < 2 {
+            continue;
+        }
+        let idx = line.as_bytes()[0];
+        let wt = line.as_bytes()[1];
+        if idx == b'?' {
+            untracked_count += 1;
+        } else {
+            if idx != b' ' { staged_count += 1; }
+            if wt != b' ' { unstaged_count += 1; }
+        }
+    }
+
+    let name = if rel_path == "." {
+        repo_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "root".to_string())
+    } else {
+        rel_path
+            .rsplit('/')
+            .next()
+            .unwrap_or(rel_path)
+            .to_string()
+    };
+
+    Some(GitRepoEntry {
+        path: rel_path.to_string(),
+        name,
+        branch,
+        staged_count,
+        unstaged_count,
+        untracked_count,
+    })
 }

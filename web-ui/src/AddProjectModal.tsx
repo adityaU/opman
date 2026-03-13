@@ -7,6 +7,7 @@ import {
   Search,
   X,
   Folder,
+  FolderOpen,
   ArrowLeft,
   Home,
   Star,
@@ -146,21 +147,26 @@ export function AddProjectModal({ onClose }: Props) {
   );
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="add-project-overlay" onClick={onClose}>
       <div
         ref={modalRef}
         className="add-project-modal"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="add-project-header">
-          <div className="add-project-title">Add Project</div>
+          <div className="add-project-header-left">
+            <FolderOpen size={15} />
+            <h3>Add Project</h3>
+          </div>
           <button className="add-project-close" onClick={onClose} title="Close (Esc)">
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
 
-        {/* Breadcrumb path + navigation */}
+        {/* Navigation bar */}
         <div className="add-project-nav">
           <button
             className="add-project-nav-btn"
@@ -181,6 +187,13 @@ export function AddProjectModal({ onClose }: Props) {
           <div className="add-project-path" title={browsePath}>
             {browsePath}
           </div>
+          <button
+            className="add-project-add-current"
+            onClick={handleAddCurrentDir}
+            disabled={loading || !browsePath}
+          >
+            {loading ? "Adding..." : "Add This Directory"}
+          </button>
         </div>
 
         {/* Search / filter */}
@@ -201,8 +214,8 @@ export function AddProjectModal({ onClose }: Props) {
           />
         </div>
 
-        {/* Directory listing */}
-        <div className="add-project-list" ref={listRef}>
+        {/* Directory listing (body) */}
+        <div className="add-project-body" ref={listRef}>
           {browseLoading ? (
             <div className="add-project-empty">Loading...</div>
           ) : filteredEntries.length === 0 ? (
@@ -247,16 +260,8 @@ export function AddProjectModal({ onClose }: Props) {
 
         {/* Footer */}
         <div className="add-project-footer">
-          <div className="add-project-hint">
-            Click to browse, double-click or <Plus size={11} /> to add
-          </div>
-          <button
-            className="add-project-add-btn"
-            onClick={handleAddCurrentDir}
-            disabled={loading || !browsePath}
-          >
-            {loading ? "Adding..." : "Add This Directory"}
-          </button>
+          <span>Click to browse, double-click or <Plus size={11} style={{ verticalAlign: "middle" }} /> to add</span>
+          <span><kbd>Backspace</kbd> Go up &nbsp; <kbd>Esc</kbd> Close</span>
         </div>
       </div>
     </div>

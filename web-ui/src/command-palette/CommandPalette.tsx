@@ -7,7 +7,7 @@ import { buildPaletteItems } from "./items";
 import { filterItems, groupItems } from "./helpers";
 
 export function CommandPalette(props: CommandPaletteProps) {
-  const { onClose } = props;
+  const { onClose, sessionId } = props;
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +20,13 @@ export function CommandPalette(props: CommandPaletteProps) {
     inputRef.current?.focus();
   }, []);
 
-  const items = useMemo(() => buildPaletteItems(props), [props]);
+  // Memoize on the values that actually change the item list, not the
+  // whole props object (which gets a new reference every render).
+  const items = useMemo(
+    () => buildPaletteItems(props),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionId],
+  );
   const filtered = useMemo(() => filterItems(items, query), [items, query]);
   const grouped = useMemo(() => groupItems(filtered), [filtered]);
 
