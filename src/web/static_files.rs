@@ -28,8 +28,10 @@ struct FrontendAssets;
 pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
 
-    // Resolve theme background color once — used by manifest & index patches.
-    let theme_bg: Option<String> = state.web_state.get_theme().await.map(|t| t.background);
+    // Resolve theme colours once — used by manifest, favicon & index patches.
+    let theme_colors = state.web_state.get_theme().await;
+    let theme_bg: Option<String> = theme_colors.as_ref().map(|t| t.background.clone());
+    let theme_primary: Option<String> = theme_colors.as_ref().map(|t| t.primary.clone());
 
     // ── Dynamic manifest.json ───────────────────────────────────────
     if path == "manifest.json" {
@@ -43,13 +45,22 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
                     .replace("\"short_name\": \"opman\"", &format!("\"short_name\": \"{}\"", name));
             }
 
-            // Patch background_color and theme_color to match the active theme
-            // so the PWA splash screen and system chrome use the correct colour.
+            // Patch background_color, theme_color, and inline SVG colours
+            // to match the active theme so the PWA splash screen, system
+            // chrome, and SVG favicon all use the correct colours.
             if let Some(ref bg) = theme_bg {
                 json = json
                     .replace(
+                        "\"background_color\": \"#0B0E14\"",
+                        &format!("\"background_color\": \"{}\"", bg),
+                    )
+                    .replace(
                         "\"background_color\": \"#0a0a0a\"",
                         &format!("\"background_color\": \"{}\"", bg),
+                    )
+                    .replace(
+                        "\"theme_color\": \"#0B0E14\"",
+                        &format!("\"theme_color\": \"{}\"", bg),
                     )
                     .replace(
                         "\"theme_color\": \"#0a0a0a\"",
@@ -94,6 +105,35 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
         }
     }
 
+    // ── Dynamic favicon.svg — patched with theme colours ───────────
+    // The static favicon.svg uses hardcoded colours.  When a theme is
+    // active, we swap in the theme's primary + background so the icon
+    // matches everywhere (notification icon, bookmarks, etc.).
+    if path == "favicon.svg" {
+        if let (Some(ref primary), Some(ref bg)) = (&theme_primary, &theme_bg) {
+            if let Some(file) = FrontendAssets::get("favicon.svg") {
+                let mut svg = String::from_utf8_lossy(&file.data).into_owned();
+                // Replace the hardcoded fill and stroke colours
+                svg = svg
+                    .replace("fill=\"#0a0a0a\"", &format!("fill=\"{}\"", bg))
+                    .replace("fill=\"#0B0E14\"", &format!("fill=\"{}\"", bg))
+                    .replace("stroke=\"#fab283\"", &format!("stroke=\"{}\"", primary));
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "image/svg+xml")
+                    .header(header::CACHE_CONTROL, "no-cache")
+                    .body(Body::from(svg))
+                    .unwrap_or_else(|_| {
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::empty())
+                            .unwrap()
+                    })
+                    .into_response();
+            }
+        }
+    }
+
     // Try the exact path first
     if let Some(file) = FrontendAssets::get(path) {
         let mime = mime_guess::from_path(path).first_or_octet_stream();
@@ -131,11 +171,20 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
         // so the status-bar / gesture-pill area use the correct colour from
         // first paint — before JS applies the theme via syncMetaThemeColor().
         if let Some(ref bg) = theme_bg {
+            // Replace all theme-color meta tags (may use #0B0E14 or #0a0a0a depending on build)
+            html = html.replace(
+                "<meta name=\"theme-color\" content=\"#0B0E14\" />",
+                &format!("<meta name=\"theme-color\" content=\"{}\" />", bg),
+            );
             html = html.replace(
                 "<meta name=\"theme-color\" content=\"#0a0a0a\" />",
                 &format!("<meta name=\"theme-color\" content=\"{}\" />", bg),
             );
-            // Patch the inline CSS fallback: `var(--color-bg, #0a0a0a)` → `var(--color-bg, <bg>)`
+            // Patch the inline CSS fallback: `var(--color-bg, #0B0E14)` → `var(--color-bg, <bg>)`
+            html = html.replace(
+                "var(--color-bg, #0B0E14)",
+                &format!("var(--color-bg, {})", bg),
+            );
             html = html.replace(
                 "var(--color-bg, #0a0a0a)",
                 &format!("var(--color-bg, {})", bg),

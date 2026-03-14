@@ -113,8 +113,7 @@
     font-weight: 700;
     color: var(--color-primary);
     margin-bottom: var(--space-1);
-    letter-spacing: 2px;
-    text-transform: lowercase
+    letter-spacing: 1px
 }
 
 .login-box .subtitle {
@@ -218,4 +217,30 @@
     font-size: var(--font-size-xs);
     text-align: center;
     margin-top: var(--space-3)
+}
+
+/* ── App bootstrap loader ──────────────────────────────────────── */
+/* Shown while the bootstrap fetch + auth check resolve so neither
+   the login page nor the main app renders with default/wrong theme. */
+
+.app-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg);
+}
+
+.app-loader-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-top-color: var(--color-primary);
+    animation: app-loader-spin .7s linear infinite;
+}
+
+@keyframes app-loader-spin {
+    to { transform: rotate(360deg); }
 }

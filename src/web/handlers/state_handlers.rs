@@ -7,6 +7,21 @@ use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
 
+// ── Public (unauthenticated) bootstrap endpoint ─────────────────────
+
+/// GET /api/public/bootstrap — returns theme + instance_name without auth.
+/// Used by the login page so the form can render with the correct theme.
+pub async fn public_bootstrap(
+    State(state): State<ServerState>,
+) -> WebResult<impl IntoResponse> {
+    let theme = state.web_state.get_theme().await;
+    let instance_name = state.instance_name.clone();
+    Ok(Json(serde_json::json!({
+        "theme": theme,
+        "instance_name": instance_name,
+    })))
+}
+
 // ── State endpoints (independent — no TUI dependency) ───────────────
 
 pub async fn get_state(

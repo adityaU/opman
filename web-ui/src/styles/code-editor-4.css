@@ -125,6 +125,16 @@ html.flat-theme .login-box {
     box-shadow: 0 4px 24px var(--black-15)
 }
 
+html.flat-theme .login-field input {
+    background: var(--color-bg-element);
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .login-field input:focus {
+    border-color: color-mix(in srgb,var(--color-primary) 60%,transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb,var(--color-primary) 20%,transparent)
+}
+
 html.flat-theme .chat-sidebar {
     background: var(--color-bg-panel);
     border-right-color: var(--color-border-subtle);

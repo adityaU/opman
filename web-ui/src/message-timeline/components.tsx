@@ -7,17 +7,21 @@ export function MessageShimmer() {
   return (
     <div className="message-shimmer" aria-label="Loading messages">
       <div className="shimmer-turn shimmer-user">
-        <div className="shimmer-avatar" />
         <div className="shimmer-content">
-          <div className="shimmer-line shimmer-role-label" />
+          <div className="shimmer-header-row">
+            <div className="shimmer-avatar" />
+            <div className="shimmer-line shimmer-role-label" />
+          </div>
           <div className="shimmer-line shimmer-w-55" />
           <div className="shimmer-line shimmer-w-35" />
         </div>
       </div>
       <div className="shimmer-turn shimmer-assistant">
-        <div className="shimmer-avatar" />
         <div className="shimmer-content">
-          <div className="shimmer-line shimmer-role-label" />
+          <div className="shimmer-header-row">
+            <div className="shimmer-avatar" />
+            <div className="shimmer-line shimmer-role-label" />
+          </div>
           <div className="shimmer-line shimmer-w-90" />
           <div className="shimmer-line shimmer-w-75" />
           <div className="shimmer-line shimmer-w-60" />
@@ -25,16 +29,20 @@ export function MessageShimmer() {
         </div>
       </div>
       <div className="shimmer-turn shimmer-user">
-        <div className="shimmer-avatar" />
         <div className="shimmer-content">
-          <div className="shimmer-line shimmer-role-label" />
+          <div className="shimmer-header-row">
+            <div className="shimmer-avatar" />
+            <div className="shimmer-line shimmer-role-label" />
+          </div>
           <div className="shimmer-line shimmer-w-40" />
         </div>
       </div>
       <div className="shimmer-turn shimmer-assistant">
-        <div className="shimmer-avatar" />
         <div className="shimmer-content">
-          <div className="shimmer-line shimmer-role-label" />
+          <div className="shimmer-header-row">
+            <div className="shimmer-avatar" />
+            <div className="shimmer-line shimmer-role-label" />
+          </div>
           <div className="shimmer-line shimmer-w-80" />
           <div className="shimmer-line shimmer-w-65" />
           <div className="shimmer-line shimmer-w-50" />

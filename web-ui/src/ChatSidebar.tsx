@@ -42,6 +42,11 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   isMobileOpen,
   onClose,
 }: Props) {
+  // Auto-close sidebar on mobile after selecting a session
+  const handleSelectSession = useCallback((sessionId: string, projectIdx: number) => {
+    onSelectSession(sessionId, projectIdx);
+    if (isMobileOpen) onClose();
+  }, [onSelectSession, isMobileOpen, onClose]);
   // ── Local UI state ────────────────────────────────
   const [expandedProject, setExpandedProject] = useState<number | null>(activeProject);
   const [expandedSubagents, setExpandedSubagents] = useState<string | null>(null);
@@ -85,6 +90,11 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   }, []);
 
   return (
+    <>
+    {/* Mobile overlay backdrop */}
+    {isMobileOpen && (
+      <div className="sidebar-mobile-overlay" onClick={onClose} aria-hidden="true" />
+    )}
     <aside className={`chat-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
       {/* Header */}
       <div className="sb-header">
@@ -151,7 +161,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             showMore={showMore && expandedProject === idx}
             searchQuery={searchQuery.toLowerCase()}
             onToggleExpand={() => toggleProjectExpand(idx)}
-            onSelectSession={onSelectSession}
+            onSelectSession={handleSelectSession}
             onNewSession={() => {
               if (idx !== activeProject) onSwitchProject(idx);
               onNewSession();
@@ -231,5 +241,6 @@ export const ChatSidebar = React.memo(function ChatSidebar({
         />
       )}
     </aside>
+    </>
   );
 });

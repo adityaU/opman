@@ -229,9 +229,13 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/system/stats", get(handlers::get_system_stats))
         .route("/system/stats/stream", get(sse::system_stats_stream));
 
+    // Public (unauthenticated) API routes — outside the main api_routes
+    // so they don't go through the auth extractor.
+    let public_routes = Router::new().route("/public/bootstrap", get(handlers::public_bootstrap));
+
     Router::new()
         .route("/health", get(handlers::health))
-        .nest("/api", api_routes)
+        .nest("/api", public_routes.merge(api_routes))
         .fallback(static_files::serve)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .with_state(state)

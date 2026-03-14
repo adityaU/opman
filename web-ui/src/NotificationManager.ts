@@ -86,7 +86,7 @@ export function showNotification(
   if (!prefs[kind]) return null;
   if (!canNotify()) return null;
 
-  const icon = "/favicon.ico";
+  const icon = "/favicon.svg";
   const tag = `opman-${kind}-${Date.now()}`;
 
   const notification = new Notification(title, {

@@ -46,7 +46,7 @@
 
 @media(max-width: 768px) {
     .mobile-dock {
-        display:block
+        display: flex
     }
 
     .mobile-dock-fab {
@@ -62,7 +62,8 @@
     }
 
     .message-timeline {
-        padding-bottom: var(--space-6)
+        /* Extra bottom space to clear the floating pill dock */
+        padding-bottom: calc(var(--space-6) + 4.5rem + env(safe-area-inset-bottom,0))
     }
 
     /* On mobile the wrapper becomes a real positioned container with collapse transition.
@@ -103,7 +104,7 @@
         right: 0;
         bottom: 0;
         z-index: 40;
-        background: var(--color-bg, #0a0a0a);
+        background: var(--color-bg, #0B0E14);
         border-radius: 0;
         overflow: hidden;
         transform: translateY(100%);
@@ -119,52 +120,68 @@
     }
 }
 
-/* ── Standalone / PWA mode: cover the gesture pill / home indicator ──
-   When the app is saved to the home screen (display-mode: standalone),
-   viewport-fit=cover extends the page behind the system home indicator.
-   We add bottom padding to the chat layout so all content sits above
-   the gesture pill, and paint a solid background behind it.
-   Also target iOS standalone via the -webkit media query. ── */
+/* ═══════════════════════════════════════════════════════════════
+   PWA STANDALONE — Status-bar colour driven by <meta name="theme-color">.
+   Bottom gesture/nav area colour derived from page background.
+   ═══════════════════════════════════════════════════════════════ */
 
+/* Standalone PWA — Android & general */
 @media (max-width: 768px) and (display-mode: standalone) {
+    html, body, #root {
+        background: var(--color-bg, #0B0E14);
+        background-color: var(--color-bg, #0B0E14)
+    }
+
+    /* The main layout extends behind both system bars.
+       Top safe-area is handled by .chat-mobile-header padding.
+       Bottom safe-area is handled by individual fixed elements. */
     .chat-layout {
-        /* Push all flow content inside both safe-area edges so nothing
-           sits behind the status-bar/notch (top) or gesture pill (bottom). */
+        /* No extra padding — content extends edge-to-edge,
+           individual children handle their own insets */
+    }
+
+    .prompt-input-container {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+    }
+
+    /* Fixed bottom elements already use env(safe-area-inset-bottom)
+       in their base bottom position — no extra overrides needed
+       for the floating pill dock */
+
+    /* Panel sheets cover the full screen including safe areas;
+       they paint their own background behind the system bars */
+    .mobile-panel-sheet {
         padding-top: env(safe-area-inset-top, 0px);
         padding-bottom: env(safe-area-inset-bottom, 0px)
     }
 
-    /* The mobile header already adds safe-area-inset-top internally —
-       avoid double-padding by removing it when layout handles it. */
-    .chat-mobile-header {
-        padding-top: 8px
-    }
-
-    /* The mobile responsive rule sets prompt bottom to 0 — in standalone
-       we need the safe-area inset so the input clears the gesture pill */
-    .prompt-input-container {
-        padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+    /* Sidebar in standalone */
+    .chat-sidebar {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px)
     }
 }
 
 /* iOS standalone detection (older WebKit doesn't support display-mode query) */
 @media (max-width: 768px) {
     @supports (-webkit-touch-callout: none) {
-        /* On iOS with viewport-fit=cover the safe-area env() values are
-           non-zero in standalone mode. In Safari browser the browser chrome
-           already insets for us (values are 0), so applying unconditionally
-           is safe. */
-        .chat-layout {
-            padding-top: env(safe-area-inset-top, 0px);
-            padding-bottom: env(safe-area-inset-bottom, 0px)
-        }
-
-        .chat-mobile-header {
-            padding-top: 8px
+        html, body, #root {
+            background: var(--color-bg, #0B0E14);
+            background-color: var(--color-bg, #0B0E14)
         }
 
         .prompt-input-container {
             padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+        }
+
+        .mobile-panel-sheet {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        .chat-sidebar {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
         }
     }
 }
@@ -187,7 +204,8 @@
         min-height: 0;
         width: 100%;
         overflow: auto;
-        padding-bottom: calc(4.5rem + env(safe-area-inset-bottom,0))
+        /* Dock is ~60px + safe-area; ensure content scrolls clear of it */
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom,0))
     }
 
     .mobile-sheet-handle {

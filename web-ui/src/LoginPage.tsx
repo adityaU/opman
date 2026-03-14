@@ -3,9 +3,10 @@ import { Lock, User, Terminal, ArrowRight, Loader2 } from "lucide-react";
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>;
+  appName?: string;
 }
 
-export function LoginPage({ onLogin }: Props) {
+export function LoginPage({ onLogin, appName = "opman" }: Props) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export function LoginPage({ onLogin }: Props) {
           <div className="login-logo">
             <Terminal size={24} strokeWidth={2.5} />
           </div>
-          <h1>opencode</h1>
+          <h1>{appName}</h1>
           <div className="subtitle">AI-Powered Development Environment</div>
         </div>
 

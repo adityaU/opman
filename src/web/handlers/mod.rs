@@ -36,7 +36,7 @@ mod handler_tests;
 
 pub use auth_handlers::{health, login, verify};
 
-pub use state_handlers::{get_state, get_session_stats, get_theme, list_themes, switch_theme};
+pub use state_handlers::{get_state, get_session_stats, get_theme, list_themes, switch_theme, public_bootstrap};
 
 pub use project_handlers::{
     switch_project, select_session, new_session, add_project, remove_project,

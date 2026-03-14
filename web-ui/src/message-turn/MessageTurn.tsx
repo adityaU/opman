@@ -174,15 +174,13 @@ export const MessageTurn = React.memo(function MessageTurn({
 
   return (
     <div className={`message-turn message-turn-${role}${isOptimistic ? " message-turn-optimistic" : ""}${isSearchMatch ? " message-turn-search-match" : ""}${isActiveMatch ? " message-turn-active-match" : ""}`}>
-      {/* Avatar */}
-      <div className={`message-avatar ${role}`}>
-        {isUser ? <User size={16} /> : isAssistant ? <Bot size={16} /> : <Wrench size={16} />}
-      </div>
-
       {/* Content */}
       <div className="message-content">
-        {/* Header */}
+        {/* Header — avatar is inline with the role label */}
         <div className="message-header">
+          <div className={`message-avatar ${role}`}>
+            {isUser ? <User size={16} /> : isAssistant ? <Bot size={16} /> : <Wrench size={16} />}
+          </div>
           <span className="message-role">
             {isUser ? "You" : isAssistant ? "Assistant" : role}
           </span>

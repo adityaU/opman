@@ -61,7 +61,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
         <Menu size={22} />
       </button>
 
-      {/* Expanded dock — centered pill with ambient glow */}
+      {/* Expanded dock — floating pill with ambient glow */}
       <nav className={`mobile-dock ${dockCollapsed ? "dock-collapsed" : ""}`} aria-label="Navigation">
         <div className="mobile-dock-inner">
           {/* Compose button inside dock — slides in when input is hidden */}
@@ -73,19 +73,24 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
             <PenSquare size={20} />
           </button>
           <button className={`mobile-dock-btn ${activePanel === null || activePanel === "opencode" ? "active" : ""}`} onClick={() => togglePanel("opencode")} aria-label="Chat">
-            <MessageCircle size={20} />
+            <MessageCircle size={18} />
+            <span className="dock-label">Chat</span>
           </button>
           <button className={`mobile-dock-btn ${activePanel === "git" ? "active" : ""}`} onClick={() => togglePanel("git")} aria-label="Git">
-            <GitBranch size={20} />
+            <GitBranch size={18} />
+            <span className="dock-label">Git</span>
           </button>
           <button className={`mobile-dock-btn ${activePanel === "editor" ? "active" : ""}`} onClick={() => togglePanel("editor")} aria-label="Editor">
-            <FileCode size={20} />
+            <FileCode size={18} />
+            <span className="dock-label">Editor</span>
           </button>
           <button className={`mobile-dock-btn ${activePanel === "terminal" ? "active" : ""}`} onClick={() => togglePanel("terminal")} aria-label="Terminal">
-            <Terminal size={20} />
+            <Terminal size={18} />
+            <span className="dock-label">Term</span>
           </button>
           <button className={`mobile-dock-btn ${assistantCenterOpen ? "active" : ""}`} onClick={onOpenAssistantCenter} aria-label="Assistant">
-            <Sparkles size={20} />
+            <Sparkles size={18} />
+            <span className="dock-label">AI</span>
           </button>
         </div>
       </nav>

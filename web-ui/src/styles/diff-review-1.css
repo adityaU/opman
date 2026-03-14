@@ -79,7 +79,7 @@
 }
 
 .diff-review-modal {
-    background: var(--color-bg, #0a0a0a);
+    background: var(--color-bg, #0B0E14);
     border: 1px solid var(--color-border, #484848);
     border-radius: var(--radius-lg, 12px);
     width: 90vw;
@@ -116,7 +116,7 @@
     align-items: center;
     justify-content: center;
     background: var(--color-primary, #fab283);
-    color: var(--color-bg, #0a0a0a);
+    color: var(--color-bg, #0B0E14);
     font-size: 11px;
     font-weight: 700;
     min-width: 20px;

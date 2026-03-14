@@ -136,3 +136,23 @@ export async function fetchThemes(): Promise<ThemePreview[]> {
 export async function switchTheme(name: string): Promise<ThemeColors> {
   return apiPost<ThemeColors>("/theme/switch", { name });
 }
+
+// ── Public (unauthenticated) endpoints ────────────────
+
+/** Bootstrap data returned before authentication. */
+export interface BootstrapData {
+  theme: ThemeColors | null;
+  instance_name: string | null;
+}
+
+/** Fetch public bootstrap data (theme + instance name) without auth.
+ *  Used on the login page so the form renders with the active theme. */
+export async function fetchBootstrap(): Promise<BootstrapData> {
+  try {
+    const res = await fetch("/api/public/bootstrap");
+    if (!res.ok) return { theme: null, instance_name: null };
+    return await res.json();
+  } catch {
+    return { theme: null, instance_name: null };
+  }
+}

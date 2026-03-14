@@ -42,9 +42,9 @@
 }
 
 .subagent-messages .message-avatar {
-    width: 22px;
-    height: 22px;
-    min-width: 22px
+    width: 18px;
+    height: 18px;
+    min-width: 18px
 }
 
 .subagent-messages .message-header {

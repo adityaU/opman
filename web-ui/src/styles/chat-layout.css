@@ -53,7 +53,11 @@
     gap: var(--space-2);
     flex-shrink: 0;
     z-index: 10;
-    pointer-events: none
+    pointer-events: none;
+    border: none;
+    border-bottom: none;
+    box-shadow: none;
+    background: transparent
 }
 
 .chat-sidebar {
