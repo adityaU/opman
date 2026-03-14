@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 type MobilePanel = "opencode" | "git" | "editor" | "terminal";
 
@@ -19,9 +19,12 @@ export interface MobileState {
   handleComposeButtonTap: () => void;
 }
 
+/** Sentinel on history.state to distinguish mobile-overlay entries. */
+const MOBILE_HISTORY_KEY = "_mobileOverlay";
+
 export function useMobileState(): MobileState {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<MobilePanel | null>(null);
+  const [sidebarOpen, setSidebarOpenRaw] = useState(false);
+  const [activePanel, setActivePanelRaw] = useState<MobilePanel | null>(null);
   const [panelsMounted, setPanelsMounted] = useState<Set<string>>(new Set());
   const [inputHidden, setInputHidden] = useState(false);
   // Dock starts collapsed when input is visible (mutual exclusivity)
@@ -30,11 +33,80 @@ export function useMobileState(): MobileState {
   const hasPromptContentRef = useRef(false);
   const debounceRef = useRef(0);
 
-  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  // ── Back-gesture history refs ────────────────────────────────────
+  /** How many history entries we have pushed for mobile overlays. */
+  const historyDepthRef = useRef(0);
+  /** Guard: true while we are programmatically navigating history. */
+  const suppressPopRef = useRef(false);
+
+  // Keep refs so the popstate handler always sees current values.
+  const sidebarOpenRef = useRef(sidebarOpen);
+  sidebarOpenRef.current = sidebarOpen;
+  const activePanelRef = useRef(activePanel);
+  activePanelRef.current = activePanel;
+
+  // ── History helpers ──────────────────────────────────────────────
+
+  const pushOverlayHistory = useCallback(() => {
+    window.history.pushState({ [MOBILE_HISTORY_KEY]: true }, "");
+    historyDepthRef.current += 1;
+  }, []);
+
+  const popOverlayHistory = useCallback(() => {
+    if (historyDepthRef.current > 0) {
+      historyDepthRef.current -= 1;
+      suppressPopRef.current = true;
+      window.history.back();
+    }
+  }, []);
+
+  // ── Sidebar ──────────────────────────────────────────────────────
+
+  const setSidebarOpen = useCallback((v: boolean) => {
+    setSidebarOpenRaw((prev) => {
+      if (v === prev) return prev;
+      if (v) pushOverlayHistory();
+      else popOverlayHistory();
+      return v;
+    });
+  }, [pushOverlayHistory, popOverlayHistory]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpenRaw((prev) => {
+      const next = !prev;
+      if (next) pushOverlayHistory();
+      else popOverlayHistory();
+      return next;
+    });
+  }, [pushOverlayHistory, popOverlayHistory]);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpenRaw((prev) => {
+      if (!prev) return prev;
+      popOverlayHistory();
+      return false;
+    });
+  }, [popOverlayHistory]);
+
+  // ── Panels ───────────────────────────────────────────────────────
 
   const togglePanel = useCallback((panel: MobilePanel) => {
-    setActivePanel((prev) => (prev === panel ? null : panel));
+    setActivePanelRaw((prev) => {
+      const closing = prev === panel;
+      if (closing) {
+        popOverlayHistory();
+        // Closing a panel — restore input/dock defaults handled below
+      } else {
+        // Opening a new panel (possibly replacing an existing one)
+        if (prev === null) {
+          // No panel was open — push history
+          pushOverlayHistory();
+        }
+        // If replacing one panel with another, history depth stays the same
+      }
+      return closing ? null : panel;
+    });
+
     if (panel !== "opencode") {
       setPanelsMounted((prev) => {
         if (prev.has(panel)) return prev;
@@ -44,8 +116,8 @@ export function useMobileState(): MobileState {
       });
     }
 
+    // The rest of the input/dock logic runs unconditionally (same as before)
     if (panel === "opencode") {
-      // Chat/compose: show input, hide dock (mutual exclusivity)
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = 0;
@@ -57,11 +129,10 @@ export function useMobileState(): MobileState {
         textarea?.focus();
       });
     } else {
-      // Non-chat panels: show dock, hide input (mutual exclusivity)
       setDockCollapsed(false);
       setInputHidden(true);
     }
-  }, []);
+  }, [pushOverlayHistory, popOverlayHistory]);
 
   const expandDock = useCallback(() => {
     // Show dock, hide input (mutual exclusivity)
@@ -106,6 +177,35 @@ export function useMobileState(): MobileState {
       const textarea = document.querySelector<HTMLTextAreaElement>(".prompt-textarea");
       textarea?.focus();
     });
+  }, []);
+
+  // ── Back-gesture / popstate listener ────────────────────────────
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      // If we triggered this popstate ourselves (via history.back() in close/toggle),
+      // just consume the event — the overlay is already closed.
+      if (suppressPopRef.current) {
+        suppressPopRef.current = false;
+        return;
+      }
+
+      // Only handle our own history entries
+      if (historyDepthRef.current <= 0) return;
+
+      historyDepthRef.current -= 1;
+
+      // Close the top-most mobile overlay: panel first, then sidebar
+      if (activePanelRef.current !== null) {
+        setActivePanelRaw(null);
+        // Restore input/dock defaults when panel closes via back
+        setInputHidden(false);
+        setDockCollapsed(true);
+      } else if (sidebarOpenRef.current) {
+        setSidebarOpenRaw(false);
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
   }, []);
 
   return {

@@ -39,7 +39,8 @@
 }
 
 .search-bar-input:focus {
-    border-color: var(--color-border-active, #666)
+    border-color: var(--color-primary, #7aa2f7);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #7aa2f7) 25%, transparent)
 }
 
 .search-bar-btn {

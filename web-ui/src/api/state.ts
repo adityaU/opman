@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, getToken } from "./client";
+import { apiFetch, apiPost } from "./client";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -74,20 +74,23 @@ export async function login(
 ): Promise<string> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw new Error("Invalid credentials");
+  // The backend sets the auth cookie via Set-Cookie header.
+  // We still return the token from the JSON body for backward compat.
   const data = await res.json();
   return data.token;
 }
 
 export async function verifyToken(): Promise<boolean> {
-  const token = getToken();
-  if (!token) return false;
+  // With cookie auth the browser automatically sends the opman_token
+  // cookie — no need to check sessionStorage first.
   try {
     const res = await fetch("/api/auth/verify", {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "same-origin",
     });
     return res.ok;
   } catch {

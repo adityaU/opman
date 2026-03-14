@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, getToken, authHeaders } from "./client";
+import { apiFetch, apiPost } from "./client";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -61,9 +61,7 @@ export async function writeFile(path: string, content: string): Promise<void> {
 }
 
 export function rawFileUrl(path: string): string {
-  const token = getToken();
-  const qs = `path=${encodeURIComponent(path)}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
-  return `/api/file/raw?${qs}`;
+  return `/api/file/raw?path=${encodeURIComponent(path)}`;
 }
 
 // ── File / directory create / delete / upload ─────────
@@ -95,7 +93,7 @@ export async function uploadFiles(
   }
   const res = await fetch("/api/file/upload", {
     method: "POST",
-    headers: { ...authHeaders() },
+    credentials: "same-origin",
     body: formData,
   });
   if (res.status === 401) {

@@ -20,6 +20,7 @@ export const MessageTurn = React.memo(function MessageTurn({
   onToggleBookmark,
   sessionId,
   onOpenSession,
+  pendingAssistantId,
 }: MessageTurnProps) {
   const { role, messages } = group;
   const [copied, setCopied] = useState(false);
@@ -73,6 +74,17 @@ export const MessageTurn = React.memo(function MessageTurn({
       return id.startsWith("__optimistic__");
     });
   }, [messages]);
+
+  // A user message is "queued" if the session is still processing an earlier
+  // assistant message (pendingAssistantId) and this user message was sent after
+  // that assistant message (its ID sorts after the pending assistant ID).
+  const isQueued = useMemo(() => {
+    if (!isUser || !pendingAssistantId) return false;
+    return messages.some((msg) => {
+      const id = msg.info.messageID || msg.info.id || "";
+      return id > pendingAssistantId;
+    });
+  }, [isUser, pendingAssistantId, messages]);
 
   // Collect model info from the first message that has it
   const headerModel = useMemo(() => {
@@ -184,8 +196,11 @@ export const MessageTurn = React.memo(function MessageTurn({
           <span className="message-role">
             {isUser ? "You" : isAssistant ? "Assistant" : role}
           </span>
-          {isOptimistic && (
+          {isOptimistic && !isQueued && (
             <span className="message-sending-badge">Sending...</span>
+          )}
+          {isQueued && (
+            <span className="message-queued-badge">Queued</span>
           )}
           {headerModel && (
             <span className="message-model">{modelLabel(headerModel)}</span>

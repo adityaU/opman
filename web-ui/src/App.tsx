@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getToken, setToken, verifyToken, login, fetchBootstrap } from "./api";
+import { verifyToken, login, fetchBootstrap } from "./api";
 import { LoginPage } from "./LoginPage";
 import { ChatLayout } from "./ChatLayout";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -40,8 +40,8 @@ export function App() {
 
   const handleLogin = useCallback(
     async (username: string, password: string) => {
-      const token = await login(username, password);
-      setToken(token);
+      await login(username, password);
+      // The server sets an HttpOnly cookie — no client-side token storage needed.
       setAuthed(true);
     },
     []

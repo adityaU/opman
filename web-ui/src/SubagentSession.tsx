@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import type { Message } from "./types";
 import { MessageTimeline } from "./MessageTimeline";
 import { fetchSessionMessages } from "./api";
-import { Loader2, CheckCircle2, XCircle, Bot, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Bot, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 
 interface SubagentSessionProps {
   sessionId: string;
@@ -20,12 +20,15 @@ interface SubagentSessionProps {
 }
 
 /**
- * Renders a subagent session's messages inside a task accordion.
+ * Renders a subagent session's messages inside a collapsible card.
  *
  * Live sessions: messages arrive via SSE (subagentMessages map keyed by
  * the child session ID extracted from the task tool part's input.task_id).
  * Completed sessions (e.g. after page reload): fetches messages from
  * the REST API so historical task output is always visible.
+ *
+ * The card is expanded while running, and collapses automatically once
+ * the task completes or errors. The user can toggle at any time.
  */
 export const SubagentSession = React.memo(function SubagentSession({
   sessionId,
@@ -37,6 +40,26 @@ export const SubagentSession = React.memo(function SubagentSession({
   onOpenSession,
 }: SubagentSessionProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Collapsible state ──────────────────────────────────────────
+  // Default: expanded while running, collapsed when done.
+  const [expanded, setExpanded] = useState(!!isRunning);
+  const [userToggled, setUserToggled] = useState(false);
+
+  // Auto-expand when the task starts running
+  useEffect(() => {
+    if (!userToggled && isRunning) setExpanded(true);
+  }, [isRunning, userToggled]);
+
+  // Auto-collapse when the task finishes (unless user manually toggled)
+  useEffect(() => {
+    if (!userToggled && !isRunning && (isCompleted || isError)) setExpanded(false);
+  }, [isRunning, isCompleted, isError, userToggled]);
+
+  const handleToggle = () => {
+    setUserToggled(true);
+    setExpanded((prev) => !prev);
+  };
 
   // --- REST-fetched messages for completed/errored tasks with no SSE data ---
   const [fetchedMessages, setFetchedMessages] = useState<Message[] | null>(null);
@@ -77,48 +100,51 @@ export const SubagentSession = React.memo(function SubagentSession({
 
   // Auto-scroll to bottom when new messages arrive while running
   useEffect(() => {
-    if (isRunning && scrollRef.current) {
+    if (isRunning && expanded && scrollRef.current) {
       const el = scrollRef.current;
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
       if (isNearBottom) {
         el.scrollTop = el.scrollHeight;
       }
     }
-  }, [messages, isRunning]);
+  }, [messages, isRunning, expanded]);
 
   return (
     <div className={`subagent-session${isRunning ? " subagent-running" : ""}${isError ? " subagent-error-state" : ""}`}>
       <div className="subagent-header">
-        <Bot size={14} className="subagent-icon" />
-        <span className="subagent-title">{title}</span>
-        <span className="subagent-status">
-          {isRunning && (
-            <>
-              <span className="subagent-live-dot" />
-              <Loader2 size={11} className="tool-spin-icon" />
-              <span className="subagent-status-text">running</span>
-            </>
-          )}
-          {isCompleted && (
-            <>
-              <CheckCircle2 size={12} className="tool-success-icon" />
-              <span className="subagent-status-text">completed</span>
-            </>
-          )}
-          {isError && (
-            <>
-              <XCircle size={12} className="tool-error-icon" />
-              <span className="subagent-status-text">failed</span>
-            </>
-          )}
-        </span>
+        <button className="subagent-toggle" onClick={handleToggle} type="button" aria-expanded={expanded}>
+          <span className="subagent-chevron">
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <Bot size={14} className="subagent-icon" />
+          <span className="subagent-title">{title}</span>
+          <span className="subagent-status">
+            {isRunning && (
+              <>
+                <span className="subagent-live-dot" />
+                <Loader2 size={11} className="tool-spin-icon" />
+                <span className="subagent-status-text">running</span>
+              </>
+            )}
+            {isCompleted && (
+              <>
+                <CheckCircle2 size={12} className="tool-success-icon" />
+                <span className="subagent-status-text">completed</span>
+              </>
+            )}
+            {isError && (
+              <>
+                <XCircle size={12} className="tool-error-icon" />
+                <span className="subagent-status-text">failed</span>
+              </>
+            )}
+          </span>
+        </button>
         {onOpenSession && (
           <button
             className="subagent-open-link"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenSession(sessionId);
-            }}
+            type="button"
+            onClick={() => onOpenSession(sessionId)}
             title="Open this session"
           >
             <ExternalLink size={11} />
@@ -127,31 +153,35 @@ export const SubagentSession = React.memo(function SubagentSession({
         )}
       </div>
 
-      {isFetching ? (
-        <div className="subagent-empty">
-          <Loader2 size={14} className="tool-spin-icon" />
-          <span>Loading task output...</span>
-        </div>
-      ) : !hasMessages ? (
-        <div className="subagent-empty">
-          {isRunning ? (
-            <>
+      {expanded && (
+        <>
+          {isFetching ? (
+            <div className="subagent-empty">
               <Loader2 size={14} className="tool-spin-icon" />
-              <span>Subagent starting...</span>
-            </>
+              <span>Loading task output...</span>
+            </div>
+          ) : !hasMessages ? (
+            <div className="subagent-empty">
+              {isRunning ? (
+                <>
+                  <Loader2 size={14} className="tool-spin-icon" />
+                  <span>Subagent starting...</span>
+                </>
+              ) : (
+                <span className="subagent-no-data">No task output available</span>
+              )}
+            </div>
           ) : (
-            <span className="subagent-no-data">No task output available</span>
+            <div className="subagent-messages" ref={scrollRef}>
+              <MessageTimeline
+                messages={messages}
+                sessionStatus={isRunning ? "busy" : "idle"}
+                activeSessionId={sessionId}
+                isLoadingMessages={false}
+              />
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="subagent-messages" ref={scrollRef}>
-          <MessageTimeline
-            messages={messages}
-            sessionStatus={isRunning ? "busy" : "idle"}
-            activeSessionId={sessionId}
-            isLoadingMessages={false}
-          />
-        </div>
+        </>
       )}
     </div>
   );

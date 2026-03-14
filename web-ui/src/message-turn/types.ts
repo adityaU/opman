@@ -24,6 +24,8 @@ export interface MessageTurnProps {
   sessionId?: string | null;
   /** Callback to navigate to a child session */
   onOpenSession?: (sessionId: string) => void;
+  /** ID of the last assistant message that hasn't completed yet (for "Queued" badge on user messages) */
+  pendingAssistantId?: string | null;
 }
 
 /** File extension mapping for common languages */

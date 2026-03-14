@@ -242,6 +242,13 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       description: "htop-like system resource monitor",
       handler: () => { onClose(); onOpenSystemMonitor?.(); },
     },
+    {
+      id: "refresh",
+      category: "System",
+      label: "Refresh Page",
+      description: "Reload the application",
+      handler: () => { onClose(); window.location.reload(); },
+    },
   ];
 
   // Session-specific items

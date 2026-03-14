@@ -237,3 +237,170 @@ html.flat-theme .git-repo-dropdown {
 html.flat-theme .git-repo-item:hover {
     background: var(--color-bg)
 }
+
+/* ── PR Branch Picker ──────────────────────────── */
+
+.pr-branch-picker-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: #0009;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000
+}
+
+.pr-branch-picker {
+    background: var(--color-bg, #0d1117);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px #00000080;
+    overflow: hidden
+}
+
+.pr-branch-picker-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border, #333);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text, #e6edf3)
+}
+
+.pr-branch-picker-header span {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px
+}
+
+.pr-branch-picker-header em {
+    font-style: normal;
+    color: var(--color-text-muted);
+    font-weight: 400
+}
+
+.pr-branch-picker-close {
+    background: none;
+    border: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    flex-shrink: 0
+}
+
+.pr-branch-picker-close:hover {
+    color: var(--color-text, #e6edf3);
+    background: var(--color-border, #333)
+}
+
+.pr-branch-picker-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--color-border-subtle, #222);
+    color: var(--color-text-muted)
+}
+
+.pr-branch-picker-search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: inherit
+}
+
+.pr-branch-picker-search input::placeholder {
+    color: var(--color-text-muted)
+}
+
+.pr-branch-picker-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 0
+}
+
+.pr-branch-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 14px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    text-align: left;
+    transition: background .12s
+}
+
+.pr-branch-picker-item:hover:not(:disabled) {
+    background: var(--white-6, #ffffff0f)
+}
+
+.pr-branch-picker-item:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}
+
+.pr-branch-picker-item.suggested {
+    color: var(--color-accent, #7c3aed)
+}
+
+.pr-branch-picker-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.pr-branch-picker-item-badge {
+    font-size: 9px;
+    font-family: inherit;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--color-accent, #7c3aed);
+    color: var(--color-bg, #000);
+    flex-shrink: 0;
+    letter-spacing: .5px
+}
+
+.pr-branch-picker-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px 14px;
+    color: var(--color-text-muted);
+    font-size: 12px
+}
+
+/* Flat theme overrides for branch picker */
+
+html.flat-theme .pr-branch-picker {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .pr-branch-picker-item:hover:not(:disabled) {
+    background: var(--color-bg)
+}

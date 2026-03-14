@@ -79,6 +79,59 @@ export const ToolCall = React.memo(function ToolCall({
     ? state?.error || (hasOutput ? null : "Tool call failed")
     : null;
 
+  // Task tools render directly without accordion wrapper
+  if (isTaskTool) {
+    return (
+      <div className={`tool-call tool-call-task-inline ${isError ? "tool-call-error" : ""}`}>
+        {taskSessionId ? (
+          <SubagentSession
+            sessionId={taskSessionId}
+            title={state?.title || childSession?.title || "Task"}
+            messages={subagentMessages?.get(taskSessionId)}
+            isRunning={isRunning}
+            isCompleted={isCompleted}
+            isError={isError}
+            onOpenSession={onOpenSession}
+          />
+        ) : (
+          <>
+            {hasOutput && (
+              <div className="tool-call-body">
+                <div className="tool-call-section">
+                  <div className="tool-call-section-label">Output</div>
+                  {state?.metadata?.truncated && (
+                    <span className="tool-call-truncated">[truncated] </span>
+                  )}
+                  <ToolOutput output={outputData!} toolName={toolName} isLive={isRunning} />
+                </div>
+              </div>
+            )}
+            {errorText && (
+              <div className="tool-call-body">
+                <div className="tool-call-section">
+                  <div className="tool-call-error-banner">
+                    <AlertTriangle size={12} />
+                    <span>{errorText}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!hasOutput && !errorText && isRunning && (
+              <div className="tool-call-body">
+                <div className="tool-call-section">
+                  <div className="tool-call-section-label">Output</div>
+                  <pre className="tool-call-pre tool-call-live-output">
+                    <Loader2 size={12} className="tool-spin-icon" /> Waiting for output...
+                  </pre>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`tool-call ${isError ? "tool-call-error" : ""}`}>
       <button className="tool-call-header" onClick={handleToggle}>

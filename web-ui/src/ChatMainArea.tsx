@@ -6,7 +6,7 @@ import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
 import { TerminalPanel } from "./TerminalPanel";
 import { SearchBar } from "./SearchBar";
-import { X, FileCode, GitBranch, Sparkles, Command } from "lucide-react";
+import { X, FileCode, GitBranch, Sparkles, Command, WifiOff } from "lucide-react";
 
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
@@ -16,6 +16,7 @@ export interface ChatMainAreaProps {
   activeProject: any;
   activeSessionId: string | null;
   sessionStatus: "idle" | "busy";
+  connectionStatus?: "connected" | "reconnecting" | "disconnected";
   messages: any[];
   busySessions: any;
   isLoadingMessages: boolean;
@@ -138,6 +139,11 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
               {p.activeProject?.name || "opman"}
             </span>
             {p.sessionStatus === "busy" && <span className="mobile-pill-busy" />}
+            {p.connectionStatus && p.connectionStatus !== "connected" && (
+              <span className={`mobile-pill-connection mobile-pill-connection-${p.connectionStatus}`}>
+                <WifiOff size={12} />
+              </span>
+            )}
           </button>
           <button className="mobile-cmd-btn" onClick={p.openCommandPalette} aria-label="Open command palette">
             <Command size={14} />

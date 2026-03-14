@@ -71,14 +71,20 @@ export function canNotify(): boolean {
 
 /**
  * Show a browser notification if the tab is hidden and the event kind is enabled.
- * Returns the Notification instance (or null if suppressed).
+ *
+ * Prefers service-worker-backed notifications (persistent even if tab is killed,
+ * click handling via SW notificationclick). Falls back to the plain Notification
+ * API when the SW is unavailable.
+ *
+ * Returns the Notification instance when using fallback, or null.
  */
 export function showNotification(
   kind: NotifyEventKind,
   title: string,
   body: string,
   prefs: NotificationPrefs,
-  onClick?: () => void
+  onClick?: () => void,
+  sessionId?: string | null,
 ): Notification | null {
   // Only notify when tab is hidden (user is away)
   if (!document.hidden) return null;
@@ -86,8 +92,26 @@ export function showNotification(
   if (!prefs[kind]) return null;
   if (!canNotify()) return null;
 
-  const icon = "/favicon.svg";
   const tag = `opman-${kind}-${Date.now()}`;
+
+  // ── Try service-worker path first ──
+  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: "SHOW_NOTIFICATION",
+      payload: {
+        title,
+        body,
+        tag,
+        kind,
+        sessionId: sessionId ?? null,
+        url: "/",
+      },
+    });
+    return null; // SW handles the notification lifecycle
+  }
+
+  // ── Fallback: plain Notification API ──
+  const icon = "/favicon.svg";
 
   const notification = new Notification(title, {
     body,

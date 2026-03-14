@@ -164,6 +164,9 @@ export function ChatLayout() {
   useNotificationSignals({
     activeSessionId, sessionStatus,
     autonomyMode: assistant.autonomyMode, watcherStatus,
+    permissions, questions,
+    crossSessionPermissions, crossSessionQuestions,
+    fileEditCount,
     setAssistantSignals: assistant.setAssistantSignals,
   });
 
@@ -243,7 +246,8 @@ export function ChatLayout() {
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
         appState={appState} activeProject={activeProject} activeSessionId={activeSessionId}
-        sessionStatus={sessionStatus} messages={messages} busySessions={busySessions}
+        sessionStatus={sessionStatus} connectionStatus={sse.connectionStatus}
+        messages={messages} busySessions={busySessions}
         isLoadingMessages={isLoadingMessages} isLoadingOlder={isLoadingOlder}
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
@@ -316,6 +320,7 @@ export function ChatLayout() {
       />
       <StatusBar
         project={activeProject} stats={stats} sessionStatus={sessionStatus}
+        connectionStatus={sse.connectionStatus}
         sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
         neovimOpen={panels.editor.open} gitOpen={panels.git.open}
         watcherStatus={watcherStatus} contextLimit={model.currentModelContextLimit}

@@ -16,7 +16,7 @@ import {
 import type { Message, PermissionRequest, QuestionRequest } from "../../types";
 import { applyThemeToCss } from "../../utils/theme";
 
-import type { SSEState, WatcherStatus } from "./types";
+import type { SSEState, WatcherStatus, SSEConnectionStatus } from "./types";
 import { type MessageMap, mapToSortedArray, getMessageTime } from "./messageMap";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
@@ -62,6 +62,7 @@ export function useSSE(): SSEState {
   const [liveActivityEvents, setLiveActivityEvents] = useState<ActivityEvent[]>([]);
   const [crossSessionPermissions, setCrossSessionPermissions] = useState<PermissionRequest[]>([]);
   const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
   const activeSessionRef = useRef<string | null>(null);
   const appliedTitleRef = useRef<string | null>(null);
 
@@ -453,46 +454,110 @@ export function useSSE(): SSEState {
       refreshState(); refreshMessages(); hydratePending();
     };
 
-    // App SSE
-    const appSSE = createEventsSSE();
-    setupAppSSEListeners(appSSE, {
+    // ── Connection status tracking ──────────────────────────────
+    // Track each stream independently; aggregate to worst-case for UI.
+    let appStreamOk = false;
+    let sessionStreamOk = false;
+    let appStreamReconnecting = false;
+    let sessionStreamReconnecting = false;
+
+    const recomputeConnectionStatus = () => {
+      let next: SSEConnectionStatus;
+      if (appStreamOk && sessionStreamOk) {
+        next = "connected";
+      } else if (appStreamReconnecting || sessionStreamReconnecting) {
+        next = "reconnecting";
+      } else {
+        next = "disconnected";
+      }
+      setConnectionStatus(next);
+    };
+
+    // ── EventSource lifecycle helpers ───────────────────────────
+    // Hold current EventSources in mutable slots so the watchdog can
+    // close and recreate them when the connection goes stale.
+    let currentAppSSE: EventSource | null = null;
+    let currentSessionSSE: EventSource | null = null;
+
+    const appSSECtx: Parameters<typeof setupAppSSEListeners>[1] = {
       activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
       setBusySessions, setSessionStatus, setStats, setWatcherStatus,
       setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId,
       setMcpAgentActivity, setPresenceClients, setLiveActivityEvents,
-    });
+    };
 
-    // Session SSE
-    const sessionSSE = createSessionEventsSSE();
-    sessionSSE.addEventListener("heartbeat", () => { touchEvent(); });
-    sessionSSE.addEventListener("lagged", () => { console.warn("[SSE] Session events lagged"); recoverAfterReconnect(); });
-    sessionSSE.onerror = () => { console.warn("[SSE] Session events connection error"); sessionSseNeedsRecovery = true; };
-    sessionSSE.onopen = () => { touchEvent(); if (sessionSseNeedsRecovery) { sessionSseNeedsRecovery = false; recoverAfterReconnect(); } };
-    sessionSSE.addEventListener("opencode", (e: MessageEvent) => {
-      touchEvent();
-      const event = parseOpenCodeEvent(e.data);
-      if (!event) return;
-      handleOpenCodeEvent(
-        { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
-          flushMessages, flushSubagentMessages,
-          refreshState, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
-          setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
-        event,
-      );
-    });
+    function createAndWireAppSSE(): EventSource {
+      const sse = createEventsSSE();
+      setupAppSSEListeners(sse, appSSECtx);
+      sse.addEventListener("open", () => {
+        appStreamOk = true; appStreamReconnecting = false;
+        recomputeConnectionStatus();
+      });
+      sse.addEventListener("error", () => {
+        appStreamOk = false; appStreamReconnecting = true;
+        recomputeConnectionStatus();
+      });
+      return sse;
+    }
 
-    // Stale-connection watchdog
+    function createAndWireSessionSSE(): EventSource {
+      const sse = createSessionEventsSSE();
+      sessionSseNeedsRecovery = false;
+      sse.addEventListener("heartbeat", () => { touchEvent(); });
+      sse.addEventListener("lagged", () => { console.warn("[SSE] Session events lagged"); recoverAfterReconnect(); });
+      sse.addEventListener("error", () => {
+        console.warn("[SSE] Session events connection error");
+        sessionSseNeedsRecovery = true;
+        sessionStreamOk = false; sessionStreamReconnecting = true;
+        recomputeConnectionStatus();
+      });
+      sse.addEventListener("open", () => {
+        touchEvent();
+        sessionStreamOk = true; sessionStreamReconnecting = false;
+        recomputeConnectionStatus();
+        if (sessionSseNeedsRecovery) { sessionSseNeedsRecovery = false; recoverAfterReconnect(); }
+      });
+      sse.addEventListener("opencode", (e: MessageEvent) => {
+        touchEvent();
+        const event = parseOpenCodeEvent(e.data);
+        if (!event) return;
+        handleOpenCodeEvent(
+          { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
+            flushMessages, flushSubagentMessages,
+            refreshState, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
+            setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
+          event,
+        );
+      });
+      return sse;
+    }
+
+    currentAppSSE = createAndWireAppSSE();
+    currentSessionSSE = createAndWireSessionSSE();
+
+    // Stale-connection watchdog — closes and recreates both EventSources
+    // when no events have been received for too long.
     const STALE_THRESHOLD_MS = 45_000;
     const watchdogInterval = setInterval(() => {
       const elapsed = Date.now() - lastEventTime;
       if (elapsed > STALE_THRESHOLD_MS) {
-        console.warn(`[SSE] No events in ${Math.round(elapsed / 1000)}s — forcing reconnect`);
-        recoverAfterReconnect(); lastEventTime = Date.now();
+        console.warn(`[SSE] No events in ${Math.round(elapsed / 1000)}s — closing and recreating EventSources`);
+        // Mark both as reconnecting
+        appStreamOk = false; sessionStreamOk = false;
+        appStreamReconnecting = true; sessionStreamReconnecting = true;
+        recomputeConnectionStatus();
+        // Close stale connections and create fresh ones
+        currentAppSSE?.close();
+        currentSessionSSE?.close();
+        currentAppSSE = createAndWireAppSSE();
+        currentSessionSSE = createAndWireSessionSSE();
+        lastEventTime = Date.now();
+        recoverAfterReconnect();
       }
     }, 10_000);
 
     return () => {
-      appSSE.close(); sessionSSE.close(); clearInterval(watchdogInterval);
+      currentAppSSE?.close(); currentSessionSSE?.close(); clearInterval(watchdogInterval);
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
     };
@@ -500,7 +565,7 @@ export function useSSE(): SSEState {
 
   return {
     appState, messages, stats, busySessions, permissions, questions,
-    sessionStatus, isLoadingMessages, isLoadingOlder, hasOlderMessages,
+    sessionStatus, connectionStatus, isLoadingMessages, isLoadingOlder, hasOlderMessages,
     totalMessageCount, watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId,
     mcpAgentActivity, presenceClients, liveActivityEvents,

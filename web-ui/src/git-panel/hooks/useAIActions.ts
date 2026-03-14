@@ -28,14 +28,23 @@ export function useAIActions(
     if (!onSendToAI) return;
     setAiReviewLoading(true);
     try {
+      // Quick check that there are actual changes to review
       const [stagedDiff, unstagedDiff] = await Promise.all([
         staged.length > 0  ? fetchGitDiff(undefined, true, repoRef.current)  : Promise.resolve({ diff: "" }),
         unstaged.length > 0 ? fetchGitDiff(undefined, false, repoRef.current) : Promise.resolve({ diff: "" }),
       ]);
       const combined = [stagedDiff.diff, unstagedDiff.diff].filter(Boolean).join("\n");
       if (!combined.trim()) { onError?.("No changes to review"); return; }
+
+      const stagedCount = staged.length;
+      const unstagedCount = unstaged.length;
+      const fileSummary = [
+        stagedCount > 0 ? `${stagedCount} staged` : "",
+        unstagedCount > 0 ? `${unstagedCount} unstaged` : "",
+      ].filter(Boolean).join(", ");
+
       onSendToAI(
-        `Please review my current git changes. Here is the diff:\n\n\`\`\`diff\n${combined}\n\`\`\`\n\nProvide a thorough code review covering:\n- Potential bugs or issues\n- Code quality and style\n- Suggestions for improvement\n- Any security concerns`,
+        `Review my current git changes (${fileSummary} files). Use the available tools to read the git diff, then provide a thorough code review covering potential bugs, code quality, and suggestions for improvement.`,
       );
     } catch (err) {
       console.error("Failed to gather diff for AI review:", err);
@@ -68,11 +77,21 @@ export function useAIActions(
 
   // ── Draft PR description ──────────────────────────────
 
-  const handleAIPRDescription = useCallback(async () => {
+  /** Whether we're in the "pick a base branch" step before drafting the PR. */
+  const [prBranchPickerOpen, setPrBranchPickerOpen] = useState(false);
+
+  /** Open the branch picker step (called by the Draft PR button). */
+  const openPRBranchPicker = useCallback(() => {
+    setPrBranchPickerOpen(true);
+  }, []);
+
+  /** Actually draft the PR with a chosen base branch. */
+  const handleAIPRDescription = useCallback(async (baseBranch?: string) => {
     if (!onSendToAI) return;
+    setPrBranchPickerOpen(false);
     setAiPrLoading(true);
     try {
-      const rangeData = await fetchGitRangeDiff(undefined, undefined, repoRef.current);
+      const rangeData = await fetchGitRangeDiff(baseBranch || undefined, undefined, repoRef.current);
       if (!rangeData.diff.trim() && rangeData.commits.length === 0) {
         onError?.("No commits found relative to base branch");
         return;
@@ -96,6 +115,7 @@ export function useAIActions(
   return {
     aiReviewLoading, aiCommitMsgLoading, aiPrLoading,
     prModalOpen, setPrModalOpen, prModalData,
+    prBranchPickerOpen, setPrBranchPickerOpen, openPRBranchPicker,
     handleAIReview, handleAICommitMsg, handleAIPRDescription,
   };
 }

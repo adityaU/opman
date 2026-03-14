@@ -126,7 +126,13 @@ export function useUrlState({
   onPopStateRef.current = onPopState;
 
   useEffect(() => {
-    const handler = () => {
+    const handler = (e: PopStateEvent) => {
+      // Ignore history entries pushed by modal/drawer back-gesture support.
+      // Those entries carry a `_modalLayer` or `_mobileOverlay` sentinel and
+      // are managed by useModalState / useMobileState respectively.
+      const st = e.state as Record<string, unknown> | null;
+      if (st && ("_modalLayer" in st || "_mobileOverlay" in st)) return;
+
       isPopStateRef.current = true;
       const restored = readUrlState();
       prevStateRef.current = restored;

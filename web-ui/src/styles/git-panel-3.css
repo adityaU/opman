@@ -26,15 +26,13 @@
 
 .git-commit-detail {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden
+    overflow-y: auto;
+    min-height: 0
 }
 
 .git-commit-meta {
     padding: var(--space-2) var(--space-3);
-    border-bottom: .5px solid var(--white-6);
-    flex-shrink: 0
+    border-bottom: .5px solid var(--white-6)
 }
 
 .git-commit-meta-hash {

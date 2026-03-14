@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, getToken } from "./client";
+import { apiFetch, apiPost } from "./client";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -42,17 +42,15 @@ export async function ptyList(): Promise<string[]> {
 }
 
 export function createPtySSE(id: string): EventSource {
-  const token = getToken();
+  // Cookie auth: browser sends opman_token cookie automatically.
   return new EventSource(
-    `/api/pty/stream?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token || "")}`
+    `/api/pty/stream?id=${encodeURIComponent(id)}`
   );
 }
 
 // ── App events SSE ────────────────────────────────────
 
 export function createEventsSSE(): EventSource {
-  const token = getToken();
-  return new EventSource(
-    `/api/events?token=${encodeURIComponent(token || "")}`
-  );
+  // Cookie auth: browser sends opman_token cookie automatically.
+  return new EventSource(`/api/events`);
 }

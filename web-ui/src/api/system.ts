@@ -1,5 +1,3 @@
-import { getToken } from "./client";
-
 // ── Types ─────────────────────────────────────────────
 
 export interface ProcessInfo {
@@ -55,9 +53,7 @@ export function connectSystemStatsStream(
   onStats: (stats: SystemStats) => void,
   onError?: (err: Event) => void,
 ): EventSource {
-  const token = getToken();
-  const url = `/api/system/stats/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-  const es = new EventSource(url);
+  const es = new EventSource("/api/system/stats/stream");
 
   es.addEventListener("system_stats", (e: MessageEvent) => {
     try {

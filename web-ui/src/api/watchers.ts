@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, apiDelete, authHeaders, clearToken } from "./client";
+import { apiFetch, apiPost, apiDelete, clearToken } from "./client";
 
 // ── Watcher types ─────────────────────────────────────
 
@@ -149,7 +149,8 @@ export async function registerPresence(
 export async function deregisterPresence(clientId: string): Promise<void> {
   const res = await fetch("/api/presence", {
     method: "DELETE",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({ client_id: clientId }),
   });
   if (res.status === 401) {

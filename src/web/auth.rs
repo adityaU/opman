@@ -18,7 +18,7 @@ use super::types::ServerState;
 type HmacSha256 = Hmac<Sha256>;
 
 /// JWT tokens are valid for 24 hours.
-const JWT_EXPIRY_SECS: u64 = 86400;
+pub const JWT_EXPIRY_SECS: u64 = 86400;
 
 // ── JWT claims ──────────────────────────────────────────────────────
 
@@ -142,6 +142,9 @@ where
             .and_then(|s| s.strip_prefix("Bearer "))
             .map(|s| s.to_string());
 
+        // Fall back to opman_token cookie
+        let token = token.or_else(|| extract_cookie_token(&parts.headers));
+
         // Fall back to ?token= query parameter (for SSE connections)
         let token = token.or_else(|| {
             parts
@@ -162,7 +165,7 @@ where
     }
 }
 
-/// Check auth from headers + optional query token (for non-extractor use in SSE).
+/// Check auth from headers + cookie + optional query token (for non-extractor use in SSE).
 pub fn check_auth_manual(
     state: &ServerState,
     headers: &axum::http::HeaderMap,
@@ -177,11 +180,26 @@ pub fn check_auth_manual(
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .map(|s| s.to_string())
+        .or_else(|| extract_cookie_token(headers))
         .or_else(|| query_token.clone());
 
     token
         .and_then(|t| verify_jwt(&t, &state.jwt_secret))
         .is_some()
+}
+
+/// Extract `opman_token` value from the `Cookie` header.
+fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|cookies| {
+            cookies.split(';').find_map(|pair| {
+                let pair = pair.trim();
+                pair.strip_prefix("opman_token=")
+                    .map(|v| v.to_string())
+            })
+        })
 }
 
 #[cfg(test)]

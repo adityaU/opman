@@ -236,3 +236,29 @@
     text-overflow: ellipsis;
     white-space: nowrap
 }
+
+/* ── SSE connection status indicator ─────────────────────────── */
+
+.status-bar-connection {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 11px;
+    border-radius: 999px;
+    white-space: nowrap
+}
+
+.status-bar-connection-reconnecting {
+    color: var(--color-warning, #f5a742);
+    animation: connection-pulse 2s ease-in-out infinite
+}
+
+.status-bar-connection-disconnected {
+    color: var(--color-error, #e06c75)
+}
+
+@keyframes connection-pulse {
+    0%,100% { opacity: .5 }
+    50% { opacity: 1 }
+}

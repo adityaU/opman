@@ -1,14 +1,12 @@
-import { apiFetch, getToken } from "./client";
+import { apiFetch } from "./client";
 import type { OpenCodeEvent } from "../types";
 import type { SessionStats } from "./state";
 
 // ── Session events SSE ────────────────────────────────
 
 export function createSessionEventsSSE(): EventSource {
-  const token = getToken();
-  return new EventSource(
-    `/api/session/events?token=${encodeURIComponent(token || "")}`
-  );
+  // Cookie auth: browser sends opman_token cookie automatically.
+  return new EventSource(`/api/session/events`);
 }
 
 export function parseOpenCodeEvent(data: string): OpenCodeEvent | null {

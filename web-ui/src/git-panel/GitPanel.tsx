@@ -7,7 +7,7 @@
  *               ChangesListView, LogListView, FileDiffView,
  *               CommitDetailView, PRModal, RepoSwitcher
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { GitPanelProps, GitTab } from "./types";
 import { buildDiffStyles } from "./utils";
 import { useViewNavigation } from "./hooks/useViewNavigation";
@@ -22,6 +22,7 @@ import { LogListView } from "./components/LogListView";
 import { FileDiffView } from "./components/FileDiffView";
 import { CommitDetailView } from "./components/CommitDetailView";
 import { PRModal } from "./components/PRModal";
+import { PRBranchPicker } from "./components/PRBranchPicker";
 import { RepoSwitcher } from "./components/RepoSwitcher";
 
 export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelProps) {
@@ -31,6 +32,11 @@ export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelP
   const data = useGitData(projectPath, tab, nav.currentView, onError);
   const actions = useGitActions(data.branch, data.setBranch, data.refreshStatus, data.selectedRepo, onError);
   const ai = useAIActions(data.staged, data.unstaged, data.selectedRepo, onSendToAI, onError);
+
+  // Auto-fetch branch list when the PR branch picker opens
+  useEffect(() => {
+    if (ai.prBranchPickerOpen) data.fetchBranchList();
+  }, [ai.prBranchPickerOpen, data.fetchBranchList]);
 
   const diffStyles = buildDiffStyles(data.themeColors);
   const totalChanges = data.staged.length + data.unstaged.length + data.untracked.length;
@@ -87,7 +93,7 @@ export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelP
             aiReviewLoading={ai.aiReviewLoading} aiCommitMsgLoading={ai.aiCommitMsgLoading}
             aiPrLoading={ai.aiPrLoading}
             handleAIReview={ai.handleAIReview} handleAICommitMsg={ai.handleAICommitMsg}
-            handleAIPRDescription={ai.handleAIPRDescription}
+            openPRBranchPicker={ai.openPRBranchPicker}
           />
         </div>
       )}
@@ -118,6 +124,18 @@ export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelP
             diffStyles={diffStyles}
           />
         </div>
+      )}
+
+      {/* PR branch picker */}
+      {ai.prBranchPickerOpen && (
+        <PRBranchPicker
+          currentBranch={data.branch}
+          localBranches={data.localBranches}
+          remoteBranches={data.remoteBranches}
+          loading={data.branchesLoading || ai.aiPrLoading}
+          onSelect={(base) => ai.handleAIPRDescription(base)}
+          onClose={() => ai.setPrBranchPickerOpen(false)}
+        />
       )}
 
       {/* PR modal */}

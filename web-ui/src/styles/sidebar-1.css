@@ -145,8 +145,8 @@
 }
 
 .sb-search:focus-within {
-    border-color: color-mix(in srgb,var(--color-primary) 40%,transparent);
-    background: var(--white-6)
+    background: var(--white-6);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 40%, transparent)
 }
 
 .sb-search-icon {

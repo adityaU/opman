@@ -167,6 +167,20 @@ html:before {
     pointer-events: none
 }
 
+/* Subtle grid overlay — same pattern as login page, applied globally. */
+html:after {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    background-image: linear-gradient(var(--white-2) 1px,transparent 1px),linear-gradient(90deg,var(--white-2) 1px,transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none
+}
+
 input,button,textarea,select {
     font: inherit;
     color: inherit

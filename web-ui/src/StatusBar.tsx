@@ -1,6 +1,6 @@
 import React from "react";
 import type { ProjectInfo, SessionStats, ClientPresence, PersonalMemoryItem, AutonomyMode } from "./api";
-import type { WatcherStatus } from "./hooks/useSSE";
+import type { WatcherStatus, SSEConnectionStatus } from "./hooks/useSSE";
 import type { AssistantRecommendation } from "./api";
 import { WatcherStatusIndicator } from "./WatcherStatusBar";
 import {
@@ -15,12 +15,15 @@ import {
   Layers,
   Brain,
   Bot,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 
 interface Props {
   project: ProjectInfo | null;
   stats: SessionStats | null;
   sessionStatus: "idle" | "busy";
+  connectionStatus?: SSEConnectionStatus;
   sidebarOpen: boolean;
   terminalOpen: boolean;
   neovimOpen: boolean;
@@ -54,6 +57,7 @@ export const StatusBar = React.memo(function StatusBar({
   project,
   stats,
   sessionStatus,
+  connectionStatus,
   sidebarOpen,
   terminalOpen,
   neovimOpen,
@@ -122,6 +126,18 @@ export const StatusBar = React.memo(function StatusBar({
         <span className="status-bar-status">
           {sessionStatus === "busy" ? "busy" : "ready"}
         </span>
+
+        {connectionStatus && connectionStatus !== "connected" && (
+          <span
+            className={`status-bar-connection status-bar-connection-${connectionStatus}`}
+            role="status"
+            aria-label={connectionStatus === "reconnecting" ? "Reconnecting to server" : "Disconnected from server"}
+            title={connectionStatus === "reconnecting" ? "Reconnecting..." : "Disconnected"}
+          >
+            <WifiOff size={11} />
+            <span>{connectionStatus === "reconnecting" ? "reconnecting" : "disconnected"}</span>
+          </span>
+        )}
 
         {watcherStatus && (
           <WatcherStatusIndicator

@@ -13,10 +13,10 @@ import type { AssistantRecommendation, ResumeBriefing } from "../api/intelligenc
 import type { PermissionRequest, QuestionRequest } from "../types";
 import { toPermissionInputs, toQuestionInputs, toSignalInputs } from "./intelligenceAdapters";
 
-/** Signal stored client-side (from SSE events / watcher triggers). */
+/** Signal stored client-side (from SSE events / watcher triggers / notifications). */
 export interface AssistantSignal {
   id: string;
-  kind: "session_complete" | "watcher_trigger";
+  kind: "session_complete" | "watcher_trigger" | "permission_request" | "question" | "file_edit";
   title: string;
   body: string;
   createdAt: number;

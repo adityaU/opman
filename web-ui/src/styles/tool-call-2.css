@@ -31,14 +31,14 @@
 
 .subagent-messages .message-turn-assistant {
     background: color-mix(in srgb, var(--white-3) 50%, transparent);
-    padding-left: var(--space-2);
-    padding-right: var(--space-2)
+    padding-left: var(--space-4);
+    padding-right: var(--space-4)
 }
 
 .subagent-messages .message-turn-user {
     background: transparent;
-    padding-left: var(--space-2);
-    padding-right: var(--space-2)
+    padding-left: var(--space-4);
+    padding-right: var(--space-4)
 }
 
 .subagent-messages .message-avatar {

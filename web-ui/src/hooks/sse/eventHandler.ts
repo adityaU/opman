@@ -318,20 +318,23 @@ export interface AppSSEContext {
   setLiveActivityEvents: React.Dispatch<React.SetStateAction<ActivityEvent[]>>;
 }
 
-/** Wire all listeners onto the app-level EventSource. */
+/** Wire all listeners onto the app-level EventSource.
+ *  Uses addEventListener instead of onopen/onerror so callers can safely
+ *  add additional open/error listeners without overwriting these. */
 export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): void {
+  let needsRecovery = false;
   appSSE.addEventListener("heartbeat", () => { ctx.touchEvent(); });
-  appSSE.onerror = () => {
+  appSSE.addEventListener("error", () => {
     console.warn("[SSE] App events connection error — EventSource will auto-reconnect");
-    (appSSE as unknown as { _needsRecovery: boolean })._needsRecovery = true;
-  };
-  appSSE.onopen = () => {
+    needsRecovery = true;
+  });
+  appSSE.addEventListener("open", () => {
     ctx.touchEvent();
-    if ((appSSE as unknown as { _needsRecovery?: boolean })._needsRecovery) {
-      (appSSE as unknown as { _needsRecovery: boolean })._needsRecovery = false;
+    if (needsRecovery) {
+      needsRecovery = false;
       ctx.recoverAfterReconnect();
     }
-  };
+  });
 
   appSSE.addEventListener("state_changed", () => { ctx.touchEvent(); ctx.refreshState(); });
   appSSE.addEventListener("session_busy", (e: MessageEvent) => {

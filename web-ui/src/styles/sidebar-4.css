@@ -151,8 +151,16 @@
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 45%,transparent),transparent),var(--color-bg-element)
 }
 
-.sb-search:focus-within,.sb-rename-input:focus,.sb-modal-input:focus {
-    box-shadow: 0 0 0 3px color-mix(in srgb,var(--color-primary) 14%,transparent)
+.sb-search:focus-within {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 40%, transparent)
+}
+
+.sb-rename-input:focus {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent)
+}
+
+.sb-modal-input:focus {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent)
 }
 
 .sb-project {

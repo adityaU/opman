@@ -26,6 +26,9 @@ export interface McpEditorOpen {
   line: number | null;
 }
 
+/** SSE connection health status. */
+export type SSEConnectionStatus = "connected" | "reconnecting" | "disconnected";
+
 export interface SSEState {
   appState: AppState | null;
   messages: Message[];
@@ -34,6 +37,8 @@ export interface SSEState {
   permissions: PermissionRequest[];
   questions: QuestionRequest[];
   sessionStatus: "idle" | "busy";
+  /** Aggregate SSE connection health (worst-case of app + session streams). */
+  connectionStatus: SSEConnectionStatus;
   /** True while loading messages for a newly-selected session */
   isLoadingMessages: boolean;
   /** True while loading older messages (pagination scroll-up) */

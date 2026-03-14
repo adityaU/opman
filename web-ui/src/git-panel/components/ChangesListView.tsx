@@ -28,7 +28,7 @@ interface Props {
   aiPrLoading: boolean;
   handleAIReview: () => void;
   handleAICommitMsg: () => void;
-  handleAIPRDescription: () => void;
+  openPRBranchPicker: () => void;
 }
 
 export function ChangesListView({
@@ -37,7 +37,7 @@ export function ChangesListView({
   handleStage, handleUnstage, handleStageAll, handleUnstageAll, handleDiscard,
   pushView, onSendToAI,
   aiReviewLoading, aiCommitMsgLoading, aiPrLoading,
-  handleAIReview, handleAICommitMsg, handleAIPRDescription,
+  handleAIReview, handleAICommitMsg, openPRBranchPicker,
 }: Props) {
   const commitInputRef = useRef<HTMLTextAreaElement>(null);
   const [stagedOpen, setStagedOpen]       = useState(true);
@@ -77,7 +77,7 @@ export function ChangesListView({
             {aiCommitMsgLoading ? <Loader2 size={12} className="spin" /> : <FileEdit size={12} />}
             Write Commit Msg
           </button>
-          <button className="git-ai-button" onClick={handleAIPRDescription}
+          <button className="git-ai-button" onClick={openPRBranchPicker}
             disabled={aiPrLoading} title="Draft a PR description from branch changes"
           >
             {aiPrLoading ? <Loader2 size={12} className="spin" /> : <GitPullRequest size={12} />}

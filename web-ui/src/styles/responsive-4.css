@@ -117,8 +117,7 @@
     }
 
     html.flat-theme .message-turn-assistant:before {
-        background: linear-gradient(180deg,var(--color-primary),color-mix(in srgb,var(--color-primary) 20%,transparent));
-        opacity: .5
+        display: none
     }
 
     html.flat-theme .message-turn-user {

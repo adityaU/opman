@@ -26,6 +26,10 @@ export function applyThemeToCss(colors: ThemeColors) {
   updateFavicon(colors.primary, colors.background);
   updatePwaIcons(colors.primary, colors.background);
 
+  // Push theme colors to the service worker so it can intercept
+  // manifest/icon requests and return themed versions (installed PWA).
+  notifyServiceWorker(colors.primary, colors.background);
+
   // Semantic aliases (used widely in component CSS)
   root.setProperty("--color-surface", colors.background_panel);
   root.setProperty("--color-text-secondary", colors.text_muted);
@@ -369,4 +373,23 @@ async function updatePwaIcons(primaryColor: string, bgColor: string) {
   } catch {
     // Icon rasterisation not supported — static icons remain as fallback.
   }
+}
+
+// ── Service worker theme sync ───────────────────────────────────────
+
+/**
+ * Post the current theme's primary + background colours to the active
+ * service worker so it can intercept `/manifest.json`, `/favicon.svg`,
+ * `/icon-192.png` and `/icon-512.png` requests and return themed
+ * versions.  This is what makes an *already-installed* PWA pick up
+ * the new icon/splash colours.
+ */
+function notifyServiceWorker(primaryColor: string, bgColor: string) {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.ready.then((reg) => {
+    reg.active?.postMessage({
+      type: "THEME_COLORS",
+      colors: { primary: primaryColor, background: bgColor },
+    });
+  }).catch(() => { /* SW not available — ignore */ });
 }
