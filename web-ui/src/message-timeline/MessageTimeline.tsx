@@ -221,6 +221,18 @@ export function MessageTimeline({
     shouldAutoScrollRef.current = false;
   }, [activeSearchMatchId, useVirtual, virtualizer, messageIdToGroupIndex, messageIdToGroupKey]);
 
+  // Find the last assistant message that hasn't completed yet.
+  // User messages sent after this one are considered "queued".
+  const pendingAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.info.role !== "assistant") continue;
+      const t = m.metadata?.time ?? (typeof m.info.time === "object" ? m.info.time : undefined);
+      if (!t?.completed) return m.info.messageID || m.info.id || "";
+    }
+    return null;
+  }, [messages]);
+
   // ── Empty states ──
   if (!activeSessionId) return <WelcomeEmpty />;
 
@@ -254,18 +266,6 @@ export function MessageTimeline({
       <span>Jump to bottom</span>
     </button>
   );
-
-  // Find the last assistant message that hasn't completed yet.
-  // User messages sent after this one are considered "queued".
-  const pendingAssistantId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.info.role !== "assistant") continue;
-      const t = m.metadata?.time ?? (typeof m.info.time === "object" ? m.info.time : undefined);
-      if (!t?.completed) return m.info.messageID || m.info.id || "";
-    }
-    return null;
-  }, [messages]);
 
   const turnProps = {
     childSessions,

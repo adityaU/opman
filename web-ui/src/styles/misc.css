@@ -195,6 +195,40 @@ input,button,textarea,select {
     outline: none
 }
 
+/* ── Kill outline on ALL inputs/textareas inside modal backdrops, overlays,
+   and drawer containers. Covers both :focus and :focus-visible states. ── */
+.modal-backdrop input:focus,
+.modal-backdrop input:focus-visible,
+.modal-backdrop textarea:focus,
+.modal-backdrop textarea:focus-visible,
+.search-modal-backdrop input:focus,
+.search-modal-backdrop input:focus-visible,
+.search-modal-backdrop textarea:focus,
+.search-modal-backdrop textarea:focus-visible,
+.sb-modal-overlay input:focus,
+.sb-modal-overlay input:focus-visible,
+.sb-modal-overlay textarea:focus,
+.sb-modal-overlay textarea:focus-visible,
+.sidebar-mobile-overlay input:focus,
+.sidebar-mobile-overlay input:focus-visible,
+.sidebar-mobile-overlay textarea:focus,
+.sidebar-mobile-overlay textarea:focus-visible,
+[class$="-overlay"] input:focus,
+[class$="-overlay"] input:focus-visible,
+[class$="-overlay"] textarea:focus,
+[class$="-overlay"] textarea:focus-visible,
+.mobile-panel-sheet input:focus,
+.mobile-panel-sheet input:focus-visible,
+.mobile-panel-sheet textarea:focus,
+.mobile-panel-sheet textarea:focus-visible,
+.search-modal:focus,
+.search-modal:focus-visible,
+.settings-modal:focus,
+.settings-modal:focus-visible {
+    outline: none !important;
+    outline-offset: 0 !important
+}
+
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px

@@ -71,7 +71,10 @@ export const ToolCall = React.memo(function ToolCall({
       ? inputData.length > 0
       : Object.keys(inputData).length > 0);
 
-  const outputData = state?.output;
+  // Use final output when available; fall back to live metadata.output while running
+  const finalOutput = state?.output;
+  const liveOutput = typeof state?.metadata?.output === "string" ? state.metadata.output : null;
+  const outputData = (finalOutput && finalOutput.length > 0) ? finalOutput : liveOutput;
   const hasOutput = outputData != null && outputData.length > 0;
 
   // Extract error text for display when tool errored

@@ -25,8 +25,6 @@ export const MessageTurn = React.memo(function MessageTurn({
   const { role, messages } = group;
   const [copied, setCopied] = useState(false);
 
-  if (role === "system") return null;
-
   const isUser = role === "user";
   const isAssistant = role === "assistant";
 
@@ -183,6 +181,8 @@ export const MessageTurn = React.memo(function MessageTurn({
       onRetry(plainText);
     }
   }, [isUser, plainText, onRetry]);
+
+  if (role === "system") return null;
 
   return (
     <div className={`message-turn message-turn-${role}${isOptimistic ? " message-turn-optimistic" : ""}${isSearchMatch ? " message-turn-search-match" : ""}${isActiveMatch ? " message-turn-active-match" : ""}`}>
