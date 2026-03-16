@@ -52,8 +52,17 @@ export const EXAMPLE_PROMPTS = [
 
 // ── Helpers ────────────────────────────────────────────
 
-/** Group consecutive same-role messages together. */
-export function groupMessages(messages: Message[]): MessageGroup[] {
+/**
+ * Group consecutive same-role messages together.
+ *
+ * Accepts `prevGroups` so that groups whose identity hasn't changed can keep
+ * the same object reference, allowing React.memo on MessageTurn to skip
+ * re-rendering unchanged groups during streaming.
+ */
+export function groupMessages(
+  messages: Message[],
+  prevGroups?: MessageGroup[],
+): MessageGroup[] {
   const groups: MessageGroup[] = [];
   for (const msg of messages) {
     const last = groups[groups.length - 1];
@@ -67,5 +76,24 @@ export function groupMessages(messages: Message[]): MessageGroup[] {
       });
     }
   }
+
+  // If we have previous groups, reuse unchanged group objects so shallow
+  // comparison in React.memo will skip re-renders for groups that didn't change.
+  if (prevGroups && prevGroups.length > 0) {
+    for (let i = 0; i < groups.length && i < prevGroups.length; i++) {
+      const prev = prevGroups[i];
+      const curr = groups[i];
+      if (prev.key !== curr.key) break;
+      if (prev.messages.length !== curr.messages.length) continue;
+      // Check if the last message in the group is the same reference
+      // (earlier messages in a finished group won't change)
+      const pLast = prev.messages[prev.messages.length - 1];
+      const cLast = curr.messages[curr.messages.length - 1];
+      if (pLast === cLast) {
+        groups[i] = prev; // reuse previous object reference
+      }
+    }
+  }
+
   return groups;
 }

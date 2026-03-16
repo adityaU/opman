@@ -71,7 +71,17 @@
     flex-shrink: 0;
     background: transparent;
     transition: background var(--transition-fast);
-    z-index: 5
+    z-index: 5;
+    touch-action: none;
+    /* Expand touch target via pseudo-element so the visible handle stays thin */
+    position: relative
+}
+
+.resize-handle::after {
+    content: "";
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    /* Extend touch target to 20px on the narrow axis */
 }
 
 .resize-handle:hover,.resize-handle.dragging {
@@ -84,9 +94,19 @@
     cursor: col-resize
 }
 
+.resize-handle-horizontal::after {
+    left: -8px;
+    right: -8px
+}
+
 .resize-handle-vertical {
     height: 4px;
     cursor: row-resize
+}
+
+.resize-handle-vertical::after {
+    top: -8px;
+    bottom: -8px
 }
 
 @keyframes pill-pulse {

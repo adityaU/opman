@@ -1,0 +1,355 @@
+//! Message-related methods on SseState — loading, pagination, optimistic messages,
+//! batched flush scheduling for both main session and subagent sessions.
+
+use crate::sse::message_map::{self, MessageMap, map_to_sorted_array};
+use leptos::prelude::*;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use std::collections::HashMap;
+
+use super::types::MESSAGE_PAGE_SIZE;
+use super::SseState;
+
+impl SseState {
+    /// Update the message map with a closure and schedule a batched flush.
+    /// Multiple updates within the same animation frame are coalesced into a single flush.
+    pub fn update_message_map(&self, f: impl FnOnce(&mut MessageMap) -> bool) {
+        let mut changed = false;
+        self.message_map.update(|map: &mut MessageMap| {
+            changed = f(map);
+        });
+        if changed {
+            self.schedule_flush();
+        }
+    }
+
+    /// Schedule a flush for the next animation frame if one isn't already pending.
+    pub(super) fn schedule_flush(&self) {
+        if self.flush_pending.get_untracked() {
+            return; // Already scheduled
+        }
+        self.flush_pending.set(true);
+
+        let message_map = self.message_map;
+        let set_messages = self.set_messages;
+        let flush_pending = self.flush_pending;
+        let raf_handle = self.raf_handle;
+
+        let cb = Closure::once(move || {
+            flush_pending.set(false);
+            raf_handle.set(0);
+            let sorted = {
+                let map = message_map.get_untracked();
+                map_to_sorted_array(&map)
+            };
+            set_messages.set(sorted);
+        });
+
+        if let Some(window) = web_sys::window() {
+            if let Ok(handle) = window.request_animation_frame(cb.as_ref().unchecked_ref()) {
+                self.raf_handle.set(handle);
+            }
+        }
+        cb.forget(); // Safe: called exactly once by rAF
+    }
+
+    /// Flush the message map into the messages signal immediately (for non-streaming paths).
+    pub fn flush_messages(&self) {
+        // Cancel any pending rAF flush to avoid double-flush
+        if self.flush_pending.get_untracked() {
+            self.flush_pending.set(false);
+            let handle = self.raf_handle.get_untracked();
+            if handle != 0 {
+                if let Some(window) = web_sys::window() {
+                    let _ = window.cancel_animation_frame(handle);
+                }
+                self.raf_handle.set(0);
+            }
+        }
+        let sorted = {
+            let map = self.message_map.get_untracked();
+            map_to_sorted_array(&map)
+        };
+        self.set_messages.set(sorted);
+    }
+
+    /// Refresh messages from the server for the active session.
+    pub fn refresh_messages(&self) {
+        let sid = match self.tracked_session_id() {
+            Some(s) => s,
+            None => return,
+        };
+        let gen = self.current_gen();
+        let set_messages = self.set_messages;
+        let set_has_older = self.set_has_older_messages;
+        let set_total = self.set_total_message_count;
+        let message_map_signal = self.message_map;
+        let session_gen_signal = self.session_gen;
+
+        leptos::task::spawn_local(async move {
+            match crate::api::fetch_session_messages(&sid, MESSAGE_PAGE_SIZE, None).await {
+                Ok(resp) => {
+                    if session_gen_signal.get_untracked() != gen {
+                        return;
+                    }
+                    message_map_signal.update(|map: &mut MessageMap| {
+                        for msg in resp.messages {
+                            let id = message_map::effective_id(&msg.info);
+                            if !id.is_empty() {
+                                map.insert(id, msg);
+                            }
+                        }
+                    });
+                    let sorted = {
+                        let map = message_map_signal.get_untracked();
+                        map_to_sorted_array(&map)
+                    };
+                    set_messages.set(sorted);
+                    set_has_older.set(resp.has_more);
+                    set_total.set(resp.total);
+                }
+                Err(e) => {
+                    log::error!("refreshMessages failed: {}", e);
+                }
+            }
+        });
+    }
+
+    /// Load the active session's messages (full initial fetch, with loading indicator).
+    pub fn load_session_messages(&self, session_id: String) {
+        let gen = self.current_gen();
+        let session_gen_signal = self.session_gen;
+        let set_messages = self.set_messages;
+        let set_loading = self.set_is_loading_messages;
+        let set_has_older = self.set_has_older_messages;
+        let set_total = self.set_total_message_count;
+        let set_stats = self.set_stats;
+        let message_map_signal = self.message_map;
+
+        // Clear state
+        message_map_signal.update(|map: &mut MessageMap| {
+            map.clear();
+        });
+        set_messages.set(Vec::new());
+        set_has_older.set(false);
+        set_total.set(0);
+        set_loading.set(true);
+
+        let sid = session_id.clone();
+        leptos::task::spawn_local(async move {
+            let result =
+                crate::api::fetch_session_messages(&sid, MESSAGE_PAGE_SIZE, None).await;
+            if session_gen_signal.get_untracked() != gen {
+                // Session switched while fetching — still clear loading for the old request.
+                // The new session's load_session_messages will manage its own loading state.
+                return;
+            }
+            match result {
+                Ok(resp) => {
+                    message_map_signal.update(|map: &mut MessageMap| {
+                        for msg in resp.messages {
+                            let id = message_map::effective_id(&msg.info);
+                            if !id.is_empty() {
+                                map.insert(id, msg);
+                            }
+                        }
+                    });
+                    let sorted = {
+                        let map = message_map_signal.get_untracked();
+                        map_to_sorted_array(&map)
+                    };
+                    set_messages.set(sorted);
+                    set_has_older.set(resp.has_more);
+                    set_total.set(resp.total);
+                }
+                Err(e) => {
+                    log::error!("loadSessionMessages failed: {}", e);
+                    set_messages.set(Vec::new());
+                }
+            }
+            set_loading.set(false);
+        });
+
+        // Also fetch stats
+        let sid2 = session_id;
+        let gen2 = gen;
+        leptos::task::spawn_local(async move {
+            match crate::api::fetch_session_stats(&sid2).await {
+                Ok(stats) => {
+                    if session_gen_signal.get_untracked() == gen2 {
+                        set_stats.set(Some(stats));
+                    }
+                }
+                Err(_) => {}
+            }
+        });
+    }
+
+    /// Load older messages (pagination).
+    pub fn load_older_messages(&self) {
+        if self.is_loading_older.get_untracked() {
+            return;
+        }
+        let sid = match self.tracked_session_id() {
+            Some(s) => s,
+            None => return,
+        };
+        let gen = self.current_gen();
+        let session_gen_signal = self.session_gen;
+        let message_map_signal = self.message_map;
+        let set_loading = self.set_is_loading_older;
+        let set_messages = self.set_messages;
+        let set_has_older = self.set_has_older_messages;
+
+        // Find oldest timestamp
+        let oldest_ts = {
+            let map = message_map_signal.get_untracked();
+            let mut oldest = f64::INFINITY;
+            for msg in map.values() {
+                let ts = message_map::get_message_time(msg);
+                if ts > 0.0 && ts < oldest {
+                    oldest = ts;
+                }
+            }
+            oldest
+        };
+        if oldest_ts == f64::INFINITY {
+            return;
+        }
+
+        set_loading.set(true);
+
+        leptos::task::spawn_local(async move {
+            let result =
+                crate::api::fetch_session_messages(&sid, MESSAGE_PAGE_SIZE, Some(oldest_ts))
+                    .await;
+            if session_gen_signal.get_untracked() != gen {
+                set_loading.set(false);
+                return;
+            }
+            match result {
+                Ok(resp) => {
+                    message_map_signal.update(|map: &mut MessageMap| {
+                        for msg in resp.messages {
+                            let id = message_map::effective_id(&msg.info);
+                            if !id.is_empty() && !map.contains_key(&id) {
+                                map.insert(id, msg);
+                            }
+                        }
+                    });
+                    let sorted = {
+                        let map = message_map_signal.get_untracked();
+                        map_to_sorted_array(&map)
+                    };
+                    set_messages.set(sorted);
+                    set_has_older.set(resp.has_more);
+                }
+                Err(e) => {
+                    log::error!("loadOlderMessages failed: {}", e);
+                }
+            }
+            set_loading.set(false);
+        });
+    }
+
+    /// Add an optimistic user message.
+    pub fn add_optimistic_message(&self, text: &str) {
+        let id = format!("__optimistic__{}", js_sys::Date::now() as u64);
+        let sid = self.tracked_session_id();
+        let msg = crate::types::core::Message {
+            info: crate::types::core::MessageInfo {
+                role: "user".to_string(),
+                message_id: Some(id.clone()),
+                id: Some(id.clone()),
+                session_id: sid,
+                time: Some(serde_json::Value::Number(
+                    serde_json::Number::from_f64(js_sys::Date::now() / 1000.0)
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                )),
+                ..Default::default()
+            },
+            parts: vec![crate::types::core::MessagePart {
+                part_type: "text".to_string(),
+                text: Some(text.to_string()),
+                ..Default::default()
+            }],
+            metadata: None,
+        };
+        let id_clone = id;
+        self.message_map.update(|map: &mut MessageMap| {
+            map.insert(id_clone, msg);
+        });
+        self.flush_messages();
+    }
+
+    // ── Subagent message methods ──
+
+    /// Update a subagent session's message map and schedule a batched subagent flush.
+    pub fn update_subagent_map(
+        &self,
+        session_id: &str,
+        f: impl FnOnce(&mut MessageMap) -> bool,
+    ) {
+        let sid = session_id.to_string();
+        let mut changed = false;
+        self.subagent_maps.update(|maps| {
+            let map = maps.entry(sid).or_insert_with(MessageMap::new);
+            changed = f(map);
+        });
+        if changed {
+            self.schedule_subagent_flush();
+        }
+    }
+
+    /// Schedule a subagent flush for the next animation frame.
+    fn schedule_subagent_flush(&self) {
+        if self.subagent_flush_pending.get_untracked() {
+            return;
+        }
+        self.subagent_flush_pending.set(true);
+
+        let subagent_maps = self.subagent_maps;
+        let set_subagent_messages = self.set_subagent_messages;
+        let subagent_flush_pending = self.subagent_flush_pending;
+        let subagent_raf_handle = self.subagent_raf_handle;
+
+        let cb = Closure::once(move || {
+            subagent_flush_pending.set(false);
+            subagent_raf_handle.set(0);
+            let rendered = subagent_maps.with_untracked(|maps| {
+                let mut out = HashMap::with_capacity(maps.len());
+                for (sid, map) in maps {
+                    out.insert(sid.clone(), map_to_sorted_array(map));
+                }
+                out
+            });
+            set_subagent_messages.set(rendered);
+        });
+
+        if let Some(window) = web_sys::window() {
+            if let Ok(handle) =
+                window.request_animation_frame(cb.as_ref().unchecked_ref())
+            {
+                self.subagent_raf_handle.set(handle);
+            }
+        }
+        cb.forget();
+    }
+
+    /// Clear all subagent message maps (e.g. on session switch).
+    pub fn clear_subagent_messages(&self) {
+        // Cancel pending subagent rAF
+        if self.subagent_flush_pending.get_untracked() {
+            self.subagent_flush_pending.set(false);
+            let handle = self.subagent_raf_handle.get_untracked();
+            if handle != 0 {
+                if let Some(window) = web_sys::window() {
+                    let _ = window.cancel_animation_frame(handle);
+                }
+                self.subagent_raf_handle.set(0);
+            }
+        }
+        self.subagent_maps.update(|maps| maps.clear());
+        self.set_subagent_messages.set(HashMap::new());
+    }
+}

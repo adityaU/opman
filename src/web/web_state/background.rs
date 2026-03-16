@@ -161,11 +161,10 @@ impl super::WebStateHandle {
                                 .into_iter()
                                 .filter(|s| s.directory == dir)
                                 .collect();
-                            if project.active_session.is_none() {
-                                if let Some(first) = filtered.first() {
-                                    project.active_session = Some(first.id.clone());
-                                }
-                            }
+                            // NOTE: Do NOT auto-assign active_session here.
+                            // The recurring poller should never change the
+                            // user's active session; only the startup hydration
+                            // (above) and explicit user actions may do so.
                             // Only mark changed if the session list actually differs
                             let sessions_differ = {
                                 if project.sessions.len() != filtered.len() {

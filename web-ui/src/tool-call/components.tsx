@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
   Check,
   Minus,
@@ -12,9 +11,32 @@ import {
 } from "lucide-react";
 import { TodoItem } from "./types";
 import { parseOutput, guessLanguage } from "./helpers";
-import { markdownComponents } from "../message-turn/CodeBlock";
+import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
 
 // ── ToolInput: Syntax-highlighted JSON or plain text ────
+
+/** Stable style objects to avoid allocations per render */
+const TOOL_INPUT_STYLE = {
+  margin: 0,
+  borderRadius: "4px",
+  fontSize: "0.75rem",
+  maxHeight: "300px",
+  overflow: "auto",
+  whiteSpace: "pre-wrap" as const,
+  wordBreak: "break-word" as const,
+  fontFamily: "var(--font-mono)",
+};
+const TOOL_CODE_TAG_PROPS = { style: { fontFamily: "var(--font-mono)" } };
+const TOOL_OUTPUT_FILE_STYLE = {
+  margin: 0,
+  borderRadius: "0 0 4px 4px",
+  fontSize: "0.75rem",
+  maxHeight: "400px",
+  overflow: "auto",
+  whiteSpace: "pre-wrap" as const,
+  wordBreak: "break-word" as const,
+  fontFamily: "var(--font-mono)",
+};
 
 export function ToolInput({ data }: { data: Record<string, unknown> | string }) {
   const formatted = useMemo(() => {
@@ -30,17 +52,8 @@ export function ToolInput({ data }: { data: Record<string, unknown> | string }) 
         useInlineStyles={false}
         language="json"
         PreTag="div"
-        codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
-        customStyle={{
-          margin: 0,
-          borderRadius: "4px",
-          fontSize: "0.75rem",
-          maxHeight: "300px",
-          overflow: "auto",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontFamily: "var(--font-mono)",
-        }}
+        codeTagProps={TOOL_CODE_TAG_PROPS}
+        customStyle={TOOL_INPUT_STYLE}
       >
         {formatted}
       </SyntaxHighlighter>
@@ -83,17 +96,8 @@ export function ToolOutput({
           language={lang}
           PreTag="div"
           showLineNumbers
-          codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
-          customStyle={{
-            margin: 0,
-            borderRadius: "0 0 4px 4px",
-            fontSize: "0.75rem",
-            maxHeight: "400px",
-            overflow: "auto",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontFamily: "var(--font-mono)",
-          }}
+          codeTagProps={TOOL_CODE_TAG_PROPS}
+          customStyle={TOOL_OUTPUT_FILE_STYLE}
         >
           {parsed.content}
         </SyntaxHighlighter>
@@ -104,7 +108,7 @@ export function ToolOutput({
   if (parsed.type === "markdown") {
     return (
       <div className="tool-output-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
           {parsed.content}
         </ReactMarkdown>
       </div>

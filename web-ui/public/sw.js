@@ -1,10 +1,10 @@
-// Service worker — satisfies Chrome PWA installability requirement.
-// Also intercepts icon/manifest requests to serve theme-aware versions.
+// Service worker for React UI — served at /ui/ scope.
+// Satisfies Chrome PWA installability requirement.
+// Intercepts icon/manifest requests to serve theme-aware versions.
 
 // ── Theme state ────────────────────────────────────────────────────
 let themeColors = null; // { primary: "#...", background: "#..." }
 
-// SVG template matching the static favicon.svg design
 function buildThemeSvg(primary, bg) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="7" fill="${bg}"/>
@@ -13,9 +13,7 @@ function buildThemeSvg(primary, bg) {
 </svg>`;
 }
 
-// Rasterise SVG to PNG at the given size
 async function svgToPng(svgText, size) {
-  // Use OffscreenCanvas (available in SW context)
   if (typeof OffscreenCanvas !== "undefined") {
     const blob = new Blob([svgText], { type: "image/svg+xml" });
     const bmp = await createImageBitmap(blob, { resizeWidth: size, resizeHeight: size });
@@ -25,7 +23,6 @@ async function svgToPng(svgText, size) {
     bmp.close();
     return await canvas.convertToBlob({ type: "image/png" });
   }
-  // Fallback: cannot rasterise in SW without OffscreenCanvas
   return null;
 }
 
@@ -39,13 +36,13 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(self.clients.claim());
 });
 
-// ── Message handler (theme updates + notifications from the main thread) ──
+// ── Message handler (theme updates + notifications) ────────────────
 
 self.addEventListener("message", function (event) {
   if (!event.data || !event.data.type) return;
 
   if (event.data.type === "THEME_COLORS") {
-    themeColors = event.data.colors; // { primary, background }
+    themeColors = event.data.colors;
     return;
   }
 
@@ -54,13 +51,13 @@ self.addEventListener("message", function (event) {
     var title = payload.title || "opman";
     var options = {
       body: payload.body || "",
-      icon: "/favicon.svg",
+      icon: "/ui/favicon.svg",
       tag: payload.tag || "opman-" + Date.now(),
       silent: false,
       data: {
         sessionId: payload.sessionId || null,
         kind: payload.kind || null,
-        url: payload.url || "/",
+        url: payload.url || "/ui/",
       },
     };
     self.registration.showNotification(title, options);
@@ -74,15 +71,13 @@ self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
   var data = event.notification.data || {};
-  var targetUrl = data.url || "/";
+  var targetUrl = data.url || "/ui/";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-      // Try to focus an existing window/tab
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if (client.url.indexOf(self.location.origin) === 0 && "focus" in client) {
-          // Post navigation data so the app can route to the right session
           client.postMessage({
             type: "NOTIFICATION_CLICK",
             sessionId: data.sessionId,
@@ -91,7 +86,6 @@ self.addEventListener("notificationclick", function (event) {
           return client.focus();
         }
       }
-      // No existing window — open a new one
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }
@@ -104,13 +98,12 @@ self.addEventListener("notificationclick", function (event) {
 self.addEventListener("fetch", function (event) {
   const url = new URL(event.request.url);
 
-  // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
 
   const path = url.pathname;
 
   // Themed favicon.svg
-  if (path === "/favicon.svg" && themeColors) {
+  if (path === "/ui/favicon.svg" && themeColors) {
     event.respondWith(
       (async () => {
         try {
@@ -130,8 +123,8 @@ self.addEventListener("fetch", function (event) {
   }
 
   // Themed PNG icons
-  if ((path === "/icon-192.png" || path === "/icon-512.png") && themeColors) {
-    const size = path === "/icon-192.png" ? 192 : 512;
+  if ((path === "/ui/icon-192.png" || path === "/ui/icon-512.png") && themeColors) {
+    const size = path === "/ui/icon-192.png" ? 192 : 512;
     event.respondWith(
       (async () => {
         try {
@@ -154,8 +147,8 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  // Themed manifest.json — patch colors and point icons to themed paths
-  if (path === "/manifest.json" && themeColors) {
+  // Themed manifest.json
+  if (path === "/ui/manifest.json" && themeColors) {
     event.respondWith(
       (async () => {
         try {
@@ -163,7 +156,6 @@ self.addEventListener("fetch", function (event) {
           const manifest = await res.json();
           manifest.theme_color = themeColors.background;
           manifest.background_color = themeColors.background;
-          // Icons still point to /icon-*.png which the SW will intercept
           return new Response(JSON.stringify(manifest), {
             headers: {
               "Content-Type": "application/manifest+json",

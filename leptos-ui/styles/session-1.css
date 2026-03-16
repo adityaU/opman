@@ -1,0 +1,289 @@
+.session-selector-modal {
+    width: 100%;
+    max-width: 580px;
+    max-height: 55vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 24px;
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--white-6);
+    border: .5px solid var(--glass-border-light);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),0 10px 32px var(--black-8),0 4px 12px var(--black-4)
+}
+
+.session-selector-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    border-bottom: .5px solid var(--white-6)
+}
+
+.session-selector-header span:nth-child(2) {
+    flex: 1
+}
+
+.session-selector-count {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    font-weight: 400
+}
+
+.session-selector-close {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast)
+}
+
+.session-selector-close:hover {
+    color: var(--color-text)
+}
+
+.session-selector-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: .5px solid var(--white-6);
+    color: var(--color-text-muted)
+}
+
+.session-selector-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: var(--font-size-sm)
+}
+
+.session-selector-input::placeholder {
+    color: var(--color-text-muted)
+}
+
+.session-selector-results {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-1) 0
+}
+
+.session-selector-empty {
+    padding: var(--space-6);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm)
+}
+
+.session-selector-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-2) var(--space-4);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast)
+}
+
+.session-selector-item:hover,.session-selector-item.selected {
+    background: var(--white-6)
+}
+
+.session-selector-item.current {
+    border-left: 2px solid var(--color-primary)
+}
+
+.session-selector-item-left {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    min-width: 0
+}
+
+.session-selector-project {
+    font-weight: 600;
+    color: var(--color-secondary);
+    flex-shrink: 0
+}
+
+.session-selector-sep {
+    margin: 0 var(--space-1);
+    color: var(--color-text-muted);
+    flex-shrink: 0
+}
+
+.session-selector-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0
+}
+
+.session-selector-badge {
+    margin-left: var(--space-2);
+    padding: 1px 6px;
+    font-size: var(--font-size-2xs);
+    border-radius: var(--radius-full);
+    background: rgba(var(--color-primary),.15);
+    color: var(--color-primary);
+    border: .5px solid var(--color-primary);
+    flex-shrink: 0
+}
+
+.session-selector-time {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    margin-left: var(--space-2)
+}
+
+.session-selector-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-top: .5px solid var(--white-6);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.session-selector-footer kbd {
+    padding: 1px 5px;
+    background: var(--white-4);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    margin-right: 2px
+}
+
+.session-graph-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 9100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0009;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px)
+}
+
+.session-graph-panel {
+    width: 560px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-secondary, #161b22);
+    border: 1px solid var(--color-border, #21262d);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 48px #0006
+}
+
+.session-graph-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border, #21262d)
+}
+
+.session-graph-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text, #e6edf3)
+}
+
+.session-graph-header button {
+    background: none;
+    border: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center
+}
+
+.session-graph-header button:hover {
+    background: var(--color-border, #21262d);
+    color: var(--color-text, #e6edf3)
+}
+
+.session-graph-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px
+}
+
+.session-graph-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--color-muted, #8b949e);
+    font-size: 12px
+}
+
+.session-graph-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: 12px
+}
+
+.session-graph-node:hover {
+    background: var(--color-border, #21262d)
+}
+
+.session-graph-node.active {
+    background: #7c3aed26;
+    border-left: 3px solid var(--color-accent, #7c3aed)
+}
+
+.session-graph-node-toggle {
+    background: none;
+    border: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    width: 16px;
+    justify-content: center
+}
+
+.session-graph-node-info {
+    flex: 1;
+    min-width: 0
+}
+
+.session-graph-node-title {
+    font-weight: 500;
+    color: var(--color-text, #e6edf3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}

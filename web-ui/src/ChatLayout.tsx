@@ -39,7 +39,7 @@ export function ChatLayout() {
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus,
-    addOptimisticMessage, loadOlderMessages,
+    addOptimisticMessage, loadOlderMessages, expectSessionSwitch,
   } = sse;
 
   // ── Derived app state ──
@@ -47,8 +47,25 @@ export function ChatLayout() {
   const activeSessionId = activeProject?.active_session ?? null;
   const activeProjectIndex = appState?.active_project ?? 0;
 
-  const allPermissions = useMemo(() => [...permissions, ...crossSessionPermissions], [permissions, crossSessionPermissions]);
-  const allQuestions = useMemo(() => [...questions, ...crossSessionQuestions], [questions, crossSessionQuestions]);
+  // Build the set of sub-session IDs (children of the active session)
+  const subSessionIds = useMemo(() => {
+    if (!activeSessionId || !activeProject?.sessions) return new Set<string>();
+    const ids = new Set<string>();
+    for (const s of activeProject.sessions) {
+      if (s.parentID === activeSessionId) ids.add(s.id);
+    }
+    return ids;
+  }, [activeSessionId, activeProject?.sessions]);
+
+  // Only include cross-session permissions/questions from sub-sessions (not unrelated sessions)
+  const allPermissions = useMemo(
+    () => [...permissions, ...crossSessionPermissions.filter((p) => subSessionIds.has(p.sessionID))],
+    [permissions, crossSessionPermissions, subSessionIds],
+  );
+  const allQuestions = useMemo(
+    () => [...questions, ...crossSessionQuestions.filter((q) => subSessionIds.has(q.sessionID))],
+    [questions, crossSessionQuestions, subSessionIds],
+  );
 
   // ── Theme ──
   const [themeMode, setThemeMode] = useState<ThemeMode>(getPersistedThemeMode);
@@ -78,28 +95,30 @@ export function ChatLayout() {
     return () => window.removeEventListener("opman:toast", handler);
   }, [addToast]);
 
-  // ── Persistent toasts for cross-session questions / permissions ──
+  // ── Persistent toasts for sub-session questions / permissions ──
   const crossToastMapRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     const map = crossToastMapRef.current;
     const currentIds = new Set<string>();
 
-    // Show toasts for cross-session permissions
+    // Only show toasts for sub-session permissions (children of active session)
     for (const perm of crossSessionPermissions) {
+      if (!subSessionIds.has(perm.sessionID)) continue;
       currentIds.add(perm.id);
       if (!map.has(perm.id)) {
         const label = perm.toolName || "Permission";
-        const tid = addToast(`**Permission request** from another session: *${label}*`, "warning", 0);
+        const tid = addToast(`**Permission request** from sub-session: *${label}*`, "warning", 0);
         map.set(perm.id, tid);
       }
     }
-    // Show toasts for cross-session questions
+    // Only show toasts for sub-session questions
     for (const q of crossSessionQuestions) {
+      if (!subSessionIds.has(q.sessionID)) continue;
       currentIds.add(q.id);
       if (!map.has(q.id)) {
         const label = q.title || "Question";
-        const tid = addToast(`**Question** from another session: *${label}*`, "info", 0);
+        const tid = addToast(`**Question** from sub-session: *${label}*`, "info", 0);
         map.set(q.id, tid);
       }
     }
@@ -110,7 +129,7 @@ export function ChatLayout() {
         map.delete(reqId);
       }
     }
-  }, [crossSessionPermissions, crossSessionQuestions, addToast, removeToast]);
+  }, [crossSessionPermissions, crossSessionQuestions, subSessionIds, addToast, removeToast]);
 
   // ── Panels ──
   const panels = usePanelState({
@@ -140,7 +159,7 @@ export function ChatLayout() {
       sidebarOpen: panels.sidebar.open, terminalOpen: panels.terminal.open,
       neovimOpen: panels.editor.open, gitOpen: panels.git.open,
     },
-    setPanels, refreshState,
+    setPanels, refreshState, expectSessionSwitch,
   });
 
   // ── Assistant state ──
@@ -190,7 +209,7 @@ export function ChatLayout() {
     setSending: model.setSending, setSelectedModel: model.setSelectedModel,
     setSelectedAgent: model.setSelectedAgent,
     setMobileInputHidden: mobile.setInputHidden,
-    addToast, addOptimisticMessage, refreshState,
+    addToast, addOptimisticMessage, refreshState, expectSessionSwitch,
     clearPermission, clearQuestion,
     setMobileSidebarOpen: mobile.setSidebarOpen,
     openModal,
@@ -253,7 +272,7 @@ export function ChatLayout() {
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
         sending={model.sending} currentModel={model.currentModel}
-        allPermissions={permissions} allQuestions={questions}
+        allPermissions={allPermissions} allQuestions={allQuestions}
         activeMemoryItems={assistant.activeMemoryItems}
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
         mcpAgentActivity={mcpAgentActivity} fileEditCount={fileEditCount}

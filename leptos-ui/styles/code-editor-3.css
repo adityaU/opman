@@ -1,0 +1,343 @@
+
+.file-preview-audio {
+    gap: 16px
+}
+
+.file-preview-audio audio {
+    width: 100%;
+    max-width: 400px
+}
+
+.file-preview-icon {
+    color: var(--color-text-muted);
+    opacity: .5
+}
+
+.file-preview-name {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono, monospace)
+}
+
+.file-preview-video {
+    padding: 0
+}
+
+.file-preview-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: var(--color-bg)
+}
+
+.file-preview-pdf {
+    padding: 0
+}
+
+.file-preview-pdf iframe {
+    width: 100%;
+    height: 100%;
+    border: none
+}
+
+.file-preview-binary {
+    gap: 12px;
+    color: var(--color-text-muted);
+    opacity: .6
+}
+
+.file-preview-label {
+    font-size: 13px
+}
+
+.csv-viewer {
+    overflow: auto;
+    height: 100%;
+    width: 100%
+}
+
+.csv-viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--font-mono, monospace)
+}
+
+.csv-viewer th,.csv-viewer td {
+    padding: 6px 10px;
+    border: .5px solid var(--glass-border-dark, var(--white-6));
+    text-align: left;
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.csv-viewer th {
+    background: var(--white-4);
+    font-weight: 600;
+    color: var(--color-text);
+    position: sticky;
+    top: 0;
+    z-index: 1
+}
+
+.csv-viewer td {
+    color: var(--color-text-muted)
+}
+
+.csv-viewer tr:hover td {
+    background: var(--white-2)
+}
+
+.markdown-viewer {
+    padding: 20px 24px;
+    overflow: auto;
+    height: 100%;
+    color: var(--color-text);
+    font-size: 13px;
+    line-height: 1.7
+}
+
+.markdown-viewer h1 {
+    font-size: 1.6em;
+    margin: .6em 0 .3em;
+    font-weight: 700;
+    color: var(--color-text)
+}
+
+.markdown-viewer h2 {
+    font-size: 1.3em;
+    margin: .5em 0 .3em;
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.markdown-viewer h3 {
+    font-size: 1.1em;
+    margin: .4em 0 .2em;
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.markdown-viewer h4 {
+    font-size: 1em;
+    margin: .3em 0 .2em;
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.markdown-viewer code {
+    background: var(--color-bg-element);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono, monospace);
+    font-size: .9em
+}
+
+.markdown-viewer pre {
+    background: var(--color-bg-element);
+    padding: 12px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: .5em 0
+}
+
+.markdown-viewer pre code {
+    background: none;
+    padding: 0;
+    font-size: 12px
+}
+
+.markdown-viewer a {
+    color: var(--color-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px
+}
+
+.markdown-viewer a:hover {
+    color: var(--color-primary)
+}
+
+.markdown-viewer hr {
+    border: none;
+    border-top: 1px solid var(--color-border-subtle);
+    margin: 1em 0
+}
+
+.markdown-viewer strong {
+    font-weight: 700
+}
+
+.markdown-viewer em {
+    font-style: italic
+}
+
+.markdown-viewer img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: .5em 0
+}
+
+.markdown-viewer blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding-left: var(--space-3);
+    color: var(--color-text-muted);
+    margin: .5em 0
+}
+
+.markdown-viewer ul, .markdown-viewer ol {
+    padding-left: 1.5em;
+    margin: .4em 0
+}
+
+.markdown-viewer li {
+    margin: .2em 0
+}
+
+.markdown-viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: .5em 0;
+    font-size: 12px
+}
+
+.markdown-viewer th, .markdown-viewer td {
+    padding: 6px 10px;
+    border: .5px solid var(--color-border-subtle);
+    text-align: left
+}
+
+.markdown-viewer th {
+    background: var(--color-bg-element);
+    font-weight: 600
+}
+
+.markdown-viewer .inline-code {
+    background: var(--color-bg-element);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono, monospace);
+    font-size: .9em
+}
+
+.markdown-viewer .code-block-wrapper {
+    margin: .5em 0
+}
+
+.html-viewer-frame,.svg-viewer,.mermaid-viewer {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--color-bg)
+}
+
+.svg-viewer,.mermaid-viewer {
+    overflow: auto;
+    padding: 16px
+}
+
+.svg-viewer svg,.mermaid-viewer svg {
+    max-width: 100%;
+    height: auto
+}
+
+html.flat-theme .csv-viewer th {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .csv-viewer td {
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .new-session-directory {
+    background: var(--black-6);
+    border-color: var(--black-12)
+}
+
+html.flat-theme .new-session-model-badge {
+    background: #0064c814;
+    border-color: #0064c826
+}
+
+html.flat-theme .new-session-prompt-card {
+    background: var(--black-3);
+    border-color: var(--black-10)
+}
+
+html.flat-theme .new-session-prompt-card:hover {
+    background: var(--black-6);
+    border-color: var(--black-18)
+}
+
+html.flat-theme .message-turn-optimistic {
+    opacity: .6
+}
+
+html.flat-theme .message-action-btn {
+    background: var(--black-4);
+    border-color: var(--black-10)
+}
+
+html.flat-theme .message-action-btn:hover {
+    background: var(--black-8);
+    border-color: var(--black-18)
+}
+
+.code-block-wrapper {
+    margin: var(--space-2) 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: .5px solid var(--white-6);
+    max-width: 100%
+}
+
+.code-block-body>div {
+    white-space: pre-wrap!important;
+    word-break: break-word
+}
+
+.code-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-1) var(--space-3);
+    background: var(--white-3);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    border-bottom: .5px solid var(--white-4)
+}
+
+.code-block-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px
+}
+
+.code-block-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    cursor: pointer;
+    transition: all var(--transition-base)
+}
+
+.code-block-action-btn:hover {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb,var(--color-primary) 40%,transparent)
+}
+
+.code-block-action-btn.active {
+    color: var(--color-primary);
+    background: var(--white-6);
+    border-color: color-mix(in srgb,var(--color-primary) 40%,transparent)
+}

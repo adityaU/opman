@@ -1,0 +1,474 @@
+/* ═══════════════════════════════════════════════════════════════
+   mobile.css — Base mobile component definitions
+   These are the default (non-media-queried) declarations.
+   Actual mobile activation happens in responsive-3.css.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Status pill — project indicator in mobile header ────────── */
+
+.mobile-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px 10px 14px;
+    background: var(--glass-tint-light);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    border: .5px solid var(--white-10);
+    border-radius: var(--radius-full);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .2s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 2px 12px var(--black-10),0 1px 3px var(--black-4),inset 0 .5px 0 0 var(--white-6);
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px
+}
+
+.mobile-status-pill:active {
+    transform: scale(.94);
+    background: var(--white-6)
+}
+
+.mobile-pill-icon {
+    color: var(--color-primary);
+    flex-shrink: 0
+}
+
+.mobile-project-name {
+    font-size: .9375rem;
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+    letter-spacing: -.01em
+}
+
+.mobile-pill-busy {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 10px color-mix(in srgb,var(--color-primary) 60%,transparent);
+    animation: pill-pulse 1.5s ease-in-out infinite;
+    flex-shrink: 0
+}
+
+/* ── Mobile pill connection status ───────────────────────────── */
+
+.mobile-pill-connection {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0
+}
+
+.mobile-pill-connection-reconnecting {
+    color: var(--color-warning, #f5a742);
+    animation: connection-pulse 2s ease-in-out infinite
+}
+
+.mobile-pill-connection-disconnected {
+    color: var(--color-error, #e06c75)
+}
+
+/* ── Command button — circle action button in header ─────────── */
+
+.mobile-cmd-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    background: var(--glass-tint-light-subtle);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    border: .5px solid var(--white-8);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, color .15s ease;
+    flex-shrink: 0;
+    pointer-events: auto;
+    box-shadow: 0 2px 8px var(--black-8);
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-cmd-btn:active {
+    transform: scale(.88);
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+/* ── Panel header — top chrome for mobile sheet panels ───────── */
+
+.mobile-panel-header {
+    display: none;
+    height: 3.5rem;
+    padding: 0 var(--space-4);
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    border-bottom: .5px solid var(--white-6)
+}
+
+.mobile-panel-title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--color-text);
+    flex: 1;
+    letter-spacing: -.015em
+}
+
+/* ── Sheet drag handle ───────────────────────────────────────── */
+
+.mobile-sheet-handle {
+    display: none;
+    width: 36px;
+    height: 5px;
+    border-radius: var(--radius-full);
+    background: var(--white-20);
+    margin: 8px auto 4px;
+    flex-shrink: 0
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DOCK — Floating pill, centered above bottom
+   Icon-only with active glow indicator
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-dock {
+    display: none;
+    position: fixed;
+    bottom: calc(12px + env(safe-area-inset-bottom,0));
+    left: 50%;
+    transform: translate(-50%);
+    z-index: var(--z-sidebar);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--glass-tint-light-subtle);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius-full);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),
+                0 4px 16px var(--black-6),
+                0 1px 4px var(--black-3);
+    padding: 6px 8px;
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1),
+                opacity .35s ease;
+    opacity: 1
+}
+
+.mobile-dock.dock-collapsed {
+    transform: translate(120vw);
+    opacity: 0;
+    pointer-events: none
+}
+
+/* Glass sheen — radial highlight across pill */
+.mobile-dock:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%,var(--white-3) 0%,transparent 70%);
+    pointer-events: none
+}
+
+/* ── Dock inner layout ───────────────────────────────────────── */
+
+.mobile-dock-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    z-index: 1
+}
+
+/* ── Dock button — each tab item (icon-only) ─────────────────── */
+
+.mobile-dock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .2s cubic-bezier(.34,1.56,.64,1), color .2s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-dock-btn .dock-label {
+    display: none
+}
+
+.mobile-dock-btn:active {
+    transform: scale(.9);
+    transition: transform .1s ease
+}
+
+/* ── Active tab — gradient fill + glowing dot ────────────────── */
+
+.mobile-dock-btn.active {
+    color: var(--color-primary);
+    background: linear-gradient(180deg,
+        color-mix(in srgb,var(--color-primary) 12%,transparent),
+        color-mix(in srgb,var(--color-primary) 4%,transparent))
+}
+
+.mobile-dock-btn.active .dock-label {
+    display: none
+}
+
+/* Glowing dot indicator under active icon */
+.mobile-dock-btn.active:after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    animation: dock-glow 2s ease-in-out infinite
+}
+
+/* dock-glow: opacity-only for GPU efficiency (no box-shadow animation) */
+@keyframes dock-glow {
+    0%,100% { opacity: .7 }
+    50% { opacity: 1 }
+}
+
+/* ── Compose button inside dock — hidden by default ──────────── */
+
+.dock-compose-btn {
+    width: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0;
+    margin: 0;
+    pointer-events: none;
+    color: var(--color-primary);
+    transition: width .4s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease,
+                transform .2s cubic-bezier(.34,1.56,.64,1)
+}
+
+.dock-compose-btn.dock-compose-visible {
+    width: 48px;
+    opacity: 1;
+    pointer-events: auto
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COLLAPSED FAB — round menu button (bottom-right)
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-dock-fab {
+    display: none;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom,0));
+    right: 16px;
+    z-index: var(--z-sidebar);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: .5px solid var(--white-8);
+    background: var(--glass-tint-light-subtle);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),
+                0 6px 24px var(--black-12),
+                0 2px 6px var(--black-6),
+                0 0 24px color-mix(in srgb,var(--color-primary) 12%,transparent);
+    color: var(--color-primary);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0);
+    opacity: 0;
+    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease;
+    -webkit-tap-highlight-color: transparent
+}
+
+.mobile-dock-fab:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%,var(--white-3) 0%,transparent 70%);
+    pointer-events: none
+}
+
+.mobile-dock-fab.visible {
+    transform: scale(1);
+    opacity: 1
+}
+
+.mobile-dock-fab:active {
+    transform: scale(.85)
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL SHEET — full-screen overlay for git/editor/terminal
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-panel-sheet {
+    display: none
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE INPUT WRAPPER — pass-through on desktop
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-input-wrapper {
+    display: contents
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPOSE FAB — floating compose button (bottom-left)
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-compose-btn {
+    display: none;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom,0));
+    left: 16px;
+    z-index: var(--z-sidebar);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: .5px solid var(--white-8);
+    background: var(--glass-tint-light-subtle);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),
+                0 6px 24px var(--black-12),
+                0 2px 6px var(--black-6),
+                0 0 24px color-mix(in srgb,var(--color-primary) 12%,transparent);
+    color: var(--color-primary);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease,
+                left .45s cubic-bezier(.4,0,.2,1)
+}
+
+.mobile-compose-btn.visible {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto
+}
+
+.mobile-compose-btn.consumed {
+    left: calc(50% - 26px);
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none
+}
+
+.mobile-compose-btn:active {
+    transform: scale(.85)
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DOCK CONTAINER — wraps all dock+FAB+compose+panel elements
+   Hidden on desktop, visible on phone+tablet via responsive-3
+   ═══════════════════════════════════════════════════════════════ */
+
+.dock-container {
+    display: none
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FLOATING PANEL HEADER — pill overlay on mobile/tablet sheets
+   Shows panel name + command palette shortcut.
+   ═══════════════════════════════════════════════════════════════ */
+
+.panel-floating-header {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    z-index: 50;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none
+}
+
+.panel-floating-header-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 8px 12px;
+    background: var(--glass-tint-light);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    border: .5px solid var(--white-10);
+    border-radius: var(--radius-full);
+    color: var(--color-text);
+    box-shadow: 0 2px 12px var(--black-10),0 1px 3px var(--black-4),inset 0 .5px 0 0 var(--white-6);
+    pointer-events: auto;
+    min-height: 38px
+}
+
+.panel-floating-header-name {
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: -.01em
+}
+
+.panel-floating-header-cmd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    background: var(--glass-tint-light-subtle);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4);
+    border: .5px solid var(--white-8);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, color .15s ease;
+    pointer-events: auto;
+    box-shadow: 0 2px 8px var(--black-8);
+    -webkit-tap-highlight-color: transparent
+}
+
+.panel-floating-header-cmd:active {
+    transform: scale(.88);
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TABLET PANEL SHEET — non-fullscreen overlay (tablet only)
+   Phone panel sheets remain fullscreen via responsive-3
+   ═══════════════════════════════════════════════════════════════ */
+
+.tablet-panel-sheet {
+    /* Base definition — activated by responsive-3 at tablet width */
+}

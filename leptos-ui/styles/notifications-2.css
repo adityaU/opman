@@ -1,0 +1,14 @@
+
+.notification-prefs-grant-btn,.ctx-action-btn,.diff-review-btn,.git-ai-button,.git-commit-button,.git-section-action,.git-commit-expand-btn {
+    min-height: 36px;
+    padding: 7px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb,var(--color-primary) 24%,var(--color-border));
+    background: color-mix(in srgb,var(--color-primary) 10%,var(--color-surface));
+    color: var(--color-primary)
+}
+
+.notification-prefs-grant-btn:hover,.ctx-action-btn:hover:not(:disabled),.diff-review-btn:hover:not(:disabled),.git-ai-button:hover:not(:disabled),.git-commit-button:hover:not(:disabled),.git-section-action:hover,.git-commit-expand-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06)
+}

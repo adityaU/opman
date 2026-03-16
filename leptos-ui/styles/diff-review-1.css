@@ -1,0 +1,294 @@
+.diff-view {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    max-height: 400px;
+    overflow-y: auto
+}
+
+.diff-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg-element);
+    border-bottom: 1px solid var(--color-border-subtle);
+    font-size: var(--font-size-2xs)
+}
+
+.diff-file-path {
+    color: var(--color-secondary);
+    font-family: var(--font-mono)
+}
+
+.diff-line {
+    display: flex;
+    padding: 0 var(--space-2);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all
+}
+
+.diff-line-num {
+    width: 40px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: var(--space-2);
+    color: var(--color-text-muted);
+    opacity: .5;
+    -webkit-user-select: none;
+    user-select: none
+}
+
+.diff-line-content {
+    flex: 1;
+    min-width: 0
+}
+
+.diff-line.added {
+    background: #7fd88f1a;
+    color: var(--color-success)
+}
+
+.diff-line.removed {
+    background: #e06c751a;
+    color: var(--color-error)
+}
+
+.diff-line.context {
+    color: var(--color-text-muted)
+}
+
+.diff-stats {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border-top: 1px solid var(--color-border-subtle);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.diff-stats-added {
+    color: var(--color-success)
+}
+
+.diff-stats-removed {
+    color: var(--color-error)
+}
+
+.diff-review-modal {
+    background: var(--color-bg, #0B0E14);
+    border: 1px solid var(--color-border, #484848);
+    border-radius: var(--radius-lg, 12px);
+    width: 90vw;
+    max-width: 1200px;
+    height: 80vh;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px #00000080;
+    animation: modalSlideIn .15s ease;
+    overflow: hidden
+}
+
+.diff-review-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: var(--space-3, 12px) var(--space-4, 16px);
+    border-bottom: 1px solid var(--color-border, #484848);
+    font-size: var(--font-size-sm, 13px);
+    font-weight: 600;
+    color: var(--color-text, #eeeeee);
+    flex-shrink: 0
+}
+
+.diff-review-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px)
+}
+
+.diff-review-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-primary, #fab283);
+    color: var(--color-bg, #0B0E14);
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px
+}
+
+.diff-review-header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1, 4px)
+}
+
+.diff-review-view-toggle,.diff-review-refresh,.diff-review-close {
+    background: none;
+    border: none;
+    color: var(--color-text-muted, #808080);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm, 4px);
+    display: flex;
+    align-items: center;
+    transition: color .15s,background .15s
+}
+
+.diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover {
+    color: var(--color-text, #eeeeee);
+    background: #ffffff14
+}
+
+.diff-review-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column
+}
+
+.diff-review-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2, 8px);
+    padding: var(--space-6, 24px);
+    color: var(--color-text-muted, #808080);
+    font-size: var(--font-size-sm, 13px);
+    flex: 1
+}
+
+.diff-review-error {
+    padding: var(--space-4, 16px);
+    color: var(--color-error, #e06c75);
+    text-align: center;
+    font-size: var(--font-size-sm, 13px)
+}
+
+.diff-review-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3, 12px);
+    padding: var(--space-8, 32px);
+    color: var(--color-text-muted, #808080);
+    font-size: var(--font-size-sm, 13px);
+    flex: 1
+}
+
+.diff-review-empty-hint {
+    font-size: 12px;
+    color: var(--color-text-muted, #808080);
+    opacity: .7
+}
+
+.diff-review-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden
+}
+
+.diff-review-file-list {
+    width: 240px;
+    min-width: 200px;
+    border-right: 1px solid var(--color-border, #484848);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0
+}
+
+.diff-review-file-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2, 8px) var(--space-3, 12px);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 600;
+    color: var(--color-text-muted, #808080);
+    border-bottom: 1px solid var(--color-border-subtle, #2a2a2a)
+}
+
+.diff-review-pending-badge {
+    font-size: 10px;
+    color: var(--color-warning, #f5a742);
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 500
+}
+
+.diff-review-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1, 4px);
+    padding: var(--space-2, 8px) var(--space-3, 12px);
+    background: none;
+    border: none;
+    color: var(--color-text, #eeeeee);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background .1s;
+    flex-wrap: wrap
+}
+
+.diff-review-file-item:hover {
+    background: var(--color-bg-hover, #222222)
+}
+
+.diff-review-file-item.selected {
+    background: var(--color-bg-selected, #1c1610);
+    border-left: 2px solid var(--color-primary, #fab283)
+}
+
+.diff-review-file-item.file-accepted {
+    opacity: .6
+}
+
+.diff-review-file-item.file-reverted {
+    opacity: .6;
+    text-decoration: line-through
+}
+
+.diff-review-file-indicator {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--color-text-muted, #808080)
+}
+
+.diff-review-file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.diff-review-file-status {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto
+}
+
+.diff-review-file-status.accepted {
+    color: var(--color-success, #7fd88f)
+}
+
+.diff-review-file-status.reverted {
+    color: var(--color-warning, #f5a742)
+}

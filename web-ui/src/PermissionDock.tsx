@@ -1,15 +1,17 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import type { PermissionRequest } from "./types";
-import { ShieldAlert, Check, CheckCheck, X } from "lucide-react";
+import { ShieldAlert, Check, CheckCheck, X, ExternalLink } from "lucide-react";
 
 interface Props {
   permissions: PermissionRequest[];
   /** When set, permissions from other sessions show a "subagent" badge */
   activeSessionId?: string | null;
   onReply: (requestId: string, reply: "once" | "always" | "reject") => void;
+  /** Navigate to a session by its ID */
+  onGoToSession?: (sessionId: string) => void;
 }
 
-export const PermissionDock = React.memo(function PermissionDock({ permissions, activeSessionId, onReply }: Props) {
+export const PermissionDock = React.memo(function PermissionDock({ permissions, activeSessionId, onReply, onGoToSession }: Props) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Clamp activeTab when permissions list changes
@@ -53,6 +55,7 @@ export const PermissionDock = React.memo(function PermissionDock({ permissions, 
           perm={activePerm}
           isCrossSession={!!activeSessionId && activePerm.sessionID !== activeSessionId}
           onReply={onReply}
+          onGoToSession={onGoToSession}
         />
       )}
     </div>
@@ -63,10 +66,12 @@ function PermissionCard({
   perm,
   isCrossSession,
   onReply,
+  onGoToSession,
 }: {
   perm: PermissionRequest;
   isCrossSession: boolean;
   onReply: (requestId: string, reply: "once" | "always" | "reject") => void;
+  onGoToSession?: (sessionId: string) => void;
 }) {
   const allowOnceRef = useRef<HTMLButtonElement>(null);
 
@@ -100,6 +105,17 @@ function PermissionCard({
         <ShieldAlert size={16} className="permission-icon" />
         <span className="permission-title">Permission Required</span>
         {isCrossSession && <span className="permission-badge-subagent">subagent</span>}
+        {perm.sessionID && onGoToSession && (
+          <button
+            className="dock-session-link"
+            onClick={(e) => { e.stopPropagation(); onGoToSession(perm.sessionID); }}
+            title={`Go to session ${perm.sessionID.slice(0, 8)}`}
+            aria-label="Go to session"
+          >
+            <ExternalLink size={11} />
+            <span>{perm.sessionID.slice(0, 8)}</span>
+          </button>
+        )}
         <span className="permission-hint">Enter = allow &middot; A = always &middot; Esc = reject</span>
       </div>
       <div className="permission-body">

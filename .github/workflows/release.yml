@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── 1. React UI ──────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -21,15 +22,28 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web-ui/package-lock.json
 
-      - name: Build web UI
+      - name: Build React UI
         run: npm ci && npm run build
         working-directory: web-ui
 
+      # ── 2. Leptos UI ─────────────────────────────────────────────
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin,wasm32-unknown-unknown
 
+      - name: Install Trunk
+        run: cargo install trunk --locked
+
+      - name: Install Leptos UI npm deps
+        run: npm ci
+        working-directory: leptos-ui
+
+      - name: Build Leptos UI
+        run: trunk build --release
+        working-directory: leptos-ui
+
+      # ── 3. Backend (embeds both dist/ dirs) ──────────────────────
       - name: Build release binary
         run: cargo build --release --target aarch64-apple-darwin
 

@@ -198,6 +198,43 @@
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   PWA STANDALONE — Safe-area handling for ALL screen sizes
+   (covers iPad in desktop/landscape mode where width > 768px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (display-mode: standalone) {
+    html, body, #root {
+        background: var(--color-bg, #0B0E14);
+        background-color: var(--color-bg, #0B0E14)
+    }
+
+    /* Status bar sits at the very bottom — account for home-indicator inset */
+    .chat-status-bar {
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    /* Sidebar may extend to edges in standalone */
+    .chat-sidebar {
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+}
+
+/* iOS standalone fallback (older WebKit without display-mode query) —
+   only triggers on devices with safe-area > 0 at wider viewports */
+@supports (-webkit-touch-callout: none) {
+    @media (min-width: 769px) {
+        /* Only apply when safe-area is non-zero, i.e. standalone/home-screen.
+           env() returns 0px when not applicable, so this is additive-safe. */
+        .chat-status-bar {
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        .chat-sidebar {
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+    }
+}
+
 @media(max-width: 768px) {
     .mobile-panel-sheet>*:last-child {
         flex: 1;

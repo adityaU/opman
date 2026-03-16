@@ -18,6 +18,15 @@
 openspec/
 docs/
 opencode.json
+LEPTOS_TASKS.md
+
+# Logs / runtime
+nohup.out
+*.log
+*.pid
+
+# Screenshots / temp junk
+Screenshot_*.png
 
 # Web UI
 web-ui/node_modules/
@@ -26,3 +35,11 @@ web-ui/debug-*
 web-ui/e2e-screenshots/
 web-ui/test-results/
 web-ui/playwright-report/
+
+# Leptos UI
+leptos-ui/target/
+leptos-ui/dist/
+leptos-ui/node_modules/
+leptos-ui/test-results/
+leptos-ui/Cargo.lock
+leptos-ui/styles/output.css

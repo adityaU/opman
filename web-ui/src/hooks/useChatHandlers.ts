@@ -26,6 +26,7 @@ export interface ChatHandlerInputs {
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string) => void;
   refreshState: () => void;
+  expectSessionSwitch: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -45,7 +46,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.selectedAgent, inputs.sending, inputs.activeMemoryItems,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
-    inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
+    inputs.refreshState, inputs.expectSessionSwitch,
+    inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.openModal,
     inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleSplitView,

@@ -1,0 +1,377 @@
+/* ── Virtual-keyboard-aware full-screen modal positioning ──
+   When the software keyboard is open (`data-vkb-open` on <html>),
+   mobile bottom-sheet modals become full-screen, filling the visible
+   viewport above the keyboard. `--vkb-height` is set to the actual
+   visual viewport height (px) by useVirtualKeyboard.ts.
+
+   Structure expected in every modal:
+     [overlay]  → stretches to fill screen
+       [panel]  → display:flex; flex-direction:column; fills overlay
+         [header]  → flex-shrink:0  (pinned top)
+         [body]    → flex:1; min-height:0; overflow-y:auto  (scrolls)
+         [footer]  → flex-shrink:0  (pinned bottom)
+── */
+
+@media (max-width: 768px) {
+
+    /* ════════════════════════════════════════════════════════════════
+       1. OVERLAYS: stretch so the child panel fills full height
+       ════════════════════════════════════════════════════════════════ */
+
+    [data-vkb-open] .modal-backdrop {
+        align-items: stretch;
+        padding-top: 0
+    }
+
+    [data-vkb-open] .sb-modal-overlay {
+        align-items: stretch
+    }
+
+    [data-vkb-open] .session-graph-overlay,
+    [data-vkb-open] .session-dashboard-overlay,
+    [data-vkb-open] .activity-feed-overlay,
+    [data-vkb-open] .assistant-inbox-overlay,
+    [data-vkb-open] .assistant-center-overlay,
+    [data-vkb-open] .memory-overlay,
+    [data-vkb-open] .autonomy-overlay,
+    [data-vkb-open] .routines-overlay,
+    [data-vkb-open] .delegation-overlay,
+    [data-vkb-open] .missions-overlay,
+    [data-vkb-open] .workspace-mgr-overlay,
+    [data-vkb-open] .add-project-overlay,
+    [data-vkb-open] .sysm-overlay {
+        align-items: stretch
+    }
+
+    [data-vkb-open] .pr-description-modal-overlay {
+        align-items: stretch
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       2. PANELS: full-screen, no radius, flex column, fill vkb height
+       ════════════════════════════════════════════════════════════════ */
+
+    /* Family A: modal-backdrop modals */
+    [data-vkb-open] .command-palette,
+    [data-vkb-open] .model-picker,
+    [data-vkb-open] .agent-picker,
+    [data-vkb-open] .theme-selector,
+    [data-vkb-open] .cheatsheet-modal,
+    [data-vkb-open] .todo-panel-modal,
+    [data-vkb-open] .session-selector-modal,
+    [data-vkb-open] .context-input-modal,
+    [data-vkb-open] .settings-modal,
+    [data-vkb-open] .watcher-modal,
+    [data-vkb-open] .ctx-window-modal,
+    [data-vkb-open] .diff-review-modal,
+    [data-vkb-open] .cross-session-search-modal {
+        border-radius: 0;
+        width: 100%;
+        max-width: 100%;
+        height: var(--vkb-height, 100vh);
+        max-height: var(--vkb-height, 100vh);
+        display: flex;
+        flex-direction: column;
+        animation: none
+    }
+
+    [data-vkb-open] .sb-modal {
+        border-radius: 0;
+        width: 100%;
+        max-width: 100%;
+        height: var(--vkb-height, 100vh);
+        max-height: var(--vkb-height, 100vh);
+        display: flex;
+        flex-direction: column;
+        animation: none
+    }
+
+    /* Family B: overlay modals */
+    [data-vkb-open] .session-graph-panel,
+    [data-vkb-open] .session-dashboard-panel,
+    [data-vkb-open] .activity-feed-panel,
+    [data-vkb-open] .assistant-inbox-modal,
+    [data-vkb-open] .assistant-center-modal,
+    [data-vkb-open] .memory-modal,
+    [data-vkb-open] .autonomy-modal,
+    [data-vkb-open] .routines-modal,
+    [data-vkb-open] .delegation-modal,
+    [data-vkb-open] .missions-modal,
+    [data-vkb-open] .notification-prefs-modal,
+    [data-vkb-open] .workspace-mgr-modal,
+    [data-vkb-open] .add-project-modal,
+    [data-vkb-open] .sysm-modal {
+        border-radius: 0;
+        width: 100%;
+        max-width: 100%;
+        height: var(--vkb-height, 100vh);
+        max-height: var(--vkb-height, 100vh);
+        display: flex;
+        flex-direction: column;
+        animation: none
+    }
+
+    [data-vkb-open] .pr-description-modal {
+        border-radius: 0;
+        width: 100%;
+        max-width: 100%;
+        height: var(--vkb-height, 100vh);
+        max-height: var(--vkb-height, 100vh);
+        display: flex;
+        flex-direction: column;
+        animation: none
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       3. DRAG-HANDLE PILL: hide (no sheet → no pill)
+       ════════════════════════════════════════════════════════════════ */
+
+    [data-vkb-open] .command-palette:before,
+    [data-vkb-open] .model-picker:before,
+    [data-vkb-open] .agent-picker:before,
+    [data-vkb-open] .theme-selector:before,
+    [data-vkb-open] .cheatsheet-modal:before,
+    [data-vkb-open] .todo-panel-modal:before,
+    [data-vkb-open] .session-selector-modal:before,
+    [data-vkb-open] .context-input-modal:before,
+    [data-vkb-open] .settings-modal:before,
+    [data-vkb-open] .watcher-modal:before,
+    [data-vkb-open] .ctx-window-modal:before,
+    [data-vkb-open] .diff-review-modal:before,
+    [data-vkb-open] .cross-session-search-modal:before,
+    [data-vkb-open] .sb-modal:before,
+    [data-vkb-open] .session-graph-panel:before,
+    [data-vkb-open] .session-dashboard-panel:before,
+    [data-vkb-open] .activity-feed-panel:before,
+    [data-vkb-open] .assistant-inbox-modal:before,
+    [data-vkb-open] .assistant-center-modal:before,
+    [data-vkb-open] .memory-modal:before,
+    [data-vkb-open] .autonomy-modal:before,
+    [data-vkb-open] .routines-modal:before,
+    [data-vkb-open] .delegation-modal:before,
+    [data-vkb-open] .missions-modal:before,
+    [data-vkb-open] .notification-prefs-modal:before,
+    [data-vkb-open] .workspace-mgr-modal:before,
+    [data-vkb-open] .add-project-modal:before,
+    [data-vkb-open] .sysm-modal:before,
+    [data-vkb-open] .pr-description-modal:before {
+        display: none
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       4. SAFE-AREA PADDING: swap bottom → top
+       ════════════════════════════════════════════════════════════════ */
+
+    [data-vkb-open] .command-palette,
+    [data-vkb-open] .model-picker,
+    [data-vkb-open] .agent-picker,
+    [data-vkb-open] .theme-selector,
+    [data-vkb-open] .cheatsheet-modal,
+    [data-vkb-open] .todo-panel-modal,
+    [data-vkb-open] .session-selector-modal,
+    [data-vkb-open] .context-input-modal,
+    [data-vkb-open] .settings-modal,
+    [data-vkb-open] .watcher-modal,
+    [data-vkb-open] .ctx-window-modal,
+    [data-vkb-open] .diff-review-modal,
+    [data-vkb-open] .cross-session-search-modal,
+    [data-vkb-open] .session-graph-panel,
+    [data-vkb-open] .session-dashboard-panel,
+    [data-vkb-open] .activity-feed-panel,
+    [data-vkb-open] .assistant-inbox-modal,
+    [data-vkb-open] .assistant-center-modal,
+    [data-vkb-open] .memory-modal,
+    [data-vkb-open] .autonomy-modal,
+    [data-vkb-open] .routines-modal,
+    [data-vkb-open] .delegation-modal,
+    [data-vkb-open] .missions-modal,
+    [data-vkb-open] .notification-prefs-modal,
+    [data-vkb-open] .workspace-mgr-modal,
+    [data-vkb-open] .add-project-modal,
+    [data-vkb-open] .sysm-modal,
+    [data-vkb-open] .pr-description-modal {
+        padding-bottom: 0;
+        padding-top: env(safe-area-inset-top, 0px)
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       5. HEADERS: pinned at top, never shrink
+       ════════════════════════════════════════════════════════════════ */
+
+    /* Family A: .modal-backdrop modals */
+    [data-vkb-open] .command-palette-input-row,
+    [data-vkb-open] .model-picker-header,
+    [data-vkb-open] .agent-picker-header,
+    [data-vkb-open] .theme-selector-header,
+    [data-vkb-open] .cheatsheet-header,
+    [data-vkb-open] .todo-panel-header,
+    [data-vkb-open] .session-selector-header,
+    [data-vkb-open] .context-input-header,
+    [data-vkb-open] .settings-header,
+    [data-vkb-open] .watcher-modal-header,
+    [data-vkb-open] .ctx-window-header,
+    [data-vkb-open] .diff-review-header,
+    [data-vkb-open] .cross-session-search-header {
+        flex-shrink: 0;
+        z-index: 2
+    }
+
+    /* Family B: *-overlay modals */
+    [data-vkb-open] .session-graph-header,
+    [data-vkb-open] .session-dashboard-header,
+    [data-vkb-open] .activity-feed-header,
+    [data-vkb-open] .assistant-inbox-header,
+    [data-vkb-open] .assistant-center-header,
+    [data-vkb-open] .memory-header,
+    [data-vkb-open] .autonomy-header,
+    [data-vkb-open] .routines-header,
+    [data-vkb-open] .delegation-header,
+    [data-vkb-open] .missions-header,
+    [data-vkb-open] .notification-prefs-header,
+    [data-vkb-open] .workspace-mgr-header,
+    [data-vkb-open] .add-project-header,
+    [data-vkb-open] .sysm-header,
+    [data-vkb-open] .pr-description-modal-header {
+        flex-shrink: 0;
+        z-index: 2
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       6. FOOTERS: pinned at bottom, never shrink
+       ════════════════════════════════════════════════════════════════ */
+
+    [data-vkb-open] .command-palette-shortcut,
+    [data-vkb-open] .model-picker-tab-hint,
+    [data-vkb-open] .theme-selector-footer,
+    [data-vkb-open] .cheatsheet-footer,
+    [data-vkb-open] .todo-panel-footer,
+    [data-vkb-open] .session-selector-footer,
+    [data-vkb-open] .context-input-hints,
+    [data-vkb-open] .settings-footer,
+    [data-vkb-open] .watcher-modal-footer,
+    [data-vkb-open] .ctx-window-footer,
+    [data-vkb-open] .diff-review-footer-hint,
+    [data-vkb-open] .cross-session-search-footer,
+    [data-vkb-open] .session-graph-footer,
+    [data-vkb-open] .workspace-mgr-footer,
+    [data-vkb-open] .add-project-footer,
+    [data-vkb-open] .sysm-footer,
+    [data-vkb-open] .pr-description-modal-footer {
+        flex-shrink: 0
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       7. BODY / SCROLLABLE MIDDLE: flex:1, min-height:0, scroll
+       ════════════════════════════════════════════════════════════════ */
+
+    /* Family A body sections */
+    [data-vkb-open] .command-palette-results,
+    [data-vkb-open] .model-picker-results,
+    [data-vkb-open] .agent-picker-results,
+    [data-vkb-open] .theme-selector-grid,
+    [data-vkb-open] .settings-list,
+    [data-vkb-open] .session-selector-results,
+    [data-vkb-open] .cross-session-search-body,
+    [data-vkb-open] .cheatsheet-body,
+    [data-vkb-open] .todo-panel-body,
+    [data-vkb-open] .watcher-modal-body,
+    [data-vkb-open] .ctx-window-body,
+    [data-vkb-open] .diff-review-body,
+    [data-vkb-open] .context-input-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto
+    }
+
+    /* Family B body sections */
+    [data-vkb-open] .session-graph-body,
+    [data-vkb-open] .session-dashboard-body,
+    [data-vkb-open] .activity-feed-body,
+    [data-vkb-open] .assistant-inbox-body,
+    [data-vkb-open] .assistant-center-grid,
+    [data-vkb-open] .memory-body,
+    [data-vkb-open] .autonomy-body,
+    [data-vkb-open] .routines-body,
+    [data-vkb-open] .delegation-body,
+    [data-vkb-open] .missions-body,
+    [data-vkb-open] .notification-prefs-body,
+    [data-vkb-open] .workspace-mgr-body,
+    [data-vkb-open] .add-project-body,
+    [data-vkb-open] .sysm-body,
+    [data-vkb-open] .pr-description-modal-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto
+    }
+
+    /* sb-modal body */
+    [data-vkb-open] .sb-modal-body,
+    [data-vkb-open] .sb-modal-actions {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       8. SPECIAL CASES
+       ════════════════════════════════════════════════════════════════ */
+
+    /* ctx-window-modal: has overflow on modal itself rather than body */
+    [data-vkb-open] .ctx-window-modal {
+        overflow-y: auto
+    }
+
+    /* Scrollable wrappers: when VKB is open, these become the single
+       scroll container holding both the create/form and body sections,
+       so everything scrolls together and nothing is fixed/clipped. */
+    [data-vkb-open] .memory-scrollable,
+    [data-vkb-open] .routines-scrollable,
+    [data-vkb-open] .delegation-scrollable,
+    [data-vkb-open] .missions-scrollable,
+    [data-vkb-open] .workspace-mgr-scrollable {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch
+    }
+
+    /* When inside a scrollable wrapper, create/form sections flow
+       naturally instead of being pinned (flex-shrink: 0 removed). */
+    [data-vkb-open] .memory-scrollable .memory-create,
+    [data-vkb-open] .routines-scrollable .routines-form,
+    [data-vkb-open] .delegation-scrollable .delegation-create,
+    [data-vkb-open] .missions-scrollable .missions-create,
+    [data-vkb-open] .missions-scrollable .assistant-memory-strip-missions,
+    [data-vkb-open] .workspace-mgr-scrollable .workspace-mgr-save {
+        flex-shrink: 0
+    }
+
+    /* Non-wrapped create/form sections that remain pinned */
+    [data-vkb-open] .add-project-nav,
+    [data-vkb-open] .add-project-search {
+        flex-shrink: 0
+    }
+
+    /* Body sections inside scrollable wrappers: no longer individually
+       scrollable; they just grow to fit content and let parent scroll. */
+    [data-vkb-open] .memory-scrollable .memory-body,
+    [data-vkb-open] .routines-scrollable .routines-body,
+    [data-vkb-open] .delegation-scrollable .delegation-body,
+    [data-vkb-open] .missions-scrollable .missions-body,
+    [data-vkb-open] .workspace-mgr-scrollable .workspace-mgr-body {
+        flex: 0 0 auto;
+        overflow-y: visible;
+        min-height: 0
+    }
+
+    /* Search/filter bars inside modals: don't shrink */
+    [data-vkb-open] .command-palette-input-row,
+    [data-vkb-open] .model-picker-search,
+    [data-vkb-open] .theme-selector-search,
+    [data-vkb-open] .session-selector-search,
+    [data-vkb-open] .cross-session-search-input {
+        flex-shrink: 0
+    }
+}

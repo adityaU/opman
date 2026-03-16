@@ -82,4 +82,8 @@ export interface SSEState {
   addOptimisticMessage: (text: string) => void;
   /** Load older messages (pagination). Returns true if more messages exist. */
   loadOlderMessages: () => Promise<boolean>;
+  /** Signal that a user-initiated session switch is expected.
+   *  Call this before selectSession/newSession/switchProject so the next
+   *  appState update is allowed to change the active session. */
+  expectSessionSwitch: () => void;
 }

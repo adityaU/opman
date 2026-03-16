@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import { MessageCircle, GitBranch, FileCode, Terminal, Sparkles, PenSquare, Command, Menu } from "lucide-react";
-import { TerminalPanel } from "./TerminalPanel";
+const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
 
@@ -136,11 +136,13 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
               <Command size={14} />
             </button>
           </div>
-          <TerminalPanel
-            sessionId={activeSessionId}
-            onClose={() => togglePanel("terminal")}
-            mcpAgentActive={Array.from(mcpAgentActivity.keys()).some(t => t.startsWith("web_terminal"))}
-          />
+          <Suspense fallback={null}>
+            <TerminalPanel
+              sessionId={activeSessionId}
+              onClose={() => togglePanel("terminal")}
+              mcpAgentActive={Array.from(mcpAgentActivity.keys()).some(t => t.startsWith("web_terminal"))}
+            />
+          </Suspense>
         </div>
       )}
     </>

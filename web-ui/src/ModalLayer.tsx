@@ -1,19 +1,21 @@
 import React, { Suspense, lazy, useCallback } from "react";
-import { CommandPalette } from "./CommandPalette";
-import { ModelPickerModal } from "./ModelPickerModal";
-import { AgentPickerModal } from "./AgentPickerModal";
-import { ThemeSelectorModal } from "./ThemeSelectorModal";
-import { CheatsheetModal } from "./CheatsheetModal";
-import { TodoPanelModal } from "./TodoPanelModal";
-import { SessionSelectorModal } from "./SessionSelectorModal";
-import { ContextInputModal } from "./ContextInputModal";
-import { SettingsModal } from "./SettingsModal";
-import { WatcherModal } from "./WatcherModal";
-import { AddProjectModal } from "./AddProjectModal";
-import { ContextWindowPanel } from "./ContextWindowPanel";
-import { DiffReviewPanel } from "./DiffReviewPanel";
-import { CrossSessionSearchModal } from "./CrossSessionSearchModal";
-import { SplitView } from "./SplitView";
+
+// Lazy-load all modals — they are conditionally rendered and rarely all open at once
+const CommandPalette = lazy(() => import("./CommandPalette").then(m => ({ default: m.CommandPalette })));
+const ModelPickerModal = lazy(() => import("./ModelPickerModal").then(m => ({ default: m.ModelPickerModal })));
+const AgentPickerModal = lazy(() => import("./AgentPickerModal").then(m => ({ default: m.AgentPickerModal })));
+const ThemeSelectorModal = lazy(() => import("./ThemeSelectorModal").then(m => ({ default: m.ThemeSelectorModal })));
+const CheatsheetModal = lazy(() => import("./CheatsheetModal").then(m => ({ default: m.CheatsheetModal })));
+const TodoPanelModal = lazy(() => import("./TodoPanelModal").then(m => ({ default: m.TodoPanelModal })));
+const SessionSelectorModal = lazy(() => import("./SessionSelectorModal").then(m => ({ default: m.SessionSelectorModal })));
+const ContextInputModal = lazy(() => import("./ContextInputModal").then(m => ({ default: m.ContextInputModal })));
+const SettingsModal = lazy(() => import("./SettingsModal").then(m => ({ default: m.SettingsModal })));
+const WatcherModal = lazy(() => import("./WatcherModal").then(m => ({ default: m.WatcherModal })));
+const AddProjectModal = lazy(() => import("./AddProjectModal").then(m => ({ default: m.AddProjectModal })));
+const ContextWindowPanel = lazy(() => import("./ContextWindowPanel").then(m => ({ default: m.ContextWindowPanel })));
+const DiffReviewPanel = lazy(() => import("./DiffReviewPanel").then(m => ({ default: m.DiffReviewPanel })));
+const CrossSessionSearchModal = lazy(() => import("./CrossSessionSearchModal").then(m => ({ default: m.CrossSessionSearchModal })));
+const SplitView = lazy(() => import("./SplitView").then(m => ({ default: m.SplitView })));
 
 const SessionGraph = lazy(() => import("./SessionGraph").then(m => ({ default: m.SessionGraph })));
 const SessionDashboard = lazy(() => import("./SessionDashboard").then(m => ({ default: m.SessionDashboard })));
@@ -90,7 +92,7 @@ const L = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={null}>{children}</Suspense>
 );
 
-export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
+export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLayer(p) {
   const { modals: m, openModal: o, closeModal: c } = p;
 
   /** Close `from` modal then open `to` modal */
@@ -109,6 +111,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
   return (
     <>
       {m.commandPalette && (
+        <L>
         <CommandPalette
           onClose={cl("commandPalette")} onCommand={p.onCommand}
           onNewSession={p.onNewSession} onToggleSidebar={p.toggleSidebar}
@@ -132,29 +135,31 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
           onOpenSystemMonitor={() => o("systemMonitor")}
           sessionId={p.activeSessionId}
         />
+        </L>
       )}
 
       {m.modelPicker && (
-        <ModelPickerModal onClose={cl("modelPicker")} sessionId={p.activeSessionId} onModelSelected={p.onModelSelected} />
+        <L><ModelPickerModal onClose={cl("modelPicker")} sessionId={p.activeSessionId} onModelSelected={p.onModelSelected} /></L>
       )}
       {m.agentPicker && (
-        <AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} onAgentSelected={p.onAgentChange} />
+        <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} onAgentSelected={p.onAgentChange} /></L>
       )}
       {m.themeSelector && (
-        <ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} />
+        <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} /></L>
       )}
-      {m.cheatsheet && <CheatsheetModal onClose={cl("cheatsheet")} />}
+      {m.cheatsheet && <L><CheatsheetModal onClose={cl("cheatsheet")} /></L>}
       {m.todoPanel && p.activeSessionId && (
-        <TodoPanelModal onClose={cl("todoPanel")} sessionId={p.activeSessionId} />
+        <L><TodoPanelModal onClose={cl("todoPanel")} sessionId={p.activeSessionId} /></L>
       )}
       {m.sessionSelector && p.appState && (
-        <SessionSelectorModal onClose={cl("sessionSelector")} projects={p.appState.projects} activeSessionId={p.activeSessionId} onSelectSession={p.onSelectSession} />
+        <L><SessionSelectorModal onClose={cl("sessionSelector")} projects={p.appState.projects} activeSessionId={p.activeSessionId} onSelectSession={p.onSelectSession} /></L>
       )}
       {m.contextInput && (
-        <ContextInputModal onClose={cl("contextInput")} onSubmit={p.onContextSubmit} />
+        <L><ContextInputModal onClose={cl("contextInput")} onSubmit={p.onContextSubmit} /></L>
       )}
 
       {m.settings && (
+        <L>
         <SettingsModal
           onClose={cl("settings")}
           onOpenThemeSelector={nav("settings", "themeSelector")}
@@ -173,25 +178,26 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
           onToggleSidebar={p.toggleSidebar} onToggleTerminal={p.toggleTerminal}
           onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit}
         />
+        </L>
       )}
 
-      {m.watcher && <WatcherModal onClose={cl("watcher")} activeSessionId={p.activeSessionId} />}
+      {m.watcher && <L><WatcherModal onClose={cl("watcher")} activeSessionId={p.activeSessionId} /></L>}
       {m.contextWindow && (
-        <ContextWindowPanel onClose={cl("contextWindow")} sessionId={p.activeSessionId} onCompact={p.onCompactContext} />
+        <L><ContextWindowPanel onClose={cl("contextWindow")} sessionId={p.activeSessionId} onCompact={p.onCompactContext} /></L>
       )}
       {m.diffReview && (
-        <DiffReviewPanel onClose={cl("diffReview")} sessionId={p.activeSessionId} fileEditCount={p.fileEditCount} />
+        <L><DiffReviewPanel onClose={cl("diffReview")} sessionId={p.activeSessionId} fileEditCount={p.fileEditCount} /></L>
       )}
       {m.crossSearch && p.appState && (
-        <CrossSessionSearchModal onClose={cl("crossSearch")} projectIdx={p.appState.active_project} onNavigate={navSess} />
+        <L><CrossSessionSearchModal onClose={cl("crossSearch")} projectIdx={p.appState.active_project} onNavigate={navSess} /></L>
       )}
       {m.splitView && p.appState && p.activeSessionId && (
-        <SplitView
+        <L><SplitView
           primarySessionId={p.activeSessionId} secondarySessionId={p.splitViewSecondaryId}
           onChangeSecondary={p.setSplitViewSecondaryId} onClose={cl("splitView")}
           sessions={p.activeProject?.sessions ?? []} appState={p.appState}
           selectedModel={p.selectedModel?.modelID} projectIndex={p.appState.active_project}
-        />
+        /></L>
       )}
 
       {m.sessionGraph && <L><SessionGraph onSelectSession={selByProj} onClose={cl("sessionGraph")} activeSessionId={p.activeSessionId} /></L>}
@@ -261,11 +267,11 @@ export const ModalLayer: React.FC<ModalLayerProps> = (p) => {
         <L><WorkspaceManagerModal onClose={cl("workspaceManager")} onRestore={p.onRestoreWorkspace} onSaveCurrent={p.buildCurrentSnapshot} activeWorkspaceName={p.activeWorkspaceName} /></L>
       )}
 
-      {m.addProject && <AddProjectModal onClose={cl("addProject")} />}
+      {m.addProject && <L><AddProjectModal onClose={cl("addProject")} /></L>}
 
       {m.systemMonitor && (
         <L><SystemMonitorModal onClose={cl("systemMonitor")} /></L>
       )}
     </>
   );
-};
+});

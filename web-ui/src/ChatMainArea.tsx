@@ -4,12 +4,12 @@ import { MessageTimeline } from "./MessageTimeline";
 import { PromptInput } from "./PromptInput";
 import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
-import { TerminalPanel } from "./TerminalPanel";
 import { SearchBar } from "./SearchBar";
 import { X, FileCode, GitBranch, Sparkles, Command, WifiOff } from "lucide-react";
 
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
+const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 
 export interface ChatMainAreaProps {
   appState: any;
@@ -90,8 +90,21 @@ export interface ChatMainAreaProps {
   handlePanelError: (msg: string) => void;
 }
 
-export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
+export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
   const hasSidePanel = p.neovimOpen || p.gitOpen;
+
+  // Stable callback: navigate to session within active project
+  const activeProjectIdx = p.appState?.active_project ?? 0;
+  const handleOpenSession = useCallback(
+    (sid: string) => p.handleSelectSession(sid, activeProjectIdx),
+    [p.handleSelectSession, activeProjectIdx],
+  );
+
+  // Stable memory labels array — avoid recreating every render
+  const activeMemoryLabels = useMemo(
+    () => p.activeMemoryItems.map((item: any) => item.label),
+    [p.activeMemoryItems],
+  );
 
   return (
     <div className="chat-content">
@@ -174,15 +187,26 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
           isBookmarked={p.isBookmarked}
           onToggleBookmark={p.toggleBookmark}
           onScrollDirection={p.handleScrollDirection}
-          onOpenSession={(sid: string) => p.handleSelectSession(sid, p.appState?.active_project ?? 0)}
+          onOpenSession={handleOpenSession}
         />
 
         {/* Permission & question docks — always visible, independent of mobile input */}
         {p.allPermissions.length > 0 && (
-          <PermissionDock permissions={p.allPermissions} activeSessionId={p.activeSessionId} onReply={p.handlePermissionReply} />
+          <PermissionDock
+            permissions={p.allPermissions}
+            activeSessionId={p.activeSessionId}
+            onReply={p.handlePermissionReply}
+            onGoToSession={handleOpenSession}
+          />
         )}
         {p.allQuestions.length > 0 && (
-          <QuestionDock questions={p.allQuestions} activeSessionId={p.activeSessionId} onReply={p.handleQuestionReply} onDismiss={p.handleQuestionDismiss} />
+          <QuestionDock
+            questions={p.allQuestions}
+            activeSessionId={p.activeSessionId}
+            onReply={p.handleQuestionReply}
+            onDismiss={p.handleQuestionDismiss}
+            onGoToSession={handleOpenSession}
+          />
         )}
 
         {/* Mobile input wrapper */}
@@ -200,7 +224,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
             currentModel={p.currentModel}
             currentAgent={p.selectedAgent}
             onAgentChange={p.handleAgentChange}
-            activeMemoryLabels={p.activeMemoryItems.map((item: any) => item.label)}
+            activeMemoryLabels={activeMemoryLabels}
             onOpenMemory={p.openMemory}
             onContentChange={p.handlePromptContentChange}
           />
@@ -211,12 +235,14 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
           <>
             <div {...p.terminalResize.handleProps} style={{ ...p.terminalResize.handleProps.style, display: p.terminalOpen ? undefined : "none" }} />
             <div style={{ height: p.terminalResize.size, flexShrink: 0, display: p.terminalOpen ? undefined : "none" }}>
-              <TerminalPanel
-                sessionId={p.activeSessionId}
-                onClose={p.closeTerminal}
-                visible={p.terminalOpen}
-                mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))}
-              />
+              <Suspense fallback={null}>
+                <TerminalPanel
+                  sessionId={p.activeSessionId}
+                  onClose={p.closeTerminal}
+                  visible={p.terminalOpen}
+                  mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))}
+                />
+              </Suspense>
             </div>
           </>
         )}
@@ -275,4 +301,4 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = (p) => {
       )}
     </div>
   );
-};
+});

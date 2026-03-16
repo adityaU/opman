@@ -1,0 +1,453 @@
+/* ═══════════════════════════════════════════════════════════════
+   responsive-1.css — Full mobile structural redesign
+   Breakpoint: 768px (phone), with select rules extended to 1400px (tablet)
+   Design: Modern mobile-first — chat-app UX, native tab bar,
+   overlay drawer, floating composer, full-screen sheets
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet + Phone: floating chat header + command button ──── */
+@media(max-width: 1400px) {
+    .chat-mobile-header {
+        display: flex;
+        padding-top: calc(env(safe-area-inset-top,0) + 8px)
+    }
+
+    .mobile-cmd-btn,.mobile-panel-header {
+        display: flex
+    }
+
+    /* Push message timeline down to clear the floating header */
+    .message-timeline-inner {
+        padding-top: calc(env(safe-area-inset-top,0) + 54px)
+    }
+}
+
+@media(max-width: 768px) {
+
+    /* ── Root overrides — larger type scale, generous radii ───── */
+
+    :root {
+        --font-size-2xs: .8125rem;
+        --font-size-xs: .875rem;
+        --font-size-sm: .9375rem;
+        --font-size-md: 1rem;
+        --font-size-base: 1.0625rem;
+        --font-size-lg: 1.1875rem;
+        --font-size-xl: 1.375rem;
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-xl: 28px
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       PHONE-ONLY STRUCTURAL — background, sidebar overlay, etc.
+       ═════════════════════════════════════════════════════════════ */
+
+    /* Paint the entire chat-layout and chat-main with the real
+       background color so there is no transparent gap between the
+       system status bar and the app content on Android / iOS. */
+    .chat-layout,
+    .chat-main {
+        background: var(--color-bg, #0B0E14)
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       SIDEBAR — Full-height overlay drawer
+       ═════════════════════════════════════════════════════════════ */
+
+    /* Collapse the sidebar container slot */
+    .chat-content>div:first-child:has(.chat-sidebar) {
+        width: 0!important;
+        min-width: 0;
+        overflow: visible;
+        flex-shrink: 0;
+        opacity: 1!important;
+        border: none;
+        box-shadow: none
+    }
+
+    .chat-content>.resize-handle:first-of-type {
+        display: none
+    }
+
+    .chat-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 70;
+        padding-top: env(safe-area-inset-top,0);
+        padding-bottom: env(safe-area-inset-bottom,0);
+        transform: translate(-100%);
+        max-width: 85vw;
+        width: 20rem;
+        transition: transform .35s cubic-bezier(.32,1.2,.54,1);
+        background: var(--glass-tint-light);
+        backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+        -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+        border-right: .5px solid var(--white-6);
+        box-shadow: 6px 0 32px var(--black-18),inset -1px 0 0 0 var(--white-3)
+    }
+
+    .chat-sidebar.mobile-open {
+        transform: translate(0)
+    }
+
+    /* Sidebar overlay backdrop — appears behind drawer */
+    .sidebar-mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 65;
+        background: var(--black-50);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        animation: sidebar-overlay-in .3s ease-out forwards
+    }
+
+    @keyframes sidebar-overlay-in {
+        0% { opacity: 0 }
+        to { opacity: 1 }
+    }
+
+    /* Sidebar close button */
+    .sidebar-close-btn {
+        display: flex;
+        width: 2.75rem;
+        height: 2.75rem
+    }
+
+    /* Sidebar icon buttons — generous touch targets */
+    .sb-icon-btn {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: var(--radius-md)
+    }
+
+    .sb-search-clear {
+        width: 2.25rem;
+        height: 2.25rem
+    }
+
+    /* Project header */
+    .sb-project-header {
+        font-size: var(--font-size-sm);
+        padding: var(--space-3) var(--space-4);
+        letter-spacing: -.01em
+    }
+
+    /* Session rows — card-like with generous spacing */
+    .sb-session {
+        padding: var(--space-3) var(--space-4);
+        min-height: 3.25rem;
+        border-radius: var(--radius-md);
+        margin: 3px var(--space-2)
+    }
+
+    .sb-session-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: var(--radius-md)
+    }
+
+    .sb-session-title {
+        font-size: var(--font-size-sm);
+        font-weight: 500
+    }
+
+    .sb-session-meta {
+        font-size: var(--font-size-2xs)
+    }
+
+    .sb-session-actions {
+        display: flex;
+        width: 2.5rem;
+        height: 2.5rem
+    }
+
+    /* Hide desktop-only elements */
+    .side-panel {
+        display: none!important
+    }
+
+    .prompt-hints,.message-timeline-shortcuts {
+        display: none
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       MESSAGES — Chat-app conversation layout
+       User = right-aligned tinted bubble
+       Assistant = full-width open card
+       ═════════════════════════════════════════════════════════════ */
+
+    .message-timeline-inner {
+        padding: 0 var(--space-3);
+        gap: var(--space-3)
+    }
+
+    /* Base turn styling */
+    .message-turn {
+        border-radius: var(--radius-lg)
+    }
+
+    /* ── Assistant messages — subtle card, full width ─────────── */
+    .message-turn-assistant {
+        padding: var(--space-4) var(--space-8);
+        border-radius: var(--radius-lg);
+        background: var(--glass-tint-light-subtle);
+        border: .5px solid var(--white-4);
+        position: relative
+    }
+
+    /* Remove left accent bar on mobile */
+    .message-turn-assistant:before {
+        display: none
+    }
+
+    /* ── User messages — same full-width card as assistant ──────── */
+    .message-turn-user {
+        padding: var(--space-4) var(--space-8);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(168deg,color-mix(in srgb,var(--color-primary) 10%,transparent) 0%,color-mix(in srgb,var(--color-primary) 4%,transparent) 100%);
+        border: .5px solid color-mix(in srgb,var(--color-primary) 16%,transparent);
+        position: relative
+    }
+
+    /* Avatar — inline with role label in header */
+    .message-avatar {
+        width: 1.5rem;
+        height: 1.5rem;
+        font-size: var(--font-size-2xs)
+    }
+
+    /* Message body text */
+    .message-body {
+        font-size: var(--font-size-md);
+        line-height: 1.7
+    }
+
+    /* Message actions — always subtly visible on mobile (no hover) */
+    .message-actions {
+        opacity: .5;
+        padding-top: var(--space-2)
+    }
+
+    .message-action-btn {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: var(--radius-md)
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       PROMPT INPUT — Floating frosted pill
+       ═════════════════════════════════════════════════════════════ */
+
+    .prompt-input-container {
+        padding: var(--space-2) var(--space-3) env(safe-area-inset-bottom, 4px)
+    }
+
+    .prompt-input-wrapper {
+        border-radius: var(--radius-xl);
+        box-shadow: 0 4px 20px var(--black-12),0 1px 4px var(--black-6)
+    }
+
+    .prompt-textarea {
+        font-size: 16px;
+        min-height: 28px;
+        line-height: 1.5
+    }
+
+    /* Send / action buttons */
+    .prompt-btn {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 50%
+    }
+
+    .prompt-attach-btn {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: var(--radius-md)
+    }
+
+    /* Selector chips */
+    .prompt-chip {
+        min-height: 32px;
+        padding: 0 14px;
+        font-size: var(--font-size-2xs);
+        border-radius: var(--radius-full)
+    }
+
+    .prompt-selectors {
+        gap: 8px;
+        padding-bottom: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none
+    }
+
+    .prompt-selectors::-webkit-scrollbar {
+        display: none
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       TOOL CALLS — Compact mobile cards
+       ═════════════════════════════════════════════════════════════ */
+
+    .tool-call {
+        border-radius: var(--radius-md)
+    }
+
+    .tool-call-header {
+        padding: var(--space-3) var(--space-3);
+        min-height: 48px
+    }
+
+    .tool-call-body {
+        padding: var(--space-3)
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       CODE BLOCKS — Mobile-optimized
+       ═════════════════════════════════════════════════════════════ */
+
+    .message-body pre,.tool-call-pre {
+        font-size: 13px;
+        tab-size: 2;
+        -moz-tab-size: 2;
+        border-radius: var(--radius-md);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       GIT PANEL — Mobile density overhaul
+       ═════════════════════════════════════════════════════════════ */
+
+    .git-panel-toolbar-row {
+        padding: var(--space-2) var(--space-3);
+        min-height: 48px;
+        gap: var(--space-2)
+    }
+
+    .git-back-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-sm)
+    }
+
+    .git-back-dropdown-btn {
+        width: 30px;
+        height: 40px;
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0
+    }
+
+    .git-branch-toggle {
+        padding: 8px 12px;
+        font-size: var(--font-size-sm);
+        border-radius: var(--radius-md);
+        min-height: 40px
+    }
+
+    .git-panel-refresh {
+        width: 40px;
+        height: 40px
+    }
+
+    .git-breadcrumb-trail {
+        font-size: var(--font-size-2xs);
+        padding: var(--space-2) var(--space-3)
+    }
+
+    .git-breadcrumb-link {
+        font-size: var(--font-size-2xs);
+        padding: 6px 4px
+    }
+
+    /* Git file list items */
+    .git-file-row,.git-status-row {
+        min-height: 48px;
+        padding: var(--space-2) var(--space-3)
+    }
+
+    .git-file-checkbox {
+        width: 22px;
+        height: 22px
+    }
+
+    .git-commit-input {
+        font-size: 16px;
+        min-height: 44px;
+        border-radius: var(--radius-md)
+    }
+
+    .git-commit-btn,.git-action-btn {
+        min-height: 48px;
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm)
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       TERMINAL PANEL — Mobile optimized
+       ═════════════════════════════════════════════════════════════ */
+
+    .terminal-panel-header {
+        height: 48px;
+        padding: 0 var(--space-3)
+    }
+
+    .terminal-panel-actions button {
+        width: 40px;
+        height: 40px
+    }
+
+    .term-tab {
+        height: 40px;
+        padding: 0 var(--space-3);
+        font-size: var(--font-size-xs);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0
+    }
+
+    .term-tab-close {
+        width: 28px;
+        height: 28px;
+        opacity: .6
+    }
+
+    .term-tab-new {
+        width: 36px;
+        height: 36px
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       CODE EDITOR — Mobile optimized
+       ═════════════════════════════════════════════════════════════ */
+
+    .code-editor-toolbar {
+        min-height: 48px;
+        padding: var(--space-2) var(--space-3);
+        gap: var(--space-2)
+    }
+
+    .code-editor-back,.code-editor-action {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-sm)
+    }
+
+    .code-editor-file-entry {
+        padding: var(--space-3) var(--space-4);
+        min-height: 52px;
+        font-size: var(--font-size-sm)
+    }
+
+    .code-editor-view-tab,.code-editor-lsp-pill {
+        min-height: 36px;
+        padding: 0 14px;
+        font-size: var(--font-size-2xs);
+        border-radius: var(--radius-full)
+    }
+}

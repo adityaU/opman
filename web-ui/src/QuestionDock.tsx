@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { QuestionRequest } from "./types";
-import { HelpCircle, Send, X } from "lucide-react";
+import { HelpCircle, Send, X, ExternalLink } from "lucide-react";
 
 interface Props {
   questions: QuestionRequest[];
@@ -8,9 +8,11 @@ interface Props {
   activeSessionId?: string | null;
   onReply: (requestId: string, answers: string[][]) => void;
   onDismiss: (requestId: string) => void;
+  /** Navigate to a session by its ID */
+  onGoToSession?: (sessionId: string) => void;
 }
 
-export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply, onDismiss }: Props) {
+export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply, onDismiss, onGoToSession }: Props) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Clamp activeTab when questions list changes
@@ -55,6 +57,7 @@ export const QuestionDock = React.memo(function QuestionDock({ questions, active
           isCrossSession={!!activeSessionId && activeQ.sessionID !== activeSessionId}
           onReply={onReply}
           onDismiss={onDismiss}
+          onGoToSession={onGoToSession}
         />
       )}
     </div>
@@ -66,11 +69,13 @@ function QuestionCard({
   isCrossSession,
   onReply,
   onDismiss,
+  onGoToSession,
 }: {
   question: QuestionRequest;
   isCrossSession: boolean;
   onReply: (requestId: string, answers: string[][]) => void;
   onDismiss: (requestId: string) => void;
+  onGoToSession?: (sessionId: string) => void;
 }) {
   const [answers, setAnswers] = useState<string[][]>(
     question.questions.map(() => [])
@@ -169,6 +174,17 @@ function QuestionCard({
         <HelpCircle size={16} className="question-icon" />
         <span className="question-title">{question.title || "Question"}</span>
         {isCrossSession && <span className="question-badge-subagent">subagent</span>}
+        {question.sessionID && onGoToSession && (
+          <button
+            className="dock-session-link"
+            onClick={(e) => { e.stopPropagation(); onGoToSession(question.sessionID); }}
+            title={`Go to session ${question.sessionID.slice(0, 8)}`}
+            aria-label="Go to session"
+          >
+            <ExternalLink size={11} />
+            <span>{question.sessionID.slice(0, 8)}</span>
+          </button>
+        )}
         <span className="question-hint">Enter = submit &middot; Esc = dismiss</span>
         <button
           className="question-dismiss-btn"

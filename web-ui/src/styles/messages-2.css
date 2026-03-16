@@ -204,7 +204,7 @@
     background: var(--white-4);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all .15s ease
+    transition: background .15s ease, color .15s ease
 }
 
 .message-action-btn:hover {

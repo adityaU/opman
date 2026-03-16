@@ -236,6 +236,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
     Router::new()
         .route("/health", get(handlers::health))
         .nest("/api", public_routes.merge(api_routes))
+        // React UI at /ui — must be registered before the Leptos SPA fallback
+        .route("/ui", get(static_files::serve_react))
+        .route("/ui/", get(static_files::serve_react))
+        .route("/ui/{*path}", get(static_files::serve_react))
         .fallback(static_files::serve)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .with_state(state)

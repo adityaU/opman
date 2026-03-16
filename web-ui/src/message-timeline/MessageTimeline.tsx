@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import React, { useRef, useEffect, useCallback, useMemo, useState, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown } from "lucide-react";
 import type { SessionInfo } from "../api";
@@ -52,7 +52,12 @@ export function MessageTimeline({
     return project.path || null;
   }, [appState, activeSessionId]);
 
-  const groups = useMemo(() => groupMessages(messages), [messages]);
+  const prevGroupsRef = useRef<MessageGroup[]>([]);
+  const groups = useMemo(() => {
+    const next = groupMessages(messages, prevGroupsRef.current);
+    prevGroupsRef.current = next;
+    return next;
+  }, [messages]);
 
   // Find child sessions for task tool → child session matching
   const childSessions = useMemo(() => {
@@ -233,6 +238,31 @@ export function MessageTimeline({
     return null;
   }, [messages]);
 
+  // ── Stable turn props (must be before early returns to obey Rules of Hooks) ──
+  const turnProps = useMemo(() => ({
+    childSessions,
+    onRetry: onSendPrompt,
+    subagentMessages,
+    searchMatchIds,
+    activeSearchMatchId,
+    isBookmarked,
+    onToggleBookmark,
+    sessionId: activeSessionId,
+    onOpenSession,
+    pendingAssistantId,
+  }), [
+    childSessions,
+    onSendPrompt,
+    subagentMessages,
+    searchMatchIds,
+    activeSearchMatchId,
+    isBookmarked,
+    onToggleBookmark,
+    activeSessionId,
+    onOpenSession,
+    pendingAssistantId,
+  ]);
+
   // ── Empty states ──
   if (!activeSessionId) return <WelcomeEmpty />;
 
@@ -266,19 +296,6 @@ export function MessageTimeline({
       <span>Jump to bottom</span>
     </button>
   );
-
-  const turnProps = {
-    childSessions,
-    onRetry: onSendPrompt,
-    subagentMessages,
-    searchMatchIds,
-    activeSearchMatchId,
-    isBookmarked,
-    onToggleBookmark,
-    sessionId: activeSessionId,
-    onOpenSession,
-    pendingAssistantId,
-  };
 
   if (useVirtual) {
     const virtualItems = virtualizer.getVirtualItems();

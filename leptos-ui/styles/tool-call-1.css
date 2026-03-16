@@ -1,0 +1,369 @@
+.tool-call {
+    margin: var(--space-2) 0;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    contain: layout style
+}
+
+.tool-call-task-inline {
+    border: none;
+    background: none
+}
+
+.tool-call-task-inline > .subagent-session {
+    margin-top: 0
+}
+
+.tool-call-error {
+    border-color: var(--color-error)
+}
+
+.tool-call-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 8%, var(--color-bg));
+    color: var(--color-error);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    word-break: break-word
+}
+
+.tool-call-error-banner svg {
+    flex-shrink: 0;
+    margin-top: 2px
+}
+
+.tool-call-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--white-3);
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast)
+}
+
+.tool-call-header:hover {
+    background: var(--white-6)
+}
+
+.tool-call-icon {
+    display: flex;
+    align-items: center
+}
+
+.tool-call-name {
+    font-weight: 600;
+    color: var(--color-accent)
+}
+
+.tool-call-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center
+}
+
+.tool-call-pending {
+    color: var(--color-warning);
+    font-size: var(--font-size-2xs)
+}
+
+.tool-success-icon {
+    color: var(--color-success)
+}
+
+.tool-error-icon {
+    color: var(--color-error)
+}
+
+.tool-call-body {
+    padding: var(--space-2) var(--space-3);
+    border-top: .5px solid var(--white-4)
+}
+
+.tool-call-section {
+    margin-bottom: var(--space-2)
+}
+
+.tool-call-section:last-child {
+    margin-bottom: 0
+}
+
+.tool-call-section-label {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: var(--space-1)
+}
+
+.tool-call-pre {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word
+}
+
+/* CodeBlock wrapper inside tool-call input sections — constrain height */
+.tool-call-input-block {
+    max-height: 300px;
+    overflow-y: auto;
+    border-radius: var(--radius-sm)
+}
+
+.tool-call-input-block .code-block-wrapper {
+    margin: 0;
+    border: none;
+    font-size: var(--font-size-2xs)
+}
+
+.tool-output-file {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden
+}
+
+.tool-output-file-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg-element);
+    border-bottom: 1px solid var(--color-border-subtle);
+    font-size: var(--font-size-2xs)
+}
+
+.tool-output-file-path {
+    font-family: var(--font-mono);
+    color: var(--color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.tool-output-markdown {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    max-height: 400px;
+    overflow-y: auto
+}
+
+.tool-output-markdown p {
+    margin: var(--space-1) 0
+}
+
+.tool-output-markdown code {
+    background: var(--color-bg-element);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs)
+}
+
+.tool-call-title {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    margin-left: var(--space-1)
+}
+
+.tool-call-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    margin-right: var(--space-2)
+}
+
+.tool-call-truncated {
+    color: var(--color-warning);
+    font-style: italic
+}
+
+.tool-call-empty {
+    color: var(--color-text-muted);
+    font-style: italic
+}
+
+.tool-call-live-output {
+    max-height: 400px;
+    overflow-y: auto;
+    border-left: 2px solid var(--color-success);
+    animation: live-border-pulse 2s ease-in-out infinite
+}
+
+.tool-spin-icon {
+    animation: spin 1s linear infinite
+}
+
+/* ── Subagent session (inside task tool accordion) ─── */
+
+.subagent-session {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-2);
+    overflow: hidden;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--color-surface) 60%, transparent) 0%,
+        var(--color-bg) 100%);
+    border-left: 3px solid var(--color-accent)
+}
+
+/* Remove header bottom border when collapsed (header is only child) */
+.subagent-session > .subagent-header:last-child {
+    border-bottom: none
+}
+
+.subagent-running {
+    border-left-color: var(--color-success);
+    animation: subagent-glow 3s ease-in-out infinite
+}
+
+.subagent-error-state {
+    border-left-color: var(--color-error)
+}
+
+/* subagent-glow: opacity-only for GPU efficiency (no box-shadow animation) */
+@keyframes subagent-glow {
+    0%,to {
+        opacity: 1
+    }
+    50% {
+        opacity: .92
+    }
+}
+
+.subagent-header {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+    font-size: var(--font-size-xs);
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    transition: background var(--transition-fast)
+}
+
+.subagent-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: none;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    color: inherit
+}
+
+.subagent-toggle:hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))
+}
+
+.subagent-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0
+}
+
+.subagent-icon {
+    color: var(--color-accent);
+    flex-shrink: 0
+}
+
+.subagent-title {
+    font-weight: 600;
+    color: var(--color-accent);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px
+}
+
+.subagent-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs)
+}
+
+.subagent-status-text {
+    color: var(--color-text-muted)
+}
+
+.subagent-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+    animation: subagent-pulse 1.5s ease-in-out infinite
+}
+
+@keyframes subagent-pulse {
+    0%,to {
+        opacity: 1;
+        transform: scale(1)
+    }
+    50% {
+        opacity: .4;
+        transform: scale(.7)
+    }
+}
+
+.subagent-message-count {
+    margin-left: auto;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    background: var(--color-bg-element);
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-subtle)
+}
+
+.subagent-open-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-accent);
+    background: none;
+    border: none;
+    padding: var(--space-2) var(--space-3);
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0
+}

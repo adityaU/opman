@@ -1,0 +1,246 @@
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg);
+    padding: var(--space-4);
+    position: relative;
+    overflow: hidden
+}
+
+.login-bg-grid {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image: linear-gradient(var(--white-2) 1px,transparent 1px),linear-gradient(90deg,var(--white-2) 1px,transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    animation: login-grid-drift 20s linear infinite
+}
+
+@keyframes login-grid-drift {
+    0% {
+        transform: translate(0)
+    }
+
+    to {
+        transform: translate(40px,40px)
+    }
+}
+
+.login-bg-glow {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle,color-mix(in srgb,var(--color-primary) 12%,transparent) 0%,transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+    animation: login-glow-pulse 4s ease-in-out infinite
+}
+
+@keyframes login-glow-pulse {
+    0%,to {
+        opacity: .6;
+        transform: translate(-50%,-50%) scale(1)
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%,-50%) scale(1.05)
+    }
+}
+
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    padding: var(--space-8);
+    border-radius: 28px;
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--glass-tint-light);
+    border: .5px solid var(--glass-border-light);
+    box-shadow: inset 0 .5px 0 0 var(--white-8),0 10px 32px var(--black-8),0 4px 12px var(--black-4);
+    position: relative;
+    overflow: hidden;
+    z-index: 1
+}
+
+.login-box:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 30% at 50% 0%,var(--white-4) 0%,transparent 70%);
+    pointer-events: none;
+    z-index: 0
+}
+
+.login-box>* {
+    position: relative;
+    z-index: 1
+}
+
+.login-brand {
+    text-align: center;
+    margin-bottom: var(--space-8)
+}
+
+.login-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: color-mix(in srgb,var(--color-primary) 15%,var(--color-bg-element));
+    border: 1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);
+    color: var(--color-primary);
+    margin-bottom: var(--space-3)
+}
+
+.login-box h1 {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: var(--space-1);
+    letter-spacing: 1px
+}
+
+.login-box .subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted)
+}
+
+.login-field {
+    margin-bottom: var(--space-4)
+}
+
+.login-field label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 500;
+    transition: color .15s
+}
+
+.login-field.focused label {
+    color: var(--color-primary)
+}
+
+.login-field input {
+    width: 100%;
+    padding: var(--space-3);
+    background: var(--black-20);
+    border: .5px solid var(--glass-border-dark);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    transition: border-color var(--transition-base),box-shadow var(--transition-base);
+    outline: none
+}
+
+.login-field input::placeholder {
+    color: color-mix(in srgb,var(--color-text-muted) 50%,transparent)
+}
+
+.login-field input:focus {
+    border-color: color-mix(in srgb,var(--color-primary) 60%,transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb,var(--color-primary) 20%,transparent)
+}
+
+.login-btn {
+    width: 100%;
+    padding: var(--space-3);
+    margin-top: var(--space-3);
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-full);
+    color: var(--color-bg);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity var(--transition-base),transform var(--transition-base)
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: var(--space-4);
+    font-size: 11px;
+    color: var(--color-text-muted)
+}
+
+.login-footer kbd {
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: var(--font-mono, monospace)
+}
+
+.login-btn:hover {
+    opacity: .9;
+    transform: scale(.99)
+}
+
+.login-btn:active {
+    transform: scale(.97)
+}
+
+.login-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    transform: none
+}
+
+.login-error {
+    color: var(--color-error);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    margin-top: var(--space-3)
+}
+
+/* ── App bootstrap loader ──────────────────────────────────────── */
+/* Shown while the bootstrap fetch + auth check resolve so neither
+   the login page nor the main app renders with default/wrong theme. */
+
+.app-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg);
+}
+
+.app-loader-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-top-color: var(--color-primary);
+    animation: app-loader-spin .7s linear infinite;
+}
+
+@keyframes app-loader-spin {
+    to { transform: rotate(360deg); }
+}

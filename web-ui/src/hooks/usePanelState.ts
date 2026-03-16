@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useResizable } from "./useResizable";
 
 interface UsePanelStateOptions {
@@ -71,7 +71,9 @@ export function usePanelState({
   const focusChat = useCallback(() => setFocusedPanel("chat"), []);
   const focusSide = useCallback(() => setFocusedPanel("side"), []);
 
-  return {
+  const hasSidePanel = neovimOpen || gitOpen;
+
+  return useMemo(() => ({
     sidebar: { open: sidebarOpen, setOpen: setSidebarOpen, toggle: toggleSidebar, resize: sidebarResize },
     terminal: {
       open: terminalOpen, setOpen: setTerminalOpen, mounted: terminalMounted,
@@ -85,12 +87,19 @@ export function usePanelState({
       open: gitOpen, setOpen: setGitOpen, mounted: gitMounted,
       toggle: toggleGit, close: closeGit,
     },
-    sidePanel: { hasPanel: neovimOpen || gitOpen, resize: sidePanelResize },
+    sidePanel: { hasPanel: hasSidePanel, resize: sidePanelResize },
     focused: focusedPanel,
     focusSidebar,
     focusChat,
     focusSide,
-  };
+  }), [
+    sidebarOpen, toggleSidebar, sidebarResize,
+    terminalOpen, terminalMounted, toggleTerminal, closeTerminal, terminalResize,
+    neovimOpen, editorMounted, toggleNeovim, closeNeovim,
+    gitOpen, gitMounted, toggleGit, closeGit,
+    hasSidePanel, sidePanelResize,
+    focusedPanel, focusSidebar, focusChat, focusSide,
+  ]);
 }
 
 export type PanelState = ReturnType<typeof usePanelState>;

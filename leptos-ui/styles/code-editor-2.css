@@ -1,0 +1,592 @@
+
+.breadcrumb-link:hover {
+    color: var(--color-primary, #fab283);
+    background: var(--white-4)
+}
+
+.code-editor-loading,.code-editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-6);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs)
+}
+
+.code-editor-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    opacity: .5
+}
+
+.code-editor-desktop {
+    flex-direction: row!important
+}
+
+.code-editor-explorer {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    min-width: 140px;
+    max-width: 300px;
+    flex-shrink: 0;
+    border-right: .5px solid var(--glass-border-dark, var(--white-6));
+    background: var(--white-1_5);
+    overflow: hidden
+}
+
+.explorer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    min-height: 32px;
+    flex-shrink: 0
+}
+
+.explorer-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em
+}
+
+.explorer-collapse-btn,.explorer-expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    flex-shrink: 0
+}
+
+.explorer-collapse-btn:hover,.explorer-expand-btn:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.explorer-expand-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1
+}
+
+.explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0
+}
+
+.explorer-tree-entry {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-base);
+    white-space: nowrap;
+    overflow: hidden
+}
+
+.explorer-tree-entry:hover {
+    background: var(--white-4)
+}
+
+.explorer-tree-entry .file-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-tree-entry .folder-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-tree-entry .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.explorer-tree-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-tree-file.active {
+    background: var(--white-7);
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-tree-file.active .file-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 6px 10px 2px;
+    flex-shrink: 0
+}
+
+.explorer-open-files {
+    flex-shrink: 0;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
+}
+
+.explorer-open-file {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 3px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background var(--transition-base);
+    color: var(--color-text)
+}
+
+.explorer-open-file:hover {
+    background: var(--white-4)
+}
+
+.explorer-open-file.active {
+    background: var(--white-7);
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-open-file.active .file-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-open-file .file-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-open-file .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.open-file-modified-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-warning, #f5a742);
+    flex-shrink: 0
+}
+
+.open-file-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-base);
+    flex-shrink: 0;
+    padding: 0
+}
+
+.explorer-open-file:hover .open-file-close {
+    opacity: .6
+}
+
+.open-file-close:hover {
+    opacity: 1!important;
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+html.flat-theme .explorer-open-files {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-open-file:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-open-file.active {
+    background: color-mix(in srgb,var(--color-primary) 12%,var(--color-bg-element))
+}
+
+.code-editor-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    position: relative
+}
+
+html.flat-theme .code-editor-explorer {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-header {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-tree-entry:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-tree-file.active {
+    background: color-mix(in srgb,var(--color-primary) 12%,var(--color-bg-element))
+}
+
+.file-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    overflow: auto;
+    padding: 16px
+}
+
+.file-preview-image {
+    background: repeating-conic-gradient(var(--white-3) 0% 25%,transparent 0% 50%) 0 0 / 16px 16px
+}
+
+.file-preview-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px
+}
+
+/* ── Explorer header actions ───────────────────────── */
+
+.explorer-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0
+}
+
+.explorer-hdr-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    flex-shrink: 0;
+    padding: 0
+}
+
+.explorer-hdr-btn:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+/* ── Explorer tree entry row (for hover actions) ─── */
+
+.explorer-tree-entry-row {
+    display: flex;
+    align-items: center;
+    position: relative
+}
+
+.explorer-tree-entry-row .explorer-tree-entry {
+    flex: 1;
+    min-width: 0
+}
+
+.explorer-entry-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+    padding-right: 4px
+}
+
+.explorer-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    padding: 0
+}
+
+.explorer-action-btn:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.explorer-action-danger:hover {
+    color: var(--color-danger, #f85149);
+    background: color-mix(in srgb, var(--color-danger, #f85149) 12%, transparent)
+}
+
+/* ── Inline create input ────────────────────────── */
+
+.explorer-inline-input {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 12px
+}
+
+.explorer-inline-input .file-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.explorer-inline-input .folder-icon {
+    color: var(--color-primary, #fab283)
+}
+
+.explorer-inline-name-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--white-3);
+    border: 1px solid var(--white-10);
+    border-radius: 3px;
+    color: var(--color-text);
+    font-size: 12px;
+    padding: 2px 5px;
+    outline: none;
+    font-family: inherit
+}
+
+.explorer-inline-name-input:focus {
+    border-color: var(--color-primary, #fab283);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary, #fab283) 25%, transparent)
+}
+
+.explorer-root-inline-create {
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
+}
+
+/* ── Confirm delete ──────────────────────────────── */
+
+.explorer-confirm-delete {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: color-mix(in srgb, var(--color-danger, #f85149) 8%, transparent);
+    border: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
+    border-radius: 3px;
+    margin: 2px 4px;
+    font-size: 11px;
+    color: var(--color-text)
+}
+
+.explorer-confirm-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.explorer-confirm-yes {
+    background: var(--color-danger, #f85149);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0
+}
+
+.explorer-confirm-yes:hover {
+    opacity: .85
+}
+
+.explorer-confirm-no {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0
+}
+
+.explorer-confirm-no:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+/* ── Mobile explorer actions ────────────────────── */
+
+.mobile-explorer-actions-toggle {
+    position: relative;
+    flex-shrink: 0
+}
+
+.mobile-explorer-actions-dropdown {
+    position: fixed;
+    z-index: 9999;
+    min-width: 140px;
+    padding: 4px 0;
+    background: var(--color-bg-element, #1e1e1e);
+    border: .5px solid var(--white-10);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--black-30)
+}
+
+.mobile-action-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-base)
+}
+
+.mobile-action-item:hover {
+    background: var(--white-6)
+}
+
+.mobile-inline-create {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
+}
+
+.mobile-confirm-delete {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, var(--color-danger, #f85149) 8%, transparent);
+    border-bottom: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
+    font-size: 12px;
+    color: var(--color-text)
+}
+
+.code-editor-file-entry-row {
+    display: flex;
+    align-items: center
+}
+
+.code-editor-file-entry-row .code-editor-file-entry {
+    flex: 1;
+    min-width: 0
+}
+
+.mobile-entry-delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition-base);
+    padding: 0;
+    opacity: .5
+}
+
+.mobile-entry-delete-btn:hover {
+    color: var(--color-danger, #f85149);
+    opacity: 1
+}
+
+/* ── Flat theme overrides ───────────────────────── */
+
+html.flat-theme .explorer-hdr-btn:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-action-btn:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .explorer-inline-name-input {
+    background: var(--color-bg);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-inline-name-input:focus {
+    border-color: var(--color-primary)
+}
+
+html.flat-theme .explorer-root-inline-create {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .mobile-explorer-actions-dropdown {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .mobile-action-item:hover {
+    background: var(--color-bg)
+}
+
+html.flat-theme .mobile-inline-create {
+    border-color: var(--color-border)
+}

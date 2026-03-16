@@ -1,0 +1,17 @@
+[build]
+# Target directory for trunk output
+dist = "dist"
+# Public URL base path — assets served from /ui/
+public_url = "/"
+
+[watch]
+watch = ["src", "index.html", "styles"]
+
+[serve]
+port = 9090
+
+# Run Tailwind CSS before building
+[[hooks]]
+stage = "pre_build"
+command = "npx"
+command_arguments = ["tailwindcss", "-i", "styles/main.css", "-o", "styles/output.css", "--minify"]

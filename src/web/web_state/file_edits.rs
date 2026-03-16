@@ -1,7 +1,18 @@
+/// Maximum number of file edit records kept per session.
+/// Older records beyond this limit are pruned (oldest first).
+const MAX_EDITS_PER_SESSION: usize = 200;
+
+/// Maximum number of file snapshot entries per session.
+/// Prevents unbounded growth when many files are edited.
+const MAX_SNAPSHOTS_PER_SESSION: usize = 500;
+
 impl super::WebStateHandle {
     /// Record a file edit event for a session.
     /// Reads the file from disk, stores original snapshot on first edit,
     /// and records the edit with before/after content.
+    ///
+    /// Edit history is capped at `MAX_EDITS_PER_SESSION` per session to
+    /// prevent unbounded memory growth.
     pub async fn record_file_edit(
         &self,
         session_id: &str,
@@ -50,6 +61,13 @@ impl super::WebStateHandle {
                 if let Some(existing) = snapshots.get(file_path) {
                     existing.clone()
                 } else {
+                    // Cap snapshot entries per session
+                    if snapshots.len() >= MAX_SNAPSHOTS_PER_SESSION {
+                        // Remove the first (oldest) key to make room
+                        if let Some(oldest_key) = snapshots.keys().next().cloned() {
+                            snapshots.remove(&oldest_key);
+                        }
+                    }
                     snapshots.insert(file_path.to_string(), original.clone());
                     drop(inner); // release write lock early
                     original
@@ -74,7 +92,20 @@ impl super::WebStateHandle {
                 timestamp,
                 index,
             });
+
+            // Cap: prune oldest edits if over limit
+            if edits.len() > MAX_EDITS_PER_SESSION {
+                let drain_count = edits.len() - MAX_EDITS_PER_SESSION;
+                edits.drain(..drain_count);
+            }
         }
+    }
+
+    /// Clear file edit history for a session (e.g. when session is deleted).
+    pub async fn clear_file_edits(&self, session_id: &str) {
+        let mut inner = self.inner.write().await;
+        inner.file_snapshots.remove(session_id);
+        inner.file_edits.remove(session_id);
     }
 
     /// Try to get the original file content from git (HEAD version).

@@ -16,6 +16,8 @@ export interface EventHandlerContext {
   flushMessages: () => void;
   flushSubagentMessages: () => void;
   refreshState: () => void;
+  /** Update a single session's metadata in app state without a full refresh. */
+  updateSessionMeta: (sessionInfo: Record<string, unknown>) => void;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
   setSessionStatus: React.Dispatch<React.SetStateAction<"idle" | "busy">>;
   setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -201,9 +203,9 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       // Keep busySessions in sync (mirrors the app-level SSE path)
       if (sid) {
         if (isBusy) {
-          ctx.setBusySessions((prev) => new Set([...prev, sid]));
+          ctx.setBusySessions((prev) => prev.has(sid) ? prev : new Set([...prev, sid]));
         } else {
-          ctx.setBusySessions((prev) => { const next = new Set(prev); next.delete(sid); return next; });
+          ctx.setBusySessions((prev) => { if (!prev.has(sid)) return prev; const next = new Set(prev); next.delete(sid); return next; });
         }
       }
       if (sid === ctx.activeSessionRef.current) {
@@ -213,9 +215,19 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
     }
 
     case "session.created":
-    case "session.updated":
       ctx.refreshState();
       break;
+
+    case "session.updated": {
+      // Update session metadata locally without a full refreshState() to avoid
+      // active_session drift that causes unwanted session switches (e.g. when
+      // selecting a model).
+      const updatedInfo = props.info as Record<string, unknown> | undefined;
+      if (updatedInfo) {
+        ctx.updateSessionMeta(updatedInfo);
+      }
+      break;
+    }
 
     case "session.deleted": {
       // Evict deleted session from the LRU cache
@@ -338,11 +350,11 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
 
   appSSE.addEventListener("state_changed", () => { ctx.touchEvent(); ctx.refreshState(); });
   appSSE.addEventListener("session_busy", (e: MessageEvent) => {
-    ctx.setBusySessions((prev) => new Set([...prev, e.data]));
+    ctx.setBusySessions((prev) => prev.has(e.data) ? prev : new Set([...prev, e.data]));
     if (e.data === ctx.activeSessionRef.current) ctx.setSessionStatus("busy");
   });
   appSSE.addEventListener("session_idle", (e: MessageEvent) => {
-    ctx.setBusySessions((prev) => { const next = new Set(prev); next.delete(e.data); return next; });
+    ctx.setBusySessions((prev) => { if (!prev.has(e.data)) return prev; const next = new Set(prev); next.delete(e.data); return next; });
     if (e.data === ctx.activeSessionRef.current) ctx.setSessionStatus("idle");
   });
   appSSE.addEventListener("stats_updated", (e: MessageEvent) => {
@@ -387,9 +399,17 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
     try {
       const data = JSON.parse(e.data) as McpAgentActivity;
       ctx.setMcpAgentActivity((prev) => {
-        const next = new Map(prev);
-        if (data.active) next.set(data.tool, true); else next.delete(data.tool);
-        return next;
+        if (data.active) {
+          if (prev.has(data.tool)) return prev; // no change
+          const next = new Map(prev);
+          next.set(data.tool, true);
+          return next;
+        } else {
+          if (!prev.has(data.tool)) return prev; // no change
+          const next = new Map(prev);
+          next.delete(data.tool);
+          return next;
+        }
       });
     } catch { /* ignore */ }
   });

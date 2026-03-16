@@ -1,0 +1,293 @@
+
+.prompt-chip:hover {
+    color: var(--color-text);
+    border-color: color-mix(in srgb,var(--color-primary) 40%,transparent);
+    background: var(--white-8)
+}
+
+.prompt-chip:disabled {
+    opacity: .4;
+    cursor: not-allowed
+}
+
+.prompt-chip-label {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.prompt-chip-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 180px;
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--white-6);
+    border: .5px solid var(--glass-border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),0 6px 20px var(--black-8),0 2px 8px var(--black-4);
+    z-index: var(--z-overlay);
+    padding: var(--space-1);
+    overflow: hidden
+}
+
+.prompt-chip-dropdown-item {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast)
+}
+
+.prompt-chip-dropdown-item .prompt-agent-dot {
+    margin-top: 4px
+}
+
+.prompt-chip-dropdown-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0
+}
+
+.prompt-chip-dropdown-item:hover {
+    background: var(--white-8)
+}
+
+.prompt-chip-dropdown-item.active {
+    background: color-mix(in srgb,var(--color-primary) 15%,transparent);
+    color: var(--color-primary)
+}
+
+.prompt-chip-dropdown-name {
+    font-weight: 600;
+    font-size: var(--font-size-xs)
+}
+
+.prompt-chip-dropdown-desc {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 400
+}
+
+/* ── Agent colour dot ──────────────────────────────── */
+
+.prompt-agent-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0
+}
+
+/* ── @agent mention pills ──────────────────────────── */
+
+.prompt-agent-mentions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 8px 4px
+}
+
+.prompt-agent-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px 2px 5px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text);
+    background: var(--white-6);
+    border: 1px solid var(--white-10);
+    border-radius: var(--radius-md);
+    line-height: 1
+}
+
+.prompt-agent-pill-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    margin-left: 1px;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast), background var(--transition-fast)
+}
+
+.prompt-agent-pill-remove:hover {
+    opacity: 1;
+    background: var(--white-10)
+}
+
+/* ── @agent mention popover ────────────────────────── */
+
+.prompt-at-popover {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: var(--space-4);
+    max-width: var(--chat-max-width);
+    width: calc(100% - 2 * var(--space-4));
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--white-6);
+    border: .5px solid var(--glass-border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 .5px 0 0 var(--white-6), 0 4px 12px var(--black-6);
+    padding: var(--space-1);
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: var(--z-overlay)
+}
+
+.prompt-at-popover-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast)
+}
+
+.prompt-at-popover-item:hover {
+    background: var(--white-8)
+}
+
+.prompt-at-popover-name {
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    flex-shrink: 0
+}
+
+.prompt-at-popover-desc {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.slash-popover {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: var(--space-4);
+    max-width: var(--chat-max-width);
+    width: calc(100% - 2 * var(--space-4));
+    max-height: 300px;
+    overflow-y: auto;
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+    background: var(--white-5);
+    border: .5px solid var(--glass-border-light);
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 .5px 0 0 var(--white-6),0 8px 24px var(--black-8),0 2px 8px var(--black-4);
+    z-index: var(--z-overlay);
+    padding: var(--space-1) 0
+}
+
+.slash-popover-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast)
+}
+
+.slash-popover-item:hover,.slash-popover-item.selected {
+    background: var(--white-6)
+}
+
+.slash-popover-name {
+    font-weight: 600;
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs)
+}
+
+.slash-popover-desc {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs)
+}
+
+.slash-popover-args {
+    color: var(--color-accent);
+    font-size: var(--font-size-2xs);
+    font-family: var(--font-mono);
+    opacity: .6;
+    margin-left: auto
+}
+
+.prompt-sending {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    padding: 0 var(--space-2);
+    animation: pulse-text 1.5s ease-in-out infinite
+}
+
+.slash-popover {
+    border-radius: 22px;
+    padding: 8px
+}
+
+.slash-popover-item {
+    padding: 12px 14px;
+    border-radius: 14px
+}
+
+.prompt-input-wrapper {
+    border-radius: 22px
+}
+
+.prompt-selectors,.prompt-attachments {
+    position: relative;
+    z-index: 2
+}
+
+.prompt-selectors {
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--color-border-subtle)
+}
+
+.prompt-chip {
+    min-height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface)
+}
+
+.prompt-chip:hover {
+    background: var(--color-surface-hover)
+}

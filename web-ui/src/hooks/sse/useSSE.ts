@@ -65,6 +65,11 @@ export function useSSE(): SSEState {
   const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
   const activeSessionRef = useRef<string | null>(null);
   const appliedTitleRef = useRef<string | null>(null);
+  /** When true, the next appState update is allowed to change the active session.
+   *  This is set by user-initiated actions (selectSession, newSession, switchProject)
+   *  and cleared after the switch happens.  Background SSE-driven refreshState()
+   *  calls will not switch sessions unless this flag is set or activeSession is null. */
+  const expectSessionSwitchRef = useRef(false);
 
   const sessionGenRef = useRef(0);
 
@@ -199,6 +204,33 @@ export function useSSE(): SSEState {
     } catch (e) {
       console.error("Failed to fetch state:", e);
     }
+  }, []);
+
+  /** Update a single session's metadata in the local app state without a full refresh.
+   *  This avoids active_session drift that causes unwanted session switches. */
+  const updateSessionMeta = useCallback((sessionInfo: Record<string, unknown>) => {
+    const sid = (sessionInfo.id as string) || "";
+    if (!sid) return;
+    setAppState((prev) => {
+      if (!prev) return prev;
+      let changed = false;
+      const projects = prev.projects.map((proj: any) => {
+        const sessions = proj.sessions.map((s: any) => {
+          if (s.id !== sid) return s;
+          changed = true;
+          return {
+            ...s,
+            title: (sessionInfo.title as string) ?? s.title,
+            time: sessionInfo.time ? {
+              created: (sessionInfo.time as any).created ?? s.time?.created,
+              updated: (sessionInfo.time as any).updated ?? s.time?.updated,
+            } : s.time,
+          };
+        });
+        return changed ? { ...proj, sessions } : proj;
+      });
+      return changed ? { ...prev, projects } : prev;
+    });
   }, []);
 
   /** Hydrate pending permissions/questions from server-side tracking (survives reload). */
@@ -353,6 +385,14 @@ export function useSSE(): SSEState {
     const proj = appState.projects[appState.active_project];
     const sid = proj?.active_session ?? null;
     if (sid !== activeSessionRef.current) {
+      // Guard: if the user already has an active session and this change wasn't
+      // user-initiated, ignore the server's active_session to prevent unwanted
+      // session switches caused by background SSE refreshState() calls.
+      if (activeSessionRef.current !== null && !expectSessionSwitchRef.current && sid !== null) {
+        return;
+      }
+      expectSessionSwitchRef.current = false;
+
       // Save current session to cache before switching away
       saveCurrentSessionToCache();
 
@@ -524,7 +564,7 @@ export function useSSE(): SSEState {
         handleOpenCodeEvent(
           { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
             flushMessages, flushSubagentMessages,
-            refreshState, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
+            refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
             setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
           event,
         );
@@ -561,7 +601,12 @@ export function useSSE(): SSEState {
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
     };
-  }, [refreshState, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
+  }, [refreshState, updateSessionMeta, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
+
+  /** Signal that a user-initiated session switch is expected (call before selectSession/newSession). */
+  const expectSessionSwitch = useCallback(() => {
+    expectSessionSwitchRef.current = true;
+  }, []);
 
   return {
     appState, messages, stats, busySessions, permissions, questions,
@@ -572,5 +617,6 @@ export function useSSE(): SSEState {
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, loadOlderMessages,
+    expectSessionSwitch,
   };
 }

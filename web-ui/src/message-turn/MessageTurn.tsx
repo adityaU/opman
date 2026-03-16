@@ -1,12 +1,11 @@
 import React, { useMemo, useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle } from "lucide-react";
 
 import { ToolCall } from "../ToolCall";
 import type { MessageTurnProps, MessagePart, Message, SessionInfo } from "./types";
 import { modelLabel } from "./helpers";
-import { markdownComponents } from "./CodeBlock";
+import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { agentColor } from "../utils/theme";
 
 export const MessageTurn = React.memo(function MessageTurn({
@@ -227,7 +226,7 @@ export const MessageTurn = React.memo(function MessageTurn({
         ) : (
           textSegments.length > 0 && (
             <div className="message-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
                 {textSegments.join("\n")}
               </ReactMarkdown>
             </div>
@@ -308,7 +307,7 @@ function renderInterleavedContent(
       const text = currentTextChunks.join("\n");
       elements.push(
         <div className="message-body" key={`text-${key++}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
             {text}
           </ReactMarkdown>
         </div>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>opman</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <!-- Mermaid for diagram rendering in CodeEditorPanel -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- DOMPurify for HTML/SVG sanitization in CodeEditorPanel -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <link data-trunk rel="rust" data-wasm-opt="0" />
+    <link data-trunk rel="css" href="styles/output.css" />
+    <link data-trunk rel="copy-file" href="public/favicon.svg" />
+    <link data-trunk rel="copy-file" href="public/icon-192.png" />
+    <link data-trunk rel="copy-file" href="public/icon-512.png" />
+    <link data-trunk rel="copy-file" href="public/manifest.json" />
+    <link data-trunk rel="copy-file" href="public/sw.js" />
+</head>
+<body style="margin:0; padding:0; background:var(--color-bg, #0a0a0a); color:var(--color-text, #e0e0e0); font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow:hidden;">
+    <div id="leptos-root"></div>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(
+            function (reg) { if (reg) console.log("[SW] registered, scope:", reg.scope); },
+            function (err) { console.error("[SW] registration failed:", err); }
+          );
+        });
+      }
+    </script>
+</body>
+</html>

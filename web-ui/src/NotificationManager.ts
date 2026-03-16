@@ -111,7 +111,7 @@ export function showNotification(
   }
 
   // ── Fallback: plain Notification API ──
-  const icon = "/favicon.svg";
+  const icon = "/ui/favicon.svg";
 
   const notification = new Notification(title, {
     body,

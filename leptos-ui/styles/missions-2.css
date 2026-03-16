@@ -1,0 +1,60 @@
+
+.mission-handoff-summary,.mission-handoff-next {
+    font-size: 12px;
+    color: var(--color-text, #e6edf3);
+    line-height: 1.45
+}
+
+.mission-handoff-blockers,.mission-handoff-recent {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center
+}
+
+.mission-handoff-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--color-muted, #8b949e)
+}
+
+.mission-handoff-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #ffffff0d;
+    border: 1px solid var(--color-border, #21262d);
+    color: var(--color-text, #e6edf3);
+    font-size: 11px
+}
+
+.mission-handoff-chip-blocker {
+    background: #f851491f;
+    border-color: #f851493d;
+    color: #ffaba8
+}
+
+.mission-handoff-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px
+}
+
+.mission-handoff-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb,var(--color-primary) 24%,var(--color-border));
+    background: color-mix(in srgb,var(--color-primary) 10%,var(--color-surface));
+    color: var(--color-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer
+}

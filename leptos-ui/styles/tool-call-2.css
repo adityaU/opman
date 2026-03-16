@@ -1,0 +1,97 @@
+
+.subagent-open-link:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-accent-hover, var(--color-accent));
+    text-decoration: underline;
+}
+
+.subagent-messages {
+    max-height: 500px;
+    overflow-y: auto;
+    scroll-behavior: smooth
+}
+
+.subagent-messages .message-timeline {
+    overflow: visible;
+    max-height: none;
+    padding: 0
+}
+
+.subagent-messages .message-timeline-inner {
+    padding: 0 var(--space-3);
+    gap: 0;
+    max-width: none
+}
+
+.subagent-messages .message-turn {
+    padding: var(--space-2) 0;
+    margin: 0;
+    border-radius: 0
+}
+
+.subagent-messages .message-turn-assistant {
+    background: color-mix(in srgb, var(--white-3) 50%, transparent);
+    padding-left: var(--space-4);
+    padding-right: var(--space-4)
+}
+
+.subagent-messages .message-turn-user {
+    background: transparent;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4)
+}
+
+.subagent-messages .message-avatar {
+    width: 18px;
+    height: 18px;
+    min-width: 18px
+}
+
+.subagent-messages .message-header {
+    font-size: var(--font-size-2xs)
+}
+
+.subagent-messages .message-body {
+    font-size: var(--font-size-xs);
+    line-height: 1.55
+}
+
+.subagent-messages .message-model {
+    font-size: .5625rem;
+    padding: 0 6px
+}
+
+/* Nested tool calls inside subagent should be more compact */
+
+.subagent-messages .tool-call {
+    margin: var(--space-1) 0;
+    border-radius: var(--radius-md)
+}
+
+.subagent-messages .tool-call-header {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-2xs)
+}
+
+.subagent-messages .tool-call-body {
+    padding: var(--space-1) var(--space-2)
+}
+
+.subagent-loading {
+    padding: var(--space-2) 0
+}
+
+.subagent-error {
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-error);
+    font-size: var(--font-size-xs)
+}
+
+.subagent-empty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs)
+}

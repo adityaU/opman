@@ -277,6 +277,7 @@ impl WebStateHandle {
         handle.spawn_session_poller();
         handle.spawn_opencode_sse_listener();
         handle.spawn_routine_scheduler();
+        handle.spawn_presence_cleanup();
 
         handle
     }

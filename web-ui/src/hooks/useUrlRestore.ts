@@ -14,6 +14,7 @@ export interface UseUrlRestoreOptions {
   };
   setPanels: (p: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean }) => void;
   refreshState: () => void;
+  expectSessionSwitch: () => void;
 }
 
 /**
@@ -21,7 +22,7 @@ export interface UseUrlRestoreOptions {
  * and keeps URL in sync with app state.
  */
 export function useUrlRestore(opts: UseUrlRestoreOptions) {
-  const { appState, activeSessionId, panels, setPanels, refreshState } = opts;
+  const { appState, activeSessionId, panels, setPanels, refreshState, expectSessionSwitch } = opts;
 
   const [initialUrlState] = useState(() => readUrlState());
   const urlRestoredRef = useRef(false);
@@ -48,6 +49,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
           urlRestoredRef.current = true;
           (async () => {
             try {
+              expectSessionSwitch();
               await selectSession(appState.active_project, lastSid);
               refreshState();
             } catch { /* ignore */ }
@@ -79,6 +81,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     urlRestoredRef.current = true;
     (async () => {
       try {
+        expectSessionSwitch();
         if (targetProject !== appState.active_project) {
           await switchProject(targetProject!);
         }
@@ -106,6 +109,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
         const currentSid = appState.projects[appState.active_project]?.active_session;
         if (currentSid !== state.sessionId) {
           const projIdx = state.projectIdx ?? appState.active_project;
+          expectSessionSwitch();
           (async () => {
             try {
               if (projIdx !== appState.active_project) {
@@ -120,7 +124,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
         }
       }
     },
-    [appState, refreshState, setPanels],
+    [appState, refreshState, setPanels, expectSessionSwitch],
   );
 
   // ── Keep URL in sync ──

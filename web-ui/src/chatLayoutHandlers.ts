@@ -20,6 +20,8 @@ export interface HandlerDeps {
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string) => void;
   refreshState: () => void;
+  /** Signal that a user-initiated session switch is expected. */
+  expectSessionSwitch: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -130,6 +132,7 @@ export function createHandleCommand(deps: HandlerDeps) {
     if (command === "new") {
       if (!deps.appState) return;
       try {
+        deps.expectSessionSwitch();
         await newSession(deps.appState.active_project);
         deps.refreshState();
         deps.setSelectedModel(null);
@@ -199,6 +202,7 @@ export function createHandleSelectSession(deps: HandlerDeps) {
   return async (sessionId: string, projectIdx: number) => {
     if (!deps.appState) return;
     try {
+      deps.expectSessionSwitch();
       if (projectIdx !== deps.appState.active_project) {
         await switchProject(projectIdx);
       }
@@ -217,6 +221,7 @@ export function createHandleNewSession(deps: HandlerDeps) {
   return async () => {
     if (!deps.appState) return;
     try {
+      deps.expectSessionSwitch();
       await newSession(deps.appState.active_project);
       deps.refreshState();
       deps.setSelectedModel(null);
@@ -231,6 +236,7 @@ export function createHandleNewSession(deps: HandlerDeps) {
 export function createHandleSwitchProject(deps: HandlerDeps) {
   return async (index: number) => {
     try {
+      deps.expectSessionSwitch();
       await switchProject(index);
       deps.refreshState();
       deps.setSelectedModel(null);

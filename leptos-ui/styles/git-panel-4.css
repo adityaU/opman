@@ -1,0 +1,406 @@
+
+.pr-description-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--color-accent, #7c3aed);
+    font-weight: 600
+}
+
+.pr-description-commits h4 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--color-text, #e6edf3)
+}
+
+.pr-description-commits ul {
+    list-style: none;
+    margin: 0;
+    padding: 0
+}
+
+.pr-description-commits li {
+    padding: 3px 0;
+    font-size: 11px;
+    color: var(--color-muted, #8b949e);
+    line-height: 1.4
+}
+
+.pr-description-commits code {
+    font-family: var(--font-mono, "JetBrains Mono", monospace);
+    color: var(--color-accent, #7c3aed);
+    font-size: 11px;
+    margin-right: 6px
+}
+
+.pr-description-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 10px;
+    background: #7c3aed1a;
+    border-radius: 4px;
+    color: var(--color-accent, #7c3aed);
+    font-size: 11px
+}
+
+.git-panel {
+    background: var(--color-bg-panel, var(--color-bg))
+}
+
+.git-panel-toolbar-row,.git-panel-tabs,.git-ai-actions,.git-commit-form,.git-section,.git-log-view,.git-diff-fullview,.git-commit-detail {
+    margin: 10px 12px 0
+}
+
+.git-panel-tabs,.git-ai-actions {
+    padding: 8px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface)
+}
+
+.git-tab,.git-branch-toggle,.git-file-action {
+    border-radius: 12px
+}
+
+.git-branch-toggle,.git-branch-filter,.git-commit-input {
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-element)
+}
+
+.git-commit-input {
+    min-height: 92px
+}
+
+.git-file-row,.git-log-entry,.git-commit-file-header {
+    border-radius: 14px
+}
+
+.git-file-row:hover,.git-log-entry:hover,.git-commit-file-header:hover {
+    background: var(--color-surface-hover)
+}
+
+.git-diff-body,.git-commit-file-body,.pr-description-modal-body {
+    background: var(--color-bg-element)
+}
+
+/* ── Repo switcher ──────────────────────────────── */
+
+.git-repo-switcher {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 4px 12px 0;
+    flex-shrink: 0
+}
+
+.git-repo-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: 6px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 3px 8px;
+    transition: all var(--transition-base);
+    max-width: 100%
+}
+
+.git-repo-toggle:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.git-repo-toggle .rotated {
+    transform: rotate(180deg)
+}
+
+.git-repo-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0
+}
+
+.git-repo-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 12px;
+    margin-top: 2px;
+    z-index: 50;
+    min-width: 200px;
+    max-width: 320px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--color-bg-panel);
+    border: 1px solid var(--white-8);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0
+}
+
+.git-repo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 10px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    gap: 8px;
+    transition: background var(--transition-fast)
+}
+
+.git-repo-item:hover {
+    background: var(--white-6)
+}
+
+.git-repo-item.current {
+    color: var(--color-primary)
+}
+
+.git-repo-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden
+}
+
+.git-repo-item-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.git-repo-item-branch {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.git-repo-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0
+}
+
+.git-repo-item-changes {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--color-warning, #f5a742);
+    color: #000;
+    font-size: 10px;
+    font-weight: 600
+}
+
+/* Flat theme overrides for repo switcher */
+
+html.flat-theme .git-repo-toggle {
+    border-color: var(--color-border);
+    background: var(--color-bg-element)
+}
+
+html.flat-theme .git-repo-toggle:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: var(--color-bg)
+}
+
+html.flat-theme .git-repo-dropdown {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .git-repo-item:hover {
+    background: var(--color-bg)
+}
+
+/* ── PR Branch Picker ──────────────────────────── */
+
+.pr-branch-picker-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: #0009;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000
+}
+
+.pr-branch-picker {
+    background: var(--color-bg, #0d1117);
+    border: 1px solid var(--color-border, #333);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px #00000080;
+    overflow: hidden
+}
+
+.pr-branch-picker-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border, #333);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text, #e6edf3)
+}
+
+.pr-branch-picker-header span {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px
+}
+
+.pr-branch-picker-header em {
+    font-style: normal;
+    color: var(--color-text-muted);
+    font-weight: 400
+}
+
+.pr-branch-picker-close {
+    background: none;
+    border: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    flex-shrink: 0
+}
+
+.pr-branch-picker-close:hover {
+    color: var(--color-text, #e6edf3);
+    background: var(--color-border, #333)
+}
+
+.pr-branch-picker-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--color-border-subtle, #222);
+    color: var(--color-text-muted)
+}
+
+.pr-branch-picker-search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: inherit
+}
+
+.pr-branch-picker-search input::placeholder {
+    color: var(--color-text-muted)
+}
+
+.pr-branch-picker-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 0
+}
+
+.pr-branch-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 14px;
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    text-align: left;
+    transition: background .12s
+}
+
+.pr-branch-picker-item:hover:not(:disabled) {
+    background: var(--white-6, #ffffff0f)
+}
+
+.pr-branch-picker-item:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}
+
+.pr-branch-picker-item.suggested {
+    color: var(--color-accent, #7c3aed)
+}
+
+.pr-branch-picker-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.pr-branch-picker-item-badge {
+    font-size: 9px;
+    font-family: inherit;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--color-accent, #7c3aed);
+    color: var(--color-bg, #000);
+    flex-shrink: 0;
+    letter-spacing: .5px
+}
+
+.pr-branch-picker-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px 14px;
+    color: var(--color-text-muted);
+    font-size: 12px
+}
+
+/* Flat theme overrides for branch picker */
+
+html.flat-theme .pr-branch-picker {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .pr-branch-picker-item:hover:not(:disabled) {
+    background: var(--color-bg)
+}

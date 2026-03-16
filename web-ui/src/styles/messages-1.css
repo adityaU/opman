@@ -41,7 +41,7 @@
     font-size: var(--font-size-xs);
     cursor: pointer;
     z-index: 10;
-    transition: all var(--transition-fast);
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
     box-shadow: 0 4px 12px var(--black-12);
     width: fit-content;
     margin: 0 auto
@@ -77,7 +77,7 @@
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
     box-shadow: 0 4px 12px var(--black-12);
 }
 
@@ -210,7 +210,7 @@
     text-align: left;
     line-height: 1.4;
     cursor: pointer;
-    transition: all .2s ease
+    transition: background .2s ease, border-color .2s ease, color .2s ease
 }
 
 .new-session-prompt-card:hover {

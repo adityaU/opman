@@ -1,0 +1,15 @@
+/* ── Import all React-parity CSS partials ──────────────────────────── */
+/* misc.css provides :root tokens, base-*.css provides liquid-glass,   */
+/* keyframes, resets.  All component/panel/modal/mobile/responsive CSS  */
+/* is included via index.css.                                           */
+@import './index.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Leptos-specific overrides ─────────────────────────────────────── */
+#leptos-root {
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,270 @@
+/* ═══════════════════════════════════════════════════════════════
+   responsive-3.css — Dock, panel sheets, tablet layout
+   Phone: <= 768px | Tablet: 769–1400px | Desktop: > 1400px
+   Dock/FAB/compose/input-hide: phone + tablet (max-width: 1400px)
+   Panel sheets: phone only (max-width: 768px)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Phone: touch targets on modal headers ──────────────── */
+@media(max-width: 768px) {
+    .session-graph-header button,.session-dashboard-header button,.activity-feed-header button,.assistant-inbox-header button,.assistant-center-header button,.memory-header button,.autonomy-header button,.routines-header button,.delegation-header button,.missions-header button,.notification-prefs-header button,.workspace-mgr-header button,.sysm-header button {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center
+    }
+
+    .session-dashboard-metrics {
+        grid-template-columns: repeat(2,1fr)
+    }
+
+    .pr-description-modal-overlay {
+        align-items: flex-end
+    }
+
+    .pr-description-modal {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        max-height: calc(85vh - env(safe-area-inset-top,0px));
+        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards;
+        padding-bottom: env(safe-area-inset-bottom,0px)
+    }
+
+    .pr-description-modal:before {
+        content: "";
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: var(--white-20);
+        border-radius: 9999px;
+        margin: 8px auto 0;
+        flex-shrink: 0
+    }
+
+    .pr-description-modal-close {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DOCK + FAB + COMPOSE + INPUT-HIDE — Phone + Tablet (max-width: 1400px)
+   Desktop uses status-bar / side-panel layout only.
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width: 1400px) {
+    .dock-container {
+        display: contents
+    }
+
+    .mobile-dock {
+        display: flex
+    }
+
+    .mobile-dock-fab {
+        display: flex
+    }
+
+    .mobile-compose-btn {
+        display: flex
+    }
+
+    .chat-layout {
+        padding-bottom: 0
+    }
+
+    .message-timeline {
+        padding-bottom: calc(var(--space-6) + 4.5rem + env(safe-area-inset-bottom,0))
+    }
+
+    .mobile-input-wrapper {
+        display: block;
+        position: relative;
+        z-index: 10;
+        max-height: 50vh;
+        opacity: 1;
+        overflow: visible;
+        transition: max-height .3s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+        will-change: max-height, opacity;
+        margin-bottom: 0
+    }
+
+    .mobile-input-wrapper.mobile-input-hidden {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none
+    }
+
+    .chat-main {
+        overflow: hidden
+    }
+
+    /* Hide desktop status bar on phone + tablet — dock replaces it */
+    .chat-status-bar {
+        display: none
+    }
+
+    /* Floating panel header — visible on phone + tablet */
+    .panel-floating-header {
+        display: flex
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHONE PANEL SHEETS — fullscreen overlay (max-width: 768px)
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width: 768px) {
+    .mobile-panel-sheet {
+        display: none;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 40;
+        background: var(--color-bg, #0B0E14);
+        border-radius: 0;
+        overflow: hidden;
+        transform: translateY(100%);
+        opacity: 0;
+        transition: transform .35s cubic-bezier(.34,1.56,.64,1),opacity .25s ease
+    }
+
+    .mobile-panel-sheet.mobile-panel-active {
+        display: flex;
+        transform: translateY(0);
+        opacity: 1;
+        animation: sheet-slide-up .35s cubic-bezier(.34,1.56,.64,1) forwards
+    }
+
+    .mobile-panel-sheet>*:last-child {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        overflow: auto;
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom,0))
+    }
+
+    .mobile-sheet-handle {
+        display: block
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHONE: panel content padding for floating header
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width: 768px) {
+    .mobile-panel-sheet .mobile-panel-content {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding-top: 54px;
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom,0))
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PWA STANDALONE — Status-bar colour driven by <meta name="theme-color">.
+   Bottom gesture/nav area colour derived from page background.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Standalone PWA — Android & general */
+@media (max-width: 768px) and (display-mode: standalone) {
+    html, body, #root {
+        background: var(--color-bg, #0B0E14);
+        background-color: var(--color-bg, #0B0E14)
+    }
+
+    .chat-layout {
+        /* No extra padding — content extends edge-to-edge,
+           individual children handle their own insets */
+    }
+
+    .prompt-input-container {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+    }
+
+    .mobile-panel-sheet {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    .chat-sidebar {
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+}
+
+/* iOS standalone detection (older WebKit doesn't support display-mode query) */
+@media (max-width: 768px) {
+    @supports (-webkit-touch-callout: none) {
+        html, body, #root {
+            background: var(--color-bg, #0B0E14);
+            background-color: var(--color-bg, #0B0E14)
+        }
+
+        .prompt-input-container {
+            padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px)
+        }
+
+        .mobile-panel-sheet {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        .chat-sidebar {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+    }
+}
+
+@keyframes sheet-slide-up {
+    0% {
+        transform: translateY(30px);
+        opacity: 0
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PWA STANDALONE — Safe-area handling for ALL screen sizes
+   (covers iPad in desktop/landscape mode where width > 1400px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (display-mode: standalone) {
+    html, body, #root {
+        background: var(--color-bg, #0B0E14);
+        background-color: var(--color-bg, #0B0E14)
+    }
+
+    .chat-status-bar {
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    .chat-sidebar {
+        padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+}
+
+/* iOS standalone fallback (older WebKit without display-mode query) */
+@supports (-webkit-touch-callout: none) {
+    @media (min-width: 769px) {
+        .chat-status-bar {
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        .chat-sidebar {
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+    }
+}

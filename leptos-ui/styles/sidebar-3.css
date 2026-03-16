@@ -1,0 +1,288 @@
+
+.sb-modal-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--space-2)
+}
+
+.sb-modal-body {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin-bottom: var(--space-4)
+}
+
+.sb-modal-body strong {
+    color: var(--color-text)
+}
+
+.sb-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2)
+}
+
+.sb-modal-btn {
+    padding: var(--space-1-5) var(--space-3);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast)
+}
+
+.sb-modal-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed
+}
+
+.sb-modal-cancel {
+    background: var(--white-6);
+    color: var(--color-text-muted);
+    border: .5px solid var(--white-12)
+}
+
+.sb-modal-cancel:hover:not(:disabled) {
+    background: var(--white-10)
+}
+
+.sb-modal-danger {
+    background: var(--color-error);
+    color: #fff
+}
+
+.sb-modal-danger:hover:not(:disabled) {
+    filter: brightness(1.1)
+}
+
+.sb-rename-input {
+    width: 100%;
+    padding: 2px 6px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    background: var(--white-4);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    outline: none;
+    box-shadow: 0 0 0 2px #3b82f633
+}
+
+.sb-rename-input:disabled {
+    opacity: .6
+}
+
+.sb-add-project {
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--white-6);
+    flex-shrink: 0
+}
+
+.sb-add-project-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px dashed var(--white-10);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .15s ease
+}
+
+.sb-add-project-btn:hover {
+    background: var(--white-4);
+    color: var(--color-text);
+    border-color: var(--white-15)
+}
+
+.sb-modal-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-3)
+}
+
+.sb-modal-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--white-10);
+    border-radius: var(--radius-sm);
+    background: var(--white-4);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s ease,box-shadow .15s ease;
+    box-sizing: border-box
+}
+
+.sb-modal-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent)
+}
+
+.sb-modal-input:disabled {
+    opacity: .6
+}
+
+.sb-modal-input::placeholder {
+    color: var(--white-20)
+}
+
+.sb-modal-optional {
+    font-weight: 400;
+    color: var(--white-30)
+}
+
+.sb-modal-error {
+    margin-top: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: #ef44441a;
+    color: var(--color-error);
+    font-size: var(--font-size-xs)
+}
+
+.sb-modal-primary {
+    background: var(--color-primary);
+    color: #fff
+}
+
+.sb-modal-primary:hover:not(:disabled) {
+    filter: brightness(1.1)
+}
+
+/* ── Directory Browser modal (Add Project) ─────────────── */
+
+.sb-modal-dir-browser {
+    width: 480px;
+    max-width: 95vw;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0
+}
+
+.sb-dir-browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--white-6)
+}
+
+.sb-dir-browser-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.sb-dir-browser-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all .15s ease
+}
+
+.sb-dir-browser-close:hover {
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+.sb-dir-browser-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--white-6)
+}
+
+.sb-dir-browser-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--white-8);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all .15s ease
+}
+
+.sb-dir-browser-nav-btn:hover:not(:disabled) {
+    background: var(--white-6);
+    color: var(--color-text);
+    border-color: var(--white-12)
+}
+
+.sb-dir-browser-nav-btn:disabled {
+    opacity: .3;
+    cursor: default
+}
+
+.sb-dir-browser-path {
+    flex: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 var(--space-2);
+    direction: rtl;
+    text-align: left
+}
+
+.sb-dir-browser-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--white-6)
+}
+
+.sb-dir-browser-search-icon {
+    color: var(--white-20);
+    flex-shrink: 0
+}
+
+.sb-dir-browser-filter {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    outline: none
+}
+
+.sb-dir-browser-filter::placeholder {
+    color: var(--white-20)
+}
+
+.sb-dir-browser-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: 340px;
+    padding: var(--space-1) 0
+}
