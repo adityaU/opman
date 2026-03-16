@@ -9,12 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    runs-on: macos-latest
+  # ── Build both frontends once (platform-independent) ───────────
+  build-frontends:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # ── 1. React UI ──────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,11 +26,10 @@ jobs:
         run: npm ci && npm run build
         working-directory: web-ui
 
-      # ── 2. Leptos UI ─────────────────────────────────────────────
-      - name: Install Rust toolchain
+      - name: Install Rust toolchain (wasm only)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
 
       - name: Install Trunk
         run: cargo install trunk --locked
@@ -43,24 +42,90 @@ jobs:
         run: trunk build --release
         working-directory: leptos-ui
 
-      # ── 3. Backend (embeds both dist/ dirs) ──────────────────────
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: |
+            web-ui/dist/
+            leptos-ui/dist/
+          retention-days: 1
+
+  # ── Build backend for each target ──────────────────────────────
+  build-backend:
+    needs: build-frontends
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation deps (Linux ARM)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Build release binary
-        run: cargo build --release --target aarch64-apple-darwin
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package binary
         run: |
-          cd target/aarch64-apple-darwin/release
-          tar czf ../../../opman-aarch64-apple-darwin.tar.gz opman
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../opman-${{ matrix.target }}.tar.gz opman
           cd ../../..
-          shasum -a 256 opman-aarch64-apple-darwin.tar.gz > opman-aarch64-apple-darwin.tar.gz.sha256
+          shasum -a 256 opman-${{ matrix.target }}.tar.gz > opman-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: |
+            opman-${{ matrix.target }}.tar.gz
+            opman-${{ matrix.target }}.tar.gz.sha256
+          retention-days: 1
+
+  # ── Create release & update Homebrew ───────────────────────────
+  publish:
+    needs: build-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            opman-aarch64-apple-darwin.tar.gz
-            opman-aarch64-apple-darwin.tar.gz.sha256
+            opman-*.tar.gz
+            opman-*.tar.gz.sha256
 
       - name: Update Homebrew formula
         env:
@@ -74,9 +139,9 @@ jobs:
           git clone -b main "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/adityaU/homebrew-opman.git" tap
           cd tap
 
-          sed -i '' "s|url \".*\"|url \"${URL}\"|" Formula/opman.rb
-          sed -i '' "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/opman.rb
-          sed -i '' "s|version \".*\"|version \"${VERSION}\"|" Formula/opman.rb
+          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/opman.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/opman.rb
+          sed -i "s|version \".*\"|version \"${VERSION}\"|" Formula/opman.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
