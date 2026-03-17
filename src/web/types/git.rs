@@ -249,3 +249,91 @@ pub struct GitRepoScope {
     #[serde(default)]
     pub repo: String,
 }
+
+// ── Pull / Stash / Gitignore types ─────────────────────────────────
+
+/// Request body for `POST /api/git/pull`.
+#[derive(Deserialize)]
+pub struct GitPullRequest {
+    /// Optional remote name (default: "origin").
+    #[serde(default)]
+    pub remote: String,
+    /// Optional branch to pull (default: current branch).
+    #[serde(default)]
+    pub branch: String,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
+}
+
+/// Response for `POST /api/git/pull`.
+#[derive(Serialize)]
+pub struct GitPullResponse {
+    pub success: bool,
+    pub output: String,
+}
+
+/// Request body for `POST /api/git/stash`.
+#[derive(Deserialize)]
+pub struct GitStashRequest {
+    /// Action: "push" (default), "pop", "list", "drop".
+    #[serde(default = "stash_action_default")]
+    pub action: String,
+    /// Optional stash message (for push).
+    #[serde(default)]
+    pub message: String,
+    /// Optional stash index (for pop/drop, e.g. "stash@{0}").
+    #[serde(default)]
+    pub stash_ref: String,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
+}
+
+fn stash_action_default() -> String {
+    "push".to_string()
+}
+
+/// A single stash entry.
+#[derive(Serialize)]
+pub struct GitStashEntry {
+    pub index: usize,
+    pub reference: String,
+    pub message: String,
+}
+
+/// Response for `POST /api/git/stash`.
+#[derive(Serialize)]
+pub struct GitStashResponse {
+    pub success: bool,
+    pub output: String,
+    /// Populated when action is "list".
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<GitStashEntry>,
+}
+
+/// Request body for `POST /api/git/gitignore`.
+#[derive(Deserialize)]
+pub struct GitIgnoreRequest {
+    /// Action: "add" or "list".
+    #[serde(default = "gitignore_action_default")]
+    pub action: String,
+    /// Patterns to add (for "add" action).
+    #[serde(default)]
+    pub patterns: Vec<String>,
+    /// Repo path relative to project root (default: ".").
+    #[serde(default)]
+    pub repo: String,
+}
+
+fn gitignore_action_default() -> String {
+    "list".to_string()
+}
+
+/// Response for `POST /api/git/gitignore`.
+#[derive(Serialize)]
+pub struct GitIgnoreResponse {
+    pub success: bool,
+    /// Current .gitignore contents.
+    pub content: String,
+}

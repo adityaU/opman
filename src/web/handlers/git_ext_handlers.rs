@@ -1,4 +1,4 @@
-//! Git show, branches, checkout, range-diff, and context-summary handlers.
+//! Git show, branches, checkout, range-diff, pull, stash, gitignore handlers.
 
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Json};
@@ -276,4 +276,232 @@ pub async fn git_range_diff(
         diff,
         files_changed,
     }))
+}
+
+/// POST /api/git/pull — pull from remote.
+pub async fn git_pull(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(req): Json<GitPullRequest>,
+) -> WebResult<impl IntoResponse> {
+    let dir_path = git_dir(&state, &req.repo).await?;
+
+    let mut args = vec!["pull".to_string()];
+    let remote = if req.remote.is_empty() {
+        "origin".to_string()
+    } else {
+        req.remote
+    };
+    args.push(remote);
+    if !req.branch.is_empty() {
+        args.push(req.branch);
+    }
+
+    let output = tokio::process::Command::new("git")
+        .args(&args)
+        .current_dir(&dir_path)
+        .output()
+        .await
+        .map_err(|e| WebError::Internal(format!("Failed to run git pull: {e}")))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = if stderr.is_empty() {
+        stdout
+    } else {
+        format!("{stdout}\n{stderr}")
+    };
+
+    Ok(Json(GitPullResponse {
+        success: output.status.success(),
+        output: combined.trim().to_string(),
+    }))
+}
+
+/// POST /api/git/stash — push, pop, list, or drop stashes.
+pub async fn git_stash(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(req): Json<GitStashRequest>,
+) -> WebResult<impl IntoResponse> {
+    let dir_path = git_dir(&state, &req.repo).await?;
+
+    match req.action.as_str() {
+        "push" | "" => {
+            let mut args = vec!["stash".to_string(), "push".to_string()];
+            if !req.message.is_empty() {
+                args.push("-m".to_string());
+                args.push(req.message);
+            }
+            let output = tokio::process::Command::new("git")
+                .args(&args)
+                .current_dir(&dir_path)
+                .output()
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to run git stash push: {e}")))?;
+
+            let out = combined_output(&output);
+            Ok(Json(GitStashResponse {
+                success: output.status.success(),
+                output: out,
+                entries: Vec::new(),
+            }))
+        }
+        "pop" => {
+            let mut args = vec!["stash".to_string(), "pop".to_string()];
+            if !req.stash_ref.is_empty() {
+                args.push(req.stash_ref);
+            }
+            let output = tokio::process::Command::new("git")
+                .args(&args)
+                .current_dir(&dir_path)
+                .output()
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to run git stash pop: {e}")))?;
+
+            let out = combined_output(&output);
+            Ok(Json(GitStashResponse {
+                success: output.status.success(),
+                output: out,
+                entries: Vec::new(),
+            }))
+        }
+        "list" => {
+            let output = tokio::process::Command::new("git")
+                .args(["stash", "list"])
+                .current_dir(&dir_path)
+                .output()
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to run git stash list: {e}")))?;
+
+            let text = String::from_utf8_lossy(&output.stdout);
+            let entries: Vec<GitStashEntry> = text
+                .lines()
+                .enumerate()
+                .map(|(i, line)| {
+                    let reference = format!("stash@{{{}}}", i);
+                    let message = line
+                        .splitn(2, ": ")
+                        .nth(1)
+                        .unwrap_or(line)
+                        .to_string();
+                    GitStashEntry {
+                        index: i,
+                        reference,
+                        message,
+                    }
+                })
+                .collect();
+
+            Ok(Json(GitStashResponse {
+                success: output.status.success(),
+                output: text.trim().to_string(),
+                entries,
+            }))
+        }
+        "drop" => {
+            let mut args = vec!["stash".to_string(), "drop".to_string()];
+            if !req.stash_ref.is_empty() {
+                args.push(req.stash_ref);
+            }
+            let output = tokio::process::Command::new("git")
+                .args(&args)
+                .current_dir(&dir_path)
+                .output()
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to run git stash drop: {e}")))?;
+
+            let out = combined_output(&output);
+            Ok(Json(GitStashResponse {
+                success: output.status.success(),
+                output: out,
+                entries: Vec::new(),
+            }))
+        }
+        other => Err(WebError::BadRequest(format!(
+            "Unknown stash action: {other}. Supported: push, pop, list, drop"
+        ))),
+    }
+}
+
+/// POST /api/git/gitignore — list or add patterns to .gitignore.
+pub async fn git_gitignore(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(req): Json<GitIgnoreRequest>,
+) -> WebResult<impl IntoResponse> {
+    let dir_path = git_dir(&state, &req.repo).await?;
+    let gitignore_path = dir_path.join(".gitignore");
+
+    match req.action.as_str() {
+        "list" | "" => {
+            let content = if gitignore_path.exists() {
+                tokio::fs::read_to_string(&gitignore_path)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            Ok(Json(GitIgnoreResponse {
+                success: true,
+                content,
+            }))
+        }
+        "add" => {
+            if req.patterns.is_empty() {
+                return Err(WebError::BadRequest(
+                    "Must specify at least one pattern to add".into(),
+                ));
+            }
+
+            // Read existing content
+            let mut content = if gitignore_path.exists() {
+                tokio::fs::read_to_string(&gitignore_path)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            // Ensure trailing newline before appending
+            if !content.is_empty() && !content.ends_with('\n') {
+                content.push('\n');
+            }
+
+            // Append new patterns (skip duplicates)
+            let existing_lines: std::collections::HashSet<String> =
+                content.lines().map(|s| s.to_string()).collect();
+            for pattern in &req.patterns {
+                let trimmed = pattern.trim();
+                if !trimmed.is_empty() && !existing_lines.contains(trimmed) {
+                    content.push_str(trimmed);
+                    content.push('\n');
+                }
+            }
+
+            tokio::fs::write(&gitignore_path, &content)
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to write .gitignore: {e}")))?;
+
+            Ok(Json(GitIgnoreResponse {
+                success: true,
+                content,
+            }))
+        }
+        other => Err(WebError::BadRequest(format!(
+            "Unknown gitignore action: {other}. Supported: list, add"
+        ))),
+    }
+}
+
+/// Helper: combine stdout + stderr from a process output.
+fn combined_output(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = if stderr.is_empty() {
+        stdout.to_string()
+    } else {
+        format!("{stdout}\n{stderr}")
+    };
+    combined.trim().to_string()
 }
