@@ -49,6 +49,7 @@ hmac = "0.12"
 async-stream = "0.3"
 clap = { version = "4", features = ["derive", "env"] }
 sysinfo = "0.33"
+openssl = { version = "0.10", features = ["vendored"] }
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).
