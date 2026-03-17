@@ -34,7 +34,9 @@ code,pre,kbd,samp {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
-    background: var(--white-2);
+    background: linear-gradient(180deg,var(--white-7) 0%,var(--white-3) 100%);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
     border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
     min-height: 32px;
     flex-shrink: 0;
@@ -95,7 +97,7 @@ code,pre,kbd,samp {
     border-radius: 999px;
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted)
 }
 
@@ -119,7 +121,7 @@ code,pre,kbd,samp {
 }
 
 .code-editor-save-status {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-success, #7fd88f);
     text-transform: uppercase;
     letter-spacing: .04em
@@ -190,7 +192,7 @@ code,pre,kbd,samp {
 
 .code-editor-hover-title {
     margin-bottom: 6px;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     text-transform: uppercase;
     letter-spacing: .08em;
     color: var(--color-text-muted)
@@ -198,7 +200,7 @@ code,pre,kbd,samp {
 
 .code-editor-hover-card pre {
     white-space: pre-wrap;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     line-height: 1.5
 }
 
@@ -214,7 +216,7 @@ code,pre,kbd,samp {
     display: flex;
     gap: 8px;
     align-items: flex-start;
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .code-editor-diagnostic-pos {

@@ -27,7 +27,7 @@
     background: transparent;
     border: none;
     color: var(--color-text, #e0e0e0);
-    font-size: 15px;
+    font-size: var(--font-size-base);
     font-family: inherit;
     outline: none
 }
@@ -52,7 +52,7 @@
     padding: 24px 16px;
     text-align: center;
     color: var(--color-text-muted, #808080);
-    font-size: 13px
+    font-size: var(--font-size-sm)
 }
 
 .cross-session-search-error {
@@ -68,7 +68,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 6px 16px;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     text-transform: uppercase;
     letter-spacing: .05em;
     color: var(--color-text-muted, #808080);
@@ -84,7 +84,7 @@
 }
 
 .cross-session-search-match-count {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     opacity: .7
 }
 
@@ -99,7 +99,7 @@
     text-align: left;
     color: var(--color-text, #e0e0e0);
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: inherit;
     transition: background .1s;
     position: relative
@@ -114,7 +114,7 @@
     align-items: center;
     gap: 4px;
     color: var(--color-text-muted, #808080);
-    font-size: 10px
+    font-size: var(--font-size-2xs)
 }
 
 .cross-session-search-role {
@@ -127,7 +127,7 @@
 }
 
 .cross-session-search-snippet {
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     line-height: 1.4;
     color: var(--color-text, #e0e0e0);
     overflow: hidden;
@@ -153,6 +153,6 @@
 .cross-session-search-more {
     padding: 8px 16px;
     text-align: center;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted, #808080)
 }

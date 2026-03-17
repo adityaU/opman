@@ -76,7 +76,7 @@
 }
 
 .prompt-chip-dropdown-desc {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     font-weight: 400
 }
@@ -105,7 +105,7 @@
     align-items: center;
     gap: 3px;
     padding: 2px 6px 2px 5px;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 500;
     color: var(--color-text);
     background: var(--white-6);
@@ -183,7 +183,7 @@
 }
 
 .prompt-at-popover-desc {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     font-weight: 400;
     white-space: nowrap;

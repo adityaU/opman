@@ -53,7 +53,7 @@
 }
 
 .explorer-title {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;
@@ -103,7 +103,7 @@
     background: none;
     border: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: inherit;
     cursor: pointer;
     text-align: left;
@@ -146,7 +146,7 @@
 }
 
 .explorer-section-label {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;
@@ -166,7 +166,7 @@
     gap: 4px;
     width: 100%;
     padding: 3px 8px;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
@@ -375,7 +375,7 @@ html.flat-theme .explorer-tree-file.active {
     align-items: center;
     gap: 4px;
     padding: 3px 8px;
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .explorer-inline-input .file-icon {
@@ -394,7 +394,7 @@ html.flat-theme .explorer-tree-file.active {
     border: 1px solid var(--white-10);
     border-radius: 3px;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     padding: 2px 5px;
     outline: none;
     font-family: inherit
@@ -420,7 +420,7 @@ html.flat-theme .explorer-tree-file.active {
     border: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
     border-radius: 3px;
     margin: 2px 4px;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text)
 }
 
@@ -438,7 +438,7 @@ html.flat-theme .explorer-tree-file.active {
     border: none;
     border-radius: 3px;
     padding: 2px 8px;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     cursor: pointer;
     flex-shrink: 0
 }
@@ -494,7 +494,7 @@ html.flat-theme .explorer-tree-file.active {
     background: none;
     border: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     text-align: left;
     transition: background var(--transition-base)
@@ -519,7 +519,7 @@ html.flat-theme .explorer-tree-file.active {
     padding: 6px 12px;
     background: color-mix(in srgb, var(--color-danger, #f85149) 8%, transparent);
     border-bottom: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text)
 }
 

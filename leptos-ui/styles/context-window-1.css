@@ -225,7 +225,7 @@
 }
 
 .ctx-gauge-label {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-family: inherit;
     text-transform: uppercase;
     letter-spacing: .06em
@@ -258,7 +258,7 @@
 
 .ctx-summary-estimate {
     margin-top: var(--space-1, 4px);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted, #888);
     display: flex;
     align-items: center;
@@ -274,7 +274,7 @@
 }
 
 .ctx-breakdown-title {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     text-transform: uppercase;
     letter-spacing: .05em;
     font-weight: 600;

@@ -209,7 +209,7 @@
 
 .session-graph-header h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text, #e6edf3)
 }
@@ -240,7 +240,7 @@
     text-align: center;
     padding: 32px 16px;
     color: var(--color-muted, #8b949e);
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .session-graph-node {
@@ -251,7 +251,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: background .15s;
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .session-graph-node:hover {

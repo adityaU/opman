@@ -43,7 +43,7 @@
 
 .delegation-header-left h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600
 }
 
@@ -74,7 +74,7 @@
     border: 1px solid var(--color-border, #21262d);
     border-radius: 8px;
     padding: 9px 11px;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--color-text, #e6edf3)
 }
 
@@ -96,7 +96,7 @@
 }
 
 .delegation-context,.delegation-item-meta {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e)
 }
 
@@ -110,7 +110,7 @@
     border: 1px solid var(--color-border, #21262d);
     background: var(--color-surface, #161b22);
     color: var(--color-text, #e6edf3);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer
 }
 
@@ -140,13 +140,13 @@
 }
 
 .delegation-item-title {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text, #e6edf3)
 }
 
 .delegation-item-scope {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1.45;
     color: var(--color-text, #e6edf3)
 }
@@ -167,5 +167,5 @@
     padding: 20px 16px;
     text-align: center;
     color: var(--color-muted, #8b949e);
-    font-size: 13px
+    font-size: var(--font-size-sm)
 }

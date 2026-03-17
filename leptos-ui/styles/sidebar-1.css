@@ -272,7 +272,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    font-size: 9px;
+    font-size: var(--font-size-2xs);
     color: var(--color-secondary);
     font-weight: 500;
     flex-shrink: 0;
@@ -281,13 +281,51 @@
 }
 
 .sb-project-count {
-    font-size: 9px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     opacity: .5;
     font-weight: 500;
     flex-shrink: 0;
     text-transform: none;
     letter-spacing: 0
+}
+
+/* ── Project row action buttons (new session, remove) ──────────── */
+
+.sb-project-header-row {
+    display: flex;
+    align-items: center;
+    gap: 0
+}
+
+.sb-project-new,
+.sb-project-remove {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast)
+}
+
+.sb-project-header-row:hover .sb-project-new,
+.sb-project-header-row:hover .sb-project-remove,
+.sb-project-new:focus-visible,
+.sb-project-remove:focus-visible {
+    opacity: 1;
+    pointer-events: auto
+}
+
+.sb-project-new:hover {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent)
+}
+
+.sb-project-remove:hover {
+    color: var(--color-danger, #f85149);
+    background: color-mix(in srgb, var(--color-danger, #f85149) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger, #f85149) 30%, transparent)
 }
 
 .sb-sessions {

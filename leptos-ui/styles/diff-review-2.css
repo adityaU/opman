@@ -2,7 +2,7 @@
 .diff-review-file-dir {
     display: block;
     width: 100%;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted, #808080);
     opacity: .7;
     overflow: hidden;
@@ -31,7 +31,7 @@
 .diff-review-file-path {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted, #808080);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -51,7 +51,7 @@
     border: 1px solid var(--color-border, #484848);
     color: var(--color-text, #eeeeee);
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     padding: 4px 10px;
     border-radius: var(--radius-sm, 4px);
@@ -94,7 +94,7 @@
 }
 
 .diff-review-viewer table {
-    font-size: 12px!important
+    font-size: var(--font-size-xs)!important
 }
 
 .diff-review-no-selection {
@@ -121,7 +121,7 @@
 }
 
 .diff-review-footer-hint {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted, #808080)
 }
 
@@ -131,7 +131,7 @@
     background: #ffffff0a;
     border: 1px solid var(--color-border, #484848);
     border-radius: 3px;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-family: inherit;
     min-width: 18px;
     text-align: center

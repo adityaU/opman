@@ -11,7 +11,9 @@
     flex-direction: column;
     gap: 0;
     flex-shrink: 0;
-    background: var(--white-2);
+    background: linear-gradient(180deg,var(--white-7) 0%,var(--white-3) 100%);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(1.4) brightness(1.04);
     border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
 }
 
@@ -91,7 +93,7 @@
     background: none;
     border: none;
     color: var(--color-text);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     text-align: left;
     cursor: pointer;
     transition: background var(--transition-base)
@@ -108,7 +110,7 @@
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    font-size: 11px
+    font-size: var(--font-size-2xs)
 }
 
 .git-breadcrumb-segment {
@@ -129,7 +131,7 @@
     padding: 0;
     color: var(--color-text-muted);
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     transition: color var(--transition-base)
 }
 
@@ -226,7 +228,7 @@
 
 .git-branch-section-label {
     padding: 6px 10px 2px;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .05em;

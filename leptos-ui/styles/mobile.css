@@ -36,7 +36,7 @@
 }
 
 .mobile-project-name {
-    font-size: .9375rem;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--color-text);
     overflow: hidden;
@@ -433,7 +433,7 @@
 }
 
 .panel-floating-header-name {
-    font-size: .875rem;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text);
     letter-spacing: -.01em
