@@ -1,7 +1,7 @@
 
 .session-dashboard-card-cost {
     font-family: var(--font-mono, "JetBrains Mono", monospace);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e)
 }
 
@@ -12,7 +12,7 @@
 }
 
 .session-dashboard-card-stop {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     padding: 2px 8px;
     border: 1px solid color-mix(in srgb,var(--color-error) 28%,var(--color-border));
     border-radius: 4px;
@@ -31,7 +31,7 @@
     text-align: center;
     padding: 32px 16px;
     color: var(--color-muted, #8b949e);
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .session-dashboard-footer {
@@ -40,7 +40,7 @@
     justify-content: space-between;
     padding: 8px 16px;
     border-top: 1px solid var(--color-border, #21262d);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e)
 }
 
@@ -88,7 +88,7 @@
     gap: 8px;
     padding: 48px 16px;
     color: var(--color-muted, #8b949e);
-    font-size: 13px
+    font-size: var(--font-size-sm)
 }
 
 .session-dashboard-error {
@@ -98,7 +98,7 @@
     background: var(--theme-error-soft);
     border: 1px solid color-mix(in srgb,var(--color-error) 28%,var(--color-border));
     color: var(--color-error);
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 .session-dashboard-status-dot {
@@ -133,7 +133,7 @@
     align-items: center;
     gap: 3px;
     font-family: var(--font-mono, "JetBrains Mono", monospace);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e);
     white-space: nowrap
 }

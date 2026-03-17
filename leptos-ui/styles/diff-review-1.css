@@ -117,7 +117,7 @@
     justify-content: center;
     background: var(--color-primary, #fab283);
     color: var(--color-bg, #0B0E14);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 700;
     min-width: 20px;
     height: 20px;
@@ -187,7 +187,7 @@
 }
 
 .diff-review-empty-hint {
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted, #808080);
     opacity: .7
 }
@@ -213,7 +213,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-2, 8px) var(--space-3, 12px);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     text-transform: uppercase;
     letter-spacing: .05em;
     font-weight: 600;
@@ -222,7 +222,7 @@
 }
 
 .diff-review-pending-badge {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-warning, #f5a742);
     text-transform: none;
     letter-spacing: normal;
@@ -238,7 +238,7 @@
     border: none;
     color: var(--color-text, #eeeeee);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     text-align: left;
     width: 100%;

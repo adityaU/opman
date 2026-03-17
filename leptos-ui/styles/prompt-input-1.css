@@ -282,7 +282,7 @@
     border: .5px solid var(--white-10);
     border-radius: var(--radius-full);
     color: var(--color-text-muted);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-family: var(--font-mono);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);

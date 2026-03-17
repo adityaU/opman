@@ -1,6 +1,6 @@
 
 .mission-handoff-summary,.mission-handoff-next {
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text, #e6edf3);
     line-height: 1.45
 }
@@ -13,7 +13,7 @@
 }
 
 .mission-handoff-label {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .05em;
@@ -28,7 +28,7 @@
     background: #ffffff0d;
     border: 1px solid var(--color-border, #21262d);
     color: var(--color-text, #e6edf3);
-    font-size: 11px
+    font-size: var(--font-size-2xs)
 }
 
 .mission-handoff-chip-blocker {
@@ -54,7 +54,7 @@
     border: 1px solid color-mix(in srgb,var(--color-primary) 24%,var(--color-border));
     background: color-mix(in srgb,var(--color-primary) 10%,var(--color-surface));
     color: var(--color-primary);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     cursor: pointer
 }

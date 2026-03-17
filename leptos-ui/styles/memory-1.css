@@ -43,7 +43,7 @@
 
 .memory-header-left h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600
 }
 
@@ -58,7 +58,7 @@
     border-radius: 999px;
     background: var(--theme-success-soft);
     color: var(--color-success);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 600
 }
 
@@ -100,7 +100,7 @@
     border: 1px solid var(--color-border, #21262d);
     border-radius: 8px;
     padding: 9px 11px;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--color-text, #e6edf3);
     outline: none
 }
@@ -118,7 +118,7 @@
 }
 
 .memory-context,.memory-item-meta {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e)
 }
 
@@ -131,7 +131,7 @@
     border: 1px solid color-mix(in srgb,var(--color-success) 28%,var(--color-border));
     background: var(--theme-success-soft);
     color: var(--color-success);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     cursor: pointer
 }
@@ -151,7 +151,7 @@
     padding: 28px 16px;
     text-align: center;
     color: var(--color-muted, #8b949e);
-    font-size: 13px
+    font-size: var(--font-size-sm)
 }
 
 .memory-section {
@@ -162,7 +162,7 @@
 }
 
 .memory-section-title {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .05em;
@@ -189,13 +189,13 @@
 }
 
 .memory-item-label {
-    font-size: 14px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text, #e6edf3)
 }
 
 .memory-item-content {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1.45;
     color: var(--color-text, #e6edf3)
 }

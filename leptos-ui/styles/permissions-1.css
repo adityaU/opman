@@ -64,7 +64,7 @@
 }
 
 .dock-tab-badge {
-    font-size: 9px;
+    font-size: var(--font-size-2xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .04em;

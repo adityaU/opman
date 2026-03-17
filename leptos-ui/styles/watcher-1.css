@@ -18,13 +18,13 @@
     gap: 8px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--color-border-subtle);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--color-text)
 }
 
 .watcher-status-badge {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 400;
     margin-left: auto;
     margin-right: 8px;
@@ -68,7 +68,7 @@
 }
 
 .watcher-group-label {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .05em;
@@ -85,7 +85,7 @@
     border: none;
     background: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     text-align: left;
     transition: background .12s
@@ -113,7 +113,7 @@
 }
 
 .watcher-session-project {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     flex-shrink: 0
 }
@@ -134,7 +134,7 @@
 }
 
 .watcher-form-label {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     color: var(--color-text-muted);
     display: flex;
@@ -157,7 +157,7 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: 8px;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: var(--font-mono, monospace);
     padding: 8px 10px;
     resize: vertical;
@@ -175,7 +175,7 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: 8px;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: var(--font-mono, monospace);
     padding: 6px 10px;
     width: 120px;
@@ -188,7 +188,7 @@
 }
 
 .watcher-form-hint {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted)
 }
 
@@ -199,7 +199,7 @@
 }
 
 .watcher-form-error {
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-error);
     padding: 6px 8px;
     background: color-mix(in srgb,var(--color-error) 10%,transparent);
@@ -223,7 +223,7 @@
     padding: 6px 8px;
     background: var(--color-bg-element);
     border-radius: 6px;
-    font-size: 11px
+    font-size: var(--font-size-2xs)
 }
 
 .watcher-original-text {
@@ -244,7 +244,7 @@
 
 .watcher-msg-picker-empty {
     padding: 12px;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     text-align: center
 }
@@ -256,7 +256,7 @@
     border: none;
     background: none;
     color: var(--color-text);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     font-family: var(--font-mono, monospace);
     text-align: left;
     cursor: pointer;
@@ -279,7 +279,7 @@
     gap: 5px;
     padding: 7px 14px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 500;
     cursor: pointer;
     border: 1px solid var(--color-border);

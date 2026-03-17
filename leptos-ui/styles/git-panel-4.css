@@ -3,14 +3,14 @@
     display: flex;
     gap: 16px;
     margin-bottom: 12px;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-accent, #7c3aed);
     font-weight: 600
 }
 
 .pr-description-commits h4 {
     margin: 0 0 6px;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--color-text, #e6edf3)
 }
 
@@ -22,7 +22,7 @@
 
 .pr-description-commits li {
     padding: 3px 0;
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     color: var(--color-muted, #8b949e);
     line-height: 1.4
 }
@@ -30,7 +30,7 @@
 .pr-description-commits code {
     font-family: var(--font-mono, "JetBrains Mono", monospace);
     color: var(--color-accent, #7c3aed);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     margin-right: 6px
 }
 
@@ -43,7 +43,7 @@
     background: #7c3aed1a;
     border-radius: 4px;
     color: var(--color-accent, #7c3aed);
-    font-size: 11px
+    font-size: var(--font-size-2xs)
 }
 
 .git-panel {
@@ -106,7 +106,7 @@
     border: .5px solid var(--white-8);
     border-radius: 6px;
     color: var(--color-text-muted);
-    font-size: 11px;
+    font-size: var(--font-size-2xs);
     cursor: pointer;
     padding: 3px 8px;
     transition: all var(--transition-base);
@@ -156,7 +156,7 @@
     background: none;
     border: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     text-align: left;
     gap: 8px;
@@ -188,7 +188,7 @@
 }
 
 .git-repo-item-branch {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -212,7 +212,7 @@
     border-radius: 8px;
     background: var(--color-warning, #f5a742);
     color: #000;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 600
 }
 
@@ -272,7 +272,7 @@ html.flat-theme .git-repo-item:hover {
     gap: 6px;
     padding: 10px 14px;
     border-bottom: 1px solid var(--color-border, #333);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     color: var(--color-text, #e6edf3)
 }
@@ -320,7 +320,7 @@ html.flat-theme .git-repo-item:hover {
     border: none;
     outline: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: inherit
 }
 
@@ -343,7 +343,7 @@ html.flat-theme .git-repo-item:hover {
     background: none;
     border: none;
     color: var(--color-text);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-family: var(--font-mono, monospace);
     cursor: pointer;
     text-align: left;
@@ -371,7 +371,7 @@ html.flat-theme .git-repo-item:hover {
 }
 
 .pr-branch-picker-item-badge {
-    font-size: 9px;
+    font-size: var(--font-size-2xs);
     font-family: inherit;
     font-weight: 600;
     text-transform: uppercase;
@@ -390,7 +390,7 @@ html.flat-theme .git-repo-item:hover {
     gap: 6px;
     padding: 20px 14px;
     color: var(--color-text-muted);
-    font-size: 12px
+    font-size: var(--font-size-xs)
 }
 
 /* Flat theme overrides for branch picker */
