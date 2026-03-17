@@ -29,9 +29,21 @@ async function ensureThemeColors() {
   return themeColors;
 }
 
-function buildThemeSvg(primary, bg) {
+// Favicon SVG — rounded corners for browser tabs
+function buildFaviconSvg(primary, bg) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="7" fill="${bg}"/>
+  <path d="M7 22 L14 16 L7 10" stroke="${primary}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="16" y1="22" x2="25" y2="22" stroke="${primary}" stroke-width="2.5" stroke-linecap="round"/>
+</svg>`;
+}
+
+// Maskable icon SVG — full-bleed background, no rounded corners.
+// Android/iOS apply their own circular/squircle mask; content must
+// fill edge-to-edge so no white border shows through the mask.
+function buildMaskableSvg(primary, bg) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="${bg}"/>
   <path d="M7 22 L14 16 L7 10" stroke="${primary}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <line x1="16" y1="22" x2="25" y2="22" stroke="${primary}" stroke-width="2.5" stroke-linecap="round"/>
 </svg>`;
@@ -138,7 +150,7 @@ self.addEventListener("fetch", function (event) {
         const tc = await ensureThemeColors();
         if (!tc) return fetch(event.request);
         try {
-          const svg = buildThemeSvg(tc.primary, tc.background);
+          const svg = buildFaviconSvg(tc.primary, tc.background);
           return new Response(svg, {
             headers: {
               "Content-Type": "image/svg+xml",
@@ -161,7 +173,7 @@ self.addEventListener("fetch", function (event) {
         const tc = await ensureThemeColors();
         if (!tc) return fetch(event.request);
         try {
-          const svg = buildThemeSvg(tc.primary, tc.background);
+          const svg = buildMaskableSvg(tc.primary, tc.background);
           const pngBlob = await svgToPng(svg, size);
           if (pngBlob) {
             return new Response(pngBlob, {
