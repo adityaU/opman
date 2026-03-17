@@ -94,7 +94,7 @@ code[class*=language-],pre[class*=language-] {
     opacity: .5
 }
 
-html.flat-theme .liquid-glass,html.flat-theme .liquid-glass:hover,html.flat-theme .liquid-glass-floating,html.flat-theme .login-box,html.flat-theme .chat-sidebar,html.flat-theme .side-panel-header,html.flat-theme .prompt-input-wrapper,html.flat-theme .prompt-input-wrapper:focus-within,html.flat-theme .prompt-chip-dropdown,html.flat-theme .prompt-at-popover,html.flat-theme .slash-popover,html.flat-theme .modal-backdrop,html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .agent-picker,html.flat-theme .theme-selector,html.flat-theme .permission-card,html.flat-theme .question-card,html.flat-theme .terminal-panel-header,html.flat-theme .terminal-overlay,html.flat-theme .chat-status-bar,html.flat-theme .toast,html.flat-theme .mobile-dock,html.flat-theme .mobile-status-pill,html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-theme .session-selector-modal,html.flat-theme .context-input-modal,html.flat-theme .settings-modal,html.flat-theme .watcher-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .cross-session-search-modal,html.flat-theme .sb-modal-overlay,html.flat-theme .sb-modal,html.flat-theme .session-graph-overlay,html.flat-theme .session-dashboard-overlay,html.flat-theme .activity-feed-overlay,html.flat-theme .assistant-inbox-overlay,html.flat-theme .assistant-center-overlay,html.flat-theme .memory-overlay,html.flat-theme .autonomy-overlay,html.flat-theme .routines-overlay,html.flat-theme .delegation-overlay,html.flat-theme .missions-overlay,html.flat-theme .workspace-mgr-overlay,html.flat-theme .add-project-overlay,html.flat-theme .pr-description-modal-overlay,html.flat-theme .search-modal-backdrop,html.flat-theme .search-modal,html.flat-theme .sysm-overlay,html.flat-theme .sysm-modal {
+html.flat-theme .liquid-glass,html.flat-theme .liquid-glass:hover,html.flat-theme .liquid-glass-floating,html.flat-theme .login-box,html.flat-theme .chat-sidebar,html.flat-theme .side-panel-header,html.flat-theme .prompt-input-wrapper,html.flat-theme .prompt-input-wrapper:focus-within,html.flat-theme .prompt-chip-dropdown,html.flat-theme .prompt-at-popover,html.flat-theme .slash-popover,html.flat-theme .modal-backdrop,html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .agent-picker,html.flat-theme .theme-selector,html.flat-theme .permission-card,html.flat-theme .question-card,html.flat-theme .terminal-panel-header,html.flat-theme .terminal-overlay,html.flat-theme .chat-status-bar,html.flat-theme .toast,html.flat-theme .mobile-dock,html.flat-theme .mobile-status-pill,html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-theme .session-selector-modal,html.flat-theme .context-input-modal,html.flat-theme .settings-modal,html.flat-theme .watcher-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .cross-session-search-modal,html.flat-theme .sb-modal-overlay,html.flat-theme .sb-modal,html.flat-theme .session-graph-overlay,html.flat-theme .session-dashboard-overlay,html.flat-theme .activity-feed-overlay,html.flat-theme .assistant-inbox-overlay,html.flat-theme .assistant-center-overlay,html.flat-theme .memory-overlay,html.flat-theme .autonomy-overlay,html.flat-theme .routines-overlay,html.flat-theme .delegation-overlay,html.flat-theme .missions-overlay,html.flat-theme .workspace-mgr-overlay,html.flat-theme .add-project-overlay,html.flat-theme .pr-description-modal-overlay,html.flat-theme .search-modal-backdrop,html.flat-theme .search-modal,html.flat-theme .sysm-overlay,html.flat-theme .sysm-modal,html.flat-theme .code-editor-toolbar,html.flat-theme .git-panel-header {
     backdrop-filter: none;
     -webkit-backdrop-filter: none
 }
@@ -281,4 +281,16 @@ html.flat-theme .search-modal {
     background: var(--color-bg-panel);
     border-color: var(--color-border);
     box-shadow: 0 12px 40px var(--black-25)
+}
+
+html.flat-theme .code-editor-toolbar {
+    background: var(--color-bg-element);
+    border-bottom-color: var(--color-border-subtle);
+    box-shadow: none
+}
+
+html.flat-theme .git-panel-header {
+    background: var(--color-bg-element);
+    border-bottom-color: var(--color-border-subtle);
+    box-shadow: none
 }

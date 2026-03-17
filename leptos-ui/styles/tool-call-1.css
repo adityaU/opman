@@ -2,8 +2,7 @@
     margin: var(--space-2) 0;
     border: .5px solid var(--white-6);
     border-radius: var(--radius-lg);
-    overflow: hidden;
-    contain: layout style
+    overflow: hidden
 }
 
 .tool-call-task-inline {
@@ -140,6 +139,11 @@
     overflow: hidden
 }
 
+.tool-output-file .code-block-wrapper {
+    max-height: 400px;
+    overflow-y: auto
+}
+
 .tool-output-file-header {
     display: flex;
     align-items: center;
@@ -243,13 +247,12 @@
     border-left-color: var(--color-error)
 }
 
-/* subagent-glow: opacity-only for GPU efficiency (no box-shadow animation) */
 @keyframes subagent-glow {
     0%,to {
-        opacity: 1
+        box-shadow: 0 0 0 0 transparent
     }
     50% {
-        opacity: .92
+        box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 8%, transparent)
     }
 }
 

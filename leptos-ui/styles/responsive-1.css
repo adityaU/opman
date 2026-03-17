@@ -7,6 +7,18 @@
 
 /* ── Tablet + Phone: floating chat header + command button ──── */
 @media(max-width: 1400px) {
+
+    /* ── Root overrides — minimum 16px for ALL text on tablet ── */
+    :root {
+        --font-size-2xs: 1rem;
+        --font-size-xs: 1rem;
+        --font-size-sm: 1rem;
+        --font-size-md: 1rem;
+        --font-size-base: 1.0625rem;
+        --font-size-lg: 1.1875rem;
+        --font-size-xl: 1.375rem
+    }
+
     .chat-mobile-header {
         display: flex;
         padding-top: calc(env(safe-area-inset-top,0) + 8px)
@@ -20,41 +32,8 @@
     .message-timeline-inner {
         padding-top: calc(env(safe-area-inset-top,0) + 54px)
     }
-}
 
-@media(max-width: 768px) {
-
-    /* ── Root overrides — larger type scale, generous radii ───── */
-
-    :root {
-        --font-size-2xs: .8125rem;
-        --font-size-xs: .875rem;
-        --font-size-sm: .9375rem;
-        --font-size-md: 1rem;
-        --font-size-base: 1.0625rem;
-        --font-size-lg: 1.1875rem;
-        --font-size-xl: 1.375rem;
-        --radius-sm: 8px;
-        --radius-md: 14px;
-        --radius-lg: 20px;
-        --radius-xl: 28px
-    }
-
-    /* ═════════════════════════════════════════════════════════════
-       PHONE-ONLY STRUCTURAL — background, sidebar overlay, etc.
-       ═════════════════════════════════════════════════════════════ */
-
-    /* Paint the entire chat-layout and chat-main with the real
-       background color so there is no transparent gap between the
-       system status bar and the app content on Android / iOS. */
-    .chat-layout,
-    .chat-main {
-        background: var(--color-bg, #0B0E14)
-    }
-
-    /* ═════════════════════════════════════════════════════════════
-       SIDEBAR — Full-height overlay drawer
-       ═════════════════════════════════════════════════════════════ */
+    /* ── SIDEBAR — Overlay drawer for tablet + phone ───────── */
 
     /* Collapse the sidebar container slot */
     .chat-content>div:first-child:has(.chat-sidebar) {
@@ -120,11 +99,61 @@
         height: 2.75rem
     }
 
+    /* Hide desktop-only elements */
+    .side-panel {
+        display: none!important
+    }
+}
+
+@media(max-width: 768px) {
+
+    /* ── Root overrides — larger type scale, generous radii ───── */
+
+    :root {
+        --font-size-2xs: 1rem;
+        --font-size-xs: 1rem;
+        --font-size-sm: 1rem;
+        --font-size-md: 1.0625rem;
+        --font-size-base: 1.125rem;
+        --font-size-lg: 1.25rem;
+        --font-size-xl: 1.5rem;
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-xl: 28px
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       PHONE-ONLY STRUCTURAL — background, sidebar overlay, etc.
+       ═════════════════════════════════════════════════════════════ */
+
+    /* Paint the entire chat-layout and chat-main with the real
+       background color so there is no transparent gap between the
+       system status bar and the app content on Android / iOS. */
+    .chat-layout,
+    .chat-main {
+        background: var(--color-bg, #0B0E14)
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       SIDEBAR — Phone-specific sizing / touch targets
+       (Drawer mechanics are in the tablet-inclusive 1400px block)
+       ═════════════════════════════════════════════════════════════ */
+
     /* Sidebar icon buttons — generous touch targets */
     .sb-icon-btn {
         width: 2.75rem;
         height: 2.75rem;
         border-radius: var(--radius-md)
+    }
+
+    /* Project row action buttons — always visible on touch */
+    .sb-project-new,
+    .sb-project-remove {
+        opacity: 1;
+        pointer-events: auto;
+        width: 2rem;
+        height: 2rem
     }
 
     .sb-search-clear {
@@ -166,11 +195,6 @@
         display: flex;
         width: 2.5rem;
         height: 2.5rem
-    }
-
-    /* Hide desktop-only elements */
-    .side-panel {
-        display: none!important
     }
 
     .prompt-hints,.message-timeline-shortcuts {
@@ -315,7 +339,7 @@
        ═════════════════════════════════════════════════════════════ */
 
     .message-body pre,.tool-call-pre {
-        font-size: 13px;
+        font-size: var(--font-size-2xs);
         tab-size: 2;
         -moz-tab-size: 2;
         border-radius: var(--radius-md);
