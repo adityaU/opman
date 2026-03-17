@@ -55,7 +55,7 @@ pub use git_handlers::{
     git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_discard,
 };
 
-pub use git_ext_handlers::{git_show, git_branches, git_checkout, git_range_diff};
+pub use git_ext_handlers::{git_show, git_branches, git_checkout, git_range_diff, git_pull, git_stash, git_gitignore};
 
 pub use git_context_handlers::{git_context_summary, git_repos};
 

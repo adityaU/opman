@@ -106,6 +106,9 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/git/range-diff", get(handlers::git_range_diff))
         .route("/git/context-summary", get(handlers::git_context_summary))
         .route("/git/repos", get(handlers::git_repos))
+        .route("/git/pull", post(handlers::git_pull))
+        .route("/git/stash", post(handlers::git_stash))
+        .route("/git/gitignore", post(handlers::git_gitignore))
         // ── File browsing / editing ──────────────────────────────────
         .route("/agents", get(handlers::get_agents))
         .route("/files", get(handlers::browse_files))
