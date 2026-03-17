@@ -28,8 +28,11 @@ pub fn lang_extensions() -> HashMap<&'static str, &'static str> {
     m.insert("csharp", "cs");
     m.insert("cpp", "cpp");
     m.insert("c", "c");
+    m.insert("objective-c", "m");
+    m.insert("objective-cpp", "mm");
     m.insert("html", "html");
     m.insert("css", "css");
+    m.insert("scss", "scss");
     m.insert("json", "json");
     m.insert("yaml", "yml");
     m.insert("toml", "toml");
@@ -43,42 +46,81 @@ pub fn lang_extensions() -> HashMap<&'static str, &'static str> {
     m.insert("php", "php");
     m.insert("lua", "lua");
     m.insert("zig", "zig");
+    m.insert("clojure", "clj");
+    m.insert("elixir", "ex");
+    m.insert("erlang", "erl");
+    m.insert("haskell", "hs");
+    m.insert("scala", "scala");
+    m.insert("r", "r");
+    m.insert("perl", "pl");
+    m.insert("groovy", "groovy");
+    m.insert("dart", "dart");
+    m.insert("d", "d");
+    m.insert("pascal", "pas");
+    m.insert("ocaml", "ml");
+    m.insert("lisp", "lisp");
+    m.insert("latex", "tex");
+    m.insert("powershell", "ps1");
+    m.insert("diff", "diff");
+    m.insert("dockerfile", "Dockerfile");
+    m.insert("makefile", "Makefile");
     m
 }
 
 /// Extension-to-language mapping for guessing language from file path.
 pub fn ext_to_lang(ext: &str) -> &'static str {
     match ext {
-        "ts" => "typescript",
+        "ts" | "mts" | "cts" => "typescript",
         "tsx" => "tsx",
-        "js" => "javascript",
+        "js" | "mjs" | "cjs" => "javascript",
         "jsx" => "jsx",
-        "py" => "python",
+        "py" | "pyw" | "pyi" => "python",
         "rs" => "rust",
         "go" => "go",
-        "rb" => "ruby",
+        "rb" | "rake" | "gemspec" => "ruby",
         "java" => "java",
-        "kt" => "kotlin",
+        "kt" | "kts" => "kotlin",
         "swift" => "swift",
-        "c" => "c",
-        "cpp" | "cc" | "cxx" => "cpp",
-        "h" => "c",
-        "hpp" => "cpp",
+        "c" | "h" => "c",
+        "cpp" | "cc" | "cxx" | "hpp" | "hxx" => "cpp",
         "cs" => "csharp",
+        "m" => "objective-c",
+        "mm" => "objective-cpp",
         "css" => "css",
-        "scss" => "scss",
-        "html" => "html",
-        "xml" => "xml",
-        "json" => "json",
+        "scss" | "sass" => "scss",
+        "html" | "htm" => "html",
+        "xml" | "xsl" | "xslt" | "xsd" => "xml",
+        "json" | "jsonc" => "json",
         "yaml" | "yml" => "yaml",
         "toml" => "toml",
-        "md" => "markdown",
-        "sh" | "bash" | "zsh" => "bash",
+        "md" | "mdx" => "markdown",
+        "sh" | "bash" | "zsh" | "fish" => "bash",
         "sql" => "sql",
         "lua" => "lua",
+        "php" => "php",
+        "zig" => "zig",
         "vim" => "vim",
         "dockerfile" => "dockerfile",
         "makefile" => "makefile",
+        "diff" | "patch" => "diff",
+        "clj" | "cljs" | "cljc" | "edn" => "clojure",
+        "ex" | "exs" => "elixir",
+        "erl" | "hrl" => "erlang",
+        "hs" | "lhs" => "haskell",
+        "scala" | "sbt" | "sc" => "scala",
+        "r" | "rmd" => "r",
+        "pl" | "pm" | "pod" => "perl",
+        "groovy" | "gradle" | "gvy" => "groovy",
+        "dart" => "dart",
+        "d" => "d",
+        "pas" | "pp" => "pascal",
+        "ml" | "mli" => "ocaml",
+        "lisp" | "lsp" | "scm" | "rkt" => "lisp",
+        "tex" | "latex" => "latex",
+        "rst" => "restructuredtext",
+        "dot" | "gv" => "graphviz",
+        "tcl" => "tcl",
+        "ps1" | "psm1" => "powershell",
         _ => "text",
     }
 }

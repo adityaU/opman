@@ -103,7 +103,10 @@ pub fn WatcherModal(
                         set_selected_id_clone.set(Some(id));
                     }
                 }
-                Err(_) => {}
+                Err(e) => {
+                    log::error!("WatcherModal: failed to load sessions: {}", e);
+                    set_error.set(Some("Failed to load sessions".to_string()));
+                }
             }
             set_loading_clone.set(false);
         });
@@ -246,13 +249,7 @@ pub fn WatcherModal(
     let is_update = Memo::new(move |_| existing_watcher.get().is_some());
 
     view! {
-        <ModalOverlay on_close=on_close>
-            <div
-                class="watcher-modal"
-                role="dialog"
-                aria-modal="true"
-                on:click=move |e: leptos::ev::MouseEvent| e.stop_propagation()
-            >
+        <ModalOverlay on_close=on_close class="watcher-modal">
                 // Header
                 <div class="watcher-modal-header">
                     <svg class="w-4 h-4 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -457,8 +454,9 @@ pub fn WatcherModal(
                                                                     <div>
                                                                         {msgs.into_iter().map(|m| {
                                                                             let text = m.text.clone();
-                                                                            let text_for_display = if text.len() > 120 {
-                                                                                format!("{}...", &text[..120])
+                                                                            let text_for_display = if text.chars().count() > 120 {
+                                                                                let truncated: String = text.chars().take(120).collect();
+                                                                                format!("{}...", truncated)
                                                                             } else {
                                                                                 text.clone()
                                                                             };
@@ -565,7 +563,6 @@ pub fn WatcherModal(
                     <kbd>"Esc"</kbd>
                     " Close"
                 </div>
-            </div>
         </ModalOverlay>
     }
 }

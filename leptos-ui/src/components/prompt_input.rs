@@ -40,8 +40,8 @@ const NO_ARG_COMMANDS: &[&str] = &[
 fn short_model_name(model_id: &str) -> String {
     let parts: Vec<&str> = model_id.split('/').collect();
     let name = parts.last().unwrap_or(&model_id);
-    if name.len() > 30 {
-        format!("{}...", &name[..28])
+    if name.chars().count() > 30 {
+        format!("{}...", name.chars().take(28).collect::<String>())
     } else {
         name.to_string()
     }

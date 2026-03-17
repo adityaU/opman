@@ -232,6 +232,16 @@ pub fn GitPanel(
     let (pr_modal_open, set_pr_modal_open) = signal(false);
     let (pr_modal_data, set_pr_modal_data) = signal(Option::<GitRangeDiffResponse>::None);
 
+    // ── Pull / Stash / Gitignore state ─────────────────────────────
+    let (pulling, set_pulling) = signal(false);
+    let (stashing, set_stashing) = signal(false);
+    let (stash_list_open, set_stash_list_open) = signal(false);
+    let (stash_entries, set_stash_entries) = signal(Vec::<GitStashEntry>::new());
+    let (gitignore_open, set_gitignore_open) = signal(false);
+    let (gitignore_content, set_gitignore_content) = signal(String::new());
+    let (gitignore_loading, set_gitignore_loading) = signal(false);
+    let (gitignore_add_input, set_gitignore_add_input) = signal(String::new());
+
     // Current view
     let current_view = Memo::new(move |_| {
         view_stack.get().last().cloned().unwrap_or(GitView::List)
@@ -667,6 +677,15 @@ pub fn GitPanel(
         }
     };
 
+    // Helper: refresh just status (used after pull/stash/etc.)
+    let refresh_status = move |repo: String| {
+        leptos::task::spawn_local(async move {
+            if let Ok(s) = crate::api::git::git_status(&repo).await {
+                set_status.set(Some(s));
+            }
+        });
+    };
+
     // ── Fetch branch list when PR branch picker opens (match React useEffect) ──
     Effect::new(move |_| {
         if pr_branch_picker_open.get() {
@@ -789,7 +808,7 @@ pub fn GitPanel(
                             .join("\n");
                         // Truncate diff to 8000 chars (matching React)
                         let diff_truncated = if resp.diff.len() > 8000 {
-                            format!("{}... (diff truncated)", &resp.diff[..8000])
+                            format!("{}... (diff truncated)", resp.diff.chars().take(8000).collect::<String>())
                         } else {
                             resp.diff.clone()
                         };
@@ -830,6 +849,163 @@ pub fn GitPanel(
 
     let collapse_all_files = move |_| {
         set_expanded_files.set(HashSet::new());
+    };
+
+    // ── Pull handler ───────────────────────────────────────────────
+    let handle_pull = move |_| {
+        let repo = selected_repo.get_untracked().unwrap_or_default();
+        if repo.is_empty() {
+            return;
+        }
+        set_pulling.set(true);
+        leptos::task::spawn_local(async move {
+            match crate::api::git::git_pull(&repo, None, None).await {
+                Ok(resp) => {
+                    if !resp.success {
+                        show_error(format!("Pull failed: {}", resp.output));
+                    }
+                    // Refresh status after pull
+                    refresh_status(repo);
+                }
+                Err(e) => show_error(format!("Pull failed: {}", e)),
+            }
+            set_pulling.set(false);
+        });
+    };
+
+    // ── Stash push handler ─────────────────────────────────────────
+    let handle_stash_push = move |_| {
+        let repo = selected_repo.get_untracked().unwrap_or_default();
+        if repo.is_empty() {
+            return;
+        }
+        set_stashing.set(true);
+        leptos::task::spawn_local(async move {
+            match crate::api::git::git_stash_push(&repo, None).await {
+                Ok(resp) => {
+                    if !resp.success {
+                        show_error(format!("Stash failed: {}", resp.output));
+                    }
+                    refresh_status(repo);
+                }
+                Err(e) => show_error(format!("Stash failed: {}", e)),
+            }
+            set_stashing.set(false);
+        });
+    };
+
+    // ── Stash pop handler ──────────────────────────────────────────
+    let handle_stash_pop = move |_| {
+        let repo = selected_repo.get_untracked().unwrap_or_default();
+        if repo.is_empty() {
+            return;
+        }
+        set_stashing.set(true);
+        leptos::task::spawn_local(async move {
+            match crate::api::git::git_stash_pop(&repo).await {
+                Ok(resp) => {
+                    if !resp.success {
+                        show_error(format!("Stash pop failed: {}", resp.output));
+                    }
+                    refresh_status(repo);
+                }
+                Err(e) => show_error(format!("Stash pop failed: {}", e)),
+            }
+            set_stashing.set(false);
+        });
+    };
+
+    // ── Stash list toggle ──────────────────────────────────────────
+    let toggle_stash_list = move |_| {
+        let opening = !stash_list_open.get_untracked();
+        set_stash_list_open.set(opening);
+        if opening {
+            let repo = selected_repo.get_untracked().unwrap_or_default();
+            if !repo.is_empty() {
+                leptos::task::spawn_local(async move {
+                    match crate::api::git::git_stash_list(&repo).await {
+                        Ok(resp) => set_stash_entries.set(resp.entries),
+                        Err(e) => {
+                            log::error!("Failed to list stashes: {}", e);
+                            set_stash_entries.set(vec![]);
+                        }
+                    }
+                });
+            }
+        }
+    };
+
+    // ── Stash drop handler ─────────────────────────────────────────
+    let handle_stash_drop = move |stash_ref: String| {
+        let repo = selected_repo.get_untracked().unwrap_or_default();
+        if repo.is_empty() {
+            return;
+        }
+        leptos::task::spawn_local(async move {
+            match crate::api::git::git_stash_drop(&repo, &stash_ref).await {
+                Ok(resp) => {
+                    if !resp.success {
+                        show_error(format!("Stash drop failed: {}", resp.output));
+                    }
+                    // Refresh the stash list
+                    match crate::api::git::git_stash_list(&repo).await {
+                        Ok(r) => set_stash_entries.set(r.entries),
+                        Err(_) => set_stash_entries.set(vec![]),
+                    }
+                }
+                Err(e) => show_error(format!("Stash drop failed: {}", e)),
+            }
+        });
+    };
+
+    // ── Gitignore toggle ───────────────────────────────────────────
+    let toggle_gitignore = move |_| {
+        let opening = !gitignore_open.get_untracked();
+        set_gitignore_open.set(opening);
+        if opening {
+            let repo = selected_repo.get_untracked().unwrap_or_default();
+            if !repo.is_empty() {
+                set_gitignore_loading.set(true);
+                leptos::task::spawn_local(async move {
+                    match crate::api::git::git_gitignore_list(&repo).await {
+                        Ok(resp) => set_gitignore_content.set(resp.content),
+                        Err(e) => {
+                            log::error!("Failed to load .gitignore: {}", e);
+                            set_gitignore_content.set(String::new());
+                        }
+                    }
+                    set_gitignore_loading.set(false);
+                });
+            }
+        }
+    };
+
+    // ── Gitignore add handler ──────────────────────────────────────
+    let handle_gitignore_add = move |_| {
+        let input = gitignore_add_input.get_untracked();
+        let patterns: Vec<String> = input.lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+        if patterns.is_empty() {
+            return;
+        }
+        let repo = selected_repo.get_untracked().unwrap_or_default();
+        if repo.is_empty() {
+            return;
+        }
+        set_gitignore_loading.set(true);
+        leptos::task::spawn_local(async move {
+            let refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
+            match crate::api::git::git_gitignore_add(&repo, &refs).await {
+                Ok(resp) => {
+                    set_gitignore_content.set(resp.content);
+                    set_gitignore_add_input.set(String::new());
+                }
+                Err(e) => show_error(format!("Failed to update .gitignore: {}", e)),
+            }
+            set_gitignore_loading.set(false);
+        });
     };
 
     view! {
@@ -1241,6 +1417,179 @@ pub fn GitPanel(
                     }
                 }}
             </div>
+
+            // Git action bar (pull / stash / gitignore) — only in list view changes tab
+            {move || {
+                if current_view.get() != GitView::List || active_tab.get() != "changes" {
+                    return None;
+                }
+                let has_repo = selected_repo.get().is_some();
+                if !has_repo {
+                    return None;
+                }
+                Some(view! {
+                    <div class="git-actions-bar flex items-center gap-1 px-2 py-1 border-b border-border-subtle text-xs">
+                        // Pull button
+                        <button
+                            class="git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-bg-element/50 text-text-muted hover:text-text transition-colors"
+                            title="Pull from remote"
+                            disabled=move || pulling.get()
+                            on:click=handle_pull
+                        >
+                            {move || if pulling.get() {
+                                view! { <IconLoader2 size=12 class="spin" /> }.into_any()
+                            } else {
+                                view! { <IconDownload size=12 /> }.into_any()
+                            }}
+                            <span>"Pull"</span>
+                        </button>
+                        // Stash push
+                        <button
+                            class="git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-bg-element/50 text-text-muted hover:text-text transition-colors"
+                            title="Stash changes"
+                            disabled=move || stashing.get()
+                            on:click=handle_stash_push
+                        >
+                            {move || if stashing.get() {
+                                view! { <IconLoader2 size=12 class="spin" /> }.into_any()
+                            } else {
+                                view! { <IconLayers size=12 /> }.into_any()
+                            }}
+                            <span>"Stash"</span>
+                        </button>
+                        // Stash pop
+                        <button
+                            class="git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-bg-element/50 text-text-muted hover:text-text transition-colors"
+                            title="Pop stash"
+                            disabled=move || stashing.get()
+                            on:click=handle_stash_pop
+                        >
+                            <IconRotateCcw size=12 />
+                            <span>"Pop"</span>
+                        </button>
+                        // Stash list toggle
+                        <button
+                            class=move || {
+                                if stash_list_open.get() {
+                                    "git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-element/50 text-text transition-colors"
+                                } else {
+                                    "git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-bg-element/50 text-text-muted hover:text-text transition-colors"
+                                }
+                            }
+                            title="List stashes"
+                            on:click=toggle_stash_list
+                        >
+                            <IconHistory size=12 />
+                        </button>
+                        // Spacer
+                        <div class="flex-1"></div>
+                        // Gitignore toggle
+                        <button
+                            class=move || {
+                                if gitignore_open.get() {
+                                    "git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-element/50 text-text transition-colors"
+                                } else {
+                                    "git-action-btn flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-bg-element/50 text-text-muted hover:text-text transition-colors"
+                                }
+                            }
+                            title=".gitignore"
+                            on:click=toggle_gitignore
+                        >
+                            <IconFileCode size=12 />
+                            <span>".gitignore"</span>
+                        </button>
+                    </div>
+
+                    // Stash list dropdown
+                    {move || {
+                        if !stash_list_open.get() {
+                            return None;
+                        }
+                        let entries = stash_entries.get();
+                        Some(view! {
+                            <div class="git-stash-list border-b border-border-subtle bg-background/50 px-2 py-1">
+                                {if entries.is_empty() {
+                                    view! {
+                                        <div class="text-text-muted text-xs py-2 text-center">"No stashes"</div>
+                                    }.into_any()
+                                } else {
+                                    view! {
+                                        <div class="space-y-0.5">
+                                            {entries.iter().map(|e| {
+                                                let ref_drop = e.reference.clone();
+                                                let ref_display = e.reference.clone();
+                                                let msg = e.message.clone();
+                                                view! {
+                                                    <div class="flex items-center gap-2 text-xs py-0.5 group">
+                                                        <span class="text-primary font-mono text-[10px] flex-shrink-0">{ref_display}</span>
+                                                        <span class="text-text truncate flex-1">{msg}</span>
+                                                        <button
+                                                            class="opacity-0 group-hover:opacity-100 text-text-muted hover:text-error text-[10px]"
+                                                            title="Drop stash"
+                                                            on:click=move |_| handle_stash_drop(ref_drop.clone())
+                                                        >
+                                                            <IconTrash2 size=11 />
+                                                        </button>
+                                                    </div>
+                                                }
+                                            }).collect::<Vec<_>>()}
+                                        </div>
+                                    }.into_any()
+                                }}
+                            </div>
+                        })
+                    }}
+
+                    // Gitignore panel
+                    {move || {
+                        if !gitignore_open.get() {
+                            return None;
+                        }
+                        Some(view! {
+                            <div class="git-gitignore-panel border-b border-border-subtle bg-background/50 px-2 py-1.5">
+                                {move || {
+                                    if gitignore_loading.get() {
+                                        return view! {
+                                            <div class="flex items-center gap-1 text-xs text-text-muted py-1">
+                                                <IconLoader2 size=12 class="spin" />
+                                                <span>"Loading..."</span>
+                                            </div>
+                                        }.into_any();
+                                    }
+                                    let content = gitignore_content.get();
+                                    view! {
+                                        <div>
+                                            <pre class="text-[10px] font-mono text-text-muted max-h-32 overflow-y-auto mb-1 whitespace-pre-wrap">{content}</pre>
+                                            <div class="flex items-center gap-1">
+                                                <input
+                                                    type="text"
+                                                    class="flex-1 bg-background text-text text-xs px-1.5 py-0.5 rounded border border-border-subtle focus:border-primary outline-none"
+                                                    placeholder="Add pattern (e.g. *.log)"
+                                                    prop:value=move || gitignore_add_input.get()
+                                                    on:input=move |e| set_gitignore_add_input.set(event_target_value(&e))
+                                                    on:keydown=move |e: leptos::ev::KeyboardEvent| {
+                                                        if e.key() == "Enter" {
+                                                            e.prevent_default();
+                                                            handle_gitignore_add(());
+                                                        }
+                                                    }
+                                                />
+                                                <button
+                                                    class="text-xs px-1.5 py-0.5 rounded bg-primary text-white hover:bg-primary/80 transition-colors disabled:opacity-50"
+                                                    disabled=move || gitignore_add_input.get().trim().is_empty() || gitignore_loading.get()
+                                                    on:click=move |_| handle_gitignore_add(())
+                                                >
+                                                    "Add"
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }.into_any()
+                                }}
+                            </div>
+                        })
+                    }}
+                })
+            }}
 
             // Content area
             <div class="git-content flex-1 overflow-y-auto">

@@ -85,15 +85,19 @@ pub fn TerminalPanel(
             let id = make_uuid();
             let label = format!("{} {}", kind_label(&kind), count);
             let tab = TabInfo { id: id.clone(), kind: kind.clone(), label, status: TabStatus::Connecting };
-            set_tabs.update(|t| t.push(tab));
-            set_active_tab_id.set(Some(id.clone()));
-            set_kind_menu_open.set(false);
 
             let screen = SendWrapper::new(TermScreen::new(24, 80));
             let (rev, set_rev) = signal(0u64);
+
+            // Insert screen BEFORE pushing tab — the reactive view reads
+            // tab_screens synchronously when tabs signal changes.
             tab_screens.update_value(|m| {
                 m.insert(id.clone(), (screen.clone(), rev, set_rev));
             });
+
+            set_tabs.update(|t| t.push(tab));
+            set_active_tab_id.set(Some(id.clone()));
+            set_kind_menu_open.set(false);
 
             let sid_val = sid.and_then(|s| s.get_untracked());
             init_tab(id, kind, sid_val, set_tabs, runtimes.inner().clone(), screen, set_rev);

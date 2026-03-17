@@ -2,11 +2,55 @@
 //! Matches React `ModelPickerModal.tsx`.
 
 use leptos::prelude::*;
+use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use crate::components::icons::*;
 use crate::components::modal_overlay::ModalOverlay;
-use crate::types::core::Provider;
 
-// ── Types ───────────────────────────────────────────────────────────
+// ── Wire types (match actual /providers API) ────────────────────────
+
+#[derive(Debug, Clone, Deserialize)]
+struct ApiModelInfo {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    context_length: u64,
+    #[serde(default)]
+    max_output_tokens: Option<u64>,
+    // Also tolerate the `limit` shape from core::Provider
+    #[serde(default)]
+    limit: Option<ApiModelLimit>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ApiModelLimit {
+    #[serde(default)]
+    context: Option<u64>,
+    #[serde(default)]
+    output: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ApiProvider {
+    id: String,
+    name: String,
+    #[serde(default)]
+    models: HashMap<String, ApiModelInfo>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ProvidersApiResponse {
+    #[serde(default)]
+    all: Vec<ApiProvider>,
+    #[serde(default)]
+    connected: Vec<String>,
+    #[serde(default, rename = "default")]
+    defaults: HashMap<String, String>,
+}
+
+// ── View-layer flat model ───────────────────────────────────────────
 
 #[derive(Clone, PartialEq)]
 struct FlatModel {
@@ -32,9 +76,9 @@ pub fn ModelPickerModal(
     let (query, set_query) = signal(String::new());
     let (selected_index, set_selected_index) = signal(0usize);
     let (show_all, set_show_all) = signal(false);
-    let (providers, set_providers) = signal::<Vec<Provider>>(Vec::new());
-    let (connected, set_connected) = signal::<std::collections::HashSet<String>>(std::collections::HashSet::new());
-    let (defaults, set_defaults) = signal::<std::collections::HashMap<String, String>>(std::collections::HashMap::new());
+    let (providers, set_providers) = signal::<Vec<ApiProvider>>(Vec::new());
+    let (connected, set_connected) = signal::<HashSet<String>>(HashSet::new());
+    let (defaults, set_defaults) = signal::<HashMap<String, String>>(HashMap::new());
     let (loading, set_loading) = signal(true);
     let (error, set_error) = signal::<Option<String>>(None);
 
@@ -47,43 +91,14 @@ pub fn ModelPickerModal(
         }
     });
 
-    // Fetch providers on mount
+    // Fetch providers on mount — strongly-typed deserialization
     {
         leptos::task::spawn_local(async move {
-            match crate::api::api_fetch::<serde_json::Value>("/providers").await {
-                Ok(val) => {
-                    // Parse provider response
-                    if let Some(obj) = val.as_object() {
-                        let mut all_providers = Vec::new();
-                        let mut conn_set = std::collections::HashSet::new();
-                        let mut def_map = std::collections::HashMap::new();
-
-                        if let Some(arr) = obj.get("providers").and_then(|v| v.as_array()) {
-                            for pv in arr {
-                                if let Ok(p) = serde_json::from_value::<Provider>(pv.clone()) {
-                                    all_providers.push(p);
-                                }
-                            }
-                        }
-                        if let Some(arr) = obj.get("connected").and_then(|v| v.as_array()) {
-                            for v in arr {
-                                if let Some(s) = v.as_str() {
-                                    conn_set.insert(s.to_string());
-                                }
-                            }
-                        }
-                        if let Some(dobj) = obj.get("defaults").and_then(|v| v.as_object()) {
-                            for (k, v) in dobj {
-                                if let Some(s) = v.as_str() {
-                                    def_map.insert(k.clone(), s.to_string());
-                                }
-                            }
-                        }
-
-                        set_providers.set(all_providers);
-                        set_connected.set(conn_set);
-                        set_defaults.set(def_map);
-                    }
+            match crate::api::api_fetch::<ProvidersApiResponse>("/providers").await {
+                Ok(resp) => {
+                    set_providers.set(resp.all);
+                    set_connected.set(resp.connected.into_iter().collect());
+                    set_defaults.set(resp.defaults);
                     set_loading.set(false);
                 }
                 Err(e) => {
@@ -109,13 +124,22 @@ pub fn ModelPickerModal(
             }
             for (mid, minfo) in &p.models {
                 let is_default = defs.get(&p.id).map_or(false, |d| d == mid);
+                let display_name = minfo.name.clone().unwrap_or_else(|| mid.clone());
+                // Support both API shapes for context/output limits
+                let ctx = if minfo.context_length > 0 {
+                    Some(minfo.context_length)
+                } else {
+                    minfo.limit.as_ref().and_then(|l| l.context)
+                };
+                let out = minfo.max_output_tokens
+                    .or_else(|| minfo.limit.as_ref().and_then(|l| l.output));
                 flat.push(FlatModel {
                     provider_id: p.id.clone(),
                     provider_name: p.name.clone(),
                     model_id: mid.clone(),
-                    model_name: minfo.name.clone(),
-                    context_window: minfo.limit.as_ref().and_then(|l| l.context),
-                    output_limit: minfo.limit.as_ref().and_then(|l| l.output),
+                    model_name: display_name,
+                    context_window: ctx,
+                    output_limit: out,
                     is_connected,
                     is_default,
                 });

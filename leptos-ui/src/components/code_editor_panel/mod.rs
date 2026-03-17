@@ -24,6 +24,7 @@ use leptos::prelude::*;
 
 use crate::components::icons::{IconPanelLeft, IconX};
 use crate::hooks::use_panel_state::PanelState;
+use crate::hooks::use_resizable::{use_resizable, ResizableOptions, ResizeDirection};
 
 use actions::{
     build_close_file, build_create, build_load_dir, build_load_dir_children,
@@ -43,6 +44,13 @@ use state::EditorState;
 #[component]
 pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
     let s = EditorState::new();
+    let explorer_resize = use_resizable(ResizableOptions {
+        initial_size: 200.0,
+        min_size: 140.0,
+        max_size: 300.0,
+        direction: ResizeDirection::Horizontal,
+        reverse: false,
+    });
     let active_view = s.active_view_memo();
     let breadcrumbs = s.breadcrumbs_memo();
     let is_mobile = s.is_mobile;
@@ -133,6 +141,7 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
     // ── Build desktop views (consumed once) ─────────────────────────
     let d_sidebar = render_explorer_sidebar(
         &s,
+        explorer_resize.size,
         send_wrapper::SendWrapper::new(toggle_dir),
         send_wrapper::SendWrapper::new(open_file),
         send_wrapper::SendWrapper::new(create_file),
@@ -176,6 +185,20 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         <div class="code-editor-panel code-editor-desktop flex h-full bg-bg-panel"
              style:display=move || if is_mobile.get() { "none" } else { "" }>
             {d_sidebar}
+            // Explorer resize handle
+            <div
+                class=move || {
+                    let base = "resize-handle resize-handle-horizontal w-1 cursor-col-resize bg-transparent hover:bg-border-active transition-colors flex-shrink-0";
+                    if explorer_resize.is_dragging.get() {
+                        format!("{base} dragging bg-border-active")
+                    } else {
+                        base.to_string()
+                    }
+                }
+                style:display=move || if explorer_collapsed.get() { "none" } else { "" }
+                on:mousedown=move |e| explorer_resize.start_drag(e)
+                on:touchstart=move |e| explorer_resize.start_drag_touch(e)
+            />
             <div class="editor-area flex flex-col flex-1 min-w-0">
                 {move || explorer_collapsed.get().then(|| view! {
                     <button

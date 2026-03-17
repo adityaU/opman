@@ -50,23 +50,23 @@ pub fn build_select_session(
 
 // ── New session ─────────────────────────────────────────────────────
 
-pub fn build_new_session(sse: SseState) -> Callback<()> {
-    Callback::new(move |_: ()| {
+/// New session targeting a specific project index.
+pub fn build_new_session_for_project(sse: SseState) -> Callback<usize> {
+    Callback::new(move |project_idx: usize| {
         sse.expect_session_switch();
         let set_app_state = sse.set_app_state;
         leptos::task::spawn_local(async move {
             #[derive(serde::Serialize)]
-            struct NewBody {}
+            struct NewBody { project_idx: usize }
             if let Err(e) = crate::api::api_post::<crate::types::api::NewSessionResponse>(
                 "/session/new",
-                &NewBody {},
+                &NewBody { project_idx },
             )
             .await
             {
                 log::error!("Failed to create new session: {}", e);
                 return;
             }
-            // Fetch state as a reliable fallback for the same reason as select_session.
             if let Ok(state) = crate::api::project::fetch_app_state().await {
                 set_app_state.set(Some(state));
             }

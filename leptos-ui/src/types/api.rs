@@ -272,6 +272,35 @@ pub struct GitReposResponse {
     pub repos: Vec<GitRepoEntry>,
 }
 
+// ── Git pull / stash / gitignore types ──────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPullResponse {
+    pub success: bool,
+    pub output: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStashEntry {
+    pub index: usize,
+    pub reference: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStashResponse {
+    pub success: bool,
+    pub output: String,
+    #[serde(default)]
+    pub entries: Vec<GitStashEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitIgnoreResponse {
+    pub success: bool,
+    pub content: String,
+}
+
 // ── File types ──────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

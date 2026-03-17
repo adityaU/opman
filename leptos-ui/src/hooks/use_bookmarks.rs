@@ -43,8 +43,8 @@ impl BookmarkState {
             if map.contains_key(&mid) {
                 map.remove(&mid);
             } else {
-                let truncated = if preview.len() > 120 {
-                    format!("{}...", &preview[..117])
+                let truncated = if preview.chars().count() > 120 {
+                    format!("{}...", preview.chars().take(117).collect::<String>())
                 } else {
                     preview.to_string()
                 };
