@@ -1,14 +1,14 @@
 @media(max-width: 768px) {
 
     .watcher-form-error {
-        font-size: 13px;
+        font-size: var(--font-size-2xs);
         padding: 10px 12px;
         border-radius: 10px
     }
 
     .watcher-empty {
         padding: 24px 16px;
-        font-size: 13px
+        font-size: var(--font-size-2xs)
     }
 
     .ctx-window-modal {

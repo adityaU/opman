@@ -176,6 +176,11 @@
     background: var(--color-surface)
 }
 
+.sb-project-new,
+.sb-project-remove {
+    border-radius: 999px
+}
+
 .sb-session {
     margin-bottom: 6px;
     padding: 10px 12px;
