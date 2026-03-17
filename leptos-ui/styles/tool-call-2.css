@@ -29,6 +29,10 @@
     border-radius: 0
 }
 
+.subagent-messages .message-turn-wrap + .message-turn-wrap {
+    border-top: none
+}
+
 .subagent-messages .message-turn-assistant {
     background: color-mix(in srgb, var(--white-3) 50%, transparent);
     padding-left: var(--space-4);

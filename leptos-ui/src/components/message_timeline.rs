@@ -612,6 +612,7 @@ pub fn MessageTimeline(
 
                                     view! {
                                         <div
+                                            class="message-turn-wrap"
                                             data-group-key=key
                                             data-index=i.to_string()
                                             style:position="absolute"
@@ -702,7 +703,7 @@ pub fn MessageTimeline(
                                     let cs_clone = cs.clone();
                                     let sub_clone = sub_msgs.clone();
                                     view! {
-                                        <div data-group-key=key>
+                                        <div class="message-turn-wrap" data-group-key=key>
                                             <MessageTurn
                                                 group=group
                                                 child_sessions=cs_clone

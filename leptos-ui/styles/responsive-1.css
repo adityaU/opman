@@ -217,15 +217,15 @@
         border-radius: 0
     }
 
-    .message-turn:first-child {
+    .message-turn-wrap:first-child .message-turn {
         border-radius: var(--radius-lg) var(--radius-lg) 0 0
     }
 
-    .message-turn:last-child {
+    .message-turn-wrap:last-child .message-turn {
         border-radius: 0 0 var(--radius-lg) var(--radius-lg)
     }
 
-    .message-turn:first-child:last-child {
+    .message-turn-wrap:first-child:last-child .message-turn {
         border-radius: var(--radius-lg)
     }
 

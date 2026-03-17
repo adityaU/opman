@@ -115,22 +115,23 @@
 .message-turn {
     display: flex;
     margin: 0;
-    padding: var(--space-3) 0
+    padding: var(--space-3) 0;
+    border-radius: 0
 }
 
-.message-turn + .message-turn {
+.message-turn-wrap + .message-turn-wrap {
     border-top: 1px solid var(--color-border-subtle)
 }
 
-.message-turn:first-child {
+.message-turn-wrap:first-child .message-turn {
     border-radius: var(--radius-lg) var(--radius-lg) 0 0
 }
 
-.message-turn:last-child {
+.message-turn-wrap:last-child .message-turn {
     border-radius: 0 0 var(--radius-lg) var(--radius-lg)
 }
 
-.message-turn:first-child:last-child {
+.message-turn-wrap:first-child:last-child .message-turn {
     border-radius: var(--radius-lg)
 }
 
