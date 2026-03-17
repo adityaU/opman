@@ -101,7 +101,7 @@ pub(super) fn build_handle_new_session(deps: ChatHandlerDeps) -> Callback<()> {
         leptos::task::spawn_local(async move {
             match api_post_void(
                 "/session/new",
-                &serde_json::json!({ "project": project_idx }),
+                &serde_json::json!({ "project_idx": project_idx }),
             )
             .await
             {

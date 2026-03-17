@@ -82,17 +82,6 @@ pub fn ProjectNode(
                         move || sess.get_value().iter().filter(|s| s.parent_id.is_empty()).count()
                     }</span>
                 </button>
-                <button
-                    class="sb-project-new sb-icon-btn"
-                    title="New session in this project"
-                    aria-label="New session"
-                    on:click=move |ev: web_sys::MouseEvent| {
-                        ev.stop_propagation();
-                        new_session_for_project.run(idx);
-                    }
-                >
-                    <IconPlus size=12 />
-                </button>
                 {
                     let name = project_name.clone();
                     view! {
@@ -134,6 +123,7 @@ pub fn ProjectNode(
                 set_ctx_menu=set_ctx_menu
                 select_session=select_session
                 rename_session=rename_session
+                new_session_for_project=new_session_for_project
             />
         </div>
     }
@@ -161,6 +151,7 @@ fn ProjectSessions(
     set_ctx_menu: WriteSignal<Option<ContextMenuState>>,
     select_session: Callback<(usize, String)>,
     rename_session: Callback<(String, String)>,
+    new_session_for_project: Callback<usize>,
 ) -> impl IntoView {
     move || {
         if expanded_project.get() != Some(idx) {
@@ -222,6 +213,18 @@ fn ProjectSessions(
 
         Some(view! {
             <div class="sb-sessions">
+                // New Session button at top of accordion
+                <button
+                    class="sb-session sb-new-session-row"
+                    on:click=move |_| new_session_for_project.run(idx)
+                >
+                    <div class="sb-session-icon">
+                        <IconPlus size=14 />
+                    </div>
+                    <div class="sb-session-info">
+                        <span class="sb-session-title">"New Session"</span>
+                    </div>
+                </button>
                 {if visible.is_empty() {
                     Some(view! {
                         <div class="sb-empty">

@@ -38,49 +38,21 @@ pub fn ToolInput(data: serde_json::Value) -> impl IntoView {
 /// Smart output rendering based on content format.
 /// Matches React ToolOutput: auto-scroll for live output, markdown rendering,
 /// file output with syntax highlighting.
-/// Includes a maximize button to expand output to a near-fullscreen overlay.
 #[component]
 pub fn ToolOutput(
     #[prop(into)] output: String,
     #[prop(into)] tool_name: String,
     #[prop(optional)] is_live: bool,
 ) -> impl IntoView {
-    let (maximized, set_maximized) = signal(false);
     let parsed = parse_output(&output);
-
-    // Determine if content is large enough to warrant a maximize button.
-    let show_maximize = output.len() > 200 || output.lines().count() > 8;
-
-    let maximize_btn = move || {
-        if !show_maximize {
-            return None;
-        }
-        Some(view! {
-            <button
-                class="tool-output-maximize-btn"
-                title=move || if maximized.get() { "Collapse" } else { "Expand output" }
-                on:click=move |e: web_sys::MouseEvent| {
-                    e.stop_propagation();
-                    set_maximized.update(|v| *v = !*v);
-                }
-            >
-                {move || if maximized.get() {
-                    view! { <IconMinimize2 size=12 /> }.into_any()
-                } else {
-                    view! { <IconMaximize2 size=12 /> }.into_any()
-                }}
-            </button>
-        })
-    };
 
     match parsed {
         ParsedOutput::File { path, content } => {
             let lang = guess_language(&path).to_string();
             view! {
-                <div class=move || if maximized.get() { "tool-output-file tool-output-maximized" } else { "tool-output-file" }>
+                <div class="tool-output-file">
                     <div class="tool-output-file-header">
                         <span class="tool-output-file-path">{path}</span>
-                        {maximize_btn}
                     </div>
                     <CodeBlock language=lang code=content />
                 </div>
@@ -90,10 +62,7 @@ pub fn ToolOutput(
         ParsedOutput::Markdown { content } => {
             let segments = parse_markdown_segments(&content);
             view! {
-                <div class=move || if maximized.get() { "tool-output-markdown tool-output-maximized" } else { "tool-output-markdown" }>
-                    <div class="tool-output-header-row">
-                        {maximize_btn}
-                    </div>
+                <div class="tool-output-markdown">
                     {segments.into_iter().map(|seg| {
                         match seg {
                             ContentSegment::Html(html) => {
@@ -114,17 +83,10 @@ pub fn ToolOutput(
         }
         ParsedOutput::Plain { content } => {
             let live_ref = NodeRef::<leptos::html::Pre>::new();
-            let class_fn = move || {
-                let base = if is_live {
-                    "tool-call-pre tool-call-live-output"
-                } else {
-                    "tool-call-pre"
-                };
-                if maximized.get() {
-                    format!("{} tool-output-maximized", base)
-                } else {
-                    base.to_string()
-                }
+            let class = if is_live {
+                "tool-call-pre tool-call-live-output"
+            } else {
+                "tool-call-pre"
             };
 
             // Auto-scroll live output to bottom (matches React useEffect)
@@ -141,10 +103,7 @@ pub fn ToolOutput(
             }
 
             view! {
-                <div class="tool-output-plain-wrap">
-                    {maximize_btn}
-                    <pre node_ref=live_ref class=class_fn>{content}</pre>
-                </div>
+                <pre node_ref=live_ref class=class>{content}</pre>
             }
             .into_any()
         }

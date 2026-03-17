@@ -40,21 +40,19 @@ fn autonomy_label(mode: &str) -> &'static str {
     }
 }
 
-fn autonomy_color(mode: &str) -> &'static str {
-    match mode {
-        "observe" => "var(--color-text-muted, #999)",
-        "nudge" => "var(--color-info, #5c8fff)",
-        "continue" => "var(--color-warning, #e6a817)",
-        "autonomous" => "var(--color-success, #4caf50)",
-        _ => "var(--color-text-muted, #999)",
+fn priority_class(priority: &str) -> &'static str {
+    match priority {
+        "high" | "critical" => "assistant-center-recommendation assistant-center-recommendation-high",
+        "medium" => "assistant-center-recommendation assistant-center-recommendation-medium",
+        _ => "assistant-center-recommendation",
     }
 }
 
-fn priority_color(priority: &str) -> &'static str {
-    match priority {
-        "high" | "critical" => "var(--color-error, #e05252)",
-        "medium" => "var(--color-warning, #e6a817)",
-        _ => "var(--color-info, #5c8fff)",
+fn trigger_label(trigger: &str) -> &'static str {
+    match trigger {
+        "scheduled" | "cron" => "scheduled",
+        "manual" => "manual",
+        _ => "other",
     }
 }
 
@@ -74,7 +72,6 @@ pub fn AssistantCenterModal(
     let (stats, set_stats) = signal(Option::<AssistantCenterStats>::None);
     let (recommendations, set_recommendations) = signal(Vec::<AssistantRecommendation>::new());
     let (quick_routines, set_quick_routines) = signal(Vec::<RoutineDefinition>::new());
-    let (loading, set_loading) = signal(true);
 
     // Load stats + recommendations + routines on mount
     {
@@ -82,7 +79,6 @@ pub fn AssistantCenterModal(
             let stats_body = StatsBody { permissions: vec![], questions: vec![] };
             let recs_body = RecommendBody { permissions: vec![], questions: vec![] };
 
-            // Fire all three fetches
             let stats_fut = api_post::<AssistantCenterStats>("/assistant-center/stats", &stats_body);
             let recs_fut = api_post::<RecommendationsResponse>("/recommendations", &recs_body);
             let routines_fut = api_fetch::<RoutinesListResponse>("/routines");
@@ -99,7 +95,7 @@ pub fn AssistantCenterModal(
                 let enabled: Vec<_> = rl.routines.into_iter().filter(|r| r.enabled).take(8).collect();
                 set_quick_routines.set(enabled);
             }
-            set_loading.set(false);
+
         });
     }
 
@@ -114,23 +110,7 @@ pub fn AssistantCenterModal(
         });
     });
 
-    // Dashboard card data
-    struct DashCard {
-        label: &'static str,
-        icon: &'static str,
-        description: &'static str,
-    }
-
-    let cards = [
-        DashCard { label: "Inbox", icon: "\u{1F4E5}", description: "Items needing attention" },
-        DashCard { label: "Missions", icon: "\u{1F3AF}", description: "Active goals" },
-        DashCard { label: "Memory", icon: "\u{1F4AD}", description: "Stored preferences" },
-        DashCard { label: "Routines", icon: "\u{23F0}", description: "Automated tasks" },
-        DashCard { label: "Delegation", icon: "\u{1F91D}", description: "Assigned work" },
-        DashCard { label: "Workspaces", icon: "\u{1F4BB}", description: "Saved layouts" },
-    ];
-
-    let card_callbacks: Vec<Option<Callback<()>>> = vec![
+    let card_cbs: [Option<Callback<()>>; 6] = [
         on_open_inbox,
         on_open_missions,
         on_open_memory,
@@ -141,12 +121,10 @@ pub fn AssistantCenterModal(
 
     view! {
         <ModalOverlay on_close=on_close class="assistant-center-modal">
-            <div class="ac-header">
-                <div class="ac-header-left">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                    </svg>
+            // Header
+            <div class="assistant-center-header">
+                <div class="assistant-center-header-left">
+                    <IconBot size=16 />
                     <h3>"Assistant Center"</h3>
                 </div>
                 <button on:click=move |_| on_close.run(()) aria-label="Close assistant center">
@@ -154,156 +132,134 @@ pub fn AssistantCenterModal(
                 </button>
             </div>
 
-            <div class="ac-scrollable">
-                {move || {
-                    if loading.get() {
-                        return view! { <div class="ac-empty">"Loading assistant center..."</div> }.into_any();
-                    }
-
-                    view! {
-                        <div class="ac-content">
-                            // Hero section
-                            {stats.get().map(|s| {
-                                let mode = s.autonomy_mode.clone();
-                                let needs = s.pending_permissions + s.pending_questions;
-                                let active = s.active_missions;
-                                view! {
-                                    <div class="ac-hero">
-                                        <div class="ac-hero-autonomy" style=format!("color: {}", autonomy_color(&mode))>
-                                            {autonomy_label(&mode)}
-                                        </div>
-                                        <div class="ac-hero-stats">
-                                            <span class="ac-hero-stat">
-                                                <strong>{needs}</strong>" needs attention"
-                                            </span>
-                                            <span class="ac-hero-stat">
-                                                <strong>{active}</strong>" active missions"
-                                            </span>
-                                        </div>
-                                    </div>
-                                }
-                            })}
-
-                            // Recommendations
-                            {move || {
-                                let recs = recommendations.get();
-                                if recs.is_empty() {
-                                    return None;
-                                }
-                                let rec_views = recs.iter().map(|rec| {
-                                    let color = priority_color(&rec.priority);
-                                    let title = rec.title.clone();
-                                    let rationale = rec.rationale.clone();
-                                    view! {
-                                        <div class="ac-recommendation" style=format!("border-left: 3px solid {}", color)>
-                                            <div class="ac-rec-title">{title}</div>
-                                            <div class="ac-rec-rationale">{rationale}</div>
-                                        </div>
-                                    }
-                                }).collect::<Vec<_>>();
-                                Some(view! {
-                                    <section class="ac-section">
-                                        <div class="ac-section-title">"Recommendations"</div>
-                                        {rec_views}
-                                    </section>
-                                })
-                            }}
+            // Hero
+            {move || {
+                let s = stats.get()?;
+                let mode = s.autonomy_mode.clone();
+                let needs = s.pending_permissions + s.pending_questions + s.paused_missions;
+                let active = s.active_missions;
+                Some(view! {
+                    <div class="assistant-center-hero">
+                        <div class="assistant-center-mode">
+                            "Mode: " {autonomy_label(&mode)}
                         </div>
-                    }.into_any()
-                }}
+                        <div class="assistant-center-summary">
+                            {format!("{} needs attention", needs)}
+                            {format!(" \u{2022} {} active missions", active)}
+                        </div>
+                    </div>
+                })
+            }}
 
-                // Dashboard grid (always rendered)
-                <div class="ac-dashboard-grid">
-                    {cards.iter().enumerate().map(|(i, card)| {
-                        let label = card.label;
-                        let icon = card.icon;
-                        let desc = card.description;
-                        let cb = card_callbacks.get(i).and_then(|c| *c);
-                        let stat_value = move || {
-                            stats.get().map(|s| match label {
-                                "Inbox" => s.pending_permissions + s.pending_questions,
-                                "Missions" => s.total_missions,
-                                "Memory" => s.memory_items,
-                                "Routines" => s.active_routines,
-                                "Delegation" => s.active_delegations,
-                                "Workspaces" => s.workspace_count,
-                                _ => 0,
-                            }).unwrap_or(0)
-                        };
-
-                        view! {
-                            <button
-                                class="ac-card"
-                                on:click=move |_| { if let Some(c) = cb { c.run(()); } }
-                            >
-                                <span class="ac-card-icon">{icon}</span>
-                                <span class="ac-card-value">{stat_value}</span>
-                                <span class="ac-card-label">{label}</span>
-                                <span class="ac-card-desc">{desc}</span>
-                            </button>
-                        }
-                    }).collect::<Vec<_>>()}
-                </div>
-
-                // Quick routines
-                {move || {
-                    let qr = quick_routines.get();
-                    if qr.is_empty() {
-                        return None;
+            // Recommendations
+            {move || {
+                let recs = recommendations.get();
+                if recs.is_empty() {
+                    return None;
+                }
+                let rec_views = recs.iter().map(|rec| {
+                    let cls = priority_class(&rec.priority);
+                    let title = rec.title.clone();
+                    let rationale = rec.rationale.clone();
+                    view! {
+                        <button class=cls>
+                            <span class="assistant-center-recommendation-title">{title}</span>
+                            <span class="assistant-center-recommendation-desc">{rationale}</span>
+                        </button>
                     }
-                    let routine_chips = qr.iter().map(|r| {
-                        let rid = r.id.clone();
-                        let name = r.name.clone();
-                        let trigger = r.trigger.clone();
-                        view! {
-                            <div class="ac-quick-routine">
-                                <span class="ac-quick-routine-name">{name}</span>
-                                <span class="ac-quick-routine-trigger">{trigger_label_short(&trigger)}</span>
-                                <button
-                                    class="ac-quick-routine-run"
-                                    on:click={
-                                        let rid_c = rid.clone();
-                                        move |_: web_sys::MouseEvent| handle_run_routine.run(rid_c.clone())
-                                    }
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polygon points="5 3 19 12 5 21 5 3" />
-                                    </svg>
-                                </button>
-                            </div>
-                        }
-                    }).collect::<Vec<_>>();
+                }).collect::<Vec<_>>();
+                Some(view! {
+                    <div class="assistant-center-recommendations">
+                        <div class="assistant-center-briefing-title">"Recommended next"</div>
+                        {rec_views}
+                    </div>
+                })
+            }}
 
-                    Some(view! {
-                        <section class="ac-section">
-                            <div class="ac-section-title">"Quick Routines"</div>
-                            <div class="ac-quick-routines">{routine_chips}</div>
-                        </section>
-                    })
-                }}
+            // Dashboard grid
+            <div class="assistant-center-grid">
+                {card_view(stats, card_cbs[0], "Inbox", "\u{1F4E5}", "Permissions, questions, and blocked work", |s| s.pending_permissions + s.pending_questions)}
+                {card_view(stats, card_cbs[1], "Missions", "\u{1F3AF}", "Active goals", |s| s.total_missions)}
+                {card_view(stats, card_cbs[2], "Memory", "\u{1F9E0}", "Persistent preferences and working norms", |s| s.memory_items)}
+                {card_view(stats, card_cbs[3], "Routines", "\u{23F0}", "Scheduled and event-driven routines", |s| s.active_routines)}
+                {card_view(stats, card_cbs[4], "Delegation", "\u{1F4BC}", "Active delegated work items", |s| s.active_delegations)}
+                {card_view(stats, card_cbs[5], "Workspaces", "\u{1F5C2}", "Intent-oriented workspace launches", |s| s.workspace_count)}
+            </div>
 
-                // Footer actions
-                <div class="ac-footer">
-                    {on_open_autonomy.map(|cb| view! {
-                        <button class="ac-footer-btn" on:click=move |_| cb.run(())>
-                            "Adjust Autonomy"
+            // Quick routines
+            {move || {
+                let qr = quick_routines.get();
+                if qr.is_empty() {
+                    return None;
+                }
+                let routine_btns = qr.iter().map(|r| {
+                    let rid = r.id.clone();
+                    let name = r.name.clone();
+                    let trigger = r.trigger.clone();
+                    view! {
+                        <button
+                            class="assistant-center-routine-btn"
+                            on:click={
+                                let rid_c = rid.clone();
+                                move |_: web_sys::MouseEvent| handle_run_routine.run(rid_c.clone())
+                            }
+                        >
+                            <span class="assistant-center-routine-icon">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                </svg>
+                            </span>
+                            <span class="assistant-center-routine-name">{name}</span>
+                            <span style="font-size:10px;font-weight:500;padding:1px 5px;border-radius:4px;background:rgba(128,128,128,0.12);color:var(--color-muted,#888);white-space:nowrap;flex-shrink:0">
+                                {trigger_label(&trigger)}
+                            </span>
                         </button>
-                    })}
-                    {on_open_inbox.map(|cb| view! {
-                        <button class="ac-footer-btn" on:click=move |_| cb.run(())>
-                            "Open Needs-You Queue"
-                        </button>
-                    })}
-                </div>
+                    }
+                }).collect::<Vec<_>>();
+
+                Some(view! {
+                    <div class="assistant-center-quick-routines">
+                        <div class="assistant-center-briefing-title">"Routines"</div>
+                        <div class="assistant-center-routine-list">{routine_btns}</div>
+                    </div>
+                })
+            }}
+
+            // Footer actions
+            <div class="assistant-center-footer-actions">
+                {on_open_autonomy.map(|cb| view! {
+                    <button on:click=move |_| cb.run(())>"Adjust autonomy"</button>
+                })}
+                {on_open_inbox.map(|cb| view! {
+                    <button on:click=move |_| cb.run(())>"Open needs-you queue"</button>
+                })}
             </div>
         </ModalOverlay>
     }
 }
 
-fn trigger_label_short(trigger: &str) -> &'static str {
-    match trigger {
-        "scheduled" | "cron" => "Sched",
-        "manual" => "Manual",
-        _ => "Other",
+fn card_view(
+    stats: ReadSignal<Option<AssistantCenterStats>>,
+    cb: Option<Callback<()>>,
+    title: &'static str,
+    icon: &'static str,
+    desc: &'static str,
+    stat_fn: fn(&AssistantCenterStats) -> usize,
+) -> impl IntoView {
+    let val = move || {
+        stats.get().map(|s| format!("{}", stat_fn(&s))).unwrap_or_else(|| "...".into())
+    };
+    view! {
+        <button
+            class="assistant-center-card"
+            on:click=move |_| { if let Some(c) = cb { c.run(()); } }
+        >
+            <div class="assistant-center-card-top">
+                <span class="assistant-center-card-icon">{icon}</span>
+                <span class="assistant-center-card-value">{val}</span>
+            </div>
+            <div class="assistant-center-card-title">{title}</div>
+            <div class="assistant-center-card-desc">{desc}</div>
+        </button>
     }
 }

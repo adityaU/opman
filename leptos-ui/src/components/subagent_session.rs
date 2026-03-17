@@ -24,19 +24,16 @@ pub fn SubagentSession(
     on_open_session: Option<Callback<String>>,
 ) -> impl IntoView {
     let has_sse_messages = !messages.is_empty();
-    let sse_messages = StoredValue::new(messages);
 
     // Expand/collapse state
     let (expanded, set_expanded) = signal(is_running);
+    let (user_toggled, set_user_toggled) = signal(false);
     let (fetched_messages, set_fetched_messages) = signal::<Option<Vec<Message>>>(None);
     let (is_fetching, set_is_fetching) = signal(false);
     let (fetch_attempted, set_fetch_attempted) = signal(false);
 
-    // Scroll-position preservation: save before rerender, restore after.
-    let scroll_ref = NodeRef::<leptos::html::Div>::new();
-    let saved_scroll = std::cell::Cell::new(0i32);
-
     let handle_toggle = move |_: web_sys::MouseEvent| {
+        set_user_toggled.set(true);
         set_expanded.update(|v| *v = !*v);
     };
 
@@ -61,7 +58,15 @@ pub fn SubagentSession(
         });
     }
 
+    // Determine which messages to display
+    let display_messages = if has_sse_messages {
+        messages.clone()
+    } else {
+        vec![] // fetched messages will be rendered reactively below
+    };
+
     let session_id_for_open = session_id.clone();
+    let session_id_display = session_id.clone();
 
     view! {
         <div class=move || {
@@ -158,85 +163,61 @@ pub fn SubagentSession(
                 })}
             </div>
 
-            // Body — rendered once, hidden/shown via CSS to preserve scroll position
-            <div
-                class="subagent-body"
-                style=move || if expanded.get() { "display:block" } else { "display:none" }
-            >
-                {move || {
-                    // Save scroll position before DOM rebuild
-                    if let Some(el) = scroll_ref.get() {
-                        let html_el: &web_sys::HtmlElement = &el;
-                        saved_scroll.set(html_el.scroll_top());
-                    }
-
-                    if is_fetching.get() {
-                        return view! {
-                            <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
-                                <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                                "Loading task output..."
-                            </div>
-                        }.into_any();
-                    }
-
+            // Body (expanded)
+            {move || expanded.get().then(|| {
+                if is_fetching.get() {
+                    view! {
+                        <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
+                            <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                            "Loading task output..."
+                        </div>
+                    }.into_any()
+                } else {
                     // Determine messages to show
                     let msgs = if has_sse_messages {
-                        sse_messages.get_value()
+                        display_messages.clone()
                     } else {
                         fetched_messages.get().unwrap_or_default()
                     };
 
                     if msgs.is_empty() {
                         if is_running {
-                            return view! {
+                            view! {
                                 <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
                                     <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                                     "Subagent starting..."
                                 </div>
-                            }.into_any();
+                            }.into_any()
+                        } else {
+                            view! {
+                                <div class="subagent-empty flex items-center justify-center px-3 py-4 text-xs text-text-muted/60">
+                                    "No task output available"
+                                </div>
+                            }.into_any()
                         }
-                        return view! {
-                            <div class="subagent-empty flex items-center justify-center px-3 py-4 text-xs text-text-muted/60">
-                                "No task output available"
+                    } else {
+                        // Full rich rendering: group messages and render each group
+                        // via MessageTurn (markdown, code blocks, tool call accordions).
+                        let groups = group_messages(&msgs);
+                        view! {
+                            <div class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
+                                {groups.into_iter().map(|group| {
+                                    view! {
+                                        <MessageTurn
+                                            group=group
+                                            search_match_ids=None
+                                            active_search_match_id=None
+                                            session_id=None
+                                            is_bookmarked=None
+                                            on_toggle_bookmark=None
+                                        />
+                                    }
+                                }).collect_view()}
                             </div>
-                        }.into_any();
+                        }.into_any()
                     }
-
-                    // Full rich rendering: group messages and render each group
-                    let groups = group_messages(&msgs);
-
-                    // Restore scroll position after DOM is rebuilt
-                    let prev_scroll = saved_scroll.get();
-                    if prev_scroll > 0 {
-                        let sr = scroll_ref;
-                        // Use request_animation_frame so the DOM has painted
-                        leptos::task::spawn_local(async move {
-                            gloo_timers::future::TimeoutFuture::new(0).await;
-                            if let Some(el) = sr.get() {
-                                let html_el: &web_sys::HtmlElement = &el;
-                                html_el.set_scroll_top(prev_scroll);
-                            }
-                        });
-                    }
-
-                    view! {
-                        <div node_ref=scroll_ref class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
-                            {groups.into_iter().map(|group| {
-                                view! {
-                                    <MessageTurn
-                                        group=group
-                                        search_match_ids=None
-                                        active_search_match_id=None
-                                        session_id=None
-                                        is_bookmarked=None
-                                        on_toggle_bookmark=None
-                                    />
-                                }
-                            }).collect_view()}
-                        </div>
-                    }.into_any()
-                }}
-            </div>
+                }
+            })}
         </div>
     }
 }

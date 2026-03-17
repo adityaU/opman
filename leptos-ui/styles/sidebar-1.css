@@ -331,3 +331,23 @@
 .sb-sessions {
     padding: var(--space-1) 0
 }
+
+/* ── New Session row inside accordion ──────────────────────────── */
+
+.sb-new-session-row {
+    opacity: .7;
+    transition: opacity var(--transition-fast)
+}
+
+.sb-new-session-row:hover {
+    opacity: 1
+}
+
+.sb-new-session-row .sb-session-icon {
+    color: var(--color-primary)
+}
+
+.sb-new-session-row .sb-session-title {
+    color: var(--color-primary);
+    font-weight: 500
+}

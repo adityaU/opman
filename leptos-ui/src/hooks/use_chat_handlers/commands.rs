@@ -112,10 +112,11 @@ pub(super) fn build_handle_command(
             let toasts = deps.toasts;
             let set_model = deps.set_selected_model;
             let set_agent = deps.set_selected_agent;
+            let set_app_state = deps.sse.set_app_state;
             leptos::task::spawn_local(async move {
                 match api_post_void(
                     "/session/new",
-                    &serde_json::json!({ "project": project_idx }),
+                    &serde_json::json!({ "project_idx": project_idx }),
                 )
                 .await
                 {
@@ -123,6 +124,9 @@ pub(super) fn build_handle_command(
                         set_model.set(None);
                         set_agent.set(String::new());
                         toasts.add_typed("New session created", "success");
+                        if let Ok(state) = crate::api::project::fetch_app_state().await {
+                            set_app_state.set(Some(state));
+                        }
                     }
                     Err(_) => toasts.add_typed("Failed to create session", "error"),
                 }
