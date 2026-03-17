@@ -94,7 +94,7 @@ pub fn ChatSidebar(
     let toggle_pin = build_toggle_pin(set_pinned_sessions);
     let panels = expect_context::<crate::hooks::use_panel_state::PanelState>();
     let select_session = build_select_session(sse, panels, mobile_open, on_close);
-    let new_session = build_new_session(sse);
+    let new_session_for_project = build_new_session_for_project(sse);
     let rename_session = build_rename_session(sse, set_renaming_sid, rename_original_title);
     let do_delete = build_do_delete(sse, set_delete_loading, set_delete_confirm);
     let do_remove_project =
@@ -142,14 +142,6 @@ pub fn ChatSidebar(
                         aria-label="Search sessions"
                     >
                         <IconSearch size=14 />
-                    </button>
-                    <button
-                        class="sb-icon-btn sb-new-btn"
-                        title="New Session"
-                        aria-label="New session"
-                        on:click=move |_| new_session.run(())
-                    >
-                        <IconPlus size=14 />
                     </button>
                     <button
                         class="sidebar-close-btn"
@@ -232,6 +224,7 @@ pub fn ChatSidebar(
                                 select_session=select_session
                                 rename_session=rename_session
                                 toggle_project_expand=toggle_project_expand
+                                new_session_for_project=new_session_for_project
                             />
                         }
                     }

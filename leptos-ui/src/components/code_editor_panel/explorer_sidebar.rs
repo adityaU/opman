@@ -16,6 +16,7 @@ use super::state::EditorState;
 /// Returns `None` when collapsed.
 pub fn render_explorer_sidebar(
     s: &EditorState,
+    sidebar_width: ReadSignal<f64>,
     toggle_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
     open_file: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, String)>>,
     handle_create_file: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, String)>>,
@@ -52,7 +53,10 @@ pub fn render_explorer_sidebar(
         }
 
         Some(view! {
-            <div class="explorer-sidebar code-editor-explorer flex flex-col w-56 flex-shrink-0 border-r border-border-subtle">
+            <div
+                class="explorer-sidebar code-editor-explorer flex flex-col flex-shrink-0 border-r border-border-subtle"
+                style:width=move || format!("{}px", sidebar_width.get())
+            >
                 // Header
                 <div class="explorer-header">
                     <span class="explorer-title">"Explorer"</span>

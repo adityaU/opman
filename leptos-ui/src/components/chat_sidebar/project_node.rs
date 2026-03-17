@@ -35,19 +35,20 @@ pub fn ProjectNode(
     select_session: Callback<(usize, String)>,
     rename_session: Callback<(String, String)>,
     toggle_project_expand: Callback<usize>,
+    new_session_for_project: Callback<usize>,
 ) -> impl IntoView {
     let sessions_stored = StoredValue::new(sessions);
     let project_name_header = project_name.clone();
 
     view! {
         <div class="sb-project">
-            <div class="sb-project-header-row" style="display:flex;align-items:center;">
+            <div class="sb-project-header-row">
                 <button
                     class=move || {
                         if idx == active_project_idx.get() { "sb-project-header active".to_string() }
                         else { "sb-project-header".to_string() }
                     }
-                    style="flex:1;min-width:0;"
+                    style="flex:1;min-width:0"
                     on:click=move |_| toggle_project_expand.run(idx)
                 >
                     <span class="sb-project-chevron">
@@ -80,6 +81,17 @@ pub fn ProjectNode(
                         let sess = sessions_stored;
                         move || sess.get_value().iter().filter(|s| s.parent_id.is_empty()).count()
                     }</span>
+                </button>
+                <button
+                    class="sb-project-new sb-icon-btn"
+                    title="New session in this project"
+                    aria-label="New session"
+                    on:click=move |ev: web_sys::MouseEvent| {
+                        ev.stop_propagation();
+                        new_session_for_project.run(idx);
+                    }
+                >
+                    <IconPlus size=12 />
                 </button>
                 {
                     let name = project_name.clone();

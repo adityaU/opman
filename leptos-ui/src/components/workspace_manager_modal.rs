@@ -105,33 +105,33 @@ pub fn WorkspaceManagerModal(
     let active_name = active_workspace_name.unwrap_or_default();
 
     view! {
-        <ModalOverlay on_close=on_close class="workspace-modal">
-            <div class="workspace-header">
-                <div class="workspace-header-left">
+        <ModalOverlay on_close=on_close class="workspace-mgr-modal">
+            <div class="workspace-mgr-header">
+                <div class="workspace-mgr-header-left">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                         <line x1="8" y1="21" x2="16" y2="21" />
                         <line x1="12" y1="17" x2="12" y2="21" />
                     </svg>
                     <h3>"Workspaces"</h3>
-                    <span class="workspace-count">{move || workspaces.get().len()}</span>
+                    <span class="workspace-mgr-active-badge">{move || workspaces.get().len()}</span>
                 </div>
                 <button on:click=move |_| on_close.run(()) aria-label="Close workspaces">
                     <IconX size=16 />
                 </button>
             </div>
 
-            <div class="workspace-scrollable">
+            <div class="workspace-mgr-scrollable">
                 // Saved Workspaces list
-                <div class="workspace-body">
+                <div class="workspace-mgr-body">
                     {move || {
                         if loading.get() {
-                            return view! { <div class="workspace-empty">"Loading workspaces..."</div> }.into_any();
+                            return view! { <div class="workspace-mgr-empty">"Loading workspaces..."</div> }.into_any();
                         }
                         let all = workspaces.get();
                         if all.is_empty() {
                             return view! {
-                                <div class="workspace-empty">"No saved workspaces yet."</div>
+                                <div class="workspace-mgr-empty">"No saved workspaces yet."</div>
                             }.into_any();
                         }
 
@@ -162,25 +162,25 @@ pub fn WorkspaceManagerModal(
                                 let is_template = ws.is_template;
 
                                 view! {
-                                    <div class=if is_active { "workspace-item workspace-item-active" } else { "workspace-item" }>
-                                        <div class="workspace-item-main">
-                                            <div class="workspace-item-row">
-                                                <span class="workspace-item-name">{name_display}</span>
+                                    <div class=if is_active { "workspace-mgr-item active" } else { "workspace-mgr-item" }>
+                                        <div class="workspace-mgr-item-info">
+                                            <div class="workspace-mgr-item-row">
+                                                <span class="workspace-mgr-item-name">{name_display}</span>
                                                 {is_active.then(|| view! {
-                                                    <span class="workspace-item-badge">"Active"</span>
+                                                    <span class="workspace-mgr-active-badge">"Active"</span>
                                                 })}
                                             </div>
                                             {(!desc.is_empty()).then(|| {
                                                 let d = desc.clone();
-                                                view! { <div class="workspace-item-desc">{d}</div> }
+                                                view! { <div class="workspace-mgr-item-desc">{d}</div> }
                                             })}
-                                            <div class="workspace-item-meta">
+                                            <div class="workspace-mgr-item-meta">
                                                 <span>{created}</span>
                                             </div>
                                         </div>
-                                        <div class="workspace-item-actions">
+                                        <div class="workspace-mgr-item-actions">
                                             <button
-                                                class="workspace-restore-btn"
+                                                class="workspace-mgr-restore-btn"
                                                 on:click={
                                                     let snap = ws_restore.clone();
                                                     move |_: web_sys::MouseEvent| on_restore.run(snap.clone())
@@ -192,7 +192,7 @@ pub fn WorkspaceManagerModal(
                                                 let del_name = ws_name_del.clone();
                                                 view! {
                                                     <button
-                                                        class="workspace-delete-btn"
+                                                        class="workspace-mgr-delete-btn"
                                                         on:click=move |_: web_sys::MouseEvent| {
                                                             let dn = del_name.clone();
                                                             leptos::task::spawn_local(async move {
@@ -214,8 +214,8 @@ pub fn WorkspaceManagerModal(
                             }).collect::<Vec<_>>();
 
                             Some(view! {
-                                <section class="workspace-section">
-                                    <div class="workspace-section-title">{section_label}</div>
+                                <section class="workspace-mgr-section">
+                                    <div class="workspace-mgr-section-title">{section_label}</div>
                                     {rows}
                                 </section>
                             })
@@ -332,8 +332,8 @@ pub fn WorkspaceManagerModal(
                 }
             })}
 
-            <div class="workspace-footer">
-                <span class="workspace-footer-count">
+            <div class="workspace-mgr-footer">
+                <span class="workspace-mgr-footer-count">
                     {move || {
                         let count = workspaces.get().len();
                         format!("{} saved workspace{}", count, if count != 1 { "s" } else { "" })

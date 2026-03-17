@@ -18,6 +18,7 @@ thread_local! {
 fn lang_to_extension<'a>(lang: &'a str) -> &'a str {
     let lower = lang.to_lowercase();
     match lower.as_str() {
+        // Top-25 + common aliases
         "javascript" | "js" => "js",
         "typescript" | "ts" => "ts",
         "jsx" => "jsx",
@@ -27,34 +28,51 @@ fn lang_to_extension<'a>(lang: &'a str) -> &'a str {
         "go" | "golang" => "go",
         "ruby" | "rb" => "rb",
         "java" => "java",
-        "kotlin" | "kt" => "kt",
-        "swift" => "swift",
+        "kotlin" | "kt" => "kt", // not in syntect defaults; fallback-by-name
+        "swift" => "swift",      // not in syntect defaults; fallback-by-name
         "c" => "c",
-        "cpp" | "c++" | "cxx" => "cpp",
+        "cpp" | "c++" | "cxx" | "cc" => "cpp",
         "csharp" | "c#" | "cs" => "cs",
+        "objective-c" | "objc" | "objectivec" => "m",
+        "objective-cpp" | "objcpp" | "objective-c++" => "mm",
         "css" => "css",
         "scss" => "scss",
-        "html" => "html",
-        "xml" => "xml",
-        "json" => "json",
+        "html" | "htm" => "html",
+        "xml" | "xsl" | "xslt" => "xml",
+        "json" | "jsonc" => "json",
         "yaml" | "yml" => "yaml",
         "toml" => "toml",
-        "markdown" | "md" => "md",
-        "bash" | "sh" | "shell" | "zsh" => "sh",
-        "sql" => "sql",
+        "markdown" | "md" | "mdx" => "md",
+        "bash" | "sh" | "shell" | "zsh" | "fish" => "sh",
+        "sql" | "plsql" | "mysql" | "postgresql" | "postgres" => "sql",
         "lua" => "lua",
         "php" => "php",
         "zig" => "zig",
         "dockerfile" | "docker" => "Dockerfile",
         "makefile" | "make" => "Makefile",
         "diff" | "patch" => "diff",
-        "elixir" | "ex" => "ex",
-        "erlang" | "erl" => "erl",
+        "elixir" | "ex" | "exs" => "ex", // not in syntect defaults; fallback-by-name
+        "erlang" | "erl" | "hrl" => "erl",
         "haskell" | "hs" => "hs",
-        "scala" => "scala",
-        "r" => "r",
-        "perl" | "pl" => "pl",
-        "vim" => "vim",
+        "scala" | "sbt" => "scala",
+        "r" | "rlang" => "r",
+        "perl" | "pl" | "pm" => "pl",
+        "vim" | "viml" | "vimscript" => "vim",
+        // Additional syntect-supported languages
+        "clojure" | "clj" | "cljs" | "cljc" | "edn" => "clj",
+        "groovy" | "gradle" | "gvy" => "groovy",
+        "dart" => "dart", // not in syntect defaults; fallback-by-name
+        "d" | "dlang" => "d",
+        "pascal" | "delphi" | "pas" => "pas",
+        "matlab" | "octave" => "matlab", // use name-based fallback
+        "ocaml" | "ml" => "ml",
+        "lisp" | "scheme" | "racket" => "lisp",
+        "latex" | "tex" => "tex",
+        "rst" | "restructuredtext" => "rst",
+        "graphviz" | "dot" => "dot",
+        "tcl" => "tcl",
+        "powershell" | "ps1" | "psm1" => "ps1", // not in syntect defaults
+        "actionscript" | "as3" => "as",
         _ => lang,
     }
 }

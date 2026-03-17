@@ -238,8 +238,8 @@ pub fn TodoPanelModal(on_close: Callback<()>, session_id: String) -> impl IntoVi
         set_editing_idx.set(None);
     };
 
-    let short_id = if session_id.len() > 12 {
-        session_id[..12].to_string()
+    let short_id = if session_id.chars().count() > 12 {
+        session_id.chars().take(12).collect::<String>()
     } else {
         session_id.clone()
     };

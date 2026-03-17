@@ -123,7 +123,8 @@ pub fn NativeEditor(
             on:click=on_click
             style="width:100%;height:100%;overflow:auto;outline:none;\
                    font-family:'JetBrains Mono','Fira Code','Cascadia Code',monospace;\
-                   font-size:13px;line-height:1.5;position:relative;"
+                   font-size:13px;line-height:1.5;position:relative;\
+                   color:var(--color-text,#e0e0e0);"
         >
             {move || {
                 let _rev = revision.get();
@@ -175,11 +176,21 @@ fn render_line(
                 style="white-space:pre;flex:1;min-width:0;position:relative;"
             >
                 {spans.into_iter().map(|sp| {
-                    let mut css = format!("color:{};", sp.fg);
-                    if sp.bold { css.push_str("font-weight:bold;"); }
-                    if sp.italic { css.push_str("font-style:italic;"); }
-                    if sp.underline { css.push_str("text-decoration:underline;"); }
-                    view! { <span style=css>{sp.text}</span> }
+                    let cls = if sp.token_class.is_empty() {
+                        String::new()
+                    } else {
+                        format!("token {}", sp.token_class)
+                    };
+                    let style = if sp.bold && sp.italic {
+                        "font-weight:bold;font-style:italic;"
+                    } else if sp.bold {
+                        "font-weight:bold;"
+                    } else if sp.italic {
+                        "font-style:italic;"
+                    } else {
+                        ""
+                    };
+                    view! { <span class=cls style=style>{sp.text}</span> }
                 }).collect::<Vec<_>>()}
                 {is_cursor_line.then(|| view! {
                     <span

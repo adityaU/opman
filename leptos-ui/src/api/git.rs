@@ -106,3 +106,67 @@ struct CheckoutBody<'a> {
 pub async fn git_checkout(repo: &str, branch: &str) -> Result<GitCheckoutResponse, ApiError> {
     api_post("/git/checkout", &CheckoutBody { repo, branch }).await
 }
+
+// ── Pull / Stash / Gitignore endpoints ─────────────────────────────
+
+#[derive(Serialize)]
+struct PullBody<'a> {
+    repo: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    remote: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    branch: Option<&'a str>,
+}
+
+/// Pull from remote.
+pub async fn git_pull(repo: &str, remote: Option<&str>, branch: Option<&str>) -> Result<GitPullResponse, ApiError> {
+    api_post("/git/pull", &PullBody { repo, remote, branch }).await
+}
+
+#[derive(Serialize)]
+struct StashBody<'a> {
+    repo: &'a str,
+    action: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stash_ref: Option<&'a str>,
+}
+
+/// Stash push (save current changes).
+pub async fn git_stash_push(repo: &str, message: Option<&str>) -> Result<GitStashResponse, ApiError> {
+    api_post("/git/stash", &StashBody { repo, action: "push", message, stash_ref: None }).await
+}
+
+/// Stash pop (apply and remove top stash).
+pub async fn git_stash_pop(repo: &str) -> Result<GitStashResponse, ApiError> {
+    api_post("/git/stash", &StashBody { repo, action: "pop", message: None, stash_ref: None }).await
+}
+
+/// Stash list.
+pub async fn git_stash_list(repo: &str) -> Result<GitStashResponse, ApiError> {
+    api_post("/git/stash", &StashBody { repo, action: "list", message: None, stash_ref: None }).await
+}
+
+/// Stash drop by ref.
+pub async fn git_stash_drop(repo: &str, stash_ref: &str) -> Result<GitStashResponse, ApiError> {
+    api_post("/git/stash", &StashBody { repo, action: "drop", message: None, stash_ref: Some(stash_ref) }).await
+}
+
+#[derive(Serialize)]
+struct GitIgnoreBody<'a> {
+    repo: &'a str,
+    action: &'a str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    patterns: Vec<&'a str>,
+}
+
+/// List current .gitignore content.
+pub async fn git_gitignore_list(repo: &str) -> Result<GitIgnoreResponse, ApiError> {
+    api_post("/git/gitignore", &GitIgnoreBody { repo, action: "list", patterns: vec![] }).await
+}
+
+/// Add patterns to .gitignore.
+pub async fn git_gitignore_add(repo: &str, patterns: &[&str]) -> Result<GitIgnoreResponse, ApiError> {
+    api_post("/git/gitignore", &GitIgnoreBody { repo, action: "add", patterns: patterns.to_vec() }).await
+}

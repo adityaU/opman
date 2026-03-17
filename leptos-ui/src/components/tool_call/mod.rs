@@ -15,6 +15,33 @@ use task_render::render_task_tool;
 use crate::components::icons::*;
 use crate::types::core::MessagePart;
 use leptos::prelude::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+// ── Persistent expanded-state store ─────────────────────────────────
+// WASM is single-threaded so thread_local + RefCell is safe and lock-free.
+// Keyed by tool call_id / tool_call_id / id (first non-empty).
+thread_local! {
+    static EXPANDED_STATE: RefCell<HashMap<String, bool>> = RefCell::new(HashMap::new());
+}
+
+fn expanded_key(part: &MessagePart) -> Option<String> {
+    part.call_id
+        .clone()
+        .or_else(|| part.tool_call_id.clone())
+        .or_else(|| part.id.clone())
+        .filter(|k| !k.is_empty())
+}
+
+fn get_persisted_expanded(key: &str) -> Option<bool> {
+    EXPANDED_STATE.with(|m| m.borrow().get(key).copied())
+}
+
+fn set_persisted_expanded(key: &str, val: bool) {
+    EXPANDED_STATE.with(|m| {
+        m.borrow_mut().insert(key.to_string(), val);
+    });
+}
 
 // ── ToolCall Component ──────────────────────────────────────────────
 
@@ -111,21 +138,26 @@ pub fn ToolCallView(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let initial_expanded =
-        is_todo_write || (is_task_tool && (is_running || is_completed || is_error));
-    let (expanded, set_expanded) = signal(initial_expanded);
-    let (user_toggled, set_user_toggled) = signal(false);
+    let initial_expanded = is_todo_write
+        || (is_task_tool && (is_running || is_completed || is_error || has_subagent_messages))
+        || (is_bash_tool && is_running);
 
-    if !user_toggled.get_untracked() && is_bash_tool && is_running {
-        set_expanded.set(true);
-    }
-    if !user_toggled.get_untracked() && is_task_tool && (is_running || has_subagent_messages) {
-        set_expanded.set(true);
-    }
+    // Persist expanded state across rerenders using a stable key.
+    let stable_key = expanded_key(&part);
+    let starting = match &stable_key {
+        Some(k) => get_persisted_expanded(k).unwrap_or(initial_expanded),
+        None => initial_expanded,
+    };
+    let (expanded, set_expanded) = signal(starting);
 
+    let toggle_key = stable_key.clone();
     let handle_toggle = move |_: web_sys::MouseEvent| {
-        set_user_toggled.set(true);
-        set_expanded.update(|v| *v = !*v);
+        set_expanded.update(|v| {
+            *v = !*v;
+            if let Some(ref k) = toggle_key {
+                set_persisted_expanded(k, *v);
+            }
+        });
     };
 
     let title = part.state.as_ref().and_then(|s| s.title.clone());
