@@ -3,5 +3,6 @@
 //! Supports both glassy and flat theme modes.
 
 pub mod apply;
+pub mod icons;
 
 pub use apply::*;

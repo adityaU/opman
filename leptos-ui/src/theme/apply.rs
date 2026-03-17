@@ -46,6 +46,11 @@ pub fn apply_theme_to_css(colors: &ThemeColors) {
 
     // Update meta theme-color
     sync_meta_theme_color(&colors.background);
+
+    // Sync favicon, PWA icons, and service worker to match theme
+    super::icons::update_favicon(&colors.primary, &colors.background);
+    super::icons::update_pwa_icons(&colors.primary, &colors.background);
+    super::icons::notify_service_worker(&colors.primary, &colors.background);
 }
 
 /// Get the current theme mode from localStorage.
