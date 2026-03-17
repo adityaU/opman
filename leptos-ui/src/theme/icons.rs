@@ -1,29 +1,19 @@
-//! Dynamic themed favicon, PWA icons, and service-worker notification.
-//! Mirrors React `utils/theme.ts` updateFavicon / updatePwaIcons /
-//! notifyServiceWorker using web_sys + js_sys interop.
+//! Dynamic themed favicon, PWA manifest, and service-worker notification.
+//!
+//! The service worker intercepts `/favicon.svg`, `/icon-192.png`,
+//! `/icon-512.png`, and `/manifest.json` to serve themed versions.
+//! This module:
+//!  1. Updates the in-page `<link rel="icon">` with a themed SVG blob.
+//!  2. Replaces `<link rel="manifest">` with a blob manifest that has
+//!     themed colors but keeps real `/icon-*.png` paths (SW intercepts them).
+//!  3. Posts THEME_COLORS to the SW so it persists and serves themed icons.
 
 use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 thread_local! {
-    static PREV_APPLE_URL: RefCell<Option<String>> = const { RefCell::new(None) };
     static PREV_MANIFEST_URL: RefCell<Option<String>> = const { RefCell::new(None) };
-    static PREV_192_URL: RefCell<Option<String>> = const { RefCell::new(None) };
-    static PREV_512_URL: RefCell<Option<String>> = const { RefCell::new(None) };
-}
-
-fn revoke_prev(cell: &'static std::thread::LocalKey<RefCell<Option<String>>>) {
-    cell.with(|c| {
-        if let Some(ref url) = *c.borrow() {
-            let _ = web_sys::Url::revoke_object_url(url);
-        }
-    });
-}
-
-fn store_prev(cell: &'static std::thread::LocalKey<RefCell<Option<String>>>, url: String) {
-    cell.with(|c| *c.borrow_mut() = Some(url));
 }
 
 /// Build the themed SVG string for the terminal-chevron app icon.
@@ -35,15 +25,6 @@ fn build_theme_svg(primary: &str, bg: &str) -> String {
   <line x1="16" y1="22" x2="25" y2="22" stroke="{primary}" stroke-width="2.5" stroke-linecap="round"/>
 </svg>"#
     )
-}
-
-fn svg_to_blob_url(svg: &str) -> Option<String> {
-    let parts = js_sys::Array::new();
-    parts.push(&JsValue::from_str(svg));
-    let mut opts = web_sys::BlobPropertyBag::new();
-    opts.set_type("image/svg+xml");
-    let blob = web_sys::Blob::new_with_str_sequence_and_options(&parts, &opts).ok()?;
-    web_sys::Url::create_object_url_with_blob(&blob).ok()
 }
 
 fn make_blob_url(content: &str, mime: &str) -> Option<String> {
@@ -60,7 +41,8 @@ pub fn update_favicon(primary: &str, bg: &str) {
     let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
         return;
     };
-    let Some(url) = svg_to_blob_url(&build_theme_svg(primary, bg)) else {
+    let svg = build_theme_svg(primary, bg);
+    let Some(url) = make_blob_url(&svg, "image/svg+xml") else {
         return;
     };
     if let Ok(Some(el)) = doc.query_selector(r#"link[rel="icon"]"#) {
@@ -80,136 +62,36 @@ pub fn update_favicon(primary: &str, bg: &str) {
     }
 }
 
-/// Async: render SVG to PNG blob URL via Image + Canvas.
-async fn svg_to_png_async(svg: &str, size: u32) -> Result<String, ()> {
-    let doc = web_sys::window().and_then(|w| w.document()).ok_or(())?;
-    let svg_url = svg_to_blob_url(svg).ok_or(())?;
-
-    let img = web_sys::HtmlImageElement::new().map_err(|_| ())?;
-    let (tx, rx) = futures::channel::oneshot::channel::<bool>();
-    let tx: Rc<RefCell<Option<futures::channel::oneshot::Sender<bool>>>> =
-        Rc::new(RefCell::new(Some(tx)));
-
-    let tx_ok = Rc::clone(&tx);
-    let on_load = Closure::once(move || {
-        if let Some(t) = tx_ok.borrow_mut().take() {
-            let _ = t.send(true);
-        }
-    });
-    let tx_err = Rc::clone(&tx);
-    let on_error = Closure::once(move || {
-        if let Some(t) = tx_err.borrow_mut().take() {
-            let _ = t.send(false);
-        }
-    });
-
-    img.set_onload(Some(on_load.as_ref().unchecked_ref()));
-    img.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-    img.set_src(&svg_url);
-
-    let loaded = rx.await.unwrap_or(false);
-    let _ = web_sys::Url::revoke_object_url(&svg_url);
-    if !loaded {
-        return Err(());
-    }
-
-    let canvas = doc
-        .create_element("canvas")
-        .map_err(|_| ())?
-        .unchecked_into::<web_sys::HtmlCanvasElement>();
-    canvas.set_width(size);
-    canvas.set_height(size);
-
-    let ctx = canvas
-        .get_context("2d")
-        .map_err(|_| ())?
-        .ok_or(())?
-        .unchecked_into::<web_sys::CanvasRenderingContext2d>();
-
-    ctx.draw_image_with_html_image_element_and_dw_and_dh(
-        &img, 0.0, 0.0, size as f64, size as f64,
-    )
-    .map_err(|_| ())?;
-
-    let (btx, brx) = futures::channel::oneshot::channel::<Option<web_sys::Blob>>();
-    let btx: Rc<RefCell<Option<futures::channel::oneshot::Sender<Option<web_sys::Blob>>>>> =
-        Rc::new(RefCell::new(Some(btx)));
-    let cb = Closure::once(move |val: JsValue| {
-        let b = val.dyn_into::<web_sys::Blob>().ok();
-        if let Some(t) = btx.borrow_mut().take() {
-            let _ = t.send(b);
-        }
-    });
-    canvas.to_blob(cb.as_ref().unchecked_ref()).map_err(|_| ())?;
-
-    let blob = brx.await.map_err(|_| ())?.ok_or(())?;
-    web_sys::Url::create_object_url_with_blob(&blob).map_err(|_| ())
-}
-
-/// Fire-and-forget: update apple-touch-icon + manifest with themed PNGs.
-pub fn update_pwa_icons(primary: &str, bg: &str) {
-    let primary = primary.to_string();
+/// Update `<link rel="manifest">` with themed colors but real icon paths.
+///
+/// Android Chrome fetches manifest icon URLs in its own process, so they
+/// must be real paths (not blob:). The service worker intercepts
+/// `/icon-192.png` and `/icon-512.png` to return themed PNGs.
+pub fn update_pwa_icons(_primary: &str, bg: &str) {
     let bg = bg.to_string();
     wasm_bindgen_futures::spawn_local(async move {
-        let _ = update_pwa_icons_inner(&primary, &bg).await;
+        update_manifest_inner(&bg).await;
     });
 }
 
-async fn update_pwa_icons_inner(primary: &str, bg: &str) -> Result<(), ()> {
-    let svg = build_theme_svg(primary, bg);
-    let (r192, r512) = futures::join!(svg_to_png_async(&svg, 192), svg_to_png_async(&svg, 512));
-    let url192 = r192?;
-    let url512 = r512.map_err(|_| {
-        let _ = web_sys::Url::revoke_object_url(&url192);
-    })?;
+async fn update_manifest_inner(bg: &str) {
+    let Some(window) = web_sys::window() else { return };
+    let Some(doc) = window.document() else { return };
 
-    let doc = web_sys::window().and_then(|w| w.document()).ok_or(())?;
-
-    // Apple-touch-icon
-    update_link(&doc, "apple-touch-icon", &url192, &PREV_APPLE_URL);
-
-    // Dynamic manifest
-    update_manifest(&doc, &url192, &url512, bg).await;
-
-    revoke_prev(&PREV_192_URL);
-    revoke_prev(&PREV_512_URL);
-    store_prev(&PREV_192_URL, url192);
-    store_prev(&PREV_512_URL, url512);
-    Ok(())
-}
-
-fn update_link(
-    doc: &web_sys::Document,
-    rel: &str,
-    href: &str,
-    prev: &'static std::thread::LocalKey<RefCell<Option<String>>>,
-) {
-    let selector = format!(r#"link[rel="{rel}"]"#);
-    if let Ok(Some(el)) = doc.query_selector(&selector) {
-        revoke_prev(prev);
-        el.unchecked_ref::<web_sys::HtmlLinkElement>().set_href(href);
-    } else if let Some(head) = doc.head() {
-        if let Ok(el) = doc.create_element("link") {
-            let _ = el.set_attribute("rel", rel);
-            let _ = el.set_attribute("href", href);
-            let _ = head.append_child(&el);
-        }
-    }
-    store_prev(prev, href.to_string());
-}
-
-async fn update_manifest(doc: &web_sys::Document, u192: &str, u512: &str, bg: &str) {
     let existing = doc.query_selector(r#"link[rel="manifest"]"#).ok().flatten();
     let href = existing
         .as_ref()
         .map(|e| e.unchecked_ref::<web_sys::HtmlLinkElement>().href())
         .unwrap_or_else(|| "/manifest.json".to_string());
 
-    let window = match web_sys::window() {
-        Some(w) => w,
-        None => return,
+    // Fetch to get the base manifest (may already be themed if SW active)
+    let fetch_url = if href.starts_with("blob:") {
+        "/manifest.json".to_string()
+    } else {
+        href
     };
-    let Ok(resp_val) = wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(&href)).await
+    let Ok(resp_val) =
+        wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(&fetch_url)).await
     else {
         return;
     };
@@ -224,18 +106,24 @@ async fn update_manifest(doc: &web_sys::Document, u192: &str, u512: &str, bg: &s
         return;
     };
 
-    // Patch icons array
+    // Patch icons to use real paths (SW intercepts these)
     let icons = js_sys::Array::new();
     for (src, sz, purpose) in [
-        (u192, "192x192", "any"),
-        (u512, "512x512", "any"),
-        (u192, "192x192", "maskable"),
-        (u512, "512x512", "maskable"),
+        ("/favicon.svg", "any", "any"),
+        ("/icon-192.png", "192x192", "any"),
+        ("/icon-512.png", "512x512", "any"),
+        ("/icon-192.png", "192x192", "maskable"),
+        ("/icon-512.png", "512x512", "maskable"),
     ] {
         let o = js_sys::Object::new();
         let _ = js_sys::Reflect::set(&o, &"src".into(), &JsValue::from_str(src));
         let _ = js_sys::Reflect::set(&o, &"sizes".into(), &JsValue::from_str(sz));
-        let _ = js_sys::Reflect::set(&o, &"type".into(), &"image/png".into());
+        let mime = if src.ends_with(".svg") {
+            "image/svg+xml"
+        } else {
+            "image/png"
+        };
+        let _ = js_sys::Reflect::set(&o, &"type".into(), &JsValue::from_str(mime));
         let _ = js_sys::Reflect::set(&o, &"purpose".into(), &JsValue::from_str(purpose));
         icons.push(&o);
     }
@@ -249,9 +137,16 @@ async fn update_manifest(doc: &web_sys::Document, u192: &str, u512: &str, bg: &s
         return;
     };
 
+    // Revoke previous manifest blob
+    PREV_MANIFEST_URL.with(|c| {
+        if let Some(ref old) = *c.borrow() {
+            let _ = web_sys::Url::revoke_object_url(old);
+        }
+    });
+
     if let Some(el) = existing {
-        revoke_prev(&PREV_MANIFEST_URL);
-        el.unchecked_ref::<web_sys::HtmlLinkElement>().set_href(&new_url);
+        el.unchecked_ref::<web_sys::HtmlLinkElement>()
+            .set_href(&new_url);
     } else if let Some(head) = doc.head() {
         if let Ok(el) = doc.create_element("link") {
             let _ = el.set_attribute("rel", "manifest");
@@ -259,7 +154,7 @@ async fn update_manifest(doc: &web_sys::Document, u192: &str, u512: &str, bg: &s
             let _ = head.append_child(&el);
         }
     }
-    store_prev(&PREV_MANIFEST_URL, new_url);
+    PREV_MANIFEST_URL.with(|c| *c.borrow_mut() = Some(new_url));
 }
 
 /// Post theme colors to the active service worker.

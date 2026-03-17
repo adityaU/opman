@@ -1,8 +1,33 @@
 // Service worker — satisfies PWA installability requirement.
 // Intercepts icon/manifest requests to serve theme-aware versions.
+// Persists theme colors to Cache API so they survive SW restarts.
 
 // ── Theme state ────────────────────────────────────────────────────
 let themeColors = null; // { primary: "#...", background: "#..." }
+const THEME_CACHE = "opman-theme-v1";
+const THEME_KEY = new Request("/_opman_theme_colors");
+
+async function persistTheme(colors) {
+  try {
+    const cache = await caches.open(THEME_CACHE);
+    await cache.put(THEME_KEY, new Response(JSON.stringify(colors)));
+  } catch { /* best-effort */ }
+}
+
+async function loadPersistedTheme() {
+  try {
+    const cache = await caches.open(THEME_CACHE);
+    const resp = await cache.match(THEME_KEY);
+    if (!resp) return null;
+    return await resp.json();
+  } catch { return null; }
+}
+
+async function ensureThemeColors() {
+  if (themeColors) return themeColors;
+  themeColors = await loadPersistedTheme();
+  return themeColors;
+}
 
 function buildThemeSvg(primary, bg) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
@@ -32,7 +57,11 @@ self.addEventListener("install", function () {
 });
 
 self.addEventListener("activate", function (event) {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    self.clients.claim().then(function () {
+      return ensureThemeColors();
+    })
+  );
 });
 
 // ── Message handler (theme updates + notifications) ────────────────
@@ -42,6 +71,7 @@ self.addEventListener("message", function (event) {
 
   if (event.data.type === "THEME_COLORS") {
     themeColors = event.data.colors;
+    persistTheme(themeColors);
     return;
   }
 
@@ -102,11 +132,13 @@ self.addEventListener("fetch", function (event) {
   const path = url.pathname;
 
   // Themed favicon.svg
-  if (path === "/favicon.svg" && themeColors) {
+  if (path === "/favicon.svg") {
     event.respondWith(
       (async () => {
+        const tc = await ensureThemeColors();
+        if (!tc) return fetch(event.request);
         try {
-          const svg = buildThemeSvg(themeColors.primary, themeColors.background);
+          const svg = buildThemeSvg(tc.primary, tc.background);
           return new Response(svg, {
             headers: {
               "Content-Type": "image/svg+xml",
@@ -122,12 +154,14 @@ self.addEventListener("fetch", function (event) {
   }
 
   // Themed PNG icons
-  if ((path === "/icon-192.png" || path === "/icon-512.png") && themeColors) {
+  if (path === "/icon-192.png" || path === "/icon-512.png") {
     const size = path === "/icon-192.png" ? 192 : 512;
     event.respondWith(
       (async () => {
+        const tc = await ensureThemeColors();
+        if (!tc) return fetch(event.request);
         try {
-          const svg = buildThemeSvg(themeColors.primary, themeColors.background);
+          const svg = buildThemeSvg(tc.primary, tc.background);
           const pngBlob = await svgToPng(svg, size);
           if (pngBlob) {
             return new Response(pngBlob, {
@@ -147,14 +181,17 @@ self.addEventListener("fetch", function (event) {
   }
 
   // Themed manifest.json
-  if (path === "/manifest.json" && themeColors) {
+  if (path === "/manifest.json") {
     event.respondWith(
       (async () => {
+        const tc = await ensureThemeColors();
+        if (!tc) return fetch(event.request);
         try {
           const res = await fetch(event.request);
           const manifest = await res.json();
-          manifest.theme_color = themeColors.background;
-          manifest.background_color = themeColors.background;
+          manifest.theme_color = tc.background;
+          manifest.background_color = tc.background;
+          // Keep icon src as real paths — SW intercepts those too
           return new Response(JSON.stringify(manifest), {
             headers: {
               "Content-Type": "application/manifest+json",
