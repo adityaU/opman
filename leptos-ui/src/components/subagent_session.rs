@@ -11,6 +11,7 @@ use leptos::prelude::*;
 use crate::types::core::Message;
 use crate::api::client::fetch_session_messages;
 use crate::components::message_turn::{group_messages, MessageTurn};
+use web_sys::HtmlElement;
 
 /// Renders a subagent session's messages inside a collapsible card.
 #[component]
@@ -31,6 +32,11 @@ pub fn SubagentSession(
     let (fetched_messages, set_fetched_messages) = signal::<Option<Vec<Message>>>(None);
     let (is_fetching, set_is_fetching) = signal(false);
     let (fetch_attempted, set_fetch_attempted) = signal(false);
+
+    // Auto-collapse when completed (unless user manually toggled)
+    if !user_toggled.get_untracked() && !is_running && (is_completed || is_error) {
+        set_expanded.set(false);
+    }
 
     let handle_toggle = move |_: web_sys::MouseEvent| {
         set_user_toggled.set(true);
@@ -67,6 +73,22 @@ pub fn SubagentSession(
 
     let session_id_for_open = session_id.clone();
     let session_id_display = session_id.clone();
+    let msg_count = messages.len();
+    let scroll_ref = NodeRef::<leptos::html::Div>::new();
+
+    // Reset scroll to top when message count changes
+    Effect::new(move |prev_count: Option<usize>| {
+        let current = msg_count;
+        if let Some(prev) = prev_count {
+            if current != prev {
+                if let Some(el) = scroll_ref.get() {
+                    let el: &HtmlElement = &el;
+                    el.set_scroll_top(0);
+                }
+            }
+        }
+        current
+    });
 
     view! {
         <div class=move || {
@@ -113,7 +135,6 @@ pub fn SubagentSession(
                             view! {
                                 <span class="flex items-center gap-1 text-[10px] text-primary">
                                     <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                    <span class="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                                     "running"
                                 </span>
                             }.into_any()
@@ -200,7 +221,7 @@ pub fn SubagentSession(
                         // via MessageTurn (markdown, code blocks, tool call accordions).
                         let groups = group_messages(&msgs);
                         view! {
-                            <div class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
+                            <div node_ref=scroll_ref class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
                                 {groups.into_iter().map(|group| {
                                     view! {
                                         <MessageTurn

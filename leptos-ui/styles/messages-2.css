@@ -114,20 +114,34 @@
 
 .message-turn {
     display: flex;
-    margin: 3px 0;
-    padding: var(--space-4) 0
+    margin: 0;
+    padding: var(--space-3) 0
+}
+
+.message-turn + .message-turn {
+    border-top: 1px solid var(--color-border-subtle)
+}
+
+.message-turn:first-child {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0
+}
+
+.message-turn:last-child {
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg)
+}
+
+.message-turn:first-child:last-child {
+    border-radius: var(--radius-lg)
 }
 
 .message-turn-assistant {
     background: var(--white-2);
-    border-radius: var(--radius-lg);
     padding-left: var(--space-6);
     padding-right: var(--space-6)
 }
 
 .message-turn-user {
     background: var(--white-1_5);
-    border-radius: var(--radius-lg);
     padding-left: var(--space-6);
     padding-right: var(--space-6)
 }
@@ -302,8 +316,29 @@
     margin-bottom: var(--space-2)
 }
 
+.message-body ul {
+    list-style-type: disc
+}
+
+.message-body ol {
+    list-style-type: decimal
+}
+
+.message-body ul ul {
+    list-style-type: circle
+}
+
+.message-body ul ul ul {
+    list-style-type: square
+}
+
 .message-body li {
     margin-bottom: var(--space-1)
+}
+
+.message-body li > input[type="checkbox"] {
+    margin-right: var(--space-1);
+    vertical-align: middle
 }
 
 .message-body h1,.message-body h2,.message-body h3 {

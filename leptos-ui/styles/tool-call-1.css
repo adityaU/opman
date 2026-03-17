@@ -176,6 +176,18 @@
     margin: var(--space-1) 0
 }
 
+.tool-output-markdown ul,.tool-output-markdown ol {
+    padding-left: var(--space-4);
+    margin: var(--space-1) 0
+}
+
+.tool-output-markdown ul { list-style-type: disc }
+.tool-output-markdown ol { list-style-type: decimal }
+
+.tool-output-markdown li {
+    margin-bottom: 2px
+}
+
 .tool-output-markdown code {
     background: var(--color-bg-element);
     padding: 1px 4px;
@@ -218,6 +230,21 @@
 
 .tool-spin-icon {
     animation: spin 1s linear infinite
+}
+
+.tool-pulse-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-warning);
+    animation: tool-dot-pulse 1.5s ease-in-out infinite;
+    vertical-align: middle
+}
+
+@keyframes tool-dot-pulse {
+    0%,to { opacity: 1; transform: scale(1) }
+    50% { opacity: .4; transform: scale(.7) }
 }
 
 /* ── Subagent session (inside task tool accordion) ─── */

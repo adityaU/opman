@@ -208,19 +208,30 @@
        ═════════════════════════════════════════════════════════════ */
 
     .message-timeline-inner {
-        padding: 0 var(--space-3);
-        gap: var(--space-3)
+        padding: 0;
+        gap: 0
     }
 
     /* Base turn styling */
     .message-turn {
+        border-radius: 0
+    }
+
+    .message-turn:first-child {
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0
+    }
+
+    .message-turn:last-child {
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg)
+    }
+
+    .message-turn:first-child:last-child {
         border-radius: var(--radius-lg)
     }
 
     /* ── Assistant messages — subtle card, full width ─────────── */
     .message-turn-assistant {
-        padding: var(--space-4) var(--space-8);
-        border-radius: var(--radius-lg);
+        padding: var(--space-3) var(--space-4);
         background: var(--glass-tint-light-subtle);
         border: .5px solid var(--white-4);
         position: relative
@@ -233,8 +244,7 @@
 
     /* ── User messages — same full-width card as assistant ──────── */
     .message-turn-user {
-        padding: var(--space-4) var(--space-8);
-        border-radius: var(--radius-lg);
+        padding: var(--space-3) var(--space-4);
         background: linear-gradient(168deg,color-mix(in srgb,var(--color-primary) 10%,transparent) 0%,color-mix(in srgb,var(--color-primary) 4%,transparent) 100%);
         border: .5px solid color-mix(in srgb,var(--color-primary) 16%,transparent);
         position: relative

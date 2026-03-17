@@ -21,7 +21,7 @@
     padding-bottom: 5.625rem;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: 0;
     min-height: 100%
 }
 

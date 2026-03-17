@@ -79,7 +79,7 @@ pub fn render_task_tool(
                                 <div class="tool-call-section">
                                     <div class="tool-call-section-label">"Output"</div>
                                     <pre class="tool-call-pre tool-call-live-output">
-                                        <IconLoader2 size=12 class="tool-spin-icon" />
+                                        <span class="tool-pulse-dot" />
                                         " Waiting for output..."
                                     </pre>
                                 </div>

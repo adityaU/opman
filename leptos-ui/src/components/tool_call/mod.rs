@@ -116,11 +116,16 @@ pub fn ToolCallView(
     let (expanded, set_expanded) = signal(initial_expanded);
     let (user_toggled, set_user_toggled) = signal(false);
 
+    // Auto-expand running bash/task tools if user hasn't manually toggled
     if !user_toggled.get_untracked() && is_bash_tool && is_running {
         set_expanded.set(true);
     }
     if !user_toggled.get_untracked() && is_task_tool && (is_running || has_subagent_messages) {
         set_expanded.set(true);
+    }
+    // Auto-collapse when tool completes (unless user manually toggled)
+    if !user_toggled.get_untracked() && !is_todo_write && is_completed {
+        set_expanded.set(false);
     }
 
     let handle_toggle = move |_: web_sys::MouseEvent| {
@@ -193,8 +198,8 @@ pub fn ToolCallView(
                     } else if is_running {
                         view! {
                             <span class="tool-call-pending">
-                                <IconLoader2 size=12 class="tool-spin-icon" />
-                                " running..."
+                                <span class="tool-pulse-dot" />
+                                " running"
                             </span>
                         }.into_any()
                     } else {
@@ -259,7 +264,7 @@ pub fn ToolCallView(
                                         <div class="tool-call-section">
                                             <div class="tool-call-section-label">"Output"</div>
                                             <pre class="tool-call-pre tool-call-live-output">
-                                                <IconLoader2 size=12 class="tool-spin-icon" />
+                                                <span class="tool-pulse-dot" />
                                                 " Waiting for output..."
                                             </pre>
                                         </div>
