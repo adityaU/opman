@@ -48,21 +48,32 @@ pub fn apply_theme_to_css(colors: &ThemeColors) {
         let _ = style.set_property(prop, value);
     }
 
-    // Paint html background + backgroundColor
+    // Paint html — size + background so Android Chrome samples correct color
+    let _ = style.set_property("width", "100%");
+    let _ = style.set_property("height", "100%");
+    let _ = style.set_property("overflow", "hidden");
     let _ = style.set_property("background", &colors.background);
     let _ = style.set_property("background-color", &colors.background);
 
-    // Paint body background so Android Chrome sees no transparent gap
+    // Paint body — must also fill viewport so no transparent gap
     if let Some(body) = document.body() {
         let bs = body.style();
+        let _ = bs.set_property("width", "100%");
+        let _ = bs.set_property("height", "100%");
+        let _ = bs.set_property("overflow", "hidden");
+        let _ = bs.set_property("margin", "0");
         let _ = bs.set_property("background", &colors.background);
         let _ = bs.set_property("background-color", &colors.background);
     }
 
-    // Paint #leptos-root background
+    // Paint #leptos-root — fill viewport with overflow hidden
     if let Ok(Some(app_root)) = document.query_selector("#leptos-root") {
         if let Some(el) = app_root.dyn_ref::<web_sys::HtmlElement>() {
             let rs = el.style();
+            let _ = rs.set_property("width", "100%");
+            let _ = rs.set_property("height", "100%");
+            let _ = rs.set_property("overflow", "hidden");
+            let _ = rs.set_property("position", "relative");
             let _ = rs.set_property("background", &colors.background);
             let _ = rs.set_property("background-color", &colors.background);
         }

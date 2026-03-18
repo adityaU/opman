@@ -44,11 +44,11 @@ pub fn build_search_callbacks(
         >,
     >,
 ) -> (
-    Callback<String>,  // search_change
-    Callback<()>,      // search_next
-    Callback<()>,      // search_prev
-    Callback<()>,      // close_search
-    Callback<()>,      // toggle_search
+    Callback<String>, // search_change
+    Callback<()>,     // search_next
+    Callback<()>,     // search_prev
+    Callback<()>,     // close_search
+    Callback<()>,     // toggle_search
 ) {
     let set_search_query = search.set_search_query;
     let set_search_match_idx = search.set_search_match_idx;
@@ -59,8 +59,12 @@ pub fn build_search_callbacks(
 
     let count_matches = move |query: &str| -> usize {
         let screens = tab_screens.get_value();
-        let Some(aid) = active_tab_id.get_untracked() else { return 0 };
-        let Some((screen, _, _)) = screens.get(&aid) else { return 0 };
+        let Some(aid) = active_tab_id.get_untracked() else {
+            return 0;
+        };
+        let Some((screen, _, _)) = screens.get(&aid) else {
+            return 0;
+        };
         screen.search(query).len()
     };
 
@@ -76,18 +80,26 @@ pub fn build_search_callbacks(
 
     let search_next = Callback::new(move |_: ()| {
         let query = search_query.get_untracked();
-        if query.is_empty() { return; }
+        if query.is_empty() {
+            return;
+        }
         let total = count_matches(&query);
-        if total == 0 { return; }
+        if total == 0 {
+            return;
+        }
         let idx = search_match_idx.get_untracked().unwrap_or(0);
         set_search_match_idx.set(Some((idx + 1) % total));
     });
 
     let search_prev = Callback::new(move |_: ()| {
         let query = search_query.get_untracked();
-        if query.is_empty() { return; }
+        if query.is_empty() {
+            return;
+        }
         let total = count_matches(&query);
-        if total == 0 { return; }
+        if total == 0 {
+            return;
+        }
         let idx = search_match_idx.get_untracked().unwrap_or(0);
         set_search_match_idx.set(Some(if idx == 0 { total - 1 } else { idx - 1 }));
     });
@@ -101,8 +113,11 @@ pub fn build_search_callbacks(
     let toggle_search = {
         let cs = close_search;
         Callback::new(move |_: ()| {
-            if search_open.get_untracked() { cs.run(()); }
-            else { set_search_open.set(true); }
+            if search_open.get_untracked() {
+                cs.run(());
+            } else {
+                set_search_open.set(true);
+            }
         })
     };
 
@@ -195,7 +210,21 @@ fn render_tab_terminal(
     let on_input = Callback::new(move |data: String| {
         send_input(&tab_id_input, data);
     });
+
+    // Check for virtual-keyboard signal from context so we can suppress
+    // resize events while the software keyboard is open (prevents the
+    // "whole panel reloads" flash when tapping the terminal on mobile).
+    let vkb_open: Option<ReadSignal<bool>> = use_context();
+
     let on_resize = Callback::new(move |(rows, cols): (u16, u16)| {
+        // While the virtual keyboard is open the viewport shrinks
+        // temporarily — resizing the PTY would flash / relayout lines
+        // for a transient geometry, so we skip it entirely.
+        if let Some(vkb) = vkb_open {
+            if vkb.get_untracked() {
+                return;
+            }
+        }
         let prev_rows = screen_resize.rows();
         let prev_cols = screen_resize.cols();
         if rows == prev_rows && cols == prev_cols {

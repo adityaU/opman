@@ -1,5 +1,6 @@
 //! DOM-based renderer for the native code editor.
 //! Renders line numbers, syntax-highlighted code, and cursor via Leptos views.
+//! Includes a hidden textarea proxy so mobile/tablet software keyboards open.
 
 use leptos::prelude::*;
 use send_wrapper::SendWrapper;
@@ -8,6 +9,7 @@ use wasm_bindgen::JsCast;
 use super::buffer_state::EditorBuffer;
 use super::highlighter::SyntaxHighlighter;
 use super::input::{map_key, InputAction};
+use floem_editor_core::command::EditCommand;
 
 /// Native code editor component — replaces CodeMirror.
 #[component]
@@ -31,6 +33,7 @@ pub fn NativeEditor(
     let buffer = SendWrapper::new(EditorBuffer::new(&content));
     let highlighter = SendWrapper::new(SyntaxHighlighter::new(&extension));
     let (revision, set_revision) = signal(0u64);
+    let textarea_ref = NodeRef::<leptos::html::Textarea>::new();
 
     // Handle jump-to-line
     if let Some(jl_signal) = jump_to_line {
@@ -45,7 +48,8 @@ pub fn NativeEditor(
         });
     }
 
-    // Keyboard handler
+    // Keyboard handler (physical keyboards — also fires on mobile for
+    // special keys like Backspace/Enter that don't go through `input` event).
     let buf_key = buffer.clone();
     let hl_key = highlighter.clone();
     let on_keydown = move |e: web_sys::KeyboardEvent| {
@@ -53,7 +57,13 @@ pub fn NativeEditor(
         let ctrl = e.ctrl_key() || e.meta_key();
         let shift = e.shift_key();
 
+        // Allow browser defaults for Ctrl+S / Ctrl+A
         if ctrl && (key == "s" || key == "a") {
+            return;
+        }
+        // On mobile, composing IME fires keydown with key="Unidentified" or
+        // key="Process" — ignore those; the `input` event handler covers them.
+        if key == "Unidentified" || key == "Process" {
             return;
         }
         if is_movement_key(&key) {
@@ -85,9 +95,72 @@ pub fn NativeEditor(
         }
     };
 
-    // Click handler — position cursor
+    // Mobile software keyboard input handler — captures text from the hidden
+    // textarea via the `input` event (works for IME, autocorrect, dictation).
+    let buf_input = buffer.clone();
+    let hl_input = highlighter.clone();
+    let on_textarea_input = move |_e: web_sys::Event| {
+        let Some(ta) = textarea_ref.get() else { return };
+        let el: &web_sys::HtmlTextAreaElement = &ta;
+        let val = el.value();
+        if val.is_empty() {
+            return;
+        }
+        // Clear textarea immediately so next keystroke starts fresh
+        el.set_value("");
+        // Insert all typed characters into the buffer
+        buf_input.insert(&val);
+        hl_input.invalidate();
+        set_revision.update(|r| *r += 1);
+        on_change.run(buf_input.content());
+        notify_cursor(&buf_input, &on_cursor);
+    };
+
+    // `beforeinput` handler — intercept deleteContentBackward etc. from
+    // mobile keyboards that don't fire a useful keydown.
+    let buf_bi = buffer.clone();
+    let hl_bi = highlighter.clone();
+    let on_before_input = move |e: web_sys::InputEvent| {
+        let input_type = e.input_type();
+        match input_type.as_str() {
+            "deleteContentBackward" => {
+                e.prevent_default();
+                buf_bi.do_edit(&EditCommand::DeleteBackward);
+                hl_bi.invalidate();
+                set_revision.update(|r| *r += 1);
+                on_change.run(buf_bi.content());
+                notify_cursor(&buf_bi, &on_cursor);
+            }
+            "deleteContentForward" => {
+                e.prevent_default();
+                buf_bi.do_edit(&EditCommand::DeleteForward);
+                hl_bi.invalidate();
+                set_revision.update(|r| *r += 1);
+                on_change.run(buf_bi.content());
+                notify_cursor(&buf_bi, &on_cursor);
+            }
+            "insertLineBreak" => {
+                e.prevent_default();
+                buf_bi.do_edit(&EditCommand::InsertNewLine);
+                hl_bi.invalidate();
+                set_revision.update(|r| *r += 1);
+                on_change.run(buf_bi.content());
+                notify_cursor(&buf_bi, &on_cursor);
+            }
+            _ => {}
+        }
+    };
+
+    // Click/touch handler — position cursor and focus the hidden textarea
+    // so the software keyboard opens on touch devices.
     let buf_click = buffer.clone();
     let on_click = move |e: web_sys::MouseEvent| {
+        // Focus hidden textarea to open software keyboard
+        if let Some(ta) = textarea_ref.get() {
+            let el: &web_sys::HtmlElement = &ta;
+            let _ = el.focus();
+        }
+
         let Some(target) = e.target() else { return };
         let Ok(el) = target.dyn_into::<web_sys::HtmlElement>() else {
             return;
@@ -118,7 +191,7 @@ pub fn NativeEditor(
     view! {
         <div
             class="native-editor"
-            tabindex="0"
+            tabindex="-1"
             on:keydown=on_keydown
             on:click=on_click
             style="width:100%;height:100%;overflow:auto;outline:none;\
@@ -126,6 +199,22 @@ pub fn NativeEditor(
                    font-size:13px;line-height:1.5;position:relative;\
                    color:var(--color-text,#e0e0e0);"
         >
+            // Hidden textarea — captures mobile software keyboard input.
+            // Positioned at 0,0, 1x1 to avoid layout shift; opacity 0.
+            <textarea
+                node_ref=textarea_ref
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                aria-hidden="true"
+                tabindex="0"
+                on:input=on_textarea_input
+                on:beforeinput=on_before_input
+                style="position:absolute;left:0;top:0;width:1px;height:1px;\
+                       opacity:0;padding:0;border:none;outline:none;\
+                       resize:none;overflow:hidden;z-index:-1;\
+                       caret-color:transparent;font-size:16px;"
+            />
             {move || {
                 let _rev = revision.get();
                 let num_lines = buf_r.num_lines();

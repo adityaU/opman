@@ -117,13 +117,20 @@ pub fn handle_session_updated(sse: &SseState, props: &serde_json::Value) {
         });
 }
 
-pub fn handle_permission_asked(sse: &SseState, props: &serde_json::Value) {
+/// Parse raw event properties into a `PermissionRequest`.
+/// Reused by both the live SSE handler and the reload/fetch_pending path.
+pub fn parse_permission_from_props(
+    props: &serde_json::Value,
+) -> Option<crate::types::core::PermissionRequest> {
     let id = props
         .get("id")
         .or_else(|| props.get("requestID"))
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
+    if id.is_empty() {
+        return None;
+    }
     let session_id = props
         .get("sessionID")
         .and_then(|v| v.as_str())
@@ -136,7 +143,6 @@ pub fn handle_permission_asked(sse: &SseState, props: &serde_json::Value) {
         .unwrap_or_default()
         .to_string();
 
-    // Parse patterns: upstream sends string[]
     let patterns: Option<Vec<String>> =
         props.get("patterns").and_then(|v| v.as_array()).map(|arr| {
             arr.iter()
@@ -144,28 +150,29 @@ pub fn handle_permission_asked(sse: &SseState, props: &serde_json::Value) {
                 .collect()
         });
 
-    // Parse metadata: upstream sends Record<string, unknown>
     let metadata: Option<std::collections::HashMap<String, serde_json::Value>> = props
         .get("metadata")
         .and_then(|v| v.as_object())
         .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
 
-    // Description: explicit field, else derive from permission + patterns
     let description = format_permission_description(props, &tool_name, &patterns);
 
-    if id.is_empty() {
-        return;
-    }
-
-    let perm = crate::types::core::PermissionRequest {
-        id: id.clone(),
+    Some(crate::types::core::PermissionRequest {
+        id,
         session_id,
         tool_name,
         description,
         patterns,
         metadata,
         time: js_sys::Date::now(),
+    })
+}
+
+pub fn handle_permission_asked(sse: &SseState, props: &serde_json::Value) {
+    let Some(perm) = parse_permission_from_props(props) else {
+        return;
     };
+    let id = perm.id.clone();
     sse.set_permissions.update(
         move |perms: &mut Vec<crate::types::core::PermissionRequest>| {
             perms.retain(|p| p.id != id);
@@ -190,24 +197,26 @@ pub fn handle_permission_replied(sse: &SseState, props: &serde_json::Value) {
     }
 }
 
-pub fn handle_question_asked(sse: &SseState, props: &serde_json::Value) {
+/// Parse raw event properties into a `QuestionRequest`.
+/// Reused by both the live SSE handler and the reload/fetch_pending path.
+pub fn parse_question_from_props(
+    props: &serde_json::Value,
+) -> Option<crate::types::core::QuestionRequest> {
     let id = props
         .get("id")
         .or_else(|| props.get("requestID"))
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
+    if id.is_empty() {
+        return None;
+    }
     let session_id = props
         .get("sessionID")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
 
-    if id.is_empty() {
-        return;
-    }
-
-    // Parse questions array — upstream sends [{question, header, options: [{label, description}], multiple, custom}]
     let raw_questions = props
         .get("questions")
         .and_then(|v| v.as_array())
@@ -217,16 +226,22 @@ pub fn handle_question_asked(sse: &SseState, props: &serde_json::Value) {
     let questions: Vec<crate::types::core::QuestionItem> =
         raw_questions.iter().map(transform_question_info).collect();
 
-    // Derive title: explicit title > first question header > "Question"
     let title = derive_question_title(props, &raw_questions);
 
-    let q = crate::types::core::QuestionRequest {
-        id: id.clone(),
+    Some(crate::types::core::QuestionRequest {
+        id,
         session_id,
         title,
         questions,
         time: js_sys::Date::now(),
+    })
+}
+
+pub fn handle_question_asked(sse: &SseState, props: &serde_json::Value) {
+    let Some(q) = parse_question_from_props(props) else {
+        return;
     };
+    let id = q.id.clone();
     sse.set_questions
         .update(move |qs: &mut Vec<crate::types::core::QuestionRequest>| {
             qs.retain(|q| q.id != id);

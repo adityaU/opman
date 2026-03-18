@@ -1,5 +1,6 @@
 //! NativeTermView component — DOM-rendered terminal using vt100 crate.
 //! Screen state and rendering logic live in `screen.rs`.
+//! Includes a hidden textarea proxy so mobile/tablet software keyboards open.
 
 use leptos::prelude::*;
 use send_wrapper::SendWrapper;
@@ -30,6 +31,7 @@ pub fn NativeTermView(
 ) -> impl IntoView {
     let screen_r = screen.clone();
     let container_ref = NodeRef::<leptos::html::Div>::new();
+    let textarea_ref = NodeRef::<leptos::html::Textarea>::new();
 
     // ResizeObserver — compute rows/cols from container pixel size
     {
@@ -71,26 +73,82 @@ pub fn NativeTermView(
         });
     }
 
-    // Keyboard handler — capture raw keys for the PTY
-    let on_keydown = move |e: web_sys::KeyboardEvent| {
-        let key = e.key();
-        let ctrl = e.ctrl_key() || e.meta_key();
+    // Keyboard handler — capture raw keys for the PTY (physical keyboards
+    // and mobile special keys like arrows, Enter, Backspace).
+    let on_keydown = {
+        let on_input = on_input.clone();
+        move |e: web_sys::KeyboardEvent| {
+            let key = e.key();
+            let ctrl = e.ctrl_key() || e.meta_key();
 
-        // Let browser handle Ctrl+C copy when there's a selection
-        if ctrl && key == "c" {
-            let sel = web_sys::window()
-                .and_then(|w| w.get_selection().ok().flatten())
-                .map(|s| s.to_string().as_string().unwrap_or_default())
-                .unwrap_or_default();
-            if !sel.is_empty() {
+            // IME composing — let the `input` event handle it
+            if key == "Unidentified" || key == "Process" {
                 return;
             }
-        }
 
-        let data = key_to_terminal_input(&key, ctrl, e.shift_key(), e.alt_key());
-        if !data.is_empty() {
-            e.prevent_default();
-            on_input.run(data);
+            // Let browser handle Ctrl+C copy when there's a selection
+            if ctrl && key == "c" {
+                let sel = web_sys::window()
+                    .and_then(|w| w.get_selection().ok().flatten())
+                    .map(|s| s.to_string().as_string().unwrap_or_default())
+                    .unwrap_or_default();
+                if !sel.is_empty() {
+                    return;
+                }
+            }
+
+            let data = key_to_terminal_input(&key, ctrl, e.shift_key(), e.alt_key());
+            if !data.is_empty() {
+                e.prevent_default();
+                on_input.run(data);
+            }
+        }
+    };
+
+    // Mobile software keyboard `input` event — captures typed text from
+    // the hidden textarea.
+    let on_textarea_input = {
+        let on_input = on_input.clone();
+        move |_e: web_sys::Event| {
+            let Some(ta) = textarea_ref.get() else { return };
+            let el: &web_sys::HtmlTextAreaElement = &ta;
+            let val = el.value();
+            if val.is_empty() {
+                return;
+            }
+            el.set_value("");
+            on_input.run(val);
+        }
+    };
+
+    // `beforeinput` handler — intercept mobile-specific input types that
+    // don't fire a useful keydown (e.g. deleteContentBackward on Android).
+    let on_before_input = {
+        let on_input = on_input.clone();
+        move |e: web_sys::InputEvent| {
+            match e.input_type().as_str() {
+                "deleteContentBackward" => {
+                    e.prevent_default();
+                    on_input.run("\x7f".to_string()); // Backspace
+                }
+                "deleteContentForward" => {
+                    e.prevent_default();
+                    on_input.run("\x1b[3~".to_string()); // Delete
+                }
+                "insertLineBreak" => {
+                    e.prevent_default();
+                    on_input.run("\r".to_string()); // Enter
+                }
+                _ => {}
+            }
+        }
+    };
+
+    // Click handler — focus hidden textarea to open software keyboard
+    let on_click = move |_e: web_sys::MouseEvent| {
+        if let Some(ta) = textarea_ref.get() {
+            let el: &web_sys::HtmlElement = &ta;
+            let _ = el.focus();
         }
     };
 
@@ -98,13 +156,29 @@ pub fn NativeTermView(
         <div
             node_ref=container_ref
             class="native-terminal"
-            tabindex="0"
+            tabindex="-1"
             on:keydown=on_keydown
+            on:click=on_click
             style="width:100%;height:100%;overflow:hidden;outline:none;\
                    font-family:'JetBrains Mono','Fira Code','Cascadia Code',monospace;\
-                   font-size:13px;line-height:1.2;padding:4px;\
+                   font-size:13px;line-height:1.2;padding:4px;position:relative;\
                    background:transparent;color:var(--color-text,#e0e0e0);"
         >
+            // Hidden textarea — captures mobile software keyboard input.
+            <textarea
+                node_ref=textarea_ref
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                aria-hidden="true"
+                tabindex="0"
+                on:input=on_textarea_input
+                on:beforeinput=on_before_input
+                style="position:absolute;left:0;top:0;width:1px;height:1px;\
+                       opacity:0;padding:0;border:none;outline:none;\
+                       resize:none;overflow:hidden;z-index:-1;\
+                       caret-color:transparent;font-size:16px;"
+            />
             {move || {
                 let _rev = revision.get();
                 let query = search_query.map(|s| s.get()).unwrap_or_default();
@@ -113,11 +187,7 @@ pub fn NativeTermView(
                 let highlights: Vec<(usize, usize, usize, bool)> = if query.is_empty() {
                     Vec::new()
                 } else {
-                    // Use search_visible for highlights (only visible rows)
                     let matches = screen_r.search_visible(&query);
-                    // Map active_idx from full-buffer index to visible index
-                    // For now, highlight all visible matches; active match
-                    // highlighting works when active match is on screen
                     matches
                         .iter()
                         .enumerate()

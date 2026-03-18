@@ -7,7 +7,7 @@
 
 mod app_listeners;
 mod event_handler;
-mod session_handlers;
+pub mod session_handlers;
 
 use leptos::prelude::Set;
 use wasm_bindgen::prelude::*;

@@ -19,6 +19,12 @@ use crate::components::message_turn::{group_messages, MessageTurn};
 use crate::hooks::use_sse_state::{SessionStatus, SseState};
 use crate::types::api::SessionInfo;
 
+/// Shared accordion state — survives component re-creation across reactive re-renders.
+/// Key = tool-call ID or subagent session ID, Value = user-toggled expanded state.
+/// Provided via context by MessageTimeline, consumed by ToolCallView / SubagentSession.
+#[derive(Clone, Copy)]
+pub struct AccordionState(pub RwSignal<HashMap<String, bool>>);
+
 /// React: VIRTUALIZE_THRESHOLD = 40 groups before switching to virtual list.
 const VIRTUALIZE_THRESHOLD: usize = 40;
 
@@ -68,6 +74,10 @@ pub fn MessageTimeline(
     let scroll_container_ref = NodeRef::<leptos::html::Div>::new();
     let (should_auto_scroll, set_should_auto_scroll) = signal(true);
     let (show_jump_to_bottom, set_show_jump_to_bottom) = signal(false);
+
+    // Shared accordion expanded state — survives component re-renders.
+    // Provided via context so ToolCallView / SubagentSession can read/write.
+    provide_context(AccordionState(RwSignal::new(HashMap::new())));
 
     // Scroll direction detection state (React: cumulative delta + threshold algorithm)
     let (last_scroll_top, set_last_scroll_top) = signal(0i32);

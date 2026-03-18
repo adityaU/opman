@@ -99,9 +99,11 @@
         height: 2.75rem
     }
 
-    /* Hide desktop-only elements */
+    /* Hide desktop-only elements on phone (tablet keeps side-panel for split view) */
+
+    /* ── Tablet side-panel — constrain width for narrower screens ── */
     .side-panel {
-        display: none!important
+        max-width: 45vw
     }
 }
 
@@ -121,6 +123,11 @@
         --radius-md: 14px;
         --radius-lg: 20px;
         --radius-xl: 28px
+    }
+
+    /* Hide side-panel on phone — phone uses fullscreen panel sheets */
+    .side-panel {
+        display: none!important
     }
 
     /* ═════════════════════════════════════════════════════════════

@@ -80,15 +80,20 @@ pub fn ChatLayout() -> impl IntoView {
         leptos::task::spawn_local(async move {
             match crate::api::fetch_pending().await {
                 Ok(pending) => {
+                    // Use the same manual parsing as the live SSE handler
+                    // to handle field name mismatches (permission vs toolName, etc.)
+                    use crate::sse::connection::session_handlers::{
+                        parse_permission_from_props, parse_question_from_props,
+                    };
                     let perms: Vec<crate::types::core::PermissionRequest> = pending
                         .permissions
-                        .into_iter()
-                        .filter_map(|v| serde_json::from_value(v).ok())
+                        .iter()
+                        .filter_map(|v| parse_permission_from_props(v))
                         .collect();
                     let qs: Vec<crate::types::core::QuestionRequest> = pending
                         .questions
-                        .into_iter()
-                        .filter_map(|v| serde_json::from_value(v).ok())
+                        .iter()
+                        .filter_map(|v| parse_question_from_props(v))
                         .collect();
                     if !perms.is_empty() {
                         set_permissions.set(perms);
@@ -283,7 +288,8 @@ fn ChatLayoutInner(
     provide_context(bookmarks);
 
     // ── Virtual keyboard (mobile) ──
-    use_virtual_keyboard();
+    let vkb_open = use_virtual_keyboard();
+    provide_context(vkb_open);
 
     // ── URL restore & sync ──
     let url_state = use_url_restore(sse, panels);

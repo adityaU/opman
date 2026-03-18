@@ -10,6 +10,7 @@
 use leptos::prelude::*;
 use crate::types::core::Message;
 use crate::api::client::fetch_session_messages;
+use crate::components::message_timeline::AccordionState;
 use crate::components::message_turn::{group_messages, MessageTurn};
 use web_sys::HtmlElement;
 
@@ -26,21 +27,34 @@ pub fn SubagentSession(
 ) -> impl IntoView {
     let has_sse_messages = !messages.is_empty();
 
-    // Expand/collapse state
-    let (expanded, set_expanded) = signal(is_running);
-    let (user_toggled, set_user_toggled) = signal(false);
+    // Read shared accordion state from context (survives parent re-renders).
+    let accordion_ctx = use_context::<AccordionState>();
+
+    // Determine expanded state: if user previously toggled, use that; else compute default.
+    let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
+        if let Some(&saved) = map.with_untracked(|m| m.get(&session_id).copied()).as_ref() {
+            saved
+        } else {
+            // Auto-collapse completed/error unless running
+            if !is_running && (is_completed || is_error) { false } else { is_running }
+        }
+    } else {
+        if !is_running && (is_completed || is_error) { false } else { is_running }
+    };
+
+    let (expanded, set_expanded) = signal(default_expanded);
     let (fetched_messages, set_fetched_messages) = signal::<Option<Vec<Message>>>(None);
     let (is_fetching, set_is_fetching) = signal(false);
     let (fetch_attempted, set_fetch_attempted) = signal(false);
 
-    // Auto-collapse when completed (unless user manually toggled)
-    if !user_toggled.get_untracked() && !is_running && (is_completed || is_error) {
-        set_expanded.set(false);
-    }
-
+    let sid_for_toggle = session_id.clone();
     let handle_toggle = move |_: web_sys::MouseEvent| {
-        set_user_toggled.set(true);
-        set_expanded.update(|v| *v = !*v);
+        let new_val = !expanded.get_untracked();
+        set_expanded.set(new_val);
+        // Persist in shared context so re-renders preserve user's choice
+        if let Some(AccordionState(map)) = accordion_ctx {
+            map.update(|m| { m.insert(sid_for_toggle.clone(), new_val); });
+        }
     };
 
     // Fetch messages for completed tasks without SSE data

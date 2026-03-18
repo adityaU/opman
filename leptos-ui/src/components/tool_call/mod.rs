@@ -13,6 +13,7 @@ use sub_components::{EditDiffView, TodoList, ToolInput, ToolOutput};
 use task_render::render_task_tool;
 
 use crate::components::icons::*;
+use crate::components::message_timeline::AccordionState;
 use crate::types::core::MessagePart;
 use leptos::prelude::*;
 
@@ -113,24 +114,66 @@ pub fn ToolCallView(
 
     let initial_expanded =
         is_todo_write || (is_task_tool && (is_running || is_completed || is_error));
-    let (expanded, set_expanded) = signal(initial_expanded);
-    let (user_toggled, set_user_toggled) = signal(false);
 
-    // Auto-expand running bash/task tools if user hasn't manually toggled
-    if !user_toggled.get_untracked() && is_bash_tool && is_running {
-        set_expanded.set(true);
-    }
-    if !user_toggled.get_untracked() && is_task_tool && (is_running || has_subagent_messages) {
-        set_expanded.set(true);
-    }
-    // Auto-collapse when tool completes (unless user manually toggled)
-    if !user_toggled.get_untracked() && !is_todo_write && is_completed {
-        set_expanded.set(false);
-    }
+    // Stable key for accordion state persistence across re-renders.
+    let accordion_key = part
+        .tool_call_id
+        .clone()
+        .or_else(|| part.call_id.clone())
+        .or_else(|| part.id.clone())
+        .unwrap_or_default();
 
+    // Read shared accordion state from context (survives parent re-renders).
+    let accordion_ctx = use_context::<AccordionState>();
+
+    // Determine expanded state: if user previously toggled, use that; else compute default.
+    let (user_toggled, default_expanded) = if let Some(AccordionState(map)) = accordion_ctx {
+        if let Some(&saved) = map
+            .with_untracked(|m| m.get(&accordion_key).copied())
+            .as_ref()
+        {
+            (true, saved)
+        } else {
+            // Compute auto-expand default
+            let mut exp = initial_expanded;
+            if is_bash_tool && is_running {
+                exp = true;
+            }
+            if is_task_tool && (is_running || has_subagent_messages) {
+                exp = true;
+            }
+            if !is_todo_write && is_completed {
+                exp = false;
+            }
+            (false, exp)
+        }
+    } else {
+        let mut exp = initial_expanded;
+        if is_bash_tool && is_running {
+            exp = true;
+        }
+        if is_task_tool && (is_running || has_subagent_messages) {
+            exp = true;
+        }
+        if !is_todo_write && is_completed {
+            exp = false;
+        }
+        (false, exp)
+    };
+
+    let (expanded, set_expanded) = signal(default_expanded);
+    let _ = user_toggled; // suppress unused warning — used only to choose initial value
+
+    let ak_for_toggle = accordion_key.clone();
     let handle_toggle = move |_: web_sys::MouseEvent| {
-        set_user_toggled.set(true);
-        set_expanded.update(|v| *v = !*v);
+        let new_val = !expanded.get_untracked();
+        set_expanded.set(new_val);
+        // Persist in shared context so re-renders preserve user's choice
+        if let Some(AccordionState(map)) = accordion_ctx {
+            map.update(|m| {
+                m.insert(ak_for_toggle.clone(), new_val);
+            });
+        }
     };
 
     let title = part.state.as_ref().and_then(|s| s.title.clone());

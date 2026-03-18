@@ -35,7 +35,7 @@ impl DeviceMode {
         !self.is_desktop()
     }
     /// True for phone only — only phones use fullscreen panel sheets
-    /// (git/editor/terminal overlays). Tablet keeps desktop split panels.
+    /// (git/editor/terminal overlays). Tablet + desktop use side-panel split.
     pub fn uses_panel_sheets(self) -> bool {
         self.is_phone()
     }

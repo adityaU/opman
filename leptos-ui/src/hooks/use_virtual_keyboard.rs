@@ -7,7 +7,13 @@ use wasm_bindgen::JsCast;
 
 /// Detect mobile virtual keyboard open/close via the Visual Viewport API.
 /// Sets `data-vkb-open` attribute and `--vkb-height` CSS variable on `<html>`.
-pub fn use_virtual_keyboard() {
+///
+/// Returns a `ReadSignal<bool>` that is `true` while the keyboard is open.
+/// Components can use this to suppress layout-driven side-effects (e.g.
+/// terminal ResizeObserver recalculations).
+pub fn use_virtual_keyboard() -> ReadSignal<bool> {
+    let (is_open, set_is_open) = signal(false);
+
     Effect::new(move |_| {
         let window = match web_sys::window() {
             Some(w) => w,
@@ -23,36 +29,65 @@ pub fn use_virtual_keyboard() {
             None => return,
         };
 
-        let inner_height = window
-            .inner_height()
-            .ok()
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
         let doc_el = window.document().and_then(|d| d.document_element());
 
         let doc_el_resize = doc_el.clone();
         let vv_resize = vv.clone();
+        let set_open = set_is_open;
+
+        // Track previous open state to avoid redundant DOM writes
+        // (matches React's openRef pattern).
+        let was_open = std::rc::Rc::new(std::cell::Cell::new(false));
+        let was_open_cb = was_open.clone();
 
         let handler = Closure::<dyn Fn()>::new(move || {
+            // Read window.innerHeight fresh each time (it stays constant
+            // on mobile while visualViewport.height shrinks for keyboard).
+            let win = match web_sys::window() {
+                Some(w) => w,
+                None => return,
+            };
+            let inner_h = win
+                .inner_height()
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+
             let viewport_height = js_sys::Reflect::get(&vv_resize, &JsValue::from_str("height"))
                 .ok()
                 .and_then(|v| v.as_f64())
-                .unwrap_or(inner_height);
+                .unwrap_or(inner_h);
 
-            let is_open = inner_height - viewport_height > 150.0;
+            let threshold = 150.0;
+            let open_now = inner_h - viewport_height > threshold;
 
-            if let Some(ref el) = doc_el_resize {
-                if is_open {
-                    let _ = el.set_attribute("data-vkb-open", "true");
-                } else {
-                    let _ = el.remove_attribute("data-vkb-open");
+            // Only touch the DOM when the state changes
+            if open_now != was_open_cb.get() {
+                was_open_cb.set(open_now);
+                set_open.set(open_now);
+
+                if let Some(ref el) = doc_el_resize {
+                    if open_now {
+                        let _ = el.set_attribute("data-vkb-open", "");
+                    } else {
+                        let _ = el.remove_attribute("data-vkb-open");
+                        let style = el.unchecked_ref::<web_sys::HtmlElement>().style();
+                        let _ = style.remove_property("--vkb-height");
+                    }
                 }
-                let style = el.unchecked_ref::<web_sys::HtmlElement>().style();
-                let _ = style.set_property("--vkb-height", &format!("{}px", viewport_height));
+            }
+
+            // While open, continuously update available height
+            if open_now {
+                if let Some(ref el) = doc_el_resize {
+                    let style = el.unchecked_ref::<web_sys::HtmlElement>().style();
+                    let _ = style
+                        .set_property("--vkb-height", &format!("{}px", viewport_height.round()));
+                }
             }
         });
 
-        // Keep a JS function reference for removing listeners in cleanup
+        // Keep a JS function reference for cleanup
         let handler_fn: js_sys::Function =
             handler.as_ref().unchecked_ref::<js_sys::Function>().clone();
 
@@ -75,11 +110,14 @@ pub fn use_virtual_keyboard() {
 
         // .forget() leaks the Closure's Wasm allocation but is required because
         // on_cleanup requires Send+Sync and Closure<dyn Fn> is neither.
-        // The listeners themselves are properly removed in cleanup.
         handler.forget();
 
-        // Cleanup: remove listeners when effect re-runs or owner is disposed
+        // Cleanup: remove listeners + DOM attributes when owner is disposed.
+        // NOTE: handler_fn (js_sys::Function) is Send+Sync. The Rc<Cell>
+        // (`was_open`) is not, so we don't capture it in cleanup — the
+        // handler Closure was already `.forget()`-ed above.
         let vv_cleanup = vv.clone();
+        let doc_el_cleanup = doc_el.clone();
         on_cleanup(move || {
             if let Some(remove_fn) =
                 js_sys::Reflect::get(&vv_cleanup, &JsValue::from_str("removeEventListener"))
@@ -89,6 +127,13 @@ pub fn use_virtual_keyboard() {
                 let _ = remove_fn.call2(&vv_cleanup, &JsValue::from_str("resize"), &handler_fn);
                 let _ = remove_fn.call2(&vv_cleanup, &JsValue::from_str("scroll"), &handler_fn);
             }
+            if let Some(el) = doc_el_cleanup {
+                let _ = el.remove_attribute("data-vkb-open");
+                let style = el.unchecked_ref::<web_sys::HtmlElement>().style();
+                let _ = style.remove_property("--vkb-height");
+            }
         });
     });
+
+    is_open
 }
