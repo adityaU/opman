@@ -4,6 +4,7 @@
 //! keyboard listener is properly cleaned up on unmount.
 
 use leptos::prelude::*;
+use wasm_bindgen::JsCast;
 use crate::types::core::SlashCommand;
 
 /// Built-in commands that are always available.
@@ -102,6 +103,16 @@ pub fn SlashCommandPopover(
         set_selected_index.set(0);
     });
 
+    // Scroll selected item into view when index changes via keyboard
+    fn scroll_selected_into_view(idx: usize) {
+        let Some(doc) = web_sys::window().and_then(|w| w.document()) else { return };
+        let Ok(items) = doc.query_selector_all(".slash-popover > .slash-popover-item") else { return };
+        let Some(node) = items.get(idx as u32) else { return };
+        if let Some(el) = node.dyn_ref::<web_sys::Element>() {
+            el.scroll_into_view_with_bool(false);
+        }
+    }
+
     // Register keyboard handler
     // Note: We store the JS function reference for cleanup via on_cleanup.
     // JsValue is Send+Sync in wasm32 targets, so this works with Leptos.
@@ -121,12 +132,14 @@ pub fn SlashCommandPopover(
                         let len = filtered.get_untracked().len();
                         if *i + 1 < len { *i += 1; }
                     });
+                    scroll_selected_into_view(selected_index.get_untracked());
                 }
                 "ArrowUp" => {
                     e.prevent_default();
                     set_selected_index.update(|i| {
                         if *i > 0 { *i -= 1; }
                     });
+                    scroll_selected_into_view(selected_index.get_untracked());
                 }
                 "Enter" | "Tab" => {
                     e.prevent_default();
@@ -190,7 +203,7 @@ pub fn SlashCommandPopover(
                             <button
                                 class=move || {
                                     if selected_index.get() == idx {
-                                        "slash-popover-item slash-popover-item-active"
+                                        "slash-popover-item selected"
                                     } else {
                                         "slash-popover-item"
                                     }

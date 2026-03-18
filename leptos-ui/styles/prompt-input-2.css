@@ -194,7 +194,9 @@
 .slash-popover {
     position: absolute;
     bottom: calc(100% + 4px);
-    left: var(--space-4);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
     max-width: var(--chat-max-width);
     width: calc(100% - 2 * var(--space-4));
     max-height: 300px;
