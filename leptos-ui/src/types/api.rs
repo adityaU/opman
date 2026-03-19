@@ -326,7 +326,7 @@ pub struct FileReadResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileUploadResponse {
-    pub uploaded: Vec<String>,
+    pub files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

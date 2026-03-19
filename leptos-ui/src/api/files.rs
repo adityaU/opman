@@ -75,8 +75,8 @@ pub async fn file_upload(dir_path: &str, files: &web_sys::FileList) -> Result<Fi
     let form = FormData::new()
         .map_err(|e| ApiError { status: 0, message: format!("FormData::new failed: {:?}", e) })?;
 
-    form.append_with_str("path", dir_path)
-        .map_err(|e| ApiError { status: 0, message: format!("append path failed: {:?}", e) })?;
+    form.append_with_str("directory", dir_path)
+        .map_err(|e| ApiError { status: 0, message: format!("append directory failed: {:?}", e) })?;
 
     for i in 0..files.length() {
         if let Some(file) = files.get(i) {
