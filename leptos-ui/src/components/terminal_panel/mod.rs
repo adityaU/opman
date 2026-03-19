@@ -15,6 +15,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::components::icons::*;
+use crate::components::debug_overlay::dbg_log;
 
 use body::{build_search_callbacks, render_terminal_body, SearchState};
 use header::{render_header_actions, render_search_bar, render_tab_bar};
@@ -29,6 +30,7 @@ pub fn TerminalPanel(
     #[prop(into, optional)] visible: Option<Signal<bool>>,
     #[prop(into, optional)] mcp_agent_active: Option<Signal<bool>>,
 ) -> impl IntoView {
+    dbg_log("[TERM-PANEL] TerminalPanel constructor called");
     let (tabs, set_tabs) = signal(Vec::<TabInfo>::new());
     let (active_tab_id, set_active_tab_id) = signal(Option::<String>::None);
     let (expanded, set_expanded) = signal(false);
@@ -202,6 +204,7 @@ pub fn TerminalPanel(
     {
         let runtimes = runtimes.clone();
         on_cleanup(move || {
+            dbg_log("[TERM-PANEL] on_cleanup fired — TerminalPanel being unmounted!");
             let mut map = runtimes.borrow_mut();
             for (tab_id, mut runtime) in map.drain() {
                 runtime.cleanup();

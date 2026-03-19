@@ -5,7 +5,6 @@ use crate::sse::message_map::{self, MessageMap, map_to_sorted_array};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use std::collections::HashMap;
 
 use super::types::MESSAGE_PAGE_SIZE;
 use super::SseState;
@@ -74,20 +73,29 @@ impl SseState {
     }
 
     /// Refresh messages from the server for the active session.
+    /// Guarded: concurrent calls are skipped to prevent stacking fetches.
     pub fn refresh_messages(&self) {
+        if self.is_refreshing.get_untracked() {
+            return;
+        }
         let sid = match self.tracked_session_id() {
             Some(s) => s,
             None => return,
         };
+        self.is_refreshing.set(true);
         let gen = self.current_gen();
         let set_messages = self.set_messages;
         let set_has_older = self.set_has_older_messages;
         let set_total = self.set_total_message_count;
         let message_map_signal = self.message_map;
         let session_gen_signal = self.session_gen;
+        let is_refreshing = self.is_refreshing;
 
         leptos::task::spawn_local(async move {
-            match crate::api::fetch_session_messages(&sid, MESSAGE_PAGE_SIZE, None).await {
+            let result =
+                crate::api::fetch_session_messages(&sid, MESSAGE_PAGE_SIZE, None).await;
+            is_refreshing.set(false);
+            match result {
                 Ok(resp) => {
                     if session_gen_signal.get_untracked() != gen {
                         return;
@@ -280,76 +288,5 @@ impl SseState {
             map.insert(id_clone, msg);
         });
         self.flush_messages();
-    }
-
-    // ── Subagent message methods ──
-
-    /// Update a subagent session's message map and schedule a batched subagent flush.
-    pub fn update_subagent_map(
-        &self,
-        session_id: &str,
-        f: impl FnOnce(&mut MessageMap) -> bool,
-    ) {
-        let sid = session_id.to_string();
-        let mut changed = false;
-        self.subagent_maps.update(|maps| {
-            let map = maps.entry(sid).or_insert_with(MessageMap::new);
-            changed = f(map);
-        });
-        if changed {
-            self.schedule_subagent_flush();
-        }
-    }
-
-    /// Schedule a subagent flush for the next animation frame.
-    fn schedule_subagent_flush(&self) {
-        if self.subagent_flush_pending.get_untracked() {
-            return;
-        }
-        self.subagent_flush_pending.set(true);
-
-        let subagent_maps = self.subagent_maps;
-        let set_subagent_messages = self.set_subagent_messages;
-        let subagent_flush_pending = self.subagent_flush_pending;
-        let subagent_raf_handle = self.subagent_raf_handle;
-
-        let cb = Closure::once(move || {
-            subagent_flush_pending.set(false);
-            subagent_raf_handle.set(0);
-            let rendered = subagent_maps.with_untracked(|maps| {
-                let mut out = HashMap::with_capacity(maps.len());
-                for (sid, map) in maps {
-                    out.insert(sid.clone(), map_to_sorted_array(map));
-                }
-                out
-            });
-            set_subagent_messages.set(rendered);
-        });
-
-        if let Some(window) = web_sys::window() {
-            if let Ok(handle) =
-                window.request_animation_frame(cb.as_ref().unchecked_ref())
-            {
-                self.subagent_raf_handle.set(handle);
-            }
-        }
-        cb.forget();
-    }
-
-    /// Clear all subagent message maps (e.g. on session switch).
-    pub fn clear_subagent_messages(&self) {
-        // Cancel pending subagent rAF
-        if self.subagent_flush_pending.get_untracked() {
-            self.subagent_flush_pending.set(false);
-            let handle = self.subagent_raf_handle.get_untracked();
-            if handle != 0 {
-                if let Some(window) = web_sys::window() {
-                    let _ = window.cancel_animation_frame(handle);
-                }
-                self.subagent_raf_handle.set(0);
-            }
-        }
-        self.subagent_maps.update(|maps| maps.clear());
-        self.set_subagent_messages.set(HashMap::new());
     }
 }

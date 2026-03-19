@@ -12,6 +12,33 @@
          [footer]  → flex-shrink:0  (pinned bottom)
 ── */
 
+/* ════════════════════════════════════════════════════════════════
+   0. LAYOUT STABILIZATION — prevent main layout from reflowing
+      when the virtual keyboard opens (especially in PWA mode
+      where the layout viewport can shrink).
+   ════════════════════════════════════════════════════════════════ */
+
+[data-vkb-open] .chat-layout,
+[data-vkb-open] .chat-content,
+[data-vkb-open] .chat-main {
+    /* Keep the layout height fixed to what it was before the keyboard
+       opened. overflow:hidden prevents scrollbars from appearing. */
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Terminal and side-panel containers: prevent flex shrinking when
+   the parent column shrinks due to VKB layout viewport change. */
+[data-vkb-open] .terminal-panel,
+[data-vkb-open] .terminal-panel-body,
+[data-vkb-open] .term-tab-body,
+[data-vkb-open] .native-terminal,
+[data-vkb-open] .side-panel,
+[data-vkb-open] .side-panel-body,
+[data-vkb-open] .code-editor-panel {
+    flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
 
     /* ════════════════════════════════════════════════════════════════

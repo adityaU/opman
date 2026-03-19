@@ -11,6 +11,8 @@ use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+use crate::components::debug_overlay::dbg_log;
+
 /// Device mode — phone, tablet, or desktop.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DeviceMode {
@@ -255,7 +257,15 @@ pub fn use_mobile_state() -> MobileState {
     // Listen for resize events to update device mode
     Effect::new(move |_| {
         let cb = Closure::<dyn Fn()>::new(move || {
-            set_device_mode.set(detect_device_mode());
+            let prev = device_mode.get_untracked();
+            let next = detect_device_mode();
+            if prev != next {
+                dbg_log(&format!(
+                    "[MOBILE] device_mode changed: {:?} -> {:?}",
+                    prev, next
+                ));
+                set_device_mode.set(next);
+            }
         });
         if let Some(window) = web_sys::window() {
             let _ = window.add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref());

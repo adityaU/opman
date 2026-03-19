@@ -14,6 +14,7 @@ use crate::components::search_bar::SearchBar;
 use crate::components::terminal_panel::TerminalPanel;
 use crate::components::code_editor_panel::CodeEditorPanel;
 use crate::components::git_panel::GitPanel;
+use crate::components::debug_overlay::DebugPanel;
 use crate::hooks::use_assistant_state::AssistantState;
 use crate::hooks::use_bookmarks::BookmarkState;
 use crate::hooks::use_chat_handlers::ChatHandlers;
@@ -23,6 +24,7 @@ use crate::hooks::use_model_state::ModelState;
 use crate::hooks::use_panel_state::{FocusedPanel, PanelState};
 use crate::hooks::use_resizable::{use_resizable, ResizableOptions, ResizeDirection};
 use crate::hooks::use_sse_state::{ConnectionStatus, SessionStatus, SseState};
+use crate::components::debug_overlay::dbg_log;
 
 /// ChatMainArea component.
 #[component]
@@ -40,6 +42,8 @@ pub fn ChatMainArea(
     let editor_mounted = panels.editor.mounted;
     let git_open = panels.git.open;
     let git_mounted = panels.git.mounted;
+    let debug_open = panels.debug.open;
+    let debug_mounted = panels.debug.mounted;
     let session_status = sse.session_status;
     let connection_status = sse.connection_status;
     let mobile_sidebar_open = mobile.sidebar_open;
@@ -114,7 +118,7 @@ pub fn ChatMainArea(
         reverse: true,
     });
 
-    let has_side_panel = Memo::new(move |_| editor_open.get() || git_open.get());
+    let has_side_panel = Memo::new(move |_| editor_open.get() || git_open.get() || debug_open.get());
 
     // One-way latch: becomes true the first time any side panel is mounted,
     // never reverts. This ensures the side-panel container DOM is created
@@ -123,7 +127,11 @@ pub fn ChatMainArea(
     let side_ever_mounted = {
         let (sig, set_sig) = signal(false);
         Effect::new(move |_| {
-            if !sig.get_untracked() && (editor_mounted.get() || git_mounted.get()) {
+            let em = editor_mounted.get();
+            let gm = git_mounted.get();
+            let dm = debug_mounted.get();
+            if !sig.get_untracked() && (em || gm || dm) {
+                dbg_log(&format!("[CMA] side_ever_mounted latch -> true (editor={}, git={}, debug={})", em, gm, dm));
                 set_sig.set(true);
             }
         });
@@ -454,14 +462,16 @@ pub fn ChatMainArea(
                     />
                 </div>
 
-                // Terminal panel area — mount-once pattern: once mounted, stays in DOM
-                // but hidden via display:none when closed (preserves terminal state).
-                // IMPORTANT: only track `terminal_mounted` here (one-way latch).
-                // All open/close visibility uses style:display bindings so toggling
-                // the terminal never re-creates the DOM subtree.
-                {move || {
-                    if terminal_mounted.get() {
-                        Some(view! {
+            // Terminal panel area — mount-once pattern: once mounted, stays in DOM
+            // but hidden via display:none when closed (preserves terminal state).
+            // IMPORTANT: only track `terminal_mounted` here (one-way latch).
+            // All open/close visibility uses style:display bindings so toggling
+            // the terminal never re-creates the DOM subtree.
+            {move || {
+                let m = terminal_mounted.get();
+                dbg_log(&format!("[CMA] terminal mount closure ran, terminal_mounted={}", m));
+                if m {
+                    Some(view! {
                             // Terminal resize handle
                             <div
                                 class=move || {
@@ -501,7 +511,9 @@ pub fn ChatMainArea(
             // `side_ever_mounted` so the DOM subtree is created exactly once
             // and never destroyed. All open/close visibility is via style:display.
             {move || {
-                if side_ever_mounted.get() {
+                let sem = side_ever_mounted.get();
+                dbg_log(&format!("[CMA] side panel mount closure ran, side_ever_mounted={}", sem));
+                if sem {
                     Some(view! {
                         // Side panel resize handle
                         <div
@@ -528,7 +540,9 @@ pub fn ChatMainArea(
                         >
                             // Editor section
                             {move || {
-                                if editor_mounted.get() {
+                                let em = editor_mounted.get();
+                                dbg_log(&format!("[CMA] editor mount closure ran, editor_mounted={}", em));
+                                if em {
                                     Some(view! {
                                         <div
                                             class="side-panel-section flex flex-col flex-1"
@@ -571,7 +585,9 @@ pub fn ChatMainArea(
                             }}
                             // Git section
                             {move || {
-                                if git_mounted.get() {
+                                let gm = git_mounted.get();
+                                dbg_log(&format!("[CMA] git mount closure ran, git_mounted={}", gm));
+                                if gm {
                                     Some(view! {
                                         <div
                                             class="side-panel-section flex flex-col flex-1"
@@ -603,6 +619,34 @@ pub fn ChatMainArea(
                                 } else {
                                     None
                                 }
+                            }}
+                            // Debug section
+                            {move || {
+                                if !debug_mounted.get() {
+                                    return None;
+                                }
+                                Some(view! {
+                                    <div
+                                        class="side-panel-section flex flex-col flex-1"
+                                        style:display=move || if debug_open.get() { "" } else { "none" }
+                                    >
+                                        <div class="side-panel-header flex items-center gap-1.5 px-3 py-1.5 bg-bg-panel border-b border-border-subtle">
+                                            <IconActivity size=14 />
+                                            <span class="text-text text-xs font-medium">"Debug"</span>
+                                            <span class="flex-1" />
+                                            <button
+                                                class="side-panel-close text-text-muted hover:text-text"
+                                                on:click=move |_| panels.debug.close()
+                                                aria-label="Close debug panel"
+                                            >
+                                                <IconX size=14 />
+                                            </button>
+                                        </div>
+                                        <div class="side-panel-body flex-1 overflow-hidden">
+                                            <DebugPanel />
+                                        </div>
+                                    </div>
+                                })
                             }}
                         </div>
                     })

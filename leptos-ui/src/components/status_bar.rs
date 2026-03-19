@@ -41,6 +41,7 @@ pub fn StatusBar(sse: SseState, panels: PanelState, modal_state: ModalState) -> 
     let terminal_open = panels.terminal.open;
     let editor_open = panels.editor.open;
     let git_open = panels.git.open;
+    let debug_open = panels.debug.open;
     let session_status = sse.session_status;
     let connection_status = sse.connection_status;
 
@@ -460,6 +461,19 @@ pub fn StatusBar(sse: SseState, panels: PanelState, modal_state: ModalState) -> 
                     aria-label="Toggle git"
                 >
                     <IconGitBranch size=13 />
+                </button>
+
+                // Debug toggle
+                <button
+                    class=move || {
+                        let base = "status-bar-btn";
+                        if debug_open.get() { format!("{} active", base) } else { base.to_string() }
+                    }
+                    on:click=move |_| panels.debug.toggle()
+                    title="Toggle Debug (Cmd+Shift+/)"
+                    aria-label="Toggle debug panel"
+                >
+                    <IconActivity size=13 />
                 </button>
 
                 // Terminal toggle

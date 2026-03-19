@@ -10,8 +10,6 @@ use crate::hooks::use_sse_state::{ConnectionStatus, SessionStatus, SseState};
 use crate::types::api::SessionStats;
 use crate::types::events::WatcherStatus;
 
-use super::recover_after_reconnect;
-
 /// Wire all event listeners onto an app-level EventSource.
 /// `touch_event` is called from each listener to reset the stale-connection watchdog.
 pub fn wire_app_listeners(
@@ -258,24 +256,17 @@ pub fn wire_app_listeners(
         cb.forget();
     }
 
-    // Connection status tracking (open/error)
+    // Connection status tracking (open/error) — matches React: status only, no recovery.
+    // Recovery is handled by the watchdog (stale) and session SSE (error→open).
     {
         let touch_open = touch_event.clone();
         let set_conn = set_connection;
         let sse_for_open = sse;
-        let needs_recovery =
-            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let needs_recovery_err = needs_recovery.clone();
 
         let open_cb = Closure::<dyn Fn()>::new(move || {
             touch_open();
-            // Dedup: only set if not already Connected
             if sse_for_open.connection_status.get_untracked() != ConnectionStatus::Connected {
                 set_conn.set(ConnectionStatus::Connected);
-            }
-            if needs_recovery.load(std::sync::atomic::Ordering::Relaxed) {
-                needs_recovery.store(false, std::sync::atomic::Ordering::Relaxed);
-                recover_after_reconnect(sse_for_open);
             }
         });
         let _ = app_sse
@@ -288,11 +279,9 @@ pub fn wire_app_listeners(
             log::warn!(
                 "[SSE] App events connection error — EventSource will auto-reconnect"
             );
-            // Dedup: only set if not already Reconnecting
             if sse_for_err.connection_status.get_untracked() != ConnectionStatus::Reconnecting {
                 set_conn2.set(ConnectionStatus::Reconnecting);
             }
-            needs_recovery_err.store(true, std::sync::atomic::Ordering::Relaxed);
         });
         let _ = app_sse
             .add_event_listener_with_callback("error", err_cb.as_ref().unchecked_ref());

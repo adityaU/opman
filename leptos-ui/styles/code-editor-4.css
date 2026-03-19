@@ -229,7 +229,8 @@ html.flat-theme .message-turn-assistant {
 }
 
 html.flat-theme .message-turn-user {
-    background: color-mix(in srgb,var(--color-bg-element) 50%,var(--color-bg))
+    background: color-mix(in srgb,var(--color-bg-element) 50%,var(--color-bg));
+    border-left: 3px solid var(--color-primary)
 }
 
 html.flat-theme .shimmer-turn.shimmer-assistant {

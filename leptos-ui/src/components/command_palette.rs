@@ -154,6 +154,48 @@ pub fn CommandPalette(
                     })
                 },
             },
+            PaletteItem {
+                id: "toggle-editor",
+                category: "Layout",
+                label: "Toggle Editor",
+                description: "",
+                shortcut: "\u{2318}\u{21e7}E",
+                handler: {
+                    let panels = panels;
+                    Callback::new(move |_: ()| {
+                        on_close.run(());
+                        panels.editor.toggle();
+                    })
+                },
+            },
+            PaletteItem {
+                id: "toggle-git",
+                category: "Layout",
+                label: "Toggle Git",
+                description: "",
+                shortcut: "\u{2318}\u{21e7}G",
+                handler: {
+                    let panels = panels;
+                    Callback::new(move |_: ()| {
+                        on_close.run(());
+                        panels.git.toggle();
+                    })
+                },
+            },
+            PaletteItem {
+                id: "toggle-debug",
+                category: "Layout",
+                label: "Toggle Debug Panel",
+                description: "On-screen trace log",
+                shortcut: "\u{2318}\u{21e7}/",
+                handler: {
+                    let panels = panels;
+                    Callback::new(move |_: ()| {
+                        on_close.run(());
+                        panels.debug.toggle();
+                    })
+                },
+            },
             // ── Core (continued) ────────────────────────────
             PaletteItem {
                 id: "cheatsheet",

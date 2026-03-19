@@ -27,6 +27,7 @@ use crate::components::modal_layer::ModalLayer;
 use crate::components::status_bar::StatusBar;
 use crate::components::theme_selector_modal::{get_persisted_theme_mode, ThemeMode};
 use crate::components::toast::{ToastContext, ToastType};
+use crate::components::debug_overlay::dbg_log;
 
 /// ChatLayout component — the main authenticated view.
 #[component]
@@ -191,6 +192,13 @@ pub fn ChatLayout() -> impl IntoView {
             .meta()
             .shift()
             .desc("Toggle Git"),
+            // Toggle debug: Cmd+Shift+/
+            KeyBinding::new("/", Callback::new(move |_| {
+                panels.debug.toggle();
+            }))
+            .meta()
+            .shift()
+            .desc("Toggle Debug"),
             // Command palette: Cmd+Shift+P
             KeyBinding::new("p", Callback::new(move |_| {
                 modal_state.toggle(ModalName::CommandPalette);
@@ -239,6 +247,7 @@ pub fn ChatLayout() -> impl IntoView {
     let initialized = RwSignal::new(false);
     Effect::new(move |_| {
         if !sse.derived_projects.get().is_empty() && !initialized.get_untracked() {
+            dbg_log("[LAYOUT] ChatLayout initialized latch -> true");
             initialized.set(true);
         }
     });
@@ -246,7 +255,9 @@ pub fn ChatLayout() -> impl IntoView {
     view! {
         <div class="chat-layout">
             {move || {
-                if !initialized.get() {
+                let init = initialized.get();
+                dbg_log(&format!("[LAYOUT] ChatLayout outer closure re-ran, initialized={}", init));
+                if !init {
                     view! {
                         <div class="chat-loading">
                             <div class="chat-loading-spinner"></div>
@@ -254,6 +265,7 @@ pub fn ChatLayout() -> impl IntoView {
                         </div>
                     }.into_any()
                 } else {
+                    dbg_log("[LAYOUT] Creating ChatLayoutInner");
                     view! {
                         <ChatLayoutInner sse=sse panels=panels modal_state=modal_state mobile=mobile theme_mode=theme_mode set_theme_mode=set_theme_mode />
                     }.into_any()
@@ -273,6 +285,7 @@ fn ChatLayoutInner(
     theme_mode: ReadSignal<ThemeMode>,
     set_theme_mode: WriteSignal<ThemeMode>,
 ) -> impl IntoView {
+    dbg_log("[LAYOUT] ChatLayoutInner constructor called");
     let mobile_sidebar_open = mobile.sidebar_open;
 
     // ── Provider + model state ──

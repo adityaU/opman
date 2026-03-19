@@ -5,6 +5,8 @@ use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+use crate::components::debug_overlay::dbg_log;
+
 /// Detect mobile virtual keyboard open/close via the Visual Viewport API.
 /// Sets `data-vkb-open` attribute and `--vkb-height` CSS variable on `<html>`.
 ///
@@ -64,8 +66,19 @@ pub fn use_virtual_keyboard() -> ReadSignal<bool> {
             // Only touch the DOM when the state changes
             if open_now != was_open_cb.get() {
                 was_open_cb.set(open_now);
-                set_open.set(open_now);
+                dbg_log(&format!(
+                    "[VKB] is_open changed: {} -> {} (innerH={:.0}, viewH={:.0}, diff={:.0})",
+                    !open_now,
+                    open_now,
+                    inner_h,
+                    viewport_height,
+                    inner_h - viewport_height
+                ));
 
+                // Set DOM attribute BEFORE the reactive signal so that
+                // synchronous callbacks (e.g. ResizeObserver) that check
+                // `data-vkb-open` or `is_vkb_open_direct()` see the new
+                // state immediately, avoiding the VKB race condition.
                 if let Some(ref el) = doc_el_resize {
                     if open_now {
                         let _ = el.set_attribute("data-vkb-open", "");
@@ -75,6 +88,8 @@ pub fn use_virtual_keyboard() -> ReadSignal<bool> {
                         let _ = style.remove_property("--vkb-height");
                     }
                 }
+
+                set_open.set(open_now);
             }
 
             // While open, continuously update available height

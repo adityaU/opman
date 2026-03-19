@@ -6,6 +6,7 @@ use send_wrapper::SendWrapper;
 use super::native_term::{NativeTermView, TermScreen};
 use super::pty_bridge::send_input;
 use super::types::{kind_label, TabInfo, TabStatus};
+use crate::components::debug_overlay::dbg_log;
 
 /// Terminal body search state and callbacks.
 pub struct SearchState {
@@ -125,6 +126,9 @@ pub fn build_search_callbacks(
 }
 
 /// Render the terminal body — one `NativeTermView` per tab, visibility toggled.
+///
+/// Uses `For` to key each tab by its ID so views are created once and
+/// never destroyed/recreated on tab switch — only `display` toggles.
 pub fn render_terminal_body(
     tabs: ReadSignal<Vec<TabInfo>>,
     active_tab_id: ReadSignal<Option<String>>,
@@ -139,36 +143,50 @@ pub fn render_terminal_body(
 ) -> impl IntoView {
     view! {
         <div class="terminal-panel-body">
-            {move || {
-                let current_tabs = tabs.get();
-                let active = active_tab_id.get();
-                let screens = tab_screens.get_value();
-
-                current_tabs.iter().map(|tab| {
-                    let is_visible = active.as_deref() == Some(&tab.id);
-                    let status = tab.status.clone();
-                    let kind = tab.kind.clone();
+            <For
+                each=move || tabs.get()
+                key=|tab| tab.id.clone()
+                children=move |tab: TabInfo| {
                     let tab_id = tab.id.clone();
-                    let tab_id_input = tab.id.clone();
-                    let screen_data = screens.get(&tab.id).cloned();
+                    let tab_id_vis = tab.id.clone();
+                    let tab_id_status = tab.id.clone();
+
+                    // Derive visibility from active_tab_id — only this signal
+                    // is tracked, so switching tabs just flips display:none.
+                    let is_visible = Memo::new(move |_| {
+                        active_tab_id.get().as_deref() == Some(tab_id_vis.as_str())
+                    });
+
+                    // Derive status reactively so the overlay disappears when
+                    // init_tab sets status to Ready via set_tabs.update().
+                    let tab_status = Memo::new(move |_| {
+                        tabs.get()
+                            .iter()
+                            .find(|t| t.id == tab_id_status)
+                            .map(|t| (t.status.clone(), t.kind.clone()))
+                    });
+
+                    let screen_data = tab_screens.get_value().get(&tab_id).cloned();
 
                     view! {
                         <div
                             class="term-tab-body"
-                            style:display=if is_visible { "flex" } else { "none" }
+                            style:display=move || if is_visible.get() { "flex" } else { "none" }
                             style="flex-direction:column;height:100%;"
                         >
-                            {render_tab_status(status, &kind)}
+                            {move || tab_status.get().and_then(|(st, kind)| render_tab_status(st, &kind))}
                             {screen_data.map(|(screen, rev, set_rev)| {
+                                let tid = tab.id.clone();
+                                let tid_input = tab.id.clone();
                                 render_tab_terminal(
-                                    screen, rev, set_rev, tab_id, tab_id_input,
+                                    screen, rev, set_rev, tid, tid_input,
                                     search_query, search_match_idx,
                                 )
                             })}
                         </div>
                     }
-                }).collect::<Vec<_>>()
-            }}
+                }
+            />
         </div>
     }
 }
@@ -220,8 +238,23 @@ fn render_tab_terminal(
         // While the virtual keyboard is open the viewport shrinks
         // temporarily — resizing the PTY would flash / relayout lines
         // for a transient geometry, so we skip it entirely.
+        //
+        // Check both the reactive signal (fast, no DOM access) AND the
+        // DOM attribute (covers the race where ResizeObserver fires
+        // before the signal has been set).
         if let Some(vkb) = vkb_open {
             if vkb.get_untracked() {
+                dbg_log(&format!("[TERM-BODY] on_resize suppressed (vkb signal), rows={}, cols={}", rows, cols));
+                return;
+            }
+        }
+        // Fallback: check DOM attribute directly
+        if let Some(el) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.document_element())
+        {
+            if el.has_attribute("data-vkb-open") {
+                dbg_log(&format!("[TERM-BODY] on_resize suppressed (data-vkb-open attr), rows={}, cols={}", rows, cols));
                 return;
             }
         }
@@ -230,6 +263,7 @@ fn render_tab_terminal(
         if rows == prev_rows && cols == prev_cols {
             return;
         }
+        dbg_log(&format!("[TERM-BODY] on_resize: {}x{} -> {}x{}", prev_rows, prev_cols, rows, cols));
         screen_resize.resize(rows, cols);
         set_rev.update(|r| *r += 1);
         let pid = tab_id_resize.clone();

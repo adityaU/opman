@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 pub use super::screen::TermScreen;
+use crate::components::debug_overlay::dbg_log;
 
 /// Native terminal view component — renders the vt100 screen as DOM.
 #[component]
@@ -47,10 +48,23 @@ pub fn NativeTermView(
                 let Some(on_resize) = on_resize else {
                     return;
                 };
+
+                // Direct VKB check — bypass the reactive signal to avoid
+                // the race where ResizeObserver fires before
+                // use_virtual_keyboard has set vkb_open to true.
+                if is_vkb_open_direct() {
+                    dbg_log("[TERM-NATIVE] ResizeObserver suppressed (VKB open, direct check)");
+                    return;
+                }
+
                 let entry: web_sys::ResizeObserverEntry = entries.get(0).unchecked_into();
                 let rect = entry.content_rect();
                 let w = rect.width();
                 let h = rect.height();
+                dbg_log(&format!(
+                    "[TERM-NATIVE] ResizeObserver fired: w={:.0}, h={:.0}",
+                    w, h
+                ));
                 if w < 1.0 || h < 1.0 {
                     return;
                 }
@@ -146,6 +160,7 @@ pub fn NativeTermView(
 
     // Click handler — focus hidden textarea to open software keyboard
     let on_click = move |_e: web_sys::MouseEvent| {
+        dbg_log("[TERM-NATIVE] click -> focusing hidden textarea");
         if let Some(ta) = textarea_ref.get() {
             let el: &web_sys::HtmlElement = &ta;
             let _ = el.focus();
@@ -179,35 +194,68 @@ pub fn NativeTermView(
                        resize:none;overflow:hidden;z-index:-1;\
                        caret-color:transparent;font-size:16px;"
             />
-            {move || {
-                let _rev = revision.get();
-                let query = search_query.map(|s| s.get()).unwrap_or_default();
-                let active_idx = search_active_idx.and_then(|s| s.get());
+            // Single container with inner_html — avoids per-line DOM
+            // destruction/recreation when the reactive closure re-runs.
+            <div
+                class="native-term-lines"
+                style="white-space:pre;line-height:1.2;"
+                inner_html=move || {
+                    let _rev = revision.get();
+                    let query = search_query.map(|s| s.get()).unwrap_or_default();
+                    let active_idx = search_active_idx.and_then(|s| s.get());
 
-                let highlights: Vec<(usize, usize, usize, bool)> = if query.is_empty() {
-                    Vec::new()
-                } else {
-                    let matches = screen_r.search_visible(&query);
-                    matches
-                        .iter()
-                        .enumerate()
-                        .map(|(i, &(row, cs, ce))| (row, cs, ce, Some(i) == active_idx))
-                        .collect()
-                };
+                    let highlights: Vec<(usize, usize, usize, bool)> = if query.is_empty() {
+                        Vec::new()
+                    } else {
+                        let matches = screen_r.search_visible(&query);
+                        matches
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &(row, cs, ce))| (row, cs, ce, Some(i) == active_idx))
+                            .collect()
+                    };
 
-                let lines = screen_r.render_lines(&highlights);
-                lines.into_iter().map(|html| {
-                    view! {
-                        <div
-                            class="native-term-line"
-                            style="white-space:pre;height:1.2em;overflow:hidden;"
-                            inner_html=html
-                        />
+                    let lines = screen_r.render_lines(&highlights);
+                    let mut buf = String::with_capacity(lines.len() * 80);
+                    for html in &lines {
+                        buf.push_str("<div class=\"native-term-line\" style=\"height:1.2em;overflow:hidden;\">");
+                        buf.push_str(html);
+                        buf.push_str("</div>");
                     }
-                }).collect::<Vec<_>>()
-            }}
+                    buf
+                }
+            />
         </div>
     }
+}
+
+/// Check if the virtual keyboard is currently open by reading the
+/// `visualViewport` height directly. This avoids the race condition where
+/// `ResizeObserver` fires before the reactive `vkb_open` signal is updated.
+fn is_vkb_open_direct() -> bool {
+    let Some(window) = web_sys::window() else {
+        return false;
+    };
+    let inner_h = window
+        .inner_height()
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    if inner_h == 0.0 {
+        return false;
+    }
+    let vv = js_sys::Reflect::get(&window, &JsValue::from_str("visualViewport"))
+        .ok()
+        .filter(|v| !v.is_undefined() && !v.is_null());
+    let Some(vv) = vv else {
+        return false;
+    };
+    let viewport_h = js_sys::Reflect::get(&vv, &JsValue::from_str("height"))
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(inner_h);
+    // Same threshold as use_virtual_keyboard (150px)
+    inner_h - viewport_h > 150.0
 }
 
 /// Map browser key events to terminal escape sequences.

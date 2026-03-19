@@ -5,6 +5,8 @@
 use leptos::prelude::*;
 use std::collections::HashMap;
 
+use crate::components::debug_overlay::dbg_log;
+
 /// Which panel is focused.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum FocusedPanel {
@@ -44,6 +46,7 @@ impl TogglePanel {
         // Once opened, stay mounted (guard prevents re-notification when already true)
         Effect::new(move |_| {
             if open.get() && !mounted.get_untracked() {
+                dbg_log("[PANEL] TogglePanel mounted (was closed, now open)");
                 set_mounted.set(true);
             }
         });
@@ -71,6 +74,7 @@ pub struct PanelConfig {
     pub terminal: bool,
     pub editor: bool,
     pub git: bool,
+    pub debug: bool,
 }
 
 impl Default for PanelConfig {
@@ -80,6 +84,7 @@ impl Default for PanelConfig {
             terminal: false,
             editor: false,
             git: false,
+            debug: false,
         }
     }
 }
@@ -91,6 +96,7 @@ struct PanelSnapshot {
     terminal_open: bool,
     editor_open: bool,
     git_open: bool,
+    debug_open: bool,
     focused: FocusedPanel,
     sidebar_width: f64,
     terminal_height: f64,
@@ -115,6 +121,9 @@ pub struct PanelState {
     // Git
     pub git: TogglePanel,
 
+    // Debug
+    pub debug: TogglePanel,
+
     // Side panel (editor/git combined)
     pub side_panel_size: PanelSize,
 
@@ -132,19 +141,39 @@ impl PanelState {
     }
 
     pub fn has_side_panel(&self) -> bool {
-        self.editor.open.get_untracked() || self.git.open.get_untracked()
+        self.editor.open.get_untracked()
+            || self.git.open.get_untracked()
+            || self.debug.open.get_untracked()
     }
 
     pub fn focus_sidebar(&self) {
-        self.set_focused.set(FocusedPanel::Sidebar);
+        if self.focused.get_untracked() != FocusedPanel::Sidebar {
+            dbg_log(&format!(
+                "[PANEL] focus changed: {:?} -> Sidebar",
+                self.focused.get_untracked()
+            ));
+            self.set_focused.set(FocusedPanel::Sidebar);
+        }
     }
 
     pub fn focus_chat(&self) {
-        self.set_focused.set(FocusedPanel::Chat);
+        if self.focused.get_untracked() != FocusedPanel::Chat {
+            dbg_log(&format!(
+                "[PANEL] focus changed: {:?} -> Chat",
+                self.focused.get_untracked()
+            ));
+            self.set_focused.set(FocusedPanel::Chat);
+        }
     }
 
     pub fn focus_side(&self) {
-        self.set_focused.set(FocusedPanel::Side);
+        if self.focused.get_untracked() != FocusedPanel::Side {
+            dbg_log(&format!(
+                "[PANEL] focus changed: {:?} -> Side",
+                self.focused.get_untracked()
+            ));
+            self.set_focused.set(FocusedPanel::Side);
+        }
     }
 
     /// Save current panel open/focus state + sizes for the given project index.
@@ -154,6 +183,7 @@ impl PanelState {
             terminal_open: self.terminal.open.get_untracked(),
             editor_open: self.editor.open.get_untracked(),
             git_open: self.git.open.get_untracked(),
+            debug_open: self.debug.open.get_untracked(),
             focused: self.focused.get_untracked(),
             sidebar_width: self.sidebar_size.size.get_untracked(),
             terminal_height: self.terminal_size.size.get_untracked(),
@@ -175,6 +205,7 @@ impl PanelState {
             self.terminal.set_open.set(s.terminal_open);
             self.editor.set_open.set(s.editor_open);
             self.git.set_open.set(s.git_open);
+            self.debug.set_open.set(s.debug_open);
             self.set_focused.set(s.focused);
             self.sidebar_size.set_size.set(s.sidebar_width);
             self.terminal_size.set_size.set(s.terminal_height);
@@ -193,6 +224,7 @@ pub fn use_panel_state(config: PanelConfig) -> PanelState {
 
     let editor = TogglePanel::new(config.editor);
     let git = TogglePanel::new(config.git);
+    let debug = TogglePanel::new(config.debug);
     let side_panel_size = PanelSize::new(500.0);
 
     let (focused, set_focused) = signal(FocusedPanel::Chat);
@@ -207,6 +239,7 @@ pub fn use_panel_state(config: PanelConfig) -> PanelState {
         terminal_size,
         editor,
         git,
+        debug,
         side_panel_size,
         focused,
         set_focused,

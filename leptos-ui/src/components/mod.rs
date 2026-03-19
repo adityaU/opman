@@ -65,3 +65,6 @@ pub mod session_search_modal;
 pub mod terminal_panel;
 pub mod code_editor_panel;
 pub mod git_panel;
+
+// Debug
+pub mod debug_overlay;

@@ -25,6 +25,7 @@ use leptos::prelude::*;
 use crate::components::icons::{IconPanelLeft, IconX};
 use crate::hooks::use_panel_state::PanelState;
 use crate::hooks::use_resizable::{use_resizable, ResizableOptions, ResizeDirection};
+use crate::components::debug_overlay::dbg_log;
 
 use actions::{
     build_close_file, build_create, build_load_dir, build_load_dir_children,
@@ -43,6 +44,7 @@ use state::EditorState;
 
 #[component]
 pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
+    dbg_log("[EDITOR-PANEL] CodeEditorPanel constructor called");
     let s = EditorState::new();
     let explorer_resize = use_resizable(ResizableOptions {
         initial_size: 200.0,
@@ -210,35 +212,39 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
                 <div class="editor-tabs code-editor-tabs flex items-center gap-0.5 px-1 py-0.5 bg-bg-element border-b border-border-subtle overflow-x-auto">
                     {
                         let close_file = close_file_tabs.clone();
-                        move || {
-                            open_files.get().iter().map(|f| {
-                                let path = f.path.clone();
-                                let path_close = f.path.clone();
-                                let name = f.name.clone();
-                                let modified = f.is_modified();
-                                let is_active = active_file.get().as_deref() == Some(&f.path);
-                                let close_file = close_file.clone();
-                                view! {
-                                    <div
-                                        class=move || {
-                                            let base = "code-editor-tab flex items-center gap-1 px-2.5 py-1 text-xs rounded-t transition-colors group cursor-pointer max-w-[160px]";
-                                            if is_active {
-                                                format!("{base} active bg-bg-panel text-text border-b-2 border-primary")
-                                            } else {
-                                                format!("{base} text-text-muted hover:text-text hover:bg-bg-panel/50")
+                        view! {
+                            <For
+                                each=move || open_files.get()
+                                key=|f| f.path.clone()
+                                children=move |f: types::OpenFile| {
+                                    let path = f.path.clone();
+                                    let path_click = f.path.clone();
+                                    let path_close = f.path.clone();
+                                    let name = f.name.clone();
+                                    let modified = f.is_modified();
+                                    let close_file = close_file.clone();
+                                    view! {
+                                        <div
+                                            class=move || {
+                                                let base = "code-editor-tab flex items-center gap-1 px-2.5 py-1 text-xs rounded-t transition-colors group cursor-pointer max-w-[160px]";
+                                                if active_file.get().as_deref() == Some(path.as_str()) {
+                                                    format!("{base} active bg-bg-panel text-text border-b-2 border-primary")
+                                                } else {
+                                                    format!("{base} text-text-muted hover:text-text hover:bg-bg-panel/50")
+                                                }
                                             }
-                                        }
-                                        on:click=move |_| set_active_file_tab.set(Some(path.clone()))
-                                    >
-                                        {modified.then(|| view! { <span class="code-editor-modified-dot">"•"</span> })}
-                                        <span class="truncate">{name}</span>
-                                        <button
-                                            class="opacity-0 group-hover:opacity-100 text-text-muted hover:text-error text-[10px] ml-0.5"
-                                            on:click=move |e| { e.stop_propagation(); close_file(path_close.clone()); }
-                                        ><IconX size=12 /></button>
-                                    </div>
+                                            on:click=move |_| set_active_file_tab.set(Some(path_click.clone()))
+                                        >
+                                            {modified.then(|| view! { <span class="code-editor-modified-dot">"•"</span> })}
+                                            <span class="truncate">{name}</span>
+                                            <button
+                                                class="opacity-0 group-hover:opacity-100 text-text-muted hover:text-error text-[10px] ml-0.5"
+                                                on:click=move |e| { e.stop_propagation(); close_file(path_close.clone()); }
+                                            ><IconX size=12 /></button>
+                                        </div>
+                                    }
                                 }
-                            }).collect::<Vec<_>>()
+                            />
                         }
                     }
                 </div>

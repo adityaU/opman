@@ -7,6 +7,7 @@ use leptos_router::path;
 
 use crate::components::app_loader::AppLoader;
 use crate::components::chat_layout::ChatLayout;
+use crate::components::debug_overlay::DebugLog;
 use crate::components::error_boundary::ErrorBoundary;
 use crate::components::toast::{provide_toast_context, ToastContainer};
 use crate::pages::login::LoginPage;
@@ -24,6 +25,10 @@ enum AuthState {
 pub fn App() -> impl IntoView {
     // Provide toast context at the root
     let _toast_ctx = provide_toast_context();
+
+    // Provide debug overlay context at root (above everything)
+    let debug_log = DebugLog::new();
+    provide_context(debug_log);
 
     let (auth_state, set_auth_state) = signal(AuthState::Checking);
     let (bootstrap_ready, set_bootstrap_ready) = signal(false);

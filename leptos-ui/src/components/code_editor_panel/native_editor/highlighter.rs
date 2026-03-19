@@ -85,10 +85,22 @@ impl SyntaxHighlighter {
         spans
     }
 
-    /// Invalidate cached highlighting (call after any buffer edit).
-    pub fn invalidate(&self) {
+    /// Invalidate cached highlighting from `from_line` onward.
+    /// If `from_line` is `None`, clears the entire cache (e.g. file switch).
+    pub fn invalidate_from(&self, from_line: Option<usize>) {
         let mut inner = self.inner.borrow_mut();
-        inner.cache.clear();
+        match from_line {
+            Some(line) if line < inner.cache.len() => {
+                inner.cache.truncate(line);
+            }
+            Some(_) => {} // line beyond cache — nothing to invalidate
+            None => inner.cache.clear(),
+        }
+    }
+
+    /// Invalidate the entire cache (convenience alias for `invalidate_from(None)`).
+    pub fn invalidate(&self) {
+        self.invalidate_from(None);
     }
 
     /// Change the syntax for a different file extension.
@@ -143,8 +155,7 @@ fn highlight_line_classify(ss: &SyntaxSet, syntax_idx: usize, line_text: &str) -
         let offset = byte_offset.min(content_len);
         if offset > cur_pos {
             let chunk = &text[cur_pos..offset];
-            let cls = classify_scope(&scope_stack);
-            let is_italic = is_scope_italic(&scope_stack);
+            let (cls, is_italic) = classify_scope_and_italic(&scope_stack);
             spans.push(StyledSpan {
                 text: chunk.to_string(),
                 token_class: cls,
@@ -159,79 +170,68 @@ fn highlight_line_classify(ss: &SyntaxSet, syntax_idx: usize, line_text: &str) -
     // Remaining text on the line (up to content_len, not the trailing \n)
     if cur_pos < content_len {
         let chunk = &line_text[cur_pos..];
-        let cls = classify_scope(&scope_stack);
+        let (cls, is_italic) = classify_scope_and_italic(&scope_stack);
         spans.push(StyledSpan {
             text: chunk.to_string(),
             token_class: cls,
             bold: false,
-            italic: false,
+            italic: is_italic,
         });
     }
 
     spans
 }
 
-/// Classify a scope stack into a CSS `.token.*` class suffix.
-/// Mirrors `syntax_highlight::classify_scope` for consistency.
-fn classify_scope(scope: &ScopeStack) -> &'static str {
+/// Classify a scope stack into a (CSS token class, italic) pair in a single pass.
+/// Avoids calling `build_string()` twice per scope (once for class, once for italic).
+fn classify_scope_and_italic(scope: &ScopeStack) -> (&'static str, bool) {
     for s in scope.as_slice().iter().rev() {
         let atom_str = s.build_string();
         let a = atom_str.as_str();
 
         if a.starts_with("comment") {
-            return "comment";
+            return ("comment", true);
         }
         if a.starts_with("string") {
-            return "string";
+            return ("string", false);
         }
         if a.starts_with("constant.numeric") {
-            return "number";
+            return ("number", false);
         }
         if a.starts_with("constant.language") {
-            return "boolean";
+            return ("boolean", false);
         }
         if a.starts_with("constant") {
-            return "constant";
+            return ("constant", false);
         }
         if a.starts_with("keyword") || a.starts_with("storage") {
-            return "keyword";
+            return ("keyword", false);
         }
         if a.starts_with("entity.name.function") || a.starts_with("support.function") {
-            return "function";
+            return ("function", false);
         }
         if a.starts_with("entity.name.type")
             || a.starts_with("entity.name.class")
             || a.starts_with("support.type")
             || a.starts_with("support.class")
         {
-            return "class-name";
+            return ("class-name", false);
         }
         if a.starts_with("entity.name.tag") || a.starts_with("entity.name") {
-            return "tag";
+            return ("tag", false);
         }
         if a.starts_with("entity.other.attribute") {
-            return "attr-name";
+            return ("attr-name", false);
         }
         if a.starts_with("variable") {
-            return "variable";
+            return ("variable", false);
         }
         if a.starts_with("punctuation") {
-            return "punctuation";
+            return ("punctuation", false);
         }
         if a.starts_with("meta.function-call") {
-            return "function";
+            return ("function", false);
         }
     }
-    ""
-}
-
-/// Check if the scope is a comment (should render italic).
-fn is_scope_italic(scope: &ScopeStack) -> bool {
-    for s in scope.as_slice().iter().rev() {
-        let atom_str = s.build_string();
-        if atom_str.starts_with("comment") {
-            return true;
-        }
-    }
-    false
+    ("", false)
 }

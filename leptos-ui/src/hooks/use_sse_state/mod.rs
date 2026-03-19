@@ -8,6 +8,7 @@
 
 mod types;
 mod messages;
+mod subagent_messages;
 mod tracking;
 
 pub use types::{ConnectionStatus, SessionStatus};
@@ -94,6 +95,8 @@ pub struct SseState {
     pub(crate) flush_pending: RwSignal<bool>,
     /// Handle to the pending requestAnimationFrame, for cancellation.
     pub(crate) raf_handle: RwSignal<i32>,
+    /// Guard to prevent concurrent `refresh_messages()` calls.
+    pub(crate) is_refreshing: RwSignal<bool>,
 
     // ── Subagent message state ──
     /// Per-session message maps for non-active (subagent) sessions.
@@ -177,6 +180,7 @@ pub fn use_sse_state() -> SseState {
     let expect_switch = RwSignal::new(false);
     let flush_pending = RwSignal::new(false);
     let raf_handle = RwSignal::new(0i32);
+    let is_refreshing = RwSignal::new(false);
 
     let subagent_maps = RwSignal::new(HashMap::<String, MessageMap>::new());
     let (subagent_messages, set_subagent_messages) =
@@ -241,6 +245,7 @@ pub fn use_sse_state() -> SseState {
         expect_switch,
         flush_pending,
         raf_handle,
+        is_refreshing,
         subagent_maps,
         subagent_messages,
         set_subagent_messages,
