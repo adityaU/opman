@@ -159,6 +159,9 @@ pub(super) async fn handle_web_sse_event(
                 }
                 state.session_stats.remove(session_id);
                 state.busy_sessions.remove(session_id);
+                state.error_sessions.remove(session_id);
+                state.input_sessions.remove(session_id);
+                state.unseen_sessions.remove(session_id);
 
                 // Clean up session_children
                 state.session_children.remove(session_id);
@@ -182,6 +185,10 @@ pub(super) async fn handle_web_sse_event(
                     let mut state = inner.write().await;
                     match status_props.status.status_type.as_str() {
                         "busy" | "retry" => {
+                            // Clear error state when session starts working again
+                            if state.error_sessions.remove(&sid).is_some() {
+                                let _ = event_tx.send(WebEvent::StateChanged);
+                            }
                             if !state.busy_sessions.contains(&sid) {
                                 state.busy_sessions.insert(sid.clone());
                                 let _ = event_tx.send(WebEvent::SessionBusy {
@@ -194,6 +201,28 @@ pub(super) async fn handle_web_sse_event(
                                 let _ = event_tx.send(WebEvent::SessionIdle {
                                     session_id: sid.clone(),
                                 });
+                            }
+                            // Track unseen only for root sessions (not subagents) that
+                            // are not the active session for their project.
+                            // Upstream opencode skips subagent sessions for notifications:
+                            //   handleSessionIdle: `if (session.parentID) return`
+                            let is_subagent = state.projects.iter()
+                                .flat_map(|p| p.sessions.iter())
+                                .find(|s| s.id == sid)
+                                .map(|s| !s.parent_id.is_empty())
+                                .unwrap_or(false);
+                            if !is_subagent {
+                                let is_active = state.projects.iter().any(|p| {
+                                    p.active_session.as_deref() == Some(sid.as_str())
+                                });
+                                if !is_active {
+                                    let count = state.unseen_sessions.entry(sid.clone()).or_insert(0);
+                                    *count += 1;
+                                    let _ = event_tx.send(WebEvent::SessionUnseen {
+                                        session_id: sid.clone(),
+                                        count: *count,
+                                    });
+                                }
                             }
                         }
                         _ => {}
@@ -234,6 +263,9 @@ pub(super) async fn handle_web_sse_event(
         "file.edited" => {
             // Extract file path from properties
             if let Some(file_path) = event.properties.get("file").and_then(|v| v.as_str()) {
+                // Emit editor SSE event for all listeners (regardless of active session).
+                handle.emit_editor_file_changed(file_path, "ai_edit");
+
                 // Determine active session for this project directory
                 let session_id = {
                     let state = inner.read().await;
@@ -264,7 +296,7 @@ pub(super) async fn handle_web_sse_event(
                 }
             }
         }
-        // ── Permission & question tracking (for reload recovery) ──
+        // ── Permission & question tracking (for reload recovery + input indicator) ──
         "permission.asked" => {
             let request_id = event.properties
                 .get("id").or_else(|| event.properties.get("requestID"))
@@ -272,8 +304,16 @@ pub(super) async fn handle_web_sse_event(
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
+                let session_id = event.properties
+                    .get("sessionID")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let mut state = inner.write().await;
                 state.pending_permissions.insert(request_id, event.properties);
+                if !session_id.is_empty() && state.input_sessions.insert(session_id.clone()) {
+                    let _ = event_tx.send(WebEvent::SessionInputNeeded { session_id });
+                }
             }
         }
         "permission.replied" => {
@@ -284,7 +324,11 @@ pub(super) async fn handle_web_sse_event(
                 .to_string();
             if !request_id.is_empty() {
                 let mut state = inner.write().await;
-                state.pending_permissions.remove(&request_id);
+                let removed_sid = state.pending_permissions.remove(&request_id)
+                    .and_then(|v| v.get("sessionID").and_then(|s| s.as_str()).map(|s| s.to_string()));
+                if let Some(sid) = removed_sid {
+                    recalc_input_sessions(&mut state, &sid, event_tx);
+                }
             }
         }
         "question.asked" => {
@@ -294,8 +338,16 @@ pub(super) async fn handle_web_sse_event(
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
+                let session_id = event.properties
+                    .get("sessionID")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let mut state = inner.write().await;
                 state.pending_questions.insert(request_id, event.properties);
+                if !session_id.is_empty() && state.input_sessions.insert(session_id.clone()) {
+                    let _ = event_tx.send(WebEvent::SessionInputNeeded { session_id });
+                }
             }
         }
         "question.replied" | "question.rejected" => {
@@ -306,7 +358,51 @@ pub(super) async fn handle_web_sse_event(
                 .to_string();
             if !request_id.is_empty() {
                 let mut state = inner.write().await;
-                state.pending_questions.remove(&request_id);
+                let removed_sid = state.pending_questions.remove(&request_id)
+                    .and_then(|v| v.get("sessionID").and_then(|s| s.as_str()).map(|s| s.to_string()));
+                if let Some(sid) = removed_sid {
+                    recalc_input_sessions(&mut state, &sid, event_tx);
+                }
+            }
+        }
+        "session.error" => {
+            let session_id = event.properties
+                .get("sessionID")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let message = event.properties
+                .get("error")
+                .or_else(|| event.properties.get("message"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string();
+            if !session_id.is_empty() {
+                let mut state = inner.write().await;
+                state.error_sessions.insert(session_id.clone(), message.clone());
+                // Track unseen only for root sessions (not subagents) that
+                // are not the active session for their project.
+                // Upstream opencode skips subagent sessions for notifications:
+                //   handleSessionError: `if (session?.parentID) return`
+                let is_subagent = state.projects.iter()
+                    .flat_map(|p| p.sessions.iter())
+                    .find(|s| s.id == session_id)
+                    .map(|s| !s.parent_id.is_empty())
+                    .unwrap_or(false);
+                if !is_subagent {
+                    let is_active = state.projects.iter().any(|p| {
+                        p.active_session.as_deref() == Some(session_id.as_str())
+                    });
+                    if !is_active {
+                        let count = state.unseen_sessions.entry(session_id.clone()).or_insert(0);
+                        *count += 1;
+                        let _ = event_tx.send(WebEvent::SessionUnseen {
+                            session_id: session_id.clone(),
+                            count: *count,
+                        });
+                    }
+                }
+                let _ = event_tx.send(WebEvent::SessionError { session_id, message });
             }
         }
         _ => {
@@ -327,4 +423,21 @@ struct SessionStatusProps {
 struct SessionStatusInfo {
     #[serde(rename = "type")]
     status_type: String,
+}
+
+/// Recalculate whether a session still needs input after a permission/question was resolved.
+/// Removes the session from `input_sessions` if no more pending items reference it.
+fn recalc_input_sessions(
+    state: &mut super::WebStateInner,
+    session_id: &str,
+    event_tx: &tokio::sync::broadcast::Sender<WebEvent>,
+) {
+    let has_pending = state.pending_permissions.values()
+        .chain(state.pending_questions.values())
+        .any(|v| v.get("sessionID").and_then(|s| s.as_str()) == Some(session_id));
+    if !has_pending && state.input_sessions.remove(session_id) {
+        let _ = event_tx.send(WebEvent::SessionInputCleared {
+            session_id: session_id.to_string(),
+        });
+    }
 }

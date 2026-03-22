@@ -2,8 +2,8 @@
 
 use serde::Serialize;
 
-use super::client::{api_delete, api_fetch, api_post, api_post_void, ApiError};
-use crate::types::api::{FileBrowseResponse, FileReadResponse, FileUploadResponse, FileWriteResponse};
+use super::client::{api_fetch, api_post_void, ApiError};
+use crate::types::api::{FileBrowseResponse, FileReadResponse, FileUploadResponse};
 
 /// Browse directory entries.
 pub async fn file_browse(path: &str) -> Result<FileBrowseResponse, ApiError> {
@@ -23,6 +23,18 @@ pub fn file_raw_url(path: &str) -> String {
     format!("/api/file/raw?path={}", encoded)
 }
 
+/// Get file download URL (triggers browser attachment download).
+pub fn file_download_url(path: &str) -> String {
+    let encoded = js_sys::encode_uri_component(path);
+    format!("/api/file/download?path={}", encoded)
+}
+
+/// Get directory download URL (zip archive).
+pub fn dir_download_url(path: &str) -> String {
+    let encoded = js_sys::encode_uri_component(path);
+    format!("/api/dir/download?path={}", encoded)
+}
+
 #[derive(Serialize)]
 struct WriteBody<'a> {
     path: &'a str,
@@ -30,8 +42,8 @@ struct WriteBody<'a> {
 }
 
 /// Write file content.
-pub async fn file_write(path: &str, content: &str) -> Result<FileWriteResponse, ApiError> {
-    api_post("/file/write", &WriteBody { path, content }).await
+pub async fn file_write(path: &str, content: &str) -> Result<(), ApiError> {
+    api_post_void("/file/write", &WriteBody { path, content }).await
 }
 
 #[derive(Serialize)]
@@ -54,6 +66,17 @@ struct DeleteBody<'a> {
     path: &'a str,
 }
 
+#[derive(Serialize)]
+struct RenameBody<'a> {
+    from_path: &'a str,
+    to_path: &'a str,
+}
+
+/// Rename (move) a file or directory.
+pub async fn rename_entry(from_path: &str, to_path: &str) -> Result<(), ApiError> {
+    api_post_void("/rename", &RenameBody { from_path, to_path }).await
+}
+
 /// Delete a file.
 pub async fn file_delete(path: &str) -> Result<(), ApiError> {
     api_post_void("/file/delete", &DeleteBody { path }).await
@@ -64,10 +87,16 @@ pub async fn dir_delete(path: &str) -> Result<(), ApiError> {
     api_post_void("/dir/delete", &DeleteBody { path }).await
 }
 
-/// Upload files (multipart form). Returns the list of uploaded paths.
-/// NOTE: This uses FormData, not JSON, so we bypass the standard helpers.
-pub async fn file_upload(dir_path: &str, files: &web_sys::FileList) -> Result<FileUploadResponse, ApiError> {
-    use wasm_bindgen::prelude::*;
+/// Upload files from pre-extracted `File` objects (multipart form).
+///
+/// The caller must extract files from the `FileList` synchronously before
+/// clearing the `<input>` element, because `set_value("")` invalidates the
+/// `FileList` reference. This variant accepts a slice of already-extracted
+/// `web_sys::File` objects, making it safe to use across an async boundary.
+pub async fn file_upload_from_vec(
+    dir_path: &str,
+    files: &[web_sys::File],
+) -> Result<FileUploadResponse, ApiError> {
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
     use web_sys::{FormData, Request, RequestCredentials, RequestInit, Response};
@@ -78,11 +107,9 @@ pub async fn file_upload(dir_path: &str, files: &web_sys::FileList) -> Result<Fi
     form.append_with_str("directory", dir_path)
         .map_err(|e| ApiError { status: 0, message: format!("append directory failed: {:?}", e) })?;
 
-    for i in 0..files.length() {
-        if let Some(file) = files.get(i) {
-            form.append_with_blob_and_filename("files", &file, &file.name())
-                .map_err(|e| ApiError { status: 0, message: format!("append file failed: {:?}", e) })?;
-        }
+    for file in files {
+        form.append_with_blob_and_filename("files", file, &file.name())
+            .map_err(|e| ApiError { status: 0, message: format!("append file failed: {:?}", e) })?;
     }
 
     let mut opts = RequestInit::new();

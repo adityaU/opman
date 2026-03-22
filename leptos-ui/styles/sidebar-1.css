@@ -220,11 +220,10 @@
     padding: var(--space-2) var(--space-2);
     background: none;
     border: none;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-2xs);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .5px;
+    letter-spacing: -.01em;
     cursor: pointer;
     transition: color var(--transition-fast);
     text-align: left
@@ -256,6 +255,33 @@
     flex-shrink: 0;
     background: var(--color-success);
     animation: sb-pulse 2s ease-in-out infinite
+}
+
+/* ── Project-level indicators (inline dot variant) ─────────────── */
+
+.sb-project-header .sb-indicator {
+    position: static;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0
+}
+
+.sb-project-header .sb-indicator-busy {
+    background: var(--color-success);
+    animation: sb-pulse 2s ease-in-out infinite
+}
+
+.sb-project-header .sb-indicator-input {
+    background: var(--color-warning, #d29922)
+}
+
+.sb-project-header .sb-indicator-error {
+    background: var(--color-error, #f85149)
+}
+
+.sb-project-header .sb-indicator-unseen {
+    background: var(--color-info, #58a6ff)
 }
 
 @keyframes sb-pulse {
@@ -290,16 +316,17 @@
     letter-spacing: 0
 }
 
-/* ── Project row action buttons (new session, remove) ──────────── */
+/* ── Project row layout (swipe-to-reveal handles remove) ───────── */
 
-.sb-project-header-row {
-    display: flex;
-    align-items: center;
-    gap: 0
+.sb-project .swipe-row {
+    border-radius: 14px
 }
 
-.sb-project-new,
-.sb-project-remove {
+.sb-project .swipe-row-content {
+    min-width: 0
+}
+
+.sb-project-new {
     width: 22px;
     height: 22px;
     flex-shrink: 0;
@@ -308,10 +335,8 @@
     transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast)
 }
 
-.sb-project-header-row:hover .sb-project-new,
-.sb-project-header-row:hover .sb-project-remove,
-.sb-project-new:focus-visible,
-.sb-project-remove:focus-visible {
+.sb-project-header:hover .sb-project-new,
+.sb-project-new:focus-visible {
     opacity: 1;
     pointer-events: auto
 }
@@ -320,12 +345,6 @@
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 10%, transparent);
     border-color: color-mix(in srgb, var(--color-primary) 30%, transparent)
-}
-
-.sb-project-remove:hover {
-    color: var(--color-danger, #f85149);
-    background: color-mix(in srgb, var(--color-danger, #f85149) 10%, transparent);
-    border-color: color-mix(in srgb, var(--color-danger, #f85149) 30%, transparent)
 }
 
 .sb-sessions {

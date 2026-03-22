@@ -86,6 +86,7 @@ export interface ModalLayerProps {
   setSplitViewSecondaryId: (id: string | null) => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
+  onOpenSkillsUpload?: () => void;
 }
 
 const L = ({ children }: { children: React.ReactNode }) => (
@@ -133,6 +134,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onOpenDelegation={() => o("delegation")} onOpenMissions={() => o("missions")}
           onOpenWorkspaceManager={() => o("workspaceManager")}
           onOpenSystemMonitor={() => o("systemMonitor")}
+          onOpenSkillsUpload={p.onOpenSkillsUpload}
           sessionId={p.activeSessionId}
         />
         </L>

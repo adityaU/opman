@@ -103,10 +103,36 @@ impl App {
             BackgroundEvent::SseSessionBusy { session_id } => {
                 tracing::debug!(session_id = %session_id, has_pending = self.watcher_pending.contains_key(&session_id), "SseSessionBusy received");
                 self.active_sessions.insert(session_id.clone());
+                // Clear error state when session starts working again
+                self.error_sessions.remove(&session_id);
                 self.watcher_idle_since.remove(&session_id);
                 if let Some(abort_handle) = self.watcher_pending.remove(&session_id) {
                     tracing::info!(session_id = %session_id, "Watcher: cancelled pending timer (session busy)");
                     abort_handle.abort();
+                }
+            }
+            BackgroundEvent::SseSessionError { session_id } => {
+                tracing::info!(session_id = %session_id, "SseSessionError: marking session as errored");
+                self.error_sessions.insert(session_id.clone());
+                // Mark unseen if this is a root session (not a subagent) and
+                // is not the currently viewed session.
+                // Upstream opencode skips subagent sessions for notifications:
+                //   handleSessionError: `if (session?.parentID) return`
+                let is_subagent = self
+                    .projects
+                    .iter()
+                    .flat_map(|p| p.sessions.iter())
+                    .find(|s| s.id == session_id)
+                    .map(|s| !s.parent_id.is_empty())
+                    .unwrap_or(false);
+                if !is_subagent {
+                    let is_current = self
+                        .projects
+                        .iter()
+                        .any(|p| p.active_session.as_deref() == Some(session_id.as_str()));
+                    if !is_current {
+                        self.unseen_sessions.insert(session_id);
+                    }
                 }
             }
             BackgroundEvent::SseFileEdited {

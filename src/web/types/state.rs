@@ -4,10 +4,11 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 
 use crate::mcp::NvimSocketRegistry;
+use crate::mcp_skills::SkillsRegistry;
 
 use super::super::pty_manager::WebPtyHandle;
 use super::super::web_state::WebStateHandle;
-use super::events::WebEvent;
+use super::events::{EditorEvent, WebEvent};
 
 // ── App state snapshot ──────────────────────────────────────────────
 
@@ -32,6 +33,12 @@ pub struct WebProjectInfo {
     pub sessions: Vec<WebSessionInfo>,
     pub git_branch: String,
     pub busy_sessions: Vec<String>,
+    /// Sessions that have encountered an error.
+    pub error_sessions: Vec<String>,
+    /// Sessions that need user input (pending permission or question).
+    pub input_sessions: Vec<String>,
+    /// Sessions with unseen activity (completed or errored while not viewed).
+    pub unseen_sessions: Vec<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -86,7 +93,16 @@ pub struct ServerState {
     pub http_client: reqwest::Client,
     /// Shared neovim socket registry for LSP-backed editor features.
     pub nvim_registry: NvimSocketRegistry,
+    /// Skills registry for MCP server.
+    pub skills_registry: SkillsRegistry,
+    /// Broadcast sender for skills reload.
+    pub reload_tx: broadcast::Sender<()>,
     /// Optional instance name (from tunnel hostname subdomain or tunnel name).
     /// Sent to the frontend as the page title.
     pub instance_name: Option<String>,
+    /// Broadcast channel for editor-specific file-change events.
+    /// Consumed by the `/api/editor/events` SSE endpoint.
+    pub editor_tx: broadcast::Sender<EditorEvent>,
+    /// Process health monitoring handle.
+    pub health: crate::process_health::HealthHandle,
 }

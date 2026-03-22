@@ -533,7 +533,13 @@ html.flat-theme .explorer-tree-file.active {
     min-width: 0
 }
 
-.mobile-entry-delete-btn {
+/* Per-entry overflow (3-dot) button + dropdown */
+.mobile-entry-overflow-area {
+    position: relative;
+    flex-shrink: 0
+}
+
+.mobile-entry-overflow-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -543,15 +549,46 @@ html.flat-theme .explorer-tree-file.active {
     border: none;
     color: var(--color-text-muted);
     cursor: pointer;
-    flex-shrink: 0;
-    transition: all var(--transition-base);
     padding: 0;
-    opacity: .5
+    opacity: .45;
+    transition: all var(--transition-base)
 }
 
-.mobile-entry-delete-btn:hover {
-    color: var(--color-danger, #f85149);
-    opacity: 1
+.mobile-entry-overflow-btn:hover {
+    opacity: 1;
+    color: var(--color-text)
+}
+
+.mobile-entry-overflow-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 9999;
+    min-width: 130px;
+    padding: 4px 0;
+    background: var(--color-bg-element, #1e1e1e);
+    border: .5px solid var(--white-10);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--black-30)
+}
+
+.mobile-action-danger {
+    color: var(--color-danger, #f85149)
+}
+
+/* Mobile inline rename bar */
+.mobile-inline-rename {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: .5px solid color-mix(in srgb, var(--color-primary, #58a6ff) 20%, transparent);
+    background: color-mix(in srgb, var(--color-primary, #58a6ff) 6%, transparent)
+}
+
+/* Desktop inline rename input row */
+.explorer-inline-rename {
+    background: color-mix(in srgb, var(--color-primary, #58a6ff) 5%, transparent)
 }
 
 /* ── Flat theme overrides ───────────────────────── */
@@ -589,4 +626,19 @@ html.flat-theme .mobile-action-item:hover {
 
 html.flat-theme .mobile-inline-create {
     border-color: var(--color-border)
+}
+
+html.flat-theme .mobile-entry-overflow-dropdown {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .mobile-inline-rename {
+    border-color: var(--color-border);
+    background: color-mix(in srgb, var(--color-primary, #58a6ff) 4%, transparent)
+}
+
+html.flat-theme .explorer-inline-rename {
+    background: color-mix(in srgb, var(--color-primary, #58a6ff) 3%, transparent)
 }

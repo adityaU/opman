@@ -108,6 +108,9 @@ impl App {
         session_id: String,
     ) {
         self.active_sessions.remove(&session_id);
+        self.error_sessions.remove(&session_id);
+        self.input_sessions.remove(&session_id);
+        self.unseen_sessions.remove(&session_id);
         self.session_ownership.remove(&session_id);
 
         let parent_id = self
@@ -167,12 +170,11 @@ impl App {
             "SseSessionIdle received"
         );
         self.active_sessions.remove(&session_id);
+        // Clear input-needed state when session goes idle (permissions/questions resolved)
+        self.input_sessions.remove(&session_id);
 
-        if !self.pending_slack_messages.is_empty() {
-            self.drain_pending_slack_messages(project_idx, &session_id);
-        }
-        self.try_trigger_watcher(&session_id, has_active_children);
-
+        // Look up parent_id early so we can use it for both unseen filtering and
+        // watcher re-evaluation below.
         let parent_id = self
             .projects
             .iter()
@@ -180,6 +182,27 @@ impl App {
             .find(|s| s.id == session_id)
             .map(|s| s.parent_id.clone())
             .unwrap_or_default();
+
+        // Mark unseen if this is a root session (not a subagent) and is not
+        // the currently viewed session for its project.
+        // Upstream opencode skips subagent sessions for notifications:
+        //   handleSessionIdle: `if (session.parentID) return`
+        if parent_id.is_empty() {
+            let is_current = self
+                .projects
+                .get(project_idx)
+                .and_then(|p| p.active_session.as_deref())
+                .map(|s| s == session_id)
+                .unwrap_or(false);
+            if !is_current {
+                self.unseen_sessions.insert(session_id.clone());
+            }
+        }
+
+        if !self.pending_slack_messages.is_empty() {
+            self.drain_pending_slack_messages(project_idx, &session_id);
+        }
+        self.try_trigger_watcher(&session_id, has_active_children);
         if !parent_id.is_empty() && !self.active_sessions.contains(&parent_id) {
             let parent_has_active_children = self
                 .session_children

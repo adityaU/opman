@@ -157,11 +157,11 @@ pub struct MobileState {
     pub sidebar_open: ReadSignal<bool>,
     pub set_sidebar_open: WriteSignal<bool>,
     pub active_panel: ReadSignal<Option<MobilePanel>>,
-    set_active_panel: WriteSignal<Option<MobilePanel>>,
+    pub set_active_panel: WriteSignal<Option<MobilePanel>>,
     pub input_hidden: ReadSignal<bool>,
     pub set_input_hidden: WriteSignal<bool>,
     pub dock_collapsed: ReadSignal<bool>,
-    set_dock_collapsed: WriteSignal<bool>,
+    pub set_dock_collapsed: WriteSignal<bool>,
     pub has_prompt_content: RwSignal<bool>,
     pub device_mode: ReadSignal<DeviceMode>,
 }

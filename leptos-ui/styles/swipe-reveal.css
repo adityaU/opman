@@ -1,0 +1,214 @@
+/* ═══════════════════════════════════════════════════════════════
+   swipe-reveal.css — Shared swipe-left-to-reveal action menus
+   Used on mobile/touch for sidebar sessions, projects, explorer
+   rows, open files, git file rows, etc.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Container — clips overflow, sets layout context ───────── */
+
+.swipe-row {
+    position: relative;
+    overflow: hidden;
+    /* Override any inherited flex/grid — we need block flow so that
+       the absolutely-positioned action tray works correctly. */
+    display: block !important;
+    -webkit-user-select: none;
+    user-select: none
+}
+
+/* ── Front content layer — slides left on swipe ────────────── */
+
+.swipe-row-content {
+    position: relative;
+    z-index: 1;
+    transform: translateX(0);
+    transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+    will-change: transform;
+    width: 100%;
+    /* Opaque background so actions are hidden behind the content */
+    background: var(--color-bg-panel, var(--color-bg, #0d1117));
+    /* Carry flex layout for child elements */
+    display: flex;
+    align-items: center
+}
+
+/* During active touch drag, disable transition for real-time tracking */
+.swipe-row.swiping .swipe-row-content {
+    transition: none
+}
+
+/* ── Revealed action tray — sits behind content on the right ── */
+
+.swipe-row-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* Gap between the content edge and first action icon */
+    padding: 0 6px 0 10px;
+    z-index: 0;
+    /* Hidden until content slides over */
+    opacity: 0;
+    transition: opacity .15s ease
+}
+
+.swipe-row.swipe-open .swipe-row-actions,
+.swipe-row.swiping .swipe-row-actions {
+    opacity: 1
+}
+
+/* ── Individual action buttons ─────────────────────────────── */
+
+.swipe-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-md, 8px);
+    background: var(--white-6, rgba(255,255,255,.06));
+    border: .5px solid var(--white-8, rgba(255,255,255,.08));
+    color: var(--color-text-muted, #8b949e);
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, transform .15s ease;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0
+}
+
+.swipe-action-btn:active {
+    transform: scale(.88);
+    background: var(--white-10, rgba(255,255,255,.10))
+}
+
+/* Semantic variants */
+.swipe-action-btn.swipe-action-primary {
+    color: var(--color-primary, #fab283);
+    background: color-mix(in srgb, var(--color-primary, #fab283) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary, #fab283) 20%, transparent)
+}
+
+.swipe-action-btn.swipe-action-primary:active {
+    background: color-mix(in srgb, var(--color-primary, #fab283) 18%, transparent)
+}
+
+.swipe-action-btn.swipe-action-danger {
+    color: var(--color-danger, #f85149);
+    background: color-mix(in srgb, var(--color-danger, #f85149) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent)
+}
+
+.swipe-action-btn.swipe-action-danger:active {
+    background: color-mix(in srgb, var(--color-danger, #f85149) 18%, transparent)
+}
+
+.swipe-action-btn.swipe-action-success {
+    color: var(--color-success, #7fd88f);
+    background: color-mix(in srgb, var(--color-success, #7fd88f) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-success, #7fd88f) 20%, transparent)
+}
+
+.swipe-action-btn.swipe-action-success:active {
+    background: color-mix(in srgb, var(--color-success, #7fd88f) 18%, transparent)
+}
+
+.swipe-action-btn.swipe-action-warning {
+    color: var(--color-warning, #d29922);
+    background: color-mix(in srgb, var(--color-warning, #d29922) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning, #d29922) 20%, transparent)
+}
+
+.swipe-action-btn.swipe-action-warning:active {
+    background: color-mix(in srgb, var(--color-warning, #d29922) 18%, transparent)
+}
+
+/* ── Context-aware background + gap inheritance ───────────── */
+/* The content layer must be opaque to hide the actions behind it.
+   Each context sets the appropriate background and gap. */
+
+.sidebar-panel .swipe-row-content {
+    background: var(--color-bg-panel, #0d1117)
+}
+
+.explorer-panel .swipe-row-content,
+.explorer-tree .swipe-row-content {
+    background: var(--color-bg-panel, #0d1117)
+}
+
+/* Open-files rows had gap:4px on the now-block container */
+.explorer-open-files .swipe-row-content {
+    background: var(--color-bg-panel, #0d1117);
+    gap: 4px
+}
+
+/* Git file rows had Tailwind gap-1.5 on the now-block container */
+.git-changes-list .swipe-row-content {
+    background: var(--color-bg-panel, #0d1117);
+    gap: 0.375rem
+}
+
+/* Git rows' hover:bg-bg-element/40 is on the block container, hidden behind
+   the opaque content layer.  Replicate the hover on the content div. */
+.git-changes-list .swipe-row:hover .swipe-row-content {
+    background: color-mix(in srgb, var(--color-bg-element, #1a1a1a) 40%, var(--color-bg-panel, #0d1117))
+}
+
+/* Explorer open-file hover likewise needs to live on the content layer */
+.explorer-open-files .swipe-row:hover .swipe-row-content {
+    background: var(--white-4, rgba(255,255,255,.04))
+}
+
+.explorer-open-files .swipe-row.active .swipe-row-content {
+    background: var(--white-7, rgba(255,255,255,.07));
+    color: var(--color-primary, #fab283)
+}
+
+/* ── Flat theme overrides ──────────────────────────────────── */
+
+html.flat-theme .swipe-row-content {
+    background: var(--color-bg-panel, var(--color-surface, #161b22))
+}
+
+html.flat-theme .swipe-action-btn {
+    background: var(--color-surface, #161b22);
+    border-color: var(--color-border-subtle, #21262d)
+}
+
+html.flat-theme .swipe-action-btn:active {
+    background: var(--color-hover, #1c2128)
+}
+
+html.flat-theme .swipe-action-btn.swipe-action-primary {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface, #161b22));
+    border-color: color-mix(in srgb, var(--color-primary) 15%, var(--color-border-subtle, #21262d))
+}
+
+html.flat-theme .swipe-action-btn.swipe-action-danger {
+    background: color-mix(in srgb, var(--color-danger, #f85149) 8%, var(--color-surface, #161b22));
+    border-color: color-mix(in srgb, var(--color-danger, #f85149) 15%, var(--color-border-subtle, #21262d))
+}
+
+html.flat-theme .swipe-action-btn.swipe-action-success {
+    background: color-mix(in srgb, var(--color-success, #7fd88f) 8%, var(--color-surface, #161b22));
+    border-color: color-mix(in srgb, var(--color-success, #7fd88f) 15%, var(--color-border-subtle, #21262d))
+}
+
+html.flat-theme .swipe-action-btn.swipe-action-warning {
+    background: color-mix(in srgb, var(--color-warning, #d29922) 8%, var(--color-surface, #161b22));
+    border-color: color-mix(in srgb, var(--color-warning, #d29922) 15%, var(--color-border-subtle, #21262d))
+}
+
+html.flat-theme .git-changes-list .swipe-row:hover .swipe-row-content {
+    background: color-mix(in srgb, var(--color-bg-element, #1a1a1a) 40%, var(--color-surface, #161b22))
+}
+
+html.flat-theme .explorer-open-files .swipe-row:hover .swipe-row-content {
+    background: var(--color-hover, #1c2128)
+}
+
+html.flat-theme .explorer-open-files .swipe-row.active .swipe-row-content {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-element, #161b22));
+    color: var(--color-primary, #fab283)
+}

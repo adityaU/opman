@@ -43,3 +43,8 @@ leptos-ui/node_modules/
 leptos-ui/test-results/
 leptos-ui/Cargo.lock
 leptos-ui/styles/output.css
+leptos-ui/e2e/
+leptos-ui/playwright-e2e.config.ts
+
+# OpenCode tools (personal reusable scripts)
+opencode-tools/

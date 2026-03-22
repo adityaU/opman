@@ -2,7 +2,7 @@
 
 use leptos::prelude::*;
 
-use crate::api::client::{self, api_post_void, abort_session};
+use crate::api::client::{self, api_post_void, abort_session, ApiModelRef};
 use crate::hooks::use_toast::ToastExt;
 
 use super::{inject_memory_guidance, modal_for_command, ChatHandlerDeps};
@@ -11,7 +11,7 @@ use super::{inject_memory_guidance, modal_for_command, ChatHandlerDeps};
 
 pub(super) fn build_handle_send(deps: ChatHandlerDeps) -> Callback<(String, Option<Vec<String>>)> {
     Callback::new(move |(text, images): (String, Option<Vec<String>>)| {
-        let sid = match deps.sse.active_session_id() {
+        let sid = match deps.sse.tracked_session_id() {
             Some(s) => s,
             None => return,
         };
@@ -26,8 +26,23 @@ pub(super) fn build_handle_send(deps: ChatHandlerDeps) -> Callback<(String, Opti
         let toasts = deps.toasts;
         let set_sending = deps.set_sending;
 
+        // Capture selected model/agent for the API call.
+        let model = deps.selected_model.get_untracked().map(|m| ApiModelRef {
+            provider_id: m.provider_id,
+            model_id: m.model_id,
+        });
+        let agent = deps.current_agent.get_untracked();
+        let agent_ref = if agent.is_empty() { None } else { Some(agent) };
+
         leptos::task::spawn_local(async move {
-            let result = client::send_message(&sid, &enriched, images).await;
+            let result = client::send_message(
+                &sid,
+                &enriched,
+                images,
+                model,
+                agent_ref.as_deref(),
+            )
+            .await;
             if result.is_err() {
                 toasts.add_typed("Failed to send message", "error");
             }
@@ -112,21 +127,18 @@ pub(super) fn build_handle_command(
             let toasts = deps.toasts;
             let set_model = deps.set_selected_model;
             let set_agent = deps.set_selected_agent;
-            let set_app_state = deps.sse.set_app_state;
+            let panels = deps.panels;
             leptos::task::spawn_local(async move {
-                match api_post_void(
-                    "/session/new",
-                    &serde_json::json!({ "project_idx": project_idx }),
-                )
-                .await
-                {
-                    Ok(()) => {
+                match crate::api::project::new_session(project_idx).await {
+                    Ok(resp) => {
                         set_model.set(None);
                         set_agent.set(String::new());
                         toasts.add_typed("New session created", "success");
-                        if let Ok(state) = crate::api::project::fetch_app_state().await {
-                            set_app_state.set(Some(state));
-                        }
+                        crate::hooks::use_url_restore::navigate_to_session(
+                            &resp.session_id,
+                            project_idx,
+                            &panels,
+                        );
                     }
                     Err(_) => toasts.add_typed("Failed to create session", "error"),
                 }

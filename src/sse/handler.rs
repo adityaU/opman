@@ -155,6 +155,18 @@ pub(super) fn handle_sse_data(
                 }
             }
         }
+        "session.error" => {
+            let session_id = event
+                .properties
+                .get("sessionID")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+            if !session_id.is_empty() {
+                info!(project_idx, session_id = %session_id, "SSE: session.error");
+                let _ = bg_tx.send(BackgroundEvent::SseSessionError { session_id });
+            }
+        }
         _ => {
             // Try to handle message.updated for token/cost tracking
             if event.event_type == "message.updated" {

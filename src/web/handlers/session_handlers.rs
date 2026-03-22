@@ -310,3 +310,13 @@ pub async fn get_pending(
         "questions": questions,
     })))
 }
+
+/// POST /api/session/:id/mark_seen — clear unseen state for a session.
+pub async fn mark_session_seen(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+) -> WebResult<impl IntoResponse> {
+    state.web_state.mark_session_seen(&session_id).await;
+    Ok(StatusCode::OK)
+}

@@ -86,7 +86,6 @@ pub(super) fn build_handle_select_session(
 // ── New session ────────────────────────────────────────────────────
 
 pub(super) fn build_handle_new_session(deps: ChatHandlerDeps) -> Callback<()> {
-    let set_app_state = deps.sse.set_app_state;
     Callback::new(move |()| {
         let app_state = match deps.sse.app_state.get_untracked() {
             Some(s) => s,
@@ -97,22 +96,20 @@ pub(super) fn build_handle_new_session(deps: ChatHandlerDeps) -> Callback<()> {
         let toasts = deps.toasts;
         let set_model = deps.set_selected_model;
         let set_agent = deps.set_selected_agent;
+        let panels = deps.panels;
 
         leptos::task::spawn_local(async move {
-            match api_post_void(
-                "/session/new",
-                &serde_json::json!({ "project_idx": project_idx }),
-            )
-            .await
-            {
-                Ok(()) => {
+            match crate::api::project::new_session(project_idx).await {
+                Ok(resp) => {
                     set_model.set(None);
                     set_agent.set(String::new());
                     toasts.add_typed("New session created", "success");
-                    // Fetch state as a reliable fallback.
-                    if let Ok(state) = crate::api::project::fetch_app_state().await {
-                        set_app_state.set(Some(state));
-                    }
+                    // Navigate to the new session via URL (triggers select + state refresh).
+                    crate::hooks::use_url_restore::navigate_to_session(
+                        &resp.session_id,
+                        project_idx,
+                        &panels,
+                    );
                 }
                 Err(_) => toasts.add_typed("Failed to create session", "error"),
             }

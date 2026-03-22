@@ -8,7 +8,8 @@
 
 .git-panel-header {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0;
     flex-shrink: 0;
     background: linear-gradient(180deg,var(--white-7) 0%,var(--white-3) 100%);
@@ -17,12 +18,38 @@
     border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
 }
 
+/* Repo switcher takes full row */
+.git-panel-header > .git-repo-switcher {
+    width: 100%;
+    flex-shrink: 0
+}
+
+/* Toolbar row (breadcrumb left, branch+refresh right) */
+.git-panel-header > .git-panel-toolbar-row {
+    flex: 1;
+    min-width: 0;
+    justify-content: space-between
+}
+
+/* Tabs sit inline in toolbar row */
+.git-panel-toolbar-row > .git-panel-tabs {
+    display: flex;
+    gap: 0;
+    flex-shrink: 0
+}
+
+/* Hide root breadcrumb when tabs are visible (tabs replace the label) */
+.git-panel-toolbar-row:has(.git-panel-tabs) .git-breadcrumb-root {
+    display: none
+}
+
 .git-panel-toolbar-row {
     display: flex;
     align-items: center;
     gap: var(--space-1);
     padding: var(--space-1) var(--space-2);
-    min-height: 28px
+    min-height: 28px;
+    width: 100%
 }
 
 .git-breadcrumb-back {
@@ -148,8 +175,8 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    margin-left: auto;
     flex-shrink: 0;
+    margin-left: auto;
     font-size: var(--font-size-xs);
     color: var(--color-primary, #fab283);
     position: relative

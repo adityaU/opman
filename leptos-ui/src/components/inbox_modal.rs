@@ -8,6 +8,7 @@ use crate::api::client::{api_post, api_post_void};
 use crate::components::icons::*;
 use crate::components::modal_overlay::ModalOverlay;
 use crate::types::api::{InboxItem, InboxResponse};
+use crate::utils::format_relative_time as format_time;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -27,21 +28,6 @@ fn source_icon(source: &str) -> &'static str {
         "mission" => "\u{1F3AF}",
         "watcher" => "\u{1F441}",
         _ => "\u{1F4E5}",
-    }
-}
-
-fn format_time(ts: f64) -> String {
-    let secs = ts as u64;
-    let mins = secs / 60;
-    let hours = mins / 60;
-    if hours > 24 {
-        format!("{}d ago", hours / 24)
-    } else if hours > 0 {
-        format!("{}h ago", hours)
-    } else if mins > 0 {
-        format!("{}m ago", mins)
-    } else {
-        "just now".to_string()
     }
 }
 

@@ -1,0 +1,251 @@
+/* ── Process Health Modal ─────────────────────────────────────────── */
+/* Desktop: centered modal inside .modal-backdrop (like command-palette).
+   Mobile: bottom sheet via responsive-2a.css override.
+   Supports glassy + flat themes via CSS variables. */
+
+.health-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  background: var(--white-6);
+  border: .5px solid var(--glass-border-light);
+  box-shadow: inset 0 .5px 0 0 var(--white-6),
+    0 10px 32px var(--black-8),
+    0 4px 12px var(--black-4);
+  position: relative;
+}
+
+.health-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.health-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.health-drawer-tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+}
+
+.health-tab {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.health-tab:hover { background: var(--color-bg-element); color: var(--color-text); }
+.health-tab.active { background: var(--color-bg-element); color: var(--color-text); font-weight: 500; }
+
+.health-drawer-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.health-refresh-btn,
+.health-close-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+}
+.health-refresh-btn:hover,
+.health-close-btn:hover { color: var(--color-text); background: var(--color-bg-element); }
+
+.health-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+/* ── Overview ──────────────────────────────────────────────────── */
+
+.health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .health-grid { grid-template-columns: 1fr; }
+}
+
+.health-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+/* ── Toggles ───────────────────────────────────────────────────── */
+
+.health-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.health-toggle-row:hover { background: var(--color-bg-element); }
+
+.health-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.health-dot-on { background: var(--color-success); }
+.health-dot-off { background: var(--color-text-muted); opacity: 0.4; }
+
+.health-toggle-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 36px;
+  text-align: center;
+}
+.health-toggle-on {
+  background: var(--color-success);
+  color: #fff;
+  border-color: var(--color-success);
+}
+.health-toggle-off {
+  background: none;
+  color: var(--color-text-muted);
+}
+.health-toggle-btn:hover { opacity: 0.85; }
+
+/* ── Metrics ───────────────────────────────────────────────────── */
+
+.health-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .health-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+.health-metric-card {
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-element);
+  text-align: center;
+}
+
+.health-metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.health-metric-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Audit log ─────────────────────────────────────────────────── */
+
+.health-audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.health-audit-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--color-text);
+}
+.health-audit-entry:hover { background: var(--color-bg-element); }
+.health-audit-fail { color: var(--color-error); }
+
+.health-audit-ts {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-audit-action {
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.health-audit-detail {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Empty / loading states ────────────────────────────────────── */
+
+.health-loading,
+.health-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}

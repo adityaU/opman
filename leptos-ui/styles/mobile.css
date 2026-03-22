@@ -36,7 +36,7 @@
 }
 
 .mobile-project-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--color-text);
     overflow: hidden;
@@ -62,6 +62,10 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0
+}
+
+.mobile-pill-connection-connected {
+    color: var(--color-success, #7fd88f)
 }
 
 .mobile-pill-connection-reconnecting {

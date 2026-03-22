@@ -10,6 +10,7 @@ mod computed_responses;
 mod events;
 mod files;
 mod git;
+pub mod health;
 mod memory;
 mod missions;
 mod presence;

@@ -7,6 +7,29 @@ use wasm_bindgen::JsCast;
 pub const MAX_VISIBLE_SESSIONS: usize = 8;
 pub const PINNED_KEY: &str = "opman-pinned-sessions";
 
+// ── Session indicator CSS class ─────────────────────────────────────
+
+/// Priority-based indicator CSS class: busy > input > error > unseen > idle.
+pub fn indicator_class(
+    sid: &str,
+    busy: &HashSet<String>,
+    input: &HashSet<String>,
+    error: &HashSet<String>,
+    unseen: &HashSet<String>,
+) -> &'static str {
+    if busy.contains(sid) {
+        "sb-indicator sb-indicator-busy"
+    } else if input.contains(sid) {
+        "sb-indicator sb-indicator-input"
+    } else if error.contains(sid) {
+        "sb-indicator sb-indicator-error"
+    } else if unseen.contains(sid) {
+        "sb-indicator sb-indicator-unseen"
+    } else {
+        "sb-indicator sb-indicator-idle"
+    }
+}
+
 // ── Context menu state ──────────────────────────────────────────────
 
 #[derive(Clone, Debug)]
@@ -71,40 +94,8 @@ pub fn save_pinned_sessions(pinned: &HashSet<String>) {
     }
 }
 
-// ── Relative time formatting ────────────────────────────────────────
-
-pub fn format_time(epoch_secs: f64) -> String {
-    if epoch_secs <= 0.0 {
-        return String::new();
-    }
-    let now_ms = js_sys::Date::now();
-    let then_ms = epoch_secs * 1000.0;
-    let diff_ms = now_ms - then_ms;
-    let diff_min = (diff_ms / 60000.0).floor() as i64;
-    if diff_min < 1 {
-        return "now".to_string();
-    }
-    if diff_min < 60 {
-        return format!("{}m ago", diff_min);
-    }
-    let diff_hrs = diff_min / 60;
-    if diff_hrs < 24 {
-        return format!("{}h ago", diff_hrs);
-    }
-    let diff_days = diff_hrs / 24;
-    if diff_days < 7 {
-        return format!("{}d ago", diff_days);
-    }
-    // Fallback: short date
-    let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(then_ms));
-    let month = d.get_month(); // 0-indexed
-    let day = d.get_date();
-    let month_names = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    let m = month_names.get(month as usize).unwrap_or(&"???");
-    format!("{} {}", m, day)
-}
+// Re-export shared relative time formatter so existing `use super::types::format_time` works.
+pub use crate::utils::format_relative_time as format_time;
 
 // ── Context menu dismiss effect ─────────────────────────────────────
 

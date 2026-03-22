@@ -29,6 +29,15 @@ pub struct ProjectInfo {
     pub sessions: Vec<SessionInfo>,
     pub git_branch: String,
     pub busy_sessions: Vec<String>,
+    /// Sessions that have encountered an error.
+    #[serde(default)]
+    pub error_sessions: Vec<String>,
+    /// Sessions that need user input (pending permission or question).
+    #[serde(default)]
+    pub input_sessions: Vec<String>,
+    /// Sessions with unseen activity (completed/errored while not being viewed).
+    #[serde(default)]
+    pub unseen_sessions: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -327,12 +336,6 @@ pub struct FileReadResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileUploadResponse {
     pub files: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileWriteResponse {
-    pub path: String,
-    pub ok: bool,
 }
 
 // ── Editor / LSP types ─────────────────────────────────────────────

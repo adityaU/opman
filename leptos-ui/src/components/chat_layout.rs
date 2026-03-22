@@ -5,6 +5,7 @@
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+use crate::hooks::use_back_navigation::use_back_navigation;
 use crate::hooks::use_assistant_state::use_assistant_state;
 use crate::hooks::use_bookmarks::use_bookmarks;
 use crate::hooks::use_chat_callbacks::{use_chat_callbacks, ChatCallbackDeps};
@@ -54,9 +55,28 @@ pub fn ChatLayout() -> impl IntoView {
         let set_loading = sse.set_is_loading_messages;
         let set_permissions = sse.set_permissions;
         let set_questions = sse.set_questions;
+        let set_busy = sse.set_busy_sessions;
+        let set_error = sse.set_error_sessions;
+        let set_input = sse.set_input_sessions;
+        let set_unseen = sse.set_unseen_sessions;
         leptos::task::spawn_local(async move {
             match crate::api::api_fetch::<crate::types::api::AppState>("/state").await {
                 Ok(state) => {
+                    // Bootstrap indicator sets from initial state
+                    let mut busy = std::collections::HashSet::new();
+                    let mut error = std::collections::HashSet::new();
+                    let mut input = std::collections::HashSet::new();
+                    let mut unseen = std::collections::HashSet::new();
+                    for p in &state.projects {
+                        busy.extend(p.busy_sessions.iter().cloned());
+                        error.extend(p.error_sessions.iter().cloned());
+                        input.extend(p.input_sessions.iter().cloned());
+                        unseen.extend(p.unseen_sessions.iter().cloned());
+                    }
+                    set_busy.set(busy);
+                    set_error.set(error);
+                    set_input.set(input);
+                    set_unseen.set(unseen);
                     set_app_state.set(Some(state));
                     set_connection.set(ConnectionStatus::Connected);
                 }
@@ -199,6 +219,13 @@ pub fn ChatLayout() -> impl IntoView {
             .meta()
             .shift()
             .desc("Toggle Debug"),
+            // Toggle health: Cmd+Shift+H
+            KeyBinding::new("h", Callback::new(move |_| {
+                modal_state.toggle(ModalName::ProcessHealth);
+            }))
+            .meta()
+            .shift()
+            .desc("Toggle Process Health"),
             // Command palette: Cmd+Shift+P
             KeyBinding::new("p", Callback::new(move |_| {
                 modal_state.toggle(ModalName::CommandPalette);
@@ -306,6 +333,9 @@ fn ChatLayoutInner(
 
     // ── URL restore & sync ──
     let url_state = use_url_restore(sse, panels);
+
+    // ── Back-navigation (browser/system back button) ──
+    let _back_nav = use_back_navigation(modal_state, panels, mobile);
 
     // ── Notification signals ──
     let (assistant_signals, set_assistant_signals) =
@@ -433,6 +463,7 @@ fn ChatLayoutInner(
         set_selected_model: model_state.set_selected_model,
         selected_agent: model_state.selected_agent,
         set_selected_agent: model_state.set_selected_agent,
+        current_agent: model_state.current_agent,
         sending: model_state.sending,
         set_sending: model_state.set_sending,
         active_memory_items: assistant.active_memory_items,

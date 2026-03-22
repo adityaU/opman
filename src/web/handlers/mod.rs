@@ -17,6 +17,7 @@ mod git_ext_handlers;
 mod git_context_handlers;
 mod agents_handlers;
 mod files_handlers;
+mod download_handlers;
 mod editor_handlers;
 mod context_handlers;
 mod search_handlers;
@@ -25,6 +26,8 @@ mod dashboard_handlers;
 mod dashboard_ext_handlers;
 mod intelligence_handlers;
 pub(crate) mod system_handlers;
+mod skills_handlers;
+mod health_handlers;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -48,7 +51,7 @@ pub use pty_handlers::{spawn_pty, pty_write, pty_resize, pty_kill, pty_list};
 pub use session_handlers::{
     get_session_messages, send_message, abort_session, delete_session, rename_session,
     execute_command, get_providers, get_commands, reply_permission, reply_question,
-    get_pending,
+    get_pending, mark_session_seen,
 };
 
 pub use git_handlers::{
@@ -61,7 +64,9 @@ pub use git_context_handlers::{git_context_summary, git_repos};
 
 pub use agents_handlers::get_agents;
 
-pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files};
+pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files, rename_entry};
+
+pub use download_handlers::{download_file, download_dir};
 
 pub use editor_handlers::{
     editor_lsp_diagnostics, editor_lsp_hover, editor_lsp_definition, editor_lsp_format,
@@ -98,3 +103,7 @@ pub use intelligence_handlers::{
     list_signals, add_signal, compute_assistant_stats, list_workspace_templates,
     list_active_memory,
 };
+
+pub use skills_handlers::{list_skills, get_skill, create_skill, update_skill, delete_skill, upload_skills};
+
+pub use health_handlers::{get_health_status, get_health_audit, toggle_health_mitigation, set_health_config};

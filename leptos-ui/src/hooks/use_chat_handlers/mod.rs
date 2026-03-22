@@ -103,6 +103,8 @@ pub struct ChatHandlerDeps {
     pub set_selected_model: WriteSignal<Option<ModelRef>>,
     pub selected_agent: ReadSignal<String>,
     pub set_selected_agent: WriteSignal<String>,
+    /// Derived current agent (selection > last message > default).
+    pub current_agent: Memo<String>,
     pub sending: ReadSignal<bool>,
     pub set_sending: WriteSignal<bool>,
     pub active_memory_items: ReadSignal<Vec<PersonalMemoryItem>>,

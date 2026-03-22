@@ -71,7 +71,7 @@ pub fn use_chat_callbacks(deps: ChatCallbackDeps) -> ChatCallbacks {
                 None => return,
             };
             leptos::task::spawn_local(async move {
-                match send_message(&sid, &text, None).await {
+                match send_message(&sid, &text, None, None, None).await {
                     Ok(_) => toasts.add_typed("Context sent", "success"),
                     Err(_) => toasts.add_typed("Failed to send context", "error"),
                 }

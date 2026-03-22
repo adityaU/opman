@@ -171,6 +171,15 @@ pub async fn fetch_themes() -> Result<Vec<ThemePreview>, ApiError> {
     Ok(resp.themes)
 }
 
+/// Mark a session as seen (clear unseen indicator).
+pub async fn mark_session_seen(session_id: &str) -> Result<(), ApiError> {
+    let path = format!(
+        "/session/{}/mark_seen",
+        js_sys::encode_uri_component(session_id),
+    );
+    super::client::api_post_void(&path, &()).await
+}
+
 /// Switch active theme.
 pub async fn switch_theme(name: &str) -> Result<(), ApiError> {
     #[derive(Serialize)]

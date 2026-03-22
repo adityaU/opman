@@ -42,6 +42,9 @@ export interface FileExplorerState {
   handleDeleteFile: (filePath: string) => Promise<void>;
   handleDeleteDir: (dirPath: string) => Promise<void>;
   handleUploadFiles: (dir: string, files: FileList | File[]) => Promise<void>;
+  handleReloadDir: (dirPath: string) => Promise<void>;
+  handleReloadFile: (filePath: string) => Promise<void>;
+  handleReloadRoot: () => Promise<void>;
   fileActionBusy: boolean;
 }
 
@@ -321,6 +324,62 @@ export function useFileExplorer(
     }
   }, [onError, refreshDirSubtree]);
 
+  // ── Reload actions ──────────────────────────────────
+
+  const handleReloadDir = useCallback(async (dirPath: string) => {
+    try {
+      const resp = await browseFiles(dirPath === "." ? undefined : dirPath);
+      if (dirPath === "." || dirPath === currentPath) {
+        setEntries(resp.entries);
+        setCurrentPath(resp.path || ".");
+      }
+      if (dirPath !== "." && expandedDirs.has(dirPath)) {
+        setDirChildren((prev) => ({ ...prev, [dirPath]: resp.entries }));
+      }
+    } catch (err) {
+      console.error("Failed to reload directory:", err);
+      onError?.("Failed to reload directory");
+    }
+  }, [currentPath, expandedDirs, onError]);
+
+  const handleReloadFile = useCallback(async (filePath: string) => {
+    const existing = openFiles.find((f) => f.path === filePath);
+    if (!existing) return;
+    const renderType: FileRenderType = classifyFile(filePath);
+    if (renderType === "image" || renderType === "audio" || renderType === "video" || renderType === "pdf" || renderType === "binary") return;
+    try {
+      const resp = await readFile(filePath);
+      setOpenFiles((prev) =>
+        prev.map((f) => f.path === filePath
+          ? { ...f, content: resp.content, language: resp.language, editedContent: null }
+          : f),
+      );
+      if (filePath === activeFilePath) setSaveStatus(null);
+    } catch (err) {
+      console.error("Failed to reload file:", err);
+      onError?.("Failed to reload file");
+    }
+  }, [openFiles, activeFilePath, onError]);
+
+  const handleReloadRoot = useCallback(async () => {
+    try {
+      const resp = await browseFiles(currentPath === "." ? undefined : currentPath);
+      setEntries(resp.entries);
+      setCurrentPath(resp.path || ".");
+      // Re-fetch all currently expanded directories
+      const expanded = Array.from(expandedDirs);
+      await Promise.all(expanded.map(async (dir) => {
+        try {
+          const r = await browseFiles(dir);
+          setDirChildren((prev) => ({ ...prev, [dir]: r.entries }));
+        } catch { /* ignore individual failures */ }
+      }));
+    } catch (err) {
+      console.error("Failed to reload root:", err);
+      onError?.("Failed to reload explorer");
+    }
+  }, [currentPath, expandedDirs, onError]);
+
   // ── Effects ───────────────────────────────────────────
 
   useEffect(() => { loadDirectory("."); }, [loadDirectory]);
@@ -351,6 +410,7 @@ export function useFileExplorer(
     editedContent, setOpenFiles, onEditorChange,
     breadcrumbs, pendingJumpRef,
     handleCreateFile, handleCreateDir, handleDeleteFile, handleDeleteDir,
-    handleUploadFiles, fileActionBusy,
+    handleUploadFiles, handleReloadDir, handleReloadFile, handleReloadRoot,
+    fileActionBusy,
   };
 }

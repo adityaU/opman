@@ -143,6 +143,12 @@ impl super::WebStateHandle {
             // Verify session exists
             if project.sessions.iter().any(|s| s.id == session_id) {
                 project.active_session = Some(session_id.clone());
+                // Clear unseen state when user views this session
+                if inner.unseen_sessions.remove(&session_id).is_some() {
+                    let _ = self.event_tx.send(WebEvent::SessionSeen {
+                        session_id: session_id.clone(),
+                    });
+                }
                 drop(inner); // Release lock before async API call
 
                 // Tell the opencode server about the selection
@@ -165,6 +171,19 @@ impl super::WebStateHandle {
             } else {
                 false
             }
+        } else {
+            false
+        }
+    }
+
+    /// Mark a session as seen (clear unseen state). Returns true if it was unseen.
+    pub async fn mark_session_seen(&self, session_id: &str) -> bool {
+        let mut inner = self.inner.write().await;
+        if inner.unseen_sessions.remove(session_id).is_some() {
+            let _ = self.event_tx.send(WebEvent::SessionSeen {
+                session_id: session_id.to_string(),
+            });
+            true
         } else {
             false
         }

@@ -14,5 +14,6 @@ pub mod missions;
 pub mod intelligence;
 pub mod workflows;
 pub mod system;
+pub mod health;
 
 pub use client::*;

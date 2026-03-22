@@ -366,13 +366,96 @@
     }
 
     /* ═════════════════════════════════════════════════════════════
-       GIT PANEL — Mobile density overhaul
+       Git panel mobile header reorder
+       Order: toolbar (breadcrumb+branch) (1) → tabs (2)
        ═════════════════════════════════════════════════════════════ */
 
-    .git-panel-toolbar-row {
+    /* Header becomes flex-column on mobile for ordered stacking */
+    .git-panel-header {
+        flex-direction: column;
+        align-items: stretch
+    }
+
+    /* Repo switcher full-width, stays at top */
+    .git-panel-header > .git-repo-switcher {
+        order: 0
+    }
+
+    /* Branch is now inside toolbar-row; on mobile keep it right-aligned */
+    .git-panel-branch {
+        margin-left: auto
+    }
+
+    /* Repo switcher full-width, stays at top */
+    .git-panel-header > .git-repo-switcher {
+        order: 0
+    }
+
+    /* Branch is now inside toolbar-row; on mobile keep it right-aligned */
+    .git-panel-branch {
+        margin-left: auto
+    }
+
+    .git-branch-toggle {
+        flex: 1;
+        padding: 8px 12px;
+        font-size: var(--font-size-sm);
+        border-radius: var(--radius-md);
+        min-height: 40px
+    }
+
+    .git-panel-refresh {
+        width: 40px;
+        height: 40px
+    }
+
+    /* Tabs: order 2, full-width indented pill bar */
+    .git-panel-header > .git-panel-tabs {
+        order: 2;
+        width: auto;
+        margin: var(--space-2) var(--space-3) 0;
+        padding: 4px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-subtle);
+        border-top: 1px solid var(--color-border-subtle);
+        background: var(--color-surface);
+        display: flex;
+        gap: 4px
+    }
+
+    .git-panel-header > .git-panel-tabs .git-tab {
+        flex: 1;
+        min-height: 40px;
+        border-radius: var(--radius-md);
+        border-bottom: none;
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        justify-content: center
+    }
+
+    .git-panel-header > .git-panel-tabs .git-tab.active {
+        background: var(--color-primary);
+        color: var(--color-bg, #000)
+    }
+
+    .git-panel-header > .git-panel-tabs .git-tab-badge {
+        background: color-mix(in srgb, var(--color-bg) 30%, transparent);
+        color: inherit
+    }
+
+    /* Toolbar row (breadcrumb + branch): order 1 */
+    .git-panel-header > .git-panel-toolbar-row {
+        order: 1;
+        width: 100%;
         padding: var(--space-2) var(--space-3);
         min-height: 48px;
-        gap: var(--space-2)
+        gap: var(--space-2);
+        flex-wrap: wrap
+    }
+
+    /* At list root on mobile, hide only the breadcrumb trail, keep branch visible */
+    .git-panel-toolbar-row:has(.git-breadcrumb-root) .git-breadcrumb {
+        display: none
     }
 
     .git-back-btn {
@@ -385,18 +468,6 @@
         width: 30px;
         height: 40px;
         border-radius: 0 var(--radius-sm) var(--radius-sm) 0
-    }
-
-    .git-branch-toggle {
-        padding: 8px 12px;
-        font-size: var(--font-size-sm);
-        border-radius: var(--radius-md);
-        min-height: 40px
-    }
-
-    .git-panel-refresh {
-        width: 40px;
-        height: 40px
     }
 
     .git-breadcrumb-trail {

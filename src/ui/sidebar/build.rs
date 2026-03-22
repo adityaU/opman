@@ -5,7 +5,99 @@ use ratatui::widgets::ListItem;
 use super::lerp_color;
 use super::Sidebar;
 
+/// Session indicator priority (highest first):
+/// 1. busy → pulsating accent dot
+/// 2. input-needed → warning dot
+/// 3. error → red dot
+/// 4. unseen → blue/info dot
+/// 5. idle → subtle dash
+enum Indicator {
+    Busy,
+    Input,
+    Error,
+    Unseen,
+    Idle,
+}
+
 impl<'a> Sidebar<'a> {
+    /// Determine the highest-priority indicator state for a session.
+    fn session_indicator(&self, session_id: &str) -> Indicator {
+        if self.app.active_sessions.contains(session_id) {
+            return Indicator::Busy;
+        }
+        // Check subagents — if any child is busy, parent shows busy
+        for (_, project) in self.app.projects.iter().enumerate() {
+            if let Some(session) = project.sessions.iter().find(|s| s.id == session_id) {
+                let subs = self.app.session_children.get(&session.id);
+                if let Some(children) = subs {
+                    if children
+                        .iter()
+                        .any(|cid| self.app.active_sessions.contains(cid))
+                    {
+                        return Indicator::Busy;
+                    }
+                }
+                break;
+            }
+        }
+        if self.app.input_sessions.contains(session_id) {
+            return Indicator::Input;
+        }
+        if self.app.error_sessions.contains(session_id) {
+            return Indicator::Error;
+        }
+        if self.app.unseen_sessions.contains(session_id) {
+            return Indicator::Unseen;
+        }
+        Indicator::Idle
+    }
+
+    /// Render the indicator span for a session, respecting cursor background.
+    fn indicator_span(&self, indicator: &Indicator, is_cursor: bool) -> Span<'a> {
+        match indicator {
+            Indicator::Busy => {
+                let dot_color = lerp_color(
+                    self.app.theme.background,
+                    self.app.theme.accent,
+                    self.app.pulse_phase,
+                );
+                let mut style = Style::default().fg(dot_color);
+                if is_cursor {
+                    style = self.with_cursor_bg(style);
+                }
+                Span::styled("● ", style)
+            }
+            Indicator::Input => {
+                let mut style = Style::default().fg(self.app.theme.warning);
+                if is_cursor {
+                    style = self.with_cursor_bg(style);
+                }
+                Span::styled("● ", style)
+            }
+            Indicator::Error => {
+                let mut style = Style::default().fg(self.app.theme.error);
+                if is_cursor {
+                    style = self.with_cursor_bg(style);
+                }
+                Span::styled("● ", style)
+            }
+            Indicator::Unseen => {
+                let mut style = Style::default().fg(self.app.theme.info);
+                if is_cursor {
+                    style = self.with_cursor_bg(style);
+                }
+                Span::styled("● ", style)
+            }
+            Indicator::Idle => {
+                let mut style = Style::default().fg(self.app.theme.text_muted);
+                if is_cursor {
+                    style = self.with_cursor_bg(style);
+                }
+                Span::styled("─ ", style)
+            }
+        }
+    }
+
     /// Build the list items for the project list.
     ///
     /// Two independent highlights:
@@ -47,28 +139,12 @@ impl<'a> Sidebar<'a> {
                 style = self.with_cursor_bg(style);
             }
 
-            let has_active = project.sessions.iter().any(|s| {
-                if self.app.active_sessions.contains(&s.id) {
-                    return true;
-                }
-                self.app
-                    .subagent_sessions(i, &s.id)
-                    .iter()
-                    .any(|sub| self.app.active_sessions.contains(&sub.id))
-            });
+            // Project-level indicator: highest priority across all sessions
+            let project_indicator = self.project_indicator(i);
 
             let mut spans = vec![Span::styled(marker, style)];
-            if has_active {
-                let dot_color = lerp_color(
-                    self.app.theme.background,
-                    self.app.theme.accent,
-                    self.app.pulse_phase,
-                );
-                let mut dot_style = Style::default().fg(dot_color);
-                if is_cursor {
-                    dot_style = self.with_cursor_bg(dot_style);
-                }
-                spans.push(Span::styled("● ", dot_style));
+            if !matches!(project_indicator, Indicator::Idle) {
+                spans.push(self.indicator_span(&project_indicator, is_cursor));
             }
             spans.push(Span::styled(project.name.clone(), style));
             let project_line = Line::from(spans);
@@ -114,13 +190,7 @@ impl<'a> Sidebar<'a> {
             for session in &visible {
                 let is_sel = flat_idx == self.app.sidebar_selection;
                 let is_cur = flat_idx == self.app.sidebar_cursor;
-                let is_active = self.app.active_sessions.contains(&session.id);
-                let has_active_subagent = self
-                    .app
-                    .subagent_sessions(i, &session.id)
-                    .iter()
-                    .any(|sub| self.app.active_sessions.contains(&sub.id));
-                let show_dot = is_active || has_active_subagent;
+                let indicator = self.session_indicator(&session.id);
                 let has_subagents = !self.app.subagent_sessions(i, &session.id).is_empty();
                 let is_subagents_open =
                     self.app.subagents_expanded_for.as_deref() == Some(&session.id);
@@ -145,18 +215,7 @@ impl<'a> Sidebar<'a> {
                 }
                 let mut spans = vec![Span::styled("    ", pad_style)];
                 spans.push(Span::styled("└ ", s_style));
-                if show_dot {
-                    let dot_color = lerp_color(
-                        self.app.theme.background,
-                        self.app.theme.accent,
-                        self.app.pulse_phase,
-                    );
-                    let mut dot_style = Style::default().fg(dot_color);
-                    if is_cur {
-                        dot_style = self.with_cursor_bg(dot_style);
-                    }
-                    spans.push(Span::styled("● ", dot_style));
-                }
+                spans.push(self.indicator_span(&indicator, is_cur));
                 if has_subagents {
                     let arrow = if is_subagents_open { "▼ " } else { "▶ " };
                     spans.push(Span::styled(arrow, s_style));
@@ -170,7 +229,7 @@ impl<'a> Sidebar<'a> {
                     for sub in &subagents {
                         let sub_sel = flat_idx == self.app.sidebar_selection;
                         let sub_cur = flat_idx == self.app.sidebar_cursor;
-                        let sub_active = self.app.active_sessions.contains(&sub.id);
+                        let sub_indicator = self.session_indicator(&sub.id);
                         let mut sub_style = if sub_sel {
                             Style::default()
                                 .fg(self.app.theme.primary)
@@ -192,18 +251,7 @@ impl<'a> Sidebar<'a> {
                         }
                         let mut sub_spans = vec![Span::styled("      ", sub_pad)];
                         sub_spans.push(Span::styled("└ ", sub_style));
-                        if sub_active {
-                            let dot_color = lerp_color(
-                                self.app.theme.background,
-                                self.app.theme.accent,
-                                self.app.pulse_phase,
-                            );
-                            let mut dot_style = Style::default().fg(dot_color);
-                            if sub_cur {
-                                dot_style = self.with_cursor_bg(dot_style);
-                            }
-                            sub_spans.push(Span::styled("● ", dot_style));
-                        }
+                        sub_spans.push(self.indicator_span(&sub_indicator, sub_cur));
                         sub_spans.push(Span::styled(sub_title.to_string(), sub_style));
                         items.push(ListItem::new(Line::from(sub_spans)));
                         flat_idx += 1;
@@ -255,5 +303,32 @@ impl<'a> Sidebar<'a> {
         )])));
 
         items
+    }
+
+    /// Compute the highest-priority indicator across all sessions in a project.
+    fn project_indicator(&self, project_idx: usize) -> Indicator {
+        let Some(project) = self.app.projects.get(project_idx) else {
+            return Indicator::Idle;
+        };
+        let mut best = Indicator::Idle;
+        for session in &project.sessions {
+            let ind = self.session_indicator(&session.id);
+            match ind {
+                Indicator::Busy => return Indicator::Busy,
+                Indicator::Input
+                    if matches!(best, Indicator::Error | Indicator::Unseen | Indicator::Idle) =>
+                {
+                    best = Indicator::Input;
+                }
+                Indicator::Error if matches!(best, Indicator::Unseen | Indicator::Idle) => {
+                    best = Indicator::Error;
+                }
+                Indicator::Unseen if matches!(best, Indicator::Idle) => {
+                    best = Indicator::Unseen;
+                }
+                _ => {}
+            }
+        }
+        best
     }
 }

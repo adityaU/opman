@@ -156,6 +156,10 @@ impl App {
             session_id = %request.session_id, permission = %request.permission,
             "Permission request received from AI agent"
         );
+        // Track that this session needs input
+        if !request.session_id.is_empty() {
+            self.input_sessions.insert(request.session_id.clone());
+        }
         if let (Some(ref ss), Some(ref auth)) = (self.slack_state.clone(), self.slack_auth.clone()) {
             let ss = ss.clone();
             let bot_token = auth.bot_token.clone();
@@ -199,6 +203,10 @@ impl App {
             session_id = %request.session_id, question_count = request.questions.len(),
             "Question request received from AI agent"
         );
+        // Track that this session needs input
+        if !request.session_id.is_empty() {
+            self.input_sessions.insert(request.session_id.clone());
+        }
         if let (Some(ref ss), Some(ref auth)) = (self.slack_state.clone(), self.slack_auth.clone()) {
             let ss = ss.clone();
             let bot_token = auth.bot_token.clone();

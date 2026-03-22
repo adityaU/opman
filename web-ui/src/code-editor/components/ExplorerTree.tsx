@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Folder, File, ChevronRight, ChevronDown, Loader2,
-  FilePlus, FolderPlus, Trash2, MoreHorizontal, X,
+  FilePlus, FolderPlus, Trash2, MoreHorizontal, X, RefreshCw,
 } from "lucide-react";
 import type { FileEntry } from "../types";
 
@@ -22,12 +22,15 @@ interface Props {
   onCreateDir?: (parentDir: string, name: string) => void;
   onDeleteFile?: (path: string) => void;
   onDeleteDir?: (path: string) => void;
+  onReloadDir?: (dirPath: string) => void;
+  onReloadFile?: (filePath: string) => void;
 }
 
 export function ExplorerTree({
   entries, expandedDirs, dirChildren, loadingDirs,
   activeFilePath, toggleDir, onFileClick,
   onCreateFile, onCreateDir, onDeleteFile, onDeleteDir,
+  onReloadDir, onReloadFile,
 }: Props) {
   // Inline create state: which directory + type
   const [inlineCreate, setInlineCreate] = useState<{ parentDir: string; type: "file" | "dir" } | null>(null);
@@ -73,8 +76,13 @@ export function ExplorerTree({
             <Folder size={14} className="file-icon folder-icon" />
             <span className="file-name">{entry.name}</span>
           </button>
-          {showCtx && (onCreateFile || onCreateDir || onDeleteDir) && (
+          {showCtx && (onCreateFile || onCreateDir || onDeleteDir || onReloadDir) && (
             <span className="explorer-entry-actions">
+              {onReloadDir && (
+                <button className="explorer-action-btn" title="Reload folder" onClick={(e) => { e.stopPropagation(); onReloadDir(entry.path); setContextMenu(null); }}>
+                  <RefreshCw size={12} />
+                </button>
+              )}
               {onCreateFile && (
                 <button className="explorer-action-btn" title="New file" onClick={(e) => { e.stopPropagation(); setInlineCreate({ parentDir: entry.path, type: "file" }); setContextMenu(null); }}>
                   <FilePlus size={12} />
@@ -143,11 +151,18 @@ export function ExplorerTree({
             <File size={14} className="file-icon" />
             <span className="file-name">{entry.name}</span>
           </button>
-          {showCtx && onDeleteFile && (
+          {showCtx && (onDeleteFile || onReloadFile) && (
             <span className="explorer-entry-actions">
-              <button className="explorer-action-btn explorer-action-danger" title="Delete file" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: false }); setContextMenu(null); }}>
-                <Trash2 size={12} />
-              </button>
+              {onReloadFile && (
+                <button className="explorer-action-btn" title="Reload file" onClick={(e) => { e.stopPropagation(); onReloadFile(entry.path); setContextMenu(null); }}>
+                  <RefreshCw size={12} />
+                </button>
+              )}
+              {onDeleteFile && (
+                <button className="explorer-action-btn explorer-action-danger" title="Delete file" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: false }); setContextMenu(null); }}>
+                  <Trash2 size={12} />
+                </button>
+              )}
             </span>
           )}
         </div>

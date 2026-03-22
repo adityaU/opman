@@ -34,8 +34,10 @@ fn find_session_project(app_state: &AppState, session_id: &str) -> Option<usize>
 }
 
 /// Select a session on the backend and refresh app state.
+/// Also marks the session as seen (clears unseen indicator).
 async fn select_and_refresh(
     set_app_state: WriteSignal<Option<AppState>>,
+    set_unseen_sessions: WriteSignal<std::collections::HashSet<String>>,
     project_idx: usize,
     active_project: usize,
     session_id: &str,
@@ -44,6 +46,10 @@ async fn select_and_refresh(
         let _ = crate::api::project::switch_project(project_idx).await;
     }
     let _ = crate::api::project::select_session(project_idx, session_id).await;
+    // Clear unseen locally immediately + notify backend (best-effort)
+    let sid = session_id.to_string();
+    set_unseen_sessions.update(|s| { s.remove(&sid); });
+    let _ = crate::api::session::mark_session_seen(session_id).await;
     if let Ok(state) = crate::api::project::fetch_app_state().await {
         set_app_state.set(Some(state));
     }
@@ -123,11 +129,12 @@ fn load_session_from_url(sse: SseState, panels: PanelState) {
 
     // Do the switch
     let set_app_state = sse.set_app_state;
+    let set_unseen_sessions = sse.set_unseen_sessions;
     let sid_owned = sid.clone();
     sse.expect_session_switch();
     persist_session(sid);
     leptos::task::spawn_local(async move {
-        select_and_refresh(set_app_state, target_project, active_project, &sid_owned)
+        select_and_refresh(set_app_state, set_unseen_sessions, target_project, active_project, &sid_owned)
             .await;
     });
 }
@@ -193,7 +200,11 @@ pub fn use_url_restore(sse: SseState, panels: PanelState) -> UrlState {
     // ── Popstate handler (back/forward) ────────────────────────────
     {
         let handler = Closure::<dyn Fn(web_sys::PopStateEvent)>::new(
-            move |_e: web_sys::PopStateEvent| {
+            move |e: web_sys::PopStateEvent| {
+                // Skip back-navigation entries — they are handled by use_back_navigation
+                if crate::hooks::use_back_navigation::is_back_nav_state(&e.state()) {
+                    return;
+                }
                 load_session_from_url(sse, panels);
             },
         );

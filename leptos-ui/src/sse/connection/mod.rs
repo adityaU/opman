@@ -4,7 +4,9 @@
 //! Sub-modules:
 //! - `event_handler`: opencode event dispatch (message/session/permission/question)
 //! - `app_listeners`: app-level SSE listener wiring
+//! - `app_indicator_listeners`: session indicator listeners (busy/idle/error/input)
 
+mod app_indicator_listeners;
 mod app_listeners;
 mod event_handler;
 pub mod session_handlers;
@@ -45,6 +47,12 @@ pub fn create_pty_sse(id: &str) -> Result<EventSource, String> {
 pub fn create_system_stats_sse() -> Result<EventSource, String> {
     EventSource::new("/api/system/stats/stream")
         .map_err(|e| format!("Failed to create system stats SSE: {:?}", e))
+}
+
+/// Create an EventSource for editor file-change events.
+pub fn create_editor_events_sse() -> Result<EventSource, String> {
+    EventSource::new("/api/editor/events")
+        .map_err(|e| format!("Failed to create editor events SSE: {:?}", e))
 }
 
 /// Parse an opencode SSE event from JSON string.

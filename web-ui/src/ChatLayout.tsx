@@ -27,6 +27,7 @@ import type { ThemeMode } from "./ThemeSelectorModal";
 import type { ThemeColors } from "./api";
 import { applyThemeToCss } from "./utils/theme";
 import { fetchTheme } from "./api";
+import { SkillsUploadModal } from "./SkillsUploadModal";
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -79,6 +80,8 @@ export function ChatLayout() {
   const { toasts, addToast, removeToast } = useToast();
   const providers = useProviders();
   const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
 
   // ── Bridge SSE toast events into the toast system ──
   useEffect(() => {
@@ -336,6 +339,7 @@ export function ChatLayout() {
         splitViewSecondaryId={modalState.splitViewSecondaryId}
         setSplitViewSecondaryId={modalState.setSplitViewSecondaryId}
         clearPermission={clearPermission} clearQuestion={clearQuestion}
+        onOpenSkillsUpload={() => setSkillsUploadOpen(true)}
       />
       <StatusBar
         project={activeProject} stats={stats} sessionStatus={sessionStatus}
@@ -365,6 +369,7 @@ export function ChatLayout() {
         mcpAgentActivity={mcpAgentActivity}
         onError={callbacks.handlePanelError} onSendToAI={handlers.handleSend}
       />
+      {skillsUploadOpen && <SkillsUploadModal onClose={() => setSkillsUploadOpen(false)} />}
     </div>
   );
 }

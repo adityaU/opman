@@ -13,6 +13,7 @@ tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
 toml = "0.8"
 dirs = "6"
 anyhow = "1"
@@ -33,14 +34,13 @@ similar = "2"
 rmpv = "1.3"
 rmp = "0.8"
 tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
-serde_yaml = "0.9"
 url = "2"
 open = "5"
 rand = "0.8"
 axum = { version = "0.8", features = ["tokio", "ws", "multipart"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "set-header"] }
+tower-http = { version = "0.6", features = ["cors", "set-header", "compression-gzip"] }
 rust-embed = { version = "8", features = ["interpolate-folder-path", "compression"] }
 mime_guess = "2"
 base64 = "0.22"
@@ -49,7 +49,9 @@ hmac = "0.12"
 async-stream = "0.3"
 clap = { version = "4", features = ["derive", "env"] }
 sysinfo = "0.33"
+libc = "0.2"
 openssl = { version = "0.10", features = ["vendored"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

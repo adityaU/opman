@@ -176,8 +176,7 @@
     background: var(--color-surface)
 }
 
-.sb-project-new,
-.sb-project-remove {
+.sb-project-new {
     border-radius: 999px
 }
 
@@ -210,6 +209,14 @@
     border: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent),var(--color-bg);
     box-shadow: 0 22px 60px #0003
+}
+
+.sb-ctx-sheet-title {
+    border-color: var(--color-border-subtle)
+}
+
+.sb-ctx-cancel {
+    border-color: var(--color-border-subtle)
 }
 
 .sb-modal {

@@ -7,15 +7,7 @@ use crate::components::modal_overlay::ModalOverlay;
 use crate::types::api::{SearchResponse, SearchResultEntry};
 use leptos::prelude::*;
 
-fn format_timestamp(ts: f64) -> String {
-    if ts == 0.0 {
-        return String::new();
-    }
-    let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ts * 1000.0));
-    let hours = d.get_hours();
-    let mins = d.get_minutes();
-    format!("{:02}:{:02}", hours, mins)
-}
+use crate::utils::format_clock_time as format_timestamp;
 
 struct SessionGroup {
     session_id: String,

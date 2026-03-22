@@ -8,6 +8,48 @@ use crate::components::icons::*;
 
 use super::types::{ContextMenuState, DeleteConfirm, RemoveProjectConfirm};
 
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/// Check if viewport is phone-width (matches `@media(max-width: 768px)`).
+fn is_mobile() -> bool {
+    web_sys::window()
+        .map(|w| w.inner_width().ok())
+        .flatten()
+        .and_then(|v| v.as_f64())
+        .map(|w| w <= 768.0)
+        .unwrap_or(false)
+}
+
+/// Clamp menu position so it stays within the viewport.
+/// Returns `(left_px, top_px)`.
+fn clamped_position(x: i32, y: i32) -> (i32, i32) {
+    const MENU_W: i32 = 160; // slightly wider than min-width: 140px
+    const MENU_H: i32 = 120; // ~3 items × 36px + padding
+    const PAD: i32 = 8;
+    let (vw, vh) = viewport_size();
+    let left = x.min(vw - MENU_W - PAD).max(PAD);
+    let top = y.min(vh - MENU_H - PAD).max(PAD);
+    (left, top)
+}
+
+fn viewport_size() -> (i32, i32) {
+    web_sys::window()
+        .map(|w| {
+            let vw = w
+                .inner_width()
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(800.0) as i32;
+            let vh = w
+                .inner_height()
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(600.0) as i32;
+            (vw, vh)
+        })
+        .unwrap_or((800, 600))
+}
+
 // ── Context menu ────────────────────────────────────────────────────
 
 #[component]
@@ -22,64 +64,106 @@ pub fn SidebarContextMenu(
     set_delete_confirm: WriteSignal<Option<DeleteConfirm>>,
 ) -> impl IntoView {
     move || {
-        ctx_menu.get().map(|menu| {
-            let sid_pin = menu.session_id.clone();
-            let sid_rename = menu.session_id.clone();
-            let title_rename = menu.session_title.clone();
-            let sid_delete = menu.session_id.clone();
-            let title_delete = menu.session_title.clone();
-            view! {
-                <div
-                    class="sb-context-menu"
-                    style:left=format!("{}px", menu.x)
-                    style:top=format!("{}px", menu.y)
-                    on:click=move |ev: web_sys::MouseEvent| ev.stop_propagation()
-                >
-                    <button
-                        class="sb-context-item"
-                        on:click=move |_| {
-                            let _is_pinned = pinned_sessions.get_untracked().contains(&sid_pin);
-                            toggle_pin.run(sid_pin.clone());
-                            set_ctx_menu.set(None);
-                        }
+        let menu = ctx_menu.get()?;
+        let mobile = is_mobile();
+        let sid_pin = menu.session_id.clone();
+        let sid_rename = menu.session_id.clone();
+        let title_rename = menu.session_title.clone();
+        let sid_delete = menu.session_id.clone();
+        let title_delete = menu.session_title.clone();
+        let display_title = if menu.session_title.is_empty() {
+            menu.session_id[..menu.session_id.len().min(16)].to_string()
+        } else if menu.session_title.len() > 32 {
+            format!("{}...", &menu.session_title[..29])
+        } else {
+            menu.session_title.clone()
+        };
+        let icon_sz: u32 = if mobile { 16 } else { 12 };
+
+        // Action buttons (shared between mobile + desktop)
+        let items = view! {
+            <button
+                class="sb-context-item"
+                on:click=move |_| {
+                    toggle_pin.run(sid_pin.clone());
+                    set_ctx_menu.set(None);
+                }
+            >
+                <IconPin size=icon_sz />
+                {move || {
+                    if pinned_sessions.get().contains(&menu.session_id) {
+                        "Unpin"
+                    } else {
+                        "Pin to Top"
+                    }
+                }}
+            </button>
+            <button
+                class="sb-context-item"
+                on:click=move |_| {
+                    set_rename_text.set(title_rename.clone());
+                    set_rename_original_title.set(title_rename.clone());
+                    set_renaming_sid.set(Some(sid_rename.clone()));
+                    set_ctx_menu.set(None);
+                }
+            >
+                <IconPencil size=icon_sz />
+                "Rename"
+            </button>
+            <button
+                class="sb-context-item sb-context-danger"
+                on:click=move |_| {
+                    set_delete_confirm.set(Some(DeleteConfirm {
+                        session_id: sid_delete.clone(),
+                        session_title: title_delete.clone(),
+                    }));
+                    set_ctx_menu.set(None);
+                }
+            >
+                <IconTrash2 size=icon_sz />
+                "Delete"
+            </button>
+        };
+
+        if mobile {
+            // Mobile: bottom action-sheet with backdrop
+            Some(
+                view! {
+                    <div class="sb-ctx-overlay" on:click=move |_| set_ctx_menu.set(None)>
+                        <div
+                            class="sb-context-menu sb-context-sheet"
+                            on:click=move |ev: web_sys::MouseEvent| ev.stop_propagation()
+                        >
+                            <div class="sb-ctx-sheet-title">{display_title}</div>
+                            {items}
+                            <button
+                                class="sb-context-item sb-ctx-cancel"
+                                on:click=move |_| set_ctx_menu.set(None)
+                            >
+                                "Cancel"
+                            </button>
+                        </div>
+                    </div>
+                }
+                .into_any(),
+            )
+        } else {
+            // Desktop: clamped fixed dropdown
+            let (left, top) = clamped_position(menu.x, menu.y);
+            Some(
+                view! {
+                    <div
+                        class="sb-context-menu"
+                        style:left=format!("{}px", left)
+                        style:top=format!("{}px", top)
+                        on:click=move |ev: web_sys::MouseEvent| ev.stop_propagation()
                     >
-                        <IconPin size=12 />
-                        {move || {
-                            if pinned_sessions.get().contains(&menu.session_id) {
-                                "Unpin"
-                            } else {
-                                "Pin to Top"
-                            }
-                        }}
-                    </button>
-                    <button
-                        class="sb-context-item"
-                        on:click=move |_| {
-                            set_rename_text.set(title_rename.clone());
-                            set_rename_original_title.set(title_rename.clone());
-                            set_renaming_sid.set(Some(sid_rename.clone()));
-                            set_ctx_menu.set(None);
-                        }
-                    >
-                        <IconPencil size=12 />
-                        "Rename"
-                    </button>
-                    <button
-                        class="sb-context-item sb-context-danger"
-                        on:click=move |_| {
-                            set_delete_confirm.set(Some(DeleteConfirm {
-                                session_id: sid_delete.clone(),
-                                session_title: title_delete.clone(),
-                            }));
-                            set_ctx_menu.set(None);
-                        }
-                    >
-                        <IconTrash2 size=12 />
-                        "Delete"
-                    </button>
-                </div>
-            }
-        })
+                        {items}
+                    </div>
+                }
+                .into_any(),
+            )
+        }
     }
 }
 

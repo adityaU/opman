@@ -21,7 +21,7 @@ export interface FileReadResponse {
 }
 
 export interface FileUploadResponse {
-  uploaded: string[];
+  files: string[];
 }
 
 export type FileRenderType =
@@ -62,6 +62,14 @@ export async function writeFile(path: string, content: string): Promise<void> {
 
 export function rawFileUrl(path: string): string {
   return `/api/file/raw?path=${encodeURIComponent(path)}`;
+}
+
+export function fileDownloadUrl(path: string): string {
+  return `/api/file/download?path=${encodeURIComponent(path)}`;
+}
+
+export function dirDownloadUrl(path: string): string {
+  return `/api/dir/download?path=${encodeURIComponent(path)}`;
 }
 
 // ── File / directory create / delete / upload ─────────

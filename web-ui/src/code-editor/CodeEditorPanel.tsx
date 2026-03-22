@@ -113,6 +113,9 @@ export default function CodeEditorPanel({
     onDeleteFile: explorer.handleDeleteFile,
     onDeleteDir: explorer.handleDeleteDir,
     onUploadFiles: explorer.handleUploadFiles,
+    onReloadDir: explorer.handleReloadDir,
+    onReloadFile: explorer.handleReloadFile,
+    onReloadRoot: explorer.handleReloadRoot,
     fileActionBusy: explorer.fileActionBusy,
   };
 

@@ -8,6 +8,7 @@ use web_sys::wasm_bindgen::JsCast;
 
 use crate::components::icons::*;
 use crate::hooks::use_panel_state::PanelState;
+use crate::hooks::use_swipe_reveal::{use_swipe_reveal, SwipeConfig};
 use crate::types::api::*;
 
 // ── Utility: status color / label (matching React utils.ts) ────────
@@ -1091,15 +1092,21 @@ pub fn GitPanel(
                     }
                 }}
 
-                // Toolbar row: breadcrumb + branch switcher
+                // Toolbar row: breadcrumb (left) + branch/refresh (right)
                 <div class="git-panel-toolbar-row">
                     // Breadcrumb navigation (always render trail; back button only when stack > 1)
                     {move || {
                         let stack = view_stack.get();
                         let tab = active_tab.get();
                         let stack_len = stack.len();
+                        // On list root, breadcrumb just says "Changes"/"Log" — add marker class
+                        let bc_class = if stack_len <= 1 {
+                            "git-breadcrumb git-breadcrumb-root"
+                        } else {
+                            "git-breadcrumb"
+                        };
                         view! {
-                            <div class="git-breadcrumb">
+                            <div class=bc_class>
                                 // Back button group — only when stack > 1
                                 {if stack_len > 1 {
                                     Some(view! {
@@ -1197,8 +1204,63 @@ pub fn GitPanel(
                             </div>
                         }
                     }}
-
-                    // Branch switcher (includes refresh button)
+                    // Tabs (inline in toolbar row) — only in list view
+                    {move || {
+                        if current_view.get() == GitView::List {
+                            Some(view! {
+                                <div class="git-panel-tabs">
+                                    <button
+                                        class=move || {
+                                            if active_tab.get() == "changes" {
+                                                "git-tab active"
+                                            } else {
+                                                "git-tab"
+                                            }
+                                        }
+                                        on:click=move |_| {
+                                            set_active_tab.set("changes".to_string());
+                                        }
+                                    >
+                                        "Changes"
+                                        {move || {
+                                            status.get().map(|s| {
+                                                let count = s.staged.len() + s.unstaged.len() + s.untracked.len();
+                                                if count > 0 {
+                                                    Some(view! {
+                                                        <span class="git-tab-badge">
+                                                            {count}
+                                                        </span>
+                                                    })
+                                                } else {
+                                                    None
+                                                }
+                                            }).flatten()
+                                        }}
+                                    </button>
+                                    <button
+                                        class=move || {
+                                            if active_tab.get() == "log" {
+                                                "git-tab active"
+                                            } else {
+                                                "git-tab"
+                                            }
+                                        }
+                                        on:click=move |_| {
+                                            set_active_tab.set("log".to_string());
+                                            set_view_stack.set(vec![GitView::List]);
+                                            set_breadcrumb_dropdown.set(false);
+                                        }
+                                    >
+                                        <IconHistory size=12 />
+                                        " Log"
+                                    </button>
+                                </div>
+                            })
+                        } else {
+                            None
+                        }
+                    }}
+                    // Branch + refresh (right-aligned inside toolbar row)
                     <div class="git-panel-branch" node_ref=branch_ref>
                         <button
                             class="git-branch-toggle"
@@ -1359,63 +1421,6 @@ pub fn GitPanel(
                         </button>
                     </div>
                 </div>
-
-                // Tab bar — only show when in list view (matching React GitTabBar)
-                {move || {
-                    if current_view.get() == GitView::List {
-                        Some(view! {
-                            <div class="git-panel-tabs">
-                                <button
-                                    class=move || {
-                                        if active_tab.get() == "changes" {
-                                            "git-tab active"
-                                        } else {
-                                            "git-tab"
-                                        }
-                                    }
-                                    on:click=move |_| {
-                                        set_active_tab.set("changes".to_string());
-                                    }
-                                >
-                                    "Changes"
-                                    {move || {
-                                        status.get().map(|s| {
-                                            let count = s.staged.len() + s.unstaged.len() + s.untracked.len();
-                                            if count > 0 {
-                                                Some(view! {
-                                                    <span class="git-tab-badge">
-                                                        {count}
-                                                    </span>
-                                                })
-                                            } else {
-                                                None
-                                            }
-                                        }).flatten()
-                                    }}
-                                </button>
-                                <button
-                                    class=move || {
-                                        if active_tab.get() == "log" {
-                                            "git-tab active"
-                                        } else {
-                                            "git-tab"
-                                        }
-                                    }
-                                    on:click=move |_| {
-                                        set_active_tab.set("log".to_string());
-                                        set_view_stack.set(vec![GitView::List]);
-                                        set_breadcrumb_dropdown.set(false);
-                                    }
-                                >
-                                    <IconHistory size=12 />
-                                    " Log"
-                                </button>
-                            </div>
-                        })
-                    } else {
-                        None
-                    }
-                }}
             </div>
 
             // Git action bar (pull / stash / gitignore) — only in list view changes tab
@@ -2293,9 +2298,15 @@ fn render_changes_view(
                                                         let path_diff = entry.path.clone();
                                                         let path_diff_kb = entry.path.clone();
                                                         let path_unstage = entry.path.clone();
+                                                        let path_swipe_unstage = entry.path.clone();
                                                         let status_str = entry.status.clone();
+                                                        let swipe = use_swipe_reveal(SwipeConfig { actions_width: 52.0 });
+                                                        let on_ts = swipe.on_touch_start();
+                                                        let on_tm = swipe.on_touch_move();
+                                                        let on_te = swipe.on_touch_end();
                                                         view! {
-                                                            <div class="git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded group cursor-pointer"
+                                                            <div
+                                                                class=move || format!("{} git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded group cursor-pointer", swipe.container_class())
                                                                 role="button"
                                                                 tabindex="0"
                                                                 on:click=move |_| open_diff(path_diff.clone(), true)
@@ -2305,23 +2316,37 @@ fn render_changes_view(
                                                                         open_diff(path_diff_kb.clone(), true);
                                                                     }
                                                                 }
+                                                                on:touchstart=move |ev| on_ts(ev)
+                                                                on:touchmove=move |ev| on_tm(ev)
+                                                                on:touchend=move |ev| on_te(ev)
                                                             >
-                                                                <span
-                                                                    class="git-file-status text-[10px] w-3 text-center"
-                                                                    style=format!("color: {}", status_color(&status_str))
-                                                                    title=status_label(&status_str)
-                                                                >{status_str.clone()}</span>
-                                                                <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
-                                                                <button
-                                                                    class="git-file-action opacity-0 group-hover:opacity-100 text-text-muted hover:text-warning text-[10px]"
-                                                                    title="Unstage"
-                                                                    on:click=move |e: leptos::ev::MouseEvent| {
-                                                                        e.stop_propagation();
-                                                                        unstage_file(path_unstage.clone());
-                                                                    }
-                                                                >
-                                                                    <IconMinus size=11 />
-                                                                </button>
+                                                                <div class="swipe-row-actions">
+                                                                    <button class="swipe-action-btn swipe-action-warning" title="Unstage"
+                                                                        on:click=move |e: web_sys::MouseEvent| {
+                                                                            e.stop_propagation();
+                                                                            unstage_file(path_swipe_unstage.clone());
+                                                                            swipe.close();
+                                                                        }
+                                                                    ><IconMinus size=14 /></button>
+                                                                </div>
+                                                                <div class="swipe-row-content" style=move || swipe.content_style()>
+                                                                    <span
+                                                                        class="git-file-status text-[10px] w-3 text-center"
+                                                                        style=format!("color: {}", status_color(&status_str))
+                                                                        title=status_label(&status_str)
+                                                                    >{status_str.clone()}</span>
+                                                                    <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
+                                                                    <button
+                                                                        class="git-file-action opacity-0 group-hover:opacity-100 text-text-muted hover:text-warning text-[10px]"
+                                                                        title="Unstage"
+                                                                        on:click=move |e: leptos::ev::MouseEvent| {
+                                                                            e.stop_propagation();
+                                                                            unstage_file(path_unstage.clone());
+                                                                        }
+                                                                    >
+                                                                        <IconMinus size=11 />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         }
                                                     }).collect::<Vec<_>>()
@@ -2370,9 +2395,16 @@ fn render_changes_view(
                                                         let path_diff_kb = entry.path.clone();
                                                         let path_stage = entry.path.clone();
                                                         let path_discard = entry.path.clone();
+                                                        let path_swipe_stage = entry.path.clone();
+                                                        let path_swipe_discard = entry.path.clone();
                                                         let status_str = entry.status.clone();
+                                                        let swipe = use_swipe_reveal(SwipeConfig { actions_width: 90.0 });
+                                                        let on_ts = swipe.on_touch_start();
+                                                        let on_tm = swipe.on_touch_move();
+                                                        let on_te = swipe.on_touch_end();
                                                         view! {
-                                                            <div class="git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded group cursor-pointer"
+                                                            <div
+                                                                class=move || format!("{} git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded group cursor-pointer", swipe.container_class())
                                                                 role="button"
                                                                 tabindex="0"
                                                                 on:click=move |_| open_diff(path_diff.clone(), false)
@@ -2382,34 +2414,55 @@ fn render_changes_view(
                                                                         open_diff(path_diff_kb.clone(), false);
                                                                     }
                                                                 }
+                                                                on:touchstart=move |ev| on_ts(ev)
+                                                                on:touchmove=move |ev| on_tm(ev)
+                                                                on:touchend=move |ev| on_te(ev)
                                                             >
-                                                                <span
-                                                                    class="git-file-status text-[10px] w-3 text-center"
-                                                                    style=format!("color: {}", status_color(&status_str))
-                                                                    title=status_label(&status_str)
-                                                                >{status_str.clone()}</span>
-                                                                <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
-                                                                <div class="git-file-actions opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-                                                                    <button
-                                                                        class="git-file-action text-text-muted hover:text-error text-[10px]"
-                                                                        title="Discard"
-                                                                        on:click=move |e: leptos::ev::MouseEvent| {
+                                                                <div class="swipe-row-actions">
+                                                                    <button class="swipe-action-btn swipe-action-danger" title="Discard"
+                                                                        on:click=move |e: web_sys::MouseEvent| {
                                                                             e.stop_propagation();
-                                                                            discard_file(path_discard.clone());
+                                                                            discard_file(path_swipe_discard.clone());
+                                                                            swipe.close();
                                                                         }
-                                                                    >
-                                                                        <IconTrash2 size=11 />
-                                                                    </button>
-                                                                    <button
-                                                                        class="git-file-action text-text-muted hover:text-success text-[10px]"
-                                                                        title="Stage"
-                                                                        on:click=move |e: leptos::ev::MouseEvent| {
+                                                                    ><IconTrash2 size=14 /></button>
+                                                                    <button class="swipe-action-btn swipe-action-success" title="Stage"
+                                                                        on:click=move |e: web_sys::MouseEvent| {
                                                                             e.stop_propagation();
-                                                                            stage_file(path_stage.clone());
+                                                                            stage_file(path_swipe_stage.clone());
+                                                                            swipe.close();
                                                                         }
-                                                                    >
-                                                                        <IconPlus size=11 />
-                                                                    </button>
+                                                                    ><IconPlus size=14 /></button>
+                                                                </div>
+                                                                <div class="swipe-row-content" style=move || swipe.content_style()>
+                                                                    <span
+                                                                        class="git-file-status text-[10px] w-3 text-center"
+                                                                        style=format!("color: {}", status_color(&status_str))
+                                                                        title=status_label(&status_str)
+                                                                    >{status_str.clone()}</span>
+                                                                    <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
+                                                                    <div class="git-file-actions opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                                                                        <button
+                                                                            class="git-file-action text-text-muted hover:text-error text-[10px]"
+                                                                            title="Discard"
+                                                                            on:click=move |e: leptos::ev::MouseEvent| {
+                                                                                e.stop_propagation();
+                                                                                discard_file(path_discard.clone());
+                                                                            }
+                                                                        >
+                                                                            <IconTrash2 size=11 />
+                                                                        </button>
+                                                                        <button
+                                                                            class="git-file-action text-text-muted hover:text-success text-[10px]"
+                                                                            title="Stage"
+                                                                            on:click=move |e: leptos::ev::MouseEvent| {
+                                                                                e.stop_propagation();
+                                                                                stage_file(path_stage.clone());
+                                                                            }
+                                                                        >
+                                                                            <IconPlus size=11 />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         }
@@ -2456,20 +2509,41 @@ fn render_changes_view(
                                                     s.untracked.iter().map(|entry| {
                                                         let path = entry.path.clone();
                                                         let path_stage = entry.path.clone();
+                                                        let path_swipe_stage = entry.path.clone();
+                                                        let swipe = use_swipe_reveal(SwipeConfig { actions_width: 52.0 });
+                                                        let on_ts = swipe.on_touch_start();
+                                                        let on_tm = swipe.on_touch_move();
+                                                        let on_te = swipe.on_touch_end();
                                                         view! {
-                                                            <div class="git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded">
-                                                                <span class="git-file-status text-text-muted text-[10px] w-3 text-center" title="Untracked">"?"</span>
-                                                                <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
-                                                                <button
-                                                                    class="git-file-action text-text-muted hover:text-success text-[10px]"
-                                                                    title="Stage"
-                                                                    on:click=move |e: leptos::ev::MouseEvent| {
-                                                                        e.stop_propagation();
-                                                                        stage_file(path_stage.clone());
-                                                                    }
-                                                                >
-                                                                    <IconPlus size=11 />
-                                                                </button>
+                                                            <div
+                                                                class=move || format!("{} git-file-row flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-bg-element/40 rounded", swipe.container_class())
+                                                                on:touchstart=move |ev| on_ts(ev)
+                                                                on:touchmove=move |ev| on_tm(ev)
+                                                                on:touchend=move |ev| on_te(ev)
+                                                            >
+                                                                <div class="swipe-row-actions">
+                                                                    <button class="swipe-action-btn swipe-action-success" title="Stage"
+                                                                        on:click=move |e: web_sys::MouseEvent| {
+                                                                            e.stop_propagation();
+                                                                            stage_file(path_swipe_stage.clone());
+                                                                            swipe.close();
+                                                                        }
+                                                                    ><IconPlus size=14 /></button>
+                                                                </div>
+                                                                <div class="swipe-row-content" style=move || swipe.content_style()>
+                                                                    <span class="git-file-status text-text-muted text-[10px] w-3 text-center" title="Untracked">"?"</span>
+                                                                    <span class="git-file-path text-text truncate flex-1">{path.clone()}</span>
+                                                                    <button
+                                                                        class="git-file-action text-text-muted hover:text-success text-[10px]"
+                                                                        title="Stage"
+                                                                        on:click=move |e: leptos::ev::MouseEvent| {
+                                                                            e.stop_propagation();
+                                                                            stage_file(path_stage.clone());
+                                                                        }
+                                                                    >
+                                                                        <IconPlus size=11 />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         }
                                                     }).collect::<Vec<_>>()

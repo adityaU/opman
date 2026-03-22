@@ -56,6 +56,9 @@ pub struct EditorState {
     pub set_explorer_ctx_menu: WriteSignal<Option<String>>,
     pub file_action_busy: ReadSignal<bool>,
     pub set_file_action_busy: WriteSignal<bool>,
+    /// Desktop: inline rename target (path to rename)
+    pub inline_rename: ReadSignal<Option<ConfirmDeleteEntry>>,
+    pub set_inline_rename: WriteSignal<Option<ConfirmDeleteEntry>>,
 
     // Editor / tabs
     pub open_files: ReadSignal<Vec<OpenFile>>,
@@ -111,6 +114,9 @@ pub struct EditorState {
     /// Mobile: confirm delete state
     pub mobile_confirm_delete: ReadSignal<Option<ConfirmDeleteEntry>>,
     pub set_mobile_confirm_delete: WriteSignal<Option<ConfirmDeleteEntry>>,
+    /// Mobile: inline rename target
+    pub mobile_inline_rename: ReadSignal<Option<ConfirmDeleteEntry>>,
+    pub set_mobile_inline_rename: WriteSignal<Option<ConfirmDeleteEntry>>,
 
     // Per-project snapshot cache
     project_snapshots: StoredValue<HashMap<usize, EditorSnapshot>>,
@@ -130,6 +136,7 @@ impl EditorState {
         let (inline_confirm_delete, set_inline_confirm_delete) = signal(None);
         let (explorer_ctx_menu, set_explorer_ctx_menu) = signal(None);
         let (file_action_busy, set_file_action_busy) = signal(false);
+        let (inline_rename, set_inline_rename) = signal(None);
 
         let (open_files, set_open_files) = signal(Vec::new());
         let (active_file, set_active_file) = signal(None);
@@ -182,6 +189,7 @@ impl EditorState {
         let (mobile_actions_open, set_mobile_actions_open) = signal(false);
         let (mobile_inline_create, set_mobile_inline_create) = signal(None);
         let (mobile_confirm_delete, set_mobile_confirm_delete) = signal(None);
+        let (mobile_inline_rename, set_mobile_inline_rename) = signal(None);
 
         let project_snapshots = StoredValue::new(HashMap::<usize, EditorSnapshot>::new());
 
@@ -208,6 +216,8 @@ impl EditorState {
             set_explorer_ctx_menu,
             file_action_busy,
             set_file_action_busy,
+            inline_rename,
+            set_inline_rename,
             open_files,
             set_open_files,
             active_file,
@@ -246,6 +256,8 @@ impl EditorState {
             set_mobile_inline_create,
             mobile_confirm_delete,
             set_mobile_confirm_delete,
+            mobile_inline_rename,
+            set_mobile_inline_rename,
             project_snapshots,
         }
     }
@@ -319,6 +331,7 @@ impl EditorState {
             // Clear transient state
             self.set_inline_create.set(None);
             self.set_inline_confirm_delete.set(None);
+            self.set_inline_rename.set(None);
             self.set_explorer_ctx_menu.set(None);
             self.set_save_status.set(None);
             self.set_hover_text.set(None);
@@ -341,6 +354,7 @@ impl EditorState {
         self.set_view_modes.set(HashMap::new());
         self.set_inline_create.set(None);
         self.set_inline_confirm_delete.set(None);
+        self.set_inline_rename.set(None);
         self.set_explorer_ctx_menu.set(None);
         self.set_save_status.set(None);
         self.set_hover_text.set(None);

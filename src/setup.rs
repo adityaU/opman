@@ -74,7 +74,7 @@ pub(crate) async fn setup_web_server(
                 instance_name,
             },
             app.nvim_registry.clone(),
-        );
+        ).await;
         info!("Web UI available at http://localhost:{}", actual_port);
         // Set the initial theme so web clients can fetch it immediately
         let initial_theme = web::WebThemeColors::from_theme(&app.theme);

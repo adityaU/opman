@@ -332,7 +332,7 @@ pub fn ChatMainArea(
                         }
                     >
                         // Sparkles icon (Lucide)
-                        <IconSparkles size=14 />
+                        <span class="mobile-pill-icon"><IconSparkles size=14 /></span>
                         <span class="mobile-project-name">{project_name}</span>
                         {move || {
                             if session_status.get() == SessionStatus::Busy {
@@ -342,15 +342,25 @@ pub fn ChatMainArea(
                             }
                         }}
                         {move || {
-                            if connection_status.get() != ConnectionStatus::Connected {
-                                Some(view! {
-                                    <span class="mobile-pill-connection">
-                                        // WifiOff icon (Lucide)
+                            let status = connection_status.get();
+                            let cls = format!(
+                                "mobile-pill-connection mobile-pill-connection-{}",
+                                status.as_str()
+                            );
+                            if status == ConnectionStatus::Connected {
+                                view! {
+                                    <span class=cls>
+                                        <IconWifi size=12 />
+                                    </span>
+                                }
+                                .into_any()
+                            } else {
+                                view! {
+                                    <span class=cls>
                                         <IconWifiOff size=12 />
                                     </span>
-                                })
-                            } else {
-                                None
+                                }
+                                .into_any()
                             }
                         }}
                     </button>
@@ -451,7 +461,7 @@ pub fn ChatMainArea(
                             model_state.current_model.get().unwrap_or_default()
                         })
                         current_agent=Signal::derive(move || {
-                            model_state.selected_agent.get()
+                            model_state.current_agent.get()
                         })
                         active_memory_labels=Signal::derive(move || {
                             assistant.active_memory_items.get()

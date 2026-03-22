@@ -2,7 +2,7 @@
  * DesktopLayout — side-by-side file explorer + editor for desktop breakpoints.
  */
 import { useRef, useState } from "react";
-import { Loader2, File, X, PanelLeftClose, PanelLeftOpen, FilePlus, FolderPlus, Upload } from "lucide-react";
+import { Loader2, File, X, PanelLeftClose, PanelLeftOpen, FilePlus, FolderPlus, Upload, RefreshCw } from "lucide-react";
 import type { OpenFileEntry, FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode, FileEntry } from "../types";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorBody } from "./EditorBody";
@@ -60,6 +60,9 @@ interface Props {
   onDeleteFile?: (path: string) => void;
   onDeleteDir?: (path: string) => void;
   onUploadFiles?: (dir: string, files: FileList | File[]) => void;
+  onReloadDir?: (dirPath: string) => void;
+  onReloadFile?: (filePath: string) => void;
+  onReloadRoot?: () => void;
   fileActionBusy?: boolean;
 }
 
@@ -107,6 +110,11 @@ export function DesktopLayout(p: Props) {
               {p.onUploadFiles && (
                 <button className="explorer-hdr-btn" title="Upload files" onClick={handleUploadClick}>
                   <Upload size={13} />
+                </button>
+              )}
+              {p.onReloadRoot && (
+                <button className="explorer-hdr-btn" title="Reload explorer" onClick={p.onReloadRoot}>
+                  <RefreshCw size={13} />
                 </button>
               )}
               <button
@@ -202,6 +210,8 @@ export function DesktopLayout(p: Props) {
                 onCreateDir={p.onCreateDir}
                 onDeleteFile={p.onDeleteFile}
                 onDeleteDir={p.onDeleteDir}
+                onReloadDir={p.onReloadDir}
+                onReloadFile={p.onReloadFile}
               />
             )}
           </div>

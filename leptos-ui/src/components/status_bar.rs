@@ -213,35 +213,35 @@ pub fn StatusBar(sse: SseState, panels: PanelState, modal_state: ModalState) -> 
                     {move || if session_status.get() == SessionStatus::Busy { "busy" } else { "ready" }}
                 </span>
 
-                // Connection status (only when not connected)
+                // Connection status (always visible — colour indicates state)
                 {move || {
                     let status = connection_status.get();
-                    if status != ConnectionStatus::Connected {
-                        Some(view! {
-                            <span
-                                class=move || format!("status-bar-connection status-bar-connection-{}", status.as_str())
-                                role="status"
-                                aria-label=move || {
-                                    if status == ConnectionStatus::Reconnecting {
-                                        "Reconnecting to server"
-                                    } else {
-                                        "Disconnected from server"
-                                    }
-                                }
-                                title=move || {
-                                    if status == ConnectionStatus::Reconnecting {
-                                        "Reconnecting..."
-                                    } else {
-                                        "Disconnected"
-                                    }
-                                }
-                            >
+                    let cls = format!("status-bar-connection status-bar-connection-{}", status.as_str());
+                    let label = match status {
+                        ConnectionStatus::Connected => "Connected to server",
+                        ConnectionStatus::Reconnecting => "Reconnecting to server",
+                        ConnectionStatus::Disconnected => "Disconnected from server",
+                    };
+                    let title = match status {
+                        ConnectionStatus::Connected => "Connected",
+                        ConnectionStatus::Reconnecting => "Reconnecting...",
+                        ConnectionStatus::Disconnected => "Disconnected",
+                    };
+                    if status == ConnectionStatus::Connected {
+                        view! {
+                            <span class=cls role="status" aria-label=label title=title>
+                                <IconWifi size=11 />
+                            </span>
+                        }
+                        .into_any()
+                    } else {
+                        view! {
+                            <span class=cls role="status" aria-label=label title=title>
                                 <IconWifiOff size=11 />
                                 <span>{status.as_str()}</span>
                             </span>
-                        })
-                    } else {
-                        None
+                        }
+                        .into_any()
                     }
                 }}
 
@@ -474,6 +474,16 @@ pub fn StatusBar(sse: SseState, panels: PanelState, modal_state: ModalState) -> 
                     aria-label="Toggle debug panel"
                 >
                     <IconActivity size=13 />
+                </button>
+
+                // Health toggle
+                <button
+                    class="status-bar-btn"
+                    on:click=move |_| modal_state.toggle(ModalName::ProcessHealth)
+                    title="Toggle Process Health (Cmd+Shift+H)"
+                    aria-label="Toggle process health panel"
+                >
+                    <IconCpu size=13 />
                 </button>
 
                 // Terminal toggle

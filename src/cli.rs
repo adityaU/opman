@@ -148,6 +148,50 @@ pub(crate) enum Commands {
 
     /// Print the Slack app manifest and copy to clipboard
     SlackManifest,
+
+    /// Manage skills
+    Skills {
+        #[command(subcommand)]
+        subcommand: SkillsCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum SkillsCommands {
+    /// List all skills
+    List,
+
+    /// Create a new skill
+    Create {
+        /// Skill name
+        name: String,
+        /// Skill description
+        description: String,
+        /// Skill content
+        content: String,
+    },
+
+    /// Update an existing skill
+    Update {
+        /// Skill name
+        name: String,
+        /// New description
+        description: String,
+        /// New content
+        content: String,
+    },
+
+    /// Delete a skill
+    Delete {
+        /// Skill name
+        name: String,
+    },
+
+    /// Show a skill
+    Show {
+        /// Skill name
+        name: String,
+    },
 }
 
 impl Cli {

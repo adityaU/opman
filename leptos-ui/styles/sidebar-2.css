@@ -119,6 +119,43 @@
     animation: sb-pulse 2s ease-in-out infinite
 }
 
+/* ── Session indicators (priority: busy > input > error > idle) ──── */
+
+.sb-indicator {
+    position: absolute;
+    right: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 1px;
+    transition: background var(--transition-fast), opacity var(--transition-fast)
+}
+
+.sb-indicator-busy {
+    background: var(--color-success);
+    animation: sb-pulse 2s ease-in-out infinite
+}
+
+.sb-indicator-input {
+    background: var(--color-warning, #d29922);
+    opacity: .9
+}
+
+.sb-indicator-error {
+    background: var(--color-error, #f85149);
+    opacity: .9
+}
+
+.sb-indicator-unseen {
+    background: var(--color-info, #58a6ff);
+    opacity: .9
+}
+
+.sb-indicator-idle {
+    background: var(--color-text-muted);
+    opacity: .2
+}
+
 .sb-subagents {
     padding-left: var(--space-4);
     margin-left: var(--space-5);
@@ -234,6 +271,69 @@
 
 .sb-context-item.sb-context-danger:hover {
     background: #ef44441f
+}
+
+/* ── Context menu: overlay backdrop (mobile action sheet) ─── */
+.sb-ctx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: var(--black-50);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: sb-ctx-overlay-in .2s ease-out
+}
+
+@keyframes sb-ctx-overlay-in {
+    0% { opacity: 0 }
+    to { opacity: 1 }
+}
+
+/* ── Context menu: bottom action-sheet mode ────────────────── */
+.sb-context-sheet {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: calc(100% - var(--space-4));
+    max-width: 400px;
+    margin-bottom: env(safe-area-inset-bottom, var(--space-2));
+    padding: var(--space-2);
+    animation: sb-ctx-sheet-in .25s cubic-bezier(.32,1.2,.54,1)
+}
+
+@keyframes sb-ctx-sheet-in {
+    0% { opacity: 0; transform: translateY(40px) scale(.97) }
+    to { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+.sb-ctx-sheet-title {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: .5px solid var(--white-6);
+    margin-bottom: var(--space-1)
+}
+
+.sb-ctx-cancel {
+    margin-top: var(--space-1);
+    border-top: .5px solid var(--white-6);
+    padding-top: var(--space-2) !important;
+    color: var(--color-text-muted) !important;
+    font-weight: 500
+}
+
+.sb-context-sheet .sb-context-item {
+    padding: var(--space-3) var(--space-3);
+    font-size: var(--font-size-sm);
+    min-height: 48px;
+    border-radius: var(--radius-md)
 }
 
 .sb-modal-overlay {

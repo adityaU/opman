@@ -62,6 +62,7 @@ pub(super) fn handle_session_selector_keys(app: &mut App, key: &KeyEvent) -> Res
             if let Some((project_idx, session_id)) = switch_info {
                 app.active_project = project_idx;
                 app.projects[project_idx].active_session = Some(session_id.clone());
+                app.unseen_sessions.remove(&session_id);
                 app.pending_session_select = Some((project_idx, session_id));
                 app.session_selector = None;
                 app.vim_mode = VimMode::Insert;

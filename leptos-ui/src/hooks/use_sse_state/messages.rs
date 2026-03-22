@@ -101,6 +101,8 @@ impl SseState {
                         return;
                     }
                     message_map_signal.update(|map: &mut MessageMap| {
+                        // Purge stale optimistic entries now that real data is loaded
+                        map.retain(|k, _| !k.starts_with("__optimistic__"));
                         for msg in resp.messages {
                             let id = message_map::effective_id(&msg.info);
                             if !id.is_empty() {

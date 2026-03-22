@@ -554,6 +554,27 @@ html.flat-theme .explorer-tree-file.active {
     opacity: 1
 }
 
+.mobile-entry-download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition-base);
+    padding: 0;
+    opacity: .5
+}
+
+.mobile-entry-download-btn:hover {
+    color: var(--color-primary, #58a6ff);
+    opacity: 1
+}
+
 /* ── Flat theme overrides ───────────────────────── */
 
 html.flat-theme .explorer-hdr-btn:hover {

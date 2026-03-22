@@ -4,10 +4,12 @@ use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::components::icons::{
-    IconFile, IconFilePlus, IconFolderPlus, IconLoader2, IconPanelLeft, IconUpload, IconX,
+    IconFile, IconFilePlus, IconFolderPlus, IconLoader2, IconPanelLeft, IconRefreshCw, IconUpload,
+    IconX,
 };
+use crate::hooks::use_swipe_reveal::{use_swipe_reveal, SwipeConfig};
 
-use super::actions::Fn1;
+use super::actions::{Fn0, Fn1};
 use super::explorer_ctx::{render_inline_create_input, ExplorerTreeCtx};
 use super::explorer_tree::render_explorer_tree;
 use super::state::EditorState;
@@ -25,6 +27,10 @@ pub fn render_explorer_sidebar(
     handle_delete_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
     handle_upload: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, web_sys::FileList)>>,
     close_file: send_wrapper::SendWrapper<Fn1>,
+    handle_reload_dir: send_wrapper::SendWrapper<Fn1>,
+    handle_reload_file: send_wrapper::SendWrapper<Fn1>,
+    handle_reload_root: send_wrapper::SendWrapper<Fn0>,
+    handle_rename: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, String, bool)>>,
 ) -> impl IntoView {
     let explorer_collapsed = s.explorer_collapsed;
     let set_explorer_collapsed = s.set_explorer_collapsed;
@@ -43,6 +49,9 @@ pub fn render_explorer_sidebar(
     let expanded_dirs = s.expanded_dirs;
     let dir_children = s.dir_children;
     let loading_dirs = s.loading_dirs;
+    let file_action_busy = s.file_action_busy;
+    let inline_rename = s.inline_rename;
+    let set_inline_rename = s.set_inline_rename;
 
     let hcf_root = handle_create_file.clone();
     let hcd_root = handle_create_dir.clone();
@@ -67,6 +76,9 @@ pub fn render_explorer_sidebar(
                         <button class="explorer-hdr-btn" title="New folder"
                             on:click=move |_| set_inline_create.set(Some((current_path.get_untracked(), "dir".into())))
                         ><IconFolderPlus size=13 /></button>
+                        {move || file_action_busy.get().then(|| view! {
+                            <span style="opacity:0.6;display:inline-flex;"><IconLoader2 size=13 class="spin" /></span>
+                        })}
                         <button class="explorer-hdr-btn" title="Upload files"
                             on:click=move |_| {
                                 if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
@@ -77,6 +89,12 @@ pub fn render_explorer_sidebar(
                                 }
                             }
                         ><IconUpload size=13 /></button>
+                        <button class="explorer-hdr-btn" title="Reload explorer"
+                            on:click={
+                                let reload_root = handle_reload_root.clone();
+                                move |_| reload_root()
+                            }
+                        ><IconRefreshCw size=13 /></button>
                         <button class="explorer-collapse-btn" title="Collapse explorer"
                             on:click=move |_| set_explorer_collapsed.set(true)
                         ><IconPanelLeft size=14 /></button>
@@ -109,23 +127,46 @@ pub fn render_explorer_sidebar(
                                 {files.iter().map(|f| {
                                     let path = f.path.clone();
                                     let path_close = f.path.clone();
+                                    let path_swipe_close = f.path.clone();
                                     let name = f.name.clone();
                                     let dirty = f.is_modified();
                                     let is_active = active.as_deref() == Some(&f.path);
                                     let close_file = close_file.clone();
+                                    let close_file_swipe = close_file.clone();
+                                    let swipe = use_swipe_reveal(SwipeConfig { actions_width: 52.0 });
+                                    let on_ts = swipe.on_touch_start();
+                                    let on_tm = swipe.on_touch_move();
+                                    let on_te = swipe.on_touch_end();
                                     view! {
                                         <div
-                                            class=move || if is_active { "explorer-open-file active" } else { "explorer-open-file" }
+                                            class=move || {
+                                                let base = if is_active { "explorer-open-file active" } else { "explorer-open-file" };
+                                                format!("{} {base}", swipe.container_class())
+                                            }
                                             on:click=move |_| set_active_file.set(Some(path.clone()))
                                             title=f.path.clone()
+                                            on:touchstart=move |ev| on_ts(ev)
+                                            on:touchmove=move |ev| on_tm(ev)
+                                            on:touchend=move |ev| on_te(ev)
                                         >
-                                            <IconFile size=13 />
-                                            <span class="file-name">{name}</span>
-                                            {dirty.then(|| view! { <span class="open-file-modified-dot" /> })}
-                                            <button class="open-file-close" on:click=move |e| {
-                                                e.stop_propagation();
-                                                close_file(path_close.clone());
-                                            }><IconX size=12 /></button>
+                                            <div class="swipe-row-actions">
+                                                <button class="swipe-action-btn swipe-action-danger" title="Close"
+                                                    on:click=move |e: web_sys::MouseEvent| {
+                                                        e.stop_propagation();
+                                                        close_file_swipe(path_swipe_close.clone());
+                                                        swipe.close();
+                                                    }
+                                                ><IconX size=14 /></button>
+                                            </div>
+                                            <div class="swipe-row-content" style=move || swipe.content_style()>
+                                                <IconFile size=13 />
+                                                <span class="file-name">{name}</span>
+                                                {dirty.then(|| view! { <span class="open-file-modified-dot" /> })}
+                                                <button class="open-file-close" on:click=move |e| {
+                                                    e.stop_propagation();
+                                                    close_file(path_close.clone());
+                                                }><IconX size=12 /></button>
+                                            </div>
                                         </div>
                                     }
                                 }).collect::<Vec<_>>()}
@@ -172,6 +213,9 @@ pub fn render_explorer_sidebar(
                         let hcd = handle_create_dir.clone();
                         let hdf = handle_delete_file.clone();
                         let hdd = handle_delete_dir.clone();
+                        let hrd = handle_reload_dir.clone();
+                        let hrf = handle_reload_file.clone();
+                        let hrn = handle_rename.clone();
                         move || {
                             if explorer_loading.get() {
                                 return view! { <div class="code-editor-loading"><IconLoader2 size=16 class="spin" /></div> }.into_any();
@@ -185,6 +229,7 @@ pub fn render_explorer_sidebar(
                                 active_file_path: active_file,
                                 inline_create, set_inline_create,
                                 inline_confirm_delete, set_inline_confirm_delete,
+                                inline_rename, set_inline_rename,
                                 explorer_ctx_menu, set_explorer_ctx_menu,
                                 toggle_dir: toggle_dir.clone(),
                                 open_file: open_file.clone(),
@@ -192,6 +237,9 @@ pub fn render_explorer_sidebar(
                                 handle_create_dir: hcd.clone(),
                                 handle_delete_file: hdf.clone(),
                                 handle_delete_dir: hdd.clone(),
+                                handle_reload_dir: hrd.clone(),
+                                handle_reload_file: hrf.clone(),
+                                handle_rename: hrn.clone(),
                             };
                             render_explorer_tree(items, &ctx, 0).into_any()
                         }

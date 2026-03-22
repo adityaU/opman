@@ -91,7 +91,20 @@ fn handle_message_updated(sse: &SseState, props: &serde_json::Value) {
         return;
     }
 
-    sse.update_message_map(|map: &mut MessageMap| message_map::upsert_message_info(map, info));
+    // When the server echoes a real user message, remove any optimistic entry
+    let is_user = info
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        == "user";
+
+    sse.update_message_map(|map: &mut MessageMap| {
+        let changed = message_map::upsert_message_info(map, info);
+        if is_user {
+            map.retain(|k, _| !k.starts_with("__optimistic__"));
+        }
+        changed
+    });
 
     // Update stats from message info
     if info.get("cost").is_some() || info.get("tokens").is_some() {

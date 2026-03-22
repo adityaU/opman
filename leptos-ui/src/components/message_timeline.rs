@@ -352,6 +352,42 @@ pub fn MessageTimeline(
         });
     }
 
+    // ── Reset auto-scroll on session switch (tail mode) ──
+    // When the tracked session changes (URL open, sidebar click, /new),
+    // re-enable auto-scroll so the new session starts at the bottom.
+    Effect::new(move |_| {
+        let _sid = tracked_sid.get(); // subscribe to session changes
+        set_should_auto_scroll.set(true);
+        set_show_jump_to_bottom.set(false);
+        set_last_scroll_top.set(0);
+        set_cumulative_delta.set(0);
+    });
+
+    // ── Scroll to bottom after messages finish loading (Loading→Normal) ──
+    // The Loading branch uses a *different* DOM element (no scroll_container_ref),
+    // so auto-scroll can't fire until the Normal branch mounts.  Watch
+    // is_loading: when it flips false and should_auto_scroll is true, defer
+    // two rAFs to guarantee the new DOM is laid out, then scroll.
+    Effect::new(move |_| {
+        let loading = is_loading.get();
+        if loading {
+            return;
+        }
+        if !should_auto_scroll.get_untracked() {
+            return;
+        }
+        // Double-rAF: first frame mounts the DOM, second frame has layout.
+        request_animation_frame(move || {
+            request_animation_frame(move || {
+                if let Some(el) = scroll_container_ref.get() {
+                    set_programmatic_scroll.set(true);
+                    let el: &web_sys::HtmlElement = &el;
+                    el.set_scroll_top(el.scroll_height());
+                }
+            });
+        });
+    });
+
     // ── Content fingerprint for streaming auto-scroll (React pattern) ──
     let content_fingerprint = Memo::new(move |_| {
         let msgs = messages.get();

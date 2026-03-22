@@ -141,7 +141,8 @@
     html.flat-theme .watcher-modal,
     html.flat-theme .ctx-window-modal,
     html.flat-theme .diff-review-modal,
-    html.flat-theme .cross-session-search-modal {
+    html.flat-theme .cross-session-search-modal,
+    html.flat-theme .skills-upload-drawer {
         background: var(--color-bg-panel);
         border-color: var(--color-border);
         box-shadow: 0 -4px 24px var(--black-20)
@@ -159,7 +160,8 @@
     html.flat-theme .watcher-modal:before,
     html.flat-theme .ctx-window-modal:before,
     html.flat-theme .diff-review-modal:before,
-    html.flat-theme .cross-session-search-modal:before {
+    html.flat-theme .cross-session-search-modal:before,
+    html.flat-theme .skills-upload-drawer:before {
         background: var(--color-border)
     }
 

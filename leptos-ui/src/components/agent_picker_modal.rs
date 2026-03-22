@@ -41,7 +41,8 @@ pub fn AgentPickerModal(
                 Err(e) => {
                     // Fallback to defaults
                     set_all_agents.set(vec![
-                        AgentInfo { id: "coder".to_string(), label: "Coder".to_string(), description: "General-purpose coding agent".to_string(), mode: Some("primary".to_string()), hidden: None, native: Some(true), color: None },
+                        AgentInfo { id: "build".to_string(), label: "Build".to_string(), description: "General-purpose coding agent".to_string(), mode: Some("primary".to_string()), hidden: None, native: Some(true), color: None },
+                        AgentInfo { id: "plan".to_string(), label: "Plan".to_string(), description: "Planning and research agent".to_string(), mode: Some("primary".to_string()), hidden: None, native: Some(true), color: None },
                     ]);
                     set_error.set(Some(e.message));
                     set_loading.set(false);

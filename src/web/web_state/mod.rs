@@ -114,6 +114,18 @@ pub(super) struct WebStateInner {
     pub(super) pending_permissions: HashMap<String, serde_json::Value>,
     /// Pending question requests, keyed by request ID.
     pub(super) pending_questions: HashMap<String, serde_json::Value>,
+    // ── Session indicator state (parity with upstream opencode) ──
+    /// Sessions that have encountered an error (session_id → error message).
+    pub(super) error_sessions: HashMap<String, String>,
+    /// Sessions that need user input (pending permission or question).
+    /// Derived from `pending_permissions` + `pending_questions` session IDs.
+    pub(super) input_sessions: HashSet<String>,
+    // ── Unseen / unread tracking (parity with upstream opencode) ──
+    /// Sessions with unseen activity (session_id → unseen event count).
+    /// Incremented on `session.idle` / `session.error` if the session is not
+    /// the currently active session for its project.  Cleared when a client
+    /// selects/views the session.
+    pub(super) unseen_sessions: HashMap<String, usize>,
     // ── Idle-routine cooldown ───────────────────────────────────
     /// Last time each OnSessionIdle routine fired, to prevent self-loops.
     pub(super) routine_idle_cooldown: HashMap<String, Instant>,
@@ -158,6 +170,8 @@ pub struct WebStateHandle {
     /// Broadcast channel for raw upstream opencode SSE event data.
     /// The session_events_stream subscribes here to forward events to the browser.
     pub(super) raw_sse_tx: broadcast::Sender<String>,
+    /// Broadcast channel for editor-specific file-change events.
+    pub(super) editor_tx: Option<broadcast::Sender<EditorEvent>>,
     /// SQLite database handle (replaces JSON persistence).
     pub(super) db: Db,
     /// Channel to trigger async DB writes (debounced).
@@ -265,12 +279,15 @@ impl WebStateHandle {
             signals,
             pending_permissions: HashMap::new(),
             pending_questions: HashMap::new(),
+            error_sessions: HashMap::new(),
+            input_sessions: HashSet::new(),
+            unseen_sessions: HashMap::new(),
             routine_idle_cooldown: HashMap::new(),
         }));
 
         let (persist_tx, persist_rx) = mpsc::unbounded_channel();
 
-        let handle = Self { inner, event_tx, raw_sse_tx, db, persist_tx };
+        let handle = Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx };
 
         // Spawn background tasks
         handle.spawn_persist_worker(persist_rx);
@@ -288,6 +305,21 @@ impl WebStateHandle {
     /// changes, without going through HTTP/SSE.
     pub fn subscribe_events(&self) -> broadcast::Receiver<WebEvent> {
         self.event_tx.subscribe()
+    }
+
+    /// Attach the editor broadcast channel after `ServerState` construction.
+    pub fn set_editor_tx(&mut self, tx: broadcast::Sender<EditorEvent>) {
+        self.editor_tx = Some(tx);
+    }
+
+    /// Emit a file-changed event on the editor SSE channel (if attached).
+    pub(super) fn emit_editor_file_changed(&self, path: &str, source: &str) {
+        if let Some(ref tx) = self.editor_tx {
+            let _ = tx.send(EditorEvent::FileChanged {
+                path: path.to_string(),
+                source: source.to_string(),
+            });
+        }
     }
 }
 

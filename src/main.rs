@@ -12,8 +12,10 @@ mod input;
 mod integrations;
 mod mcp;
 mod mcp_neovim;
+mod mcp_skills;
 mod mcp_time;
 mod mouse_handler;
+mod process_health;
 mod nvim_rpc;
 mod pty;
 mod server;
@@ -46,8 +48,56 @@ use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::app::{App, BackgroundEvent};
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, SkillsCommands};
 use crate::config::Config;
+
+async fn handle_skills(subcommand: SkillsCommands) -> anyhow::Result<()> {
+    match subcommand {
+        SkillsCommands::List => {
+            let registry = crate::mcp_skills::load_skills().await?;
+            for (name, skill) in registry {
+                println!("{}: {}", name, skill.description);
+            }
+        }
+        SkillsCommands::Create { name, description, content } => {
+            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
+            std::fs::create_dir_all(&skill_dir)?;
+            let skill_md = skill_dir.join("SKILL.md");
+            let content_str = format!("---\nname: {}\ndescription: {}\n---\n{}", name, description, content);
+            std::fs::write(&skill_md, content_str)?;
+            println!("Skill '{}' created.", name);
+        }
+        SkillsCommands::Update { name, description, content } => {
+            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
+            if !skill_dir.exists() {
+                anyhow::bail!("Skill '{}' not found", name);
+            }
+            let skill_md = skill_dir.join("SKILL.md");
+            let content_str = format!("---\nname: {}\ndescription: {}\n---\n{}", name, description, content);
+            std::fs::write(&skill_md, content_str)?;
+            println!("Skill '{}' updated.", name);
+        }
+        SkillsCommands::Delete { name } => {
+            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
+            if !skill_dir.exists() {
+                anyhow::bail!("Skill '{}' not found", name);
+            }
+            std::fs::remove_dir_all(&skill_dir)?;
+            println!("Skill '{}' deleted.", name);
+        }
+        SkillsCommands::Show { name } => {
+            let registry = crate::mcp_skills::load_skills().await?;
+            if let Some(skill) = registry.get(&name) {
+                println!("Name: {}", skill.name);
+                println!("Description: {}", skill.description);
+                println!("Content:\n{}", skill.content);
+            } else {
+                anyhow::bail!("Skill '{}' not found", name);
+            }
+        }
+    }
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -90,6 +140,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::SlackManifest) => {
             return setup::handle_slack_manifest();
+        }
+        Some(Commands::Skills { subcommand }) => {
+            return handle_skills(subcommand).await.map_err(Into::into);
         }
         None => {} // Default mode: run the TUI
     }

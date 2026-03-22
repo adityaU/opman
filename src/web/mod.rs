@@ -75,7 +75,7 @@ pub struct WebConfig {
 /// Returns `(actual_port, web_state_handle)`. The handle allows the TUI's
 /// main loop to push theme changes into the web state (which broadcasts
 /// them to connected SSE clients).
-pub fn start_web_server(
+pub async fn start_web_server(
     config: WebConfig,
     nvim_registry: crate::mcp::NvimSocketRegistry,
 ) -> (u16, WebStateHandle) {
@@ -94,12 +94,20 @@ pub fn start_web_server(
     // Start the independent web PTY manager
     let pty_mgr = pty_manager::start_web_pty_manager();
 
+    // Initialize skills registry
+    let skills_registry = crate::mcp_skills::SkillsRegistry::default();
+    *skills_registry.write().await = crate::mcp_skills::load_skills().await.unwrap_or_default();
+    let (reload_tx, reload_rx) = broadcast::channel::<()>(1);
+    crate::mcp_skills::spawn_mcp_skills_server(reload_rx, skills_registry.clone());
+
     // Load config and create the independent web state
     let app_config = Config::load().unwrap_or_else(|e| {
         tracing::warn!("Failed to load config for web state: {e}, using defaults");
         Config::default()
     });
-    let web_state = WebStateHandle::new(&app_config, event_tx.clone(), raw_sse_tx.clone());
+    let mut web_state = WebStateHandle::new(&app_config, event_tx.clone(), raw_sse_tx.clone());
+    let (editor_tx, _) = broadcast::channel::<types::EditorEvent>(64);
+    web_state.set_editor_tx(editor_tx.clone());
     let web_state_ret = web_state.clone();
 
     let shared_state = ServerState {
@@ -116,7 +124,11 @@ pub fn start_web_server(
             .build()
             .unwrap_or_else(|_| reqwest::Client::new()),
         nvim_registry,
+        skills_registry,
+        reload_tx,
         instance_name: config.instance_name,
+        editor_tx,
+        health: crate::process_health::HealthHandle::new(),
     };
 
     let app = routes::build_router(shared_state);

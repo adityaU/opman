@@ -18,19 +18,7 @@ struct FlatSession {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-fn relative_time(ts: f64) -> String {
-    let now = js_sys::Date::now() / 1000.0;
-    let diff = (now - ts).max(0.0) as u64;
-    if diff < 60 {
-        "just now".to_string()
-    } else if diff < 3600 {
-        format!("{}m ago", diff / 60)
-    } else if diff < 86400 {
-        format!("{}h ago", diff / 3600)
-    } else {
-        format!("{}d ago", diff / 86400)
-    }
-}
+use crate::utils::format_relative_time as relative_time;
 
 // ── Component ───────────────────────────────────────────────────────
 

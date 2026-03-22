@@ -4,7 +4,10 @@
 mod callbacks;
 mod overlays;
 mod project_node;
+mod project_sessions;
+mod session_button;
 mod session_row;
+mod subagent_list;
 pub mod types;
 
 use leptos::prelude::*;
@@ -195,7 +198,20 @@ pub fn ChatSidebar(
                     each=move || {
                         projects.get().into_iter().enumerate().collect::<Vec<_>>()
                     }
-                    key=|(idx, p)| format!("{}-{}", idx, p.path)
+                    key=|(idx, p)| {
+                        // Include session fingerprint so ProjectNode rebuilds
+                        // when sessions are added, removed, renamed, or reordered.
+                        use std::hash::{Hash, Hasher};
+                        let mut h = std::hash::DefaultHasher::new();
+                        idx.hash(&mut h);
+                        p.path.hash(&mut h);
+                        p.sessions.len().hash(&mut h);
+                        for s in &p.sessions {
+                            s.id.hash(&mut h);
+                            s.title.hash(&mut h);
+                        }
+                        h.finish()
+                    }
                     children=move |(idx, project)| {
                         view! {
                             <ProjectNode
@@ -218,9 +234,12 @@ pub fn ChatSidebar(
                                 rename_text=rename_text
                                 set_rename_text=set_rename_text
                                 rename_original_title=rename_original_title
+                                set_rename_original_title=set_rename_original_title
                                 rename_input_ref=rename_input_ref
                                 set_ctx_menu=set_ctx_menu
                                 set_remove_project_confirm=set_remove_project_confirm
+                                toggle_pin=toggle_pin
+                                set_delete_confirm=set_delete_confirm
                                 select_session=select_session
                                 rename_session=rename_session
                                 toggle_project_expand=toggle_project_expand

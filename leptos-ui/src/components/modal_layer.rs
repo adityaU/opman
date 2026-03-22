@@ -34,6 +34,7 @@ use crate::components::inbox_modal::InboxModal;
 use crate::components::memory_modal::MemoryModal;
 use crate::components::missions_modal::MissionsModal;
 use crate::components::notification_prefs_modal::NotificationPrefsModal;
+use crate::components::process_health_drawer::ProcessHealthDrawer;
 use crate::components::routines_modal::RoutinesModal;
 use crate::components::session_search_modal::SessionSearchModal;
 use crate::components::system_monitor_modal::SystemMonitorModal;
@@ -666,6 +667,17 @@ pub fn ModalLayer(
                 } else {
                     None
                 }
+            } else {
+                None
+            }
+        }}
+
+        // Process Health
+        {move || {
+            if modal_state.is_open_tracked(ModalName::ProcessHealth) {
+                Some(view! {
+                    <ProcessHealthDrawer on_close=close(ModalName::ProcessHealth) />
+                })
             } else {
                 None
             }

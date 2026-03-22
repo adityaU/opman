@@ -49,22 +49,19 @@ pub enum BackgroundEvent {
     },
     /// SSE: a session became busy (actively processing).
     SseSessionBusy { session_id: String },
+    /// SSE: a session encountered an error.
+    SseSessionError { session_id: String },
     /// SSE: a file was edited by the AI agent.
     SseFileEdited {
         project_idx: usize,
         file_path: String,
-    },
-    /// Todos fetched via REST API.
-    TodosFetched {
-        session_id: String,
-        todos: Vec<TodoItem>,
     },
     /// SSE: todo list updated for a session.
     SseTodoUpdated {
         session_id: String,
         todos: Vec<TodoItem>,
     },
-    /// SSE: message.updated with cost/token data for a session.
+    /// SSE: message updated with cost/token data.
     SseMessageUpdated {
         session_id: String,
         cost: f64,
@@ -99,6 +96,11 @@ pub enum BackgroundEvent {
     WatcherSessionMessages {
         session_id: String,
         messages: Vec<SessionMessage>,
+    },
+    /// Todos fetched for a session (REST API response).
+    TodosFetched {
+        session_id: String,
+        todos: Vec<TodoItem>,
     },
     /// Session status fetched from REST API (busy/retry sessions).
     SessionStatusFetched {

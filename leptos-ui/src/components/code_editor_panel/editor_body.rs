@@ -8,7 +8,6 @@
 
 use leptos::prelude::*;
 
-use crate::components::debug_overlay::dbg_log;
 use crate::components::icons::{IconFile, IconLoader2, IconX};
 
 use super::file_renderers::render_native_editor;
@@ -91,22 +90,24 @@ pub fn render_editor_body(s: &EditorState, active_view: Memo<EditorViewMode>) ->
                 <span>"Select a file to edit"</span>
             </div>
 
-            // Persistent NativeEditor instances — one per open code file.
+            // Persistent NativeEditor instances — one per open text-editable file.
             // Keyed by path so they are created once and never destroyed on tab switch.
-            // Visibility is toggled via style:display based on active_file.
+            // Visibility is toggled via style:display based on active_file + view mode.
+            // Includes previewable types (Markdown, Html, Mermaid, Svg) so they get a
+            // code editor for the "Code" view alongside the "Rendered" preview.
             <For
                 each=move || {
+                    use super::types::is_previewable_render_type;
                     let files = open_files.get();
-                    let code_files: Vec<_> = files.into_iter()
-                        .filter(|f| f.render_type == FileRenderType::Code)
+                    let editable: Vec<_> = files.into_iter()
+                        .filter(|f| f.render_type == FileRenderType::Code
+                            || is_previewable_render_type(&f.render_type))
                         .map(|f| (f.path.clone(), f))
                         .collect();
-                    dbg_log(&format!("[EDITOR-BODY] <For> each closure ran, code_files={}", code_files.len()));
-                    code_files
+                    editable
                 }
                 key=|(path, _)| path.clone()
                 children=move |(path, file): (String, OpenFile)| {
-                    dbg_log(&format!("[EDITOR-BODY] <For> creating editor for: {}", path));
                     let path_vis = path.clone();
                     let editor_view = render_native_editor(
                         &file, set_open_files, set_cursor_line, set_cursor_col,
@@ -178,9 +179,9 @@ fn render_preview(
 
     let rt = &file.render_type;
 
-    // Previewable types in Code mode still use NativeEditor (handled by <For>)
+    // Previewable types in Code mode use NativeEditor (rendered by <For> above)
     if is_previewable_render_type(rt) && view_mode == EditorViewMode::Code {
-        return view! { <div /> }.into_any();
+        return None::<AnyView>.into_any();
     }
 
     match rt {

@@ -37,6 +37,7 @@ pub enum ModalName {
     AddProject,
     SystemMonitor,
     SessionSearch,
+    ProcessHealth,
 }
 
 impl ModalName {
@@ -73,6 +74,7 @@ impl ModalName {
             "addProject" => Some(Self::AddProject),
             "systemMonitor" => Some(Self::SystemMonitor),
             "sessionSearch" => Some(Self::SessionSearch),
+            "processHealth" => Some(Self::ProcessHealth),
             _ => None,
         }
     }
@@ -107,6 +109,7 @@ const ESCAPE_PRIORITY: &[ModalName] = &[
     ModalName::AddProject,
     ModalName::SystemMonitor,
     ModalName::SessionSearch,
+    ModalName::ProcessHealth,
 ];
 
 /// Full modal state API.

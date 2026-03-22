@@ -21,6 +21,28 @@ pub enum WebEvent {
     SessionIdle {
         session_id: String,
     },
+    /// A session encountered an error.
+    SessionError {
+        session_id: String,
+        message: String,
+    },
+    /// A session needs user input (permission or question pending).
+    SessionInputNeeded {
+        session_id: String,
+    },
+    /// A session no longer needs user input.
+    SessionInputCleared {
+        session_id: String,
+    },
+    /// A session has unseen activity (idle or error while not viewed).
+    SessionUnseen {
+        session_id: String,
+        count: usize,
+    },
+    /// A session's unseen state was cleared (user viewed it).
+    SessionSeen {
+        session_id: String,
+    },
     StatsUpdated(WebSessionStats),
     ThemeChanged(WebThemeColors),
     /// Watcher status changed (created, deleted, countdown, triggered).
@@ -64,6 +86,24 @@ pub enum WebEvent {
     /// Initial value — never sent to clients.
     #[allow(dead_code)]
     Noop,
+}
+
+// ── Editor events (separate SSE channel) ────────────────────────────
+
+/// Events pushed to web clients via the dedicated `/api/editor/events` SSE stream.
+/// Kept separate from `WebEvent` so editor-specific traffic doesn't mix with
+/// app-level broadcasts and the opencode proxy SSE.
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum EditorEvent {
+    /// A file on disk was modified — either via the web save endpoint or
+    /// by an AI agent (upstream `file.edited`).
+    FileChanged {
+        /// Relative path within the project directory.
+        path: String,
+        /// Origin of the change: `"web_save"` or `"ai_edit"`.
+        source: String,
+    },
 }
 
 // ── Theme colors (hex strings for the web frontend) ─────────────────

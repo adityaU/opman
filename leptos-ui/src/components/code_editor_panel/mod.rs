@@ -12,10 +12,13 @@ mod editor_body;
 mod editor_toolbar;
 mod explorer_ctx;
 mod explorer_sidebar;
+mod explorer_dir_node;
 mod explorer_tree;
 mod file_renderers;
 mod js_helpers;
 mod mobile_layout;
+mod mobile_overlays;
+mod mobile_toolbar;
 pub mod native_editor;
 mod state;
 mod types;
@@ -29,12 +32,13 @@ use crate::components::debug_overlay::dbg_log;
 
 use actions::{
     build_close_file, build_create, build_load_dir, build_load_dir_children,
-    build_open_file, build_refresh_subtree, build_revert_file, build_save_file,
-    build_toggle_dir,
+    build_open_file, build_refresh_subtree, build_reload_dir, build_reload_file,
+    build_reload_root, build_revert_file, build_save_file, build_toggle_dir,
 };
 use actions_ext::{
     build_definition, build_delete_dir, build_delete_file, build_format,
-    build_hover, build_set_active_view, build_upload, install_save_shortcut,
+    build_hover, build_rename_entry, build_set_active_view, build_upload,
+    install_save_shortcut,
 };
 use editor_body::render_editor_body;
 use editor_toolbar::render_editor_toolbar;
@@ -70,11 +74,15 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
     let create_dir = build_create(&s, refresh.clone(), false);
     let delete_file = build_delete_file(&s, close_file.clone(), refresh.clone());
     let delete_dir = build_delete_dir(&s, close_file.clone(), refresh.clone());
-    let upload = build_upload(&s, refresh);
+    let upload = build_upload(&s, refresh.clone());
+    let rename_entry = build_rename_entry(&s, refresh);
     let hover = build_hover(&s);
     let definition = build_definition(&s, open_file.clone());
     let format = build_format(&s);
     let set_active_view = build_set_active_view(&s);
+    let reload_dir = build_reload_dir(&s);
+    let reload_file = build_reload_file(&s);
+    let reload_root = build_reload_root(&s);
 
     // Initial load
     let load_dir_init = load_dir.clone();
@@ -112,6 +120,74 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
     // Keyboard shortcut
     install_save_shortcut(s.active_file, save_file.clone());
 
+    // ── Editor SSE: auto-reload files changed on disk ───────────────
+    {
+        let open_files_sig = s.open_files;
+        let set_open_files = s.set_open_files;
+        let active_file_sig = s.active_file;
+        let set_save_status = s.set_save_status;
+        Effect::new(move |_prev: Option<()>| {
+            let Ok(es) = crate::sse::connection::create_editor_events_sse() else {
+                log::error!("[EDITOR-SSE] Failed to create editor events SSE");
+                return;
+            };
+            let cb = wasm_bindgen::closure::Closure::<dyn Fn(web_sys::MessageEvent)>::new(
+                move |e: web_sys::MessageEvent| {
+                    let data = e.data().as_string().unwrap_or_default();
+                    #[derive(serde::Deserialize)]
+                    struct FileChanged {
+                        path: String,
+                        source: String,
+                    }
+                    let Ok(evt) = serde_json::from_str::<FileChanged>(&data) else {
+                        return;
+                    };
+                    // Only auto-reload if the file is open and NOT locally modified.
+                    let files = open_files_sig.get_untracked();
+                    let Some(file) = files.iter().find(|f| f.path == evt.path) else {
+                        return; // File not open — ignore.
+                    };
+                    if file.is_modified() && evt.source != "web_save" {
+                        dbg_log(&format!(
+                            "[EDITOR-SSE] {} changed externally but has local edits — skipping reload",
+                            evt.path
+                        ));
+                        return;
+                    }
+                    // Re-read the file from disk and update the open file entry.
+                    let path = evt.path.clone();
+                    leptos::task::spawn_local(async move {
+                        match crate::api::files::file_read(&path).await {
+                            Ok(r) => {
+                                set_open_files.update(|fs| {
+                                    if let Some(f) = fs.iter_mut().find(|f| f.path == path) {
+                                        f.content = r.content;
+                                        f.language = r.language;
+                                        f.edited_content = None;
+                                    }
+                                });
+                                if active_file_sig.get_untracked().as_deref() == Some(&path) {
+                                    set_save_status.set(None);
+                                }
+                            }
+                            Err(e) => log::error!("[EDITOR-SSE] reload {path}: {e}"),
+                        }
+                    });
+                },
+            );
+            use wasm_bindgen::JsCast;
+            let _ = es.add_event_listener_with_callback(
+                "file_changed",
+                cb.as_ref().unchecked_ref(),
+            );
+            cb.forget();
+            // Clean up on scope disposal
+            leptos::prelude::on_cleanup(move || {
+                es.close();
+            });
+        });
+    }
+
     // ── Mobile: back-to-browser handler ─────────────────────────────
     let set_active_file_back = s.set_active_file;
     let set_save_status_back = s.set_save_status;
@@ -119,6 +195,45 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         set_active_file_back.set(None);
         set_save_status_back.set(None);
     });
+
+    // ── Mobile: back-navigation integration for file-open state ─────
+    // When a file is opened on mobile, push a custom back layer so the
+    // system back button returns to the file browser.
+    {
+        let active_file = s.active_file;
+        let is_mobile = s.is_mobile;
+        let set_active_file = s.set_active_file;
+        let set_save_status = s.set_save_status;
+        let back_nav =
+            leptos::prelude::use_context::<crate::hooks::use_back_navigation::BackNavigation>();
+
+        if let Some(back_nav) = back_nav {
+            Effect::new(move |prev_has_file: Option<bool>| {
+                let has_file = active_file.get().is_some();
+                let mobile = is_mobile.get();
+
+                if let Some(had_file) = prev_has_file {
+                    if mobile && has_file && !had_file {
+                        // File opened on mobile — push back layer
+                        let set_af = set_active_file;
+                        let set_ss = set_save_status;
+                        back_nav.push_custom_layer(
+                            "editor_file_open",
+                            std::rc::Rc::new(move || {
+                                set_af.set(None);
+                                set_ss.set(None);
+                            }),
+                        );
+                    } else if mobile && !has_file && had_file {
+                        // File closed on mobile (not via back) — remove layer
+                        back_nav.remove_custom_layer("editor_file_open");
+                    }
+                }
+
+                has_file
+            });
+        }
+    }
 
     // ── Build mobile views (consumed once) ──────────────────────────
     let mobile_browser = render_mobile_browser(
@@ -130,6 +245,8 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         send_wrapper::SendWrapper::new(delete_file.clone()),
         send_wrapper::SendWrapper::new(delete_dir.clone()),
         send_wrapper::SendWrapper::new(upload.clone()),
+        send_wrapper::SendWrapper::new(reload_root.clone()),
+        send_wrapper::SendWrapper::new(rename_entry.clone()),
     );
     let m_toolbar = render_editor_toolbar(
         &s, active_view,
@@ -152,6 +269,10 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         send_wrapper::SendWrapper::new(delete_dir),
         send_wrapper::SendWrapper::new(upload),
         send_wrapper::SendWrapper::new(close_file.clone()),
+        send_wrapper::SendWrapper::new(reload_dir),
+        send_wrapper::SendWrapper::new(reload_file),
+        send_wrapper::SendWrapper::new(reload_root),
+        send_wrapper::SendWrapper::new(rename_entry),
     );
     let d_toolbar = render_editor_toolbar(
         &s, active_view, save_file, revert_file,

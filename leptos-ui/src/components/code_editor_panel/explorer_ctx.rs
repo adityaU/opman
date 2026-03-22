@@ -1,8 +1,8 @@
-//! Explorer tree context and inline UI helpers (create input, confirm delete).
+//! Explorer tree context and inline UI helpers (create input, confirm delete, rename).
 
 use leptos::prelude::*;
 
-use crate::components::icons::{IconFilePlus, IconFolderPlus, IconX};
+use crate::components::icons::{IconFilePlus, IconFolderPlus, IconPencil, IconX};
 use crate::types::api::FileEntry;
 
 use super::types::ConfirmDeleteEntry;
@@ -19,6 +19,8 @@ pub struct ExplorerTreeCtx {
     pub set_inline_create: WriteSignal<Option<(String, String)>>,
     pub inline_confirm_delete: ReadSignal<Option<ConfirmDeleteEntry>>,
     pub set_inline_confirm_delete: WriteSignal<Option<ConfirmDeleteEntry>>,
+    pub inline_rename: ReadSignal<Option<ConfirmDeleteEntry>>,
+    pub set_inline_rename: WriteSignal<Option<ConfirmDeleteEntry>>,
     pub explorer_ctx_menu: ReadSignal<Option<String>>,
     pub set_explorer_ctx_menu: WriteSignal<Option<String>>,
     pub toggle_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
@@ -27,6 +29,9 @@ pub struct ExplorerTreeCtx {
     pub handle_create_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, String)>>,
     pub handle_delete_file: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
     pub handle_delete_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
+    pub handle_reload_dir: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
+    pub handle_reload_file: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String)>>,
+    pub handle_rename: send_wrapper::SendWrapper<std::rc::Rc<dyn Fn(String, String, bool)>>,
 }
 
 /// Inline create input — matches React `InlineCreateInput`.
@@ -110,6 +115,65 @@ pub fn render_confirm_delete_inline(
             <button class="explorer-confirm-no" on:click=move |_| cancel_sw()>
                 <IconX size=12 />
             </button>
+        </div>
+    }
+}
+
+/// Inline rename input — shows a text input pre-filled with the current name.
+pub fn render_inline_rename_input(
+    current_name: &str,
+    is_dir: bool,
+    depth: u32,
+    on_submit: std::rc::Rc<dyn Fn(String)>,
+    on_cancel: std::rc::Rc<dyn Fn()>,
+) -> impl IntoView {
+    let (value, set_value) = signal(current_name.to_string());
+    let padding = format!("{}px", 8 + depth * 14);
+    let submit_1 = send_wrapper::SendWrapper::new(on_submit.clone());
+    let cancel_1 = send_wrapper::SendWrapper::new(on_cancel.clone());
+    let submit_2 = send_wrapper::SendWrapper::new(on_submit.clone());
+    let cancel_2 = send_wrapper::SendWrapper::new(on_cancel.clone());
+
+    let node = NodeRef::<leptos::html::Input>::new();
+    Effect::new(move |_| {
+        if let Some(el) = node.get() {
+            let _ = el.focus();
+            // Select filename without extension for files
+            let v = value.get_untracked();
+            if !is_dir {
+                if let Some(dot_pos) = v.rfind('.') {
+                    let _ = el.set_selection_range(0, dot_pos as u32);
+                } else {
+                    let _ = el.select();
+                }
+            } else {
+                let _ = el.select();
+            }
+        }
+    });
+
+    view! {
+        <div class="explorer-inline-input explorer-inline-rename" style:padding-left=padding>
+            <IconPencil size=13 class="file-icon" />
+            <input
+                class="explorer-inline-name-input"
+                placeholder="new name"
+                prop:value=move || value.get()
+                on:input=move |e| set_value.set(event_target_value(&e))
+                on:keydown=move |e| {
+                    if e.key() == "Enter" {
+                        let v = value.get_untracked().trim().to_string();
+                        if !v.is_empty() { submit_1(v); } else { cancel_1(); }
+                    } else if e.key() == "Escape" {
+                        cancel_2();
+                    }
+                }
+                on:blur=move |_| {
+                    let v = value.get_untracked().trim().to_string();
+                    if !v.is_empty() { submit_2(v); } else { on_cancel(); }
+                }
+                node_ref=node
+            />
         </div>
     }
 }

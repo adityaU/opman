@@ -1,6 +1,7 @@
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post};
 use axum::Router;
+use tower_http::compression::CompressionLayer;
 
 use super::handlers;
 use super::mcp_ws;
@@ -76,6 +77,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/session/{session_id}/todos",
             get(handlers::get_session_todos).put(handlers::update_session_todos),
         )
+        .route(
+            "/session/{session_id}/mark_seen",
+            post(handlers::mark_session_seen),
+        )
         // ── Multi-session dashboard ──────────────────────────────────
         .route("/sessions/overview", get(handlers::sessions_overview))
         .route("/sessions/tree", get(handlers::sessions_tree))
@@ -92,6 +97,8 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/pending", get(handlers::get_pending))
         // Session events SSE (proxied from opencode)
         .route("/session/events", get(sse::session_events_stream))
+        // Editor events SSE (file change notifications)
+        .route("/editor/events", get(sse::editor_events_stream))
         // ── Git API (shell out to git CLI) ───────────────────────────
         .route("/git/status", get(handlers::git_status))
         .route("/git/diff", get(handlers::git_diff))
@@ -118,8 +125,11 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/file/create", post(handlers::create_file))
         .route("/file/delete", post(handlers::delete_file))
         .route("/file/upload", post(handlers::upload_files))
+        .route("/file/download", get(handlers::download_file))
+        .route("/rename", post(handlers::rename_entry))
         .route("/dir/create", post(handlers::create_dir))
         .route("/dir/delete", post(handlers::delete_dir))
+        .route("/dir/download", get(handlers::download_dir))
         .route(
             "/editor/lsp/diagnostics",
             get(handlers::editor_lsp_diagnostics),
@@ -228,9 +238,27 @@ pub(super) fn build_router(state: ServerState) -> Router {
             get(handlers::list_workspace_templates),
         )
         .route("/memory/active", get(handlers::list_active_memory))
+        // ── MCP Skills ───────────────────────────────────────────────
+        .route("/mcp", post(crate::mcp_skills::mcp_handler))
+        .route(
+            "/skills",
+            get(handlers::list_skills).post(handlers::create_skill),
+        )
+        .route(
+            "/skills/{name}",
+            get(handlers::get_skill)
+                .put(handlers::update_skill)
+                .delete(handlers::delete_skill),
+        )
+        .route("/skills/upload", post(handlers::upload_skills))
         // ── System Monitor ──────────────────────────────────────────
         .route("/system/stats", get(handlers::get_system_stats))
-        .route("/system/stats/stream", get(sse::system_stats_stream));
+        .route("/system/stats/stream", get(sse::system_stats_stream))
+        // ── Process Health ─────────────────────────────────────────
+        .route("/health/status", get(handlers::get_health_status))
+        .route("/health/audit", get(handlers::get_health_audit))
+        .route("/health/toggle", post(handlers::toggle_health_mitigation))
+        .route("/health/config", post(handlers::set_health_config));
 
     // Public (unauthenticated) API routes — outside the main api_routes
     // so they don't go through the auth extractor.
@@ -245,5 +273,6 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/ui/{*path}", get(static_files::serve_react))
         .fallback(static_files::serve)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
+        .layer(CompressionLayer::new().gzip(true))
         .with_state(state)
 }

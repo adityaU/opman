@@ -8,19 +8,7 @@ use leptos::prelude::*;
 use std::collections::HashSet;
 use crate::components::icons::*;
 
-fn relative_time(ts: f64) -> String {
-    let now = js_sys::Date::now() / 1000.0;
-    let diff = now - ts;
-    if diff < 60.0 {
-        "just now".to_string()
-    } else if diff < 3600.0 {
-        format!("{}m ago", (diff / 60.0).floor() as i64)
-    } else if diff < 86400.0 {
-        format!("{}h ago", (diff / 3600.0).floor() as i64)
-    } else {
-        format!("{}d ago", (diff / 86400.0).floor() as i64)
-    }
-}
+use crate::utils::format_relative_time as relative_time;
 
 fn format_cost(cost: f64) -> String {
     format!("${:.2}", cost)

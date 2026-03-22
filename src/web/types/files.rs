@@ -100,6 +100,30 @@ pub struct DirDeleteRequest {
     pub path: String,
 }
 
+/// Request body for `POST /api/rename` — rename/move a file or directory.
+#[derive(Deserialize)]
+pub struct RenameRequest {
+    /// Current path relative to project root.
+    pub from_path: String,
+    /// New path relative to project root.
+    pub to_path: String,
+}
+
+/// Query params for `GET /api/file/download?path=...`.
+#[derive(Deserialize)]
+pub struct FileDownloadQuery {
+    /// Path relative to project root.
+    pub path: String,
+}
+
+/// Query params for `GET /api/dir/download?path=...`.
+#[derive(Deserialize)]
+pub struct DirDownloadQuery {
+    /// Path relative to project root (default: ".").
+    #[serde(default)]
+    pub path: String,
+}
+
 /// Response for upload endpoint.
 #[derive(Serialize)]
 pub struct FileUploadResponse {

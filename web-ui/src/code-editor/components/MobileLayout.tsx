@@ -3,7 +3,7 @@
  */
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, Folder, File, FilePlus, FolderPlus, Upload, Trash2, X, MoreVertical } from "lucide-react";
+import { Loader2, Folder, File, FilePlus, FolderPlus, Upload, Trash2, X, MoreVertical, RefreshCw } from "lucide-react";
 import type {
   FileReadResponse, FileRenderType, EditorLspDiagnostic,
   EditorViewMode, BreadcrumbEntry, FileEntry,
@@ -56,6 +56,7 @@ interface Props {
   onDeleteFile?: (path: string) => void;
   onDeleteDir?: (path: string) => void;
   onUploadFiles?: (dir: string, files: FileList | File[]) => void;
+  onReloadRoot?: () => void;
   fileActionBusy?: boolean;
 }
 
@@ -158,7 +159,7 @@ export function MobileLayout(p: Props) {
   }
 
   // No file open — show file browser
-  const hasActions = p.onCreateFile || p.onCreateDir || p.onUploadFiles;
+  const hasActions = p.onCreateFile || p.onCreateDir || p.onUploadFiles || p.onReloadRoot;
   return (
     <div className="code-editor-panel">
       <div className="code-editor-toolbar">
@@ -192,6 +193,11 @@ export function MobileLayout(p: Props) {
                 {p.onUploadFiles && (
                   <button className="mobile-action-item" onClick={handleUploadClick}>
                     <Upload size={13} /> Upload
+                  </button>
+                )}
+                {p.onReloadRoot && (
+                  <button className="mobile-action-item" onClick={() => { p.onReloadRoot?.(); setShowActions(false); }}>
+                    <RefreshCw size={13} /> Reload
                   </button>
                 )}
               </div>,

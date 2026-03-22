@@ -1,12 +1,15 @@
 //! App-level SSE listener wiring — all event listeners attached to the `/api/events` SSE.
+//!
+//! Session indicator listeners (busy/idle/error/input) are in `app_indicator_listeners`.
 
 use leptos::prelude::{GetUntracked, Set, Update};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::EventSource;
 
+use super::app_indicator_listeners;
 use crate::components::toast::{ToastContext, ToastType};
-use crate::hooks::use_sse_state::{ConnectionStatus, SessionStatus, SseState};
+use crate::hooks::use_sse_state::{ConnectionStatus, SseState};
 use crate::types::api::SessionStats;
 use crate::types::events::WatcherStatus;
 
@@ -59,59 +62,8 @@ pub fn wire_app_listeners(
         state_changed_cb.forget();
     }
 
-    // session_busy
-    {
-        let set_busy = sse.set_busy_sessions;
-        let set_status = sse.set_session_status;
-        let sse_clone = sse;
-        let cb = Closure::<dyn Fn(web_sys::MessageEvent)>::new(
-            move |e: web_sys::MessageEvent| {
-                let sid = e.data().as_string().unwrap_or_default();
-                if !sid.is_empty() {
-                    let sid_clone = sid.clone();
-                    set_busy.update(move |s: &mut std::collections::HashSet<String>| {
-                        s.insert(sid_clone);
-                    });
-                    // Only update session_status if this is the tracked session and status differs
-                    if sse_clone.tracked_session_id().as_deref() == Some(sid.as_str())
-                        && sse_clone.session_status.get_untracked() != SessionStatus::Busy
-                    {
-                        set_status.set(SessionStatus::Busy);
-                    }
-                }
-            },
-        );
-        let _ = app_sse
-            .add_event_listener_with_callback("session_busy", cb.as_ref().unchecked_ref());
-        cb.forget();
-    }
-
-    // session_idle
-    {
-        let set_busy = sse.set_busy_sessions;
-        let set_status = sse.set_session_status;
-        let sse_clone = sse;
-        let cb = Closure::<dyn Fn(web_sys::MessageEvent)>::new(
-            move |e: web_sys::MessageEvent| {
-                let sid = e.data().as_string().unwrap_or_default();
-                if !sid.is_empty() {
-                    let sid_clone = sid.clone();
-                    set_busy.update(move |s: &mut std::collections::HashSet<String>| {
-                        s.remove(&sid_clone);
-                    });
-                    if sse_clone.tracked_session_id().as_deref() == Some(sid.as_str()) {
-                        // Dedup: only set if not already Idle
-                        if sse_clone.session_status.get_untracked() != SessionStatus::Idle {
-                            set_status.set(SessionStatus::Idle);
-                        }
-                    }
-                }
-            },
-        );
-        let _ = app_sse
-            .add_event_listener_with_callback("session_idle", cb.as_ref().unchecked_ref());
-        cb.forget();
-    }
+    // Session indicator listeners (busy/idle/error/input-needed/input-cleared)
+    app_indicator_listeners::wire_indicator_listeners(app_sse, sse);
 
     // stats_updated
     {

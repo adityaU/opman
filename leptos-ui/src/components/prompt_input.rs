@@ -257,13 +257,6 @@ pub fn PromptInput(
         if let Some(ref on_a) = on_abort {
             on_a.run(());
         }
-        if let Some(sid) = sse.tracked_session_id() {
-            leptos::task::spawn_local(async move {
-                if let Err(e) = crate::api::abort_session(&sid).await {
-                    log::error!("Failed to abort session: {}", e);
-                }
-            });
-        }
     };
 
     // ── Slash command handlers ───────────────────────────────────────
@@ -454,7 +447,7 @@ pub fn PromptInput(
             set_show_slash.set(true);
         }
 
-        if ev.key() == "Enter" && !ev.shift_key() && !ev.ctrl_key() && !ev.meta_key() {
+        if ev.key() == "Enter" && !ev.shift_key() {
             ev.prevent_default();
             // Allow sending even when busy — user explicitly wants to queue messages
             handle_send();
@@ -583,16 +576,10 @@ pub fn PromptInput(
                     let mem_labels = active_memory_labels.map(|s| s.get()).unwrap_or_default();
                     let mem_count = mem_labels.len();
 
-                    let has_chips = !model_val.is_empty()
-                        || !agent_val.is_empty()
-                        || mem_count > 0;
-
-                    if !has_chips {
-                        return None;
-                    }
-
+                    // Model chip: show short name when a model is active,
+                    // otherwise show "Model" placeholder (matches React).
                     let model_display = if model_val.is_empty() {
-                        String::new()
+                        "Model".to_string()
                     } else {
                         short_model_name(&model_val)
                     };
@@ -604,10 +591,10 @@ pub fn PromptInput(
 
                     Some(view! {
                         <div class="prompt-selectors">
-                            // Model chip
-                            {if !model_display.is_empty() {
+                            // Model chip — always visible so users can pick a model
+                            {
                                 let on_model_inner = on_model.clone();
-                                Some(view! {
+                                view! {
                                     <button
                                         class="prompt-chip"
                                         title="Change model"
@@ -619,10 +606,8 @@ pub fn PromptInput(
                                         <span>{model_display}</span>
                                         <IconChevronDown size=10 />
                                     </button>
-                                })
-                            } else {
-                                None
-                            }}
+                                }
+                            }
                             // Agent chip
                             {if !agent_display.is_empty() {
                                 let on_agent_inner = on_agent.clone();

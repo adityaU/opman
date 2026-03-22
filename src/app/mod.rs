@@ -96,6 +96,12 @@ pub struct App {
     pub awaiting_new_session: Option<usize>,
     /// Session IDs that are currently active/running (not idle).
     pub active_sessions: HashSet<String>,
+    /// Session IDs that have encountered an error.
+    pub error_sessions: HashSet<String>,
+    /// Session IDs that need user input (pending permission or question).
+    pub input_sessions: HashSet<String>,
+    /// Session IDs with unseen activity (idle/error while not viewing).
+    pub unseen_sessions: HashSet<String>,
     /// Sine-wave phase for pulsating active session dot.
     pub pulse_phase: f64,
     /// Which parent session ID has its subagent sessions expanded.
@@ -199,6 +205,9 @@ impl App {
             pending_new_session: None,
             awaiting_new_session: None,
             active_sessions: HashSet::new(),
+            error_sessions: HashSet::new(),
+            input_sessions: HashSet::new(),
+            unseen_sessions: HashSet::new(),
             pulse_phase: 0.0,
             subagents_expanded_for: None,
             vim_mode: VimMode::Normal,

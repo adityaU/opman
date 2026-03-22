@@ -196,6 +196,19 @@ pub fn CommandPalette(
                     })
                 },
             },
+            PaletteItem {
+                id: "toggle-health",
+                category: "Layout",
+                label: "Toggle Process Health",
+                description: "Runtime mitigations & monitoring",
+                shortcut: "\u{2318}\u{21e7}H",
+                handler: {
+                    Callback::new(move |_: ()| {
+                        on_close.run(());
+                        modal_state.toggle(ModalName::ProcessHealth);
+                    })
+                },
+            },
             // ── Core (continued) ────────────────────────────
             PaletteItem {
                 id: "cheatsheet",

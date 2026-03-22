@@ -156,7 +156,7 @@ pub fn build_do_remove_project(
 // ── Rename session ──────────────────────────────────────────────────
 
 pub fn build_rename_session(
-    _sse: SseState,
+    sse: SseState,
     set_renaming_sid: WriteSignal<Option<String>>,
     rename_original_title: ReadSignal<String>,
 ) -> Callback<(String, String)> {
@@ -167,6 +167,7 @@ pub fn build_rename_session(
             set_renaming_sid.set(None);
             return;
         }
+        let set_app_state = sse.set_app_state;
         leptos::task::spawn_local(async move {
             let path = format!("/session/{}", js_sys::encode_uri_component(&session_id));
             #[derive(serde::Serialize)]
@@ -181,8 +182,11 @@ pub fn build_rename_session(
             {
                 log::error!("Failed to rename session: {}", e);
             }
-            // No manual /state fetch — SSE session.updated / state_changed handles it.
+            // Fetch state so sidebar shows new title immediately.
+            if let Ok(state) = crate::api::project::fetch_app_state().await {
+                set_app_state.set(Some(state));
+            }
+            set_renaming_sid.set(None);
         });
-        set_renaming_sid.set(None);
     })
 }

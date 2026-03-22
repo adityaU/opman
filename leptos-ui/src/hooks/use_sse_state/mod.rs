@@ -44,6 +44,15 @@ pub struct SseState {
     pub busy_sessions: ReadSignal<HashSet<String>>,
     pub set_busy_sessions: WriteSignal<HashSet<String>>,
 
+    pub error_sessions: ReadSignal<HashSet<String>>,
+    pub set_error_sessions: WriteSignal<HashSet<String>>,
+
+    pub input_sessions: ReadSignal<HashSet<String>>,
+    pub set_input_sessions: WriteSignal<HashSet<String>>,
+
+    pub unseen_sessions: ReadSignal<HashSet<String>>,
+    pub set_unseen_sessions: WriteSignal<HashSet<String>>,
+
     pub permissions: ReadSignal<Vec<PermissionRequest>>,
     pub set_permissions: WriteSignal<Vec<PermissionRequest>>,
 
@@ -161,6 +170,9 @@ pub fn use_sse_state() -> SseState {
     let (messages, set_messages) = signal::<Vec<Message>>(Vec::new());
     let (stats, set_stats) = signal::<Option<SessionStats>>(None);
     let (busy_sessions, set_busy_sessions) = signal::<HashSet<String>>(HashSet::new());
+    let (error_sessions, set_error_sessions) = signal::<HashSet<String>>(HashSet::new());
+    let (input_sessions, set_input_sessions) = signal::<HashSet<String>>(HashSet::new());
+    let (unseen_sessions, set_unseen_sessions) = signal::<HashSet<String>>(HashSet::new());
     let (permissions, set_permissions) = signal::<Vec<PermissionRequest>>(Vec::new());
     let (questions, set_questions) = signal::<Vec<QuestionRequest>>(Vec::new());
     let (session_status, set_session_status) = signal(SessionStatus::Idle);
@@ -217,6 +229,12 @@ pub fn use_sse_state() -> SseState {
         set_stats,
         busy_sessions,
         set_busy_sessions,
+        error_sessions,
+        set_error_sessions,
+        input_sessions,
+        set_input_sessions,
+        unseen_sessions,
+        set_unseen_sessions,
         permissions,
         set_permissions,
         questions,

@@ -158,6 +158,7 @@ fn handle_pending_session_select(app: &mut App) {
         if let Some(project) = app.projects.get(proj_idx) {
             if project.ptys.contains_key(&session_id) {
                 app.projects[proj_idx].active_session = Some(session_id.clone());
+                app.unseen_sessions.remove(&session_id);
                 let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
                 let sid = session_id.clone();
                 let base_url = crate::app::base_url().to_string();

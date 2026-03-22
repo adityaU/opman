@@ -274,12 +274,24 @@ pub async fn fetch_session_stats(
     api_fetch(&path).await
 }
 
+/// Model reference for per-message model override.
+/// Matches the backend `ModelRef` with `providerID` / `modelID` JSON keys.
+#[derive(Debug, Clone, Serialize)]
+pub struct ApiModelRef {
+    #[serde(rename = "providerID")]
+    pub provider_id: String,
+    #[serde(rename = "modelID")]
+    pub model_id: String,
+}
+
 /// Send a message to a session.
-/// Body must match React format: `{ parts: [{type:"text", text:...}, ...], model?, agent? }`.
+/// Body: `{ parts, model?, agent? }` — model/agent are optional per-message overrides.
 pub async fn send_message(
     session_id: &str,
     content: &str,
     images: Option<Vec<String>>,
+    model: Option<ApiModelRef>,
+    agent: Option<&str>,
 ) -> Result<serde_json::Value, ApiError> {
     let mut parts = vec![serde_json::json!({ "type": "text", "text": content })];
     if let Some(ref imgs) = images {
@@ -301,7 +313,18 @@ pub async fn send_message(
             }));
         }
     }
-    let body = serde_json::json!({ "parts": parts });
+    let mut body = serde_json::json!({ "parts": parts });
+    if let Some(m) = model {
+        body["model"] = serde_json::json!({
+            "providerID": m.provider_id,
+            "modelID": m.model_id,
+        });
+    }
+    if let Some(a) = agent {
+        if !a.is_empty() {
+            body["agent"] = serde_json::json!(a);
+        }
+    }
     let path = format!(
         "/session/{}/message",
         js_sys::encode_uri_component(session_id),

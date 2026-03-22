@@ -50,7 +50,11 @@ pub async fn terminal_stream(
         .await
         .ok_or(WebError::NotFound("PTY not found or not spawned yet"))?;
 
-    // Stream that polls the raw output buffer at 20fps
+    // Stream that polls the raw output buffer at ~20fps.
+    // The frontend coalesces output via requestAnimationFrame, so even
+    // if multiple SSE events arrive within a single frame they are
+    // processed as a single batch. This interval provides a good
+    // balance between latency and CPU usage.
     let stream = async_stream::stream! {
         let mut interval = tokio::time::interval(Duration::from_millis(50));
 
@@ -193,6 +197,36 @@ pub async fn events_stream(
                                         SseEvent::default().event("toast").data(payload.to_string()),
                                     );
                                 }
+                                WebEvent::SessionError { session_id, .. } => {
+                                    let payload = serde_json::json!({ "session_id": session_id });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("session_error").data(payload.to_string()),
+                                    );
+                                }
+                                WebEvent::SessionInputNeeded { session_id } => {
+                                    let payload = serde_json::json!({ "session_id": session_id });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("session_input_needed").data(payload.to_string()),
+                                    );
+                                }
+                                WebEvent::SessionInputCleared { session_id } => {
+                                    let payload = serde_json::json!({ "session_id": session_id });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("session_input_cleared").data(payload.to_string()),
+                                    );
+                                }
+                                WebEvent::SessionUnseen { session_id, count } => {
+                                    let payload = serde_json::json!({ "session_id": session_id, "count": count });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("session_unseen").data(payload.to_string()),
+                                    );
+                                }
+                                WebEvent::SessionSeen { session_id } => {
+                                    let payload = serde_json::json!({ "session_id": session_id });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("session_seen").data(payload.to_string()),
+                                    );
+                                }
                             }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -270,6 +304,63 @@ pub async fn session_events_stream(
                             tracing::info!("Session SSE: raw_sse_tx channel closed, ending stream");
                             break;
                         }
+                    }
+                }
+                _ = heartbeat_interval.tick() => {
+                    yield Ok::<_, Infallible>(
+                        SseEvent::default().event("heartbeat").data(""),
+                    );
+                }
+            }
+        }
+    };
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
+}
+
+// ── Editor events stream ────────────────────────────────────────────
+
+/// GET /api/editor/events — SSE stream of file-change notifications.
+///
+/// Separate from `/api/events` and `/api/session/events` so the editor can
+/// react to file modifications without processing unrelated traffic.
+pub async fn editor_events_stream(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Query(params): Query<SseTokenQuery>,
+) -> Result<impl IntoResponse, WebError> {
+    if !check_auth_manual(&state, &headers, &params.token) {
+        return Err(WebError::Unauthorized);
+    }
+
+    let mut editor_rx = state.editor_tx.subscribe();
+
+    let stream = async_stream::stream! {
+        yield Ok::<_, Infallible>(
+            SseEvent::default().event("heartbeat").data(""),
+        );
+
+        let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(15));
+        heartbeat_interval.tick().await;
+
+        loop {
+            tokio::select! {
+                result = editor_rx.recv() => {
+                    match result {
+                        Ok(event) => {
+                            if let Ok(json) = serde_json::to_string(&event) {
+                                yield Ok::<_, Infallible>(
+                                    SseEvent::default().event("file_changed").data(json),
+                                );
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Client fell behind — send a generic refresh hint.
+                            yield Ok::<_, Infallible>(
+                                SseEvent::default().event("refresh").data(""),
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
                 }
                 _ = heartbeat_interval.tick() => {

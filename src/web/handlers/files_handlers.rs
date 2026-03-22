@@ -177,6 +177,12 @@ pub async fn write_file(
         .await
         .map_err(|e| WebError::Internal(format!("Failed to write file: {e}")))?;
 
+    // Notify editor SSE subscribers about the file change.
+    let _ = state.editor_tx.send(EditorEvent::FileChanged {
+        path: req.path.clone(),
+        source: "web_save".to_string(),
+    });
+
     Ok(StatusCode::OK)
 }
 
@@ -329,12 +335,74 @@ pub async fn delete_dir(
     Ok(StatusCode::OK)
 }
 
+/// POST /api/rename — rename or move a file/directory.
+pub async fn rename_entry(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(req): Json<RenameRequest>,
+) -> WebResult<impl IntoResponse> {
+    if req.from_path.is_empty() || req.to_path.is_empty() {
+        return Err(WebError::BadRequest("Paths must not be empty".into()));
+    }
+    if req.from_path == req.to_path {
+        return Ok(StatusCode::OK);
+    }
+
+    let dir = resolve_project_dir(&state).await?;
+    let base = std::path::Path::new(&dir);
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
+
+    // Validate source exists and is within project
+    let src = base.join(&req.from_path);
+    let canonical_src = src
+        .canonicalize()
+        .map_err(|_| WebError::NotFound("Source path not found"))?;
+    if !canonical_src.starts_with(&canonical_base) {
+        return Err(WebError::BadRequest("Path traversal not allowed".into()));
+    }
+    if canonical_src == canonical_base {
+        return Err(WebError::BadRequest("Cannot rename the project root".into()));
+    }
+
+    // Validate destination parent exists and is within project
+    let dst = base.join(&req.to_path);
+    let dst_parent = dst.parent().ok_or(WebError::BadRequest(
+        "Invalid destination path".into(),
+    ))?;
+    let canonical_dst_parent = dst_parent
+        .canonicalize()
+        .map_err(|_| WebError::NotFound("Destination parent directory not found"))?;
+    if !canonical_dst_parent.starts_with(&canonical_base) {
+        return Err(WebError::BadRequest("Path traversal not allowed".into()));
+    }
+
+    // Don't overwrite existing entries
+    if dst.exists() {
+        return Err(WebError::BadRequest("Destination already exists".into()));
+    }
+
+    tokio::fs::rename(&canonical_src, &dst)
+        .await
+        .map_err(|e| WebError::Internal(format!("Failed to rename: {e}")))?;
+
+    // Notify editor subscribers
+    let _ = state.editor_tx.send(EditorEvent::FileChanged {
+        path: req.to_path.clone(),
+        source: "web_rename".to_string(),
+    });
+
+    Ok(StatusCode::OK)
+}
+
 /// POST /api/file/upload — upload one or more files via multipart form data.
 pub async fn upload_files(
     State(state): State<ServerState>,
     _auth: AuthUser,
     mut multipart: axum::extract::Multipart,
 ) -> WebResult<impl IntoResponse> {
+    tracing::info!("[upload] upload_files handler invoked");
     let dir = resolve_project_dir(&state).await?;
     let base = std::path::Path::new(&dir);
     let canonical_base = base
@@ -345,36 +413,46 @@ pub async fn upload_files(
     let mut saved_files = Vec::new();
     let mut pending_files: Vec<(String, Vec<u8>)> = Vec::new();
 
-    while let Ok(Some(field)) = multipart.next_field().await {
-        let field_name = field.name().unwrap_or("").to_string();
+    loop {
+        match multipart.next_field().await {
+            Ok(Some(field)) => {
+                let field_name = field.name().unwrap_or("").to_string();
 
-        if field_name == "directory" {
-            // This is the directory field — read its text value
-            let text = field
-                .text()
-                .await
-                .map_err(|e| WebError::Internal(format!("Failed to read directory field: {e}")))?;
-            upload_dir = text;
-            continue;
-        }
+                if field_name == "directory" {
+                    let text = field
+                        .text()
+                        .await
+                        .map_err(|e| WebError::Internal(format!("Failed to read directory field: {e}")))?;
+                    upload_dir = text;
+                    tracing::info!("[upload] directory = {upload_dir:?}");
+                    continue;
+                }
 
-        // This is a file field — get the original filename
-        let filename = match field.file_name() {
-            Some(n) if !n.is_empty() => n.to_string(),
-            _ => {
-                return Err(WebError::BadRequest(
-                    "Upload field must have a filename".into(),
-                ));
+                let filename = match field.file_name() {
+                    Some(n) if !n.is_empty() => n.to_string(),
+                    _ => {
+                        tracing::warn!("[upload] field {field_name:?} missing filename, rejecting");
+                        return Err(WebError::BadRequest(
+                            "Upload field must have a filename".into(),
+                        ));
+                    }
+                };
+
+                let data: Vec<u8> = field
+                    .bytes()
+                    .await
+                    .map_err(|e| WebError::Internal(format!("Failed to read upload data: {e}")))?
+                    .to_vec();
+
+                tracing::info!("[upload] received file {filename:?} ({} bytes)", data.len());
+                pending_files.push((filename, data));
             }
-        };
-
-        let data: Vec<u8> = field
-            .bytes()
-            .await
-            .map_err(|e| WebError::Internal(format!("Failed to read upload data: {e}")))?
-            .to_vec();
-
-        pending_files.push((filename, data));
+            Ok(None) => break,
+            Err(e) => {
+                tracing::error!("[upload] multipart next_field error: {e}");
+                return Err(WebError::Internal(format!("Multipart read error: {e}")));
+            }
+        }
     }
 
     // Now write all files into the target directory
@@ -386,6 +464,7 @@ pub async fn upload_files(
         };
 
         let target = base.join(&rel_path);
+        tracing::info!("[upload] writing {rel_path:?} → {}", target.display());
 
         // Security: validate parent is within project
         if let Some(parent) = target.parent() {
@@ -409,14 +488,16 @@ pub async fn upload_files(
     }
 
     if saved_files.is_empty() {
+        tracing::warn!("[upload] no files saved — returning error");
         return Err(WebError::BadRequest("No files in upload".into()));
     }
 
+    tracing::info!("[upload] success — saved {} files: {:?}", saved_files.len(), saved_files);
     Ok(Json(FileUploadResponse { files: saved_files }))
 }
 
 /// Map file extension to MIME type for binary file serving.
-pub(super) fn mime_from_extension(path: &str) -> String {
+pub(crate) fn mime_from_extension(path: &str) -> String {
     let ext = path
         .rsplit('.')
         .next()
@@ -460,7 +541,7 @@ pub(super) fn mime_from_extension(path: &str) -> String {
 }
 
 /// Detect language from file extension for CodeMirror syntax highlighting.
-pub(super) fn detect_language(path: &str) -> String {
+pub(crate) fn detect_language(path: &str) -> String {
     let ext = path
         .rsplit('.')
         .next()

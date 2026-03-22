@@ -720,6 +720,23 @@ pub fn IconUsers(
 // ── W ───────────────────────────────────────────────────────────────
 
 #[component]
+pub fn IconWifi(
+    #[prop(default = 24)] size: u32,
+    #[prop(default = "")] class: &'static str,
+) -> impl IntoView {
+    icon_svg(
+        size,
+        class,
+        view! {
+            <path d="M12 20h.01"/>
+            <path d="M8.5 16.429a5 5 0 0 1 7 0"/>
+            <path d="M5 12.859a10 10 0 0 1 14 0"/>
+            <path d="M2 8.82a15 15 0 0 1 20 0"/>
+        },
+    )
+}
+
+#[component]
 pub fn IconWifiOff(
     #[prop(default = 24)] size: u32,
     #[prop(default = "")] class: &'static str,

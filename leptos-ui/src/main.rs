@@ -8,6 +8,7 @@ mod pages;
 mod sse;
 mod theme;
 mod types;
+pub mod utils;
 
 fn main() {
     console_error_panic_hook::set_once();

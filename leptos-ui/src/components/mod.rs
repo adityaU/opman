@@ -36,6 +36,7 @@ pub mod session_selector_modal;
 pub mod context_input_modal;
 pub mod settings_modal;
 pub mod add_project_modal;
+pub mod add_project_entry;
 
 // Phase 7: Feature modals / panels
 pub mod todo_panel_modal;
@@ -68,3 +69,6 @@ pub mod git_panel;
 
 // Debug
 pub mod debug_overlay;
+
+// Process Health
+pub mod process_health_drawer;

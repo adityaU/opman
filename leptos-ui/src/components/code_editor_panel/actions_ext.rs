@@ -62,16 +62,127 @@ pub fn build_delete_dir(s: &EditorState, close: Fn1, refresh: Fn1) -> Fn1 {
     })
 }
 
+pub fn build_rename_entry(
+    s: &EditorState,
+    refresh: Fn1,
+) -> std::rc::Rc<dyn Fn(String, String, bool)> {
+    let open_files = s.open_files;
+    let set_open_files = s.set_open_files;
+    let active_file = s.active_file;
+    let set_active_file = s.set_active_file;
+    let set_expanded = s.set_expanded_dirs;
+    let set_dc = s.set_dir_children;
+    let set_busy = s.set_file_action_busy;
+    std::rc::Rc::new(move |old_path: String, new_name: String, is_dir: bool| {
+        let parent = if old_path.contains('/') {
+            old_path[..old_path.rfind('/').unwrap()].to_string()
+        } else {
+            ".".to_string()
+        };
+        let new_path = if parent == "." {
+            new_name.clone()
+        } else {
+            format!("{parent}/{new_name}")
+        };
+        if new_path == old_path {
+            return;
+        }
+        set_busy.set(true);
+        let refresh = refresh.clone();
+        let old = old_path.clone();
+        let new_p = new_path.clone();
+        let par = parent.clone();
+        leptos::task::spawn_local(async move {
+            match crate::api::files::rename_entry(&old, &new_p).await {
+                Ok(()) => {
+                    // Update open tabs: remap paths that start with old_path
+                    set_open_files.update(|fs| {
+                        for f in fs.iter_mut() {
+                            if f.path == old {
+                                f.path = new_p.clone();
+                                f.name = new_name.clone();
+                            } else if is_dir && f.path.starts_with(&format!("{old}/")) {
+                                f.path = format!("{new_p}{}", &f.path[old.len()..]);
+                            }
+                        }
+                    });
+                    // Update active file if it was renamed
+                    if let Some(af) = active_file.get_untracked() {
+                        if af == old {
+                            set_active_file.set(Some(new_p.clone()));
+                        } else if is_dir && af.starts_with(&format!("{old}/")) {
+                            set_active_file.set(Some(format!("{new_p}{}", &af[old.len()..])));
+                        }
+                    }
+                    // Update expanded dirs if a dir was renamed
+                    if is_dir {
+                        set_expanded.update(|exp| {
+                            let to_remap: Vec<String> = exp
+                                .iter()
+                                .filter(|p| *p == &old || p.starts_with(&format!("{old}/")))
+                                .cloned()
+                                .collect();
+                            for p in to_remap {
+                                exp.remove(&p);
+                                if p == old {
+                                    exp.insert(new_p.clone());
+                                } else {
+                                    exp.insert(format!("{new_p}{}", &p[old.len()..]));
+                                }
+                            }
+                        });
+                        set_dc.update(|m| {
+                            let to_remap: Vec<String> = m
+                                .keys()
+                                .filter(|p| *p == &old || p.starts_with(&format!("{old}/")))
+                                .cloned()
+                                .collect();
+                            for p in to_remap {
+                                if let Some(children) = m.remove(&p) {
+                                    let remapped = if p == old {
+                                        new_p.clone()
+                                    } else {
+                                        format!("{new_p}{}", &p[old.len()..])
+                                    };
+                                    m.insert(remapped, children);
+                                }
+                            }
+                        });
+                    }
+                    refresh(par);
+                }
+                Err(e) => log::error!("rename: {e}"),
+            }
+            set_busy.set(false);
+        });
+    })
+}
+
 pub fn build_upload(s: &EditorState, refresh: Fn1) -> std::rc::Rc<dyn Fn(String, web_sys::FileList)> {
     let set_busy = s.set_file_action_busy;
     std::rc::Rc::new(move |dir: String, files: web_sys::FileList| {
+        // Extract File objects synchronously BEFORE spawn_local, because the
+        // caller clears the <input> value right after this returns, which
+        // invalidates the FileList reference.
+        let mut extracted: Vec<web_sys::File> = Vec::with_capacity(files.length() as usize);
+        for i in 0..files.length() {
+            if let Some(f) = files.get(i) {
+                extracted.push(f);
+            }
+        }
+        if extracted.is_empty() {
+            return;
+        }
         set_busy.set(true);
         let refresh = refresh.clone();
         let d = dir.clone();
         leptos::task::spawn_local(async move {
-            match crate::api::files::file_upload(&d, &files).await {
-                Ok(_) => refresh(d),
-                Err(e) => log::error!("upload: {e}"),
+            match crate::api::files::file_upload_from_vec(&d, &extracted).await {
+                Ok(resp) => {
+                    log::info!("[upload] success: {:?}", resp.files);
+                    refresh(d);
+                }
+                Err(e) => log::error!("[upload] failed: {e}"),
             }
             set_busy.set(false);
         });

@@ -36,6 +36,7 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     onOpenWorkspaceManager,
     onOpenMissions,
     onOpenSystemMonitor,
+    onOpenSkillsUpload,
     sessionId,
   } = props;
 
@@ -90,6 +91,13 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       description: "Configure panels and theme",
       shortcut: "Cmd+,",
       handler: () => { onClose(); onOpenSettings(); },
+    },
+    {
+      id: "skills-upload",
+      category: "Core",
+      label: "Upload Skills",
+      description: "Upload ZIP file with skills",
+      handler: () => { onClose(); onOpenSkillsUpload?.(); },
     },
     {
       id: "watcher",

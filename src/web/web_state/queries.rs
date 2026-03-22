@@ -19,6 +19,24 @@ impl super::WebStateHandle {
                     .filter(|s| inner.busy_sessions.contains(&s.id))
                     .map(|s| s.id.clone())
                     .collect();
+                let errors: Vec<String> = p
+                    .sessions
+                    .iter()
+                    .filter(|s| inner.error_sessions.contains_key(&s.id))
+                    .map(|s| s.id.clone())
+                    .collect();
+                let inputs: Vec<String> = p
+                    .sessions
+                    .iter()
+                    .filter(|s| inner.input_sessions.contains(&s.id))
+                    .map(|s| s.id.clone())
+                    .collect();
+                let unseen: Vec<String> = p
+                    .sessions
+                    .iter()
+                    .filter(|s| inner.unseen_sessions.contains_key(&s.id))
+                    .map(|s| s.id.clone())
+                    .collect();
                 WebProjectInfo {
                     name: p.name.clone(),
                     path: p.path.to_string_lossy().to_string(),
@@ -40,6 +58,9 @@ impl super::WebStateHandle {
                         .collect(),
                     git_branch: p.git_branch.clone(),
                     busy_sessions: busy,
+                    error_sessions: errors,
+                    input_sessions: inputs,
+                    unseen_sessions: unseen,
                 }
             })
             .collect();

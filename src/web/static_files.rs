@@ -1,22 +1,39 @@
 //! Embedded frontend serving via `rust-embed`.
 //!
-//! The Leptos build output (`leptos-ui/dist/`) is compiled into the binary
-//! and serves as the primary frontend at the root `/` path.
-//!
-//! The React build output (`web-ui/dist/`) is also embedded and served
-//! at the `/ui` path prefix as a parallel frontend.
-//!
-//! When an `instance_name` is configured (derived from `--tunnel-hostname`),
-//! `/manifest.json` and `index.html` are patched at serve time so that
-//! the PWA home-screen name and HTML title reflect the tunnel subdomain.
+//! Leptos (`leptos-ui/dist/`) serves at `/`; React (`web-ui/dist/`) at `/ui`.
+//! When `instance_name` is set, manifest/index are patched for PWA naming.
 
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{header, Response, StatusCode};
+use axum::http::{header, HeaderMap, Response, StatusCode};
 use axum::response::IntoResponse;
 use rust_embed::Embed;
 
 use super::types::ServerState;
+
+/// Build a hex ETag string from the rust-embed SHA-256 hash (first 16 bytes).
+fn etag_from_hash(hash: &[u8; 32]) -> String {
+    let hex: String = hash[..16].iter().map(|b| format!("{b:02x}")).collect();
+    format!("\"{hex}\"")
+}
+
+/// Check if the request's `If-None-Match` header matches the ETag.
+fn is_not_modified(headers: &HeaderMap, etag: &str) -> bool {
+    headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .map_or(false, |v| v.contains(etag))
+}
+
+/// Build a response, falling back to 500 on builder error.
+fn build_ok(builder: axum::http::response::Builder, body: Body) -> Response<Body> {
+    builder.body(body).unwrap_or_else(|_| {
+        Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(Body::empty())
+            .unwrap()
+    })
+}
 
 #[derive(Embed)]
 #[folder = "leptos-ui/dist"]
@@ -35,7 +52,7 @@ struct ReactAssets;
 /// Requests to `/ui` or `/ui/anything` that match an embedded asset file
 /// are served directly.  All other paths fall back to `index.html` for
 /// React client-side routing.
-pub async fn serve_react(uri: axum::http::Uri) -> impl IntoResponse {
+pub async fn serve_react(headers: HeaderMap, uri: axum::http::Uri) -> impl IntoResponse {
     let full = uri.path();
     let path = full
         .strip_prefix("/ui/")
@@ -43,60 +60,47 @@ pub async fn serve_react(uri: axum::http::Uri) -> impl IntoResponse {
         .unwrap_or("");
     let path = if path.is_empty() { "index.html" } else { path };
 
-    // Service worker — must be served with no-cache
     if path == "sw.js" {
         if let Some(file) = ReactAssets::get("sw.js") {
-            return Response::builder()
+            let r = Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/javascript")
                 .header(header::CACHE_CONTROL, "no-cache")
-                .header("Service-Worker-Allowed", "/ui/")
-                .body(Body::from(file.data.to_vec()))
-                .unwrap_or_else(|_| {
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::empty())
-                        .unwrap()
-                })
-                .into_response();
+                .header("Service-Worker-Allowed", "/ui/");
+            return build_ok(r, Body::from(file.data.to_vec())).into_response();
         }
     }
 
     if let Some(file) = ReactAssets::get(path) {
+        let etag = etag_from_hash(&file.metadata.sha256_hash());
+        if is_not_modified(&headers, &etag) {
+            return build_ok(
+                Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, &etag),
+                Body::empty(),
+            )
+            .into_response();
+        }
         let mime = mime_guess::from_path(path).first_or_octet_stream();
         let cache = if path == "index.html" {
             "no-cache"
         } else {
             "public, max-age=31536000, immutable"
         };
-        return Response::builder()
+        let r = Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime.as_ref())
             .header(header::CACHE_CONTROL, cache)
-            .body(Body::from(file.data.to_vec()))
-            .unwrap_or_else(|_| {
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
-                    .unwrap()
-            })
-            .into_response();
+            .header(header::ETAG, &etag);
+        return build_ok(r, Body::from(file.data.to_vec())).into_response();
     }
 
     // Fall back to index.html for SPA routing
     if let Some(file) = ReactAssets::get("index.html") {
-        return Response::builder()
+        let r = Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html")
-            .header(header::CACHE_CONTROL, "no-cache")
-            .body(Body::from(file.data.to_vec()))
-            .unwrap_or_else(|_| {
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
-                    .unwrap()
-            })
-            .into_response();
+            .header(header::CACHE_CONTROL, "no-cache");
+        return build_ok(r, Body::from(file.data.to_vec())).into_response();
     }
 
     StatusCode::NOT_FOUND.into_response()
@@ -107,7 +111,7 @@ pub async fn serve_react(uri: axum::http::Uri) -> impl IntoResponse {
 ///
 /// If the server has an `instance_name`, `/manifest.json` and `index.html` are
 /// dynamically patched so the PWA install name and page title use that name.
-pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> impl IntoResponse {
+pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: axum::http::Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
 
     // Resolve theme colours once — used by manifest, favicon & index patches.
@@ -149,37 +153,23 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
                     );
             }
 
-            return Response::builder()
+            let r = Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/manifest+json")
-                .header(header::CACHE_CONTROL, "no-cache")
-                .body(Body::from(json))
-                .unwrap_or_else(|_| {
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::empty())
-                        .unwrap()
-                })
-                .into_response();
+                .header(header::CACHE_CONTROL, "no-cache");
+            return build_ok(r, Body::from(json)).into_response();
         }
     }
 
     // ── Service worker — must be served with no-cache ─────────────
     if path == "sw.js" {
         if let Some(file) = FrontendAssets::get("sw.js") {
-            return Response::builder()
+            let r = Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/javascript")
                 .header(header::CACHE_CONTROL, "no-cache")
-                .header("Service-Worker-Allowed", "/")
-                .body(Body::from(file.data.to_vec()))
-                .unwrap_or_else(|_| {
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::empty())
-                        .unwrap()
-                })
-                .into_response();
+                .header("Service-Worker-Allowed", "/");
+            return build_ok(r, Body::from(file.data.to_vec())).into_response();
         }
     }
 
@@ -192,37 +182,31 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
                     .replace("fill=\"#0a0a0a\"", &format!("fill=\"{}\"", bg))
                     .replace("fill=\"#0B0E14\"", &format!("fill=\"{}\"", bg))
                     .replace("stroke=\"#fab283\"", &format!("stroke=\"{}\"", primary));
-                return Response::builder()
+                let r = Response::builder()
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "image/svg+xml")
-                    .header(header::CACHE_CONTROL, "no-cache")
-                    .body(Body::from(svg))
-                    .unwrap_or_else(|_| {
-                        Response::builder()
-                            .status(StatusCode::INTERNAL_SERVER_ERROR)
-                            .body(Body::empty())
-                            .unwrap()
-                    })
-                    .into_response();
+                    .header(header::CACHE_CONTROL, "no-cache");
+                return build_ok(r, Body::from(svg)).into_response();
             }
         }
     }
 
-    // Try the exact path first
     if let Some(file) = FrontendAssets::get(path) {
+        let etag = etag_from_hash(&file.metadata.sha256_hash());
+        if is_not_modified(&headers, &etag) {
+            return build_ok(
+                Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, &etag),
+                Body::empty(),
+            )
+            .into_response();
+        }
         let mime = mime_guess::from_path(path).first_or_octet_stream();
-        return Response::builder()
+        let r = Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime.as_ref())
-            .header(header::CACHE_CONTROL, "public, max-age=3600")
-            .body(Body::from(file.data.to_vec()))
-            .unwrap_or_else(|_| {
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
-                    .unwrap()
-            })
-            .into_response();
+            .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .header(header::ETAG, &etag);
+        return build_ok(r, Body::from(file.data.to_vec())).into_response();
     }
 
     // Fall back to index.html for SPA routing — inject instance name & theme
@@ -259,18 +243,11 @@ pub async fn serve(State(state): State<ServerState>, uri: axum::http::Uri) -> im
             );
         }
 
-        return Response::builder()
+        let r = Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html")
-            .header(header::CACHE_CONTROL, "no-cache")
-            .body(Body::from(html))
-            .unwrap_or_else(|_| {
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::empty())
-                    .unwrap()
-            })
-            .into_response();
+            .header(header::CACHE_CONTROL, "no-cache");
+        return build_ok(r, Body::from(html)).into_response();
     }
 
     StatusCode::NOT_FOUND.into_response()

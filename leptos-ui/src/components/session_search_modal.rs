@@ -2,6 +2,7 @@
 //! Matches React `SessionSearchModal.tsx`.
 
 use crate::types::api::{ProjectInfo, SessionInfo};
+use crate::utils::format_relative_time as format_timestamp;
 use leptos::prelude::*;
 
 // ── Fuzzy match ─────────────────────────────────────────────────────
@@ -58,31 +59,6 @@ fn fuzzy_match(query: &str, target: &str) -> Option<FuzzyResult> {
     let len_diff = target_chars.len().abs_diff(query_chars.len());
     let score = 100 + gaps * 10 + first_index + len_diff;
     Some(FuzzyResult { score, indices })
-}
-
-fn format_timestamp(ts: f64) -> String {
-    let now = js_sys::Date::now() / 1000.0;
-    let diff = (now - ts) as i64;
-    if diff < 60 {
-        "just now".to_string()
-    } else if diff < 3600 {
-        format!("{}m ago", diff / 60)
-    } else if diff < 86400 {
-        format!("{}h ago", diff / 3600)
-    } else if diff < 604800 {
-        format!("{}d ago", diff / 86400)
-    } else {
-        let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ts * 1000.0));
-        let month = d.to_locale_string("en-US", &wasm_bindgen::JsValue::UNDEFINED);
-        // Fallback: just use short date
-        let m = d.get_month();
-        let day = d.get_date();
-        let months = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-        ];
-        let month_str = months.get(m as usize).unwrap_or(&"???");
-        format!("{} {}", month_str, day)
-    }
 }
 
 const MAX_VISIBLE_RESULTS: usize = 30;

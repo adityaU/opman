@@ -29,6 +29,7 @@ export interface CommandPaletteProps {
   onOpenWorkspaceManager?: () => void;
   onOpenMissions?: () => void;
   onOpenSystemMonitor?: () => void;
+  onOpenSkillsUpload?: () => void;
   sessionId: string | null;
 }
 

@@ -268,3 +268,23 @@
         }
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SWIPE-TO-REVEAL — Hide desktop hover-action buttons on touch
+   devices (phone + tablet) where swipe-to-reveal replaces them.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1400px) {
+    /* Git panel: inline hover action icons */
+    .git-file-actions,
+    .git-file-action {
+        display: none !important
+    }
+
+    /* Git section header: stage-all / unstage-all stay visible,
+       but individual row actions are handled by swipe. */
+
+    /* Explorer sidebar: per-entry hover action buttons */
+    .explorer-entry-actions {
+        display: none !important
+    }
+}

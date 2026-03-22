@@ -5,7 +5,7 @@
         padding-bottom: 0
     }
 
-    .command-palette,.model-picker,.agent-picker,.theme-selector,.cheatsheet-modal,.todo-panel-modal,.session-selector-modal,.context-input-modal,.settings-modal,.watcher-modal,.ctx-window-modal,.diff-review-modal,.cross-session-search-modal {
+    .command-palette,.model-picker,.agent-picker,.theme-selector,.cheatsheet-modal,.todo-panel-modal,.session-selector-modal,.context-input-modal,.settings-modal,.watcher-modal,.ctx-window-modal,.diff-review-modal,.cross-session-search-modal,.health-modal {
         width: 100%;
         max-width: 100%;
         border-radius: 20px 20px 0 0;
@@ -14,7 +14,7 @@
         padding-bottom: env(safe-area-inset-bottom,0px)
     }
 
-    .command-palette:before,.model-picker:before,.agent-picker:before,.theme-selector:before,.cheatsheet-modal:before,.todo-panel-modal:before,.session-selector-modal:before,.context-input-modal:before,.settings-modal:before,.watcher-modal:before,.ctx-window-modal:before,.diff-review-modal:before,.cross-session-search-modal:before {
+    .command-palette:before,.model-picker:before,.agent-picker:before,.theme-selector:before,.cheatsheet-modal:before,.todo-panel-modal:before,.session-selector-modal:before,.context-input-modal:before,.settings-modal:before,.watcher-modal:before,.ctx-window-modal:before,.diff-review-modal:before,.cross-session-search-modal:before,.health-modal:before {
         content: "";
         display: block;
         width: 36px;
@@ -67,6 +67,10 @@
 
     .watcher-modal {
         max-height: calc(92vh - env(safe-area-inset-top,0px))
+    }
+
+    .health-modal {
+        max-height: calc(75vh - env(safe-area-inset-top,0px))
     }
 
     .watcher-modal-body {
