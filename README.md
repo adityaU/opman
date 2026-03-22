@@ -19,6 +19,12 @@ Terminal multiplexer and web UI wrapper for the [opencode](https://github.com/An
 
 ## Install
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/adityaU/opman/master/install.sh | bash
+```
+
+This downloads the latest release binary for your platform and installs it to `~/.local/bin`.
+
 ### From source (Linux / macOS)
 
 ```bash

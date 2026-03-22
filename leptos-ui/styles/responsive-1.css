@@ -216,24 +216,7 @@
 
     .message-timeline-inner {
         padding: 0;
-        gap: 0
-    }
-
-    /* Base turn styling */
-    .message-turn {
-        border-radius: 0
-    }
-
-    .message-turn-wrap:first-child .message-turn {
-        border-radius: var(--radius-lg) var(--radius-lg) 0 0
-    }
-
-    .message-turn-wrap:last-child .message-turn {
-        border-radius: 0 0 var(--radius-lg) var(--radius-lg)
-    }
-
-    .message-turn-wrap:first-child:last-child .message-turn {
-        border-radius: var(--radius-lg)
+        gap: var(--space-2)
     }
 
     /* ── Assistant messages — subtle card, full width ─────────── */
