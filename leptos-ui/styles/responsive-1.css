@@ -271,7 +271,7 @@
        ═════════════════════════════════════════════════════════════ */
 
     .prompt-input-container {
-        padding: var(--space-2) var(--space-3) env(safe-area-inset-bottom, 4px)
+        padding: 0 var(--space-3) env(safe-area-inset-bottom, 4px)
     }
 
     .prompt-input-wrapper {

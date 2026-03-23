@@ -78,7 +78,7 @@
     }
 
     .message-timeline {
-        padding-bottom: calc(var(--space-6) + 4.5rem + env(safe-area-inset-bottom,0))
+        padding-bottom: var(--space-1)
     }
 
     .mobile-input-wrapper {

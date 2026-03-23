@@ -124,21 +124,22 @@ pub fn PromptInput(
 
     // ── Auto-resize textarea ────────────────────────────────────────
     Effect::new(move |_| {
-        let _t = text.get();
-        if let Some(el) = textarea_ref.get() {
-            let ws_el: &web_sys::HtmlElement = &el;
-            let style = ws_el.style();
-            style.set_property("height", "auto").ok();
-            let scroll_height = ws_el.scroll_height();
-            let max_height = 200;
-            let new_height = scroll_height.min(max_height);
-            style.set_property("height", &format!("{}px", new_height)).ok();
-            // Enable scrolling once content exceeds max-height
-            if scroll_height > max_height {
-                style.set_property("overflow-y", "auto").ok();
-            } else {
-                style.set_property("overflow-y", "hidden").ok();
-            }
+        let t = text.get();
+        let Some(el) = textarea_ref.get() else { return; };
+        let ws_el: &web_sys::HtmlElement = &el;
+        // Sync DOM value before measuring — the prop:value binding may
+        // not have flushed yet, so scrollHeight would reflect stale content.
+        el.set_value(&t);
+        let style = ws_el.style();
+        style.set_property("height", "auto").ok();
+        let scroll_height = ws_el.scroll_height();
+        let max_height = 200;
+        let new_height = scroll_height.min(max_height);
+        style.set_property("height", &format!("{}px", new_height)).ok();
+        if scroll_height > max_height {
+            style.set_property("overflow-y", "auto").ok();
+        } else {
+            style.set_property("overflow-y", "hidden").ok();
         }
     });
 
