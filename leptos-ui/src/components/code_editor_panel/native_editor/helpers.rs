@@ -81,7 +81,59 @@ pub fn notify_cursor(buffer: &EditorBuffer, on_cursor: &Callback<(u32, u32)>) {
     on_cursor.run(((line + 1) as u32, (col + 1) as u32));
 }
 
+/// Imperatively update the cursor overlay in the DOM without re-rendering.
+/// Moves the blinking cursor bar and line highlight to the current buffer
+/// position by directly manipulating DOM element styles and classes.
+pub fn update_cursor_in_container(
+    container: &web_sys::HtmlElement,
+    cur_line: usize,
+    cur_col: usize,
+) {
+    let lines = match container.query_selector_all(".native-editor-line") {
+        Ok(l) => l,
+        Err(_) => return,
+    };
+    for i in 0..lines.length() {
+        let Some(node) = lines.item(i) else { continue };
+        let Ok(line_el) = node.dyn_into::<web_sys::HtmlElement>() else {
+            continue;
+        };
+        let is_cur = line_el
+            .dataset()
+            .get("line")
+            .and_then(|s| s.parse::<usize>().ok())
+            == Some(cur_line);
+
+        // Update cursor element visibility
+        if let Ok(Some(cursor_el)) = line_el.query_selector(".native-editor-cursor") {
+            if let Ok(cel) = cursor_el.dyn_into::<web_sys::HtmlElement>() {
+                if is_cur {
+                    cel.style().set_property("display", "").ok();
+                    cel.style()
+                        .set_property("left", &format!("{}ch", cur_col))
+                        .ok();
+                } else {
+                    cel.style().set_property("display", "none").ok();
+                }
+            }
+        }
+
+        // Highlight current line
+        if is_cur {
+            line_el
+                .style()
+                .set_property("background", "rgba(255,255,255,0.04)")
+                .ok();
+        } else {
+            line_el.style().set_property("background", "").ok();
+        }
+    }
+}
+
 /// Render a single editor line (line number + highlighted spans + cursor).
+/// Every line gets a cursor element; it is hidden unless `is_cursor_line`.
+/// This lets the imperative cursor updater move it between lines without
+/// triggering a full reactive DOM re-render.
 pub fn render_line(
     line_idx: usize,
     spans: Vec<super::highlighter::StyledSpan>,
@@ -94,6 +146,7 @@ pub fn render_line(
     } else {
         "display:flex;"
     };
+    let cursor_display = if is_cursor_line { "" } else { "display:none;" };
     view! {
         <div class="native-editor-line" data-line=line_idx.to_string() style=bg>
             <span
@@ -123,18 +176,16 @@ pub fn render_line(
                     };
                     view! { <span class=cls style=style>{sp.text}</span> }
                 }).collect::<Vec<_>>()}
-                {is_cursor_line.then(|| view! {
-                    <span
-                        class="native-editor-cursor"
-                        style=format!(
-                            "position:absolute;left:{}ch;top:0;\
-                             width:2px;height:1.5em;\
-                             background:var(--color-text,#e0e0e0);\
-                             animation:blink 1s step-end infinite;",
-                            cursor_col
-                        )
-                    />
-                })}
+                <span
+                    class="native-editor-cursor"
+                    style=format!(
+                        "position:absolute;left:{}ch;top:0;\
+                         width:2px;height:1.5em;\
+                         background:var(--color-text,#e0e0e0);\
+                         animation:blink 1s step-end infinite;{}",
+                        cursor_col, cursor_display
+                    )
+                />
             </span>
         </div>
     }
