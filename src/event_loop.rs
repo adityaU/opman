@@ -262,10 +262,10 @@ fn handle_kv_watcher(
 
             // Broadcast theme change to web UI clients
             if let Some(ref wsh) = web_state_handle {
-                let colors = web::WebThemeColors::from_theme(&app.theme);
+                let pair = web::WebThemePair::from_active_theme();
                 let wsh = wsh.clone();
                 tokio::spawn(async move {
-                    wsh.set_theme(colors).await;
+                    wsh.set_theme(pair).await;
                 });
             }
 

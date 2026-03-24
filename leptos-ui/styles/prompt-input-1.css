@@ -107,7 +107,7 @@
 
 .prompt-abort-btn {
     background: var(--color-error);
-    color: #fff;
+    color: var(--color-bg);
     animation: pulse-stop 1.5s ease-in-out infinite
 }
 
@@ -170,7 +170,7 @@
     height: 16px;
     border-radius: 50%;
     background: var(--black-70);
-    color: #fff;
+    color: var(--color-bg);
     border: none;
     cursor: pointer;
     display: flex;
@@ -190,7 +190,7 @@
     left: 0;
     right: 0;
     font-size: 8px;
-    color: #fff;
+    color: var(--color-text);
     background: linear-gradient(transparent,var(--black-70));
     padding: 2px 3px;
     text-overflow: ellipsis;

@@ -1,11 +1,12 @@
 //! ToolCall — accordion-style tool call rendering with status, duration, input/output.
-//! Leptos port of `web-ui/src/tool-call/ToolCall.tsx` + `components.tsx`.
-//! Matches React CSS classes exactly (tool-call, tool-call-header, tool-call-name, etc.)
 
+pub mod bash_output;
 pub mod helpers;
 pub mod sub_components;
 pub mod task_render;
 
+use bash_output::{extract_bash_info, BashTerminalOutput};
+use helpers::auto_expand_default;
 pub use helpers::{
     format_duration, format_tool_name, get_task_session_id, ChildSessionRef, SubagentMessagesMap,
 };
@@ -38,7 +39,6 @@ pub fn ToolCallView(
     let is_bash_tool =
         tool_name.contains("bash") || tool_name.contains("shell") || tool_name.contains("terminal");
     let is_edit_tool = tool_name.contains("edit") && !tool_name.contains("neovim");
-
     let status = part
         .state
         .as_ref()
@@ -47,37 +47,26 @@ pub fn ToolCallView(
     let is_error = status == "error";
     let is_completed = status == "completed";
     let is_running = status == "running" || status == "pending";
-
     let task_session_id = if is_task_tool {
         get_task_session_id(&part, child_session.as_ref())
     } else {
         None
     };
-
-    let has_subagent_messages = if is_task_tool {
-        if let (Some(sid), Some(ref msgs)) = (&task_session_id, &subagent_messages) {
-            msgs.get(sid).map_or(false, |m| !m.is_empty())
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
+    let has_subagent_messages = is_task_tool
+        && matches!(
+            (&task_session_id, &subagent_messages),
+            (Some(sid), Some(msgs)) if msgs.get(sid).map_or(false, |m| !m.is_empty())
+        );
     let duration_ms = part.state.as_ref().and_then(|s| {
         let time = s.time.as_ref()?;
-        let start = time.start?;
-        let end = time.end?;
-        Some(end - start)
+        Some(time.end? - time.start?)
     });
-
     let input_data = part.state.as_ref().and_then(|s| s.input.clone());
     let has_input = input_data.as_ref().map_or(false, |d| match d {
         serde_json::Value::String(s) => !s.is_empty(),
         serde_json::Value::Object(m) => !m.is_empty(),
         _ => false,
     });
-
     let final_output = part.state.as_ref().and_then(|s| s.output.clone());
     let live_output = part
         .state
@@ -88,22 +77,14 @@ pub fn ToolCallView(
         .map(|s| s.to_string());
     let output_data = final_output.filter(|s| !s.is_empty()).or(live_output);
     let has_output = output_data.as_ref().map_or(false, |s| !s.is_empty());
-
     let error_text = if is_error {
         part.state
             .as_ref()
             .and_then(|s| s.error.clone())
-            .or_else(|| {
-                if !has_output {
-                    Some("Tool call failed".to_string())
-                } else {
-                    None
-                }
-            })
+            .or_else(|| (!has_output).then(|| "Tool call failed".to_string()))
     } else {
         None
     };
-
     let is_truncated = part
         .state
         .as_ref()
@@ -112,10 +93,16 @@ pub fn ToolCallView(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let initial_expanded =
-        is_todo_write || (is_task_tool && (is_running || is_completed || is_error));
+    let initial_expanded = auto_expand_default(
+        is_todo_write,
+        is_task_tool,
+        is_bash_tool,
+        is_running,
+        is_completed,
+        is_error,
+        has_subagent_messages,
+    );
 
-    // Stable key for accordion state persistence across re-renders.
     let accordion_key = part
         .tool_call_id
         .clone()
@@ -123,52 +110,20 @@ pub fn ToolCallView(
         .or_else(|| part.id.clone())
         .unwrap_or_default();
 
-    // Read shared accordion state from context (survives parent re-renders).
     let accordion_ctx = use_context::<AccordionState>();
-
-    // Determine expanded state: if user previously toggled, use that; else compute default.
-    let (user_toggled, default_expanded) = if let Some(AccordionState(map)) = accordion_ctx {
-        if let Some(&saved) = map
-            .with_untracked(|m| m.get(&accordion_key).copied())
-            .as_ref()
-        {
-            (true, saved)
-        } else {
-            // Compute auto-expand default
-            let mut exp = initial_expanded;
-            if is_bash_tool && is_running {
-                exp = true;
-            }
-            if is_task_tool && (is_running || has_subagent_messages) {
-                exp = true;
-            }
-            if !is_todo_write && is_completed {
-                exp = false;
-            }
-            (false, exp)
-        }
+    let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
+        map.with_untracked(|m| m.get(&accordion_key).copied())
+            .unwrap_or(initial_expanded)
     } else {
-        let mut exp = initial_expanded;
-        if is_bash_tool && is_running {
-            exp = true;
-        }
-        if is_task_tool && (is_running || has_subagent_messages) {
-            exp = true;
-        }
-        if !is_todo_write && is_completed {
-            exp = false;
-        }
-        (false, exp)
+        initial_expanded
     };
 
     let (expanded, set_expanded) = signal(default_expanded);
-    let _ = user_toggled; // suppress unused warning — used only to choose initial value
 
     let ak_for_toggle = accordion_key.clone();
     let handle_toggle = move |_: web_sys::MouseEvent| {
         let new_val = !expanded.get_untracked();
         set_expanded.set(new_val);
-        // Persist in shared context so re-renders preserve user's choice
         if let Some(AccordionState(map)) = accordion_ctx {
             map.update(|m| {
                 m.insert(ak_for_toggle.clone(), new_val);
@@ -182,7 +137,6 @@ pub fn ToolCallView(
         .map(|cs| cs.title.clone())
         .unwrap_or_else(|| "Task".to_string());
 
-    // ── Task tool: render inline without accordion ──
     if is_task_tool {
         return render_task_tool(
             task_session_id,
@@ -200,7 +154,6 @@ pub fn ToolCallView(
         );
     }
 
-    // ── Standard tool: accordion ──
     let wrapper_class = if is_error {
         "tool-call tool-call-error"
     } else {
@@ -264,6 +217,25 @@ pub fn ToolCallView(
                                 <div class="tool-call-section">
                                     <div class="tool-call-section-label">"Todos"</div>
                                     <TodoList input=input.clone().unwrap_or(serde_json::Value::Null) />
+                                </div>
+                            }.into_any()
+                        } else if is_bash_tool {
+                            let inp = input.clone().unwrap_or(serde_json::Value::Null);
+                            let (cmd, desc) = extract_bash_info(&inp);
+                            let out = output.clone();
+                            view! {
+                                <div class="tool-call-section">
+                                    {is_truncated.then(|| view! {
+                                        <span class="tool-call-truncated">"[truncated] "</span>
+                                    })}
+                                    <BashTerminalOutput
+                                        command=cmd
+                                        description=desc
+                                        output=out
+                                        is_live=is_running
+                                        is_error=is_error
+                                        error_text=err
+                                    />
                                 </div>
                             }.into_any()
                         } else {

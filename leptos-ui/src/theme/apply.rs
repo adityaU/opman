@@ -1,10 +1,4 @@
-//! Apply theme colors to CSS custom properties on the document element.
-//!
-//! Chrome on Android samples the page background to derive the bottom
-//! gesture/navigation bar tint, and reads `<meta name="color-scheme">`
-//! to decide dark vs light mode for system UI. We paint backgrounds on
-//! `<html>`, `<body>`, AND the mount root so no transparent gap lets
-//! the system default bleed through.
+//! Apply theme colors and appearance (light/dark/system) to CSS custom properties.
 
 use crate::types::api::ThemeColors;
 use wasm_bindgen::JsCast;
@@ -129,6 +123,80 @@ pub fn set_theme_mode(mode: &str) {
 pub fn init_theme_mode() {
     let mode = get_theme_mode();
     set_theme_mode(&mode);
+}
+
+// ── Appearance (light / dark / system) ──────────────────────────────
+
+/// Read the persisted appearance setting from localStorage.
+/// Returns `"system"`, `"light"`, or `"dark"`.
+pub fn get_appearance() -> String {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok())
+        .flatten()
+        .and_then(|s| s.get_item("opman-appearance").ok())
+        .flatten()
+        .unwrap_or_else(|| "dark".to_string())
+}
+
+/// Persist the appearance setting and toggle `html.light-theme` class.
+pub fn set_appearance(appearance: &str) {
+    if let Some(storage) = web_sys::window()
+        .and_then(|w| w.local_storage().ok())
+        .flatten()
+    {
+        let _ = storage.set_item("opman-appearance", appearance);
+    }
+    apply_appearance_class(appearance);
+}
+
+/// Resolve appearance to the effective mode: `"dark"` or `"light"`.
+pub fn resolve_appearance(appearance: &str) -> &'static str {
+    match appearance {
+        "light" => "light",
+        "dark" => "dark",
+        _ => {
+            // "system" — check OS preference
+            if system_prefers_dark() {
+                "dark"
+            } else {
+                "light"
+            }
+        }
+    }
+}
+
+/// Check whether the OS prefers dark mode via `matchMedia`.
+pub fn system_prefers_dark() -> bool {
+    web_sys::window()
+        .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok())
+        .flatten()
+        .map(|mq| mq.matches())
+        .unwrap_or(true) // default to dark if unknown
+}
+
+/// Apply the `light-theme` CSS class based on the effective mode.
+fn apply_appearance_class(appearance: &str) {
+    let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    else {
+        return;
+    };
+    let effective = resolve_appearance(appearance);
+    let cl = root.class_list();
+    if effective == "light" {
+        let _ = cl.add_1("light-theme");
+    } else {
+        let _ = cl.remove_1("light-theme");
+    }
+    // Also set data-appearance for CSS selectors
+    let _ = root.set_attribute("data-appearance", effective);
+}
+
+/// Initialize appearance from localStorage on startup.
+pub fn init_appearance() {
+    let appearance = get_appearance();
+    apply_appearance_class(&appearance);
 }
 
 /// Update all `<meta name="theme-color">` tags, creating them if missing.

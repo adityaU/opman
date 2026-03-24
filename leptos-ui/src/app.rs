@@ -34,8 +34,9 @@ pub fn App() -> impl IntoView {
     let (bootstrap_ready, set_bootstrap_ready) = signal(false);
     let (app_name, set_app_name) = signal("opman".to_string());
 
-    // Initialize theme mode from localStorage on mount
+    // Initialize theme mode and appearance from localStorage on mount
     crate::theme::init_theme_mode();
+    crate::theme::init_appearance();
 
     // Run bootstrap + auth check
     leptos::task::spawn_local(async move {
@@ -43,12 +44,20 @@ pub fn App() -> impl IntoView {
         let bootstrap_done = async {
             match crate::api::fetch_bootstrap().await {
                 Ok(data) => {
-                    if let Some(ref theme) = data.theme {
-                        crate::theme::apply_theme_to_css(theme);
+                    if let Some(ref pair) = data.theme {
+                        // Store both variants for the system appearance listener
+                        crate::theme::store_theme_pair(pair);
+                        // Pick the correct variant based on the user's appearance
+                        let appearance = crate::theme::get_appearance();
+                        let effective = crate::theme::resolve_appearance(&appearance);
+                        let colors = if effective == "light" { &pair.light } else { &pair.dark };
+                        crate::theme::apply_theme_to_css(colors);
                     }
                     if let Some(ref name) = data.instance_name {
                         set_app_name.set(name.clone());
                     }
+                    // Install the system appearance listener after we have theme data
+                    crate::theme::install_system_listener();
                 }
                 Err(e) => {
                     log::warn!("Bootstrap fetch failed: {}", e);

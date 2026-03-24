@@ -259,7 +259,7 @@
 }
 
 .session-graph-node.active {
-    background: #7c3aed26;
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
     border-left: 3px solid var(--color-accent, #7c3aed)
 }
 

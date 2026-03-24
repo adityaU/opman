@@ -40,7 +40,7 @@ pub fn PermissionDock(
 
             Some(view! {
                 <div
-                    class="permission-dock mx-4 mb-2 rounded-lg border border-warning/30 bg-bg-panel/95 backdrop-blur-sm shadow-lg overflow-hidden"
+                    class="permission-dock mx-4 mb-2 rounded-lg border border-warning/30 bg-bg-panel/95 backdrop-blur-sm shadow-lg overflow-hidden flex flex-col"
                     role="alertdialog"
                     aria-label="Permission requests"
                 >
@@ -163,7 +163,7 @@ fn PermissionCard(
             }
         >
             // Header
-            <div class="flex items-center gap-2 px-3 py-2 border-b border-border-subtle">
+            <div class="flex items-center gap-2 px-3 py-2 border-b border-border-subtle shrink-0">
                 <span class="text-warning font-bold">"!"</span>
                 <span class="text-sm font-medium text-text">"Permission Required"</span>
                 {if is_cross_session {
@@ -206,7 +206,7 @@ fn PermissionCard(
             </div>
 
             // Body
-            <div class="px-3 py-2 space-y-1.5">
+            <div class="px-3 py-2 space-y-1.5 overflow-y-auto min-h-0 flex-1">
                 <div class="text-sm font-mono text-primary">
                     {if tool_name.is_empty() { "Unknown permission".to_string() } else { tool_name }}
                 </div>
@@ -230,7 +230,7 @@ fn PermissionCard(
             </div>
 
             // Actions
-            <div class="flex items-center gap-2 px-3 py-2 border-t border-border-subtle">
+            <div class="flex items-center gap-2 px-3 py-2 border-t border-border-subtle shrink-0">
                 <button
                     node_ref=allow_once_ref
                     class="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-success/20 text-success hover:bg-success/30 transition-colors"

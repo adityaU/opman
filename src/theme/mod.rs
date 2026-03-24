@@ -8,5 +8,5 @@ mod types;
 mod tests;
 
 pub use colors::{ansi_palette_from_theme, color_to_hex};
-pub use loading::{deploy_embedded_themes, load_theme};
+pub use loading::{deploy_embedded_themes, load_theme, load_theme_with_mode};
 pub use types::ThemeColors;

@@ -59,6 +59,25 @@
             background-color: var(--color-bg, #0a0a0a);
         }
     </style>
+    <!-- Appearance preload: apply saved appearance/theme-mode classes before paint -->
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('opman-theme-mode');
+          if (mode === 'flat') document.documentElement.classList.add('flat-theme');
+          var app = localStorage.getItem('opman-appearance') || 'dark';
+          var effective = app;
+          if (app === 'system') {
+            effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          if (effective === 'light') {
+            document.documentElement.classList.add('light-theme');
+            document.documentElement.style.colorScheme = 'light';
+          }
+          document.documentElement.setAttribute('data-appearance', effective);
+        } catch(e) {}
+      })();
+    </script>
 </head>
 <body>
     <div id="leptos-root"></div>

@@ -50,24 +50,28 @@
     background: var(--color-bg-panel, var(--color-bg))
 }
 
-.git-panel-toolbar-row,.git-panel-tabs,.git-ai-actions,.git-commit-form,.git-section,.git-log-view,.git-diff-fullview,.git-commit-detail {
+.git-panel-toolbar-row,.git-ai-actions,.git-commit-form,.git-section,.git-log-view,.git-diff-fullview,.git-commit-detail {
     margin: 10px 12px 0
 }
 
-.git-panel-tabs,.git-ai-actions {
+.git-panel-tabs {
+    margin: 0
+}
+
+.git-ai-actions {
     padding: 8px;
     border-radius: 16px;
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface)
 }
 
-.git-tab,.git-branch-toggle,.git-file-action {
+.git-file-action {
     border-radius: 12px
 }
 
-.git-branch-toggle,.git-branch-filter,.git-commit-input {
-    min-height: 40px;
-    border-radius: 12px;
+.git-branch-filter,.git-commit-input {
+    min-height: 36px;
+    border-radius: 10px;
     border: 1px solid var(--color-border);
     background: var(--color-bg-element)
 }
@@ -236,6 +240,48 @@ html.flat-theme .git-repo-dropdown {
 
 html.flat-theme .git-repo-item:hover {
     background: var(--color-bg)
+}
+
+/* Flat theme overrides for header/tabs/branch */
+
+html.flat-theme .git-panel-tabs {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .git-tab:hover {
+    background: var(--color-surface-hover)
+}
+
+html.flat-theme .git-tab.active {
+    background: var(--color-primary, #fab283);
+    color: var(--color-bg, #000)
+}
+
+html.flat-theme .git-branch-toggle {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .git-branch-toggle:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: var(--color-bg)
+}
+
+html.flat-theme .git-panel-refresh {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .git-panel-refresh:hover {
+    background: var(--color-bg);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .git-branch-dropdown {
+    background: var(--color-bg-panel);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 16px var(--black-15)
 }
 
 /* ── PR Branch Picker ──────────────────────────── */

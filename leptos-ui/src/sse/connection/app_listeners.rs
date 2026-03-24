@@ -90,10 +90,15 @@ pub fn wire_app_listeners(
         let cb = Closure::<dyn Fn(web_sys::MessageEvent)>::new(
             move |e: web_sys::MessageEvent| {
                 let data = e.data().as_string().unwrap_or_default();
-                if let Ok(colors) =
-                    serde_json::from_str::<crate::types::api::ThemeColors>(&data)
+                if let Ok(pair) =
+                    serde_json::from_str::<crate::types::api::ThemePair>(&data)
                 {
-                    crate::theme::apply_theme_to_css(&colors);
+                    // Store for system listener
+                    crate::theme::store_theme_pair(&pair);
+                    let appearance = crate::theme::get_appearance();
+                    let effective = crate::theme::resolve_appearance(&appearance);
+                    let colors = if effective == "light" { &pair.light } else { &pair.dark };
+                    crate::theme::apply_theme_to_css(colors);
                 }
             },
         );

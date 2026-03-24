@@ -115,9 +115,9 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
     let path = uri.path().trim_start_matches('/');
 
     // Resolve theme colours once — used by manifest, favicon & index patches.
-    let theme_colors = state.web_state.get_theme().await;
-    let theme_bg: Option<String> = theme_colors.as_ref().map(|t| t.background.clone());
-    let theme_primary: Option<String> = theme_colors.as_ref().map(|t| t.primary.clone());
+    let theme_pair = state.web_state.get_theme().await;
+    let theme_bg: Option<String> = theme_pair.as_ref().map(|t| t.dark.background.clone());
+    let theme_primary: Option<String> = theme_pair.as_ref().map(|t| t.dark.primary.clone());
 
     // ── Dynamic manifest.json ───────────────────────────────────────
     if path == "manifest.json" {

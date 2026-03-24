@@ -211,8 +211,8 @@
     margin-top: 8px;
     padding: 8px 10px;
     border-radius: 8px;
-    background: #388bfd14;
-    border: 1px solid rgba(56,139,253,.16)
+    background: color-mix(in srgb, var(--color-info) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-info) 16%, transparent)
 }
 
 .assistant-inbox-handoff-title {
@@ -220,7 +220,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: #58a6ff
+    color: var(--color-info)
 }
 
 .assistant-inbox-handoff-next {
@@ -241,7 +241,7 @@
     padding: 4px 8px;
     border-radius: 999px;
     border: 1px solid var(--color-border, #21262d);
-    background: #ffffff0a;
+    background: var(--white-4);
     color: var(--color-text, #e6edf3);
     font-size: var(--font-size-2xs);
     cursor: pointer

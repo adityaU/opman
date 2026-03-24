@@ -1,39 +1,46 @@
 
 .git-panel-refresh:hover {
-    background: var(--white-6);
-    color: var(--color-text)
+    background: var(--white-8);
+    color: var(--color-text);
+    border-color: var(--color-border)
 }
 
 .git-panel-tabs {
-    display: flex;
-    gap: 0
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-full, 999px);
+    background: var(--white-4);
+    border: 1px solid var(--color-border-subtle, var(--white-6));
+    flex-shrink: 0
 }
 
 .git-tab {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    padding: 4px 8px;
+    padding: 4px 12px;
     background: none;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: var(--radius-full, 999px);
     color: var(--color-text-muted);
     cursor: pointer;
     font-size: var(--font-size-2xs);
     font-weight: 500;
     white-space: nowrap;
-    transition: all var(--transition-base)
+    transition: all .15s ease
 }
 
 .git-tab:hover {
     color: var(--color-text);
-    background: var(--white-2)
+    background: var(--white-4)
 }
 
 .git-tab.active {
-    color: var(--color-primary, #fab283);
-    border-bottom-color: var(--color-primary, #fab283)
+    color: var(--color-bg, #000);
+    background: var(--color-primary, #fab283);
+    font-weight: 600
 }
 
 .git-tab-badge {
@@ -44,10 +51,15 @@
     height: 16px;
     padding: 0 4px;
     border-radius: 8px;
-    background: #fab28326;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
     color: var(--color-primary, #fab283);
     font-size: var(--font-size-2xs);
     font-weight: 600
+}
+
+.git-tab.active .git-tab-badge {
+    background: color-mix(in srgb, var(--color-bg) 25%, transparent);
+    color: var(--color-bg, #000)
 }
 
 .git-changes-list {
@@ -121,7 +133,7 @@
 }
 
 .git-file-row.selected {
-    background: #fab28314
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent)
 }
 
 .git-file-row-static {
@@ -212,7 +224,7 @@
     width: 100%;
     margin-top: var(--space-1);
     padding: 6px;
-    background: #fab2831a;
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
     border: .5px solid rgba(250,178,131,.3);
     border-radius: 6px;
     color: var(--color-primary, #fab283);
@@ -223,7 +235,7 @@
 }
 
 .git-commit-button:hover:not(:disabled) {
-    background: #fab2832e
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent)
 }
 
 .git-commit-button:disabled {

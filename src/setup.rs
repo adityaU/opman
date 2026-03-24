@@ -77,7 +77,7 @@ pub(crate) async fn setup_web_server(
         ).await;
         info!("Web UI available at http://localhost:{}", actual_port);
         // Set the initial theme so web clients can fetch it immediately
-        let initial_theme = web::WebThemeColors::from_theme(&app.theme);
+        let initial_theme = web::WebThemePair::from_active_theme();
         let wsh_clone = wsh.clone();
         tokio::spawn(async move {
             wsh_clone.set_theme(initial_theme).await;

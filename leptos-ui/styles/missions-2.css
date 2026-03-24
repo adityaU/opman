@@ -25,16 +25,16 @@
     align-items: center;
     padding: 4px 8px;
     border-radius: 999px;
-    background: #ffffff0d;
+    background: var(--white-5);
     border: 1px solid var(--color-border, #21262d);
     color: var(--color-text, #e6edf3);
     font-size: var(--font-size-2xs)
 }
 
 .mission-handoff-chip-blocker {
-    background: #f851491f;
-    border-color: #f851493d;
-    color: #ffaba8
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-error) 24%, transparent);
+    color: var(--color-error)
 }
 
 .mission-handoff-footer {

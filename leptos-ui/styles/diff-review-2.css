@@ -47,7 +47,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #ffffff0a;
+    background: var(--white-4);
     border: 1px solid var(--color-border, #484848);
     color: var(--color-text, #eeeeee);
     font-family: inherit;
@@ -59,7 +59,7 @@
 }
 
 .diff-review-btn:hover:not(:disabled) {
-    background: #ffffff14;
+    background: var(--white-8);
     border-color: var(--color-text-muted, #808080)
 }
 
@@ -128,7 +128,7 @@
 .diff-review-footer-hint kbd {
     display: inline-block;
     padding: 1px 5px;
-    background: #ffffff0a;
+    background: var(--white-4);
     border: 1px solid var(--color-border, #484848);
     border-radius: 3px;
     font-size: var(--font-size-2xs);

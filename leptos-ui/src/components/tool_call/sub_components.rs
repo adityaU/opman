@@ -89,7 +89,7 @@ pub fn ToolOutput(
                 "tool-call-pre"
             };
 
-            // Auto-scroll live output to bottom (matches React useEffect)
+            // Auto-scroll live output only if user is near bottom
             if is_live {
                 let content_clone = content.clone();
                 let live_ref_clone = live_ref.clone();
@@ -97,7 +97,10 @@ pub fn ToolOutput(
                     let _ = &content_clone;
                     if let Some(el) = live_ref_clone.get() {
                         let el: &HtmlElement = &el;
-                        el.set_scroll_top(el.scroll_height());
+                        let distance = el.scroll_height() - el.scroll_top() - el.client_height();
+                        if distance < 80 || el.scroll_top() == 0 {
+                            el.set_scroll_top(el.scroll_height());
+                        }
                     }
                 });
             }

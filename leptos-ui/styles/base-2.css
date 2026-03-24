@@ -64,7 +64,7 @@
 
 .error-boundary-btn-primary {
     background: var(--color-primary);
-    color: #fff
+    color: var(--color-bg)
 }
 
 .error-boundary-btn-secondary {

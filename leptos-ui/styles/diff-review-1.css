@@ -146,7 +146,7 @@
 
 .diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover {
     color: var(--color-text, #eeeeee);
-    background: #ffffff14
+    background: var(--white-8)
 }
 
 .diff-review-body {

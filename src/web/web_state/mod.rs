@@ -68,8 +68,8 @@ pub(super) struct WebStateInner {
     pub(super) session_stats: HashMap<String, WebSessionStats>,
     /// Set of session IDs currently busy.
     pub(super) busy_sessions: HashSet<String>,
-    /// Current theme colors (hex strings) for the web frontend.
-    pub(super) theme: Option<WebThemeColors>,
+    /// Current theme colors (dark + light variants) for the web frontend.
+    pub(super) theme: Option<WebThemePair>,
     // ── Watcher state ────────────────────────────────────────────
     /// Active watcher configurations, keyed by session ID.
     pub(super) session_watchers: HashMap<String, WatcherConfigInternal>,

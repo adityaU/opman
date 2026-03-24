@@ -99,12 +99,20 @@ pub struct ThemeColors {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemePreview {
     pub name: String,
-    pub colors: ThemeColors,
+    pub dark: ThemeColors,
+    pub light: ThemeColors,
+}
+
+/// Both dark and light variants of the active theme (from bootstrap, SSE, switch).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThemePair {
+    pub dark: ThemeColors,
+    pub light: ThemeColors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootstrapData {
-    pub theme: Option<ThemeColors>,
+    pub theme: Option<ThemePair>,
     pub instance_name: Option<String>,
 }
 

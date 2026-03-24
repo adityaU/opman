@@ -94,7 +94,7 @@ pub fn ChatMainArea(
     // Resizable sidebar — matches React usePanelState.ts
     let sidebar_resize = use_resizable(ResizableOptions {
         initial_size: 280.0,
-        min_size: 200.0,
+        min_size: 160.0,
         max_size: 500.0,
         direction: ResizeDirection::Horizontal,
         reverse: false,
@@ -103,8 +103,8 @@ pub fn ChatMainArea(
     // Resizable terminal — matches React usePanelState.ts
     let terminal_resize = use_resizable(ResizableOptions {
         initial_size: 250.0,
-        min_size: 120.0,
-        max_size: 600.0,
+        min_size: 80.0,
+        max_size: 800.0,
         direction: ResizeDirection::Vertical,
         reverse: true,
     });
@@ -112,8 +112,8 @@ pub fn ChatMainArea(
     // Resizable side panel (editor/git) — matches React usePanelState.ts
     let side_panel_resize = use_resizable(ResizableOptions {
         initial_size: 500.0,
-        min_size: 300.0,
-        max_size: 900.0,
+        min_size: 200.0,
+        max_size: 1200.0,
         direction: ResizeDirection::Horizontal,
         reverse: true,
     });

@@ -72,7 +72,7 @@
     text-transform: uppercase;
     letter-spacing: .05em;
     color: var(--color-text-muted, #808080);
-    background: #ffffff05
+    background: var(--white-2)
 }
 
 .cross-session-search-session-title {
@@ -106,7 +106,7 @@
 }
 
 .cross-session-search-result:hover,.cross-session-search-result.selected {
-    background: #ffffff0a
+    background: var(--white-4)
 }
 
 .cross-session-search-result-meta {

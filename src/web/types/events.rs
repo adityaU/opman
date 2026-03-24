@@ -44,7 +44,7 @@ pub enum WebEvent {
         session_id: String,
     },
     StatsUpdated(WebSessionStats),
-    ThemeChanged(WebThemeColors),
+    ThemeChanged(WebThemePair),
     /// Watcher status changed (created, deleted, countdown, triggered).
     WatcherStatusChanged(WatcherStatusEvent),
     /// MCP: AI agent opened a file in the editor.
@@ -160,11 +160,29 @@ fn color_to_hex(c: Color) -> String {
     }
 }
 
-/// Theme preview: name + resolved colors for all 15 fields.
+/// Theme preview: name + resolved colors for both appearances.
 #[derive(Serialize, Clone)]
 pub struct ThemePreview {
     pub name: String,
-    pub colors: WebThemeColors,
+    pub dark: WebThemeColors,
+    pub light: WebThemeColors,
+}
+
+/// Both dark and light variants of the active theme.
+/// Sent via bootstrap, `/api/theme`, SSE `theme_changed`, and `/api/theme/switch`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebThemePair {
+    pub dark: WebThemeColors,
+    pub light: WebThemeColors,
+}
+
+impl WebThemePair {
+    /// Build from the currently active theme name by loading both variants.
+    pub fn from_active_theme() -> Self {
+        let dark = WebThemeColors::from_theme(&crate::theme::load_theme_with_mode("dark"));
+        let light = WebThemeColors::from_theme(&crate::theme::load_theme_with_mode("light"));
+        Self { dark, light }
+    }
 }
 
 /// Request to switch the active theme.

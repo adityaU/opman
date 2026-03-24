@@ -256,8 +256,8 @@ impl super::WebStateHandle {
         Some((project.path.clone(), project.name.clone(), sessions))
     }
 
-    /// Get the current theme colors (if set).
-    pub async fn get_theme(&self) -> Option<WebThemeColors> {
+    /// Get the current theme pair (dark + light) if set.
+    pub async fn get_theme(&self) -> Option<WebThemePair> {
         let inner = self.inner.read().await;
         inner.theme.clone()
     }

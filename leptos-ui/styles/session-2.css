@@ -13,7 +13,7 @@
 }
 
 .session-graph-status.busy {
-    background: #3fb950;
+    background: var(--color-success);
     animation: pulse-dot 1.5s infinite
 }
 
@@ -25,7 +25,7 @@
     font-size: var(--font-size-2xs);
     padding: 1px 6px;
     border-radius: 4px;
-    background: #7c3aed26;
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
     color: var(--color-accent, #7c3aed);
     white-space: nowrap
 }
@@ -106,7 +106,7 @@
 }
 
 .session-graph-legend-busy {
-    color: #3fb950
+    color: var(--color-success)
 }
 
 .session-graph-legend-idle {
@@ -206,7 +206,7 @@
 }
 
 .session-dashboard-stats .busy-count {
-    color: #3fb950
+    color: var(--color-success)
 }
 
 .session-dashboard-controls {
@@ -260,11 +260,11 @@
 
 .session-dashboard-card.active {
     border-color: var(--color-accent, #7c3aed);
-    background: #7c3aed14
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent)
 }
 
 .session-dashboard-card.busy {
-    border-left: 3px solid #3fb950
+    border-left: 3px solid var(--color-success)
 }
 
 .session-dashboard-card-title {

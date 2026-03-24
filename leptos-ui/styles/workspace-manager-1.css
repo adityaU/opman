@@ -189,8 +189,8 @@
 }
 
 .workspace-mgr-item.active {
-    background: #388bfd14;
-    border-left: 2px solid #388bfd
+    background: color-mix(in srgb, var(--color-info) 8%, transparent);
+    border-left: 2px solid var(--color-info)
 }
 
 .workspace-mgr-item.template {
@@ -221,7 +221,7 @@
 
 .workspace-mgr-item-recipe-meta {
     font-size: var(--font-size-2xs);
-    color: #58a6ff;
+    color: var(--color-info);
     line-height: 1.4
 }
 
@@ -240,14 +240,14 @@
     border-radius: 6px;
     border: 1px solid var(--color-border, #21262d);
     background: var(--color-surface, #161b22);
-    color: #388bfd;
+    color: var(--color-info);
     font-size: var(--font-size-2xs);
     font-weight: 500;
     cursor: pointer
 }
 
 .workspace-mgr-restore-btn:hover {
-    background: #388bfd1f
+    background: color-mix(in srgb, var(--color-info) 12%, transparent)
 }
 
 .workspace-mgr-delete-btn {
@@ -262,8 +262,8 @@
 }
 
 .workspace-mgr-delete-btn:hover {
-    color: #f85149;
-    background: #f851491a
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 10%, transparent)
 }
 
 .workspace-mgr-footer {

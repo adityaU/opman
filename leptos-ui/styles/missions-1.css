@@ -55,8 +55,8 @@
     height: 22px;
     padding: 0 8px;
     border-radius: 999px;
-    background: #388bfd26;
-    color: #388bfd;
+    background: color-mix(in srgb, var(--color-info) 15%, transparent);
+    color: var(--color-info);
     font-size: var(--font-size-2xs);
     font-weight: 600
 }
@@ -151,15 +151,15 @@
     padding: 8px 14px;
     border-radius: 8px;
     border: 1px solid rgba(56,139,253,.4);
-    background: #388bfd24;
-    color: #58a6ff;
+    background: color-mix(in srgb, var(--color-info) 14%, transparent);
+    color: var(--color-info);
     font-size: var(--font-size-xs);
     font-weight: 600;
     cursor: pointer
 }
 
 .missions-create-btn:hover:not(:disabled) {
-    background: #388bfd38
+    background: color-mix(in srgb, var(--color-info) 22%, transparent)
 }
 
 .missions-create-btn:disabled {
@@ -254,7 +254,7 @@
 
 .missions-item-project {
     font-size: var(--font-size-2xs);
-    color: #388bfd;
+    color: var(--color-info);
     white-space: nowrap;
     flex-shrink: 0
 }
@@ -281,7 +281,7 @@
     gap: 4px;
     background: none;
     border: none;
-    color: #58a6ff;
+    color: var(--color-info);
     font-size: var(--font-size-2xs);
     cursor: pointer;
     padding: 4px 0
@@ -324,23 +324,23 @@
 }
 
 .missions-eval-verdict-achieved {
-    background: #3fb95020;
-    color: #3fb950
+    background: color-mix(in srgb, var(--color-success) 12%, transparent);
+    color: var(--color-success)
 }
 
 .missions-eval-verdict-continue {
-    background: #388bfd20;
-    color: #58a6ff
+    background: color-mix(in srgb, var(--color-info) 12%, transparent);
+    color: var(--color-info)
 }
 
 .missions-eval-verdict-blocked {
-    background: #e6a81720;
-    color: #e6a817
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    color: var(--color-warning)
 }
 
 .missions-eval-verdict-failed {
-    background: #f8514920;
-    color: #f85149
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    color: var(--color-error)
 }
 
 .missions-eval-summary {
@@ -374,14 +374,14 @@
     color: var(--color-muted, #8b949e)
 }
 
-.missions-action-start { color: #3fb950 }
-.missions-action-start:hover { background: #3fb9501a }
-.missions-action-pause { color: #e6a817 }
-.missions-action-pause:hover { background: #e6a8171a }
-.missions-action-resume { color: #58a6ff }
-.missions-action-resume:hover { background: #388bfd1a }
-.missions-action-cancel { color: #f85149 }
-.missions-action-cancel:hover { background: #f851491a }
+.missions-action-start { color: var(--color-success) }
+.missions-action-start:hover { background: color-mix(in srgb, var(--color-success) 10%, transparent) }
+.missions-action-pause { color: var(--color-warning) }
+.missions-action-pause:hover { background: color-mix(in srgb, var(--color-warning) 10%, transparent) }
+.missions-action-resume { color: var(--color-info) }
+.missions-action-resume:hover { background: color-mix(in srgb, var(--color-info) 10%, transparent) }
+.missions-action-cancel { color: var(--color-error) }
+.missions-action-cancel:hover { background: color-mix(in srgb, var(--color-error) 10%, transparent) }
 
 .missions-delete-btn {
     display: inline-flex;
@@ -397,6 +397,6 @@
 }
 
 .missions-delete-btn:hover {
-    color: #f85149;
-    background: #f851491a
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 10%, transparent)
 }

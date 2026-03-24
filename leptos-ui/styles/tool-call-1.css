@@ -397,3 +397,87 @@
     white-space: nowrap;
     flex-shrink: 0
 }
+
+/* ── Bash terminal output ─────────────────────────────────────── */
+
+.bash-terminal {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--color-bg)
+}
+
+.bash-terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: color-mix(in srgb, var(--color-surface) 70%, var(--color-bg));
+    border-bottom: 1px solid var(--color-border-subtle);
+    min-height: 0
+}
+
+.bash-terminal-prompt {
+    display: flex;
+    align-items: center;
+    color: var(--color-success);
+    flex-shrink: 0
+}
+
+.bash-terminal-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    flex-shrink: 1
+}
+
+.bash-terminal-cmd {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.4;
+    flex: 1;
+    min-width: 0
+}
+
+.bash-terminal-body {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    padding: var(--space-2);
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.45;
+    background: var(--color-bg)
+}
+
+.bash-terminal-live {
+    border-left: 2px solid var(--color-success);
+    animation: live-border-pulse 2s ease-in-out infinite
+}
+
+.bash-terminal-error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border-top: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+    background: color-mix(in srgb, var(--color-error) 6%, var(--color-bg));
+    color: var(--color-error);
+    font-size: var(--font-size-2xs);
+    line-height: 1.5
+}
+
+.bash-terminal-error svg { flex-shrink: 0; margin-top: 1px }

@@ -90,14 +90,19 @@ pub fn SubagentSession(
     let msg_count = messages.len();
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
 
-    // Reset scroll to top when message count changes
+    // Auto-scroll to bottom only if user was already near the bottom.
+    // Prevents resetting user's scroll position when new messages arrive.
     Effect::new(move |prev_count: Option<usize>| {
         let current = msg_count;
         if let Some(prev) = prev_count {
             if current != prev {
                 if let Some(el) = scroll_ref.get() {
                     let el: &HtmlElement = &el;
-                    el.set_scroll_top(0);
+                    let distance = el.scroll_height() - el.scroll_top() - el.client_height();
+                    // Only auto-scroll if within 100px of bottom (or first content)
+                    if distance < 100 || el.scroll_top() == 0 {
+                        el.set_scroll_top(el.scroll_height());
+                    }
                 }
             }
         }

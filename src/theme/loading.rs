@@ -58,12 +58,31 @@ pub fn load_theme() -> ThemeColors {
     }
 }
 
+/// Load the active theme resolved for a specific appearance mode (`"dark"` or `"light"`).
+pub fn load_theme_with_mode(mode: &str) -> ThemeColors {
+    match try_load_theme_with_mode(mode) {
+        Ok(colors) => colors,
+        Err(e) => {
+            warn!("Failed to load opencode theme (mode={mode}), using defaults: {e}");
+            ThemeColors::default()
+        }
+    }
+}
+
 fn try_load_theme() -> Result<ThemeColors> {
     let (theme_name, theme_mode) = read_active_theme_name()?;
     debug!(theme = %theme_name, mode = %theme_mode, "Resolved active opencode theme");
 
     let theme_json = load_theme_json(&theme_name)?;
     parse_theme(&theme_json, &theme_mode)
+}
+
+fn try_load_theme_with_mode(mode: &str) -> Result<ThemeColors> {
+    let (theme_name, _default_mode) = read_active_theme_name()?;
+    debug!(theme = %theme_name, mode = %mode, "Loading theme with explicit mode");
+
+    let theme_json = load_theme_json(&theme_name)?;
+    parse_theme(&theme_json, mode)
 }
 
 /// Read the active theme name and mode from OpenCode's state/config.

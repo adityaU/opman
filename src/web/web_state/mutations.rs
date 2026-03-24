@@ -18,8 +18,8 @@ impl super::WebStateHandle {
         });
     }
 
-    /// Set the theme colors and broadcast a `ThemeChanged` event to SSE clients.
-    pub async fn set_theme(&self, theme: WebThemeColors) {
+    /// Set the theme pair (dark + light) and broadcast a `ThemeChanged` event to SSE clients.
+    pub async fn set_theme(&self, theme: WebThemePair) {
         {
             let mut inner = self.inner.write().await;
             inner.theme = Some(theme.clone());

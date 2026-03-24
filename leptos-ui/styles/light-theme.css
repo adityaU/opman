@@ -1,0 +1,146 @@
+/* ── Light theme overrides ─────────────────────────────────────────────
+   When html.light-theme is active, the theme colors (--color-bg etc.)
+   are already light hex values supplied by the theme JSON's "light"
+   variant.  But the glassy UI uses --white-N (white-alpha) overlays
+   that assume a dark background.  On a light background, those same
+   overlays need to use dark-alpha tints instead.
+
+   Strategy: swap --white-N ↔ --black-N so all existing glass CSS
+   automatically adapts.  Also adjust glass tokens and the mesh bg.   */
+
+html.light-theme {
+    /* Swap white-alpha → black-alpha for surface tints */
+    --white-1_5: rgba(0, 0, 0, .015);
+    --white-2: rgba(0, 0, 0, .02);
+    --white-2_5: rgba(0, 0, 0, .025);
+    --white-3: rgba(0, 0, 0, .03);
+    --white-4: rgba(0, 0, 0, .04);
+    --white-5: rgba(0, 0, 0, .05);
+    --white-6: rgba(0, 0, 0, .06);
+    --white-7: rgba(0, 0, 0, .07);
+    --white-8: rgba(0, 0, 0, .08);
+    --white-10: rgba(0, 0, 0, .1);
+    --white-12: rgba(0, 0, 0, .12);
+    --white-14: rgba(0, 0, 0, .14);
+    --white-15: rgba(0, 0, 0, .15);
+    --white-16: rgba(0, 0, 0, .16);
+    --white-18: rgba(0, 0, 0, .18);
+    --white-20: rgba(0, 0, 0, .2);
+    --white-22: rgba(0, 0, 0, .22);
+    --white-25: rgba(0, 0, 0, .25);
+    --white-30: rgba(0, 0, 0, .3);
+    --white-35: rgba(0, 0, 0, .35);
+    --white-40: rgba(0, 0, 0, .4);
+
+    /* Swap black-alpha → white-alpha for shadows/depth */
+    --black-2: rgba(0, 0, 0, .02);
+    --black-3: rgba(0, 0, 0, .03);
+    --black-4: rgba(0, 0, 0, .05);
+    --black-6: rgba(0, 0, 0, .06);
+    --black-8: rgba(0, 0, 0, .08);
+    --black-10: rgba(0, 0, 0, .1);
+    --black-12: rgba(0, 0, 0, .1);
+    --black-14: rgba(0, 0, 0, .12);
+    --black-15: rgba(0, 0, 0, .12);
+    --black-18: rgba(0, 0, 0, .14);
+    --black-20: rgba(0, 0, 0, .16);
+    --black-25: rgba(0, 0, 0, .18);
+    --black-30: rgba(0, 0, 0, .2);
+    --black-40: rgba(0, 0, 0, .25);
+    --black-50: rgba(0, 0, 0, .3);
+    --black-60: rgba(0, 0, 0, .35);
+    --black-70: rgba(0, 0, 0, .4);
+
+    /* Glass tokens — use dark tints on light surfaces */
+    --glass-tint-light: var(--white-4);
+    --glass-tint-light-subtle: var(--white-2);
+    --glass-tint-dark: var(--white-8);
+    --glass-tint-dark-subtle: var(--white-4);
+    --glass-border-light: var(--white-10);
+    --glass-border-dark: var(--white-6);
+    --glass-highlight-inner: var(--white-8);
+    --glass-highlight-outer: var(--white-5);
+
+    color-scheme: light
+}
+
+/* Mesh background — lighter, subtler gradients for light mode */
+html.light-theme:before {
+    background:
+        radial-gradient(ellipse 80% 60% at 15% 25%,
+            color-mix(in srgb, var(--color-bg) 100%, #f0f0f0) 0%, transparent 70%),
+        radial-gradient(ellipse 70% 55% at 85% 65%,
+            color-mix(in srgb, var(--color-bg) 100%, #e8e8e8) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 50% at 50% 50%,
+            color-mix(in srgb, var(--color-bg) 100%, #f4f4f4) 0%, transparent 70%),
+        radial-gradient(ellipse 90% 70% at 70% 20%,
+            color-mix(in srgb, var(--color-bg) 100%, #eee) 0%, transparent 60%)
+}
+
+/* Grid overlay — darker lines on light background */
+html.light-theme:after {
+    background-image:
+        linear-gradient(rgba(0, 0, 0, .015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, .015) 1px, transparent 1px);
+    opacity: .6
+}
+
+/* Scrollbar — darker thumbs on light background */
+html.light-theme ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, .15)
+}
+html.light-theme ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, .25)
+}
+html.light-theme ::-webkit-scrollbar-track {
+    background: transparent
+}
+
+/* Selection — use primary with dark alpha */
+html.light-theme ::selection {
+    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+    color: var(--color-text)
+}
+
+/* ── Modal overlays — lighter scrim on light backgrounds ─────────── */
+html.light-theme .modal-backdrop,
+html.light-theme .routines-confirm-overlay {
+    background: rgba(0, 0, 0, .35)
+}
+
+/* ── Box shadows — softer on light backgrounds ───────────────────── */
+html.light-theme .routines-panel,
+html.light-theme .workspace-mgr-panel,
+html.light-theme .notifications-panel,
+html.light-theme .memory-panel,
+html.light-theme .missions-panel,
+html.light-theme .delegation-panel,
+html.light-theme .autonomy-panel,
+html.light-theme .add-project-panel,
+html.light-theme .activity-feed-panel,
+html.light-theme .assistant-panel,
+html.light-theme .system-monitor-panel,
+html.light-theme .context-window-panel,
+html.light-theme .diff-review-panel,
+html.light-theme .cross-session-panel,
+html.light-theme .git-commit-dialog,
+html.light-theme .pr-branch-picker-dropdown {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .06)
+}
+
+/* ── Diff colours — ensure visibility on light backgrounds ───────── */
+html.light-theme .diff-review-line.added { background: rgba(0, 160, 40, .08) }
+html.light-theme .diff-review-line.removed { background: rgba(200, 40, 40, .08) }
+
+/* ── Code blocks / pre — ensure readable bg ──────────────────────── */
+html.light-theme pre,
+html.light-theme code {
+    background: var(--white-3)
+}
+
+/* ── Input fields — subtle border for definition ─────────────────── */
+html.light-theme input,
+html.light-theme textarea,
+html.light-theme select {
+    border-color: var(--color-border)
+}

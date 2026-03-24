@@ -56,7 +56,7 @@ pub async fn get_theme(
     }
 }
 
-/// GET /api/themes — list all available themes with preview colors.
+/// GET /api/themes — list all available themes with dark + light preview colors.
 pub async fn list_themes(
     State(_state): State<ServerState>,
     _auth: AuthUser,
@@ -69,12 +69,14 @@ pub async fn list_themes(
     for entry in OPENCODE_THEMES.files() {
         if let Some(name) = entry.path().file_stem() {
             let name_str = name.to_string_lossy().to_string();
-            // Parse the theme JSON to extract preview colors
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(entry.contents()) {
-                if let Ok(colors) = resolve_theme_preview(&json) {
+                let dark = resolve_theme_preview(&json, "dark");
+                let light = resolve_theme_preview(&json, "light");
+                if let (Ok(dark), Ok(light)) = (dark, light) {
                     themes.push(ThemePreview {
                         name: name_str,
-                        colors,
+                        dark,
+                        light,
                     });
                 }
             }
@@ -125,26 +127,28 @@ pub async fn switch_theme(
     tokio::fs::write(&kv_path, serde_json::to_string_pretty(&kv).unwrap_or_default()).await
         .map_err(|e| WebError::Internal(format!("Failed to write KV store: {e}")))?;
 
-    // Reload theme and broadcast to SSE clients
-    let new_theme = crate::theme::load_theme();
-    let web_colors = WebThemeColors::from_theme(&new_theme);
-    state.web_state.set_theme(web_colors.clone()).await;
+    // Load both dark and light variants and broadcast to all clients
+    let pair = WebThemePair::from_active_theme();
+    state.web_state.set_theme(pair.clone()).await;
 
-    // Broadcast theme change to all connected SSE clients
-    let _ = state.event_tx.send(WebEvent::ThemeChanged(web_colors.clone()));
+    // Also broadcast via the event channel for any additional listeners
+    let _ = state.event_tx.send(WebEvent::ThemeChanged(pair.clone()));
 
-    Ok(Json(web_colors))
+    Ok(Json(pair))
 }
 
-/// Resolve a theme JSON into preview colors (minimal version of theme::parse_theme).
-pub(super) fn resolve_theme_preview(json: &serde_json::Value) -> Result<WebThemeColors, ()> {
+/// Resolve a theme JSON into preview colors for the given mode (dark/light).
+pub(super) fn resolve_theme_preview(
+    json: &serde_json::Value,
+    mode: &str,
+) -> Result<WebThemeColors, ()> {
     let defs = json.get("defs").and_then(|v| v.as_object()).ok_or(())?;
     let theme = json.get("theme").and_then(|v| v.as_object()).ok_or(())?;
 
     let resolve = |field: &str, fallback: &str| -> String {
         theme
             .get(field)
-            .and_then(|v| resolve_theme_color(v, defs, "dark"))
+            .and_then(|v| resolve_theme_color(v, defs, mode))
             .unwrap_or_else(|| fallback.to_string())
     };
 
