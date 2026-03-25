@@ -341,3 +341,417 @@ html.flat-theme .message-action-btn:hover {
     background: var(--white-6);
     border-color: color-mix(in srgb,var(--color-primary) 40%,transparent)
 }
+
+/* ── Spreadsheet viewer ──────────────────────────────────────────── */
+
+.spreadsheet-viewer {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    height: 100%;
+    width: 100%
+}
+
+.spreadsheet-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px 8px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    flex-shrink: 0
+}
+
+.spreadsheet-tab {
+    padding: 4px 12px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    background: none;
+    border: .5px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    cursor: pointer;
+    transition: all var(--transition-base)
+}
+
+.spreadsheet-tab:hover {
+    color: var(--color-text);
+    background: var(--white-4)
+}
+
+.spreadsheet-tab.active {
+    color: var(--color-text);
+    background: var(--white-6);
+    border-color: var(--glass-border-dark, var(--white-6))
+}
+
+.spreadsheet-table-wrap {
+    overflow: auto;
+    flex: 1;
+    min-height: 0
+}
+
+.spreadsheet-viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono, monospace)
+}
+
+.spreadsheet-viewer th,
+.spreadsheet-viewer td {
+    padding: 5px 10px;
+    border: .5px solid var(--glass-border-dark, var(--white-6));
+    text-align: left;
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.spreadsheet-viewer th {
+    background: var(--white-4);
+    font-weight: 600;
+    color: var(--color-text);
+    position: sticky;
+    top: 0;
+    z-index: 1
+}
+
+.spreadsheet-viewer td {
+    color: var(--color-text-secondary)
+}
+
+.spreadsheet-row-num {
+    color: var(--color-text-muted) !important;
+    font-size: var(--font-size-2xs);
+    text-align: right !important;
+    width: 40px;
+    min-width: 40px;
+    background: var(--white-2) !important;
+    user-select: none
+}
+
+.spreadsheet-cell-num {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums
+}
+
+.spreadsheet-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm)
+}
+
+/* ── Document viewer ─────────────────────────────────────────────── */
+
+.document-viewer {
+    overflow: auto;
+    height: 100%;
+    width: 100%;
+    padding: 24px 32px;
+    max-width: 900px;
+    margin: 0 auto
+}
+
+.document-content {
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    line-height: 1.7
+}
+
+.document-content h1 { font-size: 1.75em; font-weight: 700; margin: 1em 0 0.5em }
+.document-content h2 { font-size: 1.4em; font-weight: 600; margin: 0.9em 0 0.4em }
+.document-content h3 { font-size: 1.15em; font-weight: 600; margin: 0.8em 0 0.3em }
+.document-content h4 { font-size: 1em; font-weight: 600; margin: 0.7em 0 0.3em }
+.document-content p { margin: 0.5em 0 }
+
+.document-content b,.document-content strong { font-weight: 700 }
+.document-content i,.document-content em { font-style: italic }
+
+.document-content table {
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    width: 100%
+}
+
+.document-content th,.document-content td {
+    padding: 6px 10px;
+    border: .5px solid var(--glass-border-dark, var(--white-6));
+    text-align: left
+}
+
+.document-content th {
+    background: var(--white-4);
+    font-weight: 600
+}
+
+/* ── Flat theme overrides for doc viewers ─────────────────────────── */
+
+html.flat-theme .spreadsheet-viewer th {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .spreadsheet-viewer td {
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .spreadsheet-tab.active {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .spreadsheet-row-num {
+    background: var(--black-3) !important
+}
+
+html.flat-theme .document-content th {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .document-content td {
+    border-color: var(--color-border-subtle)
+}
+
+/* ── Spreadsheet editing controls ────────────────────────────────── */
+
+.spreadsheet-toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    flex-shrink: 0
+}
+
+.spreadsheet-action-btn {
+    padding: 3px 10px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    background: var(--white-4);
+    border: .5px solid var(--glass-border-dark, var(--white-6));
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-base)
+}
+
+.spreadsheet-action-btn:hover {
+    color: var(--color-text);
+    background: var(--white-8);
+    border-color: var(--color-primary)
+}
+
+.spreadsheet-action-danger:hover {
+    color: var(--color-error, #e55);
+    border-color: var(--color-error, #e55)
+}
+
+.spreadsheet-tab-add {
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    min-width: 28px;
+    text-align: center
+}
+
+.spreadsheet-tab-group {
+    display: inline-flex;
+    align-items: center;
+    border: .5px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: all var(--transition-base)
+}
+
+.spreadsheet-tab-group.active {
+    background: var(--white-6);
+    border-color: var(--glass-border-dark, var(--white-6))
+}
+
+.spreadsheet-tab-label {
+    padding: 4px 8px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-base)
+}
+
+.spreadsheet-tab-group.active .spreadsheet-tab-label {
+    color: var(--color-text)
+}
+
+.spreadsheet-tab-label:hover {
+    color: var(--color-text)
+}
+
+.spreadsheet-tab-close {
+    padding: 2px 5px;
+    font-size: 11px;
+    line-height: 1;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    opacity: .5;
+    transition: all var(--transition-base)
+}
+
+.spreadsheet-tab-close:hover {
+    opacity: 1;
+    color: var(--color-error, #e55);
+    background: var(--white-6)
+}
+
+.spreadsheet-cell-edit {
+    cursor: text;
+    outline: none;
+    min-width: 40px
+}
+
+.spreadsheet-cell-edit:focus {
+    outline: 1.5px solid var(--color-primary);
+    outline-offset: -1.5px;
+    background: var(--white-6)
+}
+
+/* ── Document toolbar ────────────────────────────────────────────── */
+
+.document-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    flex-shrink: 0;
+    background: var(--white-3)
+}
+
+.doc-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: none;
+    border: .5px solid var(--glass-border-dark, var(--white-6));
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-base)
+}
+
+.doc-toolbar-btn:hover {
+    color: var(--color-text);
+    background: var(--white-8);
+    border-color: var(--color-primary)
+}
+
+.doc-toolbar-italic {
+    font-style: italic
+}
+
+.doc-toolbar-underline {
+    text-decoration: underline
+}
+
+.doc-toolbar-strike {
+    text-decoration: line-through
+}
+
+.doc-toolbar-sep {
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--glass-border-dark, var(--white-6))
+}
+
+/* ── Document editable area ──────────────────────────────────────── */
+
+.document-viewer-editable .document-content {
+    outline: none;
+    min-height: 200px;
+    border: .5px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 8px;
+    transition: border-color var(--transition-base)
+}
+
+.document-viewer-editable .document-content:focus {
+    border-color: var(--color-primary)
+}
+
+.document-content u { text-decoration: underline }
+.document-content s { text-decoration: line-through }
+
+.document-content ul,.document-content ol {
+    padding-left: 1.5em;
+    margin: .4em 0
+}
+
+.document-content li {
+    margin: .2em 0
+}
+
+/* ── Flat theme overrides for editing controls ───────────────────── */
+
+html.flat-theme .spreadsheet-toolbar {
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .spreadsheet-action-btn {
+    background: var(--black-4);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .spreadsheet-action-btn:hover {
+    background: var(--black-8);
+    border-color: var(--color-primary)
+}
+
+html.flat-theme .spreadsheet-action-danger:hover {
+    color: var(--color-error, #e55);
+    border-color: var(--color-error, #e55)
+}
+
+html.flat-theme .spreadsheet-tab-group.active {
+    background: var(--color-bg-element);
+    border-color: var(--color-border)
+}
+
+html.flat-theme .spreadsheet-tab-close:hover {
+    background: var(--black-6)
+}
+
+html.flat-theme .spreadsheet-cell-edit:focus {
+    background: var(--black-4)
+}
+
+html.flat-theme .document-toolbar {
+    background: var(--black-3);
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .doc-toolbar-btn {
+    border-color: var(--color-border)
+}
+
+html.flat-theme .doc-toolbar-btn:hover {
+    background: var(--black-8);
+    border-color: var(--color-primary)
+}
+
+html.flat-theme .doc-toolbar-sep {
+    background: var(--color-border-subtle)
+}
+
+html.flat-theme .document-viewer-editable .document-content:focus {
+    border-color: var(--color-primary)
+}

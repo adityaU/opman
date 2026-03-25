@@ -52,6 +52,10 @@ sysinfo = "0.33"
 libc = "0.2"
 openssl = { version = "0.10", features = ["vendored"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+calamine = "0.34"
+rust_xlsxwriter = "0.94"
+docx = "1.1"
+quick-xml = "0.37"
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

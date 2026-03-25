@@ -131,6 +131,45 @@ pub struct FileUploadResponse {
     pub files: Vec<String>,
 }
 
+// ── Document preview types ──────────────────────────────────────────
+
+/// Response for `GET /api/file/doc-read`.
+#[derive(Serialize)]
+pub struct DocReadResponse {
+    pub path: String,
+    pub data: DocData,
+}
+
+/// Structured document content (spreadsheet rows or HTML document).
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum DocData {
+    Spreadsheet { sheets: Vec<SheetData> },
+    Document { html: String },
+    Presentation { slides: Vec<SlideData> },
+}
+
+/// A single sheet in a spreadsheet.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SheetData {
+    pub name: String,
+    pub rows: Vec<Vec<String>>,
+}
+
+/// A single slide in a presentation.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SlideData {
+    pub title: String,
+    pub content: String,
+}
+
+/// Request body for `POST /api/file/doc-write`.
+#[derive(Deserialize)]
+pub struct DocWriteRequest {
+    pub path: String,
+    pub data: DocData,
+}
+
 // ── File Edit / Diff Review types ───────────────────────────────────
 
 /// A single file edit event tracked during a session.

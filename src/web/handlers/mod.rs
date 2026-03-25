@@ -18,6 +18,11 @@ mod git_context_handlers;
 mod agents_handlers;
 mod files_handlers;
 mod download_handlers;
+mod doc_readers;
+mod doc_readers_docx;
+mod doc_writers;
+mod doc_writers_html;
+mod doc_handlers;
 mod editor_handlers;
 mod context_handlers;
 mod search_handlers;
@@ -65,6 +70,8 @@ pub use git_context_handlers::{git_context_summary, git_repos};
 pub use agents_handlers::get_agents;
 
 pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files, rename_entry};
+
+pub use doc_handlers::{doc_read, doc_write};
 
 pub use download_handlers::{download_file, download_dir};
 

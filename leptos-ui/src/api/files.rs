@@ -3,7 +3,7 @@
 use serde::Serialize;
 
 use super::client::{api_fetch, api_post_void, ApiError};
-use crate::types::api::{FileBrowseResponse, FileReadResponse, FileUploadResponse};
+use crate::types::api::{DocReadResponse, FileBrowseResponse, FileReadResponse, FileUploadResponse};
 
 /// Browse directory entries.
 pub async fn file_browse(path: &str) -> Result<FileBrowseResponse, ApiError> {
@@ -85,6 +85,23 @@ pub async fn file_delete(path: &str) -> Result<(), ApiError> {
 /// Delete a directory.
 pub async fn dir_delete(path: &str) -> Result<(), ApiError> {
     api_post_void("/dir/delete", &DeleteBody { path }).await
+}
+
+/// Read a document file (spreadsheet/docx) as structured JSON.
+pub async fn doc_read(path: &str) -> Result<DocReadResponse, ApiError> {
+    let encoded = js_sys::encode_uri_component(path);
+    api_fetch(&format!("/file/doc-read?path={}", encoded)).await
+}
+
+#[derive(Serialize)]
+struct DocWriteBody<'a> {
+    path: &'a str,
+    data: &'a crate::types::api::DocData,
+}
+
+/// Write structured document data back to file.
+pub async fn doc_write(path: &str, data: &crate::types::api::DocData) -> Result<(), ApiError> {
+    api_post_void("/file/doc-write", &DocWriteBody { path, data }).await
 }
 
 /// Upload files from pre-extracted `File` objects (multipart form).

@@ -178,7 +178,9 @@ code,pre,kbd,samp {
 .code-editor-body > .file-preview,
 .code-editor-body > .svg-viewer,
 .code-editor-body > .mermaid-viewer,
-.code-editor-body > .html-viewer-frame {
+.code-editor-body > .html-viewer-frame,
+.code-editor-body > .spreadsheet-viewer,
+.code-editor-body > .document-viewer {
     flex: 1;
     min-height: 0
 }

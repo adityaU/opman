@@ -346,6 +346,38 @@ pub struct FileUploadResponse {
     pub files: Vec<String>,
 }
 
+// ── Document preview types ─────────────────────────────────────────
+
+/// Response from `GET /api/file/doc-read`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocReadResponse {
+    pub path: String,
+    pub data: DocData,
+}
+
+/// Structured document content returned by the backend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum DocData {
+    Spreadsheet { sheets: Vec<SheetData> },
+    Document { html: String },
+    Presentation { slides: Vec<SlideData> },
+}
+
+/// A single sheet in a spreadsheet document.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SheetData {
+    pub name: String,
+    pub rows: Vec<Vec<String>>,
+}
+
+/// A single slide in a presentation document.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlideData {
+    pub title: String,
+    pub content: String,
+}
+
 // ── Editor / LSP types ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

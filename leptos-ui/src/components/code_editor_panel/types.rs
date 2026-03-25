@@ -16,6 +16,8 @@ pub enum FileRenderType {
     Svg,
     Csv,
     Pdf,
+    Spreadsheet,
+    Document,
     Binary,
 }
 
@@ -33,8 +35,10 @@ pub fn classify_file(path: &str) -> FileRenderType {
         "md" | "mdx" | "markdown" => FileRenderType::Markdown,
         "html" | "htm" => FileRenderType::Html,
         "mmd" | "mermaid" => FileRenderType::Mermaid,
-        "xlsx" | "xls" | "pptx" | "ppt" | "docx" | "doc" | "zip" | "tar" | "gz" | "rar" | "7z"
-        | "exe" | "dll" | "so" | "dylib" | "wasm" | "bin" => FileRenderType::Binary,
+        "xlsx" | "xls" | "ods" | "xlsb" | "tsv" => FileRenderType::Spreadsheet,
+        "docx" => FileRenderType::Document,
+        "pptx" | "ppt" | "doc" | "zip" | "tar" | "gz" | "rar" | "7z" | "exe" | "dll" | "so"
+        | "dylib" | "wasm" | "bin" => FileRenderType::Binary,
         _ => FileRenderType::Code,
     }
 }
@@ -51,6 +55,7 @@ pub fn is_previewable_render_type(rt: &FileRenderType) -> bool {
 }
 
 /// Returns true for binary-like types that skip content fetch.
+/// Note: Spreadsheet and Document use the doc-read API, not text read.
 pub fn is_binary_render_type(rt: &FileRenderType) -> bool {
     matches!(
         rt,
@@ -60,6 +65,11 @@ pub fn is_binary_render_type(rt: &FileRenderType) -> bool {
             | FileRenderType::Pdf
             | FileRenderType::Binary
     )
+}
+
+/// Returns true for document types that use the doc-read API.
+pub fn is_doc_render_type(rt: &FileRenderType) -> bool {
+    matches!(rt, FileRenderType::Spreadsheet | FileRenderType::Document)
 }
 
 pub fn file_icon(entry: &FileEntry) -> &'static str {
@@ -151,6 +161,10 @@ pub struct OpenFile {
     /// Edited content (if different from saved content, like React's editedContent)
     pub edited_content: Option<String>,
     pub render_type: FileRenderType,
+    /// Structured document data (spreadsheet sheets, document HTML) from doc-read.
+    pub doc_data: Option<crate::types::api::DocData>,
+    /// Edited document data — set when user modifies a spreadsheet/document in the UI.
+    pub edited_doc_data: Option<crate::types::api::DocData>,
 }
 
 impl OpenFile {
@@ -159,9 +173,14 @@ impl OpenFile {
         self.edited_content.as_deref().unwrap_or(&self.content)
     }
 
-    /// Whether the file has unsaved changes.
+    /// Returns the current document data (edited or original).
+    pub fn current_doc_data(&self) -> Option<&crate::types::api::DocData> {
+        self.edited_doc_data.as_ref().or(self.doc_data.as_ref())
+    }
+
+    /// Whether the file has unsaved changes (text or doc data).
     pub fn is_modified(&self) -> bool {
-        self.edited_content.is_some()
+        self.edited_content.is_some() || self.edited_doc_data.is_some()
     }
 }
 

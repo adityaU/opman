@@ -6,7 +6,10 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use super::state::EditorState;
-use super::types::{classify_file, is_binary_render_type, EditorViewMode, OpenFile};
+use super::types::{classify_file, is_binary_render_type, is_doc_render_type, EditorViewMode, OpenFile};
+
+// Reload builders live in actions_reload.rs to stay within the 300-line limit.
+pub use super::actions_reload::{build_reload_dir, build_reload_file, build_reload_root};
 
 pub type Fn1 = std::rc::Rc<dyn Fn(String)>;
 pub type Fn2 = std::rc::Rc<dyn Fn(String, String)>;
@@ -115,9 +118,31 @@ pub fn build_open_file(s: &EditorState) -> Fn2 {
         set_vm.update(|m| { m.entry(path.clone()).or_insert(EditorViewMode::Code); });
         if is_binary_render_type(&rt) {
             let f = OpenFile { path: path.clone(), name, language: String::new(),
-                content: String::new(), edited_content: None, render_type: rt };
+                content: String::new(), edited_content: None, render_type: rt, doc_data: None, edited_doc_data: None };
             set_open_files.update(|fs| fs.push(f));
             set_active.set(Some(path));
+            return;
+        }
+        if is_doc_render_type(&rt) {
+            let f = OpenFile { path: path.clone(), name, language: String::new(),
+                content: String::new(), edited_content: None, render_type: rt, doc_data: None, edited_doc_data: None };
+            set_open_files.update(|fs| fs.push(f));
+            set_active.set(Some(path.clone()));
+            set_loading.set(true);
+            let pc = path.clone();
+            leptos::task::spawn_local(async move {
+                match crate::api::files::doc_read(&pc).await {
+                    Ok(r) => {
+                        set_open_files.update(|fs| {
+                            if let Some(f) = fs.iter_mut().find(|f| f.path == pc) {
+                                f.doc_data = Some(r.data);
+                            }
+                        });
+                    }
+                    Err(e) => log::error!("doc_read: {e}"),
+                }
+                set_loading.set(false);
+            });
             return;
         }
         set_loading.set(true);
@@ -127,7 +152,7 @@ pub fn build_open_file(s: &EditorState) -> Fn2 {
                 Ok(r) => {
                     let rt = classify_file(&r.path);
                     let f = OpenFile { path: r.path.clone(), name, language: r.language.clone(),
-                        content: r.content.clone(), edited_content: None, render_type: rt };
+                        content: r.content.clone(), edited_content: None, render_type: rt, doc_data: None, edited_doc_data: None };
                     set_open_files.update(|fs| fs.push(f));
                     set_active.set(Some(r.path));
                     let dp = pc.clone();
@@ -150,9 +175,39 @@ pub fn build_save_file(s: &EditorState) -> Fn1 {
     let set_saving = s.set_saving;
     let set_status = s.set_save_status;
     std::rc::Rc::new(move |path: String| {
-        let content = open_files.get_untracked().iter()
-            .find(|f| f.path == path).map(|f| f.current_content().to_string());
-        let Some(content) = content else { return; };
+        let files = open_files.get_untracked();
+        let file = files.iter().find(|f| f.path == path);
+        let Some(file) = file else { return; };
+        // Document types use doc_write
+        if is_doc_render_type(&file.render_type) {
+            let Some(data) = file.edited_doc_data.clone() else { return; };
+            set_saving.set(true);
+            set_status.set(Some("saving".into()));
+            let pc = path.clone();
+            leptos::task::spawn_local(async move {
+                match crate::api::files::doc_write(&pc, &data).await {
+                    Ok(_) => {
+                        set_open_files.update(|fs| {
+                            if let Some(f) = fs.iter_mut().find(|f| f.path == pc) {
+                                f.doc_data = Some(data);
+                                f.edited_doc_data = None;
+                            }
+                        });
+                        set_status.set(Some("saved".into()));
+                        set_saving.set(false);
+                        leptos::task::spawn_local(async move {
+                            gloo_timers::future::TimeoutFuture::new(2000).await;
+                            set_status.set(None);
+                        });
+                    }
+                    Err(e) => { log::error!("save doc: {e}"); set_status.set(None); set_saving.set(false); }
+                }
+            });
+            return;
+        }
+        // Text files use file_write
+        let content = file.current_content().to_string();
+        if file.edited_content.is_none() { return; }
         set_saving.set(true);
         set_status.set(Some("saving".into()));
         let pc = path.clone();
@@ -183,6 +238,7 @@ pub fn build_revert_file(s: &EditorState) -> Fn1 {
         set_open_files.update(|fs| {
             if let Some(f) = fs.iter_mut().find(|f| f.path == path) {
                 f.edited_content = None;
+                f.edited_doc_data = None;
             }
         });
     })
@@ -223,90 +279,4 @@ pub fn build_create(s: &EditorState, refresh: Fn1, is_file: bool) -> Fn2 {
     })
 }
 
-/// Reload a single directory listing. Updates root entries if the dir is current,
-/// and updates dir_children if the dir is expanded.
-pub fn build_reload_dir(s: &EditorState) -> Fn1 {
-    let current_path = s.current_path;
-    let expanded_dirs = s.expanded_dirs;
-    let set_entries = s.set_entries;
-    let set_current_path = s.set_current_path;
-    let set_dc = s.set_dir_children;
-    std::rc::Rc::new(move |dir_path: String| {
-        let cur = current_path.get_untracked();
-        let expanded = expanded_dirs.get_untracked();
-        let browse_path = if dir_path == "." { cur.clone() } else { dir_path.clone() };
-        leptos::task::spawn_local(async move {
-            match crate::api::files::file_browse(&browse_path).await {
-                Ok(r) => {
-                    if dir_path == "." || dir_path == cur {
-                        set_entries.set(r.entries.clone());
-                        set_current_path.set(r.path);
-                    }
-                    if dir_path != "." && expanded.contains(&dir_path) {
-                        set_dc.update(|m| { m.insert(dir_path, r.entries); });
-                    }
-                }
-                Err(e) => log::error!("reload dir: {e}"),
-            }
-        });
-    })
-}
 
-/// Reload an open file from disk — re-reads content, clears edited state.
-/// Skips binary-like render types.
-pub fn build_reload_file(s: &EditorState) -> Fn1 {
-    let open_files = s.open_files;
-    let set_open_files = s.set_open_files;
-    let active_file = s.active_file;
-    let set_save_status = s.set_save_status;
-    std::rc::Rc::new(move |file_path: String| {
-        let files = open_files.get_untracked();
-        let existing = files.iter().find(|f| f.path == file_path);
-        if existing.is_none() { return; }
-        let rt = classify_file(&file_path);
-        if is_binary_render_type(&rt) { return; }
-        let fp = file_path.clone();
-        leptos::task::spawn_local(async move {
-            match crate::api::files::file_read(&fp).await {
-                Ok(r) => {
-                    set_open_files.update(|fs| {
-                        if let Some(f) = fs.iter_mut().find(|f| f.path == fp) {
-                            f.content = r.content;
-                            f.language = r.language;
-                            f.edited_content = None;
-                        }
-                    });
-                    if active_file.get_untracked().as_deref() == Some(&fp) {
-                        set_save_status.set(None);
-                    }
-                }
-                Err(e) => log::error!("reload file: {e}"),
-            }
-        });
-    })
-}
-
-/// Reload root: re-fetch current directory listing + all expanded directories.
-pub fn build_reload_root(s: &EditorState) -> Fn0 {
-    let current_path = s.current_path;
-    let expanded_dirs = s.expanded_dirs;
-    let set_entries = s.set_entries;
-    let set_current_path = s.set_current_path;
-    let set_dc = s.set_dir_children;
-    std::rc::Rc::new(move || {
-        let cur = current_path.get_untracked();
-        let expanded: Vec<String> = expanded_dirs.get_untracked().into_iter().collect();
-        leptos::task::spawn_local(async move {
-            if let Ok(r) = crate::api::files::file_browse(&cur).await {
-                set_entries.set(r.entries);
-                set_current_path.set(r.path);
-            }
-            for dir in expanded {
-                if let Ok(r) = crate::api::files::file_browse(&dir).await {
-                    let d = dir.clone();
-                    set_dc.update(|m| { m.insert(d, r.entries); });
-                }
-            }
-        });
-    })
-}

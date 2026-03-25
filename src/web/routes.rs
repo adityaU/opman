@@ -122,6 +122,8 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/file/read", get(handlers::read_file))
         .route("/file/raw", get(handlers::read_file_raw))
         .route("/file/write", post(handlers::write_file))
+        .route("/file/doc-read", get(handlers::doc_read))
+        .route("/file/doc-write", post(handlers::doc_write))
         .route("/file/create", post(handlers::create_file))
         .route("/file/delete", post(handlers::delete_file))
         .route("/file/upload", post(handlers::upload_files))

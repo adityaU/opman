@@ -8,6 +8,9 @@
 
 mod actions;
 mod actions_ext;
+mod actions_reload;
+mod doc_renderers;
+mod document_editor;
 mod editor_body;
 mod editor_toolbar;
 mod explorer_ctx;
@@ -20,6 +23,7 @@ mod mobile_layout;
 mod mobile_overlays;
 mod mobile_toolbar;
 pub mod native_editor;
+mod spreadsheet_editor;
 mod state;
 mod types;
 
@@ -156,21 +160,39 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
                     }
                     // Re-read the file from disk and update the open file entry.
                     let path = evt.path.clone();
+                    let is_doc = types::is_doc_render_type(&file.render_type);
                     leptos::task::spawn_local(async move {
-                        match crate::api::files::file_read(&path).await {
-                            Ok(r) => {
-                                set_open_files.update(|fs| {
-                                    if let Some(f) = fs.iter_mut().find(|f| f.path == path) {
-                                        f.content = r.content;
-                                        f.language = r.language;
-                                        f.edited_content = None;
+                        if is_doc {
+                            match crate::api::files::doc_read(&path).await {
+                                Ok(r) => {
+                                    set_open_files.update(|fs| {
+                                        if let Some(f) = fs.iter_mut().find(|f| f.path == path) {
+                                            f.doc_data = Some(r.data);
+                                            f.edited_doc_data = None;
+                                        }
+                                    });
+                                    if active_file_sig.get_untracked().as_deref() == Some(&path) {
+                                        set_save_status.set(None);
                                     }
-                                });
-                                if active_file_sig.get_untracked().as_deref() == Some(&path) {
-                                    set_save_status.set(None);
                                 }
+                                Err(e) => log::error!("[EDITOR-SSE] doc_read {path}: {e}"),
                             }
-                            Err(e) => log::error!("[EDITOR-SSE] reload {path}: {e}"),
+                        } else {
+                            match crate::api::files::file_read(&path).await {
+                                Ok(r) => {
+                                    set_open_files.update(|fs| {
+                                        if let Some(f) = fs.iter_mut().find(|f| f.path == path) {
+                                            f.content = r.content;
+                                            f.language = r.language;
+                                            f.edited_content = None;
+                                        }
+                                    });
+                                    if active_file_sig.get_untracked().as_deref() == Some(&path) {
+                                        set_save_status.set(None);
+                                    }
+                                }
+                                Err(e) => log::error!("[EDITOR-SSE] reload {path}: {e}"),
+                            }
                         }
                     });
                 },

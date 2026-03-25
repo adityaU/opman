@@ -137,6 +137,7 @@ pub fn render_editor_body(s: &EditorState, active_view: Memo<EditorViewMode>) ->
 
             // Non-code file preview — re-evaluated when active_file / view_mode changes.
             // These are stateless renderers (images, markdown, etc.) so recreation is fine.
+            // Document/Spreadsheet types get the editable renderer that can write back edits.
             {move || {
                 let af = active_file.get();
                 let view_mode = active_view.get();
@@ -155,7 +156,7 @@ pub fn render_editor_body(s: &EditorState, active_view: Memo<EditorViewMode>) ->
                     return None;
                 }
                 let content = file.current_content().to_string();
-                Some(render_preview(file, &content, view_mode, set_mermaid_svg, set_mermaid_error, mermaid_svg, mermaid_error))
+                Some(render_preview(file, &content, view_mode, set_open_files, set_mermaid_svg, set_mermaid_error, mermaid_svg, mermaid_error))
             }}
         </div>
     }
@@ -166,11 +167,13 @@ fn render_preview(
     file: &OpenFile,
     content: &str,
     view_mode: EditorViewMode,
+    set_open_files: WriteSignal<Vec<OpenFile>>,
     set_mermaid_svg: WriteSignal<String>,
     set_mermaid_error: WriteSignal<Option<String>>,
     mermaid_svg: ReadSignal<String>,
     mermaid_error: ReadSignal<Option<String>>,
 ) -> AnyView {
+    use super::doc_renderers::render_doc_editor;
     use super::file_renderers::{
         render_csv_view, render_html_view, render_markdown_view, render_mermaid_view,
         render_svg_view,
@@ -234,6 +237,9 @@ fn render_preview(
             }.into_any()
         }
         FileRenderType::Csv => render_csv_view(content),
+        FileRenderType::Spreadsheet | FileRenderType::Document => {
+            render_doc_editor(file, set_open_files)
+        }
         FileRenderType::Markdown => render_markdown_view(content),
         FileRenderType::Html => render_html_view(content),
         FileRenderType::Mermaid => render_mermaid_view(
