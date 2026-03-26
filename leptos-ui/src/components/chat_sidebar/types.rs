@@ -6,6 +6,7 @@ use wasm_bindgen::JsCast;
 
 pub const MAX_VISIBLE_SESSIONS: usize = 8;
 pub const PINNED_KEY: &str = "opman-pinned-sessions";
+pub const OPEN_SESSIONS_KEY: &str = "opman-open-sessions";
 
 // ── Session indicator CSS class ─────────────────────────────────────
 
@@ -91,6 +92,42 @@ pub fn save_pinned_sessions(pinned: &HashSet<String>) {
     let vec: Vec<&String> = pinned.iter().collect();
     if let Ok(json) = serde_json::to_string(&vec) {
         let _ = storage.set_item(PINNED_KEY, &json);
+    }
+}
+
+// ── Open sessions persistence ───────────────────────────────────────
+
+pub fn load_open_sessions() -> HashSet<String> {
+    let window = match web_sys::window() {
+        Some(w) => w,
+        None => return HashSet::new(),
+    };
+    let storage = match window.local_storage().ok().flatten() {
+        Some(s) => s,
+        None => return HashSet::new(),
+    };
+    let raw = match storage.get_item(OPEN_SESSIONS_KEY).ok().flatten() {
+        Some(r) => r,
+        None => return HashSet::new(),
+    };
+    match serde_json::from_str::<Vec<String>>(&raw) {
+        Ok(v) => v.into_iter().collect(),
+        Err(_) => HashSet::new(),
+    }
+}
+
+pub fn save_open_sessions(open: &HashSet<String>) {
+    let window = match web_sys::window() {
+        Some(w) => w,
+        None => return,
+    };
+    let storage = match window.local_storage().ok().flatten() {
+        Some(s) => s,
+        None => return,
+    };
+    let vec: Vec<&String> = open.iter().collect();
+    if let Ok(json) = serde_json::to_string(&vec) {
+        let _ = storage.set_item(OPEN_SESSIONS_KEY, &json);
     }
 }
 

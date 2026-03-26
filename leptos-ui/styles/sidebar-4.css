@@ -251,3 +251,66 @@
     border-color: var(--color-border-subtle);
     background: var(--color-surface)
 }
+
+/* ── Open Sessions section (pinned top) ────────────────────── */
+
+.sb-open-sessions {
+    padding: var(--space-1) var(--space-2) var(--space-2);
+    border-bottom: .5px solid var(--color-border-subtle);
+    flex-shrink: 0
+}
+
+.sb-open-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-2) var(--space-1-5);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    opacity: .7
+}
+
+.sb-open-row {
+    position: relative
+}
+
+.sb-open-project-tag {
+    display: inline-block;
+    padding: 0 5px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    color: var(--color-secondary);
+    font-size: 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0
+}
+
+.sb-open-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast)
+}
+
+.sb-open-row:hover .sb-open-remove {
+    opacity: .6
+}
+
+.sb-open-remove:hover {
+    opacity: 1 !important;
+    background: var(--white-8);
+    color: var(--color-text)
+}

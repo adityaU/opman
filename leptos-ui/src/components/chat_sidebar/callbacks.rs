@@ -7,7 +7,7 @@ use leptos::prelude::*;
 use crate::hooks::use_panel_state::PanelState;
 use crate::hooks::use_sse_state::SseState;
 
-use super::types::{save_pinned_sessions, DeleteConfirm, RemoveProjectConfirm};
+use super::types::{save_pinned_sessions, save_open_sessions, DeleteConfirm, RemoveProjectConfirm};
 
 // ── Pin toggle ──────────────────────────────────────────────────────
 
@@ -22,6 +22,23 @@ pub fn build_toggle_pin(
                 pinned.insert(session_id);
             }
             save_pinned_sessions(pinned);
+        });
+    })
+}
+
+// ── Open session toggle ─────────────────────────────────────────────
+
+pub fn build_toggle_open_session(
+    set_open_sessions: WriteSignal<HashSet<String>>,
+) -> Callback<String> {
+    Callback::new(move |session_id: String| {
+        set_open_sessions.update(|open| {
+            if open.contains(&session_id) {
+                open.remove(&session_id);
+            } else {
+                open.insert(session_id);
+            }
+            save_open_sessions(open);
         });
     })
 }

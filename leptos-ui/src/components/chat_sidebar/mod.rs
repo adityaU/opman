@@ -2,6 +2,7 @@
 //! Matches React `ChatSidebar.tsx` + `ProjectNode.tsx` + `ContextMenu.tsx` + `ConfirmModals.tsx`.
 
 mod callbacks;
+mod open_sessions_section;
 mod overlays;
 mod project_node;
 mod project_sessions;
@@ -17,6 +18,7 @@ use crate::hooks::use_modal_state::{ModalName, ModalState};
 use crate::hooks::use_sse_state::SseState;
 
 use callbacks::*;
+use open_sessions_section::OpenSessionsSection;
 use overlays::*;
 use project_node::ProjectNode;
 use types::*;
@@ -45,6 +47,9 @@ pub fn ChatSidebar(
 
     // Pinned sessions
     let (pinned_sessions, set_pinned_sessions) = signal(load_pinned_sessions());
+
+    // Open sessions (persistent top section)
+    let (open_sessions, set_open_sessions) = signal(load_open_sessions());
 
     // Context menu
     let (ctx_menu, set_ctx_menu) = signal::<Option<ContextMenuState>>(None);
@@ -95,6 +100,7 @@ pub fn ChatSidebar(
     // ── Callbacks ───────────────────────────────────────────────────
 
     let toggle_pin = build_toggle_pin(set_pinned_sessions);
+    let toggle_open_session = build_toggle_open_session(set_open_sessions);
     let panels = expect_context::<crate::hooks::use_panel_state::PanelState>();
     let select_session = build_select_session(sse, panels, mobile_open, on_close);
     let new_session_for_project = build_new_session_for_project(sse);
@@ -116,23 +122,12 @@ pub fn ChatSidebar(
 
     view! {
         // Mobile overlay backdrop
-        {move || {
-            if mobile_open.get() {
-                Some(view! {
-                    <div
-                        class="sidebar-mobile-overlay"
-                        on:click=move |_| on_close.run(())
-                        aria-hidden="true"
-                    />
-                })
-            } else {
-                None
-            }
-        }}
+        {move || mobile_open.get().then(|| view! {
+            <div class="sidebar-mobile-overlay" on:click=move |_| on_close.run(()) aria-hidden="true" />
+        })}
 
         <aside class=move || {
-            let base = "chat-sidebar";
-            if mobile_open.get() { format!("{} mobile-open", base) } else { base.to_string() }
+            if mobile_open.get() { "chat-sidebar mobile-open".to_string() } else { "chat-sidebar".to_string() }
         }>
             // Header
             <div class="sb-header">
@@ -157,40 +152,36 @@ pub fn ChatSidebar(
             </div>
 
             // Search bar (collapsible)
-            {move || {
-                if search_visible.get() {
-                    Some(view! {
-                        <div class="sb-search">
-                            <IconSearch size=12 class="sb-search-icon" />
-                            <input
-                                class="sb-search-input"
-                                type="text"
-                                placeholder="Filter sessions..."
-                                autofocus=true
-                                prop:value=search_query
-                                on:input=move |ev| set_search_query.set(event_target_value(&ev))
-                            />
-                            {move || {
-                                if !search_query.get().is_empty() {
-                                    Some(view! {
-                                        <button
-                                            class="sb-search-clear"
-                                            on:click=move |_| set_search_query.set(String::new())
-                                            aria-label="Clear search"
-                                        >
-                                            <IconX size=10 />
-                                        </button>
-                                    })
-                                } else {
-                                    None
-                                }
-                            }}
-                        </div>
-                    })
-                } else {
-                    None
-                }
-            }}
+            {move || search_visible.get().then(|| view! {
+                <div class="sb-search">
+                    <IconSearch size=12 class="sb-search-icon" />
+                    <input
+                        class="sb-search-input" type="text"
+                        placeholder="Filter sessions..." autofocus=true
+                        prop:value=search_query
+                        on:input=move |ev| set_search_query.set(event_target_value(&ev))
+                    />
+                    {move || (!search_query.get().is_empty()).then(|| view! {
+                        <button class="sb-search-clear" on:click=move |_| set_search_query.set(String::new()) aria-label="Clear search">
+                            <IconX size=10 />
+                        </button>
+                    })}
+                </div>
+            })}
+
+            // Open Sessions section (persistent top)
+            <OpenSessionsSection
+                projects=projects
+                open_sessions=open_sessions
+                active_session_id=active_session_id
+                busy_sessions=sse.busy_sessions
+                error_sessions=sse.error_sessions
+                input_sessions=sse.input_sessions
+                unseen_sessions=sse.unseen_sessions
+                select_session=select_session
+                toggle_open_session=toggle_open_session
+                set_ctx_menu=set_ctx_menu
+            />
 
             // Project list
             <div class="sb-list" on:click=move |_| set_ctx_menu.set(None)>
@@ -255,7 +246,9 @@ pub fn ChatSidebar(
                 ctx_menu=ctx_menu
                 set_ctx_menu=set_ctx_menu
                 pinned_sessions=pinned_sessions
+                open_sessions=open_sessions
                 toggle_pin=toggle_pin
+                toggle_open_session=toggle_open_session
                 set_renaming_sid=set_renaming_sid
                 set_rename_text=set_rename_text
                 set_rename_original_title=set_rename_original_title

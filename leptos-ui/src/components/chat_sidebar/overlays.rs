@@ -1,35 +1,31 @@
 //! Sidebar overlay views: context menu, delete/remove-project confirmations.
 
-use std::collections::HashSet;
-
-use leptos::prelude::*;
-
-use crate::components::icons::*;
-
 use super::types::{ContextMenuState, DeleteConfirm, RemoveProjectConfirm};
+use crate::components::icons::*;
+use leptos::prelude::*;
+use std::collections::HashSet;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
 /// Check if viewport is phone-width (matches `@media(max-width: 768px)`).
 fn is_mobile() -> bool {
     web_sys::window()
-        .map(|w| w.inner_width().ok())
-        .flatten()
+        .and_then(|w| w.inner_width().ok())
         .and_then(|v| v.as_f64())
         .map(|w| w <= 768.0)
         .unwrap_or(false)
 }
 
-/// Clamp menu position so it stays within the viewport.
-/// Returns `(left_px, top_px)`.
+/// Clamp menu position so it stays within the viewport. Returns `(left, top)`.
 fn clamped_position(x: i32, y: i32) -> (i32, i32) {
-    const MENU_W: i32 = 160; // slightly wider than min-width: 140px
-    const MENU_H: i32 = 120; // ~3 items × 36px + padding
+    const MENU_W: i32 = 160;
+    const MENU_H: i32 = 140;
     const PAD: i32 = 8;
     let (vw, vh) = viewport_size();
-    let left = x.min(vw - MENU_W - PAD).max(PAD);
-    let top = y.min(vh - MENU_H - PAD).max(PAD);
-    (left, top)
+    (
+        x.min(vw - MENU_W - PAD).max(PAD),
+        y.min(vh - MENU_H - PAD).max(PAD),
+    )
 }
 
 fn viewport_size() -> (i32, i32) {
@@ -57,7 +53,9 @@ pub fn SidebarContextMenu(
     ctx_menu: ReadSignal<Option<ContextMenuState>>,
     set_ctx_menu: WriteSignal<Option<ContextMenuState>>,
     pinned_sessions: ReadSignal<HashSet<String>>,
+    open_sessions: ReadSignal<HashSet<String>>,
     toggle_pin: Callback<String>,
+    toggle_open_session: Callback<String>,
     set_renaming_sid: WriteSignal<Option<String>>,
     set_rename_text: WriteSignal<String>,
     set_rename_original_title: WriteSignal<String>,
@@ -66,11 +64,15 @@ pub fn SidebarContextMenu(
     move || {
         let menu = ctx_menu.get()?;
         let mobile = is_mobile();
-        let sid_pin = menu.session_id.clone();
-        let sid_rename = menu.session_id.clone();
-        let title_rename = menu.session_title.clone();
-        let sid_delete = menu.session_id.clone();
-        let title_delete = menu.session_title.clone();
+        let (sid_pin, sid_open, sid_open_label, sid_pin_label, sid_rename, sid_delete) = (
+            menu.session_id.clone(),
+            menu.session_id.clone(),
+            menu.session_id.clone(),
+            menu.session_id.clone(),
+            menu.session_id.clone(),
+            menu.session_id.clone(),
+        );
+        let (title_rename, title_delete) = (menu.session_title.clone(), menu.session_title.clone());
         let display_title = if menu.session_title.is_empty() {
             menu.session_id[..menu.session_id.len().min(16)].to_string()
         } else if menu.session_title.len() > 32 {
@@ -79,9 +81,23 @@ pub fn SidebarContextMenu(
             menu.session_title.clone()
         };
         let icon_sz: u32 = if mobile { 16 } else { 12 };
-
-        // Action buttons (shared between mobile + desktop)
         let items = view! {
+            <button
+                class="sb-context-item"
+                on:click=move |_| {
+                    toggle_open_session.run(sid_open.clone());
+                    set_ctx_menu.set(None);
+                }
+            >
+                <IconLayers size=icon_sz />
+                {move || {
+                    if open_sessions.get().contains(&sid_open_label) {
+                        "Remove from Open"
+                    } else {
+                        "Keep Open"
+                    }
+                }}
+            </button>
             <button
                 class="sb-context-item"
                 on:click=move |_| {
@@ -91,7 +107,7 @@ pub fn SidebarContextMenu(
             >
                 <IconPin size=icon_sz />
                 {move || {
-                    if pinned_sessions.get().contains(&menu.session_id) {
+                    if pinned_sessions.get().contains(&sid_pin_label) {
                         "Unpin"
                     } else {
                         "Pin to Top"
@@ -124,7 +140,6 @@ pub fn SidebarContextMenu(
                 "Delete"
             </button>
         };
-
         if mobile {
             // Mobile: bottom action-sheet with backdrop
             Some(
