@@ -154,6 +154,7 @@ pub fn AddProjectModal(
     let on_keydown = move |e: web_sys::KeyboardEvent| {
         let key = e.key();
         match key.as_str() {
+            "Escape" => { e.prevent_default(); on_close.run(()); }
             "ArrowDown" => {
                 e.prevent_default();
                 let len = filtered.get_untracked().len();

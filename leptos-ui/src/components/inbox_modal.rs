@@ -4,6 +4,7 @@
 
 use leptos::prelude::*;
 use serde::Serialize;
+use wasm_bindgen::JsCast;
 use crate::api::client::{api_post, api_post_void};
 use crate::components::icons::*;
 use crate::components::modal_overlay::ModalOverlay;
@@ -53,6 +54,7 @@ pub fn InboxModal(
     let (items, set_items) = signal(Vec::<InboxItem>::new());
     let (loading, set_loading) = signal(true);
     let (filter, set_filter) = signal("all".to_string());
+    let (selected_idx, set_selected_idx) = signal(0usize);
 
     // Load on mount
     {
@@ -80,6 +82,39 @@ pub fn InboxModal(
             _ => all,
         }
     });
+
+    // Reset selection when filter changes
+    Effect::new(move |_| { let _ = filter.get(); set_selected_idx.set(0); });
+
+    // Scroll selected into view
+    Effect::new(move |_| {
+        let idx = selected_idx.get();
+        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+            let sel = format!("[data-inbox-idx=\"{}\"]", idx);
+            if let Ok(Some(el)) = doc.query_selector(&sel) {
+                if let Some(html_el) = el.dyn_ref::<web_sys::HtmlElement>() {
+                    html_el.scroll_into_view();
+                }
+            }
+        }
+    });
+
+    let on_keydown = move |e: web_sys::KeyboardEvent| {
+        let key = e.key();
+        match key.as_str() {
+            "ArrowDown" | "j" => {
+                e.prevent_default();
+                let len = filtered_items.get_untracked().len();
+                if len > 0 { set_selected_idx.update(|i| *i = (*i + 1) % len); }
+            }
+            "ArrowUp" | "k" => {
+                e.prevent_default();
+                let len = filtered_items.get_untracked().len();
+                if len > 0 { set_selected_idx.update(|i| *i = if *i == 0 { len - 1 } else { *i - 1 }); }
+            }
+            _ => {}
+        }
+    };
 
     view! {
         <ModalOverlay on_close=on_close class="assistant-inbox-modal">
@@ -113,7 +148,7 @@ pub fn InboxModal(
                 >"High Priority"</button>
             </div>
 
-            <div class="assistant-inbox-scrollable">
+            <div class="assistant-inbox-scrollable" on:keydown=on_keydown tabindex=0>
                 <div class="assistant-inbox-body">
                     {move || {
                         if loading.get() {
@@ -126,7 +161,8 @@ pub fn InboxModal(
                             }.into_any();
                         }
 
-                        let rows = current.iter().map(|item| {
+                        let sel = selected_idx.get();
+                        let rows = current.iter().enumerate().map(|(idx, item)| {
                             let icon = source_icon(&item.source);
                             let color = priority_color(&item.priority);
                             let title = item.title.clone();
@@ -134,9 +170,14 @@ pub fn InboxModal(
                             let ts = format_time(item.created_at);
                             let state = item.state.clone();
                             let prio = item.priority.clone();
+                            let is_sel = idx == sel;
 
                             view! {
-                                <div class="assistant-inbox-item">
+                                <div
+                                    class=if is_sel { "assistant-inbox-item selected" } else { "assistant-inbox-item" }
+                                    attr:data-inbox-idx=idx
+                                    on:mouseenter=move |_| set_selected_idx.set(idx)
+                                >
                                     <div class="assistant-inbox-item-icon" style=format!("color: {}", color)>
                                         {icon}
                                     </div>
@@ -164,6 +205,7 @@ pub fn InboxModal(
 
             // Footer
             <div class="assistant-inbox-footer">
+                <span><kbd>"Up/Down"</kbd>" Navigate "<kbd>"Esc"</kbd>" Close"</span>
                 {on_open_missions.map(|cb| view! {
                     <button class="assistant-inbox-footer-btn" on:click=move |_| cb.run(())>
                         "View Missions"

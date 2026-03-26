@@ -167,6 +167,8 @@ pub fn SettingsModal(
     ];
 
     let items_len = items.len();
+    let handlers: Vec<Callback<()>> = items.iter().map(|it| it.handler).collect();
+    let handlers = StoredValue::new(handlers);
 
     let on_keydown = move |e: web_sys::KeyboardEvent| {
         let key = e.key();
@@ -181,7 +183,11 @@ pub fn SettingsModal(
             }
             "Enter" | " " => {
                 e.prevent_default();
-                // Will be handled via rendered items
+                let idx = selected_idx.get_untracked();
+                let hs = handlers.get_value();
+                if let Some(h) = hs.get(idx) {
+                    h.run(());
+                }
             }
             _ => {}
         }
