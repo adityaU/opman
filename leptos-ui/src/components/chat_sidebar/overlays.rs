@@ -53,9 +53,7 @@ pub fn SidebarContextMenu(
     ctx_menu: ReadSignal<Option<ContextMenuState>>,
     set_ctx_menu: WriteSignal<Option<ContextMenuState>>,
     pinned_sessions: ReadSignal<HashSet<String>>,
-    open_sessions: ReadSignal<HashSet<String>>,
     toggle_pin: Callback<String>,
-    toggle_open_session: Callback<String>,
     set_renaming_sid: WriteSignal<Option<String>>,
     set_rename_text: WriteSignal<String>,
     set_rename_original_title: WriteSignal<String>,
@@ -64,9 +62,7 @@ pub fn SidebarContextMenu(
     move || {
         let menu = ctx_menu.get()?;
         let mobile = is_mobile();
-        let (sid_pin, sid_open, sid_open_label, sid_pin_label, sid_rename, sid_delete) = (
-            menu.session_id.clone(),
-            menu.session_id.clone(),
+        let (sid_pin, sid_pin_label, sid_rename, sid_delete) = (
             menu.session_id.clone(),
             menu.session_id.clone(),
             menu.session_id.clone(),
@@ -82,22 +78,6 @@ pub fn SidebarContextMenu(
         };
         let icon_sz: u32 = if mobile { 16 } else { 12 };
         let items = view! {
-            <button
-                class="sb-context-item"
-                on:click=move |_| {
-                    toggle_open_session.run(sid_open.clone());
-                    set_ctx_menu.set(None);
-                }
-            >
-                <IconLayers size=icon_sz />
-                {move || {
-                    if open_sessions.get().contains(&sid_open_label) {
-                        "Remove from Open"
-                    } else {
-                        "Keep Open"
-                    }
-                }}
-            </button>
             <button
                 class="sb-context-item"
                 on:click=move |_| {

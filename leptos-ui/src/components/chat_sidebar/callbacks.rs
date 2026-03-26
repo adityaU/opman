@@ -8,6 +8,7 @@ use crate::hooks::use_panel_state::PanelState;
 use crate::hooks::use_sse_state::SseState;
 
 use super::types::{save_pinned_sessions, save_open_sessions, DeleteConfirm, RemoveProjectConfirm};
+use crate::types::api::ProjectInfo;
 
 // ── Pin toggle ──────────────────────────────────────────────────────
 
@@ -28,19 +29,24 @@ pub fn build_toggle_pin(
 
 // ── Open session toggle ─────────────────────────────────────────────
 
-pub fn build_toggle_open_session(
+pub fn build_remove_open_session(
     set_open_sessions: WriteSignal<HashSet<String>>,
 ) -> Callback<String> {
     Callback::new(move |session_id: String| {
         set_open_sessions.update(|open| {
-            if open.contains(&session_id) {
-                open.remove(&session_id);
-            } else {
-                open.insert(session_id);
-            }
+            open.remove(&session_id);
             save_open_sessions(open);
         });
     })
+}
+
+/// Add a session to Open Sessions (idempotent).
+fn add_open_session(set_open_sessions: WriteSignal<HashSet<String>>, session_id: &str) {
+    set_open_sessions.update(|open| {
+        if open.insert(session_id.to_string()) {
+            save_open_sessions(open);
+        }
+    });
 }
 
 // ── Session selection ───────────────────────────────────────────────
@@ -50,11 +56,20 @@ pub fn build_select_session(
     panels: PanelState,
     mobile_open: ReadSignal<bool>,
     on_close: Callback<()>,
+    set_open_sessions: WriteSignal<HashSet<String>>,
+    projects: Memo<Vec<ProjectInfo>>,
 ) -> Callback<(usize, String)> {
     Callback::new(move |(project_idx, session_id): (usize, String)| {
         // Auto-close sidebar on mobile
         if mobile_open.get_untracked() {
             on_close.run(());
+        }
+        // Auto-add to open sessions (top-level only, skip subagents)
+        let is_subagent = projects.get_untracked().iter().any(|p| {
+            p.sessions.iter().any(|s| s.id == session_id && !s.parent_id.is_empty())
+        });
+        if !is_subagent {
+            add_open_session(set_open_sessions, &session_id);
         }
         // URL is the source of truth — update URL, which triggers session load
         crate::hooks::use_url_restore::navigate_to_session(

@@ -100,9 +100,11 @@ pub fn ChatSidebar(
     // ── Callbacks ───────────────────────────────────────────────────
 
     let toggle_pin = build_toggle_pin(set_pinned_sessions);
-    let toggle_open_session = build_toggle_open_session(set_open_sessions);
+    let remove_open_session = build_remove_open_session(set_open_sessions);
     let panels = expect_context::<crate::hooks::use_panel_state::PanelState>();
-    let select_session = build_select_session(sse, panels, mobile_open, on_close);
+    let select_session = build_select_session(
+        sse, panels, mobile_open, on_close, set_open_sessions, projects,
+    );
     let new_session_for_project = build_new_session_for_project(sse);
     let rename_session = build_rename_session(sse, set_renaming_sid, rename_original_title);
     let do_delete = build_do_delete(sse, set_delete_loading, set_delete_confirm);
@@ -178,9 +180,15 @@ pub fn ChatSidebar(
                 error_sessions=sse.error_sessions
                 input_sessions=sse.input_sessions
                 unseen_sessions=sse.unseen_sessions
+                pinned_sessions=pinned_sessions
                 select_session=select_session
-                toggle_open_session=toggle_open_session
+                remove_open_session=remove_open_session
+                toggle_pin=toggle_pin
                 set_ctx_menu=set_ctx_menu
+                set_renaming_sid=set_renaming_sid
+                set_rename_text=set_rename_text
+                set_rename_original_title=set_rename_original_title
+                set_delete_confirm=set_delete_confirm
             />
 
             // Project list
@@ -246,9 +254,7 @@ pub fn ChatSidebar(
                 ctx_menu=ctx_menu
                 set_ctx_menu=set_ctx_menu
                 pinned_sessions=pinned_sessions
-                open_sessions=open_sessions
                 toggle_pin=toggle_pin
-                toggle_open_session=toggle_open_session
                 set_renaming_sid=set_renaming_sid
                 set_rename_text=set_rename_text
                 set_rename_original_title=set_rename_original_title
