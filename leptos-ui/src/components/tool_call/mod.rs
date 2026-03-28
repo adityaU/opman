@@ -112,8 +112,17 @@ pub fn ToolCallView(
 
     let accordion_ctx = use_context::<AccordionState>();
     let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
-        map.with_untracked(|m| m.get(&accordion_key).copied())
-            .unwrap_or(initial_expanded)
+        let saved = map.with_untracked(|m| m.get(&accordion_key).copied());
+        if let Some(val) = saved {
+            val
+        } else {
+            // Seed the map so re-renders preserve this initial state
+            // (prevents auto_expand_default from flip-flopping on status changes)
+            map.update_untracked(|m| {
+                m.insert(accordion_key.clone(), initial_expanded);
+            });
+            initial_expanded
+        }
     } else {
         initial_expanded
     };

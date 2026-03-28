@@ -169,12 +169,12 @@
 }
 
 .panel-dimmed {
-    opacity: .75;
-    transition: opacity .2s ease
+    opacity: .95;
+    transition: opacity .15s ease
 }
 
 .panel-dimmed:hover {
-    opacity: .9
+    opacity: 1
 }
 
 .toast-container {

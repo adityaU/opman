@@ -31,15 +31,18 @@ pub fn SubagentSession(
     let accordion_ctx = use_context::<AccordionState>();
 
     // Determine expanded state: if user previously toggled, use that; else compute default.
+    let auto_default = if !is_running && (is_completed || is_error) { false } else { is_running };
     let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
-        if let Some(&saved) = map.with_untracked(|m| m.get(&session_id).copied()).as_ref() {
-            saved
+        let saved = map.with_untracked(|m| m.get(&session_id).copied());
+        if let Some(val) = saved {
+            val
         } else {
-            // Auto-collapse completed/error unless running
-            if !is_running && (is_completed || is_error) { false } else { is_running }
+            // Seed the map so re-renders preserve this initial state
+            map.update_untracked(|m| { m.insert(session_id.clone(), auto_default); });
+            auto_default
         }
     } else {
-        if !is_running && (is_completed || is_error) { false } else { is_running }
+        auto_default
     };
 
     let (expanded, set_expanded) = signal(default_expanded);
