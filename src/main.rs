@@ -14,6 +14,7 @@ mod mcp;
 mod mcp_neovim;
 mod mcp_skills;
 mod mcp_time;
+mod preflight;
 mod mouse_handler;
 mod process_health;
 mod nvim_rpc;
@@ -202,6 +203,9 @@ async fn main() -> Result<()> {
     });
 
     info!("opman starting");
+
+    // Ensure required Docker containers (e.g. SearXNG) are running in background
+    preflight::spawn_container_checks();
 
     // Spawn `opencode serve` on a free port before anything else
     let (base_url, server_handle) =

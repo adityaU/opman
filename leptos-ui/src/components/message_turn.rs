@@ -248,7 +248,7 @@ fn events_to_html(events: &[pulldown_cmark::Event<'_>]) -> String {
 pub fn MessageTurn(
     group: MessageGroup,
     #[prop(optional)] child_sessions: Option<Vec<SessionInfo>>,
-    #[prop(optional)] subagent_messages: Option<SubagentMessagesMap>,
+    #[prop(optional)] subagent_messages: Option<ReadSignal<SubagentMessagesMap>>,
     search_match_ids: Option<HashSet<String>>,
     active_search_match_id: Option<String>,
     #[prop(optional)] on_retry: Option<Callback<String>>,
@@ -591,7 +591,7 @@ fn render_markdown_body(text: &str) -> leptos::prelude::AnyView {
 fn render_interleaved(
     all_parts: &[MessagePart],
     child_sessions: &[SessionInfo],
-    subagent_messages: Option<SubagentMessagesMap>,
+    subagent_messages: Option<ReadSignal<SubagentMessagesMap>>,
     on_open_session: Option<Callback<String>>,
 ) -> leptos::prelude::AnyView {
     let mut elements: Vec<leptos::prelude::AnyView> = Vec::new();

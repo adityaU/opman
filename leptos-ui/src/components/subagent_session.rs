@@ -15,17 +15,21 @@ use crate::components::message_turn::{group_messages, MessageTurn};
 use web_sys::HtmlElement;
 
 /// Renders a subagent session's messages inside a collapsible card.
+///
+/// `messages` is a reactive signal so that new messages update the body
+/// **without** recreating the component (preserving scroll position and
+/// accordion state).
 #[component]
 pub fn SubagentSession(
     #[prop(into)] session_id: String,
     #[prop(into)] title: String,
-    #[prop(into)] messages: Vec<Message>,
+    messages: Signal<Vec<Message>>,
     #[prop(optional)] is_running: bool,
     #[prop(optional)] is_completed: bool,
     #[prop(optional)] is_error: bool,
     on_open_session: Option<Callback<String>>,
 ) -> impl IntoView {
-    let has_sse_messages = !messages.is_empty();
+    let has_sse_messages = messages.with_untracked(|m| !m.is_empty());
 
     // Read shared accordion state from context (survives parent re-renders).
     let accordion_ctx = use_context::<AccordionState>();
@@ -81,24 +85,22 @@ pub fn SubagentSession(
         });
     }
 
-    // Determine which messages to display
-    let display_messages = if has_sse_messages {
-        messages.clone()
-    } else {
-        vec![] // fetched messages will be rendered reactively below
-    };
+    // No need for a separate display_messages clone — we read the
+    // reactive `messages` signal (or `fetched_messages`) in the body.
 
     let session_id_for_open = session_id.clone();
     let session_id_display = session_id.clone();
-    let msg_count = messages.len();
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
+
+    // Reactive message count — drives auto-scroll effect below.
+    let msg_count = Memo::new(move |_| messages.with(|m| m.len()));
 
     // Auto-scroll to bottom only if user was already near the bottom.
     // Prevents resetting user's scroll position when new messages arrive.
     Effect::new(move |prev_count: Option<usize>| {
-        let current = msg_count;
+        let current = msg_count.get();
         if let Some(prev) = prev_count {
-            if current != prev {
+            if current > prev {
                 if let Some(el) = scroll_ref.get() {
                     let el: &HtmlElement = &el;
                     let distance = el.scroll_height() - el.scroll_top() - el.client_height();
@@ -216,9 +218,9 @@ pub fn SubagentSession(
                         </div>
                     }.into_any()
                 } else {
-                    // Determine messages to show
+                    // Read SSE messages reactively, or fall back to fetched
                     let msgs = if has_sse_messages {
-                        display_messages.clone()
+                        messages.get()
                     } else {
                         fetched_messages.get().unwrap_or_default()
                     };

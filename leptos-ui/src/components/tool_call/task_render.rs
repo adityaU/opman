@@ -8,10 +8,14 @@ use super::helpers::SubagentMessagesMap;
 use super::sub_components::ToolOutput;
 
 /// Render task tool inline (without accordion wrapper).
+///
+/// `subagent_messages` is now an `Option<ReadSignal<SubagentMessagesMap>>` so
+/// the signal can be threaded down to `SubagentSession` as a reactive
+/// `Signal<Vec<Message>>` — preventing component recreation on updates.
 #[allow(clippy::too_many_arguments)]
 pub fn render_task_tool(
     task_session_id: Option<String>,
-    subagent_messages: Option<SubagentMessagesMap>,
+    subagent_messages: Option<ReadSignal<SubagentMessagesMap>>,
     on_open_session: Option<Callback<String>>,
     error_text: Option<String>,
     output_data: Option<String>,
@@ -32,14 +36,24 @@ pub fn render_task_tool(
     view! {
         <div class=task_class>
             {if let Some(sid) = task_session_id {
-                let msgs = subagent_messages.as_ref()
-                    .and_then(|m| m.get(&sid)).cloned().unwrap_or_default();
+                // Derive a Signal<Vec<Message>> for this specific session ID.
+                // The closure captures `sid` and `subagent_messages` by value;
+                // when the underlying map updates the derived signal updates
+                // too — but SubagentSession itself is NOT recreated.
+                let sid_for_signal = sid.clone();
+                let msgs_signal: Signal<Vec<crate::types::core::Message>> = Signal::derive(move || {
+                    subagent_messages
+                        .map(|sig| {
+                            sig.with(|m| m.get(&sid_for_signal).cloned().unwrap_or_default())
+                        })
+                        .unwrap_or_default()
+                });
                 let on_open = on_open_session.clone();
                 view! {
                     <SubagentSession
                         session_id=sid
                         title=sess_title
-                        messages=msgs
+                        messages=msgs_signal
                         is_running=is_running
                         is_completed=is_completed
                         is_error=is_error

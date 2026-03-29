@@ -24,7 +24,7 @@ use leptos::prelude::*;
 pub fn ToolCallView(
     part: MessagePart,
     child_session: Option<ChildSessionRef>,
-    subagent_messages: Option<SubagentMessagesMap>,
+    subagent_messages: Option<ReadSignal<SubagentMessagesMap>>,
     on_open_session: Option<Callback<String>>,
 ) -> impl IntoView {
     let tool_name = part
@@ -53,10 +53,11 @@ pub fn ToolCallView(
         None
     };
     let has_subagent_messages = is_task_tool
-        && matches!(
-            (&task_session_id, &subagent_messages),
-            (Some(sid), Some(msgs)) if msgs.get(sid).map_or(false, |m| !m.is_empty())
-        );
+        && task_session_id.as_ref().map_or(false, |sid| {
+            subagent_messages.map_or(false, |sig| {
+                sig.with_untracked(|m| m.get(sid).map_or(false, |msgs| !msgs.is_empty()))
+            })
+        });
     let duration_ms = part.state.as_ref().and_then(|s| {
         let time = s.time.as_ref()?;
         Some(time.end? - time.start?)

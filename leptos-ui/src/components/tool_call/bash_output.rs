@@ -77,11 +77,8 @@ pub fn BashTerminalOutput(
 
     view! {
         <div class="bash-terminal">
-            // Shell bar with command
+            // Shell bar — description (small) above command, stacked vertically
             <div class="bash-terminal-bar">
-                <span class="bash-terminal-prompt">
-                    <IconTerminal size=11 />
-                </span>
                 {description.map(|d| view! {
                     <span class="bash-terminal-desc">{d}</span>
                 })}
