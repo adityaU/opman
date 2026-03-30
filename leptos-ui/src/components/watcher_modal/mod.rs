@@ -50,11 +50,14 @@ fn flat_session_ids(sessions: &[WatcherSessionEntry]) -> Vec<String> {
 
 // ── Component ───────────────────────────────────────────────────────
 
+/// Mobile step: 0 = session list, 1 = config form.
+/// Desktop ignores this — both panels are always visible via CSS.
 #[component]
 pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
     let (sessions, set_sessions) = signal::<Vec<WatcherSessionEntry>>(Vec::new());
     let (selected_id, set_selected_id) = signal::<Option<String>>(None);
     let (loading, set_loading) = signal(true);
+    let (mobile_step, set_mobile_step) = signal(1u8); // default: config (current pre-selected)
 
     // Load sessions on mount
     Effect::new(move |_| {
@@ -63,13 +66,27 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                 Ok(sess) => {
                     let current_id = sess.iter().find(|s| s.is_current).map(|s| s.session_id.clone());
                     set_sessions.set(sess);
-                    if let Some(id) = current_id { set_selected_id.set(Some(id)); }
+                    if let Some(id) = current_id {
+                        set_selected_id.set(Some(id));
+                        set_mobile_step.set(1);
+                    } else {
+                        set_mobile_step.set(0);
+                    }
                 }
-                Err(e) => log::error!("WatcherModal: failed to load sessions: {}", e),
+                Err(e) => {
+                    log::error!("WatcherModal: failed to load sessions: {}", e);
+                    set_mobile_step.set(0);
+                }
             }
             set_loading.set(false);
         });
     });
+
+    // Selecting a session on mobile → go to config step
+    let select_session = move |sid: String| {
+        set_selected_id.set(Some(sid));
+        set_mobile_step.set(1);
+    };
 
     // Keyboard navigation on session list
     let on_keydown = move |e: web_sys::KeyboardEvent| {
@@ -80,8 +97,8 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                 let flat = flat_session_ids(&sessions.get_untracked());
                 if flat.is_empty() { return; }
                 let cur = selected_id.get_untracked();
-                let cur_idx = cur.as_ref().and_then(|c| flat.iter().position(|s| s == c));
-                let next = match cur_idx {
+                let idx = cur.as_ref().and_then(|c| flat.iter().position(|s| s == c));
+                let next = match idx {
                     Some(i) => (i + 1) % flat.len(),
                     None => 0,
                 };
@@ -92,8 +109,8 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                 let flat = flat_session_ids(&sessions.get_untracked());
                 if flat.is_empty() { return; }
                 let cur = selected_id.get_untracked();
-                let cur_idx = cur.as_ref().and_then(|c| flat.iter().position(|s| s == c));
-                let next = match cur_idx {
+                let idx = cur.as_ref().and_then(|c| flat.iter().position(|s| s == c));
+                let next = match idx {
                     Some(0) | None => flat.len() - 1,
                     Some(i) => i - 1,
                 };
@@ -116,6 +133,12 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
         }
     });
 
+    let body_class = move || {
+        let step = mobile_step.get();
+        if step == 0 { "watcher-modal-body watcher-mobile-step-list" }
+        else { "watcher-modal-body watcher-mobile-step-form" }
+    };
+
     view! {
         <ModalOverlay on_close=on_close class="watcher-modal">
             <div class="watcher-modal-header">
@@ -130,8 +153,8 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                 </button>
             </div>
 
-            <div class="watcher-modal-body">
-                // Session list (left panel) with keyboard nav
+            <div class=body_class>
+                // Session list panel
                 <div class="watcher-session-list" on:keydown=on_keydown tabindex=0>
                     {move || {
                         if loading.get() {
@@ -171,7 +194,7 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                                                             cls
                                                         }
                                                         attr:data-watcher-sid=sid_attr
-                                                        on:click=move |_| set_selected_id.set(Some(sid_click.clone()))
+                                                        on:click=move |_| select_session(sid_click.clone())
                                                     >
                                                         <span class="watcher-session-title">{title}</span>
                                                         {has_watcher.then(|| view! {
@@ -192,8 +215,19 @@ pub fn WatcherModal(on_close: Callback<()>) -> impl IntoView {
                     }}
                 </div>
 
-                // Config form (right panel)
-                <WatcherConfigForm selected_id=selected_id set_sessions=set_sessions />
+                // Config form panel (with mobile back button)
+                <div class="watcher-config-panel">
+                    <button
+                        class="watcher-mobile-back"
+                        on:click=move |_| set_mobile_step.set(0)
+                    >
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15,18 9,12 15,6"/>
+                        </svg>
+                        "Sessions"
+                    </button>
+                    <WatcherConfigForm selected_id=selected_id set_sessions=set_sessions />
+                </div>
             </div>
 
             <div class="watcher-modal-footer">

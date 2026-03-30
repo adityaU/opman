@@ -28,20 +28,8 @@ pub struct WatcherMessageEntry {
     pub timestamp: f64,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct WatcherMessagesResponse {
-    pub messages: Vec<WatcherMessageEntry>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct WatcherListResponse {
-    pub watchers: Vec<WatcherListEntry>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct WatcherSessionsResponse {
-    pub sessions: Vec<WatcherSessionEntry>,
-}
+// Note: WatcherListResponse, WatcherSessionsResponse, WatcherMessagesResponse
+// wrappers removed — backend returns raw arrays for these endpoints.
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct ActivityFeedResponse {
@@ -57,8 +45,7 @@ pub struct PresenceResponse {
 
 /// List all active watchers.
 pub async fn list_watchers() -> Result<Vec<WatcherListEntry>, ApiError> {
-    let resp: WatcherListResponse = api_fetch("/watchers").await?;
-    Ok(resp.watchers)
+    api_fetch("/watchers").await
 }
 
 /// Get watcher config for a specific session.
@@ -86,8 +73,7 @@ pub async fn delete_watcher(session_id: &str) -> Result<(), ApiError> {
 
 /// Get sessions eligible for watchers.
 pub async fn get_watcher_sessions() -> Result<Vec<WatcherSessionEntry>, ApiError> {
-    let resp: WatcherSessionsResponse = api_fetch("/watcher/sessions").await?;
-    Ok(resp.sessions)
+    api_fetch("/watcher/sessions").await
 }
 
 /// Get user messages for a specific session (for original message picker).
@@ -96,8 +82,7 @@ pub async fn get_watcher_messages(session_id: &str) -> Result<Vec<WatcherMessage
         "/watcher/{}/messages",
         js_sys::encode_uri_component(session_id),
     );
-    let resp: WatcherMessagesResponse = api_fetch(&path).await?;
-    Ok(resp.messages)
+    api_fetch(&path).await
 }
 
 /// Fetch activity feed events.

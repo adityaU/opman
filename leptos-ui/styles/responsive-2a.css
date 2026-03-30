@@ -69,79 +69,120 @@
         max-height: calc(92vh - env(safe-area-inset-top,0px))
     }
 
-    .health-modal {
-        max-height: calc(75vh - env(safe-area-inset-top,0px))
+    /* ── Two-step mobile flow ── */
+    .watcher-modal-body {
+        flex-direction: column;
+        position: relative
     }
 
-    .watcher-modal-body {
-        flex-direction: column
+    /* Step 0: session list visible, config hidden */
+    .watcher-mobile-step-list .watcher-session-list {
+        display: block
+    }
+    .watcher-mobile-step-list .watcher-config-panel {
+        display: none
+    }
+
+    /* Step 1: config visible, session list hidden */
+    .watcher-mobile-step-form .watcher-session-list {
+        display: none
+    }
+    .watcher-mobile-step-form .watcher-config-panel {
+        display: flex
     }
 
     .watcher-session-list {
         width: 100%;
         min-width: 0;
         max-height: none;
+        flex: 1;
         border-right: none;
-        border-bottom: 1px solid var(--color-border-subtle);
-        display: flex;
-        flex-direction: row;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 8px;
-        gap: 6px;
-        flex-shrink: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 4px 0;
         -webkit-overflow-scrolling: touch
     }
 
     .watcher-session-group {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 0;
-        flex-shrink: 0
+        display: block;
+        margin-bottom: 2px
     }
 
     .watcher-group-label {
-        writing-mode: vertical-lr;
-        transform: rotate(180deg);
-        padding: 4px 2px;
+        writing-mode: horizontal-tb;
+        transform: none;
+        padding: 6px 14px 2px;
         font-size: var(--font-size-2xs);
-        letter-spacing: .08em;
-        color: var(--color-text-muted);
-        flex-shrink: 0
+        letter-spacing: .06em;
+        color: var(--color-text-muted)
     }
 
     .watcher-session-item {
-        flex-shrink: 0;
         white-space: nowrap;
-        padding: 8px 14px;
-        border-radius: 20px;
-        background: var(--white-4);
-        border: 1px solid var(--color-border-subtle);
-        font-size: var(--font-size-2xs);
+        padding: 10px 14px;
+        border-radius: 0;
+        background: none;
+        border: none;
+        border-left: 2px solid transparent;
+        font-size: var(--font-size-xs);
         min-height: 40px;
         align-items: center;
-        gap: 6px
+        gap: 6px;
+        width: 100%;
+        display: flex
     }
 
     .watcher-session-item.selected {
-        background: color-mix(in srgb,var(--color-primary) 18%,transparent);
-        border-color: var(--color-primary);
-        border-left: 1px solid var(--color-primary)
+        background: color-mix(in srgb,var(--color-primary) 14%,transparent);
+        border-color: transparent;
+        border-left: 2px solid var(--color-primary)
     }
 
     .watcher-session-item:hover {
         background: var(--white-6)
     }
 
+    .watcher-session-title {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+
     .watcher-session-project {
         display: none
     }
 
+    /* ── Mobile back button ── */
+    .watcher-mobile-back {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border: none;
+        border-bottom: 1px solid var(--color-border-subtle);
+        background: none;
+        color: var(--color-primary);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        cursor: pointer
+    }
+
+    .watcher-mobile-back:active {
+        background: var(--white-4)
+    }
+
+    /* ── Config panel ── */
+    .watcher-config-panel {
+        flex: 1;
+        min-height: 0
+    }
+
     .watcher-config-form {
-        padding: 16px;
-        gap: 16px
+        padding: 14px 16px;
+        gap: 14px;
+        flex: 1;
+        overflow-y: auto
     }
 
     .watcher-form-label {
@@ -151,16 +192,16 @@
 
     .watcher-form-textarea {
         font-size: 16px;
-        padding: 12px;
-        min-height: 56px;
-        border-radius: 12px
+        padding: 10px 12px;
+        min-height: 48px;
+        border-radius: 10px
     }
 
     .watcher-form-input {
         width: 100%;
         font-size: 16px;
-        padding: 10px 12px;
-        border-radius: 12px
+        padding: 8px 12px;
+        border-radius: 10px
     }
 
     .watcher-form-hint {
@@ -184,13 +225,13 @@
     }
 
     .watcher-msg-picker {
-        max-height: 180px
+        max-height: 150px
     }
 
     .watcher-msg-picker-item {
         padding: 10px 12px;
         font-size: var(--font-size-2xs);
-        min-height: 44px
+        min-height: 40px
     }
 
     .watcher-btn-sm {
@@ -212,5 +253,14 @@
         font-size: var(--font-size-sm);
         border-radius: 12px;
         min-height: 48px
+    }
+
+    /* Hide keyboard hints on mobile */
+    .watcher-modal-footer {
+        display: none
+    }
+
+    .health-modal {
+        max-height: calc(75vh - env(safe-area-inset-top,0px))
     }
 }
