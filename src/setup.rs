@@ -140,6 +140,8 @@ pub(crate) fn setup_initial_projects(
     enable_terminal_mcp: bool,
     enable_neovim_mcp: bool,
     enable_time_mcp: bool,
+    enable_ui_mcp: bool,
+    headless: bool,
 ) {
     if app.projects.is_empty() {
         return;
@@ -174,6 +176,7 @@ pub(crate) fn setup_initial_projects(
                 enable_terminal_mcp,
                 enable_neovim_mcp,
                 enable_time_mcp,
+                enable_ui_mcp,
             ) {
                 tracing::warn!(
                     "Failed to write opencode.json for {}: {}",
@@ -187,6 +190,11 @@ pub(crate) fn setup_initial_projects(
     // When neovim MCP is enabled, store flag on App (disables follow-edits)
     if enable_neovim_mcp {
         app.neovim_mcp_enabled = true;
+    }
+
+    // TUI-only setup: PTY spawning and neovim auto-start
+    if headless {
+        return;
     }
 
     // Auto-activate project 0 by spawning PTY directly

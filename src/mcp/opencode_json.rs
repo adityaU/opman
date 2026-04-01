@@ -10,6 +10,7 @@ pub fn write_opencode_json(
     enable_terminal: bool,
     enable_neovim: bool,
     enable_time: bool,
+    enable_ui: bool,
 ) -> anyhow::Result<()> {
     let json_path = project_path.join("opencode.json");
 
@@ -39,7 +40,7 @@ pub fn write_opencode_json(
                 "terminal".to_string(),
                 serde_json::json!({
                     "type": "local",
-                    "command": [&exe_str, "--mcp", &project_path_str]
+                    "command": [&exe_str, "mcp", &project_path_str]
                 }),
             );
         } else {
@@ -50,7 +51,7 @@ pub fn write_opencode_json(
                 "neovim".to_string(),
                 serde_json::json!({
                     "type": "local",
-                    "command": [&exe_str, "--mcp-nvim", &project_path_str]
+                    "command": [&exe_str, "mcp-nvim", &project_path_str]
                 }),
             );
         } else {
@@ -61,11 +62,22 @@ pub fn write_opencode_json(
                 "time".to_string(),
                 serde_json::json!({
                     "type": "local",
-                    "command": [&exe_str, "--mcp-time"]
+                    "command": [&exe_str, "mcp-time"]
                 }),
             );
         } else {
             mcp_obj.remove("time");
+        }
+        if enable_ui {
+            mcp_obj.insert(
+                "ui".to_string(),
+                serde_json::json!({
+                    "type": "local",
+                    "command": [&exe_str, "mcp-ui"]
+                }),
+            );
+        } else {
+            mcp_obj.remove("ui");
         }
     }
 
@@ -96,7 +108,11 @@ pub fn write_opencode_json(
     std::fs::write(&json_path, formatted)?;
     info!(
         ?json_path,
-        enable_terminal, enable_neovim, enable_time, "Wrote opencode.json with MCP config"
+        enable_terminal,
+        enable_neovim,
+        enable_time,
+        enable_ui,
+        "Wrote opencode.json with MCP config"
     );
 
     Ok(())

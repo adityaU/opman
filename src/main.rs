@@ -14,6 +14,7 @@ mod mcp;
 mod mcp_neovim;
 mod mcp_skills;
 mod mcp_time;
+mod mcp_ui;
 mod preflight;
 mod mouse_handler;
 mod process_health;
@@ -134,6 +135,9 @@ async fn main() -> Result<()> {
         Some(Commands::McpTime) => {
             return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
         }
+        Some(Commands::McpUi) => {
+            return mcp_ui::run_mcp_ui_bridge().await.map_err(Into::into);
+        }
         Some(Commands::McpNvim { project_path }) => {
             return mcp_neovim::run_mcp_neovim_bridge(project_path)
                 .await
@@ -158,11 +162,13 @@ async fn main() -> Result<()> {
     let enable_web = cli.enable_web();
     let tunnel_mode = cli.tunnel_mode();
 
-    let no_mcp = cli.no_mcp;
-    let enable_terminal_mcp = !no_mcp && !cli.no_terminal_mcp;
-    let enable_neovim_mcp = !no_mcp && !cli.no_neovim_mcp;
-    let enable_time_mcp = !no_mcp && !cli.no_time_mcp;
-    let enable_any_mcp = enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp;
+    let all_mcp = cli.all_mcp;
+    let enable_terminal_mcp = all_mcp || cli.terminal_mcp;
+    let enable_neovim_mcp = all_mcp || cli.neovim_mcp;
+    let enable_time_mcp = all_mcp || cli.time_mcp;
+    let enable_ui_mcp = all_mcp || cli.ui_mcp;
+    let enable_any_mcp =
+        enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp || enable_ui_mcp;
 
     let web_port = cli.web_port;
     let web_user = cli.web_user.unwrap_or_default();
@@ -289,6 +295,18 @@ async fn main() -> Result<()> {
     // ── web-only mode: skip the TUI entirely, run headless ────────
     if web_only {
         info!("Running in web-only mode (no TUI)");
+
+        // Still need MCP + session setup (headless=true skips PTY spawning)
+        setup::setup_initial_projects(
+            &mut app,
+            enable_any_mcp,
+            enable_terminal_mcp,
+            enable_neovim_mcp,
+            enable_time_mcp,
+            enable_ui_mcp,
+            true,
+        );
+
         println!(
             "opman web-only mode — web UI at http://localhost:{}",
             web_actual_port
@@ -298,6 +316,14 @@ async fn main() -> Result<()> {
         }
         println!("Press Ctrl+C to stop.");
         tokio::signal::ctrl_c().await.ok();
+
+        // Clean up MCP socket files
+        if enable_any_mcp {
+            for project in &app.projects {
+                mcp::cleanup_socket(&project.path);
+            }
+        }
+
         server::kill_server(&server_handle);
         info!("opman shut down (web-only)");
         return Ok(());
@@ -328,6 +354,8 @@ async fn main() -> Result<()> {
         enable_terminal_mcp,
         enable_neovim_mcp,
         enable_time_mcp,
+        enable_ui_mcp,
+        false,
     );
 
     // Start Slack integration if enabled

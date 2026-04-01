@@ -497,6 +497,49 @@ fn ChatLayoutInner(
         assistant.set_workspace_cache,
     );
 
+    // ── A2UI callback listener ──
+    // Listens for `opman:a2ui-callback` custom events dispatched by interactive
+    // A2UI blocks (buttons / forms) and POSTs the callback to the backend,
+    // which injects it into the current session as a user message.
+    {
+        use wasm_bindgen::prelude::*;
+        use wasm_bindgen::JsCast;
+        let handler =
+            Closure::<dyn Fn(web_sys::CustomEvent)>::new(move |evt: web_sys::CustomEvent| {
+                let detail_js = evt.detail();
+                let Some(detail_str) = detail_js.as_string() else {
+                    return;
+                };
+                let Ok(detail) = serde_json::from_str::<serde_json::Value>(&detail_str) else {
+                    return;
+                };
+                let Some(callback_id) = detail.get("callback_id").and_then(|v| v.as_str()) else {
+                    return;
+                };
+                let payload = detail.get("payload").cloned().unwrap_or(serde_json::Value::Null);
+                let Some(session_id) = sse.tracked_session_id() else {
+                    return;
+                };
+                let cb_id = callback_id.to_string();
+                leptos::task::spawn_local(async move {
+                    let _ = crate::api::session::a2ui_callback(&session_id, &cb_id, payload).await;
+                });
+            });
+        let window = web_sys::window().unwrap();
+        let _ = window.add_event_listener_with_callback(
+            "opman:a2ui-callback",
+            handler.as_ref().unchecked_ref(),
+        );
+        let handler_fn = handler.as_ref().unchecked_ref::<js_sys::Function>().clone();
+        on_cleanup(move || {
+            if let Some(w) = web_sys::window() {
+                let _ = w
+                    .remove_event_listener_with_callback("opman:a2ui-callback", &handler_fn);
+            }
+        });
+        handler.forget();
+    }
+
     // ── Provide extended context for child components ──
     provide_context(assistant);
     provide_context(model_state);

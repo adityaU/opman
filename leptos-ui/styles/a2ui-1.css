@@ -1,0 +1,378 @@
+/* ── A2UI — agent-rendered UI blocks ────────────────────────────── */
+
+.a2ui-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2)
+}
+
+.a2ui-empty {
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: var(--font-size-xs);
+    padding: var(--space-2)
+}
+
+.a2ui-unknown {
+    color: var(--color-warning);
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    border: 1px dashed var(--color-border-subtle);
+    border-radius: var(--radius-sm)
+}
+
+/* ── Card ──────────────────────────────────────────────────────── */
+
+.a2ui-card {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg)
+}
+
+.a2ui-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--white-3);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.a2ui-card-icon {
+    font-size: var(--font-size-sm)
+}
+
+.a2ui-card-title {
+    color: var(--color-text)
+}
+
+.a2ui-card-body {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    line-height: 1.5
+}
+
+/* ── Table ─────────────────────────────────────────────────────── */
+
+.a2ui-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm)
+}
+
+.a2ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-2xs);
+    font-family: var(--font-mono)
+}
+
+.a2ui-table th {
+    padding: var(--space-1) var(--space-2);
+    background: var(--white-3);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-subtle);
+    white-space: nowrap
+}
+
+.a2ui-table td {
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--white-3);
+    color: var(--color-text);
+    word-break: break-word
+}
+
+.a2ui-table tr:last-child td {
+    border-bottom: none
+}
+
+.a2ui-table tr:hover td {
+    background: var(--white-3)
+}
+
+/* ── Key-Value ─────────────────────────────────────────────────── */
+
+.a2ui-kv {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden
+}
+
+.a2ui-kv-row {
+    display: flex;
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--white-3);
+    font-size: var(--font-size-2xs);
+    gap: var(--space-3)
+}
+
+.a2ui-kv-row:last-child {
+    border-bottom: none
+}
+
+.a2ui-kv-key {
+    min-width: 100px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    flex-shrink: 0
+}
+
+.a2ui-kv-val {
+    color: var(--color-text);
+    word-break: break-word
+}
+
+/* ── Status ────────────────────────────────────────────────────── */
+
+.a2ui-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    border: 1px solid var(--color-border-subtle)
+}
+
+.a2ui-status-info {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg))
+}
+
+.a2ui-status-success {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+    background: color-mix(in srgb, var(--color-success) 6%, var(--color-bg))
+}
+
+.a2ui-status-warning {
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 6%, var(--color-bg))
+}
+
+.a2ui-status-error {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
+    background: color-mix(in srgb, var(--color-error) 6%, var(--color-bg))
+}
+
+.a2ui-status-label {
+    font-weight: 600
+}
+
+.a2ui-status-detail {
+    color: inherit;
+    opacity: .7;
+    font-size: var(--font-size-2xs)
+}
+
+/* ── Progress ──────────────────────────────────────────────────── */
+
+.a2ui-progress {
+    padding: var(--space-1) 0
+}
+
+.a2ui-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-1)
+}
+
+.a2ui-progress-label {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.a2ui-progress-pct {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono)
+}
+
+.a2ui-progress-track {
+    height: 6px;
+    background: var(--white-6);
+    border-radius: var(--radius-full);
+    overflow: hidden
+}
+
+.a2ui-progress-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease
+}
+
+/* ── Alert ─────────────────────────────────────────────────────── */
+
+.a2ui-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    line-height: 1.5
+}
+
+.a2ui-alert svg {
+    flex-shrink: 0;
+    margin-top: 2px
+}
+
+.a2ui-alert-info {
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg))
+}
+
+.a2ui-alert-success {
+    color: var(--color-success);
+    border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+    background: color-mix(in srgb, var(--color-success) 6%, var(--color-bg))
+}
+
+.a2ui-alert-warning {
+    color: var(--color-warning);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 6%, var(--color-bg))
+}
+
+.a2ui-alert-error {
+    color: var(--color-error);
+    border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+    background: color-mix(in srgb, var(--color-error) 6%, var(--color-bg))
+}
+
+/* ── Markdown ──────────────────────────────────────────────────── */
+
+.a2ui-markdown {
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+    line-height: 1.6
+}
+
+.a2ui-markdown p { margin: var(--space-1) 0 }
+.a2ui-markdown ul,.a2ui-markdown ol { padding-left: var(--space-4); margin: var(--space-1) 0 }
+.a2ui-markdown ul { list-style-type: disc }
+.a2ui-markdown ol { list-style-type: decimal }
+.a2ui-markdown li { margin-bottom: 2px }
+.a2ui-markdown code {
+    background: var(--color-bg-element);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs)
+}
+
+/* ── Button ────────────────────────────────────────────────────── */
+
+.a2ui-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-element);
+    color: var(--color-text);
+    transition: background var(--transition-fast), border-color var(--transition-fast)
+}
+
+.a2ui-btn:hover:not(:disabled) {
+    background: var(--white-6);
+    border-color: var(--color-border)
+}
+
+.a2ui-btn:disabled {
+    opacity: .6;
+    cursor: default
+}
+
+.a2ui-btn-primary {
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border-color: var(--color-accent)
+}
+
+.a2ui-btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 85%, white);
+    border-color: color-mix(in srgb, var(--color-accent) 85%, white)
+}
+
+.a2ui-btn-danger {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent)
+}
+
+.a2ui-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 8%, var(--color-bg))
+}
+
+.a2ui-btn-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-success)
+}
+
+/* ── Form ──────────────────────────────────────────────────────── */
+
+.a2ui-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2)
+}
+
+.a2ui-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.a2ui-form-label {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted)
+}
+
+.a2ui-form-input {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    transition: border-color var(--transition-fast)
+}
+
+.a2ui-form-input:focus {
+    outline: none;
+    border-color: var(--color-accent)
+}
+
+.a2ui-form-input:disabled {
+    opacity: .6;
+    cursor: default
+}
+
+textarea.a2ui-form-input {
+    min-height: 60px;
+    resize: vertical
+}

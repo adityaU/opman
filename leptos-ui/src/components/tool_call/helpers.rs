@@ -114,19 +114,24 @@ pub fn auto_expand_default(
     is_todo_write: bool,
     is_task_tool: bool,
     is_bash_tool: bool,
+    is_a2ui: bool,
     is_running: bool,
     is_completed: bool,
     is_error: bool,
     has_subagent_messages: bool,
 ) -> bool {
-    let mut exp = is_todo_write || (is_task_tool && (is_running || is_completed || is_error));
+    // A2UI and todo_write are always expanded
+    if is_a2ui || is_todo_write {
+        return true;
+    }
+    let mut exp = is_task_tool && (is_running || is_completed || is_error);
     if is_bash_tool && is_running {
         exp = true;
     }
     if is_task_tool && (is_running || has_subagent_messages) {
         exp = true;
     }
-    if !is_todo_write && is_completed {
+    if is_completed {
         exp = false;
     }
     exp

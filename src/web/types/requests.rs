@@ -208,6 +208,16 @@ pub struct RenameSessionRequest {
     pub title: String,
 }
 
+/// Request for A2UI callback (button click / form submission).
+#[derive(Deserialize)]
+pub struct A2uiCallbackRequest {
+    /// The callback_id from the A2UI block that was interacted with.
+    pub callback_id: String,
+    /// Payload: form field values, or null for button clicks.
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
 /// SSE query params for session event stream (proxied from opencode).
 #[derive(Deserialize)]
 pub struct SessionSseQuery {

@@ -112,21 +112,25 @@ pub(crate) struct Cli {
     pub tunnel_edge_ip: Vec<String>,
 
     // ── MCP control ─────────────────────────────────────────────────
-    /// Disable all MCP integrations
+    /// Enable all MCP integrations (terminal, neovim, time, ui)
     #[arg(long)]
-    pub no_mcp: bool,
+    pub all_mcp: bool,
 
-    /// Disable the terminal MCP server
+    /// Enable the terminal MCP server
     #[arg(long)]
-    pub no_terminal_mcp: bool,
+    pub terminal_mcp: bool,
 
-    /// Disable the neovim MCP server
+    /// Enable the neovim MCP server
     #[arg(long)]
-    pub no_neovim_mcp: bool,
+    pub neovim_mcp: bool,
 
-    /// Disable the time MCP server
+    /// Enable the time MCP server
     #[arg(long)]
-    pub no_time_mcp: bool,
+    pub time_mcp: bool,
+
+    /// Enable the UI render MCP server (A2UI)
+    #[arg(long)]
+    pub ui_mcp: bool,
 }
 
 #[derive(Subcommand)]
@@ -139,6 +143,9 @@ pub(crate) enum Commands {
 
     /// Run the time MCP bridge
     McpTime,
+
+    /// Run the UI render MCP bridge (A2UI)
+    McpUi,
 
     /// Run the neovim MCP bridge for a project
     McpNvim {

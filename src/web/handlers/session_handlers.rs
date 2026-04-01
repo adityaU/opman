@@ -320,3 +320,55 @@ pub async fn mark_session_seen(
     state.web_state.mark_session_seen(&session_id).await;
     Ok(StatusCode::OK)
 }
+
+/// POST /api/session/:id/a2ui/callback — inject an A2UI interaction
+/// (button click or form submission) back into the session as a user
+/// message so the agent can see and react to it.
+pub async fn a2ui_callback(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+    Json(req): Json<A2uiCallbackRequest>,
+) -> WebResult<impl IntoResponse> {
+    let dir = resolve_project_dir(&state).await?;
+    let base = base_url().to_string();
+
+    // Format the callback as a structured user message the agent can parse.
+    let text = if req.payload.is_null() || req.payload == serde_json::json!({}) {
+        format!("[A2UI callback: {}]", req.callback_id)
+    } else {
+        let payload_str = serde_json::to_string_pretty(&req.payload).unwrap_or_default();
+        format!(
+            "[A2UI callback: {}]\n```json\n{}\n```",
+            req.callback_id, payload_str
+        )
+    };
+
+    let msg_body = serde_json::json!({
+        "parts": [{
+            "type": "text",
+            "text": text,
+        }]
+    });
+
+    let resp = state
+        .http_client
+        .post(format!("{}/session/{}/message", base, session_id))
+        .header("x-opencode-directory", &dir)
+        .header("Accept", "application/json")
+        .json(&msg_body)
+        .send()
+        .await
+        .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+        return Err(WebError::Internal(format!(
+            "Upstream {}: {:?}",
+            status, body
+        )));
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}

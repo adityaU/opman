@@ -81,6 +81,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/session/{session_id}/mark_seen",
             post(handlers::mark_session_seen),
         )
+        .route(
+            "/session/{session_id}/a2ui/callback",
+            post(handlers::a2ui_callback),
+        )
         // ── Multi-session dashboard ──────────────────────────────────
         .route("/sessions/overview", get(handlers::sessions_overview))
         .route("/sessions/tree", get(handlers::sessions_tree))

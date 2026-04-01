@@ -188,3 +188,22 @@ pub async fn switch_theme(name: &str) -> Result<(), ApiError> {
     }
     super::client::api_post_void("/theme/switch", &Body { name }).await
 }
+
+/// Send an A2UI callback (button click / form submission) into a session.
+pub async fn a2ui_callback(
+    session_id: &str,
+    callback_id: &str,
+    payload: serde_json::Value,
+) -> Result<(), ApiError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        callback_id: &'a str,
+        payload: serde_json::Value,
+    }
+    let path = format!(
+        "/session/{}/a2ui/callback",
+        js_sys::encode_uri_component(session_id),
+    );
+    let _: serde_json::Value = api_post(&path, &Body { callback_id, payload }).await?;
+    Ok(())
+}
