@@ -218,12 +218,12 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         set_save_status_back.set(None);
     });
 
-    // ── Mobile: back-navigation integration for file-open state ─────
-    // When a file is opened on mobile, push a custom back layer so the
-    // system back button returns to the file browser.
+    // ── Back-navigation integration for file-open state ───────────────
+    // When a file is opened (mobile or desktop), push a custom back layer
+    // so the browser back button returns to the file list/explorer instead
+    // of closing the entire editor panel.
     {
         let active_file = s.active_file;
-        let is_mobile = s.is_mobile;
         let set_active_file = s.set_active_file;
         let set_save_status = s.set_save_status;
         let back_nav =
@@ -232,11 +232,9 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
         if let Some(back_nav) = back_nav {
             Effect::new(move |prev_has_file: Option<bool>| {
                 let has_file = active_file.get().is_some();
-                let mobile = is_mobile.get();
 
                 if let Some(had_file) = prev_has_file {
-                    if mobile && has_file && !had_file {
-                        // File opened on mobile — push back layer
+                    if has_file && !had_file {
                         let set_af = set_active_file;
                         let set_ss = set_save_status;
                         back_nav.push_custom_layer(
@@ -246,8 +244,7 @@ pub fn CodeEditorPanel(panels: PanelState) -> impl IntoView {
                                 set_ss.set(None);
                             }),
                         );
-                    } else if mobile && !has_file && had_file {
-                        // File closed on mobile (not via back) — remove layer
+                    } else if !has_file && had_file {
                         back_nav.remove_custom_layer("editor_file_open");
                     }
                 }
