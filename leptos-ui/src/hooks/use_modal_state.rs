@@ -125,6 +125,9 @@ pub struct ModalState {
     // Split-view auxiliary state
     pub split_view_secondary_id: ReadSignal<Option<String>>,
     pub set_split_view_secondary_id: WriteSignal<Option<String>>,
+    // Memory modal: when true, show only session-active memories
+    pub memory_filter_active: ReadSignal<bool>,
+    pub set_memory_filter_active: WriteSignal<bool>,
 }
 
 impl ModalState {
@@ -186,6 +189,18 @@ impl ModalState {
         false
     }
 
+    /// Open memory modal in active-only mode (prompt chip).
+    pub fn open_memory_active(&self) {
+        self.set_memory_filter_active.set(true);
+        self.open(ModalName::Memory);
+    }
+
+    /// Open memory modal showing all memories (command palette, settings, etc).
+    pub fn open_memory_all(&self) {
+        self.set_memory_filter_active.set(false);
+        self.open(ModalName::Memory);
+    }
+
     fn cleanup_side_effects(&self, name: ModalName) {
         match name {
             ModalName::SearchBar => {
@@ -194,6 +209,9 @@ impl ModalState {
             }
             ModalName::SplitView => {
                 self.set_split_view_secondary_id.set(None);
+            }
+            ModalName::Memory => {
+                self.set_memory_filter_active.set(false);
             }
             _ => {}
         }
@@ -207,6 +225,7 @@ pub fn use_modal_state() -> ModalState {
     let (search_match_ids, set_search_match_ids) = signal::<Vec<String>>(Vec::new());
     let (active_search_match_id, set_active_search_match_id) = signal::<Option<String>>(None);
     let (split_view_secondary_id, set_split_view_secondary_id) = signal::<Option<String>>(None);
+    let (memory_filter_active, set_memory_filter_active) = signal(false);
 
     ModalState {
         modals,
@@ -217,5 +236,7 @@ pub fn use_modal_state() -> ModalState {
         set_active_search_match_id,
         split_view_secondary_id,
         set_split_view_secondary_id,
+        memory_filter_active,
+        set_memory_filter_active,
     }
 }

@@ -95,6 +95,33 @@ fn model_label(model: &serde_json::Value) -> String {
     }
 }
 
+// ── Memory guidance parsing ─────────────────────────────────────────
+
+/// Parsed user message: separates memory guidance from the actual request.
+struct ParsedUserMessage {
+    user_text: String,
+    memory_lines: Option<String>,
+}
+
+/// Parse a user message that may contain injected memory guidance.
+/// Pattern: `[Assistant memory in effect]\n...\n\n[User request]\n...`
+fn parse_memory_guidance(text: &str) -> ParsedUserMessage {
+    let trimmed = text.trim();
+    if !trimmed.starts_with("[Assistant memory in effect]") {
+        return ParsedUserMessage { user_text: trimmed.to_string(), memory_lines: None };
+    }
+    if let Some(req_pos) = trimmed.find("[User request]") {
+        let mem_block = trimmed["[Assistant memory in effect]".len()..req_pos].trim();
+        let user_block = trimmed[req_pos + "[User request]".len()..].trim();
+        ParsedUserMessage {
+            user_text: user_block.to_string(),
+            memory_lines: if mem_block.is_empty() { None } else { Some(mem_block.to_string()) },
+        }
+    } else {
+        ParsedUserMessage { user_text: trimmed.to_string(), memory_lines: None }
+    }
+}
+
 // ── Markdown rendering ──────────────────────────────────────────────
 
 /// A segment of content — either rendered HTML (from markdown) or a fenced code block.
@@ -370,7 +397,14 @@ pub fn MessageTurn(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let plain_text = all_text.trim().to_string();
+    // For user messages, parse out injected memory guidance
+    let parsed = if is_user {
+        parse_memory_guidance(&all_text)
+    } else {
+        ParsedUserMessage { user_text: all_text.trim().to_string(), memory_lines: None }
+    };
+    let plain_text = parsed.user_text;
+    let memory_guidance = parsed.memory_lines;
 
     // Copy handler
     let plain_for_copy = plain_text.clone();
@@ -414,8 +448,13 @@ pub fn MessageTurn(
             on_open_session.clone(),
         )
     } else if !plain_text.is_empty() {
-        // Pure text — render as Markdown with fenced code blocks
-        render_markdown_body(&plain_text)
+        if let Some(ref mem_text) = memory_guidance {
+            // User message with memory guidance — render accordion
+            render_user_memory_accordion(&plain_text, mem_text)
+        } else {
+            // Pure text — render as Markdown with fenced code blocks
+            render_markdown_body(&plain_text)
+        }
     } else {
         view! { <div /> }.into_any()
     };
@@ -582,6 +621,57 @@ fn render_markdown_body(text: &str) -> leptos::prelude::AnyView {
                     }
                 }
             }).collect_view()}
+        </div>
+    }.into_any()
+}
+
+/// Render a user message that has memory guidance — accordion with user text as title,
+/// memory list as collapsible content.
+fn render_user_memory_accordion(user_text: &str, memory_text: &str) -> leptos::prelude::AnyView {
+    let (open, set_open) = signal(false);
+    let user_segments = parse_markdown_segments(user_text);
+    let mem_segments = parse_markdown_segments(memory_text);
+
+    view! {
+        <div class="message-body">
+            // User message always visible
+            {user_segments.into_iter().map(|seg| {
+                match seg {
+                    ContentSegment::Html(html) => view! { <div inner_html=html></div> }.into_any(),
+                    ContentSegment::FencedCode { language, code } => {
+                        view! { <CodeBlock language=language code=code /> }.into_any()
+                    }
+                }
+            }).collect_view()}
+            // Memory accordion toggle
+            <button
+                class="user-memory-toggle"
+                on:click=move |_| set_open.update(|v| *v = !*v)
+            >
+                <svg
+                    class="user-memory-chevron"
+                    class:user-memory-chevron-open=move || open.get()
+                    width="12" height="12" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                >
+                    <polyline points="9 18 15 12 9 6" />
+                </svg>
+                <span class="user-memory-label">"Applied memories"</span>
+            </button>
+            <div
+                class="user-memory-content"
+                style:display=move || if open.get() { "" } else { "none" }
+            >
+                {mem_segments.into_iter().map(|seg| {
+                    match seg {
+                        ContentSegment::Html(html) => view! { <div inner_html=html></div> }.into_any(),
+                        ContentSegment::FencedCode { language, code } => {
+                            view! { <CodeBlock language=language code=code /> }.into_any()
+                        }
+                    }
+                }).collect_view()}
+            </div>
         </div>
     }.into_any()
 }

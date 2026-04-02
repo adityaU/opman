@@ -1,11 +1,10 @@
 //! HTML string rendering for A2UI blocks (core).
 //! Converts block JSON → raw HTML for `inner_html`, avoiding Leptos fragment accumulation.
 
+use super::blocks::{cell_to_string, str_field};
 use super::{html_render_chart, html_render_coding, html_render_content};
 use super::{html_render_ext, html_render_interface, html_render_layout, html_render_media};
-
-use super::blocks::{cell_to_string, str_field};
-use crate::components::message_turn::{parse_markdown_segments, ContentSegment};
+use pulldown_cmark::{Options, Parser};
 
 // ── Public entry ────────────────────────────────────────────────────
 
@@ -88,39 +87,49 @@ pub(super) fn sf_or(data: &serde_json::Value, a: &str, b: &str) -> Option<String
     sf(data, a).or_else(|| sf(data, b))
 }
 
+/// Render markdown text to HTML. Suitable for multi-line content fields
+/// (card body, alert message, callout body, etc.).
+/// Uses pulldown-cmark with tables + strikethrough + tasklists.
+pub(super) fn md(text: &str) -> String {
+    if text.is_empty() {
+        return String::new();
+    }
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    let parser = Parser::new_ext(text, opts);
+    let mut html = String::with_capacity(text.len() + 64);
+    pulldown_cmark::html::push_html(&mut html, parser);
+    // Consistent inline-code styling
+    html = html.replace("<code>", "<code class=\"inline-code\">");
+    html
+}
+
+/// Render markdown to HTML then strip the outer `<p>...</p>` wrapper if the
+/// result is a single paragraph. Use for short single-line fields (labels,
+/// descriptions) where a block-level `<p>` would break layout.
+pub(super) fn md_inline(text: &str) -> String {
+    let html = md(text);
+    let trimmed = html.trim();
+    if trimmed.starts_with("<p>")
+        && trimmed.ends_with("</p>")
+        && trimmed.matches("<p>").count() == 1
+    {
+        trimmed[3..trimmed.len() - 4].to_string()
+    } else {
+        html
+    }
+}
+
 fn f64_or(data: &serde_json::Value, a: &str, b: &str) -> Option<f64> {
     data.get(a)
         .and_then(|v| v.as_f64())
         .or_else(|| data.get(b).and_then(|v| v.as_f64()))
 }
 
-// ── SVG icons ───────────────────────────────────────────────────────
-
-pub(super) fn svg_icon(name: &str, size: u32) -> String {
-    let body = match name {
-        "check-circle" => "<path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/>",
-        "alert-triangle" => "<path d=\"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z\"/><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/>",
-        "x-circle" => "<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"15\" y1=\"9\" x2=\"9\" y2=\"15\"/><line x1=\"9\" y1=\"9\" x2=\"15\" y2=\"15\"/>",
-        "info" => "<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"8\" x2=\"12.01\" y2=\"8\"/>",
-        "external-link" => "<path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/><polyline points=\"15 3 21 3 21 9\"/><line x1=\"10\" y1=\"14\" x2=\"21\" y2=\"3\"/>",
-        _ => "",
-    };
-    format!(
-        "<svg width=\"{}\" height=\"{}\" viewBox=\"0 0 24 24\" fill=\"none\" \
-         stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" \
-         stroke-linejoin=\"round\">{}</svg>",
-        size, size, body
-    )
-}
-
-pub(super) fn level_icon_html(level: &str, size: u32) -> String {
-    match level {
-        "success" => svg_icon("check-circle", size),
-        "warning" => svg_icon("alert-triangle", size),
-        "error" => svg_icon("x-circle", size),
-        _ => svg_icon("info", size),
-    }
-}
+// Re-export icon helpers from dedicated module
+pub(super) use super::html_render_icons::{level_icon_html, svg_icon};
 
 // ── Block renderers (core) ──────────────────────────────────────────
 
@@ -137,12 +146,12 @@ fn card_html(data: &serde_json::Value, out: &mut String) {
     }
     out.push_str(&format!(
         "<span class=\"a2ui-card-title\">{}</span></div>",
-        esc(&title)
+        md_inline(&title)
     ));
     if !body.is_empty() {
         out.push_str(&format!(
             "<div class=\"a2ui-card-body\">{}</div>",
-            esc(&body)
+            md(&body)
         ));
     }
     out.push_str("</div>");
@@ -184,7 +193,7 @@ fn table_html(data: &serde_json::Value, out: &mut String) {
     for row in &rows {
         out.push_str("<tr>");
         for cell in row {
-            out.push_str(&format!("<td>{}</td>", esc(cell)));
+            out.push_str(&format!("<td>{}</td>", md_inline(cell)));
         }
         out.push_str("</tr>");
     }
@@ -213,7 +222,7 @@ fn kv_html(data: &serde_json::Value, out: &mut String) {
              <span class=\"a2ui-kv-key\">{}</span>\
              <span class=\"a2ui-kv-val\">{}</span></div>",
             esc(k),
-            esc(v)
+            md_inline(v)
         ));
     }
     out.push_str("</div>");
@@ -231,12 +240,12 @@ fn status_html(data: &serde_json::Value, out: &mut String) {
     ));
     out.push_str(&format!(
         "<span class=\"a2ui-status-label\">{}</span>",
-        esc(&label)
+        md_inline(&label)
     ));
     if let Some(d) = detail {
         out.push_str(&format!(
             "<span class=\"a2ui-status-detail\">{}</span>",
-            esc(&d)
+            md_inline(&d)
         ));
     }
     out.push_str("</div>");
@@ -253,7 +262,7 @@ fn progress_html(data: &serde_json::Value, out: &mut String) {
         "<div class=\"a2ui-progress-header\">\
          <span class=\"a2ui-progress-label\">{}</span>\
          <span class=\"a2ui-progress-pct\">{:.0}%</span></div>",
-        esc(&label),
+        md_inline(&label),
         pct
     ));
     out.push_str(&format!(
@@ -280,21 +289,12 @@ fn alert_html(data: &serde_json::Value, out: &mut String) {
             esc(&label)
         ));
     }
-    out.push_str(&format!("<span>{}</span></div>", esc(&message)));
+    out.push_str(&format!("<span>{}</span></div>", md(&message)));
 }
 
 fn markdown_html(data: &serde_json::Value, out: &mut String) {
     let content = sf(data, "content").unwrap_or_default();
     out.push_str("<div class=\"a2ui-markdown\">");
-    for seg in parse_markdown_segments(&content) {
-        match seg {
-            ContentSegment::Html(html) => out.push_str(&format!("<div>{}</div>", html)),
-            ContentSegment::FencedCode { language, code } => out.push_str(&format!(
-                "<pre class=\"code-block\" data-language=\"{}\"><code>{}</code></pre>",
-                esc(&language),
-                esc(&code)
-            )),
-        }
-    }
+    out.push_str(&md(&content));
     out.push_str("</div>");
 }

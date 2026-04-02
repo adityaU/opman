@@ -462,6 +462,7 @@ pub fn ModalLayer(
                         projects=projects
                         active_project_index=pidx
                         active_session_id=sid
+                        filter_active_only=modal_state.memory_filter_active
                     />
                 })
             } else {
@@ -621,7 +622,7 @@ pub fn ModalLayer(
                         })
                         on_open_memory=Callback::new(move |_: ()| {
                             modal_state.close(ModalName::AssistantCenter);
-                            modal_state.open(ModalName::Memory);
+                            modal_state.open_memory_all();
                         })
                         on_open_autonomy=Callback::new(move |_: ()| {
                             modal_state.close(ModalName::AssistantCenter);

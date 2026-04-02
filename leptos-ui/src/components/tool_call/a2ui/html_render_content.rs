@@ -1,6 +1,6 @@
 //! Content HTML renderers — tabs, callout, badge, blockquote, list, stat-group.
 
-use super::html_render::{blocks_to_html, esc, sf, sf_or, svg_icon};
+use super::html_render::{blocks_to_html, esc, md, md_inline, sf, sf_or, svg_icon};
 
 // ── Tabs ────────────────────────────────────────────────────────────
 
@@ -94,8 +94,8 @@ pub fn callout_html(data: &serde_json::Value, out: &mut String) {
         out.push_str("</div>");
     } else if let Some(b) = body {
         out.push_str(&format!(
-            "<div class=\"a2ui-callout-body\"><p>{}</p></div>",
-            esc(&b)
+            "<div class=\"a2ui-callout-body\">{}</div>",
+            md(&b)
         ));
     }
     out.push_str("</div>");
@@ -156,7 +156,7 @@ pub fn blockquote_html(data: &serde_json::Value, out: &mut String) {
         .or_else(|| sf(data, "cite"));
 
     out.push_str("<blockquote class=\"a2ui-blockquote\">");
-    out.push_str(&format!("<p>{}</p>", esc(&content)));
+    out.push_str(&md(&content));
     if let Some(a) = attr {
         out.push_str(&format!(
             "<footer class=\"a2ui-blockquote-attr\">&mdash; {}</footer>",
@@ -201,10 +201,13 @@ fn render_list_items(items: &[serde_json::Value], out: &mut String, ordered: boo
         }
         out.push_str(&format!(
             "<span class=\"a2ui-list-text\">{}</span>",
-            esc(text)
+            md_inline(text)
         ));
         if let Some(d) = desc {
-            out.push_str(&format!("<span class=\"a2ui-list-desc\">{}</span>", esc(d)));
+            out.push_str(&format!(
+                "<span class=\"a2ui-list-desc\">{}</span>",
+                md_inline(d)
+            ));
         }
         if let Some(sub) = children {
             let tag = if ordered { "ol" } else { "ul" };
@@ -264,7 +267,10 @@ pub fn stat_group_html(data: &serde_json::Value, out: &mut String) {
         }
         out.push_str("</div>");
         if let Some(d) = desc {
-            out.push_str(&format!("<span class=\"a2ui-stat-desc\">{}</span>", esc(d)));
+            out.push_str(&format!(
+                "<span class=\"a2ui-stat-desc\">{}</span>",
+                md_inline(d)
+            ));
         }
         out.push_str("</div>");
     }

@@ -2,7 +2,7 @@
 //!
 //! All functions append raw HTML to `&mut String` for `inner_html`.
 
-use super::html_render::{blocks_to_html, esc, sf, sf_or, svg_icon};
+use super::html_render::{blocks_to_html, esc, md, md_inline, sf, sf_or, svg_icon};
 
 // ── Image ───────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ pub fn image_html(data: &serde_json::Value, out: &mut String) {
     if let Some(cap) = caption {
         out.push_str(&format!(
             "<figcaption class=\"a2ui-image-caption\">{}</figcaption>",
-            esc(&cap)
+            md_inline(&cap)
         ));
     }
     out.push_str("</figure>");
@@ -127,7 +127,7 @@ pub fn link_html(data: &serde_json::Value, out: &mut String) {
     if let Some(d) = desc {
         out.push_str(&format!(
             "<span class=\"a2ui-link-desc\">{}</span>",
-            esc(&d)
+            md_inline(&d)
         ));
     }
     // External link icon
@@ -174,7 +174,7 @@ pub fn accordion_html(data: &serde_json::Value, out: &mut String) {
         let child_html = blocks_to_html(&children);
         out.push_str(&child_html);
     } else if let Some(c) = content {
-        out.push_str(&format!("<p>{}</p>", esc(&c)));
+        out.push_str(&format!("<div>{}</div>", md(&c)));
     }
     out.push_str("</div></details>");
 }

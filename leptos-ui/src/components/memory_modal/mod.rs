@@ -20,7 +20,12 @@ pub fn MemoryModal(
     projects: Vec<ProjectInfo>,
     active_project_index: usize,
     active_session_id: Option<String>,
+    #[prop(optional)] filter_active_only: Option<ReadSignal<bool>>,
 ) -> impl IntoView {
+    let show_active_only = filter_active_only
+        .map(|s| s.get_untracked())
+        .unwrap_or(false);
+
     let (items, set_items) = signal(Vec::<PersonalMemoryItem>::new());
     let (loading, set_loading) = signal(true);
     let (saving, set_saving) = signal(false);
@@ -37,11 +42,33 @@ pub fn MemoryModal(
     let (editing_content, set_editing_content) = signal(String::new());
     let (editing_scope, set_editing_scope) = signal("global".to_string());
 
-    // Load on mount
+    // Load on mount — active-only or all memories
     {
+        let pi = active_project_index;
+        let sid = active_session_id.clone();
         leptos::task::spawn_local(async move {
             match api_fetch::<PersonalMemoryListResponse>("/memory").await {
-                Ok(resp) => set_items.set(resp.memory),
+                Ok(resp) => {
+                    if show_active_only {
+                        // Filter to memories applicable to this session context:
+                        // global → always, project → matching project_index, session → matching session_id
+                        let filtered = resp.memory.into_iter().filter(|item| {
+                            match item.scope.as_str() {
+                                "global" => true,
+                                "project" => item.project_index == Some(pi),
+                                "session" => {
+                                    sid.as_ref().map_or(false, |s| {
+                                        item.session_id.as_ref() == Some(s)
+                                    })
+                                }
+                                _ => false,
+                            }
+                        }).collect();
+                        set_items.set(filtered);
+                    } else {
+                        set_items.set(resp.memory);
+                    }
+                }
                 Err(e) => leptos::logging::warn!("Failed to load memory: {}", e),
             }
             set_loading.set(false);
@@ -173,7 +200,7 @@ pub fn MemoryModal(
                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z" />
                     </svg>
-                    <h3>"Personal Memory"</h3>
+                    <h3>{if show_active_only { "Active Memory" } else { "Personal Memory" }}</h3>
                     <span class="memory-count">{move || items.get().len()}</span>
                 </div>
                 <button on:click=move |_| on_close.run(()) aria-label="Close memory">

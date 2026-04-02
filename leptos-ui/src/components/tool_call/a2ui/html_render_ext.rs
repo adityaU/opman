@@ -7,7 +7,7 @@
 //! Buttons and forms emit `data-a2ui-*` attributes; event delegation in
 //! `mod.rs` wires them to the `opman:a2ui-callback` custom event.
 
-use super::html_render::{esc, level_icon_html, sf, sf_or, svg_icon};
+use super::html_render::{esc, level_icon_html, md_inline, sf, sf_or, svg_icon};
 
 // ── Button ──────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ pub fn steps_html(data: &serde_json::Value, out: &mut String) {
         step_icon_html(status, out);
         out.push_str(&format!(
             "<span class=\"a2ui-step-label\">{}</span></li>",
-            esc(label)
+            md_inline(label)
         ));
     }
     out.push_str("</ol></div>");
@@ -220,7 +220,7 @@ pub fn metric_html(data: &serde_json::Value, out: &mut String) {
     if let Some(d) = description {
         out.push_str(&format!(
             "<span class=\"a2ui-metric-desc\">{}</span>",
-            esc(&d)
+            md_inline(&d)
         ));
     }
     out.push_str("</div>");

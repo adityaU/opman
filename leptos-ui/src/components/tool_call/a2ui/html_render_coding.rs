@@ -1,6 +1,6 @@
 //! Coding-workflow HTML renderers — diff, timeline, terminal, file-tree.
 
-use super::html_render::{esc, sf, sf_or, svg_icon};
+use super::html_render::{esc, md_inline, sf, sf_or, svg_icon};
 
 // ── Diff ────────────────────────────────────────────────────────────
 
@@ -95,10 +95,13 @@ pub fn timeline_html(data: &serde_json::Value, out: &mut String) {
         }
         out.push_str(&format!(
             "<span class=\"a2ui-tl-label\">{}</span>",
-            esc(label)
+            md_inline(label)
         ));
         if let Some(d) = desc {
-            out.push_str(&format!("<span class=\"a2ui-tl-desc\">{}</span>", esc(d)));
+            out.push_str(&format!(
+                "<span class=\"a2ui-tl-desc\">{}</span>",
+                md_inline(d)
+            ));
         }
         out.push_str("</div></div>");
     }

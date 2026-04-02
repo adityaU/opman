@@ -29,6 +29,7 @@ mod html_render_chart_ext;
 mod html_render_coding;
 mod html_render_content;
 mod html_render_ext;
+mod html_render_icons;
 mod html_render_interface;
 mod html_render_layout;
 mod html_render_media;

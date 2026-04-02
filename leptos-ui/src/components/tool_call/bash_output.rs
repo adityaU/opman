@@ -75,15 +75,19 @@ pub fn BashTerminalOutput(
         "bash-terminal-body"
     };
 
+    let show_bar = !command.is_empty();
+
     view! {
         <div class="bash-terminal">
             // Shell bar — description (small) above command, stacked vertically
-            <div class="bash-terminal-bar">
-                {description.map(|d| view! {
-                    <span class="bash-terminal-desc">{d}</span>
-                })}
-                <pre class="bash-terminal-cmd">{command}</pre>
-            </div>
+            {show_bar.then(|| view! {
+                <div class="bash-terminal-bar">
+                    {description.map(|d| view! {
+                        <span class="bash-terminal-desc">{d}</span>
+                    })}
+                    <pre class="bash-terminal-cmd">{command}</pre>
+                </div>
+            })}
 
             // Terminal body
             {if has_output {

@@ -3,7 +3,7 @@
 //! Tier 2 blocks for richer interface generation.
 //! All functions append raw HTML to `&mut String` for `inner_html`.
 
-use super::html_render::{esc, sf, sf_or, svg_icon};
+use super::html_render::{esc, md_inline, sf, sf_or, svg_icon};
 
 // ── Avatar ──────────────────────────────────────────────────────────
 
@@ -177,7 +177,7 @@ pub fn toggle_html(data: &serde_json::Value, out: &mut String) {
     if let Some(d) = desc {
         out.push_str(&format!(
             "<span class=\"a2ui-toggle-desc\">{}</span>",
-            esc(&d)
+            md_inline(&d)
         ));
     }
     out.push_str("</div>");
@@ -234,7 +234,7 @@ pub fn video_html(data: &serde_json::Value, out: &mut String) {
     if let Some(cap) = caption {
         out.push_str(&format!(
             "<figcaption class=\"a2ui-video-caption\">{}</figcaption>",
-            esc(&cap)
+            md_inline(&cap)
         ));
     }
     out.push_str("</figure>");

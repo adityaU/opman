@@ -172,3 +172,109 @@
 .tool-output-markdown.tool-output-maximized {
     max-height: 80vh
 }
+
+/* ── Bash view (non-accordion bash tool layout) ─────────────── */
+
+.bash-view {
+    margin: var(--space-2) 0;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    overflow: hidden
+}
+
+.bash-view-error {
+    border-color: var(--color-error)
+}
+
+.bash-view-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background: var(--white-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    min-height: 0
+}
+
+.bash-view-header svg {
+    flex-shrink: 0;
+    color: var(--color-accent)
+}
+
+.bash-view-desc {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-muted)
+}
+
+.bash-view-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1)
+}
+
+.bash-view-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs)
+}
+
+.bash-view-cmd-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    background: color-mix(in srgb, var(--color-surface) 70%, var(--color-bg));
+    border: none;
+    border-top: .5px solid var(--white-4);
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.bash-view-cmd-bar:hover {
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-bg))
+}
+
+.bash-view-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    margin-top: 1px
+}
+
+.bash-view-cmd-bar .bash-terminal-cmd {
+    flex: 1;
+    min-width: 0
+}
+
+.bash-view-output {
+    border-top: .5px solid var(--white-4)
+}
+
+.bash-view-output .bash-terminal {
+    border: none;
+    border-radius: 0
+}
+
+/* Compact nested bash-view inside subagent */
+.subagent-messages .bash-view {
+    margin: var(--space-1) 0;
+    border-radius: var(--radius-md)
+}
+
+.subagent-messages .bash-view-header {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-2xs)
+}

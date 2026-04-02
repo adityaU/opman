@@ -87,8 +87,7 @@
 
     html.flat-theme .message-turn-user {
         background: color-mix(in srgb,var(--color-primary) 8%,var(--color-bg));
-        border-color: color-mix(in srgb,var(--color-primary) 14%,var(--color-border-subtle));
-        border-left: 3px solid var(--color-primary)
+        border-color: color-mix(in srgb,var(--color-primary) 14%,var(--color-border-subtle))
     }
 
     /* ═════════════════════════════════════════════════════════════

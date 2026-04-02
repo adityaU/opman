@@ -115,3 +115,60 @@
 .message-action-btn.bookmarked {
     color: var(--color-warning, #e0af68)
 }
+
+/* ── User message memory accordion ─────────────────────────────── */
+
+.user-memory-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding: 2px var(--space-2) 2px var(--space-1);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--white-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    cursor: pointer;
+    transition: color .15s, background .15s;
+}
+
+.user-memory-toggle:hover {
+    color: var(--color-text);
+    background: var(--white-5);
+}
+
+.user-memory-chevron {
+    transition: transform .15s;
+    flex-shrink: 0;
+}
+
+.user-memory-chevron-open {
+    transform: rotate(90deg);
+}
+
+.user-memory-label {
+    opacity: .8;
+}
+
+.user-memory-content {
+    margin-top: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    border-left: 2px solid var(--color-border-subtle);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.user-memory-content p {
+    margin: 0 0 var(--space-1);
+}
+
+.user-memory-content ul {
+    margin: 0;
+    padding-left: var(--space-4);
+}
+
+.user-memory-content li {
+    margin-bottom: 2px;
+}

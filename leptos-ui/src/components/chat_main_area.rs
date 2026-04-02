@@ -451,7 +451,7 @@ pub fn ChatMainArea(
                             modal_state.open(ModalName::AgentPicker);
                         })
                         on_open_memory=Callback::new(move |_: ()| {
-                            modal_state.open(ModalName::Memory);
+                            modal_state.open_memory_active();
                         })
                         on_content_change=Callback::new(move |has_content: bool| {
                             // React: if user has content, don't allow scroll-hide

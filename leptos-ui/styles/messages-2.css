@@ -128,8 +128,7 @@
 .message-turn-user {
     background: var(--white-1_5);
     padding-left: var(--space-6);
-    padding-right: var(--space-6);
-    border-left: 3px solid var(--color-primary)
+    padding-right: var(--space-6)
 }
 
 .message-turn-optimistic {

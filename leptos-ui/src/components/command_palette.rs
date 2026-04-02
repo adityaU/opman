@@ -376,7 +376,10 @@ pub fn CommandPalette(
                 label: "Personal Memory",
                 description: "Store preferences and working norms",
                 shortcut: "\u{2318}\u{21e7}Y",
-                handler: close_and_open(ModalName::Memory),
+                handler: Callback::new(move |_: ()| {
+                    on_close.run(());
+                    modal_state.open_memory_all();
+                }),
             },
             PaletteItem {
                 id: "workspace-manager",

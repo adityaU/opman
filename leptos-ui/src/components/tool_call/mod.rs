@@ -2,18 +2,21 @@
 
 pub mod a2ui;
 pub mod bash_output;
+pub mod bash_view;
 pub mod helpers;
 pub mod sub_components;
 pub mod task_render;
+pub mod todo_view;
 
 use a2ui::A2uiBlocks;
-use bash_output::{extract_bash_info, BashTerminalOutput};
+use bash_view::render_bash_tool;
 use helpers::auto_expand_default;
 pub use helpers::{
     format_duration, format_tool_name, get_task_session_id, ChildSessionRef, SubagentMessagesMap,
 };
-use sub_components::{EditDiffView, TodoList, ToolInput, ToolOutput};
+use sub_components::{EditDiffView, ToolInput, ToolOutput};
 use task_render::render_task_tool;
+use todo_view::render_todo_tool;
 
 use crate::components::icons::*;
 use crate::components::message_timeline::AccordionState;
@@ -35,7 +38,6 @@ pub fn ToolCallView(
         .or_else(|| part.tool_name.clone())
         .unwrap_or_else(|| "unknown".to_string());
     let short_name = format_tool_name(&tool_name);
-
     let is_todo_write = tool_name.contains("todowrite") || tool_name.contains("todo_write");
     let is_task_tool = tool_name == "task";
     let is_bash_tool =
@@ -107,33 +109,28 @@ pub fn ToolCallView(
         is_error,
         has_subagent_messages,
     );
-
     let accordion_key = part
         .tool_call_id
         .clone()
         .or_else(|| part.call_id.clone())
         .or_else(|| part.id.clone())
         .unwrap_or_default();
-
     let accordion_ctx = use_context::<AccordionState>();
     let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
-        let saved = map.with_untracked(|m| m.get(&accordion_key).copied());
-        if let Some(val) = saved {
-            val
-        } else {
-            // Seed the map so re-renders preserve this initial state
-            // (prevents auto_expand_default from flip-flopping on status changes)
-            map.update_untracked(|m| {
-                m.insert(accordion_key.clone(), initial_expanded);
-            });
-            initial_expanded
+        match map.with_untracked(|m| m.get(&accordion_key).copied()) {
+            Some(val) => val,
+            None => {
+                // Seed so re-renders preserve initial state
+                map.update_untracked(|m| {
+                    m.insert(accordion_key.clone(), initial_expanded);
+                });
+                initial_expanded
+            }
         }
     } else {
         initial_expanded
     };
-
     let (expanded, set_expanded) = signal(default_expanded);
-
     let ak_for_toggle = accordion_key.clone();
     let handle_toggle = move |_: web_sys::MouseEvent| {
         let new_val = !expanded.get_untracked();
@@ -150,7 +147,6 @@ pub fn ToolCallView(
         .as_ref()
         .map(|cs| cs.title.clone())
         .unwrap_or_else(|| "Task".to_string());
-
     if is_task_tool {
         return render_task_tool(
             task_session_id,
@@ -172,6 +168,16 @@ pub fn ToolCallView(
     if is_a2ui && has_input {
         let inp = input_data.clone().unwrap_or(serde_json::Value::Null);
         return view! { <A2uiBlocks input=inp /> }.into_any();
+    }
+
+    // Bash tools render with a dedicated non-accordion layout
+    if is_bash_tool {
+        return render_bash_tool(&part);
+    }
+
+    // Todowrite renders directly — no accordion wrapper
+    if is_todo_write {
+        return render_todo_tool(&part);
     }
 
     let wrapper_class = if is_error {
@@ -232,82 +238,50 @@ pub fn ToolCallView(
 
                 view! {
                     <div class="tool-call-body">
-                        {if is_todo_write && has_input {
-                            view! {
-                                <div class="tool-call-section">
-                                    <div class="tool-call-section-label">"Todos"</div>
-                                    <TodoList input=input.clone().unwrap_or(serde_json::Value::Null) />
-                                </div>
-                            }.into_any()
-                        } else if is_bash_tool {
+                        {(has_input).then(|| {
                             let inp = input.clone().unwrap_or(serde_json::Value::Null);
-                            let (cmd, desc) = extract_bash_info(&inp);
-                            let out = output.clone();
                             view! {
                                 <div class="tool-call-section">
+                                    <div class="tool-call-section-label">"Input"</div>
+                                    {if is_edit_tool {
+                                        view! { <EditDiffView input=inp /> }.into_any()
+                                    } else {
+                                        view! { <ToolInput data=inp /> }.into_any()
+                                    }}
+                                </div>
+                            }
+                        })}
+                        {has_output.then(|| {
+                            let out = output.clone().unwrap_or_default();
+                            let tool = tn.clone();
+                            view! {
+                                <div class="tool-call-section">
+                                    <div class="tool-call-section-label">"Output"</div>
                                     {is_truncated.then(|| view! {
                                         <span class="tool-call-truncated">"[truncated] "</span>
                                     })}
-                                    <BashTerminalOutput
-                                        command=cmd
-                                        description=desc
-                                        output=out
-                                        is_live=is_running
-                                        is_error=is_error
-                                        error_text=err
-                                    />
+                                    <ToolOutput output=out tool_name=tool is_live=is_running />
                                 </div>
-                            }.into_any()
-                        } else {
-                            view! {
-                                <div>
-                                    {(has_input).then(|| {
-                                        let inp = input.clone().unwrap_or(serde_json::Value::Null);
-                                        view! {
-                                            <div class="tool-call-section">
-                                                <div class="tool-call-section-label">"Input"</div>
-                                                {if is_edit_tool {
-                                                    view! { <EditDiffView input=inp /> }.into_any()
-                                                } else {
-                                                    view! { <ToolInput data=inp /> }.into_any()
-                                                }}
-                                            </div>
-                                        }
-                                    })}
-                                    {has_output.then(|| {
-                                        let out = output.clone().unwrap_or_default();
-                                        let tool = tn.clone();
-                                        view! {
-                                            <div class="tool-call-section">
-                                                <div class="tool-call-section-label">"Output"</div>
-                                                {is_truncated.then(|| view! {
-                                                    <span class="tool-call-truncated">"[truncated] "</span>
-                                                })}
-                                                <ToolOutput output=out tool_name=tool is_live=is_running />
-                                            </div>
-                                        }
-                                    })}
-                                    {err.map(|e| view! {
-                                        <div class="tool-call-section">
-                                            <div class="tool-call-error-banner">
-                                                <IconAlertTriangle size=12 />
-                                                <span>{e}</span>
-                                            </div>
-                                        </div>
-                                    })}
-                                    {(!has_output && error_text.is_none() && is_running).then(|| view! {
-                                        <div class="tool-call-section">
-                                            <div class="tool-call-section-label">"Output"</div>
-                                            <pre class="tool-call-pre tool-call-live-output">
-                                                <span class="tool-pulse-dot" />
-                                                " Waiting for output..."
-                                            </pre>
-                                        </div>
-                                    })}
+                            }
+                        })}
+                        {err.map(|e| view! {
+                            <div class="tool-call-section">
+                                <div class="tool-call-error-banner">
+                                    <IconAlertTriangle size=12 />
+                                    <span>{e}</span>
                                 </div>
-                            }.into_any()
-                        }}
-                        {(!is_todo_write && !has_input && !has_output).then(|| view! {
+                            </div>
+                        })}
+                        {(!has_output && error_text.is_none() && is_running).then(|| view! {
+                            <div class="tool-call-section">
+                                <div class="tool-call-section-label">"Output"</div>
+                                <pre class="tool-call-pre tool-call-live-output">
+                                    <span class="tool-pulse-dot" />
+                                    " Waiting for output..."
+                                </pre>
+                            </div>
+                        })}
+                        {(!has_input && !has_output).then(|| view! {
                             <div class="tool-call-section">
                                 <pre class="tool-call-pre tool-call-empty">"No data available"</pre>
                             </div>
