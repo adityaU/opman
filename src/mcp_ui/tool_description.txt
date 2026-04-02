@@ -1,0 +1,48 @@
+Render rich UI blocks in the user's session timeline. Use this to display structured information (cards, tables, key-value pairs, status indicators, progress bars, alerts) or interactive elements (buttons, forms) inline in the chat. The UI appears as an expandable element in the conversation.
+
+Block types:
+- card: titled content card with optional icon
+- table: rows x columns data table
+- kv: key-value pairs list
+- status: status indicator with label and level (info/success/warning/error)
+- progress: progress bar with label and percentage
+- alert: highlighted alert message with level
+- button: clickable action button (sends callback)
+- form: input form with fields (sends callback)
+- markdown: rendered markdown content
+- steps: ordered step list with per-step status (pending/active/done/error)
+- divider: visual separator with optional label
+- code: syntax-highlighted code block with optional language
+- metric: single large numeric value with label and optional trend
+- grid: CSS grid layout container wrapping child blocks (data: columns, gap, min_col_width, blocks)
+- flex: CSS flexbox container wrapping child blocks (data: direction, gap, align, justify, wrap, blocks)
+- image: inline image with optional caption (data: url/src, alt, caption, width, height)
+- pdf: embedded PDF viewer with fallback link (data: url/src, title, height)
+- link: styled link that opens in a new tab (data: url/href, label/text, description)
+- accordion: collapsible details element (data: title/label, open, blocks or content)
+- chart: SVG chart — supports line, bar, pie, area, donut (data: chart_type, title, labels, datasets or values)
+- tabs: tabbed content panels (data: tabs[{label, blocks}], active)
+- callout: rich annotation box (data: variant tip/note/warning/danger/info, title, body/content or blocks)
+- badge: inline colored label/tag (data: label, variant success/warning/error/info/neutral; or badges[] array)
+- blockquote: styled quotation with attribution (data: content/text, attribution/author/cite)
+- list: structured list with icons (data: items[{text, icon, description, items}], ordered)
+- stat-group: compact row of metrics (data: stats[{label, value, trend, description}])
+- diff: code diff with +/- coloring (data: content/text, language, title)
+- timeline: vertical event timeline (data: items[{label, description, date, status, icon}])
+- terminal: styled terminal output with ANSI colors (data: content/text, title, prompt)
+- file-tree: collapsible directory tree (data: items[{name, type file/dir, status, items}], title)
+- avatar: circular image/initials (data: src/name/initials, size sm/md/lg; or avatars[] for groups)
+- tag-group: interactive tag cloud (data: tags[{label, variant, selected}], callback_id)
+- toggle: on/off switch (data: label, checked/value, callback_id, description)
+- video: embedded video player (data: url/src, poster, title/caption, width, height)
+- audio: embedded audio player (data: url/src, title/label)
+- separator: decorative section break (data: icon/emoji, label, style solid/dashed/dotted)
+
+Callbacks: buttons and forms include a `callback_id` field. When the user clicks/submits, the callback_id and any form values are sent back to your session as context for the next turn.
+
+Delta updates: Use `render_id` to assign a stable identity to a render. Subsequent calls with the same `render_id` and an `operation` field modify the existing UI:
+- replace: overwrite all blocks entirely
+- append: add new blocks after existing ones
+- update: patch specific blocks by index (each block must include an `index` field)
+
+This enables step-by-step progress rendering, streaming dashboards, and other evolving UI patterns without creating duplicate accordions.

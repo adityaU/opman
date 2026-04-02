@@ -3,7 +3,15 @@
 .a2ui-container {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2)
+    gap: var(--space-2);
+    padding: var(--space-1) 0
+}
+
+.a2ui-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    padding-bottom: var(--space-1)
 }
 
 .a2ui-empty {
@@ -375,4 +383,168 @@
 textarea.a2ui-form-input {
     min-height: 60px;
     resize: vertical
+}
+
+/* ── Steps ─────────────────────────────────────────────────────── */
+
+.a2ui-steps {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg)
+}
+
+.a2ui-steps-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--space-2)
+}
+
+.a2ui-steps-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1)
+}
+
+.a2ui-step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) 0;
+    color: var(--color-text-muted)
+}
+
+.a2ui-step-num {
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    background: var(--white-6);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    flex-shrink: 0
+}
+
+.a2ui-step-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0
+}
+
+.a2ui-step-pending-icon {
+    width: 14px;
+    height: 14px
+}
+
+.a2ui-step-label {
+    color: inherit
+}
+
+.a2ui-step-done, .a2ui-step-completed {
+    color: var(--color-success)
+}
+
+.a2ui-step-done .a2ui-step-num, .a2ui-step-completed .a2ui-step-num {
+    background: color-mix(in srgb, var(--color-success) 15%, transparent);
+    color: var(--color-success)
+}
+
+.a2ui-step-active, .a2ui-step-in_progress {
+    color: var(--color-accent);
+    font-weight: 600
+}
+
+.a2ui-step-active .a2ui-step-num, .a2ui-step-in_progress .a2ui-step-num {
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent)
+}
+
+.a2ui-step-error {
+    color: var(--color-error)
+}
+
+.a2ui-step-error .a2ui-step-num {
+    background: color-mix(in srgb, var(--color-error) 15%, transparent);
+    color: var(--color-error)
+}
+
+/* ── Divider ───────────────────────────────────────────────────── */
+
+.a2ui-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0
+}
+
+.a2ui-divider-line {
+    flex: 1;
+    border: none;
+    border-top: 1px solid var(--color-border-subtle);
+    margin: 0
+}
+
+.a2ui-divider-label {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0
+}
+
+/* When label is present, show lines on both sides */
+.a2ui-divider:has(.a2ui-divider-label) .a2ui-divider-line {
+    flex: 1
+}
+
+/* ── Metric ────────────────────────────────────────────────────── */
+
+.a2ui-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    text-align: center
+}
+
+.a2ui-metric-label {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em
+}
+
+.a2ui-metric-value {
+    font-size: var(--font-size-xl, 1.5rem);
+    font-weight: 700;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    line-height: 1.2
+}
+
+.a2ui-metric-trend {
+    font-size: var(--font-size-xs);
+    font-weight: 600
+}
+
+.a2ui-metric-trend-up { color: var(--color-success) }
+.a2ui-metric-trend-down { color: var(--color-error) }
+.a2ui-metric-trend-flat { color: var(--color-text-muted) }
+
+.a2ui-metric-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    margin-top: 2px
 }

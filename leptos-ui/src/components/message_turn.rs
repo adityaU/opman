@@ -598,6 +598,96 @@ fn render_interleaved(
     let mut current_text_chunks: Vec<String> = Vec::new();
     let mut task_tool_index: usize = 0;
 
+    // ── A2UI delta merge ────────────────────────────────────────────
+    // For A2UI tool calls sharing a render_id, collect all inputs in
+    // order and pre-merge blocks. Only the LAST part renders; its input
+    // is replaced with the merged result so A2uiBlocks is stateless.
+    let (a2ui_last_index, a2ui_merged) = {
+        use std::collections::HashMap;
+        // Pass 1: group part indices by render_id
+        let mut rid_parts: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, part) in all_parts.iter().enumerate() {
+            let tn = part.tool.as_deref()
+                .or(part.tool_name.as_deref())
+                .unwrap_or("");
+            if tn != "ui_render" && tn != "ui_ui_render" {
+                continue;
+            }
+            let rid = part.state.as_ref()
+                .and_then(|s| s.input.as_ref())
+                .and_then(|inp| inp.get("render_id"))
+                .and_then(|v| v.as_str());
+            if let Some(rid) = rid {
+                rid_parts.entry(rid.to_string()).or_default().push(i);
+            }
+        }
+        // Pass 2: build last-index map + merged inputs
+        let mut last_map = HashMap::<String, usize>::new();
+        let mut merged_map = HashMap::<usize, serde_json::Value>::new();
+        for (rid, indices) in &rid_parts {
+            let last_idx = *indices.last().unwrap();
+            last_map.insert(rid.clone(), last_idx);
+            if indices.len() == 1 {
+                continue; // no merge needed, single call
+            }
+            // Merge blocks from all parts in order
+            let mut merged_blocks: Vec<serde_json::Value> = Vec::new();
+            for &idx in indices {
+                let inp = all_parts[idx].state.as_ref()
+                    .and_then(|s| s.input.as_ref());
+                let Some(inp) = inp else { continue };
+                let op = inp.get("operation")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("replace");
+                let blocks = inp.get("blocks")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                match op {
+                    "append" => merged_blocks.extend(blocks),
+                    "update" => {
+                        for block in &blocks {
+                            if let Some(bi) = block.get("index").and_then(|v| v.as_u64()) {
+                                let bi = bi as usize;
+                                if bi < merged_blocks.len() {
+                                    if let Some(ud) = block.get("data").and_then(|d| d.as_object()) {
+                                        if let Some(ed) = merged_blocks[bi].get_mut("data")
+                                            .and_then(|d| d.as_object_mut())
+                                        {
+                                            for (k, v) in ud {
+                                                ed.insert(k.clone(), v.clone());
+                                            }
+                                        }
+                                    }
+                                    if let Some(t) = block.get("type") {
+                                        if let Some(obj) = merged_blocks[bi].as_object_mut() {
+                                            obj.insert("type".to_string(), t.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => merged_blocks = blocks, // replace
+                }
+            }
+            // Build merged input: copy last part's input, override blocks
+            if let Some(base) = all_parts[last_idx].state.as_ref()
+                .and_then(|s| s.input.clone())
+            {
+                let mut merged_input = base;
+                if let Some(obj) = merged_input.as_object_mut() {
+                    obj.insert("blocks".to_string(),
+                        serde_json::Value::Array(merged_blocks));
+                    // Remove operation so A2uiBlocks treats as plain render
+                    obj.remove("operation");
+                }
+                merged_map.insert(last_idx, merged_input);
+            }
+        }
+        (last_map, merged_map)
+    };
+
     let flush_text = |chunks: &mut Vec<String>, elems: &mut Vec<leptos::prelude::AnyView>| {
         if !chunks.is_empty() {
             let text = chunks.join("\n");
@@ -622,7 +712,7 @@ fn render_interleaved(
         }
     };
 
-    for part in all_parts {
+    for (part_idx, part) in all_parts.iter().enumerate() {
         if part.part_type == "text" {
             if let Some(ref text) = part.text {
                 current_text_chunks.push(text.clone());
@@ -631,6 +721,20 @@ fn render_interleaved(
             flush_text(&mut current_text_chunks, &mut elements);
 
             let tool_name = part.tool.clone().or_else(|| part.tool_name.clone()).unwrap_or_default();
+
+            // Skip stale A2UI parts (earlier render_id superseded by a later one)
+            if tool_name == "ui_render" || tool_name == "ui_ui_render" {
+                let rid = part.state.as_ref()
+                    .and_then(|s| s.input.as_ref())
+                    .and_then(|inp| inp.get("render_id"))
+                    .and_then(|v| v.as_str());
+                if let Some(rid) = rid {
+                    if a2ui_last_index.get(rid).copied() != Some(part_idx) {
+                        continue; // stale — a later call with same render_id exists
+                    }
+                }
+            }
+
             let is_task = tool_name == "task";
             let matched = if is_task {
                 child_sessions.get(task_tool_index).map(|s| ChildSessionRef {
@@ -644,7 +748,17 @@ fn render_interleaved(
                 task_tool_index += 1;
             }
 
-            let part_clone = part.clone();
+            // For A2UI with merged delta, swap in the pre-merged input
+            let part_clone = if let Some(merged_input) = a2ui_merged.get(&part_idx) {
+                let mut p = part.clone();
+                if let Some(ref mut state) = p.state {
+                    state.input = Some(merged_input.clone());
+                }
+                p
+            } else {
+                part.clone()
+            };
+
             let sub_msgs = subagent_messages.clone();
             let on_open = on_open_session.clone();
 

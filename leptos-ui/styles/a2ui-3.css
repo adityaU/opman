@@ -1,0 +1,200 @@
+/* ── A2UI v3 — tabs, callout, badge, blockquote, list, stat-group ─ */
+
+/* ── Tabs ──────────────────────────────────────────────────────── */
+
+.a2ui-tabs { display: flex; flex-direction: column }
+
+.a2ui-tabs-header {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    overflow-x: auto;
+    scrollbar-width: none
+}
+
+.a2ui-tabs-header::-webkit-scrollbar { display: none }
+
+.a2ui-tabs-radio { display: none }
+
+.a2ui-tabs-label {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    white-space: nowrap;
+    user-select: none
+}
+
+.a2ui-tabs-label:hover { color: var(--color-text) }
+
+.a2ui-tabs-radio:checked + .a2ui-tabs-label {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent)
+}
+
+.a2ui-tabs-panels { padding: var(--space-2) 0 }
+
+.a2ui-tab-panel { display: none }
+.a2ui-tab-panel.a2ui-tab-active { display: block }
+
+/* JS-less tab switching via :has() — modern browsers */
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(1):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(1),
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(2):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(2),
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(3):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(3),
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(4):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(4),
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(5):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(5),
+.a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(6):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(6) {
+    display: block
+}
+
+/* ── Callout ───────────────────────────────────────────────────── */
+
+.a2ui-callout {
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    border-left: 3px solid;
+    font-size: var(--font-size-xs)
+}
+
+.a2ui-callout-info    { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg)) }
+.a2ui-callout-tip     { border-color: #10b981; background: color-mix(in srgb, #10b981 6%, var(--color-bg)) }
+.a2ui-callout-note    { border-color: #8b5cf6; background: color-mix(in srgb, #8b5cf6 6%, var(--color-bg)) }
+.a2ui-callout-warning { border-color: #f59e0b; background: color-mix(in srgb, #f59e0b 6%, var(--color-bg)) }
+.a2ui-callout-danger  { border-color: #ef4444; background: color-mix(in srgb, #ef4444 6%, var(--color-bg)) }
+
+.a2ui-callout-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    margin-bottom: var(--space-1)
+}
+
+.a2ui-callout-info .a2ui-callout-header svg    { color: var(--color-accent) }
+.a2ui-callout-tip .a2ui-callout-header svg     { color: #10b981 }
+.a2ui-callout-note .a2ui-callout-header svg    { color: #8b5cf6 }
+.a2ui-callout-warning .a2ui-callout-header svg { color: #f59e0b }
+.a2ui-callout-danger .a2ui-callout-header svg  { color: #ef4444 }
+
+.a2ui-callout-body { color: var(--color-text) }
+.a2ui-callout-body p { margin: 0 }
+
+/* ── Badge ─────────────────────────────────────────────────────── */
+
+.a2ui-badge-group { display: inline-flex; flex-wrap: wrap; gap: 4px }
+
+.a2ui-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    line-height: 1.5
+}
+
+.a2ui-badge-neutral  { background: var(--white-6); color: var(--color-text) }
+.a2ui-badge-info     { background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg)); color: var(--color-accent) }
+.a2ui-badge-success  { background: color-mix(in srgb, #10b981 15%, var(--color-bg)); color: #10b981 }
+.a2ui-badge-warning  { background: color-mix(in srgb, #f59e0b 15%, var(--color-bg)); color: #b45309 }
+.a2ui-badge-error    { background: color-mix(in srgb, #ef4444 15%, var(--color-bg)); color: #ef4444 }
+
+/* ── Blockquote ────────────────────────────────────────────────── */
+
+.a2ui-blockquote {
+    border-left: 3px solid var(--color-border-subtle);
+    padding: var(--space-2) var(--space-3);
+    margin: 0;
+    font-style: italic;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted)
+}
+
+.a2ui-blockquote p { margin: 0 }
+
+.a2ui-blockquote-attr {
+    margin-top: var(--space-1);
+    font-style: normal;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    opacity: .8
+}
+
+/* ── List ──────────────────────────────────────────────────────── */
+
+.a2ui-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-xs)
+}
+
+.a2ui-list-nested { padding-left: var(--space-4) }
+
+.a2ui-list-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border-subtle) 40%, transparent)
+}
+
+.a2ui-list-item:last-child { border-bottom: none }
+
+.a2ui-list-icon { flex-shrink: 0; width: 16px; text-align: center }
+.a2ui-list-text { color: var(--color-text) }
+
+.a2ui-list-desc {
+    width: 100%;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    padding-left: 20px
+}
+
+/* ── Stat Group ────────────────────────────────────────────────── */
+
+.a2ui-stat-group {
+    display: grid;
+    gap: var(--space-2)
+}
+
+.a2ui-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2);
+    background: var(--white-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle)
+}
+
+.a2ui-stat-label {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em
+}
+
+.a2ui-stat-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1)
+}
+
+.a2ui-stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-text)
+}
+
+.a2ui-trend-up   { color: #10b981; font-weight: 600; font-size: var(--font-size-xs) }
+.a2ui-trend-down { color: #ef4444; font-weight: 600; font-size: var(--font-size-xs) }
+.a2ui-trend-flat { color: var(--color-text-muted); font-size: var(--font-size-xs) }
+
+.a2ui-stat-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}

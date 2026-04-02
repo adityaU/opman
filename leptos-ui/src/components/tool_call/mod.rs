@@ -168,6 +168,12 @@ pub fn ToolCallView(
         );
     }
 
+    // A2UI renders directly — no accordion wrapper
+    if is_a2ui && has_input {
+        let inp = input_data.clone().unwrap_or(serde_json::Value::Null);
+        return view! { <A2uiBlocks input=inp /> }.into_any();
+    }
+
     let wrapper_class = if is_error {
         "tool-call tool-call-error"
     } else {
@@ -188,14 +194,8 @@ pub fn ToolCallView(
                         view! { <IconChevronRight size=14 /> }.into_any()
                     }}
                 </span>
-                {if is_a2ui {
-                    view! { <IconLayers size=12 /> }.into_any()
-                } else {
-                    view! { <IconWrench size=12 /> }.into_any()
-                }}
-                <span class="tool-call-name">{
-                    if is_a2ui { "UI".to_string() } else { short_name }
-                }</span>
+                <IconWrench size=12 />
+                <span class="tool-call-name">{short_name}</span>
                 {title.clone().map(|t| view! { <span class="tool-call-title">{t}</span> })}
                 <span class="tool-call-status">
                     {duration_ms.map(|d| {
@@ -232,13 +232,7 @@ pub fn ToolCallView(
 
                 view! {
                     <div class="tool-call-body">
-                        {if is_a2ui && has_input {
-                            view! {
-                                <div class="tool-call-section">
-                                    <A2uiBlocks input=input.clone().unwrap_or(serde_json::Value::Null) />
-                                </div>
-                            }.into_any()
-                        } else if is_todo_write && has_input {
+                        {if is_todo_write && has_input {
                             view! {
                                 <div class="tool-call-section">
                                     <div class="tool-call-section-label">"Todos"</div>
@@ -313,7 +307,7 @@ pub fn ToolCallView(
                                 </div>
                             }.into_any()
                         }}
-                        {(!is_todo_write && !is_a2ui && !has_input && !has_output).then(|| view! {
+                        {(!is_todo_write && !has_input && !has_output).then(|| view! {
                             <div class="tool-call-section">
                                 <pre class="tool-call-pre tool-call-empty">"No data available"</pre>
                             </div>

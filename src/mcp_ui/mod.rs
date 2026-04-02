@@ -3,9 +3,10 @@
 /// Exposes one tool to the AI:
 ///   - `ui_render` — render rich UI blocks in the user's session timeline
 ///
+/// Supports delta updates via `render_id` + `operation` fields, allowing
+/// the agent to modify previously rendered UI (e.g., step-by-step progress).
+///
 /// The server speaks JSON-RPC 2.0 over stdin/stdout (standard MCP stdio transport).
-/// No Unix socket is needed — the tool is a pure pass-through; the real rendering
-/// happens in the frontend from the tool's input payload carried via SSE events.
 
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -67,10 +68,7 @@ pub async fn run_mcp_ui_bridge() -> anyhow::Result<()> {
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": { "tools": {} },
-                    "serverInfo": {
-                        "name": "opman-ui",
-                        "version": "1.0.0"
-                    }
+                    "serverInfo": { "name": "opman-ui", "version": "1.1.0" }
                 },
                 "id": req.id
             }),
@@ -114,56 +112,55 @@ async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value
             return;
         }
     };
-    if let Err(e) = stdout.write_all(json.as_bytes()).await {
-        eprintln!("MCP UI bridge: stdout write error: {}", e);
-        return;
-    }
-    if let Err(e) = stdout.write_all(b"\n").await {
-        eprintln!("MCP UI bridge: stdout write error: {}", e);
-        return;
-    }
-    if let Err(e) = stdout.flush().await {
-        eprintln!("MCP UI bridge: stdout flush error: {}", e);
-    }
+    let _ = stdout.write_all(json.as_bytes()).await;
+    let _ = stdout.write_all(b"\n").await;
+    let _ = stdout.flush().await;
 }
 
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
 fn tool_definitions() -> serde_json::Value {
-    serde_json::json!([
-        {
-            "name": "ui_render",
-            "description": "Render rich UI blocks in the user's session timeline. Use this to display structured information (cards, tables, key-value pairs, status indicators, progress bars, alerts) or interactive elements (buttons, forms) inline in the chat. The UI appears as an expandable element in the conversation.\n\nBlock types:\n- card: titled content card with optional icon\n- table: rows × columns data table\n- kv: key-value pairs list\n- status: status indicator with label and level (info/success/warning/error)\n- progress: progress bar with label and percentage\n- alert: highlighted alert message with level\n- button: clickable action button (sends callback)\n- form: input form with fields (sends callback)\n- markdown: rendered markdown content\n\nCallbacks: buttons and forms include a `callback_id` field. When the user clicks/submits, the callback_id and any form values are sent back to your session as context for the next turn.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Title displayed in the accordion header."
-                    },
-                    "blocks": {
-                        "type": "array",
-                        "description": "Array of UI blocks to render.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "type": {
-                                    "type": "string",
-                                    "description": "Block type: card, table, kv, status, progress, alert, button, form, markdown"
-                                },
-                                "data": {
-                                    "type": "object",
-                                    "description": "Block-specific data. Shape depends on block type."
-                                }
+    serde_json::json!([{
+        "name": "ui_render",
+        "description": include_str!("tool_description.txt"),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title displayed in the accordion header."
+                },
+                "blocks": {
+                    "type": "array",
+                    "description": "Array of UI blocks to render.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "description": "Block type: card, table, kv, status, progress, alert, button, form, markdown, steps, divider, code, metric, grid, flex, image, pdf, link, accordion, chart, tabs, callout, badge, blockquote, list, stat-group, diff, timeline, terminal, file-tree, avatar, tag-group, toggle, video, audio, separator"
                             },
-                            "required": ["type", "data"]
-                        }
+                            "data": {
+                                "type": "object",
+                                "description": "Block-specific data. Shape depends on block type."
+                            }
+                        },
+                        "required": ["type", "data"]
                     }
                 },
-                "required": ["title", "blocks"]
-            }
+                "render_id": {
+                    "type": "string",
+                    "description": "Optional stable ID for delta updates. When set, subsequent calls with the same render_id update the existing UI instead of creating a new one."
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": ["replace", "append", "update"],
+                    "description": "Delta operation (requires render_id). replace=overwrite all blocks, append=add blocks to end, update=patch blocks by index."
+                }
+            },
+            "required": ["title", "blocks"]
         }
-    ])
+    }])
 }
 
 // ─── Tool dispatch ───────────────────────────────────────────────────────────
@@ -186,7 +183,6 @@ fn dispatch_tool(params: Option<serde_json::Value>) -> serde_json::Value {
 }
 
 /// Validate and echo the ui_render payload.
-/// The real rendering happens in the frontend from tool input carried via SSE.
 fn handle_ui_render(arguments: &serde_json::Value) -> serde_json::Value {
     let title = arguments
         .get("title")
@@ -218,8 +214,15 @@ fn handle_ui_render(arguments: &serde_json::Value) -> serde_json::Value {
         }
     }
 
-    serde_json::json!([{
-        "type": "text",
-        "text": format!("Rendered UI: {} ({} blocks)", title, blocks.len())
-    }])
+    let render_id = arguments.get("render_id").and_then(|v| v.as_str());
+    let operation = arguments.get("operation").and_then(|v| v.as_str());
+
+    let desc = match (render_id, operation) {
+        (Some(rid), Some(op)) => {
+            format!("Rendered UI: {} ({} blocks, {}:{})", title, blocks.len(), op, rid)
+        }
+        _ => format!("Rendered UI: {} ({} blocks)", title, blocks.len()),
+    };
+
+    serde_json::json!([{ "type": "text", "text": desc }])
 }

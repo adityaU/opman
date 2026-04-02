@@ -12,6 +12,17 @@ pub fn str_field(data: &serde_json::Value, key: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Like str_field but tries a fallback key too.
+fn str_field_or(data: &serde_json::Value, primary: &str, fallback: &str) -> Option<String> {
+    str_field(data, primary).or_else(|| str_field(data, fallback))
+}
+
+fn f64_field_or(data: &serde_json::Value, primary: &str, fallback: &str) -> Option<f64> {
+    data.get(primary)
+        .and_then(|v| v.as_f64())
+        .or_else(|| data.get(fallback).and_then(|v| v.as_f64()))
+}
+
 pub fn cell_to_string(v: &serde_json::Value) -> String {
     match v {
         serde_json::Value::String(s) => s.clone(),
@@ -26,7 +37,7 @@ pub fn cell_to_string(v: &serde_json::Value) -> String {
 
 pub fn render_card(data: serde_json::Value) -> impl IntoView {
     let title = str_field(&data, "title").unwrap_or_default();
-    let body = str_field(&data, "body").unwrap_or_default();
+    let body = str_field_or(&data, "body", "content").unwrap_or_default();
     let icon = str_field(&data, "icon");
 
     view! {
@@ -122,7 +133,7 @@ pub fn render_kv(data: serde_json::Value) -> impl IntoView {
 pub fn render_status(data: serde_json::Value) -> impl IntoView {
     let label = str_field(&data, "label").unwrap_or("Status".into());
     let level = str_field(&data, "level").unwrap_or("info".into());
-    let detail = str_field(&data, "detail");
+    let detail = str_field_or(&data, "detail", "message");
     let cls = format!("a2ui-status a2ui-status-{}", level);
 
     view! {
@@ -136,9 +147,7 @@ pub fn render_status(data: serde_json::Value) -> impl IntoView {
 
 pub fn render_progress(data: serde_json::Value) -> impl IntoView {
     let label = str_field(&data, "label").unwrap_or_default();
-    let pct = data
-        .get("percent")
-        .and_then(|v| v.as_f64())
+    let pct = f64_field_or(&data, "percent", "percentage")
         .unwrap_or(0.0)
         .clamp(0.0, 100.0);
     let width_style = format!("width: {}%", pct);

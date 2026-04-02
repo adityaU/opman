@@ -1,0 +1,356 @@
+/* ── A2UI v4 — diff, timeline, terminal, file-tree, avatar, tag-group, toggle, video, audio, separator ── */
+
+/* ── Diff ──────────────────────────────────────────────────────── */
+
+.a2ui-diff { font-size: var(--font-size-xs) }
+
+.a2ui-diff-title {
+    font-weight: 600;
+    padding: var(--space-1) 0;
+    color: var(--color-text)
+}
+
+.a2ui-diff-pre {
+    margin: 0;
+    padding: var(--space-2);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.6
+}
+
+.a2ui-diff-ln {
+    display: inline-block;
+    width: 3ch;
+    text-align: right;
+    color: var(--color-text-muted);
+    opacity: .5;
+    margin-right: 1ch;
+    user-select: none
+}
+
+.a2ui-diff-add { background: color-mix(in srgb, #10b981 12%, transparent); color: #10b981 }
+.a2ui-diff-del { background: color-mix(in srgb, #ef4444 12%, transparent); color: #ef4444 }
+.a2ui-diff-hunk { color: #8b5cf6; font-weight: 600 }
+.a2ui-diff-ctx { color: var(--color-text-muted) }
+
+/* ── Timeline ──────────────────────────────────────────────────── */
+
+.a2ui-timeline {
+    display: flex;
+    flex-direction: column;
+    padding-left: var(--space-3);
+    position: relative
+}
+
+.a2ui-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--color-border-subtle)
+}
+
+.a2ui-tl-entry {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    position: relative
+}
+
+.a2ui-tl-dot {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: calc(var(--space-3) * -1);
+    margin-top: 2px;
+    z-index: 1;
+    background: var(--color-bg);
+    border-radius: var(--radius-full)
+}
+
+.a2ui-tl-dot-empty {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-border-subtle);
+    background: var(--color-bg)
+}
+
+.a2ui-tl-done .a2ui-tl-dot svg { color: #10b981 }
+.a2ui-tl-error .a2ui-tl-dot svg { color: #ef4444 }
+
+.a2ui-tl-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    font-size: var(--font-size-xs)
+}
+
+.a2ui-tl-date {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono)
+}
+
+.a2ui-tl-label { font-weight: 500; color: var(--color-text) }
+.a2ui-tl-desc { color: var(--color-text-muted); font-size: var(--font-size-2xs) }
+
+/* ── Terminal ──────────────────────────────────────────────────── */
+
+.a2ui-terminal {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle)
+}
+
+.a2ui-term-titlebar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px var(--space-2);
+    background: #1e1e1e
+}
+
+.a2ui-term-dots { display: flex; gap: 5px }
+.a2ui-term-dot { width: 10px; height: 10px; border-radius: var(--radius-full) }
+.a2ui-term-dot-r { background: #ff5f56 }
+.a2ui-term-dot-y { background: #ffbd2e }
+.a2ui-term-dot-g { background: #27c93f }
+.a2ui-term-title { font-size: var(--font-size-2xs); color: #888; flex: 1; text-align: center }
+
+.a2ui-term-body {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto
+}
+
+.a2ui-term-prompt { color: #27c93f }
+
+/* ANSI color classes */
+.a2ui-ansi-bold { font-weight: 700 }
+.a2ui-ansi-dim { opacity: .6 }
+.a2ui-ansi-red { color: #ff5f56 }
+.a2ui-ansi-green { color: #27c93f }
+.a2ui-ansi-yellow { color: #ffbd2e }
+.a2ui-ansi-blue { color: #6c9eff }
+.a2ui-ansi-magenta { color: #ff6ac1 }
+.a2ui-ansi-cyan { color: #5ce5d5 }
+
+/* ── File Tree ─────────────────────────────────────────────────── */
+
+.a2ui-ftree { font-size: var(--font-size-xs) }
+
+.a2ui-ftree-title {
+    font-weight: 600;
+    color: var(--color-text);
+    padding-bottom: var(--space-1)
+}
+
+.a2ui-ftree-list {
+    list-style: none;
+    padding: 0;
+    margin: 0
+}
+
+.a2ui-ftree-list .a2ui-ftree-list { padding-left: var(--space-4) }
+
+.a2ui-ftree-node { padding: 1px 0 }
+
+.a2ui-ftree-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: default;
+    color: var(--color-text)
+}
+
+.a2ui-ftree-dir > details > summary { cursor: pointer; user-select: none }
+.a2ui-ftree-dir > details > summary::-webkit-details-marker { font-size: 10px }
+
+.a2ui-ftree-icon { flex-shrink: 0 }
+
+.a2ui-ftree-status {
+    font-size: var(--font-size-2xs);
+    padding: 0 4px;
+    border-radius: var(--radius-full);
+    margin-left: var(--space-1)
+}
+
+.a2ui-ftree-added .a2ui-ftree-name   { color: #10b981 }
+.a2ui-ftree-modified .a2ui-ftree-name { color: #f59e0b }
+.a2ui-ftree-deleted .a2ui-ftree-name  { color: #ef4444; text-decoration: line-through }
+.a2ui-ftree-renamed .a2ui-ftree-name  { color: #8b5cf6 }
+
+/* ── Avatar ────────────────────────────────────────────────────── */
+
+.a2ui-avatar-group { display: flex; align-items: center }
+.a2ui-avatar-group .a2ui-avatar { margin-left: -6px; border: 2px solid var(--color-bg) }
+.a2ui-avatar-group .a2ui-avatar:first-child { margin-left: 0 }
+.a2ui-avatar-single { display: inline-flex; align-items: center; gap: var(--space-2) }
+
+.a2ui-avatar {
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    flex-shrink: 0
+}
+
+.a2ui-avatar-sm .a2ui-avatar, .a2ui-avatar-sm.a2ui-avatar-single .a2ui-avatar { width: 24px; height: 24px; font-size: 10px }
+.a2ui-avatar-md .a2ui-avatar, .a2ui-avatar-md.a2ui-avatar-single .a2ui-avatar { width: 32px; height: 32px; font-size: 12px }
+.a2ui-avatar-lg .a2ui-avatar, .a2ui-avatar-lg.a2ui-avatar-single .a2ui-avatar { width: 44px; height: 44px; font-size: 16px }
+
+.a2ui-avatar-initials {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(var(--avatar-hue, 200) 50% 40%);
+    color: #fff;
+    font-weight: 600
+}
+
+.a2ui-avatar-name { font-size: var(--font-size-xs); color: var(--color-text) }
+
+/* ── Tag Group ─────────────────────────────────────────────────── */
+
+.a2ui-tag-group { display: flex; flex-wrap: wrap; gap: 4px }
+
+.a2ui-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-2xs);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: default;
+    transition: all var(--transition-fast)
+}
+
+button.a2ui-tag { cursor: pointer }
+button.a2ui-tag:hover { border-color: var(--color-accent); color: var(--color-accent) }
+
+.a2ui-tag-selected { background: var(--color-accent); color: #fff; border-color: var(--color-accent) }
+
+.a2ui-tag-success { border-color: #10b981; color: #10b981 }
+.a2ui-tag-warning { border-color: #f59e0b; color: #b45309 }
+.a2ui-tag-error   { border-color: #ef4444; color: #ef4444 }
+.a2ui-tag-info    { border-color: var(--color-accent); color: var(--color-accent) }
+
+/* ── Toggle ────────────────────────────────────────────────────── */
+
+.a2ui-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs)
+}
+
+.a2ui-toggle-label { color: var(--color-text); font-weight: 500 }
+
+.a2ui-toggle-switch { position: relative; display: inline-block }
+
+.a2ui-toggle-input { position: absolute; opacity: 0; width: 0; height: 0 }
+
+.a2ui-toggle-track {
+    display: block;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--white-8);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    position: relative
+}
+
+.a2ui-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full);
+    background: #fff;
+    transition: transform var(--transition-fast);
+    box-shadow: 0 1px 2px rgba(0,0,0,.2)
+}
+
+.a2ui-toggle-input:checked + .a2ui-toggle-track { background: var(--color-accent) }
+.a2ui-toggle-input:checked + .a2ui-toggle-track::after { transform: translateX(16px) }
+
+.a2ui-toggle-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* ── Video ─────────────────────────────────────────────────────── */
+
+.a2ui-video { margin: 0; display: flex; flex-direction: column; gap: var(--space-1) }
+
+.a2ui-video-el {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    background: #000
+}
+
+.a2ui-video-caption {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    text-align: center
+}
+
+/* ── Audio ─────────────────────────────────────────────────────── */
+
+.a2ui-audio { display: flex; flex-direction: column; gap: var(--space-1) }
+
+.a2ui-audio-title {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text)
+}
+
+.a2ui-audio-el { width: 100%; max-width: 400px }
+
+/* ── Separator ─────────────────────────────────────────────────── */
+
+.a2ui-separator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0
+}
+
+.a2ui-sep-line {
+    flex: 1;
+    border: none;
+    border-top: 1px solid var(--color-border-subtle);
+    margin: 0
+}
+
+.a2ui-sep-dashed .a2ui-sep-line { border-top-style: dashed }
+.a2ui-sep-dotted .a2ui-sep-line { border-top-style: dotted }
+
+.a2ui-sep-icon, .a2ui-sep-label {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted)
+}
+
+.a2ui-sep-icon { font-size: 16px }
