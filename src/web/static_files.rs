@@ -1,6 +1,6 @@
 //! Embedded frontend serving via `rust-embed`.
 //!
-//! Leptos (`leptos-ui/dist/`) serves at `/`; React (`web-ui/dist/`) at `/ui`.
+//! Leptos (`leptos-ui/dist/`) serves at `/`.
 //! When `instance_name` is set, manifest/index are patched for PWA naming.
 
 use axum::body::Body;
@@ -39,72 +39,6 @@ fn build_ok(builder: axum::http::response::Builder, body: Body) -> Response<Body
 #[folder = "leptos-ui/dist"]
 #[prefix = ""]
 struct FrontendAssets;
-
-// ── React UI (served at /ui) ────────────────────────────────────────
-
-#[derive(Embed)]
-#[folder = "web-ui/dist"]
-#[prefix = ""]
-struct ReactAssets;
-
-/// Serve the React frontend at `/ui`.
-///
-/// Requests to `/ui` or `/ui/anything` that match an embedded asset file
-/// are served directly.  All other paths fall back to `index.html` for
-/// React client-side routing.
-pub async fn serve_react(headers: HeaderMap, uri: axum::http::Uri) -> impl IntoResponse {
-    let full = uri.path();
-    let path = full
-        .strip_prefix("/ui/")
-        .or_else(|| full.strip_prefix("/ui"))
-        .unwrap_or("");
-    let path = if path.is_empty() { "index.html" } else { path };
-
-    if path == "sw.js" {
-        if let Some(file) = ReactAssets::get("sw.js") {
-            let r = Response::builder()
-                .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, "application/javascript")
-                .header(header::CACHE_CONTROL, "no-cache")
-                .header("Service-Worker-Allowed", "/ui/");
-            return build_ok(r, Body::from(file.data.to_vec())).into_response();
-        }
-    }
-
-    if let Some(file) = ReactAssets::get(path) {
-        let etag = etag_from_hash(&file.metadata.sha256_hash());
-        if is_not_modified(&headers, &etag) {
-            return build_ok(
-                Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, &etag),
-                Body::empty(),
-            )
-            .into_response();
-        }
-        let mime = mime_guess::from_path(path).first_or_octet_stream();
-        let cache = if path == "index.html" {
-            "no-cache"
-        } else {
-            "public, max-age=31536000, immutable"
-        };
-        let r = Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .header(header::CACHE_CONTROL, cache)
-            .header(header::ETAG, &etag);
-        return build_ok(r, Body::from(file.data.to_vec())).into_response();
-    }
-
-    // Fall back to index.html for SPA routing
-    if let Some(file) = ReactAssets::get("index.html") {
-        let r = Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "text/html")
-            .header(header::CACHE_CONTROL, "no-cache");
-        return build_ok(r, Body::from(file.data.to_vec())).into_response();
-    }
-
-    StatusCode::NOT_FOUND.into_response()
-}
 
 /// Serve embedded Leptos frontend assets at `/`, falling back to `index.html`
 /// for SPA routes.

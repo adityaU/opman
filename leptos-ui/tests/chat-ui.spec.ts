@@ -1,8 +1,6 @@
 /**
- * Leptos UI parity tests — Chat UI, Login, Messages, Prompt, Status bar,
+ * Chat UI tests — Login, Messages, Prompt, Status bar,
  * Command palette, Keyboard shortcuts.
- *
- * Mirrors: web-ui/tests/chat-ui.spec.ts
  */
 import { test, expect } from "@playwright/test";
 import { navigateAuthenticated, setupMockAPI, MOCK_THEME } from "./helpers";

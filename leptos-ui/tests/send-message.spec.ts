@@ -1,6 +1,5 @@
 /**
- * Leptos UI parity tests — Send message flow.
- * Mirrors: web-ui/tests/send-message.spec.ts
+ * Send message flow tests.
  */
 import { test, expect } from "@playwright/test";
 import { navigateAuthenticated, SESSION_ID } from "./helpers";

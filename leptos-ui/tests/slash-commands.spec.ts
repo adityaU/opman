@@ -1,6 +1,5 @@
 /**
- * Leptos UI parity tests — Slash commands popover.
- * Mirrors: web-ui/tests/slash-commands.spec.ts
+ * Slash commands popover tests.
  *
  * Note: Leptos has 27 built-in commands hardcoded in the WASM binary
  * (slash_command_popover.rs), so we cannot override them via API mocks.

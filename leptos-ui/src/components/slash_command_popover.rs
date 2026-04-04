@@ -1,5 +1,4 @@
 //! SlashCommandPopover — command autocomplete menu for the prompt input.
-//! Leptos port of `web-ui/src/SlashCommandPopover.tsx`.
 //! Fixed: filter is now reactive, selected_index resets on filter change,
 //! keyboard listener is properly cleaned up on unmount.
 

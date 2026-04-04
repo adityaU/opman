@@ -28,14 +28,6 @@ nohup.out
 # Screenshots / temp junk
 Screenshot_*.png
 
-# Web UI
-web-ui/node_modules/
-web-ui/dist/
-web-ui/debug-*
-web-ui/e2e-screenshots/
-web-ui/test-results/
-web-ui/playwright-report/
-
 # Leptos UI
 leptos-ui/target/
 leptos-ui/dist/

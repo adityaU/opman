@@ -1,6 +1,5 @@
 /**
- * Leptos UI parity tests — Session switching.
- * Mirrors: web-ui/tests/session-switching.spec.ts
+ * Session switching tests.
  */
 import { test, expect } from "@playwright/test";
 import {

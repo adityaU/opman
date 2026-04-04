@@ -1,5 +1,4 @@
 //! SubagentSession — renders a subagent session's messages in a collapsible card.
-//! Leptos port of `web-ui/src/SubagentSession.tsx`.
 //!
 //! Live sessions: messages arrive via SSE props.
 //! Completed sessions: fetches messages from the REST API.

@@ -1,5 +1,4 @@
 //! SearchBar — in-session search with regex toggle, match navigation.
-//! Leptos port of `web-ui/src/SearchBar.tsx`.
 
 use crate::types::core::Message;
 use leptos::prelude::*;

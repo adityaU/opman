@@ -1,8 +1,7 @@
 /* ── App shell sizing — ensures html/body/#leptos-root fill viewport ──
    Android Chrome samples the page background to derive the bottom
    gesture/nav bar tint.  All three layers must fill the viewport with
-   no transparent gaps, or the system default bleeds through.
-   Matches React web-ui #root sizing exactly. ────────────────────────── */
+   no transparent gaps, or the system default bleeds through. ──────── */
 html {
     width: 100%;
     height: 100%;

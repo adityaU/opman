@@ -1,9 +1,7 @@
 /**
- * Shared mock data and route-setup helpers for Leptos UI Playwright tests.
+ * Shared mock data and route-setup helpers for Playwright tests.
  *
- * Mirrors web-ui/tests/helpers.ts but navigates to /ui instead of /.
- * API routes are mocked identically since both UIs hit the same backend
- * endpoints.
+ * API routes are mocked so tests run without a live backend.
  */
 
 import { Page } from "@playwright/test";

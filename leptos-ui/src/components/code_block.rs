@@ -1,5 +1,4 @@
 //! CodeBlock — fenced code block with language label, line numbers, copy, download, word-wrap toggle.
-//! Leptos port of `web-ui/src/message-turn/CodeBlock.tsx`.
 //!
 //! Syntax highlighting is deferred — we render with a `language-xxx` class on the `<code>` tag
 //! so a client-side highlighter (e.g. highlight.js loaded from CDN) can decorate after mount.

@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  # ── Build both frontends once (platform-independent) ───────────
+  # ── Build frontend once (platform-independent) ───────────
   build-frontends:
     runs-on: ubuntu-latest
     env:
@@ -19,17 +19,6 @@ jobs:
         with:
           show-progress: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: web-ui/package-lock.json
-
-      - name: Build React UI
-        run: npm ci && npm run build
-        working-directory: web-ui
-
       - name: Install Rust toolchain (wasm only)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -37,6 +26,13 @@ jobs:
 
       - name: Install Trunk
         run: cargo install trunk --locked
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: leptos-ui/package-lock.json
 
       - name: Install Leptos UI npm deps
         run: npm ci
@@ -51,7 +47,6 @@ jobs:
         with:
           name: frontend-dist
           path: |
-            web-ui/dist/
             leptos-ui/dist/
           retention-days: 1
 

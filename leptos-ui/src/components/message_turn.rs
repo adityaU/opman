@@ -1,5 +1,4 @@
 //! MessageTurn — renders a group of consecutive same-role messages.
-//! Leptos port of `web-ui/src/message-turn/MessageTurn.tsx`.
 //!
 //! Features:
 //!   - grouped role rendering with avatar + role label

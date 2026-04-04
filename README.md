@@ -32,7 +32,8 @@ git clone https://github.com/adityaU/opman.git
 cd opman
 
 # Build frontend + backend
-cd web-ui && npm install && npx vite build && cd ..
+cd leptos-ui && npm install && cd .. 
+cd leptos-ui && npx trunk build --release && cd ..
 cargo build --release
 
 # Install to ~/.local/bin and update PATH

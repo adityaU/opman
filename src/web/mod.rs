@@ -1,7 +1,7 @@
 //! Web UI server for opman.
 //!
 //! Runs an Axum HTTP server that is **fully independent** of the TUI, exposing:
-//! - Embedded React frontend (via rust-embed)
+//! - Embedded Leptos frontend (via rust-embed)
 //! - REST API for state queries and actions
 //! - SSE streams for real-time terminal output and app events
 //! - JWT-based authentication
@@ -29,7 +29,7 @@
 //! - `handlers` — REST API route handlers
 //! - `sse`  — SSE streaming (terminal output + app events)
 //! - `web_state` — Independent state manager (talks to opencode API directly)
-//! - `static_files` — Embedded React frontend serving
+//! - `static_files` — Embedded Leptos frontend serving
 //! - `pty_manager` — Independent web-owned PTY instances
 
 mod auth;
