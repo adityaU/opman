@@ -11,11 +11,35 @@ Terminal multiplexer and web UI wrapper for the [opencode](https://github.com/An
 - **Code editor** — integrated editor with LSP support, diff review, and file explorer
 - **Theming** — fully dynamic theme system with live-switching and PWA icon sync
 
-## Requirements
+## Prerequisites
 
-- [Rust toolchain](https://rustup.rs/) (for building from source)
-- [Node.js](https://nodejs.org/) ≥ 18 and npm (for the web UI frontend)
-- [opencode](https://github.com/AnomalyAI/opencode) CLI installed and configured
+### Required
+
+| Tool | Why |
+|------|-----|
+| [opencode](https://github.com/AnomalyAI/opencode) | Core dependency — opman is a wrapper around the opencode CLI |
+| [git](https://git-scm.com/) | Used for diffs, branches, commits, and the built-in git panel |
+| A POSIX shell (`$SHELL` or `/bin/bash`) | Powers the integrated terminal panes |
+
+### Optional (feature-dependent)
+
+| Tool | When needed |
+|------|-------------|
+| [Neovim](https://neovim.io/) (`nvim`) | Editor pane and Neovim MCP bridge (`--neovim-mcp`) |
+| [gitui](https://github.com/extrawurst/gitui) | Git panel TUI (spawned inside a terminal pane) |
+| [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) | Exposing the web UI via a Cloudflare tunnel (`--tunnel`) |
+| [Docker](https://docs.docker.com/get-docker/) + Compose | Preflight container checks (e.g. SearXNG search) — gracefully skipped if absent |
+| `pbcopy` (macOS) or `xclip` (Linux) | Clipboard support in TUI mode |
+| `alacritty` or `wezterm` | Popout terminal panels (auto-detected via `which`) |
+
+### Building from source
+
+| Tool | Why |
+|------|-----|
+| [Rust toolchain](https://rustup.rs/) (stable ≥ 1.94) | Compiles the opman binary |
+| `wasm32-unknown-unknown` target | Leptos frontend compiles to WASM — install with `rustup target add wasm32-unknown-unknown` |
+| [Trunk](https://trunkrs.dev/) | WASM bundler for the Leptos web UI — install with `cargo install trunk --locked` |
+| [Node.js](https://nodejs.org/) ≥ 18 + npm | Runs `npx tailwindcss` during the Trunk build |
 
 ## Install
 
