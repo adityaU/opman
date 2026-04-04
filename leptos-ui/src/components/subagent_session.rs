@@ -4,14 +4,15 @@
 //! Live sessions: messages arrive via SSE props.
 //! Completed sessions: fetches messages from the REST API.
 //!
-//! Messages render with full markdown, code blocks, and tool call accordions
-//! via `group_messages()` + `MessageTurn`, matching parent message rendering.
+//! Performance: uses stable/last group split + keyed `<For>` so that only the
+//! last (actively streaming) group rebuilds DOM on new messages. Stable groups
+//! are rendered once and never re-created.
 
 use leptos::prelude::*;
 use crate::types::core::Message;
 use crate::api::client::fetch_session_messages;
 use crate::components::message_timeline::AccordionState;
-use crate::components::message_turn::{group_messages, MessageTurn};
+use crate::components::message_turn::{group_messages, MessageGroup, MessageTurn};
 use web_sys::HtmlElement;
 
 /// Renders a subagent session's messages inside a collapsible card.
@@ -85,18 +86,34 @@ pub fn SubagentSession(
         });
     }
 
-    // No need for a separate display_messages clone — we read the
-    // reactive `messages` signal (or `fetched_messages`) in the body.
-
     let session_id_for_open = session_id.clone();
-    let session_id_display = session_id.clone();
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
 
+    // Effective messages: SSE or fetched fallback.
+    let effective_messages = Memo::new(move |_| {
+        if has_sse_messages {
+            messages.get()
+        } else {
+            fetched_messages.get().unwrap_or_default()
+        }
+    });
+
+    // Grouped messages — drives stable/last split below.
+    let groups = Memo::new(move |_| group_messages(&effective_messages.get()));
+
+    // Stable groups: all except the last. Keyed by group key — never re-rendered.
+    let stable_groups = Memo::new(move |_| {
+        let gs = groups.get();
+        if gs.len() <= 1 { Vec::new() } else { gs[..gs.len() - 1].to_vec() }
+    });
+
+    // Last group: the only one that reactively rebuilds on streaming updates.
+    let last_group = Memo::new(move |_| groups.get().last().cloned());
+
     // Reactive message count — drives auto-scroll effect below.
-    let msg_count = Memo::new(move |_| messages.with(|m| m.len()));
+    let msg_count = Memo::new(move |_| effective_messages.with(|m| m.len()));
 
     // Auto-scroll to bottom only if user was already near the bottom.
-    // Prevents resetting user's scroll position when new messages arrive.
     Effect::new(move |prev_count: Option<usize>| {
         let current = msg_count.get();
         if let Some(prev) = prev_count {
@@ -104,7 +121,6 @@ pub fn SubagentSession(
                 if let Some(el) = scroll_ref.get() {
                     let el: &HtmlElement = &el;
                     let distance = el.scroll_height() - el.scroll_top() - el.client_height();
-                    // Only auto-scroll if within 100px of bottom (or first content)
                     if distance < 100 || el.scroll_top() == 0 {
                         el.set_scroll_top(el.scroll_height());
                     }
@@ -211,57 +227,68 @@ pub fn SubagentSession(
             // Body (expanded)
             {move || expanded.get().then(|| {
                 if is_fetching.get() {
-                    view! {
+                    return view! {
                         <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
                             <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                             "Loading task output..."
                         </div>
-                    }.into_any()
-                } else {
-                    // Read SSE messages reactively, or fall back to fetched
-                    let msgs = if has_sse_messages {
-                        messages.get()
-                    } else {
-                        fetched_messages.get().unwrap_or_default()
-                    };
+                    }.into_any();
+                }
 
-                    if msgs.is_empty() {
-                        if is_running {
-                            view! {
-                                <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
-                                    <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                                    "Subagent starting..."
-                                </div>
-                            }.into_any()
-                        } else {
-                            view! {
-                                <div class="subagent-empty flex items-center justify-center px-3 py-4 text-xs text-text-muted/60">
-                                    "No task output available"
-                                </div>
-                            }.into_any()
-                        }
-                    } else {
-                        // Full rich rendering: group messages and render each group
-                        // via MessageTurn (markdown, code blocks, tool call accordions).
-                        let groups = group_messages(&msgs);
+                let is_empty = effective_messages.with(|m| m.is_empty());
+                if is_empty {
+                    return if is_running {
                         view! {
-                            <div node_ref=scroll_ref class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
-                                {groups.into_iter().map(|group| {
-                                    view! {
-                                        <MessageTurn
-                                            group=group
-                                            search_match_ids=None
-                                            active_search_match_id=None
-                                            session_id=None
-                                            is_bookmarked=None
-                                            on_toggle_bookmark=None
-                                        />
-                                    }
-                                }).collect_view()}
+                            <div class="subagent-empty flex items-center gap-2 px-3 py-4 justify-center text-xs text-text-muted">
+                                <span class="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                "Subagent starting..."
                             </div>
                         }.into_any()
-                    }
+                    } else {
+                        view! {
+                            <div class="subagent-empty flex items-center justify-center px-3 py-4 text-xs text-text-muted/60">
+                                "No task output available"
+                            </div>
+                        }.into_any()
+                    };
                 }
+
+                // Keyed rendering: stable groups use <For> (never re-render),
+                // only the last group rebuilds reactively on new messages.
+                view! {
+                    <div node_ref=scroll_ref class="subagent-messages max-h-[400px] overflow-y-auto border-t border-border-subtle/50">
+                        <For
+                            each=move || stable_groups.get()
+                            key=|group: &MessageGroup| group.key.clone()
+                            children=move |group: MessageGroup| {
+                                view! {
+                                    <MessageTurn
+                                        group=group
+                                        search_match_ids=None
+                                        active_search_match_id=None
+                                        session_id=None
+                                        is_bookmarked=None
+                                        on_toggle_bookmark=None
+                                    />
+                                }
+                            }
+                        />
+                        {move || {
+                            last_group.get().map(|group| {
+                                view! {
+                                    <MessageTurn
+                                        group=group
+                                        search_match_ids=None
+                                        active_search_match_id=None
+                                        session_id=None
+                                        is_bookmarked=None
+                                        on_toggle_bookmark=None
+                                    />
+                                }
+                            })
+                        }}
+                    </div>
+                }.into_any()
             })}
         </div>
     }

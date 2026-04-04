@@ -113,6 +113,8 @@ pub struct SseState {
     /// Rendered subagent messages: session_id → sorted Vec<Message>.
     pub subagent_messages: ReadSignal<HashMap<String, Vec<Message>>>,
     pub set_subagent_messages: WriteSignal<HashMap<String, Vec<Message>>>,
+    /// Session IDs that changed since last flush (dirty tracking).
+    pub(crate) subagent_dirty: RwSignal<HashSet<String>>,
     /// Whether a subagent flush is already scheduled.
     pub(crate) subagent_flush_pending: RwSignal<bool>,
     /// Handle to the pending subagent rAF.
@@ -197,6 +199,7 @@ pub fn use_sse_state() -> SseState {
     let subagent_maps = RwSignal::new(HashMap::<String, MessageMap>::new());
     let (subagent_messages, set_subagent_messages) =
         signal(HashMap::<String, Vec<Message>>::new());
+    let subagent_dirty = RwSignal::new(HashSet::<String>::new());
     let subagent_flush_pending = RwSignal::new(false);
     let subagent_raf_handle = RwSignal::new(0i32);
 
@@ -267,6 +270,7 @@ pub fn use_sse_state() -> SseState {
         subagent_maps,
         subagent_messages,
         set_subagent_messages,
+        subagent_dirty,
         subagent_flush_pending,
         subagent_raf_handle,
     }

@@ -37,6 +37,7 @@ Block types:
 - video: embedded video player (data: url/src, poster, title/caption, width, height)
 - audio: embedded audio player (data: url/src, title/label)
 - separator: decorative section break (data: icon/emoji, label, style solid/dashed/dotted)
+- mermaid: rendered Mermaid diagram (data: content/text/code, title)
 
 Callbacks: buttons and forms include a `callback_id` field. When the user clicks/submits, the callback_id and any form values are sent back to your session as context for the next turn.
 

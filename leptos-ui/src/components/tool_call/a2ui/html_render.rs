@@ -39,6 +39,7 @@ pub fn blocks_to_html(blocks: &[serde_json::Value]) -> String {
             "pdf" => html_render_media::pdf_html(&data, &mut out),
             "link" => html_render_media::link_html(&data, &mut out),
             "accordion" => html_render_media::accordion_html(&data, &mut out),
+            "mermaid" => html_render_media::mermaid_html(&data, &mut out),
             "chart" => html_render_chart::chart_html(&data, &mut out),
             // Tier 1 content blocks
             "tabs" => html_render_content::tabs_html(&data, &mut out),

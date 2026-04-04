@@ -1,4 +1,4 @@
-//! Media HTML renderers — image, pdf, link, accordion.
+//! Media HTML renderers — image, pdf, link, accordion, mermaid.
 //!
 //! All functions append raw HTML to `&mut String` for `inner_html`.
 
@@ -177,4 +177,33 @@ pub fn accordion_html(data: &serde_json::Value, out: &mut String) {
         out.push_str(&format!("<div>{}</div>", md(&c)));
     }
     out.push_str("</div></details>");
+}
+
+// ── Mermaid ─────────────────────────────────────────────────────────
+
+/// Mermaid diagram block. Renders the source into a `<pre class="mermaid">`
+/// element which the global mermaid.js (loaded via CDN in index.html) will
+/// process into an SVG after mount via `mermaid.run()` in `wire_a2ui_events`.
+///
+/// Accepts: `{ content/text/code: "graph TD; A-->B", title?: "..." }`
+pub fn mermaid_html(data: &serde_json::Value, out: &mut String) {
+    let content = sf_or(data, "content", "text")
+        .or_else(|| sf(data, "code"))
+        .unwrap_or_default();
+    if content.is_empty() {
+        out.push_str("<div class=\"a2ui-unknown\">Mermaid: empty diagram source</div>");
+        return;
+    }
+    let title = sf(data, "title");
+
+    out.push_str("<div class=\"a2ui-mermaid\">");
+    if let Some(ref t) = title {
+        out.push_str(&format!(
+            "<div class=\"a2ui-mermaid-title\">{}</div>",
+            esc(t)
+        ));
+    }
+    // mermaid.js picks up <pre class="mermaid"> and replaces content with SVG
+    out.push_str(&format!("<pre class=\"mermaid\">{}</pre>", esc(&content)));
+    out.push_str("</div>");
 }

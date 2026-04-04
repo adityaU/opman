@@ -138,7 +138,7 @@ fn tool_definitions() -> serde_json::Value {
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "description": "Block type: card, table, kv, status, progress, alert, button, form, markdown, steps, divider, code, metric, grid, flex, image, pdf, link, accordion, chart, tabs, callout, badge, blockquote, list, stat-group, diff, timeline, terminal, file-tree, avatar, tag-group, toggle, video, audio, separator"
+                                "description": "Block type: card, table, kv, status, progress, alert, button, form, markdown, steps, divider, code, metric, grid, flex, image, pdf, link, accordion, chart, tabs, callout, badge, blockquote, list, stat-group, diff, timeline, terminal, file-tree, avatar, tag-group, toggle, video, audio, separator, mermaid"
                             },
                             "data": {
                                 "type": "object",

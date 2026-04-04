@@ -35,7 +35,8 @@ pub fn tabs_html(data: &serde_json::Value, out: &mut String) {
     }
     out.push_str("</div>");
 
-    // Tab panels
+    // Tab panels — no static active class; visibility is driven entirely
+    // by the CSS :has() selectors matching the checked radio above.
     out.push_str("<div class=\"a2ui-tabs-panels\">");
     for (i, tab) in tabs.iter().enumerate() {
         let children = tab
@@ -43,10 +44,9 @@ pub fn tabs_html(data: &serde_json::Value, out: &mut String) {
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
-        let active_cls = if i == active { " a2ui-tab-active" } else { "" };
         out.push_str(&format!(
-            "<div class=\"a2ui-tab-panel{}\" data-tab-index=\"{}\" role=\"tabpanel\">",
-            active_cls, i
+            "<div class=\"a2ui-tab-panel\" data-tab-index=\"{}\" role=\"tabpanel\">",
+            i
         ));
         if !children.is_empty() {
             out.push_str(&blocks_to_html(&children));

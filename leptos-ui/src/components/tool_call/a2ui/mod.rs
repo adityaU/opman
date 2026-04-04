@@ -181,4 +181,62 @@ fn wire_a2ui_events(el: &web_sys::HtmlDivElement) {
     let _ = el_for_submit
         .add_event_listener_with_callback("submit", submit_cb.as_ref().unchecked_ref());
     submit_cb.forget(); // leak — lives as long as the DOM node
+
+    // Mermaid diagrams — run mermaid.js on any <pre class="mermaid"> elements.
+    run_mermaid(el);
+}
+
+/// Initialize mermaid.js and render any `<pre class="mermaid">` elements
+/// inside the given container. Mermaid is loaded globally via CDN in
+/// index.html; this just calls `mermaid.run({ nodes: [...] })`.
+fn run_mermaid(el: &web_sys::HtmlDivElement) {
+    use wasm_bindgen::prelude::*;
+    use wasm_bindgen::JsCast;
+
+    let nodes = el.query_selector_all("pre.mermaid");
+    let Ok(nodes) = nodes else { return };
+    if nodes.length() == 0 {
+        return;
+    }
+
+    let window = match web_sys::window() {
+        Some(w) => w,
+        None => return,
+    };
+    let mermaid = js_sys::Reflect::get(&window, &JsValue::from_str("mermaid"))
+        .ok()
+        .filter(|v| !v.is_undefined() && !v.is_null());
+    let Some(m) = mermaid else {
+        log::warn!("A2UI mermaid block: mermaid.js not loaded");
+        return;
+    };
+
+    // mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' })
+    if let Ok(init_fn) = js_sys::Reflect::get(&m, &JsValue::from_str("initialize")) {
+        if init_fn.is_function() {
+            let func: js_sys::Function = init_fn.unchecked_into();
+            let config = js_sys::Object::new();
+            let _ = js_sys::Reflect::set(&config, &"startOnLoad".into(), &JsValue::FALSE);
+            let _ = js_sys::Reflect::set(&config, &"theme".into(), &"dark".into());
+            let _ = js_sys::Reflect::set(&config, &"securityLevel".into(), &"strict".into());
+            let _ = func.call1(&m, &config);
+        }
+    }
+
+    // mermaid.run({ nodes: [pre1, pre2, ...] })
+    let run_fn = js_sys::Reflect::get(&m, &JsValue::from_str("run"))
+        .ok()
+        .filter(|v| v.is_function());
+    let Some(run_fn) = run_fn else { return };
+    let func: js_sys::Function = run_fn.unchecked_into();
+
+    let node_array = js_sys::Array::new();
+    for i in 0..nodes.length() {
+        if let Some(n) = nodes.item(i) {
+            node_array.push(&n);
+        }
+    }
+    let opts = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(&opts, &"nodes".into(), &node_array);
+    let _ = func.call1(&m, &opts);
 }

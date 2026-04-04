@@ -1,5 +1,8 @@
 //! Subagent message methods and recovery helpers on SseState.
 //! Subagent sessions have their own per-session message maps, flushed separately.
+//!
+//! Dirty-tracking: only sessions whose maps actually changed are re-rendered
+//! during a flush, avoiding O(N) Vec rebuilds for every rAF tick.
 
 use crate::sse::message_map::{MessageMap, map_to_sorted_array};
 use leptos::prelude::*;
@@ -19,15 +22,17 @@ impl SseState {
         let sid = session_id.to_string();
         let mut changed = false;
         self.subagent_maps.update(|maps| {
-            let map = maps.entry(sid).or_insert_with(MessageMap::new);
+            let map = maps.entry(sid.clone()).or_insert_with(MessageMap::new);
             changed = f(map);
         });
         if changed {
+            self.subagent_dirty.update(|d| { d.insert(sid); });
             self.schedule_subagent_flush();
         }
     }
 
     /// Schedule a subagent flush for the next animation frame.
+    /// Only re-renders sessions marked dirty since the last flush.
     fn schedule_subagent_flush(&self) {
         if self.subagent_flush_pending.get_untracked() {
             return;
@@ -38,18 +43,36 @@ impl SseState {
         let set_subagent_messages = self.set_subagent_messages;
         let subagent_flush_pending = self.subagent_flush_pending;
         let subagent_raf_handle = self.subagent_raf_handle;
+        let subagent_dirty = self.subagent_dirty;
 
         let cb = Closure::once(move || {
             subagent_flush_pending.set(false);
             subagent_raf_handle.set(0);
-            let rendered = subagent_maps.with_untracked(|maps| {
-                let mut out = HashMap::with_capacity(maps.len());
-                for (sid, map) in maps {
-                    out.insert(sid.clone(), map_to_sorted_array(map));
+
+            // Take the dirty set — only these sessions need re-rendering.
+            let dirty: Vec<String> = subagent_dirty.with_untracked(|d| d.iter().cloned().collect());
+            subagent_dirty.update(|d| d.clear());
+
+            if dirty.is_empty() {
+                return;
+            }
+
+            // Build rendered arrays only for dirty sessions.
+            let patches: Vec<(String, Vec<crate::types::core::Message>)> =
+                subagent_maps.with_untracked(|maps| {
+                    dirty.iter().filter_map(|sid| {
+                        maps.get(sid).map(|map| (sid.clone(), map_to_sorted_array(map)))
+                    }).collect()
+                });
+
+            // Patch into existing HashMap — untouched sessions keep their
+            // exact same Vec allocation, so derived signals that read those
+            // sessions will not re-fire.
+            set_subagent_messages.update(|current| {
+                for (sid, msgs) in patches {
+                    current.insert(sid, msgs);
                 }
-                out
             });
-            set_subagent_messages.set(rendered);
         });
 
         if let Some(window) = web_sys::window() {
@@ -75,6 +98,7 @@ impl SseState {
                 self.subagent_raf_handle.set(0);
             }
         }
+        self.subagent_dirty.update(|d| d.clear());
         self.subagent_maps.update(|maps| maps.clear());
         self.set_subagent_messages.set(HashMap::new());
     }

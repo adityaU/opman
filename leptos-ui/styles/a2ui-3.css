@@ -38,9 +38,8 @@
 .a2ui-tabs-panels { padding: var(--space-2) 0 }
 
 .a2ui-tab-panel { display: none }
-.a2ui-tab-panel.a2ui-tab-active { display: block }
 
-/* JS-less tab switching via :has() — modern browsers */
+/* CSS-only tab switching via :has() — modern browsers */
 .a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(1):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(1),
 .a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(2):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(2),
 .a2ui-tabs-header:has(.a2ui-tabs-radio:nth-of-type(3):checked) ~ .a2ui-tabs-panels > .a2ui-tab-panel:nth-child(3),
