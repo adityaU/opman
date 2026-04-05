@@ -29,8 +29,6 @@ pub fn SubagentSession(
     #[prop(optional)] is_error: bool,
     on_open_session: Option<Callback<String>>,
 ) -> impl IntoView {
-    let has_sse_messages = messages.with_untracked(|m| !m.is_empty());
-
     // Read shared accordion state from context (survives parent re-renders).
     let accordion_ctx = use_context::<AccordionState>();
 
@@ -64,9 +62,17 @@ pub fn SubagentSession(
         }
     };
 
-    // Fetch messages for completed tasks without SSE data
+    // Fetch messages for completed/errored tasks when SSE has no data.
+    // Uses an Effect so it re-evaluates reactively (e.g. after SSE clears on reload).
     let sid_for_fetch = session_id.clone();
-    if !has_sse_messages && !is_running && (is_completed || is_error) && !fetch_attempted.get_untracked() {
+    Effect::new(move |_| {
+        let sse_empty = messages.with(|m| m.is_empty());
+        if !sse_empty || is_running || fetch_attempted.get_untracked() {
+            return;
+        }
+        if !is_completed && !is_error {
+            return;
+        }
         set_fetch_attempted.set(true);
         set_is_fetching.set(true);
         let sid = sid_for_fetch.clone();
@@ -83,18 +89,18 @@ pub fn SubagentSession(
             }
             set_is_fetching.set(false);
         });
-    }
+    });
 
     let session_id_for_open = session_id.clone();
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
 
-    // Effective messages: SSE or fetched fallback.
+    // Effective messages: prefer live SSE data; fall back to fetched REST data.
     let effective_messages = Memo::new(move |_| {
-        if has_sse_messages {
-            messages.get()
-        } else {
-            fetched_messages.get().unwrap_or_default()
+        let sse = messages.get();
+        if !sse.is_empty() {
+            return sse;
         }
+        fetched_messages.get().unwrap_or_default()
     });
 
     // Grouped messages — drives stable/last split below.

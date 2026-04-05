@@ -197,13 +197,33 @@ pub fn mermaid_html(data: &serde_json::Value, out: &mut String) {
     let title = sf(data, "title");
 
     out.push_str("<div class=\"a2ui-mermaid\">");
+
+    // Toolbar: zoom-in, zoom-out, reset — wired via delegated handler in mod.rs
+    out.push_str(concat!(
+        "<div class=\"a2ui-mermaid-toolbar\">",
+        "<button class=\"a2ui-mermaid-zoom-btn\" data-a2ui-mermaid-zoom=\"out\" title=\"Zoom out\">",
+        "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">",
+        "<circle cx=\"11\" cy=\"11\" r=\"8\"/><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"/>",
+        "<line x1=\"8\" y1=\"11\" x2=\"14\" y2=\"11\"/></svg></button>",
+        "<button class=\"a2ui-mermaid-zoom-btn\" data-a2ui-mermaid-zoom=\"reset\" title=\"Reset zoom\">",
+        "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">",
+        "<path d=\"M3 12a9 9 0 1 0 9-9 4.5 4.5 0 0 0-4.5 4.5\"/><path d=\"M3 3v4.5h4.5\"/></svg></button>",
+        "<button class=\"a2ui-mermaid-zoom-btn\" data-a2ui-mermaid-zoom=\"in\" title=\"Zoom in\">",
+        "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">",
+        "<circle cx=\"11\" cy=\"11\" r=\"8\"/><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"/>",
+        "<line x1=\"11\" y1=\"8\" x2=\"11\" y2=\"14\"/><line x1=\"8\" y1=\"11\" x2=\"14\" y2=\"11\"/></svg></button>",
+        "</div>",
+    ));
+
     if let Some(ref t) = title {
         out.push_str(&format!(
             "<div class=\"a2ui-mermaid-title\">{}</div>",
             esc(t)
         ));
     }
+    // Viewport wraps the diagram for CSS transform-based zoom
+    out.push_str("<div class=\"a2ui-mermaid-viewport\">");
     // mermaid.js picks up <pre class="mermaid"> and replaces content with SVG
     out.push_str(&format!("<pre class=\"mermaid\">{}</pre>", esc(&content)));
-    out.push_str("</div>");
+    out.push_str("</div></div>");
 }

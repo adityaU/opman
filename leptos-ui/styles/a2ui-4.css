@@ -361,7 +361,46 @@ button.a2ui-tag:hover { border-color: var(--color-accent); color: var(--color-ac
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
-    background: var(--color-bg)
+    background: var(--color-bg);
+    position: relative
+}
+
+.a2ui-mermaid-toolbar {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    display: flex;
+    gap: 2px;
+    z-index: 2;
+    background: var(--white-6);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--color-border-subtle);
+    opacity: 0;
+    transition: opacity .15s ease
+}
+
+.a2ui-mermaid:hover .a2ui-mermaid-toolbar { opacity: 1 }
+
+.a2ui-mermaid-zoom-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: background .1s, color .1s
+}
+
+.a2ui-mermaid-zoom-btn:hover {
+    background: var(--white-8);
+    color: var(--color-text)
 }
 
 .a2ui-mermaid-title {
@@ -373,7 +412,13 @@ button.a2ui-tag:hover { border-color: var(--color-accent); color: var(--color-ac
     border-bottom: 1px solid var(--color-border-subtle)
 }
 
-.a2ui-mermaid pre.mermaid {
+.a2ui-mermaid-viewport {
+    overflow: auto;
+    transform-origin: top left;
+    transition: transform .15s ease
+}
+
+.a2ui-mermaid-viewport pre.mermaid {
     margin: 0;
     padding: var(--space-3);
     font-size: var(--font-size-xs);
@@ -383,7 +428,7 @@ button.a2ui-tag:hover { border-color: var(--color-accent); color: var(--color-ac
 
 /* After mermaid.js renders, the <pre> is replaced with an <svg>;
    center it and give it breathing room. */
-.a2ui-mermaid svg {
+.a2ui-mermaid-viewport svg {
     display: block;
     margin: var(--space-2) auto;
     max-width: 100%;
