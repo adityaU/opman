@@ -1,79 +1,94 @@
 #!/usr/bin/env bash
-# Post-build hook: content-hash inline JS snippet files in dist/snippets/
-# so that CDN caches (max-age=immutable) serve the correct version after rebuilds.
+# Post-build hook: content-hash JS assets in dist/ so CDN immutable caches
+# always serve the correct version after rebuilds.
 #
-# Trunk gives snippet files stable names (inline0.js, inline1.js) that don't
-# change when content changes. This script renames them to include a short
-# content hash (e.g. inline0-a1b2c3d4.js) and patches all references in
-# dist/index.html and the main JS bundle.
+# Trunk gives files hashes based on the crate, not content. When we patch
+# import paths (or content changes between builds with the same crate hash),
+# the filename stays the same → CDN serves stale content → SRI mismatch.
+#
+# This script:
+# 1. Renames snippet JS files to include a content hash
+# 2. Patches import paths in the main JS bundle
+# 3. Renames the main JS bundle to include a content hash
+# 4. Updates all references and SRI hashes in index.html
 
 set -euo pipefail
 
 DIST="${TRUNK_STAGING_DIR:-dist}"
+index="$DIST/index.html"
 
-# Find all JS files under dist/snippets/
+# ── Step 1: Content-hash snippet JS files ────────────────────────────
 shopt -s nullglob
 snippet_files=("$DIST"/snippets/*/*.js)
 shopt -u nullglob
 
-if [ ${#snippet_files[@]} -eq 0 ]; then
-  echo "[hash-snippets] No snippet JS files found, skipping."
-  exit 0
-fi
-
-# Collect rename pairs: old_basename -> new_basename
-declare -A renames  # old_path -> new_path
 declare -A basemap  # old_basename -> new_basename
 
 for f in "${snippet_files[@]}"; do
   dir="$(dirname "$f")"
   base="$(basename "$f")"
   name="${base%.js}"
-
-  # 8-char content hash
   hash8="$(sha256sum "$f" | cut -c1-8)"
   new_base="${name}-${hash8}.js"
-
   mv "$f" "$dir/$new_base"
-  renames["$f"]="$dir/$new_base"
   basemap["$base"]="$new_base"
-
-  echo "[hash-snippets] $base -> $new_base"
+  echo "[hash-assets] snippet: $base -> $new_base"
 done
 
-# Patch dist/index.html — replace old snippet paths with new ones
-index="$DIST/index.html"
-if [ -f "$index" ]; then
+# ── Step 2: Patch snippet paths in index.html ────────────────────────
+if [ -f "$index" ] && [ ${#basemap[@]} -gt 0 ]; then
   for old_base in "${!basemap[@]}"; do
     new_base="${basemap[$old_base]}"
     sed -i "s|${old_base}|${new_base}|g" "$index"
   done
-  echo "[hash-snippets] Patched index.html"
 fi
 
-# Patch the main JS bundle — replace import paths
+# ── Step 3: Patch snippet paths in main JS bundle ────────────────────
 shopt -s nullglob
 bundles=("$DIST"/leptos-ui-*.js)
 shopt -u nullglob
 
 for bundle in "${bundles[@]}"; do
-  for old_base in "${!basemap[@]}"; do
-    new_base="${basemap[$old_base]}"
-    sed -i "s|${old_base}|${new_base}|g" "$bundle"
-  done
-  echo "[hash-snippets] Patched $(basename "$bundle")"
+  if [ ${#basemap[@]} -gt 0 ]; then
+    for old_base in "${!basemap[@]}"; do
+      new_base="${basemap[$old_base]}"
+      sed -i "s|${old_base}|${new_base}|g" "$bundle"
+    done
+  fi
 done
 
-# Recalculate SRI hashes in index.html for the main bundle (since we changed its content)
+# ── Step 4: Content-hash rename the main JS bundle ──────────────────
+for bundle in "${bundles[@]}"; do
+  old_name="$(basename "$bundle")"
+  stem="${old_name%.js}"
+  hash8="$(sha256sum "$bundle" | cut -c1-8)"
+  new_name="${stem}-${hash8}.js"
+
+  mv "$bundle" "$DIST/$new_name"
+  echo "[hash-assets] bundle: $old_name -> $new_name"
+
+  # Update all references in index.html (import path, modulepreload href)
+  if [ -f "$index" ]; then
+    sed -i "s|${old_name}|${new_name}|g" "$index"
+  fi
+done
+
+# ── Step 5: Recalculate SRI hashes in index.html ────────────────────
+# After renaming, we need to update integrity attributes for:
+#   - The main JS bundle (content changed by import path patching + rename)
+#   - Snippet files (already have correct hashes from trunk, paths just renamed)
 if [ -f "$index" ]; then
-  for bundle in "${bundles[@]}"; do
+  # Update main bundle SRI
+  shopt -s nullglob
+  new_bundles=("$DIST"/leptos-ui-*-*.js)
+  shopt -u nullglob
+
+  for bundle in "${new_bundles[@]}"; do
     bundle_name="$(basename "$bundle")"
     new_hash="sha384-$(openssl dgst -sha384 -binary "$bundle" | base64)"
-    # Match the integrity attribute for this bundle's link tag
-    # Pattern: href="/bundle-name" ... integrity="sha384-..."
     sed -i -E "s|(href=\"/${bundle_name}\"[^>]*integrity=\")sha384-[A-Za-z0-9+/=]+|\1${new_hash}|" "$index"
+    echo "[hash-assets] SRI updated for $bundle_name"
   done
-  echo "[hash-snippets] Updated SRI hashes in index.html"
 fi
 
-echo "[hash-snippets] Done."
+echo "[hash-assets] Done."
