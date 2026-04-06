@@ -18,6 +18,7 @@ pub enum FileRenderType {
     Pdf,
     Spreadsheet,
     Document,
+    Model3D,
     Binary,
 }
 
@@ -35,6 +36,7 @@ pub fn classify_file(path: &str) -> FileRenderType {
         "md" | "mdx" | "markdown" => FileRenderType::Markdown,
         "html" | "htm" => FileRenderType::Html,
         "mmd" | "mermaid" => FileRenderType::Mermaid,
+        "stl" | "obj" | "gltf" | "glb" | "ply" | "3mf" | "fbx" | "dae" => FileRenderType::Model3D,
         "xlsx" | "xls" | "ods" | "xlsb" | "tsv" => FileRenderType::Spreadsheet,
         "docx" => FileRenderType::Document,
         "pptx" | "ppt" | "doc" | "zip" | "tar" | "gz" | "rar" | "7z" | "exe" | "dll" | "so"
@@ -63,6 +65,7 @@ pub fn is_binary_render_type(rt: &FileRenderType) -> bool {
             | FileRenderType::Audio
             | FileRenderType::Video
             | FileRenderType::Pdf
+            | FileRenderType::Model3D
             | FileRenderType::Binary
     )
 }

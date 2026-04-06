@@ -188,9 +188,10 @@ fn render_preview(
     }
 
     match rt {
+        FileRenderType::Model3D => super::model3d_preview::render_model3d_view(&file.path),
         FileRenderType::Image => {
             let url = crate::api::files::file_raw_url(&file.path);
-            view! { <div class="file-preview file-preview-image"><img src=url alt=file.path.clone() /></div> }.into_any()
+            super::image_preview::render_image_preview(&url, &file.path)
         }
         FileRenderType::Audio => {
             let url = crate::api::files::file_raw_url(&file.path);

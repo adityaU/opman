@@ -17,6 +17,29 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <!-- DOMPurify for HTML/SVG sanitization in CodeEditorPanel -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <!-- Three.js for 3D model preview (STL, OBJ, GLTF, PLY, 3MF, FBX) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+      import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+      import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+      import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+      import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+      window.__THREE = THREE;
+      window.__THREE_OrbitControls = OrbitControls;
+      window.__THREE_Loaders = { STLLoader, OBJLoader, GLTFLoader, PLYLoader, ThreeMFLoader, FBXLoader, ColladaLoader };
+    </script>
     <link data-trunk rel="rust" data-wasm-opt="0" />
     <link data-trunk rel="css" href="styles/output.css" />
     <link data-trunk rel="css" href="styles/app-shell.css" />
