@@ -85,27 +85,25 @@ jobs:
           toolchain: 1.94.0
           targets: ${{ matrix.target }}
 
-      - name: Install musl toolchains (Linux)
-        if: contains(matrix.target, 'linux-musl')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu musl-dev
-            # Install aarch64 musl cross-compiler
-            curl -sL https://musl.cc/aarch64-linux-musl-cross.tgz | sudo tar xz -C /opt
-            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
-          fi
+      - name: Install zigbuild (Linux cross-compilation)
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - name: Install Zig (Linux cross-compilation)
+        if: runner.os == 'Linux'
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
 
       - name: Build release binary
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
-          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
         run: |
-          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
-            export RUSTFLAGS="-C target-feature=+crt-static"
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            cargo zigbuild --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
           fi
-          cargo build --release --target ${{ matrix.target }}
 
       - name: Package binary
         run: |
