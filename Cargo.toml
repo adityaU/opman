@@ -63,10 +63,18 @@ quick-xml = "0.37"
 overflow-checks = false
 
 [profile.release]
-# Optimise aggressively for size.
+# Optimise aggressively for size (CI / production builds).
 opt-level = "z"          # "z" = size over speed (smaller than "s")
 lto = true               # fat LTO: maximum dead-code removal across all crates
 codegen-units = 1        # single CGU = more inlining + DCE across the whole crate
 panic = "abort"          # removes unwinding machinery (~saves ~10-15% on Rust binaries)
 strip = true             # remove all symbols + debug info from release binary
 debug = false            # no DWARF debug info in release
+
+# Fast local release builds:  cargo build --profile release-fast
+# Much faster than full release — thin LTO, multiple CGUs, opt-level 2.
+[profile.release-fast]
+inherits = "release"
+opt-level = 2            # good perf without extreme size optimisation
+lto = "thin"             # thin LTO: fast incremental, still good DCE
+codegen-units = 16       # parallel codegen — biggest compile-time win

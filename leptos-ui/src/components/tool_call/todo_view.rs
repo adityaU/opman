@@ -112,10 +112,6 @@ pub fn render_todo_tool(part: &MessagePart) -> leptos::prelude::AnyView {
     view! {
         <div class="todo-view">
             <div class="todo-list">
-                {move || expanded.get().then(|| {
-                    let inp_clone = inp.clone();
-                    view! { <TodoList input=inp_clone /> }
-                })}
                 <button class="todo-acc-header" on:click=handle_toggle>
                     <span class="todo-acc-chevron">
                         {move || if expanded.get() {
@@ -133,6 +129,10 @@ pub fn render_todo_tool(part: &MessagePart) -> leptos::prelude::AnyView {
                         {header_text}
                     </span>
                 </button>
+                {move || expanded.get().then(|| {
+                    let inp_clone = inp.clone();
+                    view! { <TodoList input=inp_clone /> }
+                })}
             </div>
         </div>
     }
