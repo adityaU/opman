@@ -62,17 +62,62 @@ pub fn handle_movement(buffer: &EditorBuffer, key: &str, ctrl: bool) {
     }
 }
 
-/// Walk up DOM to find the line container element.
-pub fn find_line_element(el: &web_sys::HtmlElement) -> Option<web_sys::HtmlElement> {
+/// Walk up DOM to find the `.native-editor-content` span and its parent line index.
+/// Returns `(content_element, line_index)`.
+pub fn find_content_element(el: &web_sys::HtmlElement) -> Option<(web_sys::HtmlElement, usize)> {
     let mut current: web_sys::HtmlElement = el.clone();
-    for _ in 0..5 {
+    for _ in 0..6 {
+        // If we hit the content span, grab line index from parent line div
+        if current.class_list().contains("native-editor-content") {
+            let li = current
+                .parent_element()
+                .and_then(|p| p.dyn_into::<web_sys::HtmlElement>().ok())
+                .and_then(|p| p.dataset().get("line"))
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            return Some((current, li));
+        }
+        // If we hit the line div, find its content child
         if current.dataset().get("line").is_some() {
-            return Some(current);
+            let li = current
+                .dataset()
+                .get("line")
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            let content = current
+                .query_selector(".native-editor-content")
+                .ok()
+                .flatten()
+                .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())?;
+            return Some((content, li));
         }
         let parent = current.parent_element()?;
         current = parent.dyn_into::<web_sys::HtmlElement>().ok()?;
     }
     None
+}
+
+/// Measure the actual width of one `ch` unit inside the editor container.
+/// Creates a temporary element, measures it, then removes it.
+pub fn measure_ch_width(container: &web_sys::HtmlElement) -> f64 {
+    let doc = web_sys::window().and_then(|w| w.document()).unwrap();
+    let span = doc.create_element("span").unwrap();
+    let se = span.dyn_ref::<web_sys::HtmlElement>().unwrap();
+    se.style()
+        .set_property(
+            "cssText",
+            "position:absolute;visibility:hidden;white-space:pre;font:inherit;",
+        )
+        .ok();
+    se.set_text_content(Some("0"));
+    container.append_child(&span).ok();
+    let w = se.get_bounding_client_rect().width();
+    container.remove_child(&span).ok();
+    if w > 0.0 {
+        w
+    } else {
+        7.8
+    }
 }
 
 /// Notify the parent of the current cursor position (1-indexed).

@@ -14,8 +14,8 @@ use wasm_bindgen::JsCast;
 
 use super::buffer_state::EditorBuffer;
 use super::helpers::{
-    find_line_element, handle_movement, is_movement_key, notify_cursor, render_line,
-    update_cursor_in_container,
+    find_content_element, handle_movement, is_movement_key, measure_ch_width, notify_cursor,
+    render_line, update_cursor_in_container,
 };
 use super::highlighter::SyntaxHighlighter;
 use super::input::{map_key, InputAction};
@@ -154,6 +154,7 @@ pub fn NativeEditor(
     };
 
     let (buf_c, cm_c) = (buffer.clone(), cursor_move.clone());
+    let container_for_click = container_ref;
     let on_mousedown = move |e: web_sys::MouseEvent| {
         if let Some(ta) = textarea_ref.get() {
             let el: &web_sys::HtmlElement = &ta;
@@ -163,16 +164,15 @@ pub fn NativeEditor(
         let Ok(el) = t.dyn_into::<web_sys::HtmlElement>() else {
             return;
         };
-        let Some(le) = find_line_element(&el) else {
+        let Some((content_el, li)) = find_content_element(&el) else {
             return;
         };
-        let li = le
-            .dataset()
-            .get("line")
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(0);
-        let rect = le.get_bounding_client_rect();
-        let col = ((e.client_x() as f64 - rect.left()).max(0.0) / 7.8) as usize;
+        let ch_w = container_for_click
+            .get()
+            .map(|c| measure_ch_width(&c))
+            .unwrap_or(7.8);
+        let rect = content_el.get_bounding_client_rect();
+        let col = ((e.client_x() as f64 - rect.left()).max(0.0) / ch_w) as usize;
         buf_c.set_cursor_pos(li, col);
         cm_c();
     };
