@@ -62,9 +62,9 @@ jobs:
           - runner: macos-latest
             target: x86_64-apple-darwin
           - runner: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-musl
           - runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-musl
     runs-on: ${{ matrix.runner }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -85,16 +85,27 @@ jobs:
           toolchain: 1.94.0
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation deps (Linux ARM)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install musl toolchains (Linux)
+        if: contains(matrix.target, 'linux-musl')
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y musl-tools
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu musl-dev
+            # Install aarch64 musl cross-compiler
+            curl -sL https://musl.cc/aarch64-linux-musl-cross.tgz | sudo tar xz -C /opt
+            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+          fi
 
       - name: Build release binary
         env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target ${{ matrix.target }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
+        run: |
+          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+            export RUSTFLAGS="-C target-feature=+crt-static"
+          fi
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Package binary
         run: |
