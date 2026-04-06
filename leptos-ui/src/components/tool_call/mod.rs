@@ -20,6 +20,7 @@ use todo_view::render_todo_tool;
 
 use crate::components::icons::*;
 use crate::components::message_timeline::AccordionState;
+use crate::hooks::use_auto_open::{AutoOpenState, ToolCategory};
 use crate::types::core::MessagePart;
 use leptos::prelude::*;
 
@@ -44,6 +45,7 @@ pub fn ToolCallView(
         tool_name.contains("bash") || tool_name.contains("shell") || tool_name.contains("terminal");
     let is_edit_tool = tool_name.contains("edit") && !tool_name.contains("neovim");
     let is_a2ui = tool_name == "ui_render" || tool_name == "ui_ui_render";
+    let category = ToolCategory::classify(&tool_name);
     let status = part
         .state
         .as_ref()
@@ -99,15 +101,17 @@ pub fn ToolCallView(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    let auto_open_config = use_context::<AutoOpenState>()
+        .map(|s| s.get())
+        .unwrap_or_default();
+
     let initial_expanded = auto_expand_default(
-        is_todo_write,
-        is_task_tool,
-        is_bash_tool,
-        is_a2ui,
+        category,
         is_running,
         is_completed,
         is_error,
         has_subagent_messages,
+        &auto_open_config,
     );
     let accordion_key = part
         .tool_call_id
@@ -169,13 +173,23 @@ pub fn ToolCallView(
         let inp = input_data.clone().unwrap_or(serde_json::Value::Null);
         return view! { <A2uiBlocks input=inp /> }.into_any();
     }
+    // A2UI loading — show inline pulse, not an accordion
+    if is_a2ui && is_running {
+        return view! {
+            <div class="a2ui-loading">
+                <span class="tool-pulse-dot" />
+                " Rendering..."
+            </div>
+        }
+        .into_any();
+    }
 
     // Bash tools render with a dedicated non-accordion layout
     if is_bash_tool {
         return render_bash_tool(&part);
     }
 
-    // Todowrite renders directly — no accordion wrapper
+    // Todowrite renders with its own collapsible accordion
     if is_todo_write {
         return render_todo_tool(&part);
     }

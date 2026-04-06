@@ -147,11 +147,8 @@ pub fn TodoList(input: serde_json::Value) -> impl IntoView {
         .into_any();
     }
 
-    let completed = todos.iter().filter(|(_, s, _)| s == "completed").count();
-    let total = todos.len();
-
     view! {
-        <div class="todo-list">
+        <div class="todo-list-items">
             {todos.iter().map(|(content, status, priority)| {
                 let checkbox_class = format!("todo-checkbox {}", status);
                 let content_class = format!("todo-content {}", status);
@@ -186,11 +183,9 @@ pub fn TodoList(input: serde_json::Value) -> impl IntoView {
                     </div>
                 }
             }).collect_view()}
-            <div style="font-size: var(--font-size-2xs); color: var(--color-text-muted); padding: var(--space-1) var(--space-2); border-top: 1px solid var(--color-border-subtle); margin-top: var(--space-1);">
-                {format!("{}/{} completed", completed, total)}
-            </div>
         </div>
-    }.into_any()
+    }
+    .into_any()
 }
 
 /// Render edit tool input as a diff view.

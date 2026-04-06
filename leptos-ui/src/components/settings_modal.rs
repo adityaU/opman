@@ -69,6 +69,14 @@ pub fn SettingsModal(
             handler: nav(ModalName::NotificationPrefs),
         },
         SettingItem {
+            id: "autoOpen",
+            label: "Auto Open",
+            description: "Tool-call accordion defaults",
+            setting_type: SettingType::Action,
+            value: None,
+            handler: nav(ModalName::AutoOpen),
+        },
+        SettingItem {
             id: "assistant",
             label: "Assistant Center",
             description: "AI assistant dashboard",

@@ -6,6 +6,7 @@ use crate::components::icons::*;
 use crate::components::message_timeline::AccordionState;
 use crate::components::tool_call::bash_output::{extract_bash_info, BashTerminalOutput};
 use crate::components::tool_call::helpers::format_duration;
+use crate::hooks::use_auto_open::{AutoOpenState, ToolCategory};
 use crate::types::core::MessagePart;
 use leptos::prelude::*;
 
@@ -60,8 +61,11 @@ pub fn render_bash_tool(part: &MessagePart) -> leptos::prelude::AnyView {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    // Output visibility toggle — auto-expand while running, collapse when completed
-    let initial_show = is_running;
+    // Output visibility toggle — auto-expand while running or if user config says so
+    let auto_open_bash = use_context::<AutoOpenState>()
+        .map(|s| s.category(ToolCategory::Bash))
+        .unwrap_or(false);
+    let initial_show = is_running || auto_open_bash;
     let accordion_key = part
         .tool_call_id
         .clone()

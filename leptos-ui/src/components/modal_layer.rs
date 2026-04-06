@@ -28,6 +28,7 @@ use crate::components::todo_panel_modal::TodoPanelModal;
 
 // Phase 8 imports
 use crate::components::assistant_center_modal::AssistantCenterModal;
+use crate::components::auto_open_modal::AutoOpenModal;
 use crate::components::autonomy_modal::AutonomyModal;
 use crate::components::delegation_board_modal::DelegationBoardModal;
 use crate::components::inbox_modal::InboxModal;
@@ -426,6 +427,17 @@ pub fn ModalLayer(
             if modal_state.is_open_tracked(ModalName::NotificationPrefs) {
                 Some(view! {
                     <NotificationPrefsModal on_close=close(ModalName::NotificationPrefs) />
+                })
+            } else {
+                None
+            }
+        }}
+
+        // Auto Open
+        {move || {
+            if modal_state.is_open_tracked(ModalName::AutoOpen) {
+                Some(view! {
+                    <AutoOpenModal on_close=close(ModalName::AutoOpen) />
                 })
             } else {
                 None

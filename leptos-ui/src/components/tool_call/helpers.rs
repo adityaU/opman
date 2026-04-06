@@ -1,5 +1,6 @@
 //! Helper functions and types for tool call rendering.
 
+use crate::hooks::use_auto_open::{AutoOpenConfig, ToolCategory};
 use crate::types::core::{Message, MessagePart};
 
 /// Shorten tool names by removing common prefixes (provider_provider_action -> action).
@@ -110,29 +111,52 @@ pub struct ChildSessionRef {
 pub type SubagentMessagesMap = std::collections::HashMap<String, Vec<Message>>;
 
 /// Compute auto-expand default for a tool call accordion.
+///
+/// When the matching category auto-open flag is ON, the tool starts expanded
+/// (regardless of completion status). When OFF, only running tools expand.
 pub fn auto_expand_default(
-    is_todo_write: bool,
-    is_task_tool: bool,
-    is_bash_tool: bool,
-    is_a2ui: bool,
+    category: Option<ToolCategory>,
     is_running: bool,
     is_completed: bool,
     is_error: bool,
     has_subagent_messages: bool,
+    config: &AutoOpenConfig,
 ) -> bool {
-    // A2UI and todo_write are always expanded
-    if is_a2ui || is_todo_write {
+    let cat = match category {
+        // A2UI is truly inline — always expanded, no accordion.
+        None => return true,
+        Some(c) => c,
+    };
+
+    // User-configured auto-open: expand on creation regardless of status.
+    if config.get_category(cat) {
         return true;
     }
-    let mut exp = is_task_tool && (is_running || is_completed || is_error);
-    if is_bash_tool && is_running {
-        exp = true;
+
+    // Default behaviour per category.
+    match cat {
+        ToolCategory::TodoWrite => {
+            // TodoWrite: collapse when completed by default.
+            !is_completed
+        }
+        ToolCategory::Subagent => {
+            if is_completed {
+                return false;
+            }
+            is_running || is_error || has_subagent_messages
+        }
+        ToolCategory::Bash => {
+            if is_completed {
+                return false;
+            }
+            is_running
+        }
+        _ => {
+            // Edit / Read / Write / Other — collapse when done.
+            if is_completed {
+                return false;
+            }
+            is_running || is_error
+        }
     }
-    if is_task_tool && (is_running || has_subagent_messages) {
-        exp = true;
-    }
-    if is_completed {
-        exp = false;
-    }
-    exp
 }

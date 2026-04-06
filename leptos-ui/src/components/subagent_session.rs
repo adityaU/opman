@@ -12,6 +12,7 @@ use crate::types::core::Message;
 use crate::api::client::fetch_session_messages;
 use crate::components::message_timeline::AccordionState;
 use crate::components::message_turn::{group_messages, MessageGroup, MessageTurn};
+use crate::hooks::use_auto_open::{AutoOpenState, ToolCategory};
 use web_sys::HtmlElement;
 
 /// Renders a subagent session's messages inside a collapsible card.
@@ -33,7 +34,16 @@ pub fn SubagentSession(
     let accordion_ctx = use_context::<AccordionState>();
 
     // Determine expanded state: if user previously toggled, use that; else compute default.
-    let auto_default = if !is_running && (is_completed || is_error) { false } else { is_running };
+    let auto_open_task = use_context::<AutoOpenState>()
+        .map(|s| s.category(ToolCategory::Subagent))
+        .unwrap_or(false);
+    let auto_default = if auto_open_task {
+        true
+    } else if !is_running && (is_completed || is_error) {
+        false
+    } else {
+        is_running
+    };
     let default_expanded = if let Some(AccordionState(map)) = accordion_ctx {
         let saved = map.with_untracked(|m| m.get(&session_id).copied());
         if let Some(val) = saved {

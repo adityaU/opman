@@ -434,3 +434,15 @@ button.a2ui-tag:hover { border-color: var(--color-accent); color: var(--color-ac
     max-width: 100%;
     height: auto
 }
+
+/* ── A2UI Loading placeholder ─────────────────────────────────── */
+
+.a2ui-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-style: italic
+}

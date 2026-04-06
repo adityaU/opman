@@ -21,3 +21,4 @@ pub mod use_chat_callbacks;
 pub mod use_project_context;
 pub mod use_back_navigation;
 pub mod use_swipe_reveal;
+pub mod use_auto_open;

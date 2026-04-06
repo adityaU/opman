@@ -51,6 +51,7 @@ pub mod activity_feed;
 // Phase 8: Assistant modals
 pub mod autonomy_modal;
 pub mod notification_prefs_modal;
+pub mod auto_open_modal;
 pub mod delegation_board_modal;
 pub mod memory_modal;
 pub mod missions_modal;

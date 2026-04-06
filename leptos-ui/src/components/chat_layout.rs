@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use crate::hooks::use_back_navigation::use_back_navigation;
 use crate::hooks::use_assistant_state::use_assistant_state;
 use crate::hooks::use_bookmarks::use_bookmarks;
+use crate::hooks::use_auto_open::use_auto_open;
 use crate::hooks::use_chat_callbacks::{use_chat_callbacks, ChatCallbackDeps};
 use crate::hooks::use_chat_handlers::{use_chat_handlers, ChatHandlerDeps};
 use crate::hooks::use_keyboard::{use_keyboard, KeyBinding};
@@ -326,6 +327,10 @@ fn ChatLayoutInner(
     // ── Bookmarks ──
     let bookmarks = use_bookmarks();
     provide_context(bookmarks);
+
+    // ── Auto-open config ──
+    let auto_open = use_auto_open();
+    provide_context(auto_open);
 
     // ── Virtual keyboard (mobile) ──
     let vkb_open = use_virtual_keyboard();
