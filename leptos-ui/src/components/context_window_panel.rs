@@ -83,8 +83,8 @@ pub fn ContextWindowPanel(
         leptos::task::spawn_local(async move {
             if let Some(id) = &sid {
                 let _ = api_post_void(
-                    &format!("/session/{}/command/compact", id),
-                    &serde_json::json!({}),
+                    &format!("/session/{}/command", id),
+                    &serde_json::json!({ "command": "compact", "arguments": "" }),
                 )
                 .await;
                 on_compact.run(());

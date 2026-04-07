@@ -78,7 +78,8 @@
 
     html.flat-theme .message-turn-assistant {
         background: var(--color-bg-element);
-        border-color: var(--color-border-subtle)
+        border-color: var(--color-border-subtle);
+        border-left: 2px solid color-mix(in srgb, var(--color-primary) 22%, transparent)
     }
 
     html.flat-theme .message-turn-assistant:before {
@@ -87,7 +88,8 @@
 
     html.flat-theme .message-turn-user {
         background: color-mix(in srgb,var(--color-primary) 8%,var(--color-bg));
-        border-color: color-mix(in srgb,var(--color-primary) 14%,var(--color-border-subtle))
+        border-color: color-mix(in srgb,var(--color-primary) 14%,var(--color-border-subtle));
+        border-left: 2px solid transparent
     }
 
     /* ═════════════════════════════════════════════════════════════

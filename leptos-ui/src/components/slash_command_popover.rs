@@ -18,6 +18,7 @@ fn builtin_commands() -> Vec<SlashCommand> {
         SlashCommand { name: "models".into(), description: Some("List available models".into()), args: None },
         SlashCommand { name: "theme".into(), description: Some("Change color theme".into()), args: Some("<theme>".into()) },
         SlashCommand { name: "compact".into(), description: Some("Compact conversation history".into()), args: None },
+        SlashCommand { name: "copy".into(), description: Some("Copy last response to clipboard".into()), args: None },
         SlashCommand { name: "undo".into(), description: Some("Undo last action".into()), args: None },
         SlashCommand { name: "redo".into(), description: Some("Redo last action".into()), args: None },
         SlashCommand { name: "fork".into(), description: Some("Fork current session".into()), args: None },

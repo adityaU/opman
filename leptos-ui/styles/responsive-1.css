@@ -224,6 +224,7 @@
         padding: var(--space-1) var(--space-4);
         background: var(--glass-tint-light-subtle);
         border: .5px solid var(--white-4);
+        border-left: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
         position: relative
     }
 
@@ -237,6 +238,7 @@
         padding: var(--space-1) var(--space-4);
         background: linear-gradient(168deg,color-mix(in srgb,var(--color-primary) 10%,transparent) 0%,color-mix(in srgb,var(--color-primary) 4%,transparent) 100%);
         border: .5px solid color-mix(in srgb,var(--color-primary) 16%,transparent);
+        border-left: 2px solid transparent;
         position: relative
     }
 

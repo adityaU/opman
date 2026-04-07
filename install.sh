@@ -16,8 +16,8 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS" in
-  Linux)  OS_TAG="unknown-linux-gnu" ;;
-  Darwin) OS_TAG="apple-darwin"      ;;
+  Linux)  OS_TAG="unknown-linux-musl" ;;
+  Darwin) OS_TAG="apple-darwin"       ;;
   *) red "Unsupported OS: $OS"; exit 1 ;;
 esac
 

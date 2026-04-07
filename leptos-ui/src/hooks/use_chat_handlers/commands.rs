@@ -146,6 +146,49 @@ pub(super) fn build_handle_command(
             return;
         }
 
+        // /copy — copy last assistant response to clipboard
+        if cmd == "copy" {
+            let msgs = deps.sse.messages.get_untracked();
+            let text = msgs
+                .iter()
+                .rev()
+                .find(|m| m.info.role == "assistant")
+                .map(|m| {
+                    let mut buf = String::new();
+                    for part in &m.parts {
+                        if part.part_type == "text" {
+                            if let Some(ref t) = part.text {
+                                if !buf.is_empty() {
+                                    buf.push('\n');
+                                }
+                                buf.push_str(t.trim());
+                            }
+                        }
+                    }
+                    buf
+                })
+                .unwrap_or_default();
+            if text.is_empty() {
+                deps.toasts.add_typed("No assistant response to copy", "warning");
+            } else {
+                let toasts = deps.toasts;
+                leptos::task::spawn_local(async move {
+                    let window = web_sys::window().unwrap();
+                    let nav = window.navigator();
+                    let clipboard = nav.clipboard();
+                    match wasm_bindgen_futures::JsFuture::from(
+                        clipboard.write_text(&text),
+                    )
+                    .await
+                    {
+                        Ok(_) => toasts.add_typed("Copied to clipboard", "success"),
+                        Err(_) => toasts.add_typed("Failed to copy to clipboard", "error"),
+                    }
+                });
+            }
+            return;
+        }
+
         // Toggle commands
         if cmd == "terminal" {
             deps.panels.terminal.toggle();

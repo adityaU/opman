@@ -225,11 +225,21 @@ html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-th
 }
 
 html.flat-theme .message-turn-assistant {
-    background: var(--color-bg-element)
+    background: var(--color-bg-element);
+    border-left: 2px solid color-mix(in srgb, var(--color-primary) 22%, transparent)
 }
 
 html.flat-theme .message-turn-user {
-    background: color-mix(in srgb,var(--color-bg-element) 50%,var(--color-bg))
+    background: color-mix(in srgb,var(--color-bg-element) 50%,var(--color-bg));
+    border-left: 2px solid transparent
+}
+
+html.flat-theme .message-avatar.user {
+    background: color-mix(in srgb, var(--color-text-muted) 12%, transparent)
+}
+
+html.flat-theme .message-avatar.assistant {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent)
 }
 
 html.flat-theme .shimmer-turn.shimmer-assistant {

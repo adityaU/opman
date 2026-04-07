@@ -116,6 +116,10 @@ fn build_sections() -> Vec<ShortcutSection> {
                     description: "Compact context",
                 },
                 ShortcutEntry {
+                    key: "/copy",
+                    description: "Copy last response",
+                },
+                ShortcutEntry {
                     key: "/undo",
                     description: "Undo last edit",
                 },

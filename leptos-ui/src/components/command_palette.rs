@@ -448,6 +448,14 @@ pub fn CommandPalette(
                 handler: cmd("compact"),
             });
             v.push(PaletteItem {
+                id: "copy-response",
+                category: "Sessions",
+                label: "Copy Last Response",
+                description: "Copy last AI response to clipboard",
+                shortcut: "",
+                handler: cmd("copy"),
+            });
+            v.push(PaletteItem {
                 id: "undo",
                 category: "Sessions",
                 label: "Undo",

@@ -16,6 +16,7 @@ pub(crate) const NO_ARG_COMMANDS: &[&str] = &[
     "new",
     "cancel",
     "compact",
+    "copy",
     "undo",
     "redo",
     "share",
