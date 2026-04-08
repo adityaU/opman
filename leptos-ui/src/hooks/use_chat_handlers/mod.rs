@@ -3,6 +3,7 @@
 
 mod commands;
 mod session_actions;
+pub(crate) mod transcript;
 
 use leptos::prelude::*;
 

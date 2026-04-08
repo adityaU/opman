@@ -117,7 +117,7 @@ fn build_sections() -> Vec<ShortcutSection> {
                 },
                 ShortcutEntry {
                     key: "/copy",
-                    description: "Copy last response",
+                    description: "Copy transcript",
                 },
                 ShortcutEntry {
                     key: "/undo",

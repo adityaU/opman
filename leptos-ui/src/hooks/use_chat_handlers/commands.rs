@@ -146,46 +146,41 @@ pub(super) fn build_handle_command(
             return;
         }
 
-        // /copy — copy last assistant response to clipboard
+        // /copy — copy full session transcript to clipboard
         if cmd == "copy" {
             let msgs = deps.sse.messages.get_untracked();
-            let text = msgs
-                .iter()
-                .rev()
-                .find(|m| m.info.role == "assistant")
-                .map(|m| {
-                    let mut buf = String::new();
-                    for part in &m.parts {
-                        if part.part_type == "text" {
-                            if let Some(ref t) = part.text {
-                                if !buf.is_empty() {
-                                    buf.push('\n');
-                                }
-                                buf.push_str(t.trim());
-                            }
-                        }
-                    }
-                    buf
-                })
-                .unwrap_or_default();
-            if text.is_empty() {
-                deps.toasts.add_typed("No assistant response to copy", "warning");
-            } else {
-                let toasts = deps.toasts;
-                leptos::task::spawn_local(async move {
-                    let window = web_sys::window().unwrap();
-                    let nav = window.navigator();
-                    let clipboard = nav.clipboard();
-                    match wasm_bindgen_futures::JsFuture::from(
-                        clipboard.write_text(&text),
-                    )
-                    .await
-                    {
-                        Ok(_) => toasts.add_typed("Copied to clipboard", "success"),
-                        Err(_) => toasts.add_typed("Failed to copy to clipboard", "error"),
-                    }
-                });
+            if msgs.is_empty() {
+                deps.toasts.add_typed("No messages to copy", "warning");
+                return;
             }
+
+            // Get session title from app_state
+            let (title, sid) = {
+                let session_id = deps.sse.tracked_session_id().unwrap_or_default();
+                let title = deps.sse.app_state.get_untracked()
+                    .and_then(|s| {
+                        let proj = s.projects.get(s.active_project)?;
+                        let sess = proj.sessions.iter().find(|sess| sess.id == session_id)?;
+                        Some(sess.title.clone())
+                    })
+                    .unwrap_or_default();
+                (title, session_id)
+            };
+
+            let transcript = super::transcript::format_transcript(&title, &sid, &msgs);
+            let toasts = deps.toasts;
+            leptos::task::spawn_local(async move {
+                let window = web_sys::window().unwrap();
+                let clipboard = window.navigator().clipboard();
+                match wasm_bindgen_futures::JsFuture::from(
+                    clipboard.write_text(&transcript),
+                )
+                .await
+                {
+                    Ok(_) => toasts.add_typed("Session transcript copied to clipboard", "success"),
+                    Err(_) => toasts.add_typed("Failed to copy to clipboard", "error"),
+                }
+            });
             return;
         }
 
