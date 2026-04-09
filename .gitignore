@@ -1,6 +1,9 @@
 # Build artifacts
 /target/
 
+# Local cargo config (sccache, mold linker — not available on CI)
+.cargo/config.toml
+
 # macOS
 .DS_Store
 
