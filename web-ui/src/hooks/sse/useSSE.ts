@@ -614,6 +614,69 @@ export function useSSE(): SSEState {
     expectSessionSwitchRef.current = true;
   }, []);
 
+  /** Optimistically begin a session switch — immediately clears messages and shows loading state.
+   *  Call this at click-time before any async API calls so the UI responds instantly.
+   *  Also kicks off the message fetch so data loads in parallel with the API round-trips. */
+  const beginSessionSwitch = useCallback((targetSid: string) => {
+    expectSessionSwitchRef.current = true;
+    saveCurrentSessionToCache();
+    sessionGenRef.current += 1;
+    const gen = sessionGenRef.current;
+    activeSessionRef.current = targetSid;
+
+    // Recompute session status immediately
+    setBusySessions((prev) => {
+      setSessionStatus(prev.has(targetSid) ? "busy" : "idle");
+      return prev;
+    });
+    reclassifyInteractions(targetSid);
+
+    // Try cache first — if hit, show cached data instantly (no shimmer)
+    const restored = restoreSessionFromCache(targetSid);
+    if (restored) {
+      setIsLoadingMessages(false);
+      // Background-refresh to pick up messages that arrived while inactive
+      fetchSessionMessages(targetSid, { limit: MESSAGE_PAGE_SIZE })
+        .then((resp) => {
+          if (gen !== sessionGenRef.current) return;
+          const map = messageMapRef.current;
+          let changed = false;
+          for (const msg of resp.messages) {
+            const id = msg.info.messageID || msg.info.id || "";
+            if (!id) continue;
+            const existing = map.get(id);
+            if (!existing) { map.set(id, msg); changed = true; }
+            else {
+              map.set(id, { ...existing, info: { ...existing.info, ...msg.info }, metadata: msg.metadata ?? existing.metadata, parts: existing.parts.length > 0 ? existing.parts : msg.parts });
+              changed = true;
+            }
+          }
+          if (changed) setMessages(mapToSortedArray(map));
+          setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
+        })
+        .catch(() => {});
+    } else {
+      // Cache miss — clear and show loading shimmer
+      messageMapRef.current = new Map();
+      subagentMapsRef.current = new Map();
+      setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0);
+      setLiveActivityEvents([]); setSubagentMessages(new Map());
+      setIsLoadingMessages(true);
+      fetchSessionMessages(targetSid, { limit: MESSAGE_PAGE_SIZE })
+        .then((resp) => {
+          if (gen !== sessionGenRef.current) return;
+          const newMap: MessageMap = new Map();
+          for (const msg of resp.messages) { const id = msg.info.messageID || msg.info.id || ""; if (id) newMap.set(id, msg); }
+          messageMapRef.current = newMap;
+          setMessages(mapToSortedArray(newMap)); setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
+        })
+        .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
+        .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
+    }
+    fetchSessionStats(targetSid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+    hydratePending();
+  }, [saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions, hydratePending]);
+
   return {
     appState, messages, stats, busySessions, permissions, questions,
     sessionStatus, connectionStatus, isLoadingMessages, isLoadingOlder, hasOlderMessages,
@@ -623,6 +686,6 @@ export function useSSE(): SSEState {
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, loadOlderMessages,
-    expectSessionSwitch,
+    expectSessionSwitch, beginSessionSwitch,
   };
 }

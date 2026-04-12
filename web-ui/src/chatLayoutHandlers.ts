@@ -22,6 +22,8 @@ export interface HandlerDeps {
   refreshState: () => void;
   /** Signal that a user-initiated session switch is expected. */
   expectSessionSwitch: () => void;
+  /** Optimistically begin session switch — shows loading state immediately. */
+  beginSessionSwitch: (targetSid: string) => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -205,16 +207,19 @@ export function createHandleQuestionDismiss(deps: HandlerDeps) {
 export function createHandleSelectSession(deps: HandlerDeps) {
   return async (sessionId: string, projectIdx: number) => {
     if (!deps.appState) return;
+    // Immediate UI feedback — show loading / restore cache before any network call
+    deps.beginSessionSwitch(sessionId);
+    deps.setMobileSidebarOpen(false);
+    deps.setSelectedModel(null);
+    deps.setSelectedAgent("");
     try {
-      deps.expectSessionSwitch();
-      if (projectIdx !== deps.appState.active_project) {
+      const needsProjectSwitch = projectIdx !== deps.appState.active_project;
+      if (needsProjectSwitch) {
+        // Project switch must complete before session select
         await switchProject(projectIdx);
       }
       await selectSession(projectIdx, sessionId);
       deps.refreshState();
-      deps.setMobileSidebarOpen(false);
-      deps.setSelectedModel(null);
-      deps.setSelectedAgent("");
     } catch {
       deps.addToast("Failed to switch session", "error");
     }

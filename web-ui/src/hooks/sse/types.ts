@@ -86,4 +86,8 @@ export interface SSEState {
    *  Call this before selectSession/newSession/switchProject so the next
    *  appState update is allowed to change the active session. */
   expectSessionSwitch: () => void;
+  /** Optimistically begin a session switch — clears messages and shows loading
+   *  state immediately at click-time, before any async API calls.
+   *  Restores from cache if available (no shimmer). */
+  beginSessionSwitch: (targetSid: string) => void;
 }
