@@ -197,8 +197,9 @@ export function CadViewer({ path }: Props) {
         <span className="cad-format-badge">{ext.toUpperCase()}</span>
         <span className="cad-hint">Scroll to zoom &bull; Drag to rotate &bull; Right-click to pan</span>
       </div>
-      <div className="cad-canvas-container" id={containerId} />
-      <div className="cad-loading">Loading 3D model&hellip;</div>
+      <div className="cad-canvas-container" id={containerId}>
+        <div className="cad-loading">Loading 3D model&hellip;</div>
+      </div>
     </div>
   );
 }
