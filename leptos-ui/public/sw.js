@@ -1,4 +1,5 @@
-// Service worker — satisfies PWA installability requirement.
+// Service worker for Leptos UI — served at /ui/ scope.
+// Satisfies PWA installability requirement.
 // Intercepts icon/manifest requests to serve theme-aware versions.
 // Persists theme colors to Cache API so they survive SW restarts.
 
@@ -92,13 +93,13 @@ self.addEventListener("message", function (event) {
     var title = payload.title || "opman";
     var options = {
       body: payload.body || "",
-      icon: "/favicon.svg",
+      icon: "/ui/favicon.svg",
       tag: payload.tag || "opman-" + Date.now(),
       silent: false,
       data: {
         sessionId: payload.sessionId || null,
         kind: payload.kind || null,
-        url: payload.url || "/",
+        url: payload.url || "/ui/",
       },
     };
     self.registration.showNotification(title, options);
@@ -112,7 +113,7 @@ self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
   var data = event.notification.data || {};
-  var targetUrl = data.url || "/";
+  var targetUrl = data.url || "/ui/";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
@@ -144,7 +145,7 @@ self.addEventListener("fetch", function (event) {
   const path = url.pathname;
 
   // Themed favicon.svg
-  if (path === "/favicon.svg") {
+  if (path === "/ui/favicon.svg") {
     event.respondWith(
       (async () => {
         const tc = await ensureThemeColors();
@@ -166,8 +167,8 @@ self.addEventListener("fetch", function (event) {
   }
 
   // Themed PNG icons
-  if (path === "/icon-192.png" || path === "/icon-512.png") {
-    const size = path === "/icon-192.png" ? 192 : 512;
+  if (path === "/ui/icon-192.png" || path === "/ui/icon-512.png") {
+    const size = path === "/ui/icon-192.png" ? 192 : 512;
     event.respondWith(
       (async () => {
         const tc = await ensureThemeColors();
@@ -193,7 +194,7 @@ self.addEventListener("fetch", function (event) {
   }
 
   // Themed manifest.json
-  if (path === "/manifest.json") {
+  if (path === "/ui/manifest.json") {
     event.respondWith(
       (async () => {
         const tc = await ensureThemeColors();

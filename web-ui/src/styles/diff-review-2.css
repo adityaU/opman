@@ -1,0 +1,179 @@
+
+.diff-review-file-dir {
+    display: block;
+    width: 100%;
+    font-size: 10px;
+    color: var(--color-text-muted, #808080);
+    opacity: .7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 16px
+}
+
+.diff-review-diff-area {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-width: 0
+}
+
+.diff-review-file-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: var(--space-2, 8px) var(--space-3, 12px);
+    border-bottom: 1px solid var(--color-border-subtle, #2a2a2a);
+    flex-shrink: 0
+}
+
+.diff-review-file-path {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-muted, #808080);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.diff-review-file-btns {
+    display: flex;
+    gap: var(--space-1, 4px)
+}
+
+.diff-review-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ffffff0a;
+    border: 1px solid var(--color-border, #484848);
+    color: var(--color-text, #eeeeee);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm, 4px);
+    transition: background .15s,border-color .15s
+}
+
+.diff-review-btn:hover:not(:disabled) {
+    background: #ffffff14;
+    border-color: var(--color-text-muted, #808080)
+}
+
+.diff-review-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed
+}
+
+.diff-review-btn.accept:hover:not(:disabled) {
+    border-color: var(--color-success, #7fd88f);
+    color: var(--color-success, #7fd88f)
+}
+
+.diff-review-btn.revert:hover:not(:disabled) {
+    border-color: var(--color-warning, #f5a742);
+    color: var(--color-warning, #f5a742)
+}
+
+.diff-review-btn.accept-all:hover:not(:disabled) {
+    border-color: var(--color-success, #7fd88f);
+    color: var(--color-success, #7fd88f)
+}
+
+.diff-review-btn.revert-all:hover:not(:disabled) {
+    border-color: var(--color-warning, #f5a742);
+    color: var(--color-warning, #f5a742)
+}
+
+.diff-review-viewer {
+    flex: 1;
+    overflow: auto
+}
+
+.diff-review-viewer table {
+    font-size: 12px!important
+}
+
+.diff-review-no-selection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--color-text-muted, #808080);
+    font-size: var(--font-size-sm, 13px)
+}
+
+.diff-review-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2, 8px) var(--space-4, 16px);
+    border-top: 1px solid var(--color-border, #484848);
+    flex-shrink: 0
+}
+
+.diff-review-bulk-actions {
+    display: flex;
+    gap: var(--space-2, 8px)
+}
+
+.diff-review-footer-hint {
+    font-size: 11px;
+    color: var(--color-text-muted, #808080)
+}
+
+.diff-review-footer-hint kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #ffffff0a;
+    border: 1px solid var(--color-border, #484848);
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: inherit;
+    min-width: 18px;
+    text-align: center
+}
+
+.diff-review-file-list,.diff-review-diff-area,.ctx-window-summary,.ctx-window-breakdown {
+    gap: 12px
+}
+
+.diff-review-content {
+    gap: 12px;
+    padding: 14px
+}
+
+.diff-review-file-list {
+    padding: 10px;
+    border-right: none
+}
+
+.diff-review-file-list-header,.diff-review-file-actions,.ctx-breakdown-title,.pr-description-commits h4 {
+    border-bottom: none
+}
+
+.diff-review-file-item {
+    border-radius: 14px;
+    border: 1px solid var(--color-border-subtle);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--color-surface)
+}
+
+.diff-review-file-item.selected {
+    border-left: none;
+    border-color: color-mix(in srgb,var(--color-primary) 24%,var(--color-border));
+    background: color-mix(in srgb,var(--color-primary) 10%,var(--color-surface))
+}
+
+.diff-review-diff-area,.diff-review-viewer,.ctx-window-gauge-section,.ctx-window-breakdown,.notification-prefs-permission {
+    border-radius: 18px
+}
+
+.diff-review-viewer {
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-element)
+}

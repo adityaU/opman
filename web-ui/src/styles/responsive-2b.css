@@ -1,0 +1,110 @@
+@media(max-width: 768px) {
+
+    .watcher-form-error {
+        font-size: 13px;
+        padding: 10px 12px;
+        border-radius: 10px
+    }
+
+    .watcher-empty {
+        padding: 24px 16px;
+        font-size: 13px
+    }
+
+    .ctx-window-modal {
+        max-height: calc(80vh - env(safe-area-inset-top,0px))
+    }
+
+    .diff-review-modal {
+        width: 100%;
+        height: auto;
+        max-height: calc(90vh - env(safe-area-inset-top,0px))
+    }
+
+    .diff-review-content {
+        flex-direction: column
+    }
+
+    .diff-review-file-list {
+        width: 100%;
+        max-height: 150px;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border, #484848)
+    }
+
+    .cross-session-search-modal {
+        max-height: calc(75vh - env(safe-area-inset-top,0px))
+    }
+
+    .command-palette-close,.model-picker-close,.theme-selector-close,.cheatsheet-close,.todo-panel-close,.session-selector-close,.context-input-close,.settings-close,.watcher-modal-close,.ctx-window-close,.diff-review-close,.cross-session-search-close {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center
+    }
+
+    .command-palette-shortcut,.theme-selector-footer,.cheatsheet-footer,.todo-panel-footer,.session-selector-footer,.context-input-hints,.settings-footer,.watcher-modal-footer,.ctx-window-footer,.diff-review-footer-hint,.search-modal-hint,.session-graph-footer,.workspace-mgr-footer kbd,.model-picker-tab-hint,.permission-hint,.question-hint,.login-footer,.sysm-footer {
+        display: none
+    }
+
+    .sb-modal-overlay {
+        align-items: flex-end;
+        justify-content: stretch
+    }
+
+    .sb-modal {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom,0px));
+        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards
+    }
+
+    .sb-modal:before {
+        content: "";
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: var(--white-20);
+        border-radius: 9999px;
+        margin: 0 auto var(--space-3)
+    }
+
+    .sb-modal-actions button {
+        min-height: 44px;
+        font-size: var(--font-size-sm)
+    }
+
+    .sb-modal-dir-browser {
+        max-height: 80vh
+    }
+
+    .sb-dir-browser-list {
+        max-height: 50vh
+    }
+
+    .session-graph-overlay,.session-dashboard-overlay,.activity-feed-overlay,.assistant-inbox-overlay,.assistant-center-overlay,.memory-overlay,.autonomy-overlay,.routines-overlay,.delegation-overlay,.missions-overlay,.workspace-mgr-overlay,.add-project-overlay,.sysm-overlay {
+        align-items: flex-end
+    }
+
+    .session-graph-panel,.session-dashboard-panel,.activity-feed-panel,.assistant-inbox-modal,.assistant-center-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.notification-prefs-modal,.workspace-mgr-modal,.add-project-modal,.sysm-modal {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        max-height: calc(85vh - env(safe-area-inset-top,0px));
+        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards;
+        padding-bottom: env(safe-area-inset-bottom,0px)
+    }
+
+    .session-graph-panel:before,.session-dashboard-panel:before,.activity-feed-panel:before,.assistant-inbox-modal:before,.assistant-center-modal:before,.memory-modal:before,.autonomy-modal:before,.routines-modal:before,.delegation-modal:before,.missions-modal:before,.notification-prefs-modal:before,.workspace-mgr-modal:before,.add-project-modal:before,.sysm-modal:before {
+        content: "";
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: var(--white-20);
+        border-radius: 9999px;
+        margin: 8px auto 0;
+        flex-shrink: 0
+    }
+}

@@ -85,7 +85,7 @@ pub fn App() -> impl IntoView {
     });
 
     view! {
-        <Router>
+        <Router base="/ui">
             <ToastContainer />
             {move || {
                 if !bootstrap_ready.get() || auth_state.get() == AuthState::Checking {

@@ -94,7 +94,7 @@ fn build_url_params(sse: &SseState, panels: &PanelState) -> String {
 fn pathname() -> String {
     web_sys::window()
         .and_then(|w| w.location().pathname().ok())
-        .unwrap_or_else(|| "/".to_string())
+        .unwrap_or_else(|| "/ui/".to_string())
 }
 
 pub fn replace_url(sse: &SseState, panels: &PanelState) {

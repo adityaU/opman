@@ -4,6 +4,7 @@
 
 mod helpers;
 mod item_view;
+mod transfer;
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -13,6 +14,7 @@ use crate::types::api::{PersonalMemoryItem, PersonalMemoryListResponse, ProjectI
 use crate::components::icons::*;
 use helpers::{format_scope, CreateMemoryBody, SCOPE_OPTIONS};
 use item_view::MemoryItemRow;
+use transfer::MemoryTransferBar;
 
 #[component]
 pub fn MemoryModal(
@@ -191,6 +193,7 @@ pub fn MemoryModal(
     };
 
     let projects_view = projects.clone();
+    let transfer_session_id = active_session_id.clone();
 
     view! {
         <ModalOverlay on_close=on_close class="memory-modal">
@@ -294,7 +297,12 @@ pub fn MemoryModal(
             </div>
 
             <div class="memory-footer">
-                <kbd>"Up/Down"</kbd>" Navigate "<kbd>"Enter"</kbd>" Edit "<kbd>"Esc"</kbd>" Close"
+                <MemoryTransferBar
+                    items=items
+                    set_items=set_items
+                    active_project_index=active_project_index
+                    active_session_id=transfer_session_id
+                />
             </div>
         </ModalOverlay>
     }

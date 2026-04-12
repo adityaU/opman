@@ -1,0 +1,228 @@
+/* ── A2UI v2 — grid, flex, image, pdf, link, accordion, chart ──── */
+
+/* ── Grid ──────────────────────────────────────────────────────── */
+
+.a2ui-grid {
+    display: grid;
+    gap: var(--space-2)
+}
+
+.a2ui-grid-cell {
+    min-width: 0
+}
+
+/* ── Flex ──────────────────────────────────────────────────────── */
+
+.a2ui-flex {
+    display: flex;
+    gap: var(--space-2)
+}
+
+.a2ui-flex-item {
+    min-width: 0;
+    flex: 1
+}
+
+/* ── Image ─────────────────────────────────────────────────────── */
+
+.a2ui-image {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1)
+}
+
+.a2ui-image-el {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    object-fit: contain
+}
+
+.a2ui-image-caption {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-1) 0
+}
+
+/* ── PDF ───────────────────────────────────────────────────────── */
+
+.a2ui-pdf {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1)
+}
+
+.a2ui-pdf-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.a2ui-pdf-frame {
+    width: 100%;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg)
+}
+
+.a2ui-pdf-fallback {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-accent);
+    text-decoration: none
+}
+
+.a2ui-pdf-fallback:hover {
+    text-decoration: underline
+}
+
+/* ── Link ──────────────────────────────────────────────────────── */
+
+.a2ui-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+    font-size: var(--font-size-xs)
+}
+
+.a2ui-link:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 4%, var(--color-bg))
+}
+
+.a2ui-link-label {
+    font-weight: 600;
+    color: var(--color-accent)
+}
+
+.a2ui-link-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.a2ui-link-icon {
+    display: flex;
+    color: var(--color-text-muted);
+    margin-left: auto;
+    flex-shrink: 0
+}
+
+/* ── Accordion ─────────────────────────────────────────────────── */
+
+.a2ui-accordion {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden
+}
+
+.a2ui-accordion-summary {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    background: var(--white-3);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2)
+}
+
+.a2ui-accordion-summary::before {
+    content: '▸';
+    font-size: 10px;
+    color: var(--color-text-muted);
+    transition: transform 0.15s ease
+}
+
+.a2ui-accordion[open] > .a2ui-accordion-summary::before {
+    transform: rotate(90deg)
+}
+
+.a2ui-accordion-summary::-webkit-details-marker {
+    display: none
+}
+
+.a2ui-accordion-body {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+    border-top: 1px solid var(--color-border-subtle)
+}
+
+/* ── Chart ─────────────────────────────────────────────────────── */
+
+.a2ui-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2) 0
+}
+
+.a2ui-chart-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.a2ui-chart-svg {
+    width: 100%;
+    max-height: 220px;
+    overflow: visible
+}
+
+.a2ui-chart-grid {
+    stroke: var(--color-border-subtle);
+    stroke-width: 0.5;
+    stroke-dasharray: 3 3
+}
+
+.a2ui-chart-label {
+    font-size: 9px;
+    fill: var(--color-text-muted);
+    text-anchor: middle;
+    font-family: var(--font-mono)
+}
+
+.a2ui-chart-y-label {
+    font-size: 8px;
+    fill: var(--color-text-muted);
+    text-anchor: end;
+    font-family: var(--font-mono)
+}
+
+.a2ui-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-1) 0
+}
+
+.a2ui-chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.a2ui-chart-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0
+}

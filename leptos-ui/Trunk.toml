@@ -2,7 +2,7 @@
 # Target directory for trunk output
 dist = "dist"
 # Public URL base path — assets served from /ui/
-public_url = "/"
+public_url = "/ui/"
 
 [watch]
 watch = ["src", "index.html", "styles"]

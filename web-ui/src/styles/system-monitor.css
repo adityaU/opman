@@ -1,0 +1,507 @@
+/* ── system-monitor.css ───────────────────────────────────────────────
+   System monitor modal — follows the assistant-center pattern:
+   Base styles use standard theme vars (work in both flat & glass).
+   Glass overrides are applied via shared selectors in assistant-2.css.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* ── Overlay ─────────────────────────────────────────────────────── */
+
+.sysm-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0000008c;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ── Modal container ─────────────────────────────────────────────── */
+
+.sysm-modal {
+  display: flex;
+  flex-direction: column;
+  width: 860px;
+  max-width: 94vw;
+  max-height: 84vh;
+  border-radius: 14px;
+  background: var(--color-bg, #0d1117);
+  border: 1px solid var(--color-border, #21262d);
+  box-shadow: 0 12px 48px #00000080;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+.sysm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #21262d);
+}
+
+.sysm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text, #e6edf3);
+}
+
+.sysm-header-left h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sysm-host {
+  font-size: 11px;
+  color: var(--color-muted, #8b949e);
+  font-weight: 400;
+}
+
+.sysm-badge {
+  font-size: 10px;
+  color: var(--color-muted, #8b949e);
+  padding: 2px 8px;
+  background: var(--color-surface, #161b22);
+  border: 1px solid var(--color-border, #21262d);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+}
+
+.sysm-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sysm-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-muted, #8b949e);
+}
+
+.sysm-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-success);
+  animation: sysm-pulse 2s ease-in-out infinite;
+}
+
+.sysm-dot.error {
+  background: var(--color-error);
+  animation: none;
+}
+
+@keyframes sysm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.sysm-header button {
+  background: none;
+  border: none;
+  color: var(--color-muted, #8b949e);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+/* ── Body ────────────────────────────────────────────────────────── */
+
+.sysm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sysm-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  color: var(--color-muted, #8b949e);
+  font-size: 13px;
+}
+
+/* ── Gauges ──────────────────────────────────────────────────────── */
+
+.sysm-gauges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.sysm-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+}
+
+.sysm-gauge-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sysm-gauge-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-muted, #8b949e);
+  font-weight: 700;
+}
+
+.sysm-gauge-val {
+  font-size: 13px;
+  color: var(--color-text, #e6edf3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Shared bar ──────────────────────────────────────────────────── */
+
+.sysm-bar-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border, #21262d) 60%, transparent);
+  overflow: hidden;
+}
+
+.sysm-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .4s ease-out;
+}
+
+.sysm-bar-fill.info    { background: var(--color-info); }
+.sysm-bar-fill.success { background: var(--color-success); }
+.sysm-bar-fill.warning { background: var(--color-warning); }
+.sysm-bar-fill.accent  { background: var(--color-accent); }
+.sysm-bar-fill.disk    { background: var(--color-accent); }
+
+.sysm-bar-fill.high     { background: var(--color-warning); }
+.sysm-bar-fill.critical { background: var(--color-error); }
+
+/* ── Stats row ───────────────────────────────────────────────────── */
+
+.sysm-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  font-size: 11px;
+  color: var(--color-muted, #8b949e);
+}
+
+.sysm-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.sysm-stat strong {
+  color: var(--color-text, #e6edf3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-stat-net {
+  gap: 4px;
+}
+
+.sysm-net-name {
+  color: var(--color-muted, #8b949e);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sysm-net-rx {
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-net-sep {
+  opacity: .4;
+}
+
+.sysm-net-tx {
+  color: var(--color-info);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sections ────────────────────────────────────────────────────── */
+
+.sysm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sysm-section-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.sysm-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.sysm-section-toggle:hover {
+  color: var(--color-text, #e6edf3);
+}
+
+/* ── CPU Cores (vertical mini bars) ──────────────────────────────── */
+
+.sysm-cores {
+  display: flex;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  overflow-x: auto;
+}
+
+.sysm-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 20px;
+  flex: 1;
+  max-width: 32px;
+}
+
+.sysm-core-id {
+  font-size: 8px;
+  color: var(--color-muted, #8b949e);
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-core-bar {
+  width: 100%;
+  height: 28px;
+  background: color-mix(in srgb, var(--color-border, #21262d) 60%, transparent);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sysm-core-fill {
+  width: 100%;
+  background: var(--color-info);
+  border-radius: 2px;
+  transition: height .4s ease-out;
+}
+
+.sysm-core-fill.high     { background: var(--color-warning); }
+.sysm-core-fill.critical { background: var(--color-error); }
+
+.sysm-core-val {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--color-muted, #8b949e);
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-core-hot .sysm-core-val  { color: var(--color-warning); }
+.sysm-core-burning .sysm-core-val { color: var(--color-error); }
+
+/* ── Process table ───────────────────────────────────────────────── */
+
+.sysm-table-wrap {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border, #21262d);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+}
+
+.sysm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-table th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--color-muted, #8b949e);
+  font-weight: 700;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border, #21262d);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg, #0d1117);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.sysm-table th:hover {
+  color: var(--color-text, #e6edf3);
+}
+
+.sysm-table th.active {
+  color: var(--color-primary);
+}
+
+.sysm-table th.r,
+.sysm-table td.r {
+  text-align: right;
+}
+
+.sysm-table td {
+  padding: 3px 8px;
+  color: var(--color-muted, #8b949e);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border, #21262d) 40%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.sysm-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.sysm-table tbody tr:hover td {
+  background: var(--color-surface-hover, #1c2128);
+}
+
+.sysm-cell-warn {
+  color: var(--color-warning) !important;
+  font-weight: 600;
+}
+
+.sysm-cell-critical {
+  color: var(--color-error) !important;
+  font-weight: 600;
+}
+
+/* ── Disks ────────────────────────────────────────────────────────── */
+
+.sysm-disks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.sysm-disk {
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sysm-disk-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sysm-disk-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text, #e6edf3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sysm-disk-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted, #8b949e);
+  font-variant-numeric: tabular-nums;
+}
+
+.sysm-disk-detail {
+  font-size: 10px;
+  color: var(--color-muted, #8b949e);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 8px;
+}
+
+.sysm-disk-fs {
+  color: color-mix(in srgb, var(--color-muted, #8b949e) 60%, transparent);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+.sysm-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border, #21262d);
+  font-size: 11px;
+  color: var(--color-muted, #8b949e);
+}
+
+.sysm-footer kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--color-surface, #161b22);
+  border: 1px solid var(--color-border, #21262d);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  margin-right: 2px;
+}
+
+.sysm-footer-sep {
+  flex: 1;
+}

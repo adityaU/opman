@@ -1,0 +1,298 @@
+.workspace-mgr-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0000008c;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px)
+}
+
+.workspace-mgr-modal {
+    display: flex;
+    flex-direction: column;
+    width: 560px;
+    max-width: 92vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    background: var(--color-bg, #0d1117);
+    border: 1px solid var(--color-border, #21262d);
+    box-shadow: 0 12px 48px #00000080;
+    overflow: hidden
+}
+
+.workspace-mgr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border, #21262d)
+}
+
+.workspace-mgr-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text, #e6edf3)
+}
+
+.workspace-mgr-header-left h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600
+}
+
+.workspace-mgr-header button {
+    background: none;
+    border: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px
+}
+
+.workspace-mgr-header button:hover {
+    background: var(--color-hover, #1c2128);
+    color: var(--color-text, #e6edf3)
+}
+
+.workspace-mgr-scrollable {
+    display: contents
+}
+
+.workspace-mgr-save {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border, #21262d)
+}
+
+.workspace-mgr-save-fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.workspace-mgr-save-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+
+.workspace-mgr-recipe-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-save input {
+    flex: 1;
+    background: var(--color-surface, #161b22);
+    border: 1px solid var(--color-border, #21262d);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--color-text, #e6edf3);
+    outline: none
+}
+
+.workspace-mgr-save input:focus {
+    border-color: var(--color-primary)
+}
+
+.workspace-mgr-save input::placeholder {
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-save button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border, #21262d);
+    background: var(--color-surface, #161b22);
+    color: var(--color-text, #e6edf3);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap
+}
+
+.workspace-mgr-save button:hover:not(:disabled) {
+    background: var(--color-hover, #1c2128)
+}
+
+.workspace-mgr-save button:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}
+
+.workspace-mgr-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    min-height: 200px;
+    max-height: 55vh
+}
+
+.workspace-mgr-section {
+    padding: 4px 0
+}
+
+.workspace-mgr-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-active-badge {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-primary);
+    font-size: 11px
+}
+
+.workspace-mgr-empty {
+    padding: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 16px;
+    transition: background .1s
+}
+
+.workspace-mgr-item:hover {
+    background: var(--color-hover, #1c2128)
+}
+
+.workspace-mgr-item.active {
+    background: #388bfd14;
+    border-left: 2px solid #388bfd
+}
+
+.workspace-mgr-item.template {
+    opacity: .85
+}
+
+.workspace-mgr-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.workspace-mgr-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text, #e6edf3)
+}
+
+.workspace-mgr-item-desc {
+    font-size: 11px;
+    color: var(--color-muted, #8b949e);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.workspace-mgr-item-recipe-meta {
+    font-size: 11px;
+    color: #58a6ff;
+    line-height: 1.4
+}
+
+.workspace-mgr-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0
+}
+
+.workspace-mgr-restore-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border, #21262d);
+    background: var(--color-surface, #161b22);
+    color: #388bfd;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer
+}
+
+.workspace-mgr-restore-btn:hover {
+    background: #388bfd1f
+}
+
+.workspace-mgr-delete-btn {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--color-muted, #8b949e);
+    cursor: pointer
+}
+
+.workspace-mgr-delete-btn:hover {
+    color: #f85149;
+    background: #f851491a
+}
+
+.workspace-mgr-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-top: 1px solid var(--color-border, #21262d);
+    font-size: 11px;
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-footer kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-family: inherit;
+    font-size: 10px;
+    border: 1px solid var(--color-border, #21262d);
+    border-radius: 3px;
+    background: var(--color-surface, #161b22);
+    color: var(--color-muted, #8b949e)
+}
+
+.workspace-mgr-section,.memory-section,.missions-section,.routines-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+}
+
+.workspace-mgr-section-title,.memory-section-title,.missions-section-title,.routines-section-title,.assistant-center-briefing-title,.mission-handoff-title,.assistant-inbox-handoff-title {
+    letter-spacing: .08em
+}

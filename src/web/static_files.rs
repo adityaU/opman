@@ -1,6 +1,7 @@
 //! Embedded frontend serving via `rust-embed`.
 //!
-//! Leptos (`leptos-ui/dist/`) serves at `/`.
+//! React (`web-ui/dist/`) serves at `/`.
+//! Leptos (`leptos-ui/dist/`) serves at `/ui/`.
 //! When `instance_name` is set, manifest/index are patched for PWA naming.
 
 use axum::body::Body;
@@ -36,26 +37,55 @@ fn build_ok(builder: axum::http::response::Builder, body: Body) -> Response<Body
 }
 
 #[derive(Embed)]
+#[folder = "web-ui/dist"]
+#[prefix = ""]
+struct ReactAssets;
+
+#[derive(Embed)]
 #[folder = "leptos-ui/dist"]
 #[prefix = ""]
-struct FrontendAssets;
+struct LeptosAssets;
 
-/// Serve embedded Leptos frontend assets at `/`, falling back to `index.html`
-/// for SPA routes.
+/// Hardcoded fallback colours used in each UI's source files.
+struct UiThemeDefaults {
+    bg: &'static str,
+    sw_allowed: &'static str,
+}
+
+const REACT_DEFAULTS: UiThemeDefaults = UiThemeDefaults {
+    bg: "#0B0E14",
+    sw_allowed: "/",
+};
+
+const LEPTOS_DEFAULTS: UiThemeDefaults = UiThemeDefaults {
+    bg: "#0a0a0a",
+    sw_allowed: "/ui/",
+};
+
+/// Pre-resolved theme values passed into the sync serving helper.
+struct ResolvedTheme {
+    bg: Option<String>,
+    primary: Option<String>,
+}
+
+/// Shared serving logic for an embedded UI.
 ///
-/// If the server has an `instance_name`, `/manifest.json` and `index.html` are
-/// dynamically patched so the PWA install name and page title use that name.
-pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: axum::http::Uri) -> impl IntoResponse {
-    let path = uri.path().trim_start_matches('/');
-
-    // Resolve theme colours once — used by manifest, favicon & index patches.
-    let theme_pair = state.web_state.get_theme().await;
-    let theme_bg: Option<String> = theme_pair.as_ref().map(|t| t.dark.background.clone());
-    let theme_primary: Option<String> = theme_pair.as_ref().map(|t| t.dark.primary.clone());
-
+/// `get_file` resolves an asset path to its bytes+metadata.
+/// `defaults` carries the hardcoded theme colours for manifest/index patching.
+fn serve_ui<F>(
+    state: &ServerState,
+    headers: &HeaderMap,
+    path: &str,
+    get_file: F,
+    defaults: &UiThemeDefaults,
+    theme: &ResolvedTheme,
+) -> axum::response::Response
+where
+    F: Fn(&str) -> Option<rust_embed::EmbeddedFile>,
+{
     // ── Dynamic manifest.json ───────────────────────────────────────
     if path == "manifest.json" {
-        if let Some(file) = FrontendAssets::get("manifest.json") {
+        if let Some(file) = get_file("manifest.json") {
             let mut json = String::from_utf8_lossy(&file.data).into_owned();
 
             if let Some(ref name) = state.instance_name {
@@ -67,22 +97,14 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
                     );
             }
 
-            if let Some(ref bg) = theme_bg {
+            if let Some(ref bg) = theme.bg {
                 json = json
                     .replace(
-                        "\"background_color\": \"#0B0E14\"",
+                        &format!("\"background_color\": \"{}\"", defaults.bg),
                         &format!("\"background_color\": \"{}\"", bg),
                     )
                     .replace(
-                        "\"background_color\": \"#0a0a0a\"",
-                        &format!("\"background_color\": \"{}\"", bg),
-                    )
-                    .replace(
-                        "\"theme_color\": \"#0B0E14\"",
-                        &format!("\"theme_color\": \"{}\"", bg),
-                    )
-                    .replace(
-                        "\"theme_color\": \"#0a0a0a\"",
+                        &format!("\"theme_color\": \"{}\"", defaults.bg),
                         &format!("\"theme_color\": \"{}\"", bg),
                     );
             }
@@ -97,25 +119,30 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
 
     // ── Service worker — must be served with no-cache ─────────────
     if path == "sw.js" {
-        if let Some(file) = FrontendAssets::get("sw.js") {
+        if let Some(file) = get_file("sw.js") {
             let r = Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/javascript")
                 .header(header::CACHE_CONTROL, "no-cache")
-                .header("Service-Worker-Allowed", "/");
+                .header("Service-Worker-Allowed", defaults.sw_allowed);
             return build_ok(r, Body::from(file.data.to_vec())).into_response();
         }
     }
 
     // ── Dynamic favicon.svg — patched with theme colours ───────────
     if path == "favicon.svg" {
-        if let (Some(ref primary), Some(ref bg)) = (&theme_primary, &theme_bg) {
-            if let Some(file) = FrontendAssets::get("favicon.svg") {
+        if let (Some(ref primary), Some(ref bg)) = (&theme.primary, &theme.bg) {
+            if let Some(file) = get_file("favicon.svg") {
                 let mut svg = String::from_utf8_lossy(&file.data).into_owned();
                 svg = svg
-                    .replace("fill=\"#0a0a0a\"", &format!("fill=\"{}\"", bg))
-                    .replace("fill=\"#0B0E14\"", &format!("fill=\"{}\"", bg))
-                    .replace("stroke=\"#fab283\"", &format!("stroke=\"{}\"", primary));
+                    .replace(
+                        &format!("fill=\"{}\"", defaults.bg),
+                        &format!("fill=\"{}\"", bg),
+                    )
+                    .replace(
+                        "stroke=\"#fab283\"",
+                        &format!("stroke=\"{}\"", primary),
+                    );
                 let r = Response::builder()
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "image/svg+xml")
@@ -125,11 +152,14 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
         }
     }
 
-    if let Some(file) = FrontendAssets::get(path) {
+    // ── Static asset with ETag ────────────────────────────────────
+    if let Some(file) = get_file(path) {
         let etag = etag_from_hash(&file.metadata.sha256_hash());
-        if is_not_modified(&headers, &etag) {
+        if is_not_modified(headers, &etag) {
             return build_ok(
-                Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, &etag),
+                Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .header(header::ETAG, &etag),
                 Body::empty(),
             )
             .into_response();
@@ -143,8 +173,8 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
         return build_ok(r, Body::from(file.data.to_vec())).into_response();
     }
 
-    // Fall back to index.html for SPA routing — inject instance name & theme
-    if let Some(file) = FrontendAssets::get("index.html") {
+    // ── Fall back to index.html for SPA routing ───────────────────
+    if let Some(file) = get_file("index.html") {
         let mut html = String::from_utf8_lossy(&file.data).into_owned();
 
         if let Some(ref name) = state.instance_name {
@@ -158,21 +188,13 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
             );
         }
 
-        if let Some(ref bg) = theme_bg {
+        if let Some(ref bg) = theme.bg {
             html = html.replace(
-                "<meta name=\"theme-color\" content=\"#0B0E14\" />",
+                &format!("<meta name=\"theme-color\" content=\"{}\" />", defaults.bg),
                 &format!("<meta name=\"theme-color\" content=\"{}\" />", bg),
             );
             html = html.replace(
-                "<meta name=\"theme-color\" content=\"#0a0a0a\" />",
-                &format!("<meta name=\"theme-color\" content=\"{}\" />", bg),
-            );
-            html = html.replace(
-                "var(--color-bg, #0B0E14)",
-                &format!("var(--color-bg, {})", bg),
-            );
-            html = html.replace(
-                "var(--color-bg, #0a0a0a)",
+                &format!("var(--color-bg, {})", defaults.bg),
                 &format!("var(--color-bg, {})", bg),
             );
         }
@@ -185,4 +207,37 @@ pub async fn serve(State(state): State<ServerState>, headers: HeaderMap, uri: ax
     }
 
     StatusCode::NOT_FOUND.into_response()
+}
+
+/// Resolve theme values from the async web state into a sync-friendly struct.
+async fn resolve_theme(state: &ServerState) -> ResolvedTheme {
+    let theme_pair = state.web_state.get_theme().await;
+    ResolvedTheme {
+        bg: theme_pair.as_ref().map(|t| t.dark.background.clone()),
+        primary: theme_pair.as_ref().map(|t| t.dark.primary.clone()),
+    }
+}
+
+/// Serve React UI at `/` — used as the top-level router fallback.
+pub async fn serve_react(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    uri: axum::http::Uri,
+) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+    let theme = resolve_theme(&state).await;
+    serve_ui(&state, &headers, path, |p| ReactAssets::get(p), &REACT_DEFAULTS, &theme)
+}
+
+/// Serve Leptos UI at `/ui/` — used as the nested `/ui` router fallback.
+/// The `/ui` prefix is already stripped by axum's `.nest()`, so asset lookups
+/// resolve correctly without manual prefix removal.
+pub async fn serve_leptos(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    uri: axum::http::Uri,
+) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+    let theme = resolve_theme(&state).await;
+    serve_ui(&state, &headers, path, |p| LeptosAssets::get(p), &LEPTOS_DEFAULTS, &theme)
 }

@@ -1,0 +1,80 @@
+/* Debug panel — themed side-panel log viewer */
+
+.debug-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: transparent;
+    font-family: var(--font-mono, ui-monospace, 'SF Mono', Menlo, Monaco, monospace);
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+}
+
+.debug-panel-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-bottom: .5px solid var(--glass-border-dark);
+    flex-shrink: 0;
+    background: var(--glass-tint-light-subtle);
+    backdrop-filter: blur(var(--glass-blur-sm));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+}
+
+.debug-panel-clear {
+    font-size: var(--font-size-2xs);
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    border: .5px solid var(--glass-border-dark);
+    background: var(--white-4);
+    color: var(--color-error, #f87171);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.debug-panel-clear:hover {
+    background: var(--white-8);
+    color: var(--color-text);
+}
+
+.debug-panel-count {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.debug-panel-log {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--space-1) 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.debug-panel-line {
+    display: flex;
+    gap: var(--space-2);
+    padding: 1px var(--space-3);
+    border-bottom: .5px solid var(--glass-border-light);
+    word-break: break-all;
+}
+
+.debug-panel-line:hover {
+    background: var(--white-4);
+}
+
+.debug-panel-idx {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    user-select: none;
+    opacity: 0.5;
+    min-width: 2.5ch;
+    text-align: right;
+}
+
+.debug-panel-msg {
+    color: var(--color-text);
+    white-space: pre-wrap;
+}

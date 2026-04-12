@@ -29,7 +29,7 @@
 //! - `handlers` — REST API route handlers
 //! - `sse`  — SSE streaming (terminal output + app events)
 //! - `web_state` — Independent state manager (talks to opencode API directly)
-//! - `static_files` — Embedded Leptos frontend serving
+//! - `static_files` — Embedded React + Leptos frontend serving
 //! - `pty_manager` — Independent web-owned PTY instances
 
 mod auth;

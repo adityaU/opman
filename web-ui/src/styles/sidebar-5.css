@@ -1,0 +1,198 @@
+/* ═══════════════════════════════════════════════════════════════
+   sidebar-5.css — Open Sessions, mobile action sheet,
+   new session row, sidebar swipe-row background.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Open Sessions section (pinned top of sidebar) ─────────── */
+
+.sb-open-sessions {
+    padding: var(--space-1) var(--space-2) var(--space-2);
+    border-bottom: .5px solid var(--color-border-subtle);
+    flex-shrink: 0
+}
+
+.sb-open-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-2) var(--space-1-5);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    opacity: .7
+}
+
+.sb-open-row {
+    position: relative
+}
+
+.sb-open-project-tag {
+    display: inline-block;
+    padding: 0 5px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    color: var(--color-secondary);
+    font-size: 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0
+}
+
+.sb-open-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-fast),
+                background var(--transition-fast),
+                color var(--transition-fast)
+}
+
+.sb-open-row:hover .sb-open-remove {
+    opacity: .6
+}
+
+.sb-open-remove:hover {
+    opacity: 1 !important;
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+/* ── Mobile context menu: overlay backdrop ─────────────────── */
+
+.sb-ctx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: var(--black-50);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: sb-ctx-overlay-in .2s ease-out
+}
+
+@keyframes sb-ctx-overlay-in {
+    0% { opacity: 0 }
+    to { opacity: 1 }
+}
+
+/* ── Mobile context menu: bottom action sheet ──────────────── */
+
+.sb-context-sheet {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: calc(100% - var(--space-4));
+    max-width: 400px;
+    margin-bottom: env(safe-area-inset-bottom, var(--space-2));
+    padding: var(--space-2);
+    animation: sb-ctx-sheet-in .25s cubic-bezier(.32,1.2,.54,1)
+}
+
+@keyframes sb-ctx-sheet-in {
+    0% { opacity: 0; transform: translateY(40px) scale(.97) }
+    to { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+.sb-ctx-sheet-title {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: .5px solid var(--white-6);
+    margin-bottom: var(--space-1)
+}
+
+.sb-ctx-cancel {
+    margin-top: var(--space-1);
+    border-top: .5px solid var(--white-6);
+    padding-top: var(--space-2) !important;
+    color: var(--color-text-muted) !important;
+    font-weight: 500
+}
+
+.sb-context-sheet .sb-context-item {
+    padding: var(--space-3) var(--space-3);
+    font-size: var(--font-size-sm);
+    min-height: 48px;
+    border-radius: var(--radius-md)
+}
+
+/* ── "+ New Session" row inside project ────────────────────── */
+
+.sb-new-session-row {
+    opacity: .7;
+    transition: opacity var(--transition-fast)
+}
+
+.sb-new-session-row:hover {
+    opacity: 1
+}
+
+.sb-new-session-row .sb-session-icon {
+    color: var(--color-primary)
+}
+
+.sb-new-session-row .sb-session-title {
+    color: var(--color-primary);
+    font-weight: 500
+}
+
+/* ── Sidebar swipe-row opaque background ──────────────────── */
+
+.chat-sidebar .swipe-row-content {
+    background: var(--color-bg-panel, var(--color-bg, #0d1117))
+}
+
+/* ── Glassy theme refinements ─────────────────────────────── */
+
+.sb-ctx-sheet-title {
+    border-color: var(--color-border-subtle)
+}
+
+.sb-ctx-cancel {
+    border-color: var(--color-border-subtle)
+}
+
+/* ── Flat theme overrides ─────────────────────────────────── */
+
+html.flat-theme .sb-ctx-overlay {
+    background: var(--black-60);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none
+}
+
+html.flat-theme .sb-context-sheet {
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 -4px 24px var(--black-20);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none
+}
+
+html.flat-theme .sb-ctx-sheet-title {
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .sb-ctx-cancel {
+    border-color: var(--color-border-subtle)
+}
+
+html.flat-theme .chat-sidebar .swipe-row-content {
+    background: var(--color-bg-panel, var(--color-surface, #161b22))
+}

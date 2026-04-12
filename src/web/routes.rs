@@ -270,10 +270,14 @@ pub(super) fn build_router(state: ServerState) -> Router {
     // so they don't go through the auth extractor.
     let public_routes = Router::new().route("/public/bootstrap", get(handlers::public_bootstrap));
 
+    // Leptos UI served at /ui/* with its own SPA fallback
+    let leptos_routes = Router::new().fallback(static_files::serve_leptos);
+
     Router::new()
         .route("/health", get(handlers::health))
         .nest("/api", public_routes.merge(api_routes))
-        .fallback(static_files::serve)
+        .nest("/ui", leptos_routes)
+        .fallback(static_files::serve_react)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .layer(CompressionLayer::new().gzip(true))
         .with_state(state)

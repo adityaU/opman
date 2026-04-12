@@ -1,0 +1,190 @@
+/* ── 3D Model (CAD) Viewer ─────────────────────────────────────── */
+.file-preview-cad {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
+    background: var(--color-bg-panel, #0f0f1a);
+}
+
+.cad-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--white-3, rgba(255,255,255,.06));
+    flex-shrink: 0;
+}
+
+.cad-file-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text, #e0e0e0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cad-format-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--color-accent, #7c3aed);
+    color: #fff;
+    text-transform: uppercase;
+}
+
+.cad-hint {
+    font-size: 11px;
+    color: var(--color-text-muted, #888);
+    margin-left: auto;
+}
+
+.cad-canvas-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.cad-canvas-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.cad-loading {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--color-text-muted, #888);
+    background: var(--color-bg-elevated, rgba(20,20,35,.9));
+    padding: 4px 12px;
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+/* ── Image Preview with Zoom/Pan ──────────────────────────────── */
+.file-preview-image-zoom {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
+    background: repeating-conic-gradient(var(--white-3, rgba(255,255,255,.04)) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.image-zoom-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--white-3, rgba(255,255,255,.06));
+    flex-shrink: 0;
+    background: var(--color-bg-panel, rgba(15,15,26,.95));
+}
+
+.image-zoom-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--white-6, rgba(255,255,255,.1));
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text, #e0e0e0);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.image-zoom-btn:hover {
+    background: var(--white-6, rgba(255,255,255,.08));
+}
+
+.image-zoom-reset {
+    margin-left: 4px;
+    font-size: 14px;
+}
+
+.image-zoom-level {
+    font-size: 12px;
+    min-width: 44px;
+    text-align: center;
+    color: var(--color-text-muted, #aaa);
+    font-variant-numeric: tabular-nums;
+}
+
+.image-zoom-canvas {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.image-zoom-canvas img {
+    max-width: none;
+    max-height: none;
+    will-change: transform;
+    transition: none;
+    pointer-events: none;
+}
+
+.image-zoom-hint {
+    font-size: 11px;
+    color: var(--color-text-muted, #666);
+    text-align: center;
+    padding: 4px;
+    flex-shrink: 0;
+    background: var(--color-bg-panel, rgba(15,15,26,.95));
+    border-top: 1px solid var(--white-3, rgba(255,255,255,.06));
+}
+
+/* ── Flat theme overrides ─────────────────────────────────────── */
+.flat-theme .file-preview-cad {
+    background: var(--color-bg-panel, #f5f5f5);
+}
+
+.flat-theme .cad-loading {
+    background: var(--color-bg-elevated, rgba(240,240,240,.95));
+    color: var(--color-text-muted, #666);
+}
+
+.flat-theme .file-preview-image-zoom {
+    background: repeating-conic-gradient(#e8e8e8 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.flat-theme .image-zoom-toolbar,
+.flat-theme .image-zoom-hint {
+    background: var(--color-bg-panel, #f5f5f5);
+}
+
+/* ── Light theme overrides ────────────────────────────────────── */
+.light-theme .file-preview-cad {
+    background: var(--color-bg-panel, #fafafa);
+}
+
+.light-theme .cad-loading {
+    background: var(--color-bg-elevated, rgba(250,250,250,.95));
+    color: var(--color-text-muted, #666);
+}
+
+.light-theme .file-preview-image-zoom {
+    background: repeating-conic-gradient(#eee 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.light-theme .image-zoom-toolbar,
+.light-theme .image-zoom-hint {
+    background: var(--color-bg-panel, #fafafa);
+}

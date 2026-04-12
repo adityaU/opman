@@ -32,7 +32,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: leptos-ui/package-lock.json
+          cache-dependency-path: |
+            leptos-ui/package-lock.json
+            web-ui/package-lock.json
 
       - name: Install Leptos UI npm deps
         run: npm ci
@@ -42,12 +44,21 @@ jobs:
         run: trunk build --release
         working-directory: leptos-ui
 
+      - name: Install React UI npm deps
+        run: npm ci
+        working-directory: web-ui
+
+      - name: Build React UI
+        run: npm run build
+        working-directory: web-ui
+
       - name: Upload frontend artifacts
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
           path: |
             leptos-ui/dist/
+            web-ui/dist/
           retention-days: 1
 
   # ── Build backend for each target ──────────────────────────────
@@ -77,7 +88,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: leptos-ui/dist
+          path: .
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

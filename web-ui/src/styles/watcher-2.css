@@ -1,0 +1,135 @@
+
+.watcher-btn-primary {
+    background: color-mix(in srgb,var(--color-primary) 15%,var(--color-bg-element));
+    border-color: var(--color-primary);
+    color: var(--color-primary)
+}
+
+.watcher-btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb,var(--color-primary) 25%,var(--color-bg-element))
+}
+
+.watcher-btn-danger {
+    background: color-mix(in srgb,var(--color-error) 10%,var(--color-bg-element));
+    border-color: var(--color-error);
+    color: var(--color-error)
+}
+
+.watcher-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb,var(--color-error) 20%,var(--color-bg-element))
+}
+
+.watcher-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    background: var(--color-bg-element);
+    color: var(--color-text-muted);
+    font-size: 10px;
+    cursor: pointer;
+    transition: background .12s,color .12s
+}
+
+.watcher-btn-sm:hover:not(:disabled) {
+    background: var(--color-bg);
+    color: var(--color-text)
+}
+
+.watcher-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 16px;
+    font-size: 12px;
+    color: var(--color-text-muted)
+}
+
+.watcher-modal-footer {
+    padding: 8px 16px;
+    border-top: 1px solid var(--color-border-subtle);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.watcher-modal-footer kbd {
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: var(--font-mono, monospace)
+}
+
+.watcher-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background .12s,color .12s;
+    font-family: var(--font-mono, monospace)
+}
+
+.watcher-status-indicator:hover {
+    background: var(--color-bg-element);
+    color: var(--color-text)
+}
+
+.watcher-status-label {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.watcher-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    flex-shrink: 0;
+    animation: watcher-pulse 2s ease-in-out infinite
+}
+
+.watcher-dot-green {
+    background: var(--color-success);
+    box-shadow: 0 0 4px var(--color-success)
+}
+
+.watcher-dot-yellow {
+    background: var(--color-warning);
+    box-shadow: 0 0 4px var(--color-warning)
+}
+
+.watcher-dot-red {
+    background: var(--color-error);
+    box-shadow: 0 0 4px var(--color-error)
+}
+
+.watcher-dot-muted {
+    background: transparent;
+    border: 1.5px solid var(--color-text-muted);
+    animation: none
+}
+
+@keyframes watcher-pulse {
+    0%,to {
+        opacity: 1
+    }
+
+    50% {
+        opacity: .4
+    }
+}
