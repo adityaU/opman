@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useMemo } from "react";
+import mermaid from "mermaid";
 import { extractBlocks, esc } from "./types";
 import type { A2UIBlock } from "./types";
 import { blocksToHtml } from "./render";
+
+let mermaidInited = false;
 
 interface A2UIRendererProps {
   input: unknown;
@@ -60,17 +63,19 @@ function wireEvents(el: HTMLElement) {
     viewport.style.transform = `scale(${next})`;
   });
 
-  // Initialize mermaid if available
-  tryMermaid(el);
+  // Render mermaid diagrams
+  runMermaid(el);
 }
 
-function tryMermaid(el: HTMLElement) {
-  const mermaidEls = el.querySelectorAll<HTMLElement>("pre.mermaid");
-  if (!mermaidEls.length) return;
-  const w = window as any;
-  if (w.mermaid?.run) {
-    w.mermaid.run({ nodes: Array.from(mermaidEls) });
+/** Initialize mermaid once, then render any <pre class="mermaid"> nodes. */
+function runMermaid(el: HTMLElement) {
+  const nodes = el.querySelectorAll<HTMLElement>("pre.mermaid");
+  if (!nodes.length) return;
+  if (!mermaidInited) {
+    mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+    mermaidInited = true;
   }
+  mermaid.run({ nodes: Array.from(nodes) }).catch(() => { /* diagram syntax errors are non-fatal */ });
 }
 
 export function A2UIRenderer({ input }: A2UIRendererProps) {
