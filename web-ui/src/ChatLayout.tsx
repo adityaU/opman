@@ -26,7 +26,9 @@ import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 import type { ThemeMode } from "./ThemeSelectorModal";
 import type { ThemeColors } from "./api";
 import { applyThemeToCss } from "./utils/theme";
-import { fetchTheme } from "./api";
+import { fetchThemePair } from "./api";
+import type { Appearance } from "./utils/appearance";
+import { getPersistedAppearance, resolveThemeColors, storeThemePair, initAppearance } from "./utils/appearance";
 import { SkillsUploadModal } from "./SkillsUploadModal";
 
 export function ChatLayout() {
@@ -70,9 +72,15 @@ export function ChatLayout() {
 
   // ── Theme ──
   const [themeMode, setThemeMode] = useState<ThemeMode>(getPersistedThemeMode);
+  const [appearance, setAppearanceState] = useState<Appearance>(getPersistedAppearance);
   useEffect(() => {
     applyThemeMode(themeMode);
-    fetchTheme().then((colors) => { if (colors) applyThemeToCss(colors); });
+    initAppearance();
+    fetchThemePair().then((pair) => {
+      if (!pair) return;
+      storeThemePair(pair, appearance);
+      applyThemeToCss(resolveThemeColors(pair, appearance));
+    });
   }, []);
 
   // ── Modals / Toast / Providers / Bookmarks ──
@@ -325,7 +333,8 @@ export function ChatLayout() {
         toggleSidebar={panels.sidebar.toggle} toggleTerminal={panels.terminal.toggle}
         toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
-        themeMode={themeMode} setThemeMode={setThemeMode} fileEditCount={fileEditCount}
+        themeMode={themeMode} setThemeMode={setThemeMode}
+        appearance={appearance} setAppearance={setAppearanceState} fileEditCount={fileEditCount}
         allPermissions={allPermissions} allQuestions={allQuestions}
         sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
         neovimOpen={panels.editor.open} gitOpen={panels.git.open}

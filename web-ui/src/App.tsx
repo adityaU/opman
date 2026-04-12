@@ -5,6 +5,7 @@ import { ChatLayout } from "./ChatLayout";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 import { applyThemeToCss } from "./utils/theme";
+import { initAppearance, resolveThemeColors, storeThemePair } from "./utils/appearance";
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -16,18 +17,23 @@ export function App() {
     () => document.title || "opman"
   );
 
-  // Apply persisted theme mode (glassy/flat) immediately on mount,
-  // before auth check completes — so the login page gets the right mode.
+  // Apply persisted theme mode (glassy/flat) + appearance (system/light/dark)
+  // immediately on mount, before auth check completes.
   useEffect(() => {
     applyThemeMode(getPersistedThemeMode());
+    initAppearance();
   }, []);
 
   // Fetch bootstrap + verify token in parallel.  Both must finish
   // before we render anything beyond the loader so the login page
   // never flashes default colours before switching to the real theme.
   useEffect(() => {
+    const appearance = initAppearance();
     const bootstrap = fetchBootstrap().then((data) => {
-      if (data.theme) applyThemeToCss(data.theme);
+      if (data.theme) {
+        storeThemePair(data.theme, appearance);
+        applyThemeToCss(resolveThemeColors(data.theme, appearance));
+      }
       if (data.instance_name) setAppName(data.instance_name);
     });
 

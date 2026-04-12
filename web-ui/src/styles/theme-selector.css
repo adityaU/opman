@@ -168,6 +168,13 @@
     border-bottom: .5px solid var(--white-6)
 }
 
+.theme-appearance-switcher {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: .5px solid var(--white-6)
+}
+
 .theme-mode-option {
     flex: 1;
     display: flex;

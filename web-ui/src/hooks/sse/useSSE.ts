@@ -6,7 +6,7 @@ import {
   fetchAppState,
   fetchSessionMessages,
   fetchSessionStats,
-  fetchTheme,
+  fetchThemePair,
   fetchPending,
   type AppState,
   type SessionStats,
@@ -15,6 +15,7 @@ import {
 } from "../../api";
 import type { Message, PermissionRequest, QuestionRequest } from "../../types";
 import { applyThemeToCss } from "../../utils/theme";
+import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 
 import type { SSEState, WatcherStatus, SSEConnectionStatus } from "./types";
 import { type MessageMap, mapToSortedArray, getMessageTime } from "./messageMap";
@@ -484,7 +485,12 @@ export function useSSE(): SSEState {
   // ── SSE connections (set up once on mount) ────────────────────
   useEffect(() => {
     refreshState();
-    fetchTheme().then((colors) => { if (colors) applyThemeToCss(colors); });
+    fetchThemePair().then((pair) => {
+      if (!pair) return;
+      const appearance = getPersistedAppearance();
+      storeThemePair(pair, appearance);
+      applyThemeToCss(resolveThemeColors(pair, appearance));
+    });
 
     let lastEventTime = Date.now();
     let sessionSseNeedsRecovery = false;

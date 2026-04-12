@@ -1,6 +1,7 @@
 import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../types";
 import type { SessionStats, ActivityEvent, ClientPresence, Mission, ThemePair } from "../../api";
 import { applyThemeToCss } from "../../utils/theme";
+import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen } from "./types";
 import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
@@ -374,7 +375,9 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
   appSSE.addEventListener("theme_changed", (e: MessageEvent) => {
     try {
       const pair: ThemePair = JSON.parse(e.data);
-      applyThemeToCss(pair.dark);
+      const appearance = getPersistedAppearance();
+      storeThemePair(pair, appearance);
+      applyThemeToCss(resolveThemeColors(pair, appearance));
     } catch { /* ignore */ }
   });
   appSSE.addEventListener("watcher_status", (e: MessageEvent) => {

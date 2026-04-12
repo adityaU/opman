@@ -120,15 +120,9 @@ export interface ThemePair {
   light: ThemeColors;
 }
 
-/** Extract usable ThemeColors from a ThemePair (dark mode). */
-function extractDark(pair: ThemePair): ThemeColors {
-  return pair.dark;
-}
-
-export async function fetchTheme(): Promise<ThemeColors | null> {
+export async function fetchThemePair(): Promise<ThemePair | null> {
   try {
-    const pair = await apiFetch<ThemePair>("/theme");
-    return extractDark(pair);
+    return await apiFetch<ThemePair>("/theme");
   } catch {
     return null;
   }
@@ -136,42 +130,28 @@ export async function fetchTheme(): Promise<ThemeColors | null> {
 
 // ── Themes ────────────────────────────────────────────
 
-/** Backend theme preview: name + dark/light color sets. */
-interface ThemePreviewRaw {
+/** Theme preview with both dark and light color sets. */
+export interface ThemePreview {
   name: string;
   dark: ThemeColors;
   light: ThemeColors;
 }
 
-/** Theme preview with resolved colors (dark variant). */
-export interface ThemePreview {
-  name: string;
-  colors: ThemeColors;
-}
-
-/** Fetch all available themes with preview colors */
+/** Fetch all available themes with both variants */
 export async function fetchThemes(): Promise<ThemePreview[]> {
-  const raw = await apiFetch<ThemePreviewRaw[]>("/themes");
-  return raw.map((t) => ({ name: t.name, colors: t.dark }));
+  return apiFetch<ThemePreview[]>("/themes");
 }
 
-/** Switch the active theme by name. Returns the new theme colors. */
-export async function switchTheme(name: string): Promise<ThemeColors> {
-  const pair = await apiPost<ThemePair>("/theme/switch", { name });
-  return extractDark(pair);
+/** Switch the active theme by name. Returns the full ThemePair. */
+export async function switchTheme(name: string): Promise<ThemePair> {
+  return apiPost<ThemePair>("/theme/switch", { name });
 }
 
 // ── Public (unauthenticated) endpoints ────────────────
 
-/** Raw bootstrap data from the backend. */
-interface BootstrapRaw {
-  theme: ThemePair | null;
-  instance_name: string | null;
-}
-
 /** Bootstrap data returned before authentication. */
 export interface BootstrapData {
-  theme: ThemeColors | null;
+  theme: ThemePair | null;
   instance_name: string | null;
 }
 
@@ -181,11 +161,8 @@ export async function fetchBootstrap(): Promise<BootstrapData> {
   try {
     const res = await fetch("/api/public/bootstrap");
     if (!res.ok) return { theme: null, instance_name: null };
-    const raw: BootstrapRaw = await res.json();
-    return {
-      theme: raw.theme ? extractDark(raw.theme) : null,
-      instance_name: raw.instance_name,
-    };
+    const raw: BootstrapData = await res.json();
+    return raw;
   } catch {
     return { theme: null, instance_name: null };
   }

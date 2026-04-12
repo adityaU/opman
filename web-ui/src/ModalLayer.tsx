@@ -64,6 +64,8 @@ export interface ModalLayerProps {
   selectedAgent: string;
   themeMode: any;
   setThemeMode: (m: any) => void;
+  appearance: any;
+  setAppearance: (a: any) => void;
   fileEditCount: number;
   allPermissions: any[];
   allQuestions: any[];
@@ -149,7 +151,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} onAgentSelected={p.onAgentChange} /></L>
       )}
       {m.themeSelector && (
-        <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} /></L>
+        <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} appearance={p.appearance} onAppearanceChange={p.setAppearance} /></L>
       )}
       {m.cheatsheet && <L><CheatsheetModal onClose={cl("cheatsheet")} /></L>}
       {m.todoPanel && p.activeSessionId && (

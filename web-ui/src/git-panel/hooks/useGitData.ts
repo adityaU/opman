@@ -6,10 +6,11 @@ import {
   fetchGitShow,
   fetchGitBranches,
   fetchGitRepos,
-  fetchTheme,
+  fetchThemePair,
 } from "../../api";
 import type { GitFileEntry, GitLogEntry, GitShowResponse, ThemeColors, GitTab, GitView, GitRepoEntry } from "../types";
 import { parseUnifiedDiff } from "../utils";
+import { getPersistedAppearance, resolveThemeColors } from "../../utils/appearance";
 
 // ── Return type ─────────────────────────────────────────
 
@@ -99,7 +100,12 @@ export function useGitData(
   selectedRepoRef.current = selectedRepo;
 
   // ── Theme load ────────────────────────────────────────
-  useEffect(() => { fetchTheme().then((t) => { if (t) setThemeColors(t); }); }, []);
+  useEffect(() => {
+    fetchThemePair().then((pair) => {
+      if (!pair) return;
+      setThemeColors(resolveThemeColors(pair, getPersistedAppearance()));
+    });
+  }, []);
 
   // ── Repo discovery ────────────────────────────────────
   const refreshRepos = useCallback(async () => {
