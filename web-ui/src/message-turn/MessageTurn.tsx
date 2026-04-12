@@ -1,12 +1,12 @@
 import React, { useMemo, useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle } from "lucide-react";
+import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle, Brain, ChevronRight } from "lucide-react";
 
-import { ToolCall } from "../ToolCall";
-import type { MessageTurnProps, MessagePart, Message, SessionInfo } from "./types";
-import { modelLabel } from "./helpers";
+import type { MessageTurnProps, MessagePart } from "./types";
+import { modelLabel, parseMemoryBlock } from "./helpers";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { agentColor } from "../utils/theme";
+import { renderInterleavedContent } from "./InterleavedContent";
 
 export const MessageTurn = React.memo(function MessageTurn({
   group,
@@ -53,72 +53,49 @@ export const MessageTurn = React.memo(function MessageTurn({
 
   const handleToggleBookmark = useCallback(() => {
     if (!onToggleBookmark || !firstMsgId) return;
-    // Get first text for preview
     let preview = "";
-    for (const msg of messages) {
-      for (const part of msg.parts) {
-        if (part.text) { preview = part.text; break; }
-      }
-      if (preview) break;
-    }
+    for (const msg of messages) { for (const part of msg.parts) { if (part.text) { preview = part.text; break; } } if (preview) break; }
     onToggleBookmark(firstMsgId, sessionId || "", role, preview);
   }, [onToggleBookmark, firstMsgId, sessionId, role, messages]);
 
   // Detect if this group contains an optimistic (pending) message
   const isOptimistic = useMemo(() => {
-    return messages.some((msg) => {
-      const id = msg.info.messageID || msg.info.id || "";
-      return id.startsWith("__optimistic__");
-    });
+    return messages.some((msg) => (msg.info.messageID || msg.info.id || "").startsWith("__optimistic__"));
   }, [messages]);
 
-  // A user message is "queued" if the session is still processing an earlier
-  // assistant message (pendingAssistantId) and this user message was sent after
-  // that assistant message (its ID sorts after the pending assistant ID).
+  // Queued: session is still processing an earlier assistant message
   const isQueued = useMemo(() => {
     if (!isUser || !pendingAssistantId) return false;
-    return messages.some((msg) => {
-      const id = msg.info.messageID || msg.info.id || "";
-      return id > pendingAssistantId;
-    });
+    return messages.some((msg) => (msg.info.messageID || msg.info.id || "") > pendingAssistantId);
   }, [isUser, pendingAssistantId, messages]);
 
-  // Collect model info from the first message that has it
+  // Collect model/agent/cost from messages
   const headerModel = useMemo(() => {
-    for (const msg of messages) {
-      if (msg.info.model) return msg.info.model;
-    }
+    for (const msg of messages) if (msg.info.model) return msg.info.model;
     return null;
   }, [messages]);
 
-  // Collect agent info from the first message that has it
   const headerAgent = useMemo(() => {
-    for (const msg of messages) {
-      if (msg.info.agent) return msg.info.agent;
-    }
+    for (const msg of messages) if (msg.info.agent) return msg.info.agent;
     return null;
   }, [messages]);
 
-  // Sum total cost across all messages in group
   const totalCost = useMemo(() => {
     let sum = 0;
-    for (const msg of messages) {
-      if (msg.metadata?.cost) sum += msg.metadata.cost;
-    }
+    for (const msg of messages) if (msg.metadata?.cost) sum += msg.metadata.cost;
     return sum;
   }, [messages]);
 
   // Extract error from any message in the group
   const errorText = useMemo(() => {
     for (const msg of messages) {
-      if (msg.info.error) {
-        if (typeof msg.info.error === "string") return msg.info.error;
-        if (typeof msg.info.error === "object" && msg.info.error !== null) {
-          const e = msg.info.error as Record<string, unknown>;
-          return (e.message || e.error || JSON.stringify(msg.info.error)) as string;
-        }
-        return String(msg.info.error);
+      if (!msg.info.error) continue;
+      if (typeof msg.info.error === "string") return msg.info.error;
+      if (typeof msg.info.error === "object") {
+        const e = msg.info.error as Record<string, unknown>;
+        return (e.message || e.error || JSON.stringify(msg.info.error)) as string;
       }
+      return String(msg.info.error);
     }
     return null;
   }, [messages]);
@@ -126,11 +103,7 @@ export const MessageTurn = React.memo(function MessageTurn({
   // Flatten all parts from all messages in the group, keeping order
   const allParts = useMemo(() => {
     const parts: { part: MessagePart; msgIdx: number }[] = [];
-    messages.forEach((msg, msgIdx) => {
-      for (const part of msg.parts) {
-        parts.push({ part, msgIdx });
-      }
-    });
+    messages.forEach((msg, msgIdx) => { for (const part of msg.parts) parts.push({ part, msgIdx }); });
     return parts;
   }, [messages]);
 
@@ -166,6 +139,20 @@ export const MessageTurn = React.memo(function MessageTurn({
   const plainText = useMemo(() => {
     return textSegments.join("\n").trim();
   }, [textSegments]);
+
+  // Parse memory block from user messages
+  const memoryBlock = useMemo(() => {
+    if (!isUser) return null;
+    return parseMemoryBlock(plainText);
+  }, [isUser, plainText]);
+
+  // Display text: stripped of memory block for user messages
+  const displaySegments = useMemo(() => {
+    if (!memoryBlock) return textSegments;
+    return [memoryBlock.userText];
+  }, [textSegments, memoryBlock]);
+
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   const handleCopy = useCallback(() => {
     if (!plainText) return;
@@ -218,16 +205,44 @@ export const MessageTurn = React.memo(function MessageTurn({
           )}
         </div>
 
+        {/* Memory accordion for user messages */}
+        {memoryBlock && (
+          <div className="memory-accordion">
+            <button
+              className={`memory-accordion-toggle${memoryOpen ? " open" : ""}`}
+              onClick={() => setMemoryOpen((o) => !o)}
+            >
+              <ChevronRight size={12} className="memory-accordion-chevron" />
+              <Brain size={12} />
+              <span className="memory-accordion-label">
+                {memoryBlock.items.length} {memoryBlock.items.length === 1 ? "memory" : "memories"}
+              </span>
+            </button>
+            {memoryOpen && (
+              <div className="memory-accordion-body">
+                {memoryBlock.items.map((item, i) => (
+                  <div key={i} className="memory-accordion-item">
+                    <span className="memory-accordion-item-label">{item.label}</span>
+                    {item.content && (
+                      <span className="memory-accordion-item-content">{item.content}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Content: render in order */}
         {hasMixedContent ? (
           <>
             {renderInterleavedContent(allParts, childSessions || [], subagentMessages, onOpenSession)}
           </>
         ) : (
-          textSegments.length > 0 && (
+          displaySegments.length > 0 && (
             <div className="message-body">
               <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
-                {textSegments.join("\n")}
+                {displaySegments.join("\n")}
               </ReactMarkdown>
             </div>
           )
@@ -283,61 +298,3 @@ export const MessageTurn = React.memo(function MessageTurn({
     </div>
   );
 });
-
-/**
- * Render parts in order, grouping consecutive text parts together
- * and rendering tool calls inline between text blocks.
- *
- * For "task" tool calls, we match child sessions by order: the N-th task tool
- * gets the N-th child session (sorted by creation time).
- */
-function renderInterleavedContent(
-  allParts: { part: MessagePart; msgIdx: number }[],
-  childSessions: SessionInfo[],
-  subagentMessages?: Map<string, Message[]>,
-  onOpenSession?: (sessionId: string) => void,
-) {
-  const elements: React.ReactNode[] = [];
-  let currentTextChunks: string[] = [];
-  let key = 0;
-  let taskToolIndex = 0;
-
-  function flushText() {
-    if (currentTextChunks.length > 0) {
-      const text = currentTextChunks.join("\n");
-      elements.push(
-        <div className="message-body" key={`text-${key++}`}>
-          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
-            {text}
-          </ReactMarkdown>
-        </div>
-      );
-      currentTextChunks = [];
-    }
-  }
-
-  for (const { part } of allParts) {
-    if (part.type === "text" && part.text) {
-      currentTextChunks.push(part.text);
-    } else if (part.type === "tool" || part.type === "tool-call" || part.type === "tool_call") {
-      flushText();
-      const toolName = part.tool || part.toolName || "";
-      const isTask = toolName === "task";
-      const matched = isTask ? childSessions[taskToolIndex] ?? null : null;
-      if (isTask) taskToolIndex++;
-
-      elements.push(
-        <ToolCall
-          key={part.callID || part.toolCallId || `tool-${key++}`}
-          part={part}
-          childSession={matched}
-          subagentMessages={subagentMessages}
-          onOpenSession={onOpenSession}
-        />
-      );
-    }
-  }
-
-  flushText();
-  return elements;
-}

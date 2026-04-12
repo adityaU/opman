@@ -341,3 +341,67 @@
 .message-body a:hover {
     color: var(--color-primary)
 }
+
+/* Memory accordion in user messages */
+.memory-accordion {
+    margin-bottom: var(--space-2)
+}
+
+.memory-accordion-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 2px 8px 2px 4px;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-full);
+    background: var(--white-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-family: inherit;
+    cursor: pointer;
+    transition: color .15s,border-color .15s
+}
+
+.memory-accordion-toggle:hover {
+    color: var(--color-text);
+    border-color: var(--white-10)
+}
+
+.memory-accordion-chevron {
+    transition: transform .15s;
+    flex-shrink: 0
+}
+
+.memory-accordion-toggle.open .memory-accordion-chevron {
+    transform: rotate(90deg)
+}
+
+.memory-accordion-label {
+    font-weight: 500
+}
+
+.memory-accordion-body {
+    margin-top: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--white-3);
+    border: .5px solid var(--white-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1)
+}
+
+.memory-accordion-item {
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text-muted)
+}
+
+.memory-accordion-item-label {
+    font-weight: 600;
+    color: var(--color-text-secondary)
+}
+
+.memory-accordion-item-content::before {
+    content: ": "
+}
