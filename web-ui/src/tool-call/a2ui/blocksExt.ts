@@ -1,4 +1,4 @@
-import { esc, sf, sfOr, md } from "./types";
+import { esc, sf, sfOr, md, mdInline } from "./types";
 import { svgIcon, levelIcon } from "./blocks";
 import { blocksToHtml } from "./render";
 
@@ -60,7 +60,7 @@ function renderSteps(data: Record<string, unknown>): string {
     else if (st === "error") icon = svgIcon("x-circle", 14);
     else if (st === "active" || st === "in_progress") icon = `<span class="a2ui-step-num">${i + 1}</span>`;
     else icon = `<span class="a2ui-step-num">${i + 1}</span>`;
-    h += `<li class="${cls}"><span class="a2ui-step-icon">${icon}</span><span class="a2ui-step-label">${esc(item.label)}</span></li>`;
+    h += `<li class="${cls}"><span class="a2ui-step-icon">${icon}</span><span class="a2ui-step-label">${mdInline(item.label)}</span></li>`;
   });
   h += "</ol></div>";
   return h;
@@ -93,7 +93,7 @@ function renderMetric(data: Record<string, unknown>): string {
   if (trend === "up") trendHtml = '<span class="a2ui-metric-trend a2ui-metric-trend-up">↑</span>';
   else if (trend === "down") trendHtml = '<span class="a2ui-metric-trend a2ui-metric-trend-down">↓</span>';
   else if (trend === "flat") trendHtml = '<span class="a2ui-metric-trend a2ui-metric-trend-flat">→</span>';
-  return `<div class="a2ui-metric"><span class="a2ui-metric-label">${esc(label)}</span><span class="a2ui-metric-value">${esc(value)}</span>${trendHtml}${desc ? `<span class="a2ui-metric-desc">${esc(desc)}</span>` : ""}</div>`;
+  return `<div class="a2ui-metric"><span class="a2ui-metric-label">${esc(label)}</span><span class="a2ui-metric-value">${esc(value)}</span>${trendHtml}${desc ? `<span class="a2ui-metric-desc">${mdInline(desc)}</span>` : ""}</div>`;
 }
 
 // ── Grid / Flex ───────────────────────────────────────────
@@ -199,8 +199,8 @@ function renderListItems(items: Array<{ text: string; icon?: string; description
   for (const item of items) {
     h += '<li class="a2ui-list-item">';
     if (item.icon) h += `<span class="a2ui-list-icon">${esc(item.icon)}</span>`;
-    h += `<span class="a2ui-list-text">${esc(item.text)}</span>`;
-    if (item.description) h += `<span class="a2ui-list-desc">${esc(item.description)}</span>`;
+    h += `<span class="a2ui-list-text">${mdInline(item.text)}</span>`;
+    if (item.description) h += `<span class="a2ui-list-desc">${mdInline(item.description)}</span>`;
     if (item.items?.length) h += `<ul class="a2ui-list a2ui-list-nested">${renderListItems(item.items as any)}</ul>`;
     h += "</li>";
   }
@@ -226,7 +226,7 @@ function renderStatGroup(data: Record<string, unknown>): string {
     if (s.trend === "up") trend = '<span class="a2ui-trend-up">↑</span>';
     else if (s.trend === "down") trend = '<span class="a2ui-trend-down">↓</span>';
     else if (s.trend) trend = '<span class="a2ui-trend-flat">→</span>';
-    h += `<div class="a2ui-stat"><span class="a2ui-stat-label">${esc(s.label)}</span><div class="a2ui-stat-row"><span class="a2ui-stat-value">${esc(String(s.value))}</span>${trend}</div>${s.description ? `<span class="a2ui-stat-desc">${esc(s.description)}</span>` : ""}</div>`;
+    h += `<div class="a2ui-stat"><span class="a2ui-stat-label">${esc(s.label)}</span><div class="a2ui-stat-row"><span class="a2ui-stat-value">${esc(String(s.value))}</span>${trend}</div>${s.description ? `<span class="a2ui-stat-desc">${mdInline(s.description)}</span>` : ""}</div>`;
   }
   h += "</div>";
   return h;

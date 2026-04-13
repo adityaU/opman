@@ -1,5 +1,7 @@
 // A2UI types used across renderer files.
 
+import { marked } from "marked";
+
 export interface A2UIBlock {
   type: string;
   data: Record<string, unknown>;
@@ -53,29 +55,25 @@ export function sfOr(data: Record<string, unknown>, ...keys: string[]): string {
   return "";
 }
 
-/** Simple markdown-to-HTML: bold, italic, code, links, paragraphs */
+/** Configure marked once — GFM, breaks, links open in new tab. */
+const renderer = new marked.Renderer();
+const origLink = renderer.link.bind(renderer);
+renderer.link = function (token) {
+  const html = origLink(token);
+  return html.replace("<a ", '<a target="_blank" rel="noopener" ');
+};
+marked.setOptions({ gfm: true, breaks: true, renderer });
+
+/** Full markdown-to-HTML (block-level: headings, lists, tables, code fences, etc.) */
 export function md(text: unknown): string {
   if (!text || typeof text !== "string") return "";
-  let h = esc(text);
-  // inline code
-  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // bold
-  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // italic
-  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // links
-  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // line breaks -> paragraphs
-  const paras = h.split(/\n{2,}/);
-  if (paras.length <= 1) return `<p>${h}</p>`;
-  return paras.map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
+  return marked.parse(text, { async: false }) as string;
 }
 
-/** Inline markdown — strips outer <p> for single-line fields */
+/** Inline markdown — no wrapping <p>, for single-line fields. */
 export function mdInline(text: unknown): string {
   if (!text || typeof text !== "string") return "";
-  const result = md(text);
-  return result.replace(/^<p>(.*)<\/p>$/s, "$1");
+  return marked.parseInline(text, { async: false }) as string;
 }
 
 const CHART_COLORS = [

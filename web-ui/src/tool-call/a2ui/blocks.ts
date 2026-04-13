@@ -1,4 +1,7 @@
 import { esc, sf, sfOr, md, mdInline } from "./types";
+// md()      — block-level markdown (headings, lists, code fences, paragraphs)
+// mdInline()— inline markdown (bold, italic, code, links — no wrapping <p>)
+// esc()     — plain HTML-escape for identifiers, labels, attribute values
 import type { A2UIBlock } from "./types";
 
 export function svgIcon(name: string, size = 14): string {
@@ -76,7 +79,7 @@ function renderStatus(data: Record<string, unknown>): string {
   const label = sf(data, "label");
   const level = sf(data, "level") || "info";
   const detail = sfOr(data, "detail", "message");
-  return `<div class="a2ui-status a2ui-status-${esc(level)}">${levelIcon(level)}<span class="a2ui-status-label">${esc(label)}</span>${detail ? `<span class="a2ui-status-detail">${esc(detail)}</span>` : ""}</div>`;
+  return `<div class="a2ui-status a2ui-status-${esc(level)}">${levelIcon(level)}<span class="a2ui-status-label">${esc(label)}</span>${detail ? `<span class="a2ui-status-detail">${mdInline(detail)}</span>` : ""}</div>`;
 }
 
 function renderProgress(data: Record<string, unknown>): string {

@@ -1,4 +1,4 @@
-import { esc, sf, sfOr, md, avatarHue } from "./types";
+import { esc, sf, sfOr, md, mdInline, avatarHue } from "./types";
 import { svgIcon } from "./blocks";
 import { blocksToHtml } from "./render";
 
@@ -12,7 +12,7 @@ function renderImage(data: Record<string, unknown>): string {
   const w = data.width ? ` width="${esc(String(data.width))}"` : "";
   const h2 = data.height ? ` height="${esc(String(data.height))}"` : "";
   let h = `<figure class="a2ui-image"><img class="a2ui-image-el" src="${esc(url)}" alt="${esc(alt)}"${w}${h2} loading="lazy">`;
-  if (caption) h += `<figcaption class="a2ui-image-caption">${esc(caption)}</figcaption>`;
+  if (caption) h += `<figcaption class="a2ui-image-caption">${mdInline(caption)}</figcaption>`;
   return h + "</figure>";
 }
 
@@ -36,7 +36,7 @@ function renderLink(data: Record<string, unknown>): string {
   const url = sfOr(data, "url", "href");
   const label = sfOr(data, "label", "text");
   const desc = sf(data, "description");
-  return `<a class="a2ui-link" href="${esc(url)}" target="_blank" rel="noopener"><div><span class="a2ui-link-label">${esc(label || url)}</span>${desc ? `<div class="a2ui-link-desc">${esc(desc)}</div>` : ""}</div><span class="a2ui-link-icon">${svgIcon("external-link", 14)}</span></a>`;
+  return `<a class="a2ui-link" href="${esc(url)}" target="_blank" rel="noopener"><div><span class="a2ui-link-label">${esc(label || url)}</span>${desc ? `<div class="a2ui-link-desc">${mdInline(desc)}</div>` : ""}</div><span class="a2ui-link-icon">${svgIcon("external-link", 14)}</span></a>`;
 }
 
 // ── Accordion ─────────────────────────────────────────────
@@ -112,9 +112,9 @@ function renderTimeline(data: Record<string, unknown>): string {
     const date = item.date ?? item.time ?? "";
     if (date) h += `<span class="a2ui-tl-date">${esc(date)}</span>`;
     const label = item.label ?? item.title ?? "";
-    if (label) h += `<span class="a2ui-tl-label">${esc(label)}</span>`;
+    if (label) h += `<span class="a2ui-tl-label">${mdInline(label)}</span>`;
     const desc = item.description ?? item.body ?? "";
-    if (desc) h += `<span class="a2ui-tl-desc">${esc(desc)}</span>`;
+    if (desc) h += `<span class="a2ui-tl-desc">${mdInline(desc)}</span>`;
     h += "</div></div>";
   }
   h += "</div>";
@@ -259,7 +259,7 @@ function renderToggle(data: Record<string, unknown>): string {
   h += `<input type="checkbox" class="a2ui-toggle-input" id="${id}"${checked ? " checked" : ""}${cbId ? ` data-a2ui-callback="${esc(cbId)}"` : ""}>`;
   h += '<span class="a2ui-toggle-track"></span>';
   h += '</label>';
-  if (desc) h += `<span class="a2ui-toggle-desc">${esc(desc)}</span>`;
+  if (desc) h += `<span class="a2ui-toggle-desc">${mdInline(desc)}</span>`;
   h += "</div>";
   return h;
 }
@@ -275,7 +275,7 @@ function renderVideo(data: Record<string, unknown>): string {
   const h2 = data.height ? ` height="${esc(String(data.height))}"` : "";
   let h = '<figure class="a2ui-video">';
   h += `<video class="a2ui-video-el" controls${poster ? ` poster="${esc(poster)}"` : ""}${w}${h2}><source src="${esc(url)}"></video>`;
-  if (caption) h += `<figcaption class="a2ui-video-caption">${esc(caption)}</figcaption>`;
+  if (caption) h += `<figcaption class="a2ui-video-caption">${mdInline(caption)}</figcaption>`;
   return h + "</figure>";
 }
 
