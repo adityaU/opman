@@ -5,8 +5,8 @@ import {
   Pin,
   MessageCircle,
   X,
+  XCircle,
   Pencil,
-  Trash2,
 } from "lucide-react";
 import { useSwipeReveal } from "../hooks/useSwipeReveal";
 import { formatTime } from "./formatTime";
@@ -164,10 +164,10 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
         </button>
         <button
           className="swipe-action-btn swipe-action-danger"
-          title="Delete"
-          onClick={(e) => { e.stopPropagation(); onDeleteSession(); swipe.close(); }}
+          title="Close Session"
+          onClick={(e) => { e.stopPropagation(); onRemove(); swipe.close(); }}
         >
-          <Trash2 size={14} />
+          <XCircle size={14} />
         </button>
       </div>
 

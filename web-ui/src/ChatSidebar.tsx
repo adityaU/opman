@@ -257,6 +257,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
         <SessionContextMenu
           menu={contextMenu}
           isPinned={pinnedSessions.has(contextMenu.sessionId)}
+          isOpen={openSessions.has(contextMenu.sessionId)}
           onPin={() => {
             togglePin(contextMenu.sessionId);
             setContextMenu(null);
@@ -267,6 +268,10 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           }}
           onDelete={() => {
             triggerDelete(contextMenu.sessionId, contextMenu.sessionTitle);
+            setContextMenu(null);
+          }}
+          onRemoveOpen={() => {
+            removeOpenSession(contextMenu.sessionId);
             setContextMenu(null);
           }}
         />

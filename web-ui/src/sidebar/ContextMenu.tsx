@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Pin, Pencil, Trash2 } from "lucide-react";
+import { Pin, Pencil, Trash2, XCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────
 
@@ -72,17 +72,21 @@ export function useContextMenu() {
 interface SessionContextMenuProps {
   menu: ContextMenuState;
   isPinned: boolean;
+  isOpen: boolean;
   onPin: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onRemoveOpen: () => void;
 }
 
 export function SessionContextMenu({
   menu,
   isPinned,
+  isOpen,
   onPin,
   onRename,
   onDelete,
+  onRemoveOpen,
 }: SessionContextMenuProps) {
   const mobile = isMobile();
   const iconSz = mobile ? 16 : 12;
@@ -103,6 +107,12 @@ export function SessionContextMenu({
         <Pencil size={iconSz} />
         Rename
       </button>
+      {isOpen && (
+        <button className="sb-context-item" onClick={onRemoveOpen}>
+          <XCircle size={iconSz} />
+          Close Session
+        </button>
+      )}
       <button className="sb-context-item sb-context-danger" onClick={onDelete}>
         <Trash2 size={iconSz} />
         Delete

@@ -130,7 +130,6 @@ export function useAssistantState(
         .then((briefing) => {
           if (briefing && autonomyMode !== "observe") {
             setResumeBriefing(briefing);
-            cbs.onOpenAssistantCenter();
           }
         })
         .catch(() => {});
