@@ -43,7 +43,7 @@ export interface ModalLayerProps {
   onCommand: (cmd: string, args?: string) => Promise<void>;
   onNewSession: () => void;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
-  onSend: (text: string, images?: any[]) => Promise<void>;
+  onSend: (text: string, images?: any[]) => Promise<boolean>;
   onModelSelected: (modelId: string, providerId: string) => void;
   onAgentChange: (agentId: string) => Promise<void>;
   onContextSubmit: (text: string) => Promise<void>;

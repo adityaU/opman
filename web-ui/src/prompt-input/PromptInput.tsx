@@ -9,7 +9,7 @@ import {
 } from "./components";
 
 interface Props {
-  onSend: (text: string, images?: ImageAttachment[]) => void;
+  onSend: (text: string, images?: ImageAttachment[]) => Promise<boolean>;
   onAbort: () => void;
   onCommand: (command: string, args?: string) => void;
   onOpenModelPicker: () => void;
@@ -51,7 +51,7 @@ export function PromptInput({
   useEffect(() => { textareaRef.current?.focus(); }, [sessionId]);
 
   // ── Submit handler ───────────────────────────────────
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed && attach.attachments.length === 0) return;
     if (trimmed.startsWith("/") && attach.attachments.length === 0) {
@@ -59,19 +59,24 @@ export function PromptInput({
       onCommand(parts[0].slice(1), parts.slice(1).join(" "));
       setText(""); return;
     }
-    onSend(trimmed || "Attached image(s)", attach.attachments.length > 0 ? attach.attachments : undefined);
+    const ok = await onSend(trimmed || "Attached image(s)", attach.attachments.length > 0 ? attach.attachments : undefined);
+    if (!ok) return;
     setText(""); attach.clearAttachments(); atMention.clearMentions();
     onContentChange?.(false);
   }, [text, attach, atMention, onSend, onCommand, onContentChange]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); return; }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!isBusy) handleSubmit();
+      return;
+    }
     if (e.key === "/" && text === "") setShowSlash(true);
     if (e.key === "Escape") {
       if (showSlash) setShowSlash(false);
       if (atMention.showAtPopover) { /* close handled by atMention hook */ }
     }
-  }, [handleSubmit, text, showSlash, atMention.showAtPopover]);
+  }, [handleSubmit, text, showSlash, atMention.showAtPopover, isBusy]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;

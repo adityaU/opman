@@ -21,7 +21,7 @@ interface MobileDockProps {
   mcpEditorOpenLine: number | null;
   mcpAgentActivity: Map<string, any>;
   onError: (msg: string) => void;
-  onSendToAI: (text: string, images?: any[]) => Promise<void>;
+  onSendToAI: (text: string, images?: any[]) => Promise<boolean>;
 }
 
 export function MobileDock(props: MobileDockProps): React.ReactElement {

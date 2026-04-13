@@ -67,17 +67,18 @@ export function SplitView({
   const modelRef: ModelRef | undefined = selectedModel
     ? { providerID: "", modelID: selectedModel } : undefined;
 
-  const handleSendPrimary = useCallback(async (text: string, images?: ImageAttachment[]) => {
-    if (!primarySessionId || primarySending) return;
+  const handleSendPrimary = useCallback(async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+    if (!primarySessionId || primarySending) return false;
     setPrimarySending(true);
     try {
       await sendMessage(primarySessionId, text, modelRef, images);
       setPrimaryMessages(await loadMessages(primarySessionId));
-    } catch { /* ignore */ } finally { setPrimarySending(false); }
+      return true;
+    } catch { return false; } finally { setPrimarySending(false); }
   }, [primarySessionId, primarySending, modelRef, setPrimaryMessages]);
 
-  const handleSendSecondary = useCallback(async (text: string, images?: ImageAttachment[]) => {
-    if (!secondarySessionId || secondarySending) return;
+  const handleSendSecondary = useCallback(async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+    if (!secondarySessionId || secondarySending) return false;
     setSecondarySending(true);
     const optId = `opt-${Date.now()}`;
     const optimistic: Message = {
@@ -88,8 +89,10 @@ export function SplitView({
     try {
       await sendMessage(secondarySessionId, text, modelRef, images);
       setSecondaryMessages(await loadMessages(secondarySessionId));
+      return true;
     } catch {
       setSecondaryMessages((prev) => prev.filter((m) => m.info.messageID !== optId));
+      return false;
     } finally { setSecondarySending(false); }
   }, [secondarySessionId, secondarySending, modelRef, setSecondaryMessages]);
 
@@ -128,7 +131,7 @@ export function SplitView({
   }, [pickerOpen]);
 
   const inputProps = (sid: string | null, busy: boolean, sending: boolean,
-    onSend: (t: string, i?: ImageAttachment[]) => void, onAbort: () => void) => ({
+    onSend: (t: string, i?: ImageAttachment[]) => Promise<boolean>, onAbort: () => void) => ({
     onSend, onAbort, onCommand: noopCmd, onOpenModelPicker: noopVoid, onOpenAgentPicker: noopVoid,
     isBusy: busy, isSending: sending, disabled: !sid, sessionId: sid,
     currentModel: selectedModel ?? null, currentAgent: "", onAgentChange: noopAgent,
