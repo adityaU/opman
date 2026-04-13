@@ -141,20 +141,22 @@ export function TextareaRow({
         multiple onChange={onFileSelect} style={{ display: "none" }} />
       <textarea ref={textareaRef} className="prompt-textarea" value={text}
         onChange={onChange} onKeyDown={onKeyDown} onPaste={onPaste}
-        placeholder={disabled ? "Select a session to start..." : isBusy ? "Waiting for response..." : "Type a message... (/ for commands, paste or drop images)"}
+        placeholder={disabled ? "Select a session to start..." : isBusy ? "Type a follow-up message..." : "Type a message... (/ for commands, paste or drop images)"}
         disabled={disabled} rows={1} />
-      <div className="prompt-actions">
-        {isBusy ? (
+      <div className={`prompt-actions${isBusy ? " prompt-actions-busy" : ""}`}>
+        {isBusy && (
           <button className="prompt-btn prompt-abort-btn" onClick={onAbort} title="Stop generation" aria-label="Stop generation">
             <Square size={16} />
           </button>
-        ) : isSending ? (
+        )}
+        {isSending ? (
           <button className="prompt-btn prompt-send-btn" disabled title="Sending..." aria-label="Sending message">
             <Loader2 size={16} className="spinning" />
           </button>
         ) : (
           <button className="prompt-btn prompt-send-btn" onClick={onSubmit}
-            disabled={disabled || !hasContent} title="Send (Enter)" aria-label="Send message">
+            disabled={disabled || !hasContent}
+            title={isBusy ? "Send follow-up (Enter)" : "Send (Enter)"} aria-label="Send message">
             <Send size={16} />
           </button>
         )}

@@ -68,7 +68,7 @@ export function PromptInput({
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!isBusy) handleSubmit();
+      handleSubmit();
       return;
     }
     if (e.key === "/" && text === "") setShowSlash(true);
@@ -76,7 +76,7 @@ export function PromptInput({
       if (showSlash) setShowSlash(false);
       if (atMention.showAtPopover) { /* close handled by atMention hook */ }
     }
-  }, [handleSubmit, text, showSlash, atMention.showAtPopover, isBusy]);
+  }, [handleSubmit, text, showSlash, atMention.showAtPopover]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;

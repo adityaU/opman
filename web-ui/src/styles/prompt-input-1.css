@@ -122,6 +122,20 @@
     transform: scale(.94)
 }
 
+/* Busy state: Stop + Send buttons shown side-by-side */
+.prompt-actions-busy {
+    gap: var(--space-2)
+}
+
+.prompt-actions-busy .prompt-send-btn {
+    opacity: .65;
+    transition: opacity var(--transition-base)
+}
+
+.prompt-actions-busy .prompt-send-btn:not(:disabled) {
+    opacity: 1
+}
+
 .prompt-attach-btn {
     width: 28px;
     height: 28px;
