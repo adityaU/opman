@@ -18,7 +18,9 @@ export interface ProjectNodeProps {
   isActiveProject: boolean;
   isExpanded: boolean;
   activeSessionId: string | null;
-  busySessions: Set<string>;
+  isSessionBusy: (sid: string) => boolean;
+  /** Serialized key — changes when busy set changes, forces useMemo recomputation. */
+  busyKey: string;
   expandedSubagents: string | null;
   showMore: boolean;
   searchQuery: string;
@@ -53,7 +55,8 @@ export function ProjectNode({
   isActiveProject,
   isExpanded,
   activeSessionId,
-  busySessions,
+  isSessionBusy,
+  busyKey,
   expandedSubagents,
   showMore,
   searchQuery,
@@ -99,11 +102,11 @@ export function ProjectNode({
 
     let active = false;
     for (const s of project.sessions) {
-      if (busySessions.has(s.id)) { active = true; break; }
+      if (isSessionBusy(s.id)) { active = true; break; }
     }
 
     return { parentSessions: parents, childrenMap: children, hasActive: active };
-  }, [project.sessions, busySessions, pinnedSessions]);
+  }, [project.sessions, busyKey, pinnedSessions]);
 
   const filteredParents = useMemo(() => {
     if (!searchQuery) return parentSessions;
@@ -164,8 +167,8 @@ export function ProjectNode({
                   <SessionRow
                     session={session}
                     isActive={session.id === activeSessionId}
-                    isBusy={busySessions.has(session.id)}
-                    hasActiveSubagent={subagents.some((s) => busySessions.has(s.id))}
+                    isBusy={isSessionBusy(session.id)}
+                    hasActiveSubagent={subagents.some((s) => isSessionBusy(s.id))}
                     isPinned={pinnedSessions.has(session.id)}
                     isRenaming={renameTarget?.sessionId === session.id}
                     subagentCount={subagents.length}
@@ -190,7 +193,7 @@ export function ProjectNode({
                       {subagents.map((sub) => (
                         <button
                           key={sub.id}
-                          className={`sb-session sb-session-sub${sub.id === activeSessionId ? " active" : ""}${busySessions.has(sub.id) ? " busy" : ""}`}
+                          className={`sb-session sb-session-sub${sub.id === activeSessionId ? " active" : ""}${isSessionBusy(sub.id) ? " busy" : ""}`}
                           onClick={() => onSelectSession(sub.id, index)}
                         >
                           <div className="sb-session-icon sub"><Zap size={12} /></div>
@@ -202,7 +205,7 @@ export function ProjectNode({
                               {formatTime(sub.time.updated)}
                             </span>
                           </div>
-                          {busySessions.has(sub.id) && <span className="sb-busy-indicator" />}
+                          {isSessionBusy(sub.id) && <span className="sb-busy-indicator" />}
                         </button>
                       ))}
                     </div>

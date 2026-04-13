@@ -36,7 +36,7 @@ export interface SessionRowProps {
   onSwipeDelete: () => void;
 }
 
-export function SessionRow({
+export const SessionRow = React.memo(function SessionRow({
   session,
   isActive,
   isBusy,
@@ -143,4 +143,4 @@ export function SessionRow({
       </div>
     </div>
   );
-}
+});

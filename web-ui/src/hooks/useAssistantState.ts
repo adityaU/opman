@@ -76,21 +76,39 @@ export function useAssistantState(
       .catch(() => {});
   }, []);
 
-  // ── Backend-driven active memory ──
+  // ── Backend-driven active memory — deferred so it doesn't block session switch rendering ──
   useEffect(() => {
-    fetchActiveMemory(appState?.active_project, activeSessionId)
-      .then((resp) => setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []))
-      .catch(() => {});
-  }, [personalMemory, appState, activeSessionId]);
+    const id = (typeof requestIdleCallback === "function")
+      ? requestIdleCallback(() => {
+          fetchActiveMemory(appState?.active_project, activeSessionId)
+            .then((resp) => setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []))
+            .catch(() => {});
+        })
+      : setTimeout(() => {
+          fetchActiveMemory(appState?.active_project, activeSessionId)
+            .then((resp) => setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []))
+            .catch(() => {});
+        }, 0) as unknown as number;
+    return () => {
+      if (typeof cancelIdleCallback === "function") cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, [appState?.active_project, activeSessionId]);
 
-  // ── Backend-driven recommendations (pulse) ──
+  // ── Backend-driven recommendations (pulse) — debounced to avoid rapid-fire on session switch ──
+  const recsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    computeRecommendations({
-      permissions: toPermissionInputs(permissions),
-      questions: toQuestionInputs(questions),
-    })
-      .then((resp) => setAssistantPulse(resp?.recommendations?.[0] ?? null))
-      .catch(() => {});
+    if (recsTimerRef.current) clearTimeout(recsTimerRef.current);
+    recsTimerRef.current = setTimeout(() => {
+      recsTimerRef.current = null;
+      computeRecommendations({
+        permissions: toPermissionInputs(permissions),
+        questions: toQuestionInputs(questions),
+      })
+        .then((resp) => setAssistantPulse(resp?.recommendations?.[0] ?? null))
+        .catch(() => {});
+    }, 2000);
+    return () => { if (recsTimerRef.current) clearTimeout(recsTimerRef.current); };
   }, [autonomyMode, missionCache, delegatedWorkCache, activeMemoryItems, routineCache, permissions, questions, workspaceCache]);
 
   // ── Resume briefing on visibility change ──

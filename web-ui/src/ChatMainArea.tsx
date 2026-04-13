@@ -19,7 +19,10 @@ export interface ChatMainAreaProps {
   sessionStatus: "idle" | "busy";
   connectionStatus?: "connected" | "reconnecting" | "disconnected";
   messages: any[];
-  busySessions: any;
+  /** Stable callback — reads from ref, never changes identity. */
+  isSessionBusy: (sid: string) => boolean;
+  /** Serialized key — changes only when the set of busy IDs changes. */
+  busyKey: string;
   isLoadingMessages: boolean;
   isLoadingOlder: boolean;
   hasOlderMessages: boolean;
@@ -61,7 +64,7 @@ export interface ChatMainAreaProps {
   isBookmarked: (id: string) => boolean;
   toggleBookmark: (id: string, sessionId: string, role: string, preview: string) => void;
   // Callbacks
-  handleSend: (text: string, images?: any[]) => Promise<void>;
+  handleSend: (text: string, images?: any[]) => Promise<boolean>;
   handleAbort: () => Promise<void>;
   handleCommand: (command: string, args?: string) => Promise<void>;
   handlePermissionReply: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;
@@ -124,7 +127,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               projects={p.appState.projects}
               activeProject={p.appState.active_project}
               activeSessionId={p.activeSessionId}
-              busySessions={p.busySessions}
+              isSessionBusy={p.isSessionBusy}
+              busyKey={p.busyKey}
               onSelectSession={p.handleSelectSession}
               onNewSession={p.handleNewSession}
               onSwitchProject={p.handleSwitchProject}

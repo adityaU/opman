@@ -24,11 +24,8 @@ import { StatusBar } from "./StatusBar";
 import { ToastContainer } from "./ToastContainer";
 import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 import type { ThemeMode } from "./ThemeSelectorModal";
-import type { ThemeColors } from "./api";
-import { applyThemeToCss } from "./utils/theme";
-import { fetchThemePair } from "./api";
+import { getPersistedAppearance, initAppearance } from "./utils/appearance";
 import type { Appearance } from "./utils/appearance";
-import { getPersistedAppearance, resolveThemeColors, storeThemePair, initAppearance } from "./utils/appearance";
 import { SkillsUploadModal } from "./SkillsUploadModal";
 
 export function ChatLayout() {
@@ -43,7 +40,16 @@ export function ChatLayout() {
     refreshState, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus,
     addOptimisticMessage, loadOlderMessages, expectSessionSwitch, beginSessionSwitch,
+    isSessionBusy,
   } = sse;
+
+  // Stable serialized key — changes only when the actual set of busy IDs changes.
+  // Consumed by sidebar children that need to re-render on busy state change,
+  // while avoiding passing the raw Set (which gets a new reference every event).
+  const busyKey = useMemo(() => {
+    if (busySessions.size === 0) return "";
+    return Array.from(busySessions).sort().join(",");
+  }, [busySessions]);
 
   // ── Derived app state ──
   const activeProject = appState ? appState.projects[appState.active_project] ?? null : null;
@@ -76,11 +82,8 @@ export function ChatLayout() {
   useEffect(() => {
     applyThemeMode(themeMode);
     initAppearance();
-    fetchThemePair().then((pair) => {
-      if (!pair) return;
-      storeThemePair(pair, appearance);
-      applyThemeToCss(resolveThemeColors(pair, appearance));
-    });
+    // Note: fetchThemePair() is already called in useSSE on mount —
+    // no need to duplicate it here.
   }, []);
 
   // ── Modals / Toast / Providers / Bookmarks ──
@@ -170,7 +173,7 @@ export function ChatLayout() {
       sidebarOpen: panels.sidebar.open, terminalOpen: panels.terminal.open,
       neovimOpen: panels.editor.open, gitOpen: panels.git.open,
     },
-    setPanels, refreshState, expectSessionSwitch,
+    setPanels, refreshState, expectSessionSwitch, beginSessionSwitch,
   });
 
   // ── Assistant state ──
@@ -278,7 +281,7 @@ export function ChatLayout() {
       <ChatMainArea
         appState={appState} activeProject={activeProject} activeSessionId={activeSessionId}
         sessionStatus={sessionStatus} connectionStatus={sse.connectionStatus}
-        messages={messages} busySessions={busySessions}
+        messages={messages} isSessionBusy={isSessionBusy} busyKey={busyKey}
         isLoadingMessages={isLoadingMessages} isLoadingOlder={isLoadingOlder}
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}

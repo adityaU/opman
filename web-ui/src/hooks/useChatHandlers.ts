@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { ModalName } from "./useModalState";
 import type { PersonalMemoryItem } from "../api";
 import {
@@ -42,9 +42,47 @@ export interface ChatHandlerInputs {
 
 /* ── Hook ──────────────────────────────────────────────── */
 
+/**
+ * Builds all chat handler closures. Uses a ref for `activeSessionId` so that
+ * session switches don't recreate every handler (the closures read the ref at
+ * call-time). All other inputs are included in the deps memo normally.
+ */
 export function useChatHandlers(inputs: ChatHandlerInputs) {
-  const deps: HandlerDeps = useMemo(() => inputs, [
-    inputs.activeSessionId, inputs.appState, inputs.selectedModel,
+  // Keep activeSessionId in a ref — handlers read it at call-time.
+  // This prevents all 11 handlers from being recreated on every session switch.
+  const sessionIdRef = useRef(inputs.activeSessionId);
+  sessionIdRef.current = inputs.activeSessionId;
+
+  const deps: HandlerDeps = useMemo(() => ({
+    // Provide a getter that reads the ref at call-time
+    get activeSessionId() { return sessionIdRef.current; },
+    appState: inputs.appState,
+    selectedModel: inputs.selectedModel,
+    selectedAgent: inputs.selectedAgent,
+    sending: inputs.sending,
+    activeMemoryItems: inputs.activeMemoryItems,
+    setSending: inputs.setSending,
+    setSelectedModel: inputs.setSelectedModel,
+    setSelectedAgent: inputs.setSelectedAgent,
+    setMobileInputHidden: inputs.setMobileInputHidden,
+    addToast: inputs.addToast,
+    addOptimisticMessage: inputs.addOptimisticMessage,
+    refreshState: inputs.refreshState,
+    expectSessionSwitch: inputs.expectSessionSwitch,
+    beginSessionSwitch: inputs.beginSessionSwitch,
+    clearPermission: inputs.clearPermission,
+    clearQuestion: inputs.clearQuestion,
+    setMobileSidebarOpen: inputs.setMobileSidebarOpen,
+    openModal: inputs.openModal,
+    toggleSidebar: inputs.toggleSidebar,
+    toggleTerminal: inputs.toggleTerminal,
+    toggleNeovim: inputs.toggleNeovim,
+    toggleGit: inputs.toggleGit,
+    toggleDebug: inputs.toggleDebug,
+    toggleSplitView: inputs.toggleSplitView,
+  }), [
+    // activeSessionId intentionally omitted — read from ref via getter
+    inputs.appState, inputs.selectedModel,
     inputs.selectedAgent, inputs.sending, inputs.activeMemoryItems,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,

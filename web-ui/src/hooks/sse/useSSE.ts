@@ -40,11 +40,18 @@ export interface CachedSession {
   lastAccess: number;
 }
 
+/** Schedule a callback on idle — falls back to setTimeout(0) when requestIdleCallback is unavailable. */
+const scheduleIdle = typeof requestIdleCallback === "function"
+  ? (cb: () => void) => requestIdleCallback(cb)
+  : (cb: () => void) => setTimeout(cb, 0);
+
 export function useSSE(): SSEState {
   const [appState, setAppState] = useState<AppState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [stats, setStats] = useState<SessionStats | null>(null);
   const [busySessions, setBusySessions] = useState<Set<string>>(new Set());
+  const busySessionsRef = useRef<Set<string>>(new Set());
+  useEffect(() => { busySessionsRef.current = busySessions; }, [busySessions]);
   const [permissions, setPermissions] = useState<PermissionRequest[]>([]);
   const [questions, setQuestions] = useState<QuestionRequest[]>([]);
   const [sessionStatus, setSessionStatus] = useState<"idle" | "busy">("idle");
@@ -87,8 +94,16 @@ export function useSSE(): SSEState {
   /** Reclassify all pending permissions/questions when the active session changes.
    *  Items belonging to `newSid` become active; everything else becomes cross-session. */
   const reclassifyInteractions = useCallback((newSid: string | null) => {
-    const allPerms = [...permissionsRef.current, ...crossPermissionsRef.current];
-    const allQs = [...questionsRef.current, ...crossQuestionsRef.current];
+    const pLen = permissionsRef.current.length;
+    const cpLen = crossPermissionsRef.current.length;
+    const qLen = questionsRef.current.length;
+    const cqLen = crossQuestionsRef.current.length;
+    // Nothing to reclassify — skip 4 no-op setState calls
+    if (pLen === 0 && cpLen === 0 && qLen === 0 && cqLen === 0) return;
+    const allPerms = pLen > 0 && cpLen > 0 ? [...permissionsRef.current, ...crossPermissionsRef.current]
+      : pLen > 0 ? permissionsRef.current : crossPermissionsRef.current;
+    const allQs = qLen > 0 && cqLen > 0 ? [...questionsRef.current, ...crossQuestionsRef.current]
+      : qLen > 0 ? questionsRef.current : crossQuestionsRef.current;
     setPermissions(newSid ? allPerms.filter((p) => p.sessionID === newSid) : []);
     setCrossSessionPermissions(newSid ? allPerms.filter((p) => p.sessionID !== newSid) : allPerms);
     setQuestions(newSid ? allQs.filter((q) => q.sessionID === newSid) : []);
@@ -470,8 +485,8 @@ export function useSSE(): SSEState {
             .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
           fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
         }
-        // Hydrate pending permissions/questions from server-side tracking
-        hydratePending();
+        // Hydrate pending permissions/questions — deferred so message rendering isn't blocked
+        scheduleIdle(() => hydratePending());
       } else {
         messageMapRef.current = new Map();
         subagentMapsRef.current = new Map();
@@ -614,6 +629,9 @@ export function useSSE(): SSEState {
     expectSessionSwitchRef.current = true;
   }, []);
 
+  /** Stable callback for checking busy state — avoids passing Set reference to children. */
+  const isSessionBusy = useCallback((sid: string) => busySessionsRef.current.has(sid), []);
+
   /** Optimistically begin a session switch — immediately clears messages and shows loading state.
    *  Call this at click-time before any async API calls so the UI responds instantly.
    *  Also kicks off the message fetch so data loads in parallel with the API round-trips. */
@@ -674,7 +692,8 @@ export function useSSE(): SSEState {
         .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
     }
     fetchSessionStats(targetSid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
-    hydratePending();
+    // Deferred — permissions/questions are not on the critical path for message rendering
+    scheduleIdle(() => hydratePending());
   }, [saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions, hydratePending]);
 
   return {
@@ -686,6 +705,6 @@ export function useSSE(): SSEState {
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, loadOlderMessages,
-    expectSessionSwitch, beginSessionSwitch,
+    expectSessionSwitch, beginSessionSwitch, isSessionBusy,
   };
 }

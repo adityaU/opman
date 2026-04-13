@@ -90,4 +90,7 @@ export interface SSEState {
    *  state immediately at click-time, before any async API calls.
    *  Restores from cache if available (no shimmer). */
   beginSessionSwitch: (targetSid: string) => void;
+  /** Stable callback for checking if a session is busy — avoids passing the Set reference
+   *  to children (which would defeat React.memo on every busy/idle SSE event). */
+  isSessionBusy: (sid: string) => boolean;
 }

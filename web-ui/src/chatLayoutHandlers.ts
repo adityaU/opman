@@ -75,8 +75,12 @@ export const LOCAL_COMMANDS = new Set([
 /* ── Factory functions ──────────────────────────────────── */
 
 export function createHandleSend(deps: HandlerDeps) {
-  return async (text: string, images?: ImageAttachment[]) => {
-    if (!deps.activeSessionId || deps.sending) return;
+  return async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+    if (!deps.activeSessionId) return false;
+    if (deps.sending) {
+      deps.addToast("Please wait — still sending…", "warning");
+      return false;
+    }
     deps.setSending(true);
     deps.addOptimisticMessage(text);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -89,8 +93,10 @@ export function createHandleSend(deps: HandlerDeps) {
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
       );
+      return true;
     } catch {
       deps.addToast("Failed to send message", "error");
+      return false;
     } finally {
       deps.setSending(false);
     }
@@ -219,7 +225,9 @@ export function createHandleSelectSession(deps: HandlerDeps) {
         await switchProject(projectIdx);
       }
       await selectSession(projectIdx, sessionId);
-      deps.refreshState();
+      // Note: no explicit refreshState() here — the backend fires a
+      // state_changed SSE event which already triggers refreshState()
+      // in eventHandler.ts.  Calling it twice wastes a round-trip.
     } catch {
       deps.addToast("Failed to switch session", "error");
     }

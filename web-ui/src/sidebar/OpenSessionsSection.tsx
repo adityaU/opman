@@ -26,7 +26,8 @@ export interface OpenSessionsSectionProps {
   projects: ProjectInfo[];
   openSessions: Set<string>;
   activeSessionId: string | null;
-  busySessions: Set<string>;
+  isSessionBusy: (sid: string) => boolean;
+  busyKey: string;
   pinnedSessions: Set<string>;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
   onRemoveOpen: (sessionId: string) => void;
@@ -47,7 +48,8 @@ export function OpenSessionsSection({
   projects,
   openSessions,
   activeSessionId,
-  busySessions,
+  isSessionBusy,
+  busyKey,
   pinnedSessions,
   onSelectSession,
   onRemoveOpen,
@@ -88,7 +90,7 @@ export function OpenSessionsSection({
           key={e.sid}
           entry={e}
           isActive={e.sid === activeSessionId}
-          isBusy={busySessions.has(e.sid)}
+          isBusy={isSessionBusy(e.sid)}
           isPinned={pinnedSessions.has(e.sid)}
           onSelect={() => onSelectSession(e.sid, e.projectIdx)}
           onRemove={() => onRemoveOpen(e.sid)}
@@ -124,7 +126,7 @@ interface OpenSessionRowProps {
   ) => void;
 }
 
-function OpenSessionRow({
+const OpenSessionRow = React.memo(function OpenSessionRow({
   entry,
   isActive,
   isBusy,
@@ -198,4 +200,4 @@ function OpenSessionRow({
       </div>
     </div>
   );
-}
+});

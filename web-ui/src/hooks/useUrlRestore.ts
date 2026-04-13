@@ -15,6 +15,8 @@ export interface UseUrlRestoreOptions {
   setPanels: (p: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean }) => void;
   refreshState: () => void;
   expectSessionSwitch: () => void;
+  /** Optimistically begin session switch — shows loading state and fires message fetch in parallel. */
+  beginSessionSwitch: (targetSid: string) => void;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface UseUrlRestoreOptions {
  * and keeps URL in sync with app state.
  */
 export function useUrlRestore(opts: UseUrlRestoreOptions) {
-  const { appState, activeSessionId, panels, setPanels, refreshState, expectSessionSwitch } = opts;
+  const { appState, activeSessionId, panels, setPanels, refreshState, expectSessionSwitch, beginSessionSwitch } = opts;
 
   const [initialUrlState] = useState(() => readUrlState());
   const urlRestoredRef = useRef(false);
@@ -47,11 +49,11 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
         const lastSid = localStorage.getItem("opman_last_session");
         if (lastSid && proj.sessions.some((s: any) => s.id === lastSid)) {
           urlRestoredRef.current = true;
+          beginSessionSwitch(lastSid);
           (async () => {
             try {
-              expectSessionSwitch();
               await selectSession(appState.active_project, lastSid);
-              refreshState();
+              // No explicit refreshState() — SSE state_changed handles it
             } catch { /* ignore */ }
           })();
         } else {
@@ -79,14 +81,14 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     if (targetProject === null) return;
 
     urlRestoredRef.current = true;
+    beginSessionSwitch(urlSid);
     (async () => {
       try {
-        expectSessionSwitch();
         if (targetProject !== appState.active_project) {
           await switchProject(targetProject!);
         }
         await selectSession(targetProject!, urlSid);
-        refreshState();
+        // No explicit refreshState() — SSE state_changed handles it
       } catch {
         // Silently ignore — URL might have a stale session
       }
@@ -109,14 +111,14 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
         const currentSid = appState.projects[appState.active_project]?.active_session;
         if (currentSid !== state.sessionId) {
           const projIdx = state.projectIdx ?? appState.active_project;
-          expectSessionSwitch();
+          beginSessionSwitch(state.sessionId);
           (async () => {
             try {
               if (projIdx !== appState.active_project) {
                 await switchProject(projIdx);
               }
               await selectSession(projIdx, state.sessionId!);
-              refreshState();
+              // No explicit refreshState() — SSE state_changed handles it
             } catch {
               // ignore
             }
@@ -124,7 +126,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
         }
       }
     },
-    [appState, refreshState, setPanels, expectSessionSwitch],
+    [appState, setPanels, beginSessionSwitch],
   );
 
   // ── Keep URL in sync ──

@@ -23,7 +23,11 @@ interface Props {
   projects: ProjectInfo[];
   activeProject: number;
   activeSessionId: string | null;
-  busySessions: Set<string>;
+  /** Stable callback — avoids passing Set reference that changes on every SSE event. */
+  isSessionBusy: (sid: string) => boolean;
+  /** Serialized key that changes only when the set of busy IDs actually changes.
+   *  Consumed by child components that need to re-render on busy state change. */
+  busyKey: string;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
   onNewSession: () => void;
   onSwitchProject: (index: number) => void;
@@ -36,7 +40,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   projects,
   activeProject,
   activeSessionId,
-  busySessions,
+  isSessionBusy,
+  busyKey,
   onSelectSession,
   onNewSession,
   onSwitchProject,
@@ -186,7 +191,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           projects={projects}
           openSessions={openSessions}
           activeSessionId={activeSessionId}
-          busySessions={busySessions}
+          isSessionBusy={isSessionBusy}
+          busyKey={busyKey}
           pinnedSessions={pinnedSessions}
           onSelectSession={handleSelectSession}
           onRemoveOpen={removeOpenSession}
@@ -204,7 +210,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             isActiveProject={idx === activeProject}
             isExpanded={expandedProject === idx}
             activeSessionId={activeSessionId}
-            busySessions={busySessions}
+            isSessionBusy={isSessionBusy}
+            busyKey={busyKey}
             expandedSubagents={expandedSubagents}
             showMore={showMore && expandedProject === idx}
             searchQuery={searchQuery.toLowerCase()}
