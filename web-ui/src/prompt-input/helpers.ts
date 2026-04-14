@@ -53,9 +53,19 @@ export function shortModelName(modelId: string): string {
 
 /** Commands that execute immediately without needing args */
 export const NO_ARG_COMMANDS = new Set([
-  "new", "cancel", "compact", "undo", "redo", "share", "fork", "terminal", "clear", "models",
-  "keys", "keybindings", "todos", "sessions", "context", "settings",
+  // Session lifecycle
+  "new", "cancel", "copy", "compact", "undo", "redo", "share", "fork", "clear",
+  // Panel toggles
+  "terminal", "neovim", "nvim", "git", "split-view", "debug",
+  // Modal openers
+  "models", "keys", "keybindings", "todos", "sessions", "context", "settings",
+  "watcher", "context-window", "diff-review", "search", "cross-search",
+  "session-graph", "session-dashboard", "activity-feed", "notification-prefs",
+  "assistant-center", "inbox", "memory", "autonomy", "routines",
+  "delegation", "missions", "workspaces",
+  "health", "process-health", "auto-open", "autoopen",
+  "system", "htop", "monitor",
+  // Quota / token commands
   "gquota", "quota", "quota_status",
   "tokens_today", "tokens_daily", "tokens_weekly", "tokens_monthly", "tokens_all", "tokens_session",
-  "system", "htop", "monitor",
 ]);

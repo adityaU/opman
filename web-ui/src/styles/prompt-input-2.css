@@ -191,6 +191,78 @@
     text-overflow: ellipsis
 }
 
+/* ── @mention popover section labels / dividers ──── */
+
+.prompt-at-section-label {
+    padding: 4px 8px 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: .7
+}
+
+.prompt-at-divider {
+    height: 1px;
+    margin: 3px 6px;
+    background: var(--color-border-subtle)
+}
+
+.prompt-at-loading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    font-size: 10px;
+    color: var(--color-text-muted)
+}
+
+.prompt-at-empty {
+    padding: 8px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-align: center
+}
+
+/* ── @file mention pills ───────────────────────────── */
+
+.prompt-file-mentions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 8px 4px
+}
+
+.prompt-file-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px 2px 5px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--radius-md);
+    line-height: 1;
+    max-width: 260px
+}
+
+.prompt-file-pill-path {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px
+}
+
+.prompt-at-popover {
+    max-height: 280px
+}
+
 .slash-popover {
     position: absolute;
     bottom: calc(100% + 4px);

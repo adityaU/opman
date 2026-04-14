@@ -1,12 +1,13 @@
 import type { Message } from "../types";
 import type { AppState } from "../api";
+import type { SessionStatus } from "../hooks/sse/types";
 import { Code, Bug, Lightbulb, MessageSquare } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────
 
 export interface MessageTimelineProps {
   messages: Message[];
-  sessionStatus: "idle" | "busy";
+  sessionStatus: SessionStatus;
   activeSessionId: string | null;
   isLoadingMessages?: boolean;
   isLoadingOlder?: boolean;

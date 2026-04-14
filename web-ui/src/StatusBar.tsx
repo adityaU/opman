@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { ProjectInfo, SessionStats, ClientPresence, PersonalMemoryItem, AutonomyMode } from "./api";
 import type { WatcherStatus, SSEConnectionStatus } from "./hooks/useSSE";
+import type { SessionStatus } from "./hooks/sse/types";
 import type { AssistantRecommendation } from "./api";
 import { WatcherStatusIndicator } from "./WatcherStatusBar";
 import {
@@ -22,7 +23,7 @@ import {
 interface Props {
   project: ProjectInfo | null;
   stats: SessionStats | null;
-  sessionStatus: "idle" | "busy";
+  sessionStatus: SessionStatus;
   connectionStatus?: SSEConnectionStatus;
   sidebarOpen: boolean;
   terminalOpen: boolean;
@@ -51,6 +52,36 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
+}
+
+/** Compact status dot + label — handles idle, busy, and retry (with countdown). */
+function StatusDotLabel({ sessionStatus }: { sessionStatus: SessionStatus }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (sessionStatus.type !== "retry") return;
+    const update = () => setSeconds(Math.max(0, Math.round((sessionStatus.next - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [sessionStatus]);
+
+  const isBusy = sessionStatus.type !== "idle";
+  const label =
+    sessionStatus.type === "retry"
+      ? `retry #${sessionStatus.attempt}${seconds > 0 ? ` (${seconds}s)` : ""}`
+      : isBusy ? "busy" : "ready";
+
+  return (
+    <>
+      <span
+        className={`status-bar-dot ${isBusy ? (sessionStatus.type === "retry" ? "retry" : "busy") : "idle"}`}
+        role="status"
+        aria-label={isBusy ? "Session is busy" : "Session is ready"}
+      />
+      <span className="status-bar-status">{label}</span>
+    </>
+  );
 }
 
 export const StatusBar = React.memo(function StatusBar({
@@ -118,14 +149,7 @@ export const StatusBar = React.memo(function StatusBar({
           </span>
         )}
 
-        <span
-          className={`status-bar-dot ${sessionStatus === "busy" ? "busy" : "idle"}`}
-          role="status"
-          aria-label={sessionStatus === "busy" ? "Session is busy" : "Session is ready"}
-        />
-        <span className="status-bar-status">
-          {sessionStatus === "busy" ? "busy" : "ready"}
-        </span>
+        <StatusDotLabel sessionStatus={sessionStatus} />
 
         {connectionStatus && connectionStatus !== "connected" && (
           <span

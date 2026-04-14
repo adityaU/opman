@@ -41,6 +41,10 @@
     padding-right: var(--space-4)
 }
 
+.subagent-messages .message-turn-user::before {
+    display: none
+}
+
 .subagent-messages .message-avatar {
     width: 18px;
     height: 18px;

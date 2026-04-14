@@ -3,6 +3,7 @@ import type {
   PersonalMemoryItem, AutonomyMode, Mission,
   RoutineDefinition, RoutineRunRecord, DelegatedWorkItem, WorkspaceSnapshot,
 } from "../api";
+import type { SessionStatus } from "./sse/types";
 import {
   fetchPersonalMemory, fetchAutonomySettings, fetchRoutines,
   fetchMissions, fetchDelegatedWork, fetchWorkspaces,
@@ -25,7 +26,7 @@ export interface AssistantSignal {
 
 export interface UseAssistantStateOptions {
   appState: any; activeSessionId: string | null;
-  activeProject: number; sessionStatus: string;
+  activeProject: number; sessionStatus: SessionStatus;
   permissions: PermissionRequest[]; questions: QuestionRequest[];
   liveActivityEvents: any[]; watcherStatus: any;
   memoryOpen: boolean; autonomyOpen: boolean;

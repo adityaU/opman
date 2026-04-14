@@ -1,15 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
-import type { ImageAttachment } from "../api";
+import type { ImageAttachment, FileSearchEntry } from "../api";
 import { SlashCommandPopover } from "../SlashCommandPopover";
 import { NO_ARG_COMMANDS } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
+import { useFileMention } from "./useFileMention";
 import {
-  SelectorChips, AgentMentionPills, AttachmentPreviews,
+  SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
   TextareaRow, DragOverlay, HintBar, AtMentionPopover,
 } from "./components";
 
 interface Props {
-  onSend: (text: string, images?: ImageAttachment[]) => Promise<boolean>;
+  onSend: (text: string, images?: ImageAttachment[], fileContext?: string) => Promise<boolean>;
   onAbort: () => void;
   onCommand: (command: string, args?: string) => void;
   onOpenModelPicker: () => void;
@@ -38,6 +39,8 @@ export function PromptInput({
   const { allAgents, agents, mentionableAgents } = useAgents(currentAgent, onAgentChange);
   const attach = useAttachments();
   const atMention = useAtMention(allAgents, mentionableAgents, textareaRef, text, setText);
+  const fileMention = useFileMention();
+  const submittingRef = useRef(false);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -47,23 +50,49 @@ export function PromptInput({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [text]);
 
-  // Focus input on mount and when session changes
-  useEffect(() => { textareaRef.current?.focus(); }, [sessionId]);
+  // Focus input on mount and when session changes (desktop only)
+  useEffect(() => {
+    if (window.innerWidth >= 768) textareaRef.current?.focus();
+  }, [sessionId]);
+
+  // Clear file mentions on session change
+  useEffect(() => { fileMention.clearFileMentions(); }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Trigger file search when @ filter changes
+  useEffect(() => {
+    if (atMention.showAtPopover && atMention.atFilter !== undefined) {
+      fileMention.searchFilesDebounced(atMention.atFilter);
+    } else {
+      fileMention.clearFileResults();
+    }
+  }, [atMention.showAtPopover, atMention.atFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Submit handler ───────────────────────────────────
   const handleSubmit = useCallback(async () => {
+    // Ref-based guard prevents duplicate sends from ghost taps / rapid double-tap
+    if (submittingRef.current) return;
     const trimmed = text.trim();
-    if (!trimmed && attach.attachments.length === 0) return;
+    if (!trimmed && attach.attachments.length === 0 && fileMention.fileMentions.length === 0) return;
     if (trimmed.startsWith("/") && attach.attachments.length === 0) {
       const parts = trimmed.split(/\s+/);
       onCommand(parts[0].slice(1), parts.slice(1).join(" "));
-      setText(""); return;
+      setText(""); onContentChange?.(false); return;
     }
-    const ok = await onSend(trimmed || "Attached image(s)", attach.attachments.length > 0 ? attach.attachments : undefined);
-    if (!ok) return;
-    setText(""); attach.clearAttachments(); atMention.clearMentions();
+    submittingRef.current = true;
+    // Capture state before clearing
+    const images = attach.attachments.length > 0 ? [...attach.attachments] : undefined;
+    const mentions = [...fileMention.fileMentions];
+    // Clear input immediately (optimistic)
+    setText(""); attach.clearAttachments(); atMention.clearMentions(); fileMention.clearFileMentions();
     onContentChange?.(false);
-  }, [text, attach, atMention, onSend, onCommand, onContentChange]);
+    try {
+      // Build file context and send asynchronously
+      const fileCtx = mentions.length > 0 ? await fileMention.buildFileContextFrom(mentions) : undefined;
+      await onSend(trimmed || "Attached image(s)", images, fileCtx || undefined);
+    } finally {
+      submittingRef.current = false;
+    }
+  }, [text, attach, atMention, fileMention, onSend, onCommand, onContentChange]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -74,9 +103,8 @@ export function PromptInput({
     if (e.key === "/" && text === "") setShowSlash(true);
     if (e.key === "Escape") {
       if (showSlash) setShowSlash(false);
-      if (atMention.showAtPopover) { /* close handled by atMention hook */ }
     }
-  }, [handleSubmit, text, showSlash, atMention.showAtPopover]);
+  }, [handleSubmit, text, showSlash]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -97,7 +125,31 @@ export function PromptInput({
     }
   }, [onCommand, onContentChange]);
 
-  const hasContent = text.trim().length > 0 || attach.attachments.length > 0;
+  const handleFileSelect = useCallback((entry: FileSearchEntry) => {
+    fileMention.addFileMention(entry);
+    // Remove the @query text from the input (same pattern as agent select)
+    const el = textareaRef.current;
+    if (el) {
+      const pos = el.selectionStart ?? text.length;
+      const before = text.slice(0, pos);
+      const after = text.slice(pos);
+      const atIdx = before.lastIndexOf("@");
+      if (atIdx !== -1) {
+        const newText = before.slice(0, atIdx) + after;
+        setText(newText);
+        setTimeout(() => { el.focus(); el.setSelectionRange(atIdx, atIdx); }, 0);
+      }
+    }
+    atMention.closePopover();
+    fileMention.clearFileResults();
+  }, [fileMention, atMention, text]);
+
+  const showPopover = atMention.showAtPopover && (
+    atMention.filteredMentionAgents.length > 0 ||
+    fileMention.fileResults.length > 0 ||
+    fileMention.fileLoading
+  );
+  const hasContent = text.trim().length > 0 || attach.attachments.length > 0 || fileMention.fileMentions.length > 0;
 
   return (
     <div className={`prompt-input-container ${attach.dragOver ? "prompt-drag-over" : ""}`}
@@ -108,9 +160,11 @@ export function PromptInput({
         <SlashCommandPopover filter={text.startsWith("/") ? text.slice(1) : ""}
           onSelect={handleSlashSelect} onClose={() => setShowSlash(false)} sessionId={sessionId} />
       )}
-      {atMention.showAtPopover && atMention.filteredMentionAgents.length > 0 && (
+      {showPopover && (
         <AtMentionPopover agents={atMention.filteredMentionAgents}
-          popoverRef={atMention.atPopoverRef} onSelect={atMention.handleAtAgentSelect} />
+          fileResults={fileMention.fileResults} fileLoading={fileMention.fileLoading}
+          popoverRef={atMention.atPopoverRef}
+          onSelectAgent={atMention.handleAtAgentSelect} onSelectFile={handleFileSelect} />
       )}
       <div className="prompt-input-wrapper">
         <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
@@ -118,6 +172,7 @@ export function PromptInput({
           onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />
+        <FileMentionPills fileMentions={fileMention.fileMentions} onRemove={fileMention.removeFileMention} />
         <AttachmentPreviews attachments={attach.attachments} onRemove={attach.removeAttachment} />
         <TextareaRow textareaRef={textareaRef} fileInputRef={attach.fileInputRef}
           text={text} disabled={disabled} isBusy={isBusy} isSending={isSending} hasContent={hasContent}

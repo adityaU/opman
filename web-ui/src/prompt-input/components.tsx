@@ -1,9 +1,10 @@
 import React from "react";
 import {
-  Cpu, ChevronDown, Brain, AtSign, X,
+  Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
   ImageIcon, Paperclip, Send, Square, Loader2,
 } from "lucide-react";
-import type { AgentInfo, ImageAttachment } from "../api";
+import type { AgentInfo, ImageAttachment, FileSearchEntry } from "../api";
+import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
 
 // ── SelectorChips ───────────────────────────────────────────────
@@ -79,6 +80,31 @@ export function AgentMentionPills({ agentMentions, allAgents, onRemove }: AgentM
           </span>
         );
       })}
+    </div>
+  );
+}
+
+// ── FileMentionPills ────────────────────────────────────────────
+
+interface FileMentionPillsProps {
+  fileMentions: FileMention[];
+  onRemove: (path: string) => void;
+}
+
+export function FileMentionPills({ fileMentions, onRemove }: FileMentionPillsProps) {
+  if (fileMentions.length === 0) return null;
+  return (
+    <div className="prompt-file-mentions">
+      {fileMentions.map((m) => (
+        <span key={m.path} className="prompt-file-pill">
+          {m.is_dir ? <Folder size={10} /> : <File size={10} />}
+          <span className="prompt-file-pill-path">{m.path}</span>
+          <button className="prompt-agent-pill-remove" onClick={() => onRemove(m.path)}
+            title={`Remove @${m.path}`} aria-label={`Remove file mention ${m.path}`}>
+            <X size={9} />
+          </button>
+        </span>
+      ))}
     </div>
   );
 }
@@ -189,27 +215,63 @@ export function HintBar() {
   );
 }
 
-// ── AtMentionPopover ────────────────────────────────────────────
+// ── AtMentionPopover (unified: agents + files) ─────────────────
 
 interface AtMentionPopoverProps {
   agents: AgentInfo[];
+  fileResults: FileSearchEntry[];
+  fileLoading: boolean;
   popoverRef: React.RefObject<HTMLDivElement>;
-  onSelect: (agentId: string) => void;
+  onSelectAgent: (agentId: string) => void;
+  onSelectFile: (entry: FileSearchEntry) => void;
 }
 
-export function AtMentionPopover({ agents, popoverRef, onSelect }: AtMentionPopoverProps) {
+export function AtMentionPopover({
+  agents, fileResults, fileLoading, popoverRef, onSelectAgent, onSelectFile,
+}: AtMentionPopoverProps) {
+  const hasAgents = agents.length > 0;
+  const hasFiles = fileResults.length > 0;
+  const empty = !hasAgents && !hasFiles && !fileLoading;
+
   return (
     <div className="prompt-at-popover" ref={popoverRef}>
-      {agents.map((agent) => {
-        const color = agentColor(agent.id, agent.color);
-        return (
-          <button key={agent.id} className="prompt-at-popover-item" onClick={() => onSelect(agent.id)}>
-            {color ? <span className="prompt-agent-dot" style={{ backgroundColor: color }} /> : <AtSign size={12} />}
-            <span className="prompt-at-popover-name">{agent.label}</span>
-            <span className="prompt-at-popover-desc">{agent.description}</span>
-          </button>
-        );
-      })}
+      {hasAgents && (
+        <>
+          <div className="prompt-at-section-label">Agents</div>
+          {agents.map((agent) => {
+            const color = agentColor(agent.id, agent.color);
+            return (
+              <button key={agent.id} className="prompt-at-popover-item" onClick={() => onSelectAgent(agent.id)}>
+                {color ? <span className="prompt-agent-dot" style={{ backgroundColor: color }} /> : <AtSign size={12} />}
+                <span className="prompt-at-popover-name">{agent.label}</span>
+                <span className="prompt-at-popover-desc">{agent.description}</span>
+              </button>
+            );
+          })}
+        </>
+      )}
+      {hasAgents && (hasFiles || fileLoading) && <div className="prompt-at-divider" />}
+      {(hasFiles || fileLoading) && (
+        <>
+          <div className="prompt-at-section-label">Files</div>
+          {fileResults.map((entry) => (
+            <button key={entry.path} className="prompt-at-popover-item" onClick={() => onSelectFile(entry)}>
+              {entry.is_dir ? <Folder size={12} /> : <File size={12} />}
+              <span className="prompt-at-popover-name">{entry.name}</span>
+              <span className="prompt-at-popover-desc">{entry.path}</span>
+            </button>
+          ))}
+          {fileLoading && !hasFiles && (
+            <div className="prompt-at-loading">
+              <Loader2 size={12} className="spinning" />
+              <span>Searching files...</span>
+            </div>
+          )}
+        </>
+      )}
+      {empty && (
+        <div className="prompt-at-empty">No matches found</div>
+      )}
     </div>
   );
 }

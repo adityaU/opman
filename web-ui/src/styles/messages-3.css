@@ -115,3 +115,88 @@
 .message-action-btn.bookmarked {
     color: var(--color-warning, #e0af68)
 }
+
+/* ── Session retry banner ────────────────────────── */
+
+.session-retry-banner {
+    padding: var(--space-2) var(--space-4);
+    margin: 0 auto;
+    max-width: 52rem
+}
+
+.session-retry-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-error, #f7768e) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-error, #f7768e) 20%, transparent)
+}
+
+.session-retry-spinner {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-error, #f7768e);
+    animation: spin 1.2s linear infinite
+}
+
+.session-retry-content {
+    min-width: 0;
+    flex: 1
+}
+
+.session-retry-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-error, #f7768e);
+    font-size: var(--font-size-sm);
+    word-break: break-word
+}
+
+.session-retry-message svg {
+    flex-shrink: 0
+}
+
+.session-retry-info {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-top: 2px
+}
+
+/* ── File context pills (user messages with @file mentions) ───── */
+
+.file-context-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px
+}
+
+.file-context-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary)
+}
+
+.file-context-pill svg {
+    flex-shrink: 0;
+    opacity: .6
+}
+
+.file-context-pill-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 260px;
+    direction: rtl;
+    text-align: left
+}

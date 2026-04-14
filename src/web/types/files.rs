@@ -109,6 +109,35 @@ pub struct RenameRequest {
     pub to_path: String,
 }
 
+/// Query params for `GET /api/files/search?q=...&limit=...`.
+#[derive(Deserialize)]
+pub struct FileSearchQuery {
+    /// Search query (matched against file path segments, case-insensitive).
+    pub q: String,
+    /// Maximum number of results (default: 20, max: 50).
+    #[serde(default = "default_search_limit")]
+    pub limit: usize,
+}
+
+fn default_search_limit() -> usize {
+    20
+}
+
+/// A single file search result.
+#[derive(Serialize)]
+pub struct FileSearchEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+/// Response for `GET /api/files/search`.
+#[derive(Serialize)]
+pub struct FileSearchResponse {
+    pub query: String,
+    pub entries: Vec<FileSearchEntry>,
+}
+
 /// Query params for `GET /api/file/download?path=...`.
 #[derive(Deserialize)]
 pub struct FileDownloadQuery {

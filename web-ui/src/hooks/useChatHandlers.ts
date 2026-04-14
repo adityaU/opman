@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { ModalName } from "./useModalState";
 import type { PersonalMemoryItem } from "../api";
+import type { Message } from "../types";
 import {
   createHandleSend, createHandleAbort, createHandleAgentChange,
   createHandleCommand, createHandlePermissionReply, createHandleQuestionReply,
@@ -26,11 +27,12 @@ export interface ChatHandlerInputs {
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string) => void;
   refreshState: () => void;
-  expectSessionSwitch: () => void;
-  beginSessionSwitch: (targetSid: string) => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
+  closeMobileSidebarSilent: () => void;
+  /** Navigate to a session via URL (single source of truth). */
+  setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
@@ -38,6 +40,8 @@ export interface ChatHandlerInputs {
   toggleGit: () => void;
   toggleDebug: () => void;
   toggleSplitView: () => void;
+  /** Read current messages at call-time (avoids including in memo deps). */
+  getMessages: () => Message[];
 }
 
 /* ── Hook ──────────────────────────────────────────────── */
@@ -52,6 +56,10 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   // This prevents all 11 handlers from being recreated on every session switch.
   const sessionIdRef = useRef(inputs.activeSessionId);
   sessionIdRef.current = inputs.activeSessionId;
+
+  // Keep messages in a ref so /copy reads current messages without memo invalidation.
+  const messagesRef = useRef(inputs.getMessages);
+  messagesRef.current = inputs.getMessages;
 
   const deps: HandlerDeps = useMemo(() => ({
     // Provide a getter that reads the ref at call-time
@@ -68,11 +76,11 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     addToast: inputs.addToast,
     addOptimisticMessage: inputs.addOptimisticMessage,
     refreshState: inputs.refreshState,
-    expectSessionSwitch: inputs.expectSessionSwitch,
-    beginSessionSwitch: inputs.beginSessionSwitch,
     clearPermission: inputs.clearPermission,
     clearQuestion: inputs.clearQuestion,
     setMobileSidebarOpen: inputs.setMobileSidebarOpen,
+    closeMobileSidebarSilent: inputs.closeMobileSidebarSilent,
+    setUrlSession: inputs.setUrlSession,
     openModal: inputs.openModal,
     toggleSidebar: inputs.toggleSidebar,
     toggleTerminal: inputs.toggleTerminal,
@@ -80,16 +88,16 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     toggleGit: inputs.toggleGit,
     toggleDebug: inputs.toggleDebug,
     toggleSplitView: inputs.toggleSplitView,
+    getMessages: () => messagesRef.current(),
   }), [
     // activeSessionId intentionally omitted — read from ref via getter
     inputs.appState, inputs.selectedModel,
     inputs.selectedAgent, inputs.sending, inputs.activeMemoryItems,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
-    inputs.refreshState, inputs.expectSessionSwitch, inputs.beginSessionSwitch,
-    inputs.clearPermission, inputs.clearQuestion,
-    inputs.setMobileSidebarOpen, inputs.openModal,
-    inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
+    inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
+    inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
+    inputs.openModal, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,
   ]);
 

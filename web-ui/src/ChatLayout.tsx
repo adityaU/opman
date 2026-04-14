@@ -12,6 +12,7 @@ import { useVirtualKeyboard } from "./hooks/useVirtualKeyboard";
 import { useModelState } from "./hooks/useModelState";
 import { useAssistantState } from "./hooks/useAssistantState";
 import { useUrlRestore } from "./hooks/useUrlRestore";
+import { useUrlSessionState } from "./hooks/useUrlSessionState";
 import { useNotificationSignals } from "./hooks/useNotificationSignals";
 import { usePulseActions } from "./hooks/usePulseActions";
 import { useChatHandlers } from "./hooks/useChatHandlers";
@@ -39,7 +40,7 @@ export function ChatLayout() {
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus,
-    addOptimisticMessage, loadOlderMessages, expectSessionSwitch, beginSessionSwitch,
+    addOptimisticMessage, loadOlderMessages, beginSessionSwitch,
     isSessionBusy,
   } = sse;
 
@@ -51,10 +52,17 @@ export function ChatLayout() {
     return Array.from(busySessions).sort().join(",");
   }, [busySessions]);
 
+  // ── URL-driven session state (single source of truth) ──
+  const { urlSessionId, urlProjectIndex, setUrlSession } = useUrlSessionState({
+    appState, beginSessionSwitch,
+  });
+
   // ── Derived app state ──
-  const activeProject = appState ? appState.projects[appState.active_project] ?? null : null;
-  const activeSessionId = activeProject?.active_session ?? null;
-  const activeProjectIndex = appState?.active_project ?? 0;
+  // URL is the single source of truth for active session + project.
+  // Fall back to server state only when URL has no session yet (initial load).
+  const activeProjectIndex = urlSessionId !== null ? urlProjectIndex : (appState?.active_project ?? 0);
+  const activeProject = appState ? appState.projects[activeProjectIndex] ?? null : null;
+  const activeSessionId = urlSessionId ?? activeProject?.active_session ?? null;
 
   // Build the set of sub-session IDs (children of the active session)
   const subSessionIds = useMemo(() => {
@@ -168,12 +176,12 @@ export function ChatLayout() {
 
   // ── URL restore/sync ──
   useUrlRestore({
-    appState, activeSessionId,
+    appState, activeSessionId, activeProjectIndex,
     panels: {
       sidebarOpen: panels.sidebar.open, terminalOpen: panels.terminal.open,
       neovimOpen: panels.editor.open, gitOpen: panels.git.open,
     },
-    setPanels, refreshState, expectSessionSwitch, beginSessionSwitch,
+    setPanels, setUrlSession,
   });
 
   // ── Assistant state ──
@@ -216,6 +224,10 @@ export function ChatLayout() {
 
   // ── Handlers (send, abort, command, session, etc.) ──
   const openModal = useCallback((name: string) => modalState.open(name as ModalName), [modalState]);
+  // Ref-based getter so /copy reads current messages without invalidating handler memos.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const getMessages = useCallback(() => messagesRef.current, []);
   const handlers = useChatHandlers({
     activeSessionId, appState,
     selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
@@ -223,14 +235,17 @@ export function ChatLayout() {
     setSending: model.setSending, setSelectedModel: model.setSelectedModel,
     setSelectedAgent: model.setSelectedAgent,
     setMobileInputHidden: mobile.setInputHidden,
-    addToast, addOptimisticMessage, refreshState, expectSessionSwitch, beginSessionSwitch,
+    addToast, addOptimisticMessage, refreshState,
     clearPermission, clearQuestion,
     setMobileSidebarOpen: mobile.setSidebarOpen,
+    closeMobileSidebarSilent: mobile.closeSidebarSilent,
+    setUrlSession,
     openModal,
     toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
     toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,
     toggleDebug: panels.debug.toggle,
     toggleSplitView: () => modalState.toggle("splitView"),
+    getMessages,
   });
 
   // ── Misc callbacks (theme, context, workspace, autonomy) ──
@@ -279,7 +294,8 @@ export function ChatLayout() {
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
-        appState={appState} activeProject={activeProject} activeSessionId={activeSessionId}
+        appState={appState} activeProject={activeProject} activeProjectIndex={activeProjectIndex}
+        activeSessionId={activeSessionId}
         sessionStatus={sessionStatus} connectionStatus={sse.connectionStatus}
         messages={messages} isSessionBusy={isSessionBusy} busyKey={busyKey}
         isLoadingMessages={isLoadingMessages} isLoadingOlder={isLoadingOlder}

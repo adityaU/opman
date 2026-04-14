@@ -15,27 +15,40 @@ interface Props {
  * server commands that don't appear in the /command API listing.
  */
 const BUILTIN_COMMANDS: SlashCommand[] = [
-  // Web-local commands
+  // Session lifecycle
   { name: "new", description: "Start a new session" },
   { name: "cancel", description: "Cancel / abort the running session" },
-  { name: "terminal", description: "Toggle terminal panel" },
-  // Built-in opencode server commands (not in /command API but valid)
-  { name: "model", description: "Change the AI model", args: "<model>" },
-  { name: "models", description: "List available models" },
-  { name: "theme", description: "Change color theme", args: "<theme>" },
+  { name: "copy", description: "Copy session transcript to clipboard" },
   { name: "compact", description: "Compact conversation history" },
   { name: "undo", description: "Undo last action" },
   { name: "redo", description: "Redo last action" },
   { name: "fork", description: "Fork current session" },
   { name: "share", description: "Share session" },
-  { name: "agent", description: "Switch agent type", args: "<agent>" },
   { name: "clear", description: "Clear conversation" },
+  // Model / agent
+  { name: "model", description: "Change the AI model", args: "<model>" },
+  { name: "models", description: "List available models" },
+  { name: "agent", description: "Switch agent type", args: "<agent>" },
+  { name: "theme", description: "Change color theme", args: "<theme>" },
+  // Panel toggles
+  { name: "terminal", description: "Toggle terminal panel" },
+  { name: "neovim", description: "Toggle Neovim panel" },
+  { name: "git", description: "Toggle Git panel" },
+  { name: "split-view", description: "Toggle split view" },
+  { name: "debug", description: "Toggle debug panel" },
   // Modal commands
   { name: "keys", description: "Show keyboard shortcuts" },
   { name: "todos", description: "Show session todos" },
   { name: "sessions", description: "Search sessions across projects" },
   { name: "context", description: "Send context to session" },
   { name: "settings", description: "Open settings" },
+  { name: "watcher", description: "Open file watcher config" },
+  { name: "search", description: "Search current session" },
+  { name: "cross-search", description: "Search across all sessions" },
+  { name: "context-window", description: "View context window usage" },
+  { name: "diff-review", description: "Review pending diffs" },
+  { name: "auto-open", description: "Configure tool auto-open" },
+  // Assistant / delegation
   { name: "assistant-center", description: "Open the assistant cockpit" },
   { name: "inbox", description: "Open the assistant inbox" },
   { name: "missions", description: "Open mission tracking" },
@@ -44,7 +57,14 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "routines", description: "Manage assistant routines" },
   { name: "delegation", description: "Open delegation board" },
   { name: "workspaces", description: "Open workspaces and recipes" },
+  // System
   { name: "system", description: "Open system monitor (htop)" },
+  { name: "health", description: "View process health" },
+  // Analytics
+  { name: "session-graph", description: "View session dependency graph" },
+  { name: "session-dashboard", description: "View session analytics" },
+  { name: "activity-feed", description: "View activity feed" },
+  { name: "notification-prefs", description: "Notification preferences" },
 ];
 
 export function SlashCommandPopover({

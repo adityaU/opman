@@ -7,6 +7,12 @@ export interface MobileState {
   setSidebarOpen: (v: boolean) => void;
   toggleSidebar: () => void;
   closeSidebar: () => void;
+  /**
+   * Close the sidebar without calling history.back().
+   * Use when the caller will immediately pushState (e.g. session switch)
+   * so the overlay history entry is consumed by replaceState instead.
+   */
+  closeSidebarSilent: () => void;
   activePanel: MobilePanel | null;
   panelsMounted: Set<string>;
   togglePanel: (panel: MobilePanel) => void;
@@ -21,6 +27,25 @@ export interface MobileState {
 
 /** Sentinel on history.state to distinguish mobile-overlay entries. */
 const MOBILE_HISTORY_KEY = "_mobileOverlay";
+
+/** Focus textarea after the mobile-input-wrapper transition completes.
+ *  Uses transitionend listener with a 250ms timeout fallback. */
+function focusTextareaAfterReveal() {
+  const wrapper = document.querySelector<HTMLElement>(".mobile-input-wrapper");
+  const textarea = document.querySelector<HTMLTextAreaElement>(".prompt-textarea");
+  if (!wrapper || !textarea) return;
+
+  const doFocus = () => textarea.focus({ preventScroll: true });
+  const fallback = setTimeout(doFocus, 250);
+
+  const onEnd = (e: TransitionEvent) => {
+    if (e.target !== wrapper) return;
+    clearTimeout(fallback);
+    wrapper.removeEventListener("transitionend", onEnd);
+    doFocus();
+  };
+  wrapper.addEventListener("transitionend", onEnd);
+}
 
 export function useMobileState(): MobileState {
   const [sidebarOpen, setSidebarOpenRaw] = useState(false);
@@ -88,6 +113,31 @@ export function useMobileState(): MobileState {
     });
   }, [popOverlayHistory]);
 
+  /**
+   * Close sidebar UI without navigating history.
+   * Strips the overlay sentinel from the current entry via replaceState
+   * so a subsequent pushState (e.g. session URL update) isn't undone.
+   */
+  const closeSidebarSilent = useCallback(() => {
+    setSidebarOpenRaw((prev) => {
+      if (!prev) return prev;
+      if (historyDepthRef.current > 0) {
+        historyDepthRef.current -= 1;
+        // Strip the overlay sentinel from the current history entry
+        // instead of calling history.back() which would undo a pending pushState.
+        const st = window.history.state;
+        if (st && MOBILE_HISTORY_KEY in st) {
+          const { [MOBILE_HISTORY_KEY]: _, ...rest } = st;
+          window.history.replaceState(
+            Object.keys(rest).length ? rest : null,
+            "",
+          );
+        }
+      }
+      return false;
+    });
+  }, []);
+
   // ── Panels ───────────────────────────────────────────────────────
 
   const togglePanel = useCallback((panel: MobilePanel) => {
@@ -124,10 +174,7 @@ export function useMobileState(): MobileState {
       }
       setInputHidden(false);
       setDockCollapsed(true);
-      requestAnimationFrame(() => {
-        const textarea = document.querySelector<HTMLTextAreaElement>(".prompt-textarea");
-        textarea?.focus();
-      });
+      focusTextareaAfterReveal();
     } else {
       setDockCollapsed(false);
       setInputHidden(true);
@@ -173,10 +220,7 @@ export function useMobileState(): MobileState {
     // Show input, hide dock (mutual exclusivity)
     setInputHidden(false);
     setDockCollapsed(true);
-    requestAnimationFrame(() => {
-      const textarea = document.querySelector<HTMLTextAreaElement>(".prompt-textarea");
-      textarea?.focus();
-    });
+    focusTextareaAfterReveal();
   }, []);
 
   // ── Back-gesture / popstate listener ────────────────────────────
@@ -213,6 +257,7 @@ export function useMobileState(): MobileState {
     setSidebarOpen,
     toggleSidebar,
     closeSidebar,
+    closeSidebarSilent,
     activePanel,
     panelsMounted,
     togglePanel,

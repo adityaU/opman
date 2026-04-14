@@ -55,6 +55,11 @@
     animation: dot-pulse 1.5s ease-in-out infinite
 }
 
+.status-bar-dot.retry {
+    background: var(--color-error, #f7768e);
+    animation: dot-pulse 1.5s ease-in-out infinite
+}
+
 .status-bar-status {
     color: var(--color-text-muted)
 }

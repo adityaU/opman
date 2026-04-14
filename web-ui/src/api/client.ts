@@ -76,7 +76,12 @@ export async function apiPost<T = void>(path: string, body?: unknown): Promise<T
     window.location.reload();
     throw new Error("Unauthorized");
   }
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    let detail = "";
+    try { const j = JSON.parse(raw); detail = j.error || j.message || ""; } catch { detail = raw; }
+    throw new Error(detail || `HTTP ${res.status}`);
+  }
   const text = await res.text();
   if (text) return JSON.parse(text) as T;
   return undefined as unknown as T;

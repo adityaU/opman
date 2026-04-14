@@ -1,9 +1,9 @@
 import React, { useMemo, useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle, Brain, ChevronRight } from "lucide-react";
+import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle, Brain, ChevronRight, FileText } from "lucide-react";
 
 import type { MessageTurnProps, MessagePart } from "./types";
-import { modelLabel, parseMemoryBlock } from "./helpers";
+import { modelLabel, parseMemoryBlock, parseFileContext } from "./helpers";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { agentColor } from "../utils/theme";
 import { renderInterleavedContent } from "./InterleavedContent";
@@ -23,30 +23,13 @@ export const MessageTurn = React.memo(function MessageTurn({
 }: MessageTurnProps) {
   const { role, messages } = group;
   const [copied, setCopied] = useState(false);
-
   const isUser = role === "user";
   const isAssistant = role === "assistant";
-
-  // Get first message ID for bookmark and search
   const firstMsgId = messages[0]?.info.messageID || messages[0]?.info.id || "";
 
-  // Check if any message in the group is a search match
-  const isSearchMatch = useMemo(() => {
-    if (!searchMatchIds || searchMatchIds.size === 0) return false;
-    return messages.some((msg) => {
-      const id = msg.info.messageID || msg.info.id || "";
-      return searchMatchIds.has(id);
-    });
-  }, [messages, searchMatchIds]);
-
-  // Check if this is the active search match
-  const isActiveMatch = useMemo(() => {
-    if (!activeSearchMatchId) return false;
-    return messages.some((msg) => {
-      const id = msg.info.messageID || msg.info.id || "";
-      return id === activeSearchMatchId;
-    });
-  }, [messages, activeSearchMatchId]);
+  const msgId = (m: typeof messages[0]) => m.info.messageID || m.info.id || "";
+  const isSearchMatch = !!searchMatchIds?.size && messages.some((m) => searchMatchIds.has(msgId(m)));
+  const isActiveMatch = !!activeSearchMatchId && messages.some((m) => msgId(m) === activeSearchMatchId);
 
   // Bookmark state
   const bookmarked = isBookmarked ? isBookmarked(firstMsgId) : false;
@@ -59,43 +42,27 @@ export const MessageTurn = React.memo(function MessageTurn({
   }, [onToggleBookmark, firstMsgId, sessionId, role, messages]);
 
   // Detect if this group contains an optimistic (pending) message
-  const isOptimistic = useMemo(() => {
-    return messages.some((msg) => (msg.info.messageID || msg.info.id || "").startsWith("__optimistic__"));
-  }, [messages]);
+  const isOptimistic = messages.some((msg) => (msg.info.messageID || msg.info.id || "").startsWith("__optimistic__"));
 
   // Queued: session is still processing an earlier assistant message
-  const isQueued = useMemo(() => {
-    if (!isUser || !pendingAssistantId) return false;
-    return messages.some((msg) => (msg.info.messageID || msg.info.id || "") > pendingAssistantId);
-  }, [isUser, pendingAssistantId, messages]);
+  const isQueued = isUser && !!pendingAssistantId &&
+    messages.some((msg) => (msg.info.messageID || msg.info.id || "") > pendingAssistantId);
 
   // Collect model/agent/cost from messages
   const headerModel = useMemo(() => {
     for (const msg of messages) if (msg.info.model) return msg.info.model;
     return null;
   }, [messages]);
+  const headerAgent = messages.find((m) => m.info.agent)?.info.agent ?? null;
+  const totalCost = messages.reduce((s, m) => s + (m.metadata?.cost || 0), 0);
 
-  const headerAgent = useMemo(() => {
-    for (const msg of messages) if (msg.info.agent) return msg.info.agent;
-    return null;
-  }, [messages]);
-
-  const totalCost = useMemo(() => {
-    let sum = 0;
-    for (const msg of messages) if (msg.metadata?.cost) sum += msg.metadata.cost;
-    return sum;
-  }, [messages]);
-
-  // Extract error from any message in the group
+  // Extract error from any message
   const errorText = useMemo(() => {
     for (const msg of messages) {
       if (!msg.info.error) continue;
       if (typeof msg.info.error === "string") return msg.info.error;
-      if (typeof msg.info.error === "object") {
-        const e = msg.info.error as Record<string, unknown>;
-        return (e.message || e.error || JSON.stringify(msg.info.error)) as string;
-      }
-      return String(msg.info.error);
+      const e = msg.info.error as Record<string, unknown>;
+      return (e.message || e.error || JSON.stringify(msg.info.error)) as string;
     }
     return null;
   }, [messages]);
@@ -132,25 +99,34 @@ export const MessageTurn = React.memo(function MessageTurn({
 
     return { textSegments: texts, toolParts: tools };
   }, [allParts]);
-
   const hasMixedContent = toolParts.length > 0;
 
   // Extract plain text for copy action
-  const plainText = useMemo(() => {
-    return textSegments.join("\n").trim();
-  }, [textSegments]);
+  const plainText = textSegments.join("\n").trim();
 
-  // Parse memory block from user messages
-  const memoryBlock = useMemo(() => {
+  // Parse file context (@file mentions) from user messages
+  const fileContext = useMemo(() => {
     if (!isUser) return null;
-    return parseMemoryBlock(plainText);
+    return parseFileContext(plainText);
   }, [isUser, plainText]);
 
-  // Display text: stripped of memory block for user messages
+  // Text with file blocks stripped (for memory parsing + display)
+  const textAfterFiles = useMemo(() => {
+    return fileContext ? fileContext.userText : plainText;
+  }, [fileContext, plainText]);
+
+  // Parse memory block from user messages (after stripping file context)
+  const memoryBlock = useMemo(() => {
+    if (!isUser) return null;
+    return parseMemoryBlock(textAfterFiles);
+  }, [isUser, textAfterFiles]);
+
+  // Display text: stripped of file blocks + memory block
   const displaySegments = useMemo(() => {
-    if (!memoryBlock) return textSegments;
-    return [memoryBlock.userText];
-  }, [textSegments, memoryBlock]);
+    if (memoryBlock) return [memoryBlock.userText];
+    if (fileContext) return [fileContext.userText];
+    return textSegments;
+  }, [textSegments, memoryBlock, fileContext]);
 
   const [memoryOpen, setMemoryOpen] = useState(false);
 
@@ -230,6 +206,18 @@ export const MessageTurn = React.memo(function MessageTurn({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* File context pills for user messages with @file mentions */}
+        {fileContext && fileContext.paths.length > 0 && (
+          <div className="file-context-pills">
+            {fileContext.paths.map((p) => (
+              <span key={p} className="file-context-pill">
+                <FileText size={11} />
+                <span className="file-context-pill-path">{p}</span>
+              </span>
+            ))}
           </div>
         )}
 

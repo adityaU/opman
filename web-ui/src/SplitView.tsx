@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronDown, Circle } from "lucide-react";
 import { MessageTimeline } from "./MessageTimeline";
 import { PromptInput } from "./PromptInput";
+import { SESSION_IDLE, SESSION_BUSY } from "./hooks/sse/types";
+import type { SessionStatus } from "./hooks/sse/types";
 import { useResizable } from "./hooks/useResizable";
 import { fetchSessionMessages, sendMessage, abortSession } from "./api";
 import type { SessionInfo, AppState, ModelRef, ImageAttachment } from "./api";
@@ -67,19 +69,21 @@ export function SplitView({
   const modelRef: ModelRef | undefined = selectedModel
     ? { providerID: "", modelID: selectedModel } : undefined;
 
-  const handleSendPrimary = useCallback(async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+  const handleSendPrimary = useCallback(async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     if (!primarySessionId || primarySending) return false;
     setPrimarySending(true);
+    const fullText = fileContext ? fileContext + text : text;
     try {
-      await sendMessage(primarySessionId, text, modelRef, images);
+      await sendMessage(primarySessionId, fullText, modelRef, images);
       setPrimaryMessages(await loadMessages(primarySessionId));
       return true;
     } catch { return false; } finally { setPrimarySending(false); }
   }, [primarySessionId, primarySending, modelRef, setPrimaryMessages]);
 
-  const handleSendSecondary = useCallback(async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+  const handleSendSecondary = useCallback(async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     if (!secondarySessionId || secondarySending) return false;
     setSecondarySending(true);
+    const fullText = fileContext ? fileContext + text : text;
     const optId = `opt-${Date.now()}`;
     const optimistic: Message = {
       info: { role: "user", messageID: optId, sessionID: secondarySessionId },
@@ -87,7 +91,7 @@ export function SplitView({
     };
     setSecondaryMessages((prev) => [...prev, optimistic]);
     try {
-      await sendMessage(secondarySessionId, text, modelRef, images);
+      await sendMessage(secondarySessionId, fullText, modelRef, images);
       setSecondaryMessages(await loadMessages(secondarySessionId));
       return true;
     } catch {
@@ -147,7 +151,7 @@ export function SplitView({
             <StatusDot busy={primaryBusy} /> {title(primarySessionId)}
           </span>
         </div>
-        <MessageTimeline messages={primaryMessages} sessionStatus={primaryBusy ? "busy" : "idle"}
+        <MessageTimeline messages={primaryMessages} sessionStatus={primaryBusy ? SESSION_BUSY : SESSION_IDLE}
           activeSessionId={primarySessionId} appState={appState} />
         <PromptInput {...inputProps(primarySessionId, primaryBusy, primarySending, handleSendPrimary, handleAbortPrimary)} />
       </div>
@@ -187,7 +191,7 @@ export function SplitView({
 
         {secondarySessionId ? (
           <>
-            <MessageTimeline messages={secondaryMessages} sessionStatus={secondaryBusy ? "busy" : "idle"}
+            <MessageTimeline messages={secondaryMessages} sessionStatus={secondaryBusy ? SESSION_BUSY : SESSION_IDLE}
               activeSessionId={secondarySessionId} appState={appState} />
             <PromptInput {...inputProps(secondarySessionId, secondaryBusy, secondarySending, handleSendSecondary, handleAbortSecondary)} />
           </>

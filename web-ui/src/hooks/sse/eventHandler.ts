@@ -2,7 +2,8 @@ import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../ty
 import type { SessionStats, ActivityEvent, ClientPresence, Mission, ThemePair } from "../../api";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
-import type { WatcherStatus, McpAgentActivity, McpEditorOpen } from "./types";
+import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } from "./types";
+import { SESSION_IDLE } from "./types";
 import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart } from "./messageMap";
@@ -20,8 +21,9 @@ export interface EventHandlerContext {
   /** Update a single session's metadata in app state without a full refresh. */
   updateSessionMeta: (sessionInfo: Record<string, unknown>) => void;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
-  setSessionStatus: React.Dispatch<React.SetStateAction<"idle" | "busy">>;
+  setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
   setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setSessionStatuses: React.Dispatch<React.SetStateAction<Record<string, SessionStatus>>>;
   setPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
   setQuestions: React.Dispatch<React.SetStateAction<QuestionRequest[]>>;
   setCrossSessionPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
@@ -195,22 +197,58 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
     case "session.status": {
       const sid = props.sessionID as string | undefined;
       const rawStatus = props.status;
-      let statusStr: string | undefined;
-      if (typeof rawStatus === "string") statusStr = rawStatus;
-      else if (rawStatus && typeof rawStatus === "object") {
-        statusStr = (rawStatus as Record<string, unknown>).type as string | undefined;
+
+      // Parse into a full SessionStatus object (idle | busy | retry)
+      let parsed: SessionStatus = SESSION_IDLE;
+      if (rawStatus && typeof rawStatus === "object") {
+        const obj = rawStatus as Record<string, unknown>;
+        const t = obj.type as string | undefined;
+        if (t === "busy") {
+          parsed = { type: "busy" };
+        } else if (t === "retry") {
+          parsed = {
+            type: "retry",
+            attempt: typeof obj.attempt === "number" ? obj.attempt : 1,
+            message: typeof obj.message === "string" ? obj.message : "Retrying…",
+            next: typeof obj.next === "number" ? obj.next : Date.now() + 5000,
+          };
+        }
+      } else if (typeof rawStatus === "string") {
+        if (rawStatus === "busy") parsed = { type: "busy" };
+        else if (rawStatus === "retry") parsed = { type: "retry", attempt: 1, message: "Retrying…", next: Date.now() + 5000 };
       }
-      const isBusy = statusStr === "busy" || statusStr === "retry";
-      // Keep busySessions in sync (mirrors the app-level SSE path)
+
+      const isBusy = parsed.type !== "idle";
+
+      // Update sessionStatuses map
       if (sid) {
+        ctx.setSessionStatuses((prev) => {
+          if (!isBusy) {
+            if (!prev[sid]) return prev;
+            const next = { ...prev };
+            delete next[sid];
+            return next;
+          }
+          const existing = prev[sid];
+          // Avoid re-render if status hasn't meaningfully changed
+          if (existing && existing.type === parsed.type) {
+            if (parsed.type === "busy") return prev;
+            if (parsed.type === "retry" && existing.type === "retry"
+              && existing.attempt === parsed.attempt && existing.next === parsed.next) return prev;
+          }
+          return { ...prev, [sid]: parsed };
+        });
+
+        // Keep busySessions in sync
         if (isBusy) {
           ctx.setBusySessions((prev) => prev.has(sid) ? prev : new Set([...prev, sid]));
         } else {
           ctx.setBusySessions((prev) => { if (!prev.has(sid)) return prev; const next = new Set(prev); next.delete(sid); return next; });
         }
       }
+
       if (sid === ctx.activeSessionRef.current) {
-        ctx.setSessionStatus(isBusy ? "busy" : "idle");
+        ctx.setSessionStatus(parsed);
       }
       break;
     }
@@ -320,7 +358,8 @@ export interface AppSSEContext {
   touchEvent: () => void;
   recoverAfterReconnect: () => void;
   setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
-  setSessionStatus: React.Dispatch<React.SetStateAction<"idle" | "busy">>;
+  setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
+  setSessionStatuses: React.Dispatch<React.SetStateAction<Record<string, SessionStatus>>>;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
   setWatcherStatus: React.Dispatch<React.SetStateAction<WatcherStatus | null>>;
   setMcpEditorOpenPath: React.Dispatch<React.SetStateAction<string | null>>;
@@ -351,12 +390,24 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
 
   appSSE.addEventListener("state_changed", () => { ctx.touchEvent(); ctx.refreshState(); });
   appSSE.addEventListener("session_busy", (e: MessageEvent) => {
-    ctx.setBusySessions((prev) => prev.has(e.data) ? prev : new Set([...prev, e.data]));
-    if (e.data === ctx.activeSessionRef.current) ctx.setSessionStatus("busy");
+    const sid = e.data;
+    ctx.setBusySessions((prev) => prev.has(sid) ? prev : new Set([...prev, sid]));
+    ctx.setSessionStatuses((prev) => {
+      if (prev[sid]?.type === "busy") return prev;
+      return { ...prev, [sid]: { type: "busy" } };
+    });
+    if (sid === ctx.activeSessionRef.current) ctx.setSessionStatus({ type: "busy" });
   });
   appSSE.addEventListener("session_idle", (e: MessageEvent) => {
-    ctx.setBusySessions((prev) => { if (!prev.has(e.data)) return prev; const next = new Set(prev); next.delete(e.data); return next; });
-    if (e.data === ctx.activeSessionRef.current) ctx.setSessionStatus("idle");
+    const sid = e.data;
+    ctx.setBusySessions((prev) => { if (!prev.has(sid)) return prev; const next = new Set(prev); next.delete(sid); return next; });
+    ctx.setSessionStatuses((prev) => {
+      if (!prev[sid]) return prev;
+      const next = { ...prev };
+      delete next[sid];
+      return next;
+    });
+    if (sid === ctx.activeSessionRef.current) ctx.setSessionStatus(SESSION_IDLE);
   });
   appSSE.addEventListener("stats_updated", (e: MessageEvent) => {
     try {

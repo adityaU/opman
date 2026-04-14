@@ -66,6 +66,26 @@ export interface EditorDefinitionLocation {
   col: number;
 }
 
+// ── File search (fuzzy) ───────────────────────────────
+
+export interface FileSearchEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+}
+
+export interface FileSearchResponse {
+  query: string;
+  entries: FileSearchEntry[];
+}
+
+export async function searchFiles(query: string, limit = 20): Promise<FileSearchEntry[]> {
+  if (!query.trim()) return [];
+  const qs = `?q=${encodeURIComponent(query)}&limit=${limit}`;
+  const resp = await apiFetch<FileSearchResponse>(`/files/search${qs}`);
+  return resp.entries;
+}
+
 // ── File browse / read / write ────────────────────────
 
 export async function browseFiles(path?: string): Promise<FileBrowseResponse> {

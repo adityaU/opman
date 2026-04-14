@@ -11,10 +11,11 @@ import {
 } from "../api";
 import type { AutonomyMode } from "../api";
 import type { PermissionRequest, QuestionRequest } from "../types";
+import type { SessionStatus } from "./sse/types";
 
 export interface UseNotificationSignalsOptions {
   activeSessionId: string | null;
-  sessionStatus: string;
+  sessionStatus: SessionStatus;
   autonomyMode: AutonomyMode;
   watcherStatus: any;
   permissions: PermissionRequest[];
@@ -70,7 +71,7 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
   const prevSessionRef = useRef(activeSessionId);
   useEffect(() => {
     const prefs = loadNotificationPrefs();
-    const wasBusy = prevStatusRef.current === "busy";
+    const wasBusy = prevStatusRef.current.type !== "idle";
     const sameSession = prevSessionRef.current === activeSessionId;
     prevStatusRef.current = sessionStatus;
     prevSessionRef.current = activeSessionId;
@@ -78,7 +79,7 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
     if (!prefs.enabled) return;
 
     // Only notify when the *same* session transitioned from busy→idle.
-    if (sessionStatus === "idle" && wasBusy && sameSession && prefs.session_complete && autonomyMode !== "observe") {
+    if (sessionStatus.type === "idle" && wasBusy && sameSession && prefs.session_complete && autonomyMode !== "observe") {
       setAssistantSignals((prev) => {
         const next: AssistantSignal = {
           id: `session-complete:${activeSessionId ?? "none"}:${Date.now()}`,

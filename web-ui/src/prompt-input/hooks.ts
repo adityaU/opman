@@ -129,13 +129,13 @@ export function useAtMention(
   /** Update @mention state from input change */
   const updateAtState = useCallback((val: string, cursorPos: number) => {
     const before = val.slice(0, cursorPos);
-    const atMatch = before.match(/@(\w*)$/);
-    if (atMatch && mentionableAgents.length > 0) {
+    const atMatch = before.match(/@([\w./\-]*)$/);
+    if (atMatch) {
       setShowAtPopover(true); setAtFilter(atMatch[1].toLowerCase());
     } else {
       setShowAtPopover(false); setAtFilter("");
     }
-  }, [mentionableAgents]);
+  }, []);
 
   const handleAtAgentSelect = useCallback((agentId: string) => {
     setShowAtPopover(false); setAtFilter("");
@@ -156,13 +156,17 @@ export function useAtMention(
 
   const clearMentions = useCallback(() => setAgentMentions([]), []);
 
+  const closePopover = useCallback(() => {
+    setShowAtPopover(false); setAtFilter("");
+  }, []);
+
   const filteredMentionAgents = mentionableAgents.filter(
     (a) => atFilter === "" || a.id.toLowerCase().includes(atFilter) || a.label.toLowerCase().includes(atFilter),
   );
 
   return {
-    agentMentions, showAtPopover, atPopoverRef,
+    agentMentions, showAtPopover, atPopoverRef, atFilter,
     filteredMentionAgents, setAgentMentions,
-    updateAtState, handleAtAgentSelect, clearMentions,
+    updateAtState, handleAtAgentSelect, clearMentions, closePopover,
   };
 }

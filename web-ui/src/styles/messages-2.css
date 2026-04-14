@@ -129,7 +129,19 @@
     background: linear-gradient(165deg,var(--white-1_5) 0%,transparent 100%);
     border-radius: var(--radius-lg);
     padding-left: var(--space-6);
-    padding-right: var(--space-6)
+    padding-right: var(--space-6);
+    position: relative
+}
+
+.message-turn-user::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 25%;
+    height: 50%;
+    width: 3px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: color-mix(in srgb, var(--color-primary) 60%, transparent)
 }
 
 .message-turn-optimistic {

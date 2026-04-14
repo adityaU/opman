@@ -6,6 +6,35 @@ export function modelLabel(m: ModelRef): string {
   return m.modelID || JSON.stringify(m);
 }
 
+// ── File context parsing ────────────────────────────────────────
+
+/** Parsed file context from a user message with @file mentions. */
+export interface FileContextBlock {
+  /** File paths that were attached. */
+  paths: string[];
+  /** The user's actual text with all <file> blocks stripped. */
+  userText: string;
+}
+
+const FILE_TAG_RE = /<file\s+path="([^"]+)">[^]*?<\/file>/g;
+
+/**
+ * Strip `<file path="...">...</file>` blocks injected by @file mentions.
+ * Returns null if no file blocks are present.
+ */
+export function parseFileContext(text: string): FileContextBlock | null {
+  if (!text.includes("<file path=")) return null;
+
+  const paths: string[] = [];
+  for (const m of text.matchAll(FILE_TAG_RE)) {
+    paths.push(m[1]);
+  }
+  if (paths.length === 0) return null;
+
+  const userText = text.replace(FILE_TAG_RE, "").trim();
+  return { paths, userText };
+}
+
 /** Parsed memory block from a user message. */
 export interface MemoryBlock {
   items: { label: string; content: string }[];

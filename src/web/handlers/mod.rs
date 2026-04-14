@@ -69,7 +69,7 @@ pub use git_context_handlers::{git_context_summary, git_repos};
 
 pub use agents_handlers::get_agents;
 
-pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files, rename_entry};
+pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files, rename_entry, search_files};
 
 pub use doc_handlers::{doc_read, doc_write};
 

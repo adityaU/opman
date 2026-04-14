@@ -29,14 +29,29 @@ export interface McpEditorOpen {
 /** SSE connection health status. */
 export type SSEConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
+/**
+ * Per-session status — mirrors OpenCode's SessionStatus schema.
+ * idle: not running.  busy: actively processing.  retry: hit a retryable
+ * error, will retry after `next` (epoch ms).
+ */
+export type SessionStatus =
+  | { type: "idle" }
+  | { type: "busy" }
+  | { type: "retry"; attempt: number; message: string; next: number };
+
+export const SESSION_IDLE: SessionStatus = { type: "idle" };
+export const SESSION_BUSY: SessionStatus = { type: "busy" };
+
 export interface SSEState {
   appState: AppState | null;
   messages: Message[];
   stats: SessionStats | null;
   busySessions: Set<string>;
+  /** Full per-session status map (idle entries are omitted — absent = idle). */
+  sessionStatuses: Readonly<Record<string, SessionStatus>>;
   permissions: PermissionRequest[];
   questions: QuestionRequest[];
-  sessionStatus: "idle" | "busy";
+  sessionStatus: SessionStatus;
   /** Aggregate SSE connection health (worst-case of app + session streams). */
   connectionStatus: SSEConnectionStatus;
   /** True while loading messages for a newly-selected session */
@@ -88,8 +103,9 @@ export interface SSEState {
   expectSessionSwitch: () => void;
   /** Optimistically begin a session switch — clears messages and shows loading
    *  state immediately at click-time, before any async API calls.
-   *  Restores from cache if available (no shimmer). */
-  beginSessionSwitch: (targetSid: string) => void;
+   *  Restores from cache if available (no shimmer).
+   *  Pass `projectIdx` when switching to a session in a different project. */
+  beginSessionSwitch: (targetSid: string, projectIdx?: number) => void;
   /** Stable callback for checking if a session is busy — avoids passing the Set reference
    *  to children (which would defeat React.memo on every busy/idle SSE event). */
   isSessionBusy: (sid: string) => boolean;

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import type { Message } from "./types";
 import { MessageTimeline } from "./MessageTimeline";
 import { fetchSessionMessages } from "./api";
+import { SESSION_IDLE, SESSION_BUSY } from "./hooks/sse/types";
 import { Loader2, CheckCircle2, XCircle, Bot, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 
 interface SubagentSessionProps {
@@ -175,7 +176,7 @@ export const SubagentSession = React.memo(function SubagentSession({
             <div className="subagent-messages" ref={scrollRef}>
               <MessageTimeline
                 messages={messages}
-                sessionStatus={isRunning ? "busy" : "idle"}
+                sessionStatus={isRunning ? SESSION_BUSY : SESSION_IDLE}
                 activeSessionId={sessionId}
                 isLoadingMessages={false}
               />

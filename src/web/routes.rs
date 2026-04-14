@@ -123,6 +123,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
         // ── File browsing / editing ──────────────────────────────────
         .route("/agents", get(handlers::get_agents))
         .route("/files", get(handlers::browse_files))
+        .route("/files/search", get(handlers::search_files))
         .route("/file/read", get(handlers::read_file))
         .route("/file/raw", get(handlers::read_file_raw))
         .route("/file/write", post(handlers::write_file))

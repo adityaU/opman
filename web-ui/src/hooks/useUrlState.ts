@@ -55,7 +55,7 @@ function buildSearchString(state: UrlState): string {
   const params = new URLSearchParams();
 
   if (state.sessionId) params.set(P_SESSION, state.sessionId);
-  if (state.projectIdx !== null && state.projectIdx !== 0) {
+  if (state.projectIdx !== null) {
     params.set(P_PROJECT, String(state.projectIdx));
   }
 

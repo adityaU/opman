@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useUrlState, readUrlState } from "./useUrlState";
 import type { UrlState } from "./useUrlState";
-import { switchProject, selectSession } from "../api";
 
 export interface UseUrlRestoreOptions {
   appState: any;
   activeSessionId: string | null;
+  /** Active project index (from URL session state). */
+  activeProjectIndex: number;
   panels: {
     sidebarOpen: boolean;
     terminalOpen: boolean;
@@ -13,87 +14,54 @@ export interface UseUrlRestoreOptions {
     gitOpen: boolean;
   };
   setPanels: (p: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean }) => void;
-  refreshState: () => void;
-  expectSessionSwitch: () => void;
-  /** Optimistically begin session switch — shows loading state and fires message fetch in parallel. */
-  beginSessionSwitch: (targetSid: string) => void;
+  /** Navigate to a session via URL — single source of truth. */
+  setUrlSession: (sessionId: string, projectIdx: number) => void;
 }
 
 /**
- * Reads the initial URL state, restores session from URL on first load,
- * and keeps URL in sync with app state.
+ * Handles:
+ * 1. localStorage fallback when URL has no session (cross-restart restore)
+ * 2. Persisting activeSessionId to localStorage
+ * 3. URL ↔ app state sync (via useUrlState)
+ * 4. Panel restoration on popstate (session popstate handled by useUrlSessionState)
  */
 export function useUrlRestore(opts: UseUrlRestoreOptions) {
-  const { appState, activeSessionId, panels, setPanels, refreshState, expectSessionSwitch, beginSessionSwitch } = opts;
+  const { appState, activeSessionId, activeProjectIndex, panels, setPanels, setUrlSession } = opts;
 
   const [initialUrlState] = useState(() => readUrlState());
   const urlRestoredRef = useRef(false);
 
-  // ── Restore session from URL on first app state load ──
-  // We retry on every appState update until sessions are populated,
-  // because the backend may not have hydrated sessions on the first fetch.
+  // ── localStorage fallback when URL has no session ──
+  // If the URL didn't contain a session, try restoring from localStorage.
   useEffect(() => {
     if (!appState || urlRestoredRef.current) return;
 
-    const urlSid = initialUrlState.sessionId;
-    const urlProjIdx = initialUrlState.projectIdx;
-
-    // Nothing to restore from URL — try localStorage fallback
-    if (!urlSid) {
-      // Only give up once sessions have actually loaded (non-empty)
-      const proj = appState.projects[appState.active_project];
-      if (proj && proj.sessions.length > 0 && proj.active_session) {
-        urlRestoredRef.current = true;
-      } else if (proj && proj.sessions.length > 0 && !proj.active_session) {
-        // Sessions loaded but backend didn't set active — try localStorage
-        const lastSid = localStorage.getItem("opman_last_session");
-        if (lastSid && proj.sessions.some((s: any) => s.id === lastSid)) {
-          urlRestoredRef.current = true;
-          beginSessionSwitch(lastSid);
-          (async () => {
-            try {
-              await selectSession(appState.active_project, lastSid);
-              // No explicit refreshState() — SSE state_changed handles it
-            } catch { /* ignore */ }
-          })();
-        } else {
-          urlRestoredRef.current = true;
-        }
-      }
-      // If sessions are still empty, don't set the ref — we'll retry
+    // Only run when URL has no session to restore
+    if (initialUrlState.sessionId) {
+      urlRestoredRef.current = true;
       return;
     }
 
-    const currentSid = appState.projects[appState.active_project]?.active_session;
-    if (currentSid === urlSid) { urlRestoredRef.current = true; return; }
+    const proj = appState.projects[appState.active_project];
+    if (!proj || proj.sessions.length === 0) return; // sessions not yet loaded
 
-    // Check if any project has the URL session in its session list
-    let targetProject = urlProjIdx;
-    if (targetProject === null) {
-      for (let i = 0; i < appState.projects.length; i++) {
-        if (appState.projects[i].sessions.some((s: any) => s.id === urlSid)) {
-          targetProject = i;
-          break;
-        }
-      }
+    if (proj.active_session) {
+      // Backend already has an active session — write it to the URL so
+      // urlSessionId is populated (prevents null → appState fallback bug).
+      urlRestoredRef.current = true;
+      setUrlSession(proj.active_session, appState.active_project);
+      return;
     }
-    // Sessions not yet populated — wait for next appState update
-    if (targetProject === null) return;
 
-    urlRestoredRef.current = true;
-    beginSessionSwitch(urlSid);
-    (async () => {
-      try {
-        if (targetProject !== appState.active_project) {
-          await switchProject(targetProject!);
-        }
-        await selectSession(targetProject!, urlSid);
-        // No explicit refreshState() — SSE state_changed handles it
-      } catch {
-        // Silently ignore — URL might have a stale session
-      }
-    })();
-  }, [appState, initialUrlState, refreshState]);
+    // Sessions loaded but backend didn't set active — try localStorage
+    const lastSid = localStorage.getItem("opman_last_session");
+    if (lastSid && proj.sessions.some((s: any) => s.id === lastSid)) {
+      urlRestoredRef.current = true;
+      setUrlSession(lastSid, appState.active_project);
+    } else {
+      urlRestoredRef.current = true;
+    }
+  }, [appState, initialUrlState.sessionId, setUrlSession]);
 
   // ── Persist last active session to localStorage for cross-restart restore ──
   useEffect(() => {
@@ -102,37 +70,18 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     }
   }, [activeSessionId]);
 
-  // ── Handle popstate ──
+  // ── Handle popstate (panels only — session handled by useUrlSessionState) ──
   const handlePopState = useCallback(
     (state: UrlState) => {
       setPanels(state.panels);
-
-      if (state.sessionId && appState) {
-        const currentSid = appState.projects[appState.active_project]?.active_session;
-        if (currentSid !== state.sessionId) {
-          const projIdx = state.projectIdx ?? appState.active_project;
-          beginSessionSwitch(state.sessionId);
-          (async () => {
-            try {
-              if (projIdx !== appState.active_project) {
-                await switchProject(projIdx);
-              }
-              await selectSession(projIdx, state.sessionId!);
-              // No explicit refreshState() — SSE state_changed handles it
-            } catch {
-              // ignore
-            }
-          })();
-        }
-      }
     },
-    [appState, setPanels, beginSessionSwitch],
+    [setPanels],
   );
 
   // ── Keep URL in sync ──
   useUrlState({
     sessionId: activeSessionId,
-    projectIdx: appState?.active_project ?? 0,
+    projectIdx: activeProjectIndex,
     panels: {
       sidebar: panels.sidebarOpen,
       terminal: panels.terminalOpen,

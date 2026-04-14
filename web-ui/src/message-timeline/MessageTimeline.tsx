@@ -274,7 +274,7 @@ export function MessageTimeline({
     );
   }
 
-  if (messages.length === 0 && sessionStatus === "idle") {
+  if (messages.length === 0 && sessionStatus.type === "idle") {
     return (
       <NewSessionEmpty
         sessionDirectory={sessionDirectory}

@@ -17,7 +17,8 @@ import type { Message, PermissionRequest, QuestionRequest } from "../../types";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 
-import type { SSEState, WatcherStatus, SSEConnectionStatus } from "./types";
+import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
+import { SESSION_IDLE } from "./types";
 import { type MessageMap, mapToSortedArray, getMessageTime } from "./messageMap";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
@@ -52,9 +53,12 @@ export function useSSE(): SSEState {
   const [busySessions, setBusySessions] = useState<Set<string>>(new Set());
   const busySessionsRef = useRef<Set<string>>(new Set());
   useEffect(() => { busySessionsRef.current = busySessions; }, [busySessions]);
+  const [sessionStatuses, setSessionStatuses] = useState<Record<string, SessionStatus>>({});
+  const sessionStatusesRef = useRef<Record<string, SessionStatus>>({});
+  useEffect(() => { sessionStatusesRef.current = sessionStatuses; }, [sessionStatuses]);
   const [permissions, setPermissions] = useState<PermissionRequest[]>([]);
   const [questions, setQuestions] = useState<QuestionRequest[]>([]);
-  const [sessionStatus, setSessionStatus] = useState<"idle" | "busy">("idle");
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(SESSION_IDLE);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
@@ -72,12 +76,23 @@ export function useSSE(): SSEState {
   const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
   const activeSessionRef = useRef<string | null>(null);
+  /** Optimistic override — set instantly by beginSessionSwitch() so the sidebar
+   *  and prompt react immediately, cleared once the server confirms via SSE. */
+  const [activeSessionIdOverride, setActiveSessionIdOverride] = useState<string | null>(null);
+  /** Optimistic project index override — set when switching to a session in a
+   *  different project so the project pill updates immediately. */
+  const [activeProjectIndexOverride, setActiveProjectIndexOverride] = useState<number | null>(null);
   const appliedTitleRef = useRef<string | null>(null);
-  /** When true, the next appState update is allowed to change the active session.
-   *  This is set by user-initiated actions (selectSession, newSession, switchProject)
+  /** Target session ID of the next expected switch (or "*" to accept any).
+   *  Set by user-initiated actions (selectSession, newSession, switchProject)
    *  and cleared after the switch happens.  Background SSE-driven refreshState()
-   *  calls will not switch sessions unless this flag is set or activeSession is null. */
-  const expectSessionSwitchRef = useRef(false);
+   *  calls will not switch sessions unless the incoming sid matches this target
+   *  or activeSession is null.
+   *  Using a target ID instead of a boolean prevents stale flags from allowing
+   *  unrelated session switches (e.g. a concurrent session.created SSE event). */
+  const expectSessionSwitchRef = useRef<string | null>(null);
+  /** Timeout handle for clearing a stale expectSessionSwitch target. */
+  const expectSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sessionGenRef = useRef(0);
 
@@ -216,6 +231,20 @@ export function useSSE(): SSEState {
           for (const sid of p.busy_sessions) next.add(sid);
         }
         return next;
+      });
+      // Seed sessionStatuses from busy_sessions (server only reports busy IDs — no retry detail here)
+      setSessionStatuses((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const p of s.projects) {
+          for (const sid of p.busy_sessions) {
+            if (!next[sid] || next[sid].type === "idle") {
+              next[sid] = { type: "busy" };
+              changed = true;
+            }
+          }
+        }
+        return changed ? next : prev;
       });
     } catch (e) {
       console.error("Failed to fetch state:", e);
@@ -404,10 +433,20 @@ export function useSSE(): SSEState {
       // Guard: if the user already has an active session and this change wasn't
       // user-initiated, ignore the server's active_session to prevent unwanted
       // session switches caused by background SSE refreshState() calls.
-      if (activeSessionRef.current !== null && !expectSessionSwitchRef.current && sid !== null) {
-        return;
+      // The expected target must match the incoming sid, or be "*" (accept any).
+      const expected = expectSessionSwitchRef.current;
+      if (activeSessionRef.current !== null && sid !== null) {
+        if (expected === null) return; // no switch expected — block
+        if (expected !== "*" && expected !== sid) return; // wrong target — block
       }
-      expectSessionSwitchRef.current = false;
+      expectSessionSwitchRef.current = null;
+      if (expectSwitchTimerRef.current) {
+        clearTimeout(expectSwitchTimerRef.current);
+        expectSwitchTimerRef.current = null;
+      }
+      // Clear optimistic overrides — server has confirmed the session switch
+      setActiveSessionIdOverride(null);
+      setActiveProjectIndexOverride(null);
 
       // Save current session to cache before switching away
       saveCurrentSessionToCache();
@@ -420,7 +459,9 @@ export function useSSE(): SSEState {
       // Without this, switching to an idle session keeps the previous session's
       // "busy" status (showing a stale stop button).
       setBusySessions((prev) => {
-        setSessionStatus(sid && prev.has(sid) ? "busy" : "idle");
+        setSessionStatus(sid && prev.has(sid)
+          ? (sessionStatusesRef.current[sid] ?? { type: "busy" })
+          : SESSION_IDLE);
         return prev;
       });
 
@@ -542,7 +583,7 @@ export function useSSE(): SSEState {
 
     const appSSECtx: Parameters<typeof setupAppSSEListeners>[1] = {
       activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
-      setBusySessions, setSessionStatus, setStats, setWatcherStatus,
+      setBusySessions, setSessionStatus, setSessionStatuses, setStats, setWatcherStatus,
       setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId,
       setMcpAgentActivity, setPresenceClients, setLiveActivityEvents,
     };
@@ -585,7 +626,7 @@ export function useSSE(): SSEState {
         handleOpenCodeEvent(
           { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
             flushMessages, flushSubagentMessages,
-            refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setPermissions, setQuestions,
+            refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setSessionStatuses, setPermissions, setQuestions,
             setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
           event,
         );
@@ -621,12 +662,23 @@ export function useSSE(): SSEState {
       currentAppSSE?.close(); currentSessionSSE?.close(); clearInterval(watchdogInterval);
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
+      if (expectSwitchTimerRef.current) { clearTimeout(expectSwitchTimerRef.current); expectSwitchTimerRef.current = null; }
     };
   }, [refreshState, updateSessionMeta, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
 
-  /** Signal that a user-initiated session switch is expected (call before selectSession/newSession). */
+  /** Signal that a user-initiated session switch is expected (call before selectSession/newSession).
+   *  Clears any optimistic override so the UI falls back to server state. */
   const expectSessionSwitch = useCallback(() => {
-    expectSessionSwitchRef.current = true;
+    expectSessionSwitchRef.current = "*";
+    // Safety net: clear stale flag after 10s so a failed API call can't leave
+    // the guard permanently open.
+    if (expectSwitchTimerRef.current) clearTimeout(expectSwitchTimerRef.current);
+    expectSwitchTimerRef.current = setTimeout(() => {
+      expectSessionSwitchRef.current = null;
+      expectSwitchTimerRef.current = null;
+    }, 10_000);
+    setActiveSessionIdOverride(null);
+    setActiveProjectIndexOverride(null);
   }, []);
 
   /** Stable callback for checking busy state — avoids passing Set reference to children. */
@@ -634,17 +686,29 @@ export function useSSE(): SSEState {
 
   /** Optimistically begin a session switch — immediately clears messages and shows loading state.
    *  Call this at click-time before any async API calls so the UI responds instantly.
-   *  Also kicks off the message fetch so data loads in parallel with the API round-trips. */
-  const beginSessionSwitch = useCallback((targetSid: string) => {
-    expectSessionSwitchRef.current = true;
+   *  Also kicks off the message fetch so data loads in parallel with the API round-trips.
+   *  Pass `projectIdx` when switching to a session in a different project. */
+  const beginSessionSwitch = useCallback((targetSid: string, projectIdx?: number) => {
+    // Set the specific target — the guard will only allow this exact session
+    expectSessionSwitchRef.current = targetSid;
+    if (expectSwitchTimerRef.current) clearTimeout(expectSwitchTimerRef.current);
+    expectSwitchTimerRef.current = setTimeout(() => {
+      expectSessionSwitchRef.current = null;
+      expectSwitchTimerRef.current = null;
+    }, 10_000);
     saveCurrentSessionToCache();
     sessionGenRef.current += 1;
     const gen = sessionGenRef.current;
     activeSessionRef.current = targetSid;
+    // Optimistic override — makes sidebar highlight and prompt react instantly
+    setActiveSessionIdOverride(targetSid);
+    setActiveProjectIndexOverride(projectIdx ?? null);
 
     // Recompute session status immediately
     setBusySessions((prev) => {
-      setSessionStatus(prev.has(targetSid) ? "busy" : "idle");
+      setSessionStatus(prev.has(targetSid)
+        ? (sessionStatusesRef.current[targetSid] ?? { type: "busy" })
+        : SESSION_IDLE);
       return prev;
     });
     reclassifyInteractions(targetSid);
@@ -697,8 +761,9 @@ export function useSSE(): SSEState {
   }, [saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions, hydratePending]);
 
   return {
-    appState, messages, stats, busySessions, permissions, questions,
-    sessionStatus, connectionStatus, isLoadingMessages, isLoadingOlder, hasOlderMessages,
+    appState, messages, stats, busySessions, sessionStatuses, permissions, questions,
+    sessionStatus, connectionStatus,
+    isLoadingMessages, isLoadingOlder, hasOlderMessages,
     totalMessageCount, watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId,
     mcpAgentActivity, presenceClients, liveActivityEvents,

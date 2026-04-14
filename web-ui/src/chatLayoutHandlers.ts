@@ -1,8 +1,10 @@
 import {
   sendMessage, abortSession, executeCommand,
-  replyPermission, replyQuestion, rejectQuestion, selectSession, newSession, switchProject,
+  replyPermission, replyQuestion, rejectQuestion, newSession, switchProject,
+  fetchAppState,
 } from "./api";
 import type { ImageAttachment, PersonalMemoryItem } from "./api";
+import type { Message } from "./types";
 
 /* ── Deps interface ─────────────────────────────────────── */
 
@@ -20,13 +22,13 @@ export interface HandlerDeps {
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string) => void;
   refreshState: () => void;
-  /** Signal that a user-initiated session switch is expected. */
-  expectSessionSwitch: () => void;
-  /** Optimistically begin session switch — shows loading state immediately. */
-  beginSessionSwitch: (targetSid: string) => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
+  /** Close mobile sidebar without history.back() — prevents undoing the session URL pushState. */
+  closeMobileSidebarSilent: () => void;
+  /** Navigate to a session via URL (single source of truth). */
+  setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
@@ -34,6 +36,8 @@ export interface HandlerDeps {
   toggleGit: () => void;
   toggleDebug: () => void;
   toggleSplitView: () => void;
+  /** Read current messages without including them in memo deps. */
+  getMessages: () => Message[];
 }
 
 /* ── Pure helper ────────────────────────────────────────── */
@@ -69,13 +73,13 @@ const MODAL_COMMANDS: Record<string, string> = {
 const TOGGLE_COMMANDS = new Set(["terminal", "neovim", "nvim", "git", "split-view", "debug"]);
 
 export const LOCAL_COMMANDS = new Set([
-  "new", "cancel", ...Object.keys(MODAL_COMMANDS), ...TOGGLE_COMMANDS,
+  "new", "cancel", "copy", ...Object.keys(MODAL_COMMANDS), ...TOGGLE_COMMANDS,
 ]);
 
 /* ── Factory functions ──────────────────────────────────── */
 
 export function createHandleSend(deps: HandlerDeps) {
-  return async (text: string, images?: ImageAttachment[]): Promise<boolean> => {
+  return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     if (!deps.activeSessionId) return false;
     if (deps.sending) {
       deps.addToast("Please wait — still sending…", "warning");
@@ -86,15 +90,19 @@ export function createHandleSend(deps: HandlerDeps) {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
     }
+    // Prepend file context (from @file mentions) before memory guidance
+    const fullText = fileContext ? fileContext + text : text;
     try {
       await sendMessage(
         deps.activeSessionId,
-        injectMemoryGuidance(text, deps.activeMemoryItems),
+        injectMemoryGuidance(fullText, deps.activeMemoryItems),
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
       );
       return true;
     } catch {
+      // Refresh to remove the optimistic message since send failed
+      deps.refreshState();
       deps.addToast("Failed to send message", "error");
       return false;
     } finally {
@@ -143,14 +151,36 @@ export function createHandleCommand(deps: HandlerDeps) {
     if (command === "new") {
       if (!deps.appState) return;
       try {
-        deps.expectSessionSwitch();
-        await newSession(deps.appState.active_project);
-        deps.refreshState();
+        const projectIdx = deps.appState.active_project;
+        const resp = await newSession(projectIdx);
+        // URL is the single source of truth — triggers beginSessionSwitch + API calls
+        deps.setUrlSession(resp.session_id, projectIdx);
         deps.setSelectedModel(null);
         deps.setSelectedAgent("");
         deps.addToast("New session created", "success");
       } catch {
         deps.addToast("Failed to create session", "error");
+      }
+      return;
+    }
+
+    // /copy — copy session transcript to clipboard
+    if (command === "copy") {
+      const msgs = deps.getMessages();
+      if (msgs.length === 0) { deps.addToast("Nothing to copy", "warning"); return; }
+      const lines: string[] = [];
+      for (const msg of msgs) {
+        const role = msg.info.role === "user" ? "User" : "Assistant";
+        for (const part of msg.parts) {
+          if (part.type === "text" && part.text) lines.push(`## ${role}\n\n${part.text}`);
+        }
+      }
+      if (lines.length === 0) { deps.addToast("No text content to copy", "warning"); return; }
+      try {
+        await navigator.clipboard.writeText(lines.join("\n\n---\n\n"));
+        deps.addToast("Session transcript copied to clipboard", "success");
+      } catch {
+        deps.addToast("Clipboard access denied", "error");
       }
       return;
     }
@@ -171,8 +201,9 @@ export function createHandleCommand(deps: HandlerDeps) {
     try {
       await executeCommand(deps.activeSessionId, command, args);
       deps.refreshState();
-    } catch {
-      deps.addToast(`Command /${command} failed`, "error");
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : "";
+      deps.addToast(detail || `Command /${command} failed`, "error");
     }
   };
 }
@@ -211,26 +242,15 @@ export function createHandleQuestionDismiss(deps: HandlerDeps) {
 }
 
 export function createHandleSelectSession(deps: HandlerDeps) {
-  return async (sessionId: string, projectIdx: number) => {
+  return (sessionId: string, projectIdx: number) => {
     if (!deps.appState) return;
-    // Immediate UI feedback — show loading / restore cache before any network call
-    deps.beginSessionSwitch(sessionId);
-    deps.setMobileSidebarOpen(false);
+    // Close mobile sidebar without history.back() so the subsequent
+    // pushState for the new session URL isn't undone by the async back().
+    deps.closeMobileSidebarSilent();
+    // URL is the single source of truth — this triggers beginSessionSwitch + API calls
+    deps.setUrlSession(sessionId, projectIdx);
     deps.setSelectedModel(null);
     deps.setSelectedAgent("");
-    try {
-      const needsProjectSwitch = projectIdx !== deps.appState.active_project;
-      if (needsProjectSwitch) {
-        // Project switch must complete before session select
-        await switchProject(projectIdx);
-      }
-      await selectSession(projectIdx, sessionId);
-      // Note: no explicit refreshState() here — the backend fires a
-      // state_changed SSE event which already triggers refreshState()
-      // in eventHandler.ts.  Calling it twice wastes a round-trip.
-    } catch {
-      deps.addToast("Failed to switch session", "error");
-    }
   };
 }
 
@@ -238,9 +258,10 @@ export function createHandleNewSession(deps: HandlerDeps) {
   return async () => {
     if (!deps.appState) return;
     try {
-      deps.expectSessionSwitch();
-      await newSession(deps.appState.active_project);
-      deps.refreshState();
+      const projectIdx = deps.appState.active_project;
+      const resp = await newSession(projectIdx);
+      // URL is the single source of truth — triggers beginSessionSwitch + API calls
+      deps.setUrlSession(resp.session_id, projectIdx);
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
       deps.addToast("New session created", "success");
@@ -253,9 +274,15 @@ export function createHandleNewSession(deps: HandlerDeps) {
 export function createHandleSwitchProject(deps: HandlerDeps) {
   return async (index: number) => {
     try {
-      deps.expectSessionSwitch();
       await switchProject(index);
-      deps.refreshState();
+      // Fetch fresh state to discover the new project's active session
+      const freshState = await fetchAppState();
+      const proj = freshState.projects[index];
+      const newSid = proj?.active_session ?? null;
+      if (newSid) {
+        // URL is the single source of truth — triggers beginSessionSwitch + API calls
+        deps.setUrlSession(newSid, index);
+      }
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
     } catch {

@@ -7,6 +7,8 @@ import { QuestionDock } from "./QuestionDock";
 import { SearchBar } from "./SearchBar";
 import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity } from "lucide-react";
 
+import type { SessionStatus } from "./hooks/sse/types";
+
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
@@ -15,8 +17,9 @@ const DebugPanel = lazy(() => import("./DebugPanel").then(m => ({ default: m.Deb
 export interface ChatMainAreaProps {
   appState: any;
   activeProject: any;
+  activeProjectIndex: number;
   activeSessionId: string | null;
-  sessionStatus: "idle" | "busy";
+  sessionStatus: SessionStatus;
   connectionStatus?: "connected" | "reconnecting" | "disconnected";
   messages: any[];
   /** Stable callback — reads from ref, never changes identity. */
@@ -70,7 +73,7 @@ export interface ChatMainAreaProps {
   handlePermissionReply: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;
   handleQuestionReply: (requestId: string, answers: string[][]) => Promise<void>;
   handleQuestionDismiss: (requestId: string) => Promise<void>;
-  handleSelectSession: (sessionId: string, projectIdx: number) => Promise<void>;
+  handleSelectSession: (sessionId: string, projectIdx: number) => void;
   handleNewSession: () => Promise<void>;
   handleSwitchProject: (index: number) => Promise<void>;
   handleAgentChange: (agentId: string) => Promise<void>;
@@ -100,10 +103,9 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
   const hasSidePanel = p.neovimOpen || p.gitOpen || p.debugOpen;
 
   // Stable callback: navigate to session within active project
-  const activeProjectIdx = p.appState?.active_project ?? 0;
   const handleOpenSession = useCallback(
-    (sid: string) => p.handleSelectSession(sid, activeProjectIdx),
-    [p.handleSelectSession, activeProjectIdx],
+    (sid: string) => p.handleSelectSession(sid, p.activeProjectIndex),
+    [p.handleSelectSession, p.activeProjectIndex],
   );
 
   // Stable memory labels array — avoid recreating every render
@@ -125,7 +127,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
           >
             <ChatSidebar
               projects={p.appState.projects}
-              activeProject={p.appState.active_project}
+              activeProject={p.activeProjectIndex}
               activeSessionId={p.activeSessionId}
               isSessionBusy={p.isSessionBusy}
               busyKey={p.busyKey}
@@ -158,7 +160,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             <span className="mobile-project-name">
               {p.activeProject?.name || "opman"}
             </span>
-            {p.sessionStatus === "busy" && <span className="mobile-pill-busy" />}
+            {p.sessionStatus.type !== "idle" && <span className="mobile-pill-busy" />}
             {p.connectionStatus && p.connectionStatus !== "connected" && (
               <span className={`mobile-pill-connection mobile-pill-connection-${p.connectionStatus}`}>
                 <WifiOff size={12} />
@@ -224,7 +226,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onCommand={p.handleCommand}
             onOpenModelPicker={p.openModelPicker}
             onOpenAgentPicker={p.openAgentPicker}
-            isBusy={p.sessionStatus === "busy"}
+            isBusy={p.sessionStatus.type !== "idle"}
             isSending={p.sending}
             disabled={!p.activeSessionId}
             sessionId={p.activeSessionId}
