@@ -179,33 +179,29 @@ export const MessageTurn = React.memo(function MessageTurn({
               backgroundColor: `color-mix(in srgb, ${agentColor(headerAgent)} 10%, transparent)`,
             }}>{headerAgent}</span>
           )}
-        </div>
-
-        {/* Memory accordion for user messages */}
-        {memoryBlock && (
-          <div className="memory-accordion">
+          {memoryBlock && (
             <button
-              className={`memory-accordion-toggle${memoryOpen ? " open" : ""}`}
+              className={`memory-header-toggle${memoryOpen ? " open" : ""}`}
               onClick={() => setMemoryOpen((o) => !o)}
             >
-              <ChevronRight size={12} className="memory-accordion-chevron" />
+              <ChevronRight size={12} className="memory-header-chevron" />
               <Brain size={12} />
-              <span className="memory-accordion-label">
-                {memoryBlock.items.length} {memoryBlock.items.length === 1 ? "memory" : "memories"}
-              </span>
+              <span>{memoryBlock.items.length} {memoryBlock.items.length === 1 ? "memory" : "memories"}</span>
             </button>
-            {memoryOpen && (
-              <div className="memory-accordion-body">
-                {memoryBlock.items.map((item, i) => (
-                  <div key={i} className="memory-accordion-item">
-                    <span className="memory-accordion-item-label">{item.label}</span>
-                    {item.content && (
-                      <span className="memory-accordion-item-content">{item.content}</span>
-                    )}
-                  </div>
-                ))}
+          )}
+        </div>
+
+        {/* Memory accordion body (expands below header) */}
+        {memoryBlock && memoryOpen && (
+          <div className="memory-accordion-body">
+            {memoryBlock.items.map((item, i) => (
+              <div key={i} className="memory-accordion-item">
+                <span className="memory-accordion-item-label">{item.label}</span>
+                {item.content && (
+                  <span className="memory-accordion-item-content">{item.content}</span>
+                )}
               </div>
-            )}
+            ))}
           </div>
         )}
 
