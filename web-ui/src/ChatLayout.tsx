@@ -241,6 +241,7 @@ export function ChatLayout() {
     closeMobileSidebarSilent: mobile.closeSidebarSilent,
     setUrlSession,
     openModal,
+    openMemoryAll: modalState.openMemoryAll,
     toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
     toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,
     toggleDebug: panels.debug.toggle,
@@ -269,7 +270,8 @@ export function ChatLayout() {
   const openAddProject = useCallback(() => modalState.open("addProject"), [modalState]);
   const openModelPicker = useCallback(() => modalState.open("modelPicker"), [modalState]);
   const openAgentPicker = useCallback(() => modalState.open("agentPicker"), [modalState]);
-  const openMemory = useCallback(() => modalState.open("memory"), [modalState]);
+  const openMemoryActive = useCallback(() => modalState.openMemoryActive(), [modalState]);
+  const openMemoryAll = useCallback(() => modalState.openMemoryAll(), [modalState]);
   const openCmdPalette = useCallback(() => modalState.open("commandPalette"), [modalState]);
   const closeSearchBar = useCallback(() => modalState.close("searchBar"), [modalState]);
   const openWatcher = useCallback(() => modalState.open("watcher"), [modalState]);
@@ -327,7 +329,7 @@ export function ChatLayout() {
         handlePromptContentChange={mobile.handlePromptContentChange}
         loadOlderMessages={loadOlderMessages}
         openAddProject={openAddProject} openModelPicker={openModelPicker}
-        openAgentPicker={openAgentPicker} openMemory={openMemory}
+        openAgentPicker={openAgentPicker} openMemory={openMemoryActive}
         openCommandPalette={openCmdPalette} closeSearchBar={closeSearchBar}
         debugOpen={panels.debug.open} closeDebug={panels.debug.close}
         closeTerminal={panels.terminal.close} closeNeovim={panels.editor.close} closeGit={panels.git.close}
@@ -366,6 +368,8 @@ export function ChatLayout() {
         latestDailySummary={assistant.latestDailySummary}
         activeWorkspaceName={assistant.activeWorkspaceName}
         personalMemoryForInbox={callbacks.personalMemoryForInbox}
+        memoryFilterActive={modalState.memoryFilterActive}
+        openMemoryAll={openMemoryAll}
         splitViewSecondaryId={modalState.splitViewSecondaryId}
         setSplitViewSecondaryId={modalState.setSplitViewSecondaryId}
         clearPermission={clearPermission} clearQuestion={clearQuestion}

@@ -86,6 +86,9 @@ export interface ModalLayerProps {
   latestDailySummary: string | null;
   activeWorkspaceName: string | null;
   personalMemoryForInbox: any[];
+  memoryFilterActive: boolean;
+  /** Open memory modal showing all memories (sets filterActive=false). */
+  openMemoryAll: () => void;
   splitViewSecondaryId: string | null;
   setSplitViewSecondaryId: (id: string | null) => void;
   clearPermission: (id: string) => void;
@@ -102,6 +105,8 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
 
   /** Close `from` modal then open `to` modal */
   const nav = useCallback((from: string, to: string) => () => { c(from); o(to); }, [c, o]);
+  /** Close `from` modal then open memory-all (unfiltered). */
+  const navMemoryAll = useCallback((from: string) => () => { c(from); p.openMemoryAll(); }, [c, p.openMemoryAll]);
   /** Adapter: (projectIndex, sessionId) → onSelectSession */
   const selByProj = useCallback(
     (pi: number, sid: string) => p.onSelectSession(sid, pi), [p.onSelectSession],
@@ -133,7 +138,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onOpenActivityFeed={() => o("activityFeed")}
           onOpenNotificationPrefs={() => o("notificationPrefs")}
           onOpenAssistantCenter={() => o("assistantCenter")}
-          onOpenInbox={() => o("inbox")} onOpenMemory={() => o("memory")}
+          onOpenInbox={() => o("inbox")} onOpenMemory={p.openMemoryAll}
           onOpenAutonomy={() => o("autonomy")} onOpenRoutines={() => o("routines")}
           onOpenDelegation={() => o("delegation")} onOpenMissions={() => o("missions")}
           onOpenWorkspaceManager={() => o("workspaceManager")}
@@ -172,7 +177,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onOpenCheatsheet={nav("settings", "cheatsheet")}
           onOpenNotificationPrefs={nav("settings", "notificationPrefs")}
           onOpenAssistantCenter={nav("settings", "assistantCenter")}
-          onOpenMemory={nav("settings", "memory")}
+          onOpenMemory={navMemoryAll("settings")}
           onOpenAutonomy={nav("settings", "autonomy")}
           onOpenRoutines={nav("settings", "routines")}
           onOpenDelegation={nav("settings", "delegation")}
@@ -223,7 +228,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
             onQuickUpgradeAutonomy={p.onQuickUpgradeAutonomy}
             onOpenInbox={nav("assistantCenter", "inbox")}
             onOpenMissions={nav("assistantCenter", "missions")}
-            onOpenMemory={nav("assistantCenter", "memory")}
+            onOpenMemory={navMemoryAll("assistantCenter")}
             onOpenAutonomy={nav("assistantCenter", "autonomy")}
             onOpenRoutines={nav("assistantCenter", "routines")}
             onOpenDelegation={nav("assistantCenter", "delegation")}
@@ -258,7 +263,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       )}
 
       {m.memory && (
-        <L><MemoryModal onClose={cl("memory")} projects={p.appState.projects} activeProjectIndex={p.appState.active_project} activeSessionId={p.activeSessionId} /></L>
+        <L><MemoryModal onClose={cl("memory")} projects={p.appState.projects} activeProjectIndex={p.appState.active_project} activeSessionId={p.activeSessionId} filterActive={p.memoryFilterActive} /></L>
       )}
       {m.autonomy && (
         <L><AutonomyModal onClose={cl("autonomy")} mode={p.autonomyMode} onChange={p.onAutonomyChange} /></L>

@@ -35,6 +35,7 @@ export interface ChatHandlerInputs {
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
+  openMemoryAll: () => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
   toggleNeovim: () => void;
@@ -94,6 +95,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     closeMobileSidebarSilent: inputs.closeMobileSidebarSilent,
     setUrlSession: inputs.setUrlSession,
     openModal: inputs.openModal,
+    openMemoryAll: inputs.openMemoryAll,
     toggleSidebar: inputs.toggleSidebar,
     toggleTerminal: inputs.toggleTerminal,
     toggleNeovim: inputs.toggleNeovim,
@@ -109,7 +111,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.clearOptimistic, inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
-    inputs.openModal, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
+    inputs.openModal, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,
   ]);
 

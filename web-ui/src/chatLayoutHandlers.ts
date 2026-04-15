@@ -31,6 +31,8 @@ export interface HandlerDeps {
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
+  /** Open memory modal showing all memories (for /memory command). */
+  openMemoryAll: () => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
   toggleNeovim: () => void;
@@ -195,6 +197,8 @@ export function createHandleCommand(deps: HandlerDeps) {
     if (command === "split-view") { deps.toggleSplitView(); return; }
 
     // Modal commands (models, theme, sessions, settings, etc.)
+    // /memory from command palette shows ALL memories (not scoped)
+    if (command === "memory") { deps.openMemoryAll(); return; }
     const modalName = MODAL_COMMANDS[command];
     if (modalName) { deps.openModal(modalName); return; }
 

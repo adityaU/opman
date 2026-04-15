@@ -6,6 +6,7 @@ import {
   createPersonalMemory,
   deletePersonalMemory,
   fetchPersonalMemory,
+  fetchActiveMemory,
   updatePersonalMemory,
 } from "../api";
 import type { MemoryScope, PersonalMemoryItem, ProjectInfo } from "../api";
@@ -19,6 +20,8 @@ interface Props {
   projects: ProjectInfo[];
   activeProjectIndex: number;
   activeSessionId: string | null;
+  /** When true, only show memories scoped to current project/session. */
+  filterActive?: boolean;
 }
 
 export function MemoryModal({
@@ -26,6 +29,7 @@ export function MemoryModal({
   projects,
   activeProjectIndex,
   activeSessionId,
+  filterActive = false,
 }: Props) {
   const [items, setItems] = useState<PersonalMemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,12 +48,17 @@ export function MemoryModal({
 
   const loadMemory = useCallback(async () => {
     try {
-      const resp = await fetchPersonalMemory();
-      setItems((resp?.memory ?? []).filter(Boolean));
+      if (filterActive) {
+        const resp = await fetchActiveMemory(activeProjectIndex, activeSessionId);
+        setItems((resp?.memory ?? []).filter(Boolean) as PersonalMemoryItem[]);
+      } else {
+        const resp = await fetchPersonalMemory();
+        setItems((resp?.memory ?? []).filter(Boolean));
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterActive, activeProjectIndex, activeSessionId]);
 
   useEffect(() => { loadMemory(); }, [loadMemory]);
 
@@ -118,7 +127,7 @@ export function MemoryModal({
         <div className="memory-header">
           <div className="memory-header-left">
             <Brain size={16} />
-            <h3>Personal Memory</h3>
+            <h3>{filterActive ? "Active Memory" : "Personal Memory"}</h3>
             <span className="memory-count">{items.length}</span>
           </div>
           <button onClick={onClose} aria-label="Close memory"><X size={16} /></button>

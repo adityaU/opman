@@ -52,6 +52,12 @@ export interface ModalStateAPI {
   /* Split-view auxiliary state */
   splitViewSecondaryId: string | null;
   setSplitViewSecondaryId: React.Dispatch<React.SetStateAction<string | null>>;
+  /** Open memory modal showing only active (scoped) memories. */
+  openMemoryActive: () => void;
+  /** Open memory modal showing all memories. */
+  openMemoryAll: () => void;
+  /** Whether the memory modal should filter to active-only items. */
+  memoryFilterActive: boolean;
 }
 
 export function useModalState(): ModalStateAPI {
@@ -59,6 +65,7 @@ export function useModalState(): ModalStateAPI {
   const [searchMatchIds, setSearchMatchIds] = useState<Set<string>>(new Set());
   const [activeSearchMatchId, setActiveSearchMatchId] = useState<string | null>(null);
   const [splitViewSecondaryId, setSplitViewSecondaryId] = useState<string | null>(null);
+  const [memoryFilterActive, setMemoryFilterActive] = useState(false);
 
   // Keep a ref so closeTopModal doesn't depend on `modals` (avoids stale closure).
   const modalsRef = useRef(modals);
@@ -83,6 +90,8 @@ export function useModalState(): ModalStateAPI {
       setActiveSearchMatchId(null);
     } else if (name === "splitView") {
       setSplitViewSecondaryId(null);
+    } else if (name === "memory") {
+      setMemoryFilterActive(false);
     }
   }, []);
 
@@ -164,10 +173,21 @@ export function useModalState(): ModalStateAPI {
     return () => window.removeEventListener("popstate", handler);
   }, [closeRaw, cleanupSideEffects]);
 
+  const openMemoryActive = useCallback(() => {
+    setMemoryFilterActive(true);
+    open("memory");
+  }, [open]);
+
+  const openMemoryAll = useCallback(() => {
+    setMemoryFilterActive(false);
+    open("memory");
+  }, [open]);
+
   return {
     isOpen, open, close, toggle, closeTopModal, modals,
     searchMatchIds, setSearchMatchIds,
     activeSearchMatchId, setActiveSearchMatchId,
     splitViewSecondaryId, setSplitViewSecondaryId,
+    openMemoryActive, openMemoryAll, memoryFilterActive,
   };
 }
