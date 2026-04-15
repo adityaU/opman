@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import type { ModelRef } from "../api";
 
 export interface ModelState {
@@ -7,7 +7,8 @@ export interface ModelState {
   selectedAgent: string;
   setSelectedAgent: (a: string) => void;
   sending: boolean;
-  setSending: (v: boolean) => void;
+  /** Set sending state. Pass sessionId to target a specific session (used by finally blocks). */
+  setSending: (v: boolean, sessionId?: string) => void;
   currentModel: string | null;
   defaultModelDisplay: string | null;
   currentModelContextLimit: number | null;
@@ -16,10 +17,30 @@ export interface ModelState {
 export function useModelState(
   messages: any[],
   providers: { defaults: Record<string, string>; all: any[] },
+  activeSessionId: string | null,
 ): ModelState {
   const [selectedModel, setSelectedModel] = useState<ModelRef | null>(null);
   const [selectedAgent, setSelectedAgent] = useState("");
-  const [sending, setSending] = useState(false);
+
+  // Per-session sending state: Map<sessionId, boolean>.
+  // The exposed `sending` boolean is derived from the active session.
+  const sendingMap = useRef(new Map<string, boolean>());
+  const [sendingFlag, setSendingFlag] = useState(false);
+
+  const setSending = useCallback((v: boolean, sessionId?: string) => {
+    const sid = sessionId ?? activeSessionId;
+    if (sid) {
+      if (v) sendingMap.current.set(sid, true);
+      else sendingMap.current.delete(sid);
+    }
+    // Only update the React flag if the target session is the currently active one
+    if (!sid || sid === activeSessionId) setSendingFlag(v);
+  }, [activeSessionId]);
+
+  // When activeSessionId changes, derive sending from the map
+  const sending = activeSessionId
+    ? (sendingMap.current.get(activeSessionId) ?? false)
+    : sendingFlag;
 
   // Derive current model from selectedModel or latest assistant message
   const currentModel = useMemo(() => {

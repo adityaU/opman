@@ -15,7 +15,7 @@ export interface HandlerDeps {
   selectedAgent: string;
   sending: boolean;
   activeMemoryItems: PersonalMemoryItem[];
-  setSending: (v: boolean) => void;
+  setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
   setMobileInputHidden: (v: boolean) => void;
@@ -80,12 +80,13 @@ export const LOCAL_COMMANDS = new Set([
 
 export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
-    if (!deps.activeSessionId) return false;
+    const sid = deps.activeSessionId;
+    if (!sid) return false;
     if (deps.sending) {
       deps.addToast("Please wait — still sending…", "warning");
       return false;
     }
-    deps.setSending(true);
+    deps.setSending(true, sid);
     deps.addOptimisticMessage(text);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
@@ -94,7 +95,7 @@ export function createHandleSend(deps: HandlerDeps) {
     const fullText = fileContext ? fileContext + text : text;
     try {
       await sendMessage(
-        deps.activeSessionId,
+        sid,
         injectMemoryGuidance(fullText, deps.activeMemoryItems),
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
@@ -106,7 +107,7 @@ export function createHandleSend(deps: HandlerDeps) {
       deps.addToast("Failed to send message", "error");
       return false;
     } finally {
-      deps.setSending(false);
+      deps.setSending(false, sid);
     }
   };
 }

@@ -20,7 +20,7 @@ export interface ChatHandlerInputs {
   selectedAgent: string;
   sending: boolean;
   activeMemoryItems: PersonalMemoryItem[];
-  setSending: (v: boolean) => void;
+  setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
   setMobileInputHidden: (v: boolean) => void;
@@ -57,6 +57,16 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const sessionIdRef = useRef(inputs.activeSessionId);
   sessionIdRef.current = inputs.activeSessionId;
 
+  // Keep sending in a ref — handlers read at call-time so session switches
+  // don't stale-close over the wrong session's sending flag.
+  const sendingRef = useRef(inputs.sending);
+  sendingRef.current = inputs.sending;
+
+  // Keep activeMemoryItems in a ref — handlers read at call-time so freshly
+  // fetched memories are always used, even during the brief re-render window.
+  const memoryRef = useRef(inputs.activeMemoryItems);
+  memoryRef.current = inputs.activeMemoryItems;
+
   // Keep messages in a ref so /copy reads current messages without memo invalidation.
   const messagesRef = useRef(inputs.getMessages);
   messagesRef.current = inputs.getMessages;
@@ -67,8 +77,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     appState: inputs.appState,
     selectedModel: inputs.selectedModel,
     selectedAgent: inputs.selectedAgent,
-    sending: inputs.sending,
-    activeMemoryItems: inputs.activeMemoryItems,
+    get sending() { return sendingRef.current; },
+    get activeMemoryItems() { return memoryRef.current; },
     setSending: inputs.setSending,
     setSelectedModel: inputs.setSelectedModel,
     setSelectedAgent: inputs.setSelectedAgent,
@@ -90,9 +100,9 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     toggleSplitView: inputs.toggleSplitView,
     getMessages: () => messagesRef.current(),
   }), [
-    // activeSessionId intentionally omitted — read from ref via getter
+    // activeSessionId, sending, activeMemoryItems intentionally omitted — read from refs via getters
     inputs.appState, inputs.selectedModel,
-    inputs.selectedAgent, inputs.sending, inputs.activeMemoryItems,
+    inputs.selectedAgent,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,

@@ -78,16 +78,26 @@ export function useAssistantState(
   }, []);
 
   // ── Backend-driven active memory — deferred so it doesn't block session switch rendering ──
+  const memoryGenRef = useRef(0);
   useEffect(() => {
+    // Clear stale items immediately so old session's memories are never shown or injected
+    setActiveMemoryItems([]);
+    const gen = ++memoryGenRef.current;
     const id = (typeof requestIdleCallback === "function")
       ? requestIdleCallback(() => {
           fetchActiveMemory(appState?.active_project, activeSessionId)
-            .then((resp) => setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []))
+            .then((resp) => {
+              if (gen !== memoryGenRef.current) return; // stale — discard
+              setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []);
+            })
             .catch(() => {});
         })
       : setTimeout(() => {
           fetchActiveMemory(appState?.active_project, activeSessionId)
-            .then((resp) => setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []))
+            .then((resp) => {
+              if (gen !== memoryGenRef.current) return; // stale — discard
+              setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []);
+            })
             .catch(() => {});
         }, 0) as unknown as number;
     return () => {

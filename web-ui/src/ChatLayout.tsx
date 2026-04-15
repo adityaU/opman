@@ -172,7 +172,7 @@ export function ChatLayout() {
   useVirtualKeyboard();
 
   // ── Model / Agent ──
-  const model = useModelState(messages, providers);
+  const model = useModelState(messages, providers, activeSessionId);
 
   // ── URL restore/sync ──
   useUrlRestore({
