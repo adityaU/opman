@@ -19,7 +19,7 @@ import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../.
 
 import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
 import { SESSION_IDLE } from "./types";
-import { type MessageMap, mapToSortedArray, getMessageTime } from "./messageMap";
+import { type MessageMap, mapToSortedArray, getMessageTime, purgeOptimistic } from "./messageMap";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
@@ -430,6 +430,10 @@ export function useSSE(): SSEState {
     flushMessages();
   }, [flushMessages]);
 
+  const clearOptimistic = useCallback(() => {
+    if (purgeOptimistic(messageMapRef.current)) flushMessages();
+  }, [flushMessages]);
+
   // ── Track active session changes ──────────────────────────────
   useEffect(() => {
     if (!appState) return;
@@ -775,7 +779,7 @@ export function useSSE(): SSEState {
     mcpAgentActivity, presenceClients, liveActivityEvents,
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
-    clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, loadOlderMessages,
+    clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,
     expectSessionSwitch, beginSessionSwitch, isSessionBusy,
   };
 }

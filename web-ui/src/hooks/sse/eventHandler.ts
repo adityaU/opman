@@ -6,7 +6,7 @@ import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } fr
 import { SESSION_IDLE } from "./types";
 import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
-import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart } from "./messageMap";
+import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart, purgeOptimistic } from "./messageMap";
 
 /** Setters and refs needed by the event handler — avoids passing 20+ individual args. */
 export interface EventHandlerContext {
@@ -97,6 +97,9 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
         if (upsertMessageInfo(subMap, info)) ctx.flushSubagentMessages();
         break;
       }
+
+      // When a real user message arrives, remove optimistic placeholder(s)
+      if ((info.role as string) === "user") purgeOptimistic(ctx.messageMapRef.current);
 
       if (upsertMessageInfo(ctx.messageMapRef.current, info)) ctx.flushMessages();
 

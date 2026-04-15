@@ -33,6 +33,15 @@ export function mapToSortedArray(map: MessageMap): Message[] {
   );
 }
 
+/** Remove all optimistic (not-yet-confirmed) messages from the map. */
+export function purgeOptimistic(map: MessageMap): boolean {
+  let removed = false;
+  for (const key of map.keys()) {
+    if (key.startsWith("__optimistic__")) { map.delete(key); removed = true; }
+  }
+  return removed;
+}
+
 /** Upsert message info from a `message.updated` SSE event.
  *  Merges new info fields into the existing message if it exists,
  *  preserving the parts array.  Creates a new message entry if not. */

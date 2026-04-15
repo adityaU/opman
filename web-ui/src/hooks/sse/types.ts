@@ -95,6 +95,8 @@ export interface SSEState {
   /** Add an optimistic user message that shows immediately.
    *  It will be removed when the real server message arrives via refreshMessages/SSE. */
   addOptimisticMessage: (text: string, images?: { base64: string; mimeType: string; name: string }[]) => void;
+  /** Remove all optimistic messages from the map (e.g. on send failure). */
+  clearOptimistic: () => void;
   /** Load older messages (pagination). Returns true if more messages exist. */
   loadOlderMessages: () => Promise<boolean>;
   /** Signal that a user-initiated session switch is expected.

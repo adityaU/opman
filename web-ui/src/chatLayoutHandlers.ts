@@ -21,6 +21,7 @@ export interface HandlerDeps {
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
+  clearOptimistic: () => void;
   refreshState: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
@@ -102,8 +103,8 @@ export function createHandleSend(deps: HandlerDeps) {
       );
       return true;
     } catch {
-      // Refresh to remove the optimistic message since send failed
-      deps.refreshState();
+      // Remove the optimistic message since send failed
+      deps.clearOptimistic();
       deps.addToast("Failed to send message", "error");
       return false;
     } finally {

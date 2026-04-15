@@ -40,7 +40,7 @@ export function ChatLayout() {
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus,
-    addOptimisticMessage, loadOlderMessages, beginSessionSwitch,
+    addOptimisticMessage, clearOptimistic, loadOlderMessages, beginSessionSwitch,
     isSessionBusy,
   } = sse;
 
@@ -235,7 +235,7 @@ export function ChatLayout() {
     setSending: model.setSending, setSelectedModel: model.setSelectedModel,
     setSelectedAgent: model.setSelectedAgent,
     setMobileInputHidden: mobile.setInputHidden,
-    addToast, addOptimisticMessage, refreshState,
+    addToast, addOptimisticMessage, clearOptimistic, refreshState,
     clearPermission, clearQuestion,
     setMobileSidebarOpen: mobile.setSidebarOpen,
     closeMobileSidebarSilent: mobile.closeSidebarSilent,

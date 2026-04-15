@@ -26,6 +26,7 @@ export interface ChatHandlerInputs {
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
+  clearOptimistic: () => void;
   refreshState: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
@@ -85,6 +86,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     setMobileInputHidden: inputs.setMobileInputHidden,
     addToast: inputs.addToast,
     addOptimisticMessage: inputs.addOptimisticMessage,
+    clearOptimistic: inputs.clearOptimistic,
     refreshState: inputs.refreshState,
     clearPermission: inputs.clearPermission,
     clearQuestion: inputs.clearQuestion,
@@ -105,7 +107,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.selectedAgent,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
-    inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
+    inputs.clearOptimistic, inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
     inputs.openModal, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,
