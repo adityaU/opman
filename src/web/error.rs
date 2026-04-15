@@ -26,6 +26,8 @@ pub enum WebError {
     /// The main TUI loop is unreachable (channel closed or oneshot dropped).
     #[allow(dead_code)]
     ServerUnavailable,
+    /// Upstream (opencode server) returned an error — preserve its status code.
+    Upstream(StatusCode, String),
     /// Catch-all for unexpected internal failures.
     Internal(String),
 }
@@ -37,6 +39,7 @@ impl std::fmt::Display for WebError {
             Self::NotFound(msg) => write!(f, "Not found: {}", msg),
             Self::BadRequest(msg) => write!(f, "Bad request: {}", msg),
             Self::ServerUnavailable => write!(f, "Server unavailable"),
+            Self::Upstream(status, msg) => write!(f, "Upstream {}: {}", status, msg),
             Self::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -54,6 +57,7 @@ impl IntoResponse for WebError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Server unavailable".to_string(),
             ),
+            Self::Upstream(status, msg) => (*status, msg.clone()),
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
         };
         (status, Json(ErrorBody { error: message })).into_response()
@@ -134,9 +138,29 @@ mod tests {
             "Server unavailable"
         );
         assert_eq!(
+            WebError::Upstream(StatusCode::BAD_GATEWAY, "oops".into()).to_string(),
+            "Upstream 502 Bad Gateway: oops"
+        );
+        assert_eq!(
             WebError::Internal("boom".into()).to_string(),
             "Internal error: boom"
         );
+    }
+
+    #[tokio::test]
+    async fn upstream_preserves_status_code() {
+        let (status, json) =
+            error_to_parts(WebError::Upstream(StatusCode::BAD_GATEWAY, "upstream died".into())).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(json["error"], "upstream died");
+    }
+
+    #[tokio::test]
+    async fn upstream_not_found_returns_404() {
+        let (status, json) =
+            error_to_parts(WebError::Upstream(StatusCode::NOT_FOUND, "session not found".into())).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(json["error"], "session not found");
     }
 
     #[test]
@@ -154,6 +178,7 @@ mod tests {
             WebError::NotFound("x"),
             WebError::BadRequest("y".into()),
             WebError::ServerUnavailable,
+            WebError::Upstream(StatusCode::BAD_GATEWAY, "upstream died".into()),
             WebError::Internal("z".into()),
         ];
         for variant in variants {

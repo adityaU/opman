@@ -74,10 +74,11 @@ export const MessageTurn = React.memo(function MessageTurn({
     return parts;
   }, [messages]);
 
-  // Separate text and tool parts
-  const { textSegments, toolParts } = useMemo(() => {
+  // Separate text, tool, and file/image parts
+  const { textSegments, toolParts, fileParts } = useMemo(() => {
     const texts: string[] = [];
     const tools: { part: MessagePart; idx: number }[] = [];
+    const files: MessagePart[] = [];
     let toolIdx = 0;
 
     let currentTextChunks: string[] = [];
@@ -91,13 +92,15 @@ export const MessageTurn = React.memo(function MessageTurn({
           currentTextChunks = [];
         }
         tools.push({ part, idx: toolIdx++ });
+      } else if (part.type === "file" && part.url && part.mime?.startsWith("image/")) {
+        files.push(part);
       }
     }
     if (currentTextChunks.length > 0) {
       texts.push(currentTextChunks.join("\n"));
     }
 
-    return { textSegments: texts, toolParts: tools };
+    return { textSegments: texts, toolParts: tools, fileParts: files };
   }, [allParts]);
   const hasMixedContent = toolParts.length > 0;
 
@@ -213,6 +216,18 @@ export const MessageTurn = React.memo(function MessageTurn({
                 <FileText size={11} />
                 <span className="file-context-pill-path">{p}</span>
               </span>
+            ))}
+          </div>
+        )}
+
+        {/* Image attachments */}
+        {fileParts.length > 0 && (
+          <div className="message-image-attachments">
+            {fileParts.map((p, i) => (
+              <div key={i} className="message-image-thumb">
+                <img src={p.url} alt={p.filename || "attachment"} loading="lazy" />
+                {p.filename && <span className="message-image-name">{p.filename}</span>}
+              </div>
             ))}
           </div>
         )}

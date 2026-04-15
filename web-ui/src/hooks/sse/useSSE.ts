@@ -13,7 +13,7 @@ import {
   type ActivityEvent,
   type ClientPresence,
 } from "../../api";
-import type { Message, PermissionRequest, QuestionRequest } from "../../types";
+import type { Message, MessagePart, PermissionRequest, QuestionRequest } from "../../types";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 
@@ -414,11 +414,17 @@ export function useSSE(): SSEState {
   }, []);
   const clearMcpTerminalFocus = useCallback(() => { setMcpTerminalFocusId(null); }, []);
 
-  const addOptimisticMessage = useCallback((text: string) => {
+  const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[]) => {
     const id = `__optimistic__${Date.now()}`;
+    const parts: MessagePart[] = [{ type: "text", text }];
+    if (images) {
+      for (const img of images) {
+        parts.push({ type: "file", mime: img.mimeType, url: `data:${img.mimeType};base64,${img.base64}`, filename: img.name });
+      }
+    }
     const msg: Message = {
       info: { role: "user", messageID: id, id, sessionID: activeSessionRef.current ?? undefined, time: Date.now() / 1000 },
-      parts: [{ type: "text", text }],
+      parts,
     };
     messageMapRef.current.set(id, msg);
     flushMessages();

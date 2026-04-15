@@ -94,7 +94,7 @@ export interface SSEState {
   clearMcpTerminalFocus: () => void;
   /** Add an optimistic user message that shows immediately.
    *  It will be removed when the real server message arrives via refreshMessages/SSE. */
-  addOptimisticMessage: (text: string) => void;
+  addOptimisticMessage: (text: string, images?: { base64: string; mimeType: string; name: string }[]) => void;
   /** Load older messages (pagination). Returns true if more messages exist. */
   loadOlderMessages: () => Promise<boolean>;
   /** Signal that a user-initiated session switch is expected.

@@ -200,3 +200,40 @@
     direction: rtl;
     text-align: left
 }
+
+/* ── Image attachments in message turns ─────────────────── */
+
+.message-image-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0 4px;
+}
+
+.message-image-thumb {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 200px;
+}
+
+.message-image-thumb img {
+    border-radius: 8px;
+    max-width: 200px;
+    max-height: 180px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity .15s;
+}
+
+.message-image-thumb img:hover { opacity: .85 }
+
+.message-image-name {
+    font-size: 10px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

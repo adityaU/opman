@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { ModalName } from "./useModalState";
-import type { PersonalMemoryItem } from "../api";
+import type { PersonalMemoryItem, ImageAttachment } from "../api";
 import type { Message } from "../types";
 import {
   createHandleSend, createHandleAbort, createHandleAgentChange,
@@ -25,7 +25,7 @@ export interface ChatHandlerInputs {
   setSelectedAgent: (a: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string) => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
   refreshState: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;

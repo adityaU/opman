@@ -3,6 +3,21 @@ use tracing::debug;
 
 use super::ApiClient;
 
+/// Error from an upstream session command that preserves the HTTP status code.
+#[derive(Debug)]
+pub struct CommandError {
+    pub status: u16,
+    pub message: String,
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP {} — {}", self.status, self.message)
+    }
+}
+
+impl std::error::Error for CommandError {}
+
 impl ApiClient {
     /// Reply to a permission request from the AI agent.
     ///
@@ -152,12 +167,14 @@ impl ApiClient {
                 .get("error")
                 .and_then(|e| e.as_str())
                 .unwrap_or("unknown error");
-            anyhow::bail!(
-                "Session command '{}' rejected: HTTP {} — {}",
-                command,
-                status,
-                err_msg
-            );
+            return Err(CommandError {
+                status: status.as_u16(),
+                message: format!(
+                    "Session command '{}' rejected: {}",
+                    command, err_msg
+                ),
+            }
+            .into());
         }
 
         Ok(response_body)

@@ -76,7 +76,13 @@ export async function sendMessage(
   const parts: Record<string, unknown>[] = [{ type: "text", text }];
   if (images && images.length > 0) {
     for (const img of images) {
-      parts.push({ type: "image", image: img.base64, mimeType: img.mimeType });
+      // OpenCode expects FilePartInput: { type: "file", mime, url (data-URL), filename? }
+      parts.push({
+        type: "file",
+        mime: img.mimeType,
+        url: `data:${img.mimeType};base64,${img.base64}`,
+        filename: img.name,
+      });
     }
   }
   const body: Record<string, unknown> = { parts };

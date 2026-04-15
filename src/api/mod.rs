@@ -1,4 +1,4 @@
-mod interactions;
+pub(crate) mod interactions;
 mod messages;
 mod queries;
 mod sessions;

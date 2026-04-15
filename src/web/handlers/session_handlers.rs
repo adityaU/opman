@@ -8,6 +8,7 @@ use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
 use super::common::resolve_project_dir;
+use crate::api::interactions::CommandError;
 use crate::api::ApiClient;
 use crate::app::base_url;
 
@@ -229,7 +230,15 @@ pub async fn execute_command(
             req.model.as_deref(),
         )
         .await
-        .map_err(|e| WebError::Internal(format!("{e}")))?;
+        .map_err(|e| {
+            if let Some(cmd_err) = e.downcast_ref::<CommandError>() {
+                let status = StatusCode::from_u16(cmd_err.status)
+                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+                WebError::Upstream(status, cmd_err.message.clone())
+            } else {
+                WebError::Internal(format!("{e}"))
+            }
+        })?;
     Ok(Json(result))
 }
 

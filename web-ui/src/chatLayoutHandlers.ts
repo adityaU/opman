@@ -20,7 +20,7 @@ export interface HandlerDeps {
   setSelectedAgent: (a: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string) => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
   refreshState: () => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
@@ -87,7 +87,7 @@ export function createHandleSend(deps: HandlerDeps) {
       return false;
     }
     deps.setSending(true, sid);
-    deps.addOptimisticMessage(text);
+    deps.addOptimisticMessage(text, images);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
     }

@@ -13,10 +13,14 @@ function renderLegend(datasets: ChartDataset[]): string {
   return h + "</div>";
 }
 
+function safeData(ds: ChartDataset): number[] {
+  return Array.isArray(ds.data) ? ds.data : [];
+}
+
 function computeRange(datasets: ChartDataset[]): [number, number] {
   let min = Infinity, max = -Infinity;
   for (const ds of datasets) {
-    for (const v of ds.data) {
+    for (const v of safeData(ds)) {
       if (v < min) min = v;
       if (v > max) max = v;
     }
@@ -59,7 +63,8 @@ function renderLineArea(data: Record<string, unknown>, area: boolean): string {
   // datasets
   datasets.forEach((ds, di) => {
     const c = ds.color || chartColor(di);
-    const pts = ds.data.map((v, i) => `${PAD + i * xStep},${scaleY(v, min, max)}`);
+    const safe = safeData(ds);
+    const pts = safe.map((v, i) => `${PAD + i * xStep},${scaleY(v, min, max)}`);
     if (area) {
       const first = `${PAD},${H - PAD}`;
       const last = `${PAD + (n - 1) * xStep},${H - PAD}`;
@@ -67,7 +72,7 @@ function renderLineArea(data: Record<string, unknown>, area: boolean): string {
     }
     svg += `<polyline points="${pts.join(" ")}" fill="none" stroke="${c}" stroke-width="2"/>`;
     // dots
-    ds.data.forEach((v, i) => {
+    safe.forEach((v, i) => {
       svg += `<circle cx="${PAD + i * xStep}" cy="${scaleY(v, min, max)}" r="3" fill="${c}"/>`;
     });
   });
@@ -96,7 +101,7 @@ function renderBar(data: Record<string, unknown>): string {
   });
   datasets.forEach((ds, di) => {
     const c = ds.color || chartColor(di);
-    ds.data.forEach((v, i) => {
+    safeData(ds).forEach((v, i) => {
       const x = PAD + groupW * i + barW * di + (groupW - barW * datasets.length) / 2;
       const y = scaleY(v, min, max);
       const bH = (H - PAD) - y;
