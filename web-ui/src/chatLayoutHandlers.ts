@@ -48,7 +48,6 @@ export interface HandlerDeps {
 export function injectMemoryGuidance(text: string, memoryItems: PersonalMemoryItem[]): string {
   if (memoryItems.length === 0) return text;
   const guidance = memoryItems
-    .slice(0, 5)
     .map((item) => `- ${item.label}: ${item.content}`)
     .join("\n");
   return `[Assistant memory in effect]\n${guidance}\n\n[User request]\n${text}`;
