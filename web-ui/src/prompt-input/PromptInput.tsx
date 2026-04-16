@@ -4,6 +4,7 @@ import { SlashCommandPopover } from "../SlashCommandPopover";
 import { NO_ARG_COMMANDS } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
 import { useFileMention } from "./useFileMention";
+import { useVoiceDictation } from "../voice/useVoiceDictation";
 import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
   TextareaRow, DragOverlay, HintBar, AtMentionPopover,
@@ -41,6 +42,17 @@ export function PromptInput({
   const atMention = useAtMention(allAgents, mentionableAgents, textareaRef, text, setText);
   const fileMention = useFileMention();
   const submittingRef = useRef(false);
+
+  // Voice dictation (desktop only) — appends transcript to current text
+  const handleTranscript = useCallback((transcript: string) => {
+    setText(prev => {
+      const next = prev ? `${prev} ${transcript}` : transcript;
+      onContentChange?.(next.trim().length > 0);
+      return next;
+    });
+    textareaRef.current?.focus();
+  }, [onContentChange]);
+  const voice = useVoiceDictation(handleTranscript);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -177,7 +189,9 @@ export function PromptInput({
         <TextareaRow textareaRef={textareaRef} fileInputRef={attach.fileInputRef}
           text={text} disabled={disabled} isBusy={isBusy} isSending={isSending} hasContent={hasContent}
           onChange={handleChange} onKeyDown={handleKeyDown} onPaste={attach.handlePaste}
-          onFileSelect={attach.handleFileSelect} onSubmit={handleSubmit} onAbort={onAbort} />
+          onFileSelect={attach.handleFileSelect} onSubmit={handleSubmit} onAbort={onAbort}
+          voiceStatus={voice.isDesktop ? voice.status : undefined}
+          onVoiceToggle={voice.isDesktop ? voice.toggle : undefined} />
       </div>
       <HintBar />
     </div>

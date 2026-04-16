@@ -73,6 +73,11 @@ export default defineConfig({
           ) {
             return "analytics";
           }
+
+          // Voice dictation (Transformers.js + Whisper) — fully separate chunk
+          if (id.includes("@huggingface/transformers") || id.includes("/src/voice/")) {
+            return "voice-whisper";
+          }
         },
       },
     },

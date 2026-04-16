@@ -303,3 +303,28 @@
     line-height: 1.4;
     white-space: nowrap
 }
+
+/* ── Voice dictation button ─────────────────────────────── */
+.prompt-voice-btn {
+    background: transparent;
+    color: var(--color-text-muted)
+}
+.prompt-voice-btn:hover {
+    color: var(--color-text);
+    background: var(--white-5)
+}
+.prompt-voice-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed
+}
+.prompt-voice-btn.voice-recording {
+    color: var(--color-error);
+    animation: voice-pulse 1.2s ease-in-out infinite
+}
+.prompt-voice-btn.voice-busy {
+    color: var(--color-primary)
+}
+@keyframes voice-pulse {
+    0%, 100% { opacity: 1 }
+    50% { opacity: .4 }
+}

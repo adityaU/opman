@@ -1,8 +1,9 @@
 import React from "react";
 import {
   Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
-  ImageIcon, Paperclip, Send, Square, Loader2,
+  ImageIcon, Paperclip, Send, Square, Loader2, Mic, MicOff,
 } from "lucide-react";
+import type { VoiceStatus } from "../voice/useVoiceDictation";
 import type { AgentInfo, ImageAttachment, FileSearchEntry } from "../api";
 import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
@@ -150,12 +151,17 @@ interface TextareaRowProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
   onAbort: () => void;
+  voiceStatus?: VoiceStatus;
+  onVoiceToggle?: () => void;
 }
 
 export function TextareaRow({
   textareaRef, fileInputRef, text, disabled, isBusy, isSending, hasContent,
   onChange, onKeyDown, onPaste, onFileSelect, onSubmit, onAbort,
+  voiceStatus, onVoiceToggle,
 }: TextareaRowProps) {
+  const isRecording = voiceStatus === "recording";
+  const isVoiceBusy = voiceStatus === "loading" || voiceStatus === "transcribing";
   return (
     <div className="prompt-textarea-row">
       <button className="prompt-btn prompt-attach-btn" onClick={() => fileInputRef.current?.click()}
@@ -170,6 +176,17 @@ export function TextareaRow({
         placeholder={disabled ? "Select a session to start..." : isBusy ? "Type a follow-up message..." : "Type a message... (/ for commands, paste or drop images)"}
         disabled={disabled} rows={1} />
       <div className={`prompt-actions${isBusy ? " prompt-actions-busy" : ""}`}>
+        {onVoiceToggle && (
+          <button
+            className={`prompt-btn prompt-voice-btn${isRecording ? " voice-recording" : ""}${isVoiceBusy ? " voice-busy" : ""}`}
+            onClick={onVoiceToggle}
+            disabled={disabled || isVoiceBusy}
+            title={isRecording ? "Stop recording" : isVoiceBusy ? "Processing..." : "Voice dictation"}
+            aria-label="Voice dictation"
+          >
+            {isVoiceBusy ? <Loader2 size={16} className="spinning" /> : isRecording ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+        )}
         {isBusy && (
           <button className="prompt-btn prompt-abort-btn" onClick={onAbort} title="Stop generation" aria-label="Stop generation">
             <Square size={16} />

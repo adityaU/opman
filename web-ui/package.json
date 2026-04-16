@@ -38,6 +38,7 @@
     "@codemirror/lint": "^6.9.5",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
+    "@huggingface/transformers": "^4.1.0",
     "@lezer/highlight": "^1.2.3",
     "@tanstack/react-virtual": "^3.13.19",
     "@types/react-syntax-highlighter": "^15.5.13",
