@@ -3,8 +3,6 @@ import {
   Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
   ImageIcon, Paperclip, Send, Square, Loader2,
 } from "lucide-react";
-import type { VoiceStatus } from "../voice/useVoiceDictation";
-import { VoiceButton } from "../voice/VoiceButton";
 import type { AgentInfo, ImageAttachment, FileSearchEntry } from "../api";
 import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
@@ -152,19 +150,12 @@ interface TextareaRowProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
   onAbort: () => void;
-  voiceStatus?: VoiceStatus;
-  voiceDownloadPercent?: number;
-  voiceWaveform?: number[];
-  voiceError?: string | null;
-  onVoiceToggle?: () => void;
 }
 
 export function TextareaRow({
   textareaRef, fileInputRef, text, disabled, isBusy, isSending, hasContent,
   onChange, onKeyDown, onPaste, onFileSelect, onSubmit, onAbort,
-  voiceStatus, voiceDownloadPercent, voiceWaveform, voiceError, onVoiceToggle,
 }: TextareaRowProps) {
-  const isVoiceBusy = voiceStatus === "loading" || voiceStatus === "transcribing";
   return (
     <div className="prompt-textarea-row">
       <button className="prompt-btn prompt-attach-btn" onClick={() => fileInputRef.current?.click()}
@@ -179,16 +170,6 @@ export function TextareaRow({
         placeholder={disabled ? "Select a session to start..." : isBusy ? "Type a follow-up message..." : "Type a message... (/ for commands, paste or drop images)"}
         disabled={disabled} rows={1} />
       <div className={`prompt-actions${isBusy ? " prompt-actions-busy" : ""}`}>
-        {onVoiceToggle && voiceStatus && (
-          <VoiceButton
-            status={voiceStatus}
-            downloadPercent={voiceDownloadPercent ?? 0}
-            waveform={voiceWaveform ?? []}
-            error={voiceError ?? null}
-            disabled={disabled || isVoiceBusy}
-            onToggle={onVoiceToggle}
-          />
-        )}
         {isBusy && (
           <button className="prompt-btn prompt-abort-btn" onClick={onAbort} title="Stop generation" aria-label="Stop generation">
             <Square size={16} />

@@ -1,7 +1,6 @@
 //! Embedded frontend serving via `rust-embed`.
 //!
 //! React (`web-ui/dist/`) serves at `/`.
-//! Leptos (`leptos-ui/dist/`) serves at `/ui/`.
 //! When `instance_name` is set, manifest/index are patched for PWA naming.
 
 use axum::body::Body;
@@ -41,12 +40,7 @@ fn build_ok(builder: axum::http::response::Builder, body: Body) -> Response<Body
 #[prefix = ""]
 struct ReactAssets;
 
-#[derive(Embed)]
-#[folder = "leptos-ui/dist"]
-#[prefix = ""]
-struct LeptosAssets;
-
-/// Hardcoded fallback colours used in each UI's source files.
+/// Hardcoded fallback colours used in the React UI source files.
 struct UiThemeDefaults {
     bg: &'static str,
     sw_allowed: &'static str,
@@ -55,11 +49,6 @@ struct UiThemeDefaults {
 const REACT_DEFAULTS: UiThemeDefaults = UiThemeDefaults {
     bg: "#0B0E14",
     sw_allowed: "/",
-};
-
-const LEPTOS_DEFAULTS: UiThemeDefaults = UiThemeDefaults {
-    bg: "#0a0a0a",
-    sw_allowed: "/ui/",
 };
 
 /// Pre-resolved theme values passed into the sync serving helper.
@@ -227,17 +216,4 @@ pub async fn serve_react(
     let path = uri.path().trim_start_matches('/');
     let theme = resolve_theme(&state).await;
     serve_ui(&state, &headers, path, |p| ReactAssets::get(p), &REACT_DEFAULTS, &theme)
-}
-
-/// Serve Leptos UI at `/ui/` — used as the nested `/ui` router fallback.
-/// The `/ui` prefix is already stripped by axum's `.nest()`, so asset lookups
-/// resolve correctly without manual prefix removal.
-pub async fn serve_leptos(
-    State(state): State<ServerState>,
-    headers: HeaderMap,
-    uri: axum::http::Uri,
-) -> impl IntoResponse {
-    let path = uri.path().trim_start_matches('/');
-    let theme = resolve_theme(&state).await;
-    serve_ui(&state, &headers, path, |p| LeptosAssets::get(p), &LEPTOS_DEFAULTS, &theme)
 }

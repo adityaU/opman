@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  # ── Build frontend once (platform-independent) ───────────
-  build-frontends:
+  # ── Build React frontend (platform-independent) ──────────
+  build-frontend:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,30 +19,12 @@ jobs:
         with:
           show-progress: false
 
-      - name: Install Rust toolchain (wasm only)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install Trunk
-        run: cargo install trunk --locked
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: |
-            leptos-ui/package-lock.json
-            web-ui/package-lock.json
-
-      - name: Install Leptos UI npm deps
-        run: npm ci
-        working-directory: leptos-ui
-
-      - name: Build Leptos UI
-        run: trunk build --release
-        working-directory: leptos-ui
+          cache-dependency-path: web-ui/package-lock.json
 
       - name: Install React UI npm deps
         run: npm ci
@@ -56,14 +38,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: |
-            leptos-ui/dist/
-            web-ui/dist/
+          path: web-ui/dist/
           retention-days: 1
 
   # ── Build backend for each target ──────────────────────────────
   build-backend:
-    needs: build-frontends
+    needs: build-frontend
     strategy:
       fail-fast: false
       matrix:
@@ -88,13 +68,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: .
+          path: web-ui/dist
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.94.0
           targets: ${{ matrix.target }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.target }}-
 
       - name: Install zigbuild (Linux cross-compilation)
         if: runner.os == 'Linux'
