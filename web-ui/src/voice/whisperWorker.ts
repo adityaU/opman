@@ -5,6 +5,7 @@
  * Protocol (postMessage):
  *   Main → Worker: { type: "transcribe", audio: Float32Array }
  *   Worker → Main: { type: "status", status: "loading" | "ready" | "transcribing" }
+ *   Worker → Main: { type: "progress", loaded: number, total: number, percent: number }
  *   Worker → Main: { type: "result", text: string }
  *   Worker → Main: { type: "error", message: string }
  */
@@ -23,7 +24,16 @@ async function ensureModel(): Promise<AutomaticSpeechRecognitionPipeline> {
     transcriber = await pipeline(
       "automatic-speech-recognition",
       "onnx-community/whisper-tiny.en",
-      { dtype: "q8", device: "wasm" },
+      {
+        dtype: "q8",
+        device: "wasm",
+        progress_callback: (p: Record<string, unknown>) => {
+          const loaded = typeof p.loaded === "number" ? p.loaded : 0;
+          const total = typeof p.total === "number" ? p.total : 1;
+          const percent = typeof p.progress === "number" ? p.progress : (total > 0 ? Math.round((loaded / total) * 100) : 0);
+          self.postMessage({ type: "progress", loaded, total, percent });
+        },
+      },
     );
     self.postMessage({ type: "status", status: "ready" });
     return transcriber;

@@ -182,6 +182,9 @@ export function PromptInput({
           onChange={handleChange} onKeyDown={handleKeyDown} onPaste={attach.handlePaste}
           onFileSelect={attach.handleFileSelect} onSubmit={handleSubmit} onAbort={onAbort}
           voiceStatus={voice.isDesktop ? voice.status : undefined}
+          voiceDownloadPercent={voice.isDesktop ? voice.downloadPercent : undefined}
+          voiceWaveform={voice.isDesktop ? voice.waveform : undefined}
+          voiceError={voice.isDesktop ? voice.error : undefined}
           onVoiceToggle={voice.isDesktop ? voice.toggle : undefined} />
       </div>
       <HintBar />

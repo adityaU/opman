@@ -42,14 +42,16 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
       return;
     }
 
-    const proj = appState.projects[appState.active_project];
+    // Use the URL-derived project index (already defaults to 0 when absent).
+    const projIdx = activeProjectIndex;
+    const proj = appState.projects[projIdx];
     if (!proj || proj.sessions.length === 0) return; // sessions not yet loaded
 
     if (proj.active_session) {
       // Backend already has an active session — write it to the URL so
-      // urlSessionId is populated (prevents null → appState fallback bug).
+      // urlSessionId is populated.
       urlRestoredRef.current = true;
-      setUrlSession(proj.active_session, appState.active_project);
+      setUrlSession(proj.active_session, projIdx);
       return;
     }
 
@@ -57,7 +59,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     const lastSid = localStorage.getItem("opman_last_session");
     if (lastSid && proj.sessions.some((s: any) => s.id === lastSid)) {
       urlRestoredRef.current = true;
-      setUrlSession(lastSid, appState.active_project);
+      setUrlSession(lastSid, projIdx);
     } else {
       urlRestoredRef.current = true;
     }

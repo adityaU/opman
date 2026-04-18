@@ -88,17 +88,35 @@ function QuestionCard({
   const firstInputRef = useRef<HTMLInputElement | null>(null);
   const firstButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Auto-focus the first interactive element when the card mounts
+  const handleDismiss = useCallback(() => {
+    onDismiss(question.id);
+  }, [question.id, onDismiss]);
+
+  // Auto-focus the first interactive element (or card itself) when mounted
   useEffect(() => {
     const timer = setTimeout(() => {
       if (firstButtonRef.current) {
         firstButtonRef.current.focus();
       } else if (firstInputRef.current) {
         firstInputRef.current.focus();
+      } else {
+        cardRef.current?.focus();
       }
     }, 50);
     return () => clearTimeout(timer);
   }, [question.id]);
+
+  // Global Escape handler — dismisses even when focus is outside the card
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleDismiss();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleDismiss]);
 
   const handleSubmit = useCallback(() => {
     // Merge selected options with custom text where applicable
@@ -144,10 +162,6 @@ function QuestionCard({
     });
   }, [question.questions, answers, customTexts]);
 
-  const handleDismiss = useCallback(() => {
-    onDismiss(question.id);
-  }, [question.id, onDismiss]);
-
   // Handle Enter to submit (only when answered) and Escape to dismiss
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -157,19 +171,15 @@ function QuestionCard({
         return;
       }
       if (e.key === "Enter" && hasAnswer) {
-        const target = e.target as HTMLElement;
-        const isTextInput = target.tagName === "INPUT" && (target as HTMLInputElement).type === "text";
-        if (!isTextInput || e.metaKey || e.ctrlKey) {
-          e.preventDefault();
-          handleSubmit();
-        }
+        e.preventDefault();
+        handleSubmit();
       }
     },
     [handleSubmit, handleDismiss, hasAnswer]
   );
 
   return (
-    <div className="question-card" ref={cardRef} onKeyDown={handleKeyDown}>
+    <div className="question-card" ref={cardRef} tabIndex={-1} onKeyDown={handleKeyDown}>
       <div className="question-header">
         <HelpCircle size={16} className="question-icon" />
         <span className="question-title">{question.title || "Question"}</span>

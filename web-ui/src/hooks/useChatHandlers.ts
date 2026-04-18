@@ -15,6 +15,8 @@ import type { HandlerDeps } from "../chatLayoutHandlers";
 
 export interface ChatHandlerInputs {
   activeSessionId: string | null;
+  /** URL-derived active project index — sole source of truth. */
+  activeProjectIndex: number;
   appState: any;
   selectedModel: any;
   selectedAgent: string;
@@ -59,6 +61,10 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const sessionIdRef = useRef(inputs.activeSessionId);
   sessionIdRef.current = inputs.activeSessionId;
 
+  // Keep activeProjectIndex in a ref — read at call-time like activeSessionId.
+  const projectIdxRef = useRef(inputs.activeProjectIndex);
+  projectIdxRef.current = inputs.activeProjectIndex;
+
   // Keep sending in a ref — handlers read at call-time so session switches
   // don't stale-close over the wrong session's sending flag.
   const sendingRef = useRef(inputs.sending);
@@ -76,6 +82,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const deps: HandlerDeps = useMemo(() => ({
     // Provide a getter that reads the ref at call-time
     get activeSessionId() { return sessionIdRef.current; },
+    get activeProjectIndex() { return projectIdxRef.current; },
     appState: inputs.appState,
     selectedModel: inputs.selectedModel,
     selectedAgent: inputs.selectedAgent,

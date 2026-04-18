@@ -10,6 +10,8 @@ import type { Message } from "./types";
 
 export interface HandlerDeps {
   activeSessionId: string | null;
+  /** URL-derived active project index — sole source of truth. */
+  activeProjectIndex: number;
   appState: any;
   selectedModel: any;
   selectedAgent: string;
@@ -84,16 +86,18 @@ export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     const sid = deps.activeSessionId;
     if (!sid) return false;
-    deps.addOptimisticMessage(text, images);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
     }
     // Prepend file context (from @file mentions) before memory guidance
     const fullText = fileContext ? fileContext + text : text;
+    const enrichedText = injectMemoryGuidance(fullText, deps.activeMemoryItems);
+    // Show optimistic message with the full enriched text so memory pill renders immediately
+    deps.addOptimisticMessage(enrichedText, images);
     try {
       await sendMessage(
         sid,
-        injectMemoryGuidance(fullText, deps.activeMemoryItems),
+        enrichedText,
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
       );
@@ -146,7 +150,7 @@ export function createHandleCommand(deps: HandlerDeps) {
     if (command === "new") {
       if (!deps.appState) return;
       try {
-        const projectIdx = deps.appState.active_project;
+      const projectIdx = deps.activeProjectIndex;
         const resp = await newSession(projectIdx);
         // URL is the single source of truth — triggers beginSessionSwitch + API calls
         deps.setUrlSession(resp.session_id, projectIdx);
@@ -218,9 +222,10 @@ export function createHandlePermissionReply(deps: HandlerDeps) {
 
 export function createHandleQuestionReply(deps: HandlerDeps) {
   return async (requestId: string, answers: string[][]) => {
+    // Optimistic: remove from UI immediately
+    deps.clearQuestion(requestId);
     try {
       await replyQuestion(requestId, answers);
-      deps.clearQuestion(requestId);
     } catch {
       deps.addToast("Failed to send answer", "error");
     }
@@ -229,9 +234,10 @@ export function createHandleQuestionReply(deps: HandlerDeps) {
 
 export function createHandleQuestionDismiss(deps: HandlerDeps) {
   return async (requestId: string) => {
+    // Optimistic: remove from UI immediately
+    deps.clearQuestion(requestId);
     try {
       await rejectQuestion(requestId);
-      deps.clearQuestion(requestId);
     } catch {
       deps.addToast("Failed to dismiss question", "error");
     }

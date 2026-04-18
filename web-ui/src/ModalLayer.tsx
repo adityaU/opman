@@ -40,6 +40,8 @@ export interface ModalLayerProps {
   appState: any;
   activeSessionId: string | null;
   activeProject: any;
+  /** URL-derived active project index — sole source of truth. */
+  activeProjectIndex: number;
   onCommand: (cmd: string, args?: string) => Promise<void>;
   onNewSession: () => void;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
@@ -113,7 +115,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
   );
   /** Navigate to session within active project */
   const navSess = useCallback(
-    (sid: string) => p.onSelectSession(sid, p.appState?.active_project ?? 0),
+    (sid: string) => p.onSelectSession(sid, p.activeProjectIndex),
     [p.onSelectSession, p.appState],
   );
   const cl = (k: string) => () => c(k);
@@ -200,14 +202,14 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         <L><DiffReviewPanel onClose={cl("diffReview")} sessionId={p.activeSessionId} fileEditCount={p.fileEditCount} /></L>
       )}
       {m.crossSearch && p.appState && (
-        <L><CrossSessionSearchModal onClose={cl("crossSearch")} projectIdx={p.appState.active_project} onNavigate={navSess} /></L>
+        <L><CrossSessionSearchModal onClose={cl("crossSearch")}          projectIdx={p.activeProjectIndex} onNavigate={navSess} /></L>
       )}
       {m.splitView && p.appState && p.activeSessionId && (
         <L><SplitView
           primarySessionId={p.activeSessionId} secondarySessionId={p.splitViewSecondaryId}
           onChangeSecondary={p.setSplitViewSecondaryId} onClose={cl("splitView")}
           sessions={p.activeProject?.sessions ?? []} appState={p.appState}
-          selectedModel={p.selectedModel?.modelID} projectIndex={p.appState.active_project}
+           selectedModel={p.selectedModel?.modelID} projectIndex={p.activeProjectIndex}
         /></L>
       )}
 
@@ -254,7 +256,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         <L>
           <MissionsModal
             onClose={cl("missions")} projects={p.appState.projects}
-            activeProjectIndex={p.appState.active_project} activeSessionId={p.activeSessionId}
+             activeProjectIndex={p.activeProjectIndex} activeSessionId={p.activeSessionId}
             permissions={p.allPermissions} questions={p.allQuestions}
             activityEvents={p.liveActivityEvents} onOpenInbox={nav("missions", "inbox")}
             activeMemoryItems={p.activeMemoryItems}
@@ -263,7 +265,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       )}
 
       {m.memory && (
-        <L><MemoryModal onClose={cl("memory")} projects={p.appState.projects} activeProjectIndex={p.appState.active_project} activeSessionId={p.activeSessionId} filterActive={p.memoryFilterActive} /></L>
+        <L><MemoryModal onClose={cl("memory")} projects={p.appState.projects} activeProjectIndex={p.activeProjectIndex} activeSessionId={p.activeSessionId} filterActive={p.memoryFilterActive} /></L>
       )}
       {m.autonomy && (
         <L><AutonomyModal onClose={cl("autonomy")} mode={p.autonomyMode} onChange={p.onAutonomyChange} /></L>

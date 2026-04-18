@@ -307,7 +307,9 @@
 /* ── Voice dictation button ─────────────────────────────── */
 .prompt-voice-btn {
     background: transparent;
-    color: var(--color-text-muted)
+    color: var(--color-text-muted);
+    position: relative;
+    overflow: visible
 }
 .prompt-voice-btn:hover {
     color: var(--color-text);
@@ -317,12 +319,53 @@
     opacity: .4;
     cursor: not-allowed
 }
+/* Recording state — red tint with pulse */
 .prompt-voice-btn.voice-recording {
     color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
     animation: voice-pulse 1.2s ease-in-out infinite
 }
-.prompt-voice-btn.voice-busy {
-    color: var(--color-primary)
+.prompt-voice-btn.voice-recording:hover {
+    background: color-mix(in srgb, var(--color-error) 18%, transparent)
+}
+/* Loading state — show progress ring */
+.prompt-voice-btn.voice-loading {
+    color: var(--color-primary);
+    cursor: wait
+}
+/* Transcribing state */
+.prompt-voice-btn.voice-transcribing {
+    color: var(--color-primary);
+    opacity: .7
+}
+/* Error state — red icon */
+.prompt-voice-btn.voice-error {
+    color: var(--color-error)
+}
+.prompt-voice-btn.voice-error:hover {
+    background: color-mix(in srgb, var(--color-error) 10%, transparent)
+}
+/* Progress ring inside button */
+.voice-progress-ring {
+    display: block
+}
+.voice-progress-track {
+    transition: stroke-dashoffset .3s ease
+}
+.voice-progress-text {
+    font-size: 7px;
+    font-weight: 600;
+    fill: var(--color-text);
+    font-family: var(--font-mono)
+}
+/* Waveform bars */
+.voice-waveform {
+    display: block;
+    color: var(--color-error)
+}
+/* Error icon */
+.voice-error-icon {
+    display: block
 }
 @keyframes voice-pulse {
     0%, 100% { opacity: 1 }

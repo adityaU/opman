@@ -45,7 +45,9 @@ export function MessageTimeline({
   // Derive session directory for empty state
   const sessionDirectory = useMemo(() => {
     if (!appState || !activeSessionId) return null;
-    const project = appState.projects[appState.active_project];
+    const project = appState.projects.find((proj: any) =>
+      proj.sessions?.some((s: any) => s.id === activeSessionId),
+    );
     if (!project) return null;
     const session = project.sessions.find((s) => s.id === activeSessionId);
     if (session?.directory) return session.directory;

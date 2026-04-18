@@ -85,7 +85,7 @@ export function useAssistantState(
     const gen = ++memoryGenRef.current;
     const id = (typeof requestIdleCallback === "function")
       ? requestIdleCallback(() => {
-          fetchActiveMemory(appState?.active_project, activeSessionId)
+          fetchActiveMemory(activeProject, activeSessionId)
             .then((resp) => {
               if (gen !== memoryGenRef.current) return; // stale — discard
               setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []);
@@ -93,7 +93,7 @@ export function useAssistantState(
             .catch(() => {});
         })
       : setTimeout(() => {
-          fetchActiveMemory(appState?.active_project, activeSessionId)
+          fetchActiveMemory(activeProject, activeSessionId)
             .then((resp) => {
               if (gen !== memoryGenRef.current) return; // stale — discard
               setActiveMemoryItems(Array.isArray(resp?.memory) ? (resp.memory as PersonalMemoryItem[]).filter(Boolean) : []);
@@ -104,7 +104,7 @@ export function useAssistantState(
       if (typeof cancelIdleCallback === "function") cancelIdleCallback(id);
       else clearTimeout(id);
     };
-  }, [appState?.active_project, activeSessionId]);
+  }, [activeProject, activeSessionId]);
 
   // ── Backend-driven recommendations (pulse) — debounced to avoid rapid-fire on session switch ──
   const recsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

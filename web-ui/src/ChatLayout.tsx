@@ -60,7 +60,8 @@ export function ChatLayout() {
   // ── Derived app state ──
   // URL is the single source of truth for active session + project.
   // Fall back to server state only when URL has no session yet (initial load).
-  const activeProjectIndex = urlSessionId !== null ? urlProjectIndex : (appState?.active_project ?? 0);
+  // URL is the sole source of truth for the active project — never fall back to server state.
+  const activeProjectIndex = urlProjectIndex;
   const activeProject = appState ? appState.projects[activeProjectIndex] ?? null : null;
   const activeSessionId = urlSessionId ?? activeProject?.active_session ?? null;
 
@@ -229,7 +230,7 @@ export function ChatLayout() {
   messagesRef.current = messages;
   const getMessages = useCallback(() => messagesRef.current, []);
   const handlers = useChatHandlers({
-    activeSessionId, appState,
+    activeSessionId, activeProjectIndex, appState,
     selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
     sending: model.sending, activeMemoryItems: assistant.activeMemoryItems,
     setSending: model.setSending, setSelectedModel: model.setSelectedModel,
@@ -340,6 +341,7 @@ export function ChatLayout() {
       <ModalLayer
         modals={modalState.modals} openModal={openModal} closeModal={closeModal}
         appState={appState} activeSessionId={activeSessionId} activeProject={activeProject}
+        activeProjectIndex={activeProjectIndex}
         onCommand={handlers.handleCommand} onNewSession={handlers.handleNewSession}
         onSelectSession={handlers.handleSelectSession} onSend={handlers.handleSend}
         onModelSelected={handlers.handleModelSelected} onAgentChange={handlers.handleAgentChange}
