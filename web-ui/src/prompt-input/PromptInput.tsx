@@ -81,8 +81,6 @@ export function PromptInput({
 
   // ── Submit handler ───────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    // Ref-based guard prevents duplicate sends from ghost taps / rapid double-tap
-    if (submittingRef.current) return;
     const trimmed = text.trim();
     if (!trimmed && attach.attachments.length === 0 && fileMention.fileMentions.length === 0) return;
     if (trimmed.startsWith("/") && attach.attachments.length === 0) {
@@ -90,20 +88,13 @@ export function PromptInput({
       onCommand(parts[0].slice(1), parts.slice(1).join(" "));
       setText(""); onContentChange?.(false); return;
     }
-    submittingRef.current = true;
-    // Capture state before clearing
     const images = attach.attachments.length > 0 ? [...attach.attachments] : undefined;
     const mentions = [...fileMention.fileMentions];
     // Clear input immediately (optimistic)
     setText(""); attach.clearAttachments(); atMention.clearMentions(); fileMention.clearFileMentions();
     onContentChange?.(false);
-    try {
-      // Build file context and send asynchronously
-      const fileCtx = mentions.length > 0 ? await fileMention.buildFileContextFrom(mentions) : undefined;
-      await onSend(trimmed || "Attached image(s)", images, fileCtx || undefined);
-    } finally {
-      submittingRef.current = false;
-    }
+    const fileCtx = mentions.length > 0 ? await fileMention.buildFileContextFrom(mentions) : undefined;
+    await onSend(trimmed || "Attached image(s)", images, fileCtx || undefined);
   }, [text, attach, atMention, fileMention, onSend, onCommand, onContentChange]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {

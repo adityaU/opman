@@ -38,16 +38,25 @@ export function useVirtualKeyboard(): void {
         } else {
           document.documentElement.removeAttribute("data-vkb-open");
           document.documentElement.style.removeProperty("--vkb-height");
+          document.documentElement.style.removeProperty("--vkb-offset-top");
         }
       }
 
-      // Continuously update the available height while keyboard is open
-      // so modals track the actual visible area.
+      // Continuously update the available height + offset while keyboard
+      // is open so both modals and the chat layout track the visible area.
       if (isOpen) {
         document.documentElement.style.setProperty(
           "--vkb-height",
           `${Math.round(vv.height)}px`,
         );
+        // On iOS the viewport scrolls up when the keyboard appears —
+        // offsetTop tells us how far. Set it so CSS can compensate.
+        const top = Math.round(vv.offsetTop);
+        if (top > 0) {
+          document.documentElement.style.setProperty("--vkb-offset-top", `${top}px`);
+        } else {
+          document.documentElement.style.removeProperty("--vkb-offset-top");
+        }
       }
     }
 
@@ -64,6 +73,7 @@ export function useVirtualKeyboard(): void {
       vv.removeEventListener("scroll", update);
       document.documentElement.removeAttribute("data-vkb-open");
       document.documentElement.style.removeProperty("--vkb-height");
+      document.documentElement.style.removeProperty("--vkb-offset-top");
       openRef.current = false;
     };
   }, []);

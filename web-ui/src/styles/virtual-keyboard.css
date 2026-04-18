@@ -313,7 +313,25 @@
     }
 
     /* ════════════════════════════════════════════════════════════════
-       8. SPECIAL CASES
+       8. CHAT LAYOUT: keep prompt input above keyboard
+       ════════════════════════════════════════════════════════════════ */
+
+    [data-vkb-open] .chat-layout {
+        height: var(--vkb-height, 100vh);
+        max-height: var(--vkb-height, 100vh);
+        overflow: hidden;
+        /* iOS: viewport scrolls up when keyboard opens — compensate */
+        transform: translateY(var(--vkb-offset-top, 0px))
+    }
+
+    /* Hide bottom nav dock when typing — reclaims space for prompt */
+    [data-vkb-open] .mobile-dock,
+    [data-vkb-open] .mobile-dock-fab {
+        display: none !important
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       9. SPECIAL CASES
        ════════════════════════════════════════════════════════════════ */
 
     /* ctx-window-modal: has overflow on modal itself rather than body */

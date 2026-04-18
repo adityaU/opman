@@ -4,7 +4,8 @@
  * Renders the CodeMirror editor, diagnostics panel, hover card,
  * and delegates to FileRenderers for non-code file types.
  */
-import { Loader2, File } from "lucide-react";
+import { useState, useRef } from "react";
+import { Loader2, File, PenLine } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import type { FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode, OpenFileEntry } from "../types";
 import { isPreviewableRenderType } from "../types";
@@ -17,6 +18,7 @@ import { SpreadsheetEditor } from "./SpreadsheetEditor";
 import { DocumentEditor } from "./DocumentEditor";
 import { ImagePreviewZoom } from "./ImagePreviewZoom";
 import { CadViewer } from "./CadViewer";
+import { MarkupOverlay } from "./MarkupOverlay";
 
 interface Props {
   openFile: FileReadResponse | null;
@@ -111,6 +113,27 @@ export function EditorBody({
   );
 }
 
+// ── Markup wrapper ──────────────────────────────────────
+
+function MarkupWrapper({ children }: { children: React.ReactNode }) {
+  const [markupActive, setMarkupActive] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <div className="markup-preview-wrapper" ref={previewRef}>
+      {children}
+      {!markupActive && (
+        <button className="markup-start-btn" onClick={() => setMarkupActive(true)}>
+          <PenLine size={13} /> Markup
+        </button>
+      )}
+      {markupActive && (
+        <MarkupOverlay previewRef={previewRef} onClose={() => setMarkupActive(false)} />
+      )}
+    </div>
+  );
+}
+
 // ── File content dispatcher ─────────────────────────────
 
 interface FileContentProps {
@@ -168,16 +191,16 @@ function FileContent({
         return <DocumentEditor path={openFile.path} docData={activeEntry.docData} setOpenFiles={setOpenFiles} />;
       }
       return <BinaryPreview file={openFile} />;
-    case "model3d":  return <CadViewer path={openFile.path} />;
-    case "image":    return <ImagePreviewZoom url={rawFileUrl(openFile.path)} alt={openFile.path} />;
+    case "model3d":  return <MarkupWrapper><CadViewer path={openFile.path} /></MarkupWrapper>;
+    case "image":    return <MarkupWrapper><ImagePreviewZoom url={rawFileUrl(openFile.path)} alt={openFile.path} /></MarkupWrapper>;
     case "audio":    return <AudioPreview file={openFile} />;
-    case "video":    return <VideoPreview file={openFile} />;
-    case "pdf":      return <PdfPreview file={openFile} />;
+    case "video":    return <MarkupWrapper><VideoPreview file={openFile} /></MarkupWrapper>;
+    case "pdf":      return <MarkupWrapper><PdfPreview file={openFile} /></MarkupWrapper>;
     case "csv":      return <CsvViewer content={openFile.content} />;
     case "markdown": return <MarkdownViewer content={currentContent} />;
     case "html":     return <HtmlViewer content={currentContent} />;
-    case "mermaid":  return <MermaidViewer content={currentContent} />;
-    case "svg":      return <SvgViewer content={currentContent} />;
+    case "mermaid":  return <MarkupWrapper><MermaidViewer content={currentContent} /></MarkupWrapper>;
+    case "svg":      return <MarkupWrapper><SvgViewer content={currentContent} /></MarkupWrapper>;
     case "binary":   return <BinaryPreview file={openFile} />;
     case "code":
     default:

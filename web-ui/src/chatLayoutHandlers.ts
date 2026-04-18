@@ -84,11 +84,6 @@ export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     const sid = deps.activeSessionId;
     if (!sid) return false;
-    if (deps.sending) {
-      deps.addToast("Please wait — still sending…", "warning");
-      return false;
-    }
-    deps.setSending(true, sid);
     deps.addOptimisticMessage(text, images);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
@@ -104,12 +99,9 @@ export function createHandleSend(deps: HandlerDeps) {
       );
       return true;
     } catch {
-      // Remove the optimistic message since send failed
       deps.clearOptimistic();
       deps.addToast("Failed to send message", "error");
       return false;
-    } finally {
-      deps.setSending(false, sid);
     }
   };
 }

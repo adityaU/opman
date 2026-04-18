@@ -27,7 +27,8 @@
 }
 
 .code-editor-desktop {
-    flex-direction: row!important
+    flex-direction: row!important;
+    position: relative
 }
 
 .code-editor-explorer {
@@ -40,6 +41,47 @@
     border-right: .5px solid var(--glass-border-dark, var(--white-6));
     background: var(--white-1_5);
     overflow: hidden
+}
+
+/* Floating explorer overlay */
+.explorer-floating {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 25;
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .2s ease, opacity .15s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,.25);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    background: var(--white-4, rgba(255,255,255,.04))
+}
+
+.explorer-floating-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto
+}
+
+/* Resize drag handle on right edge of explorer */
+.explorer-resize-handle {
+    position: absolute;
+    right: -3px;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 26;
+    background: transparent;
+    transition: background .15s ease
+}
+
+.explorer-resize-handle:hover,
+.explorer-resize-handle:active {
+    background: var(--color-primary, #007aff)
 }
 
 .explorer-header {
@@ -257,6 +299,13 @@ html.flat-theme .explorer-open-file.active {
 html.flat-theme .code-editor-explorer {
     background: var(--color-bg-element);
     border-color: var(--color-border)
+}
+
+html.flat-theme .explorer-floating {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--color-bg-element);
+    box-shadow: 4px 0 16px rgba(0,0,0,.15)
 }
 
 html.flat-theme .explorer-header {

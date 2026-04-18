@@ -57,7 +57,7 @@ function initViewer(containerId: string, url: string, ext: string) {
   const camera = new THREE.PerspectiveCamera(50, w / h, 0.01, 1000);
   camera.position.set(3, 3, 3);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;

@@ -1,0 +1,222 @@
+/* ── Markup Overlay ───────────────────────────────────── */
+
+.markup-preview-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.markup-start-btn {
+  position: absolute;
+  top: var(--space-2, 8px);
+  right: var(--space-2, 8px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font-sans, sans-serif);
+  color: var(--white-70, rgba(255,255,255,.7));
+  background: var(--white-8, rgba(255,255,255,.08));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.markup-start-btn:hover {
+  background: var(--white-12, rgba(255,255,255,.12));
+  color: var(--white-90, rgba(255,255,255,.9));
+}
+
+/* ── Canvas overlay ───────────────────────────────────── */
+
+.markup-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.markup-canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+/* ── Floating toolbar ─────────────────────────────────── */
+
+.markup-toolbar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 5px 8px;
+  background: var(--white-6, rgba(255,255,255,.06));
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  white-space: nowrap;
+}
+
+.markup-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.markup-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--white-12, rgba(255,255,255,.12));
+  flex-shrink: 0;
+}
+
+.markup-toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* ── Tool buttons ─────────────────────────────────────── */
+
+.markup-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--white-60, rgba(255,255,255,.6));
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.markup-tool-btn:hover {
+  background: var(--white-10, rgba(255,255,255,.1));
+  color: var(--white-90, rgba(255,255,255,.9));
+}
+.markup-tool-btn.active {
+  background: var(--white-15, rgba(255,255,255,.15));
+  color: #fff;
+}
+.markup-tool-btn:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+/* ── Color swatches ───────────────────────────────────── */
+
+.markup-color-btn {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--white-20, rgba(255,255,255,.2));
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform .1s, border-color .1s;
+  padding: 0;
+}
+.markup-color-btn:hover {
+  transform: scale(1.2);
+}
+.markup-color-btn.active {
+  border-color: #fff;
+  transform: scale(1.25);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.25);
+}
+
+/* ── Width label ──────────────────────────────────────── */
+
+.markup-width-label {
+  font-size: 11px;
+  color: var(--white-50, rgba(255,255,255,.5));
+  min-width: 28px;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Action buttons (save/cancel) ─────────────────────── */
+
+.markup-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font-sans, sans-serif);
+  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.markup-save {
+  background: var(--accent-blue, #007aff);
+  color: #fff;
+  border-color: transparent;
+}
+.markup-save:hover { background: #0a84ff; }
+.markup-save:disabled { opacity: .5; cursor: default; }
+
+.markup-cancel {
+  background: var(--white-8, rgba(255,255,255,.08));
+  color: var(--white-70, rgba(255,255,255,.7));
+}
+.markup-cancel:hover {
+  background: var(--white-12, rgba(255,255,255,.12));
+  color: #fff;
+}
+
+/* ── Flat theme overrides ─────────────────────────────── */
+
+html.flat-theme .markup-start-btn {
+  background: var(--flat-surface, #1e1e2e);
+  border-color: var(--flat-border, #333);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html.flat-theme .markup-start-btn:hover {
+  background: var(--flat-surface-hover, #2a2a3e);
+}
+
+html.flat-theme .markup-toolbar {
+  background: var(--flat-surface, #1e1e2e);
+  border-color: var(--flat-border, #333);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+
+html.flat-theme .markup-tool-btn:hover {
+  background: var(--flat-surface-hover, #2a2a3e);
+}
+html.flat-theme .markup-tool-btn.active {
+  background: var(--flat-active, #333350);
+}
+
+html.flat-theme .markup-cancel {
+  background: var(--flat-surface, #1e1e2e);
+  border-color: var(--flat-border, #333);
+}
+html.flat-theme .markup-cancel:hover {
+  background: var(--flat-surface-hover, #2a2a3e);
+}
+
+/* ── Responsive: stack toolbar vertically on narrow screens */
+
+@media (max-width: 520px) {
+  .markup-toolbar {
+    flex-wrap: wrap;
+    max-width: calc(100vw - 24px);
+    justify-content: center;
+  }
+  .markup-toolbar-spacer { display: none; }
+}
