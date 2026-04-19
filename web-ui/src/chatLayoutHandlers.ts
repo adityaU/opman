@@ -261,7 +261,7 @@ export function createHandleNewSession(deps: HandlerDeps) {
   return async () => {
     if (!deps.appState) return;
     try {
-      const projectIdx = deps.appState.active_project;
+      const projectIdx = deps.activeProjectIndex;
       const resp = await newSession(projectIdx);
       // URL is the single source of truth — triggers beginSessionSwitch + API calls
       deps.setUrlSession(resp.session_id, projectIdx);
