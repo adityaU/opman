@@ -212,6 +212,60 @@ html.flat-theme .markup-cancel:hover {
 
 /* ── Responsive: stack toolbar vertically on narrow screens */
 
+/* ── PDF Canvas Viewer ─────────────────────────────────── */
+
+.pdf-canvas-viewer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+  background: var(--white-4, rgba(255,255,255,.04));
+}
+
+.pdf-canvas-viewer canvas {
+  display: block;
+  max-width: 100%;
+}
+
+.pdf-canvas-controls {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 4px 8px;
+  background: var(--white-6, rgba(255,255,255,.06));
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  white-space: nowrap;
+}
+
+.pdf-canvas-page-label {
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--white-60, rgba(255,255,255,.6));
+  min-width: 48px;
+  text-align: center;
+}
+
+html.flat-theme .pdf-canvas-controls {
+  background: var(--flat-surface, #1e1e2e);
+  border-color: var(--flat-border, #333);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+
 @media (max-width: 520px) {
   .markup-toolbar {
     flex-wrap: wrap;

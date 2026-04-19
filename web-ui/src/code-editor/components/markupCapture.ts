@@ -102,7 +102,7 @@ export async function capturePreview(
   const img = preview.querySelector("img") as HTMLImageElement | null;
   const video = preview.querySelector("video") as HTMLVideoElement | null;
   const glCanvas = preview.querySelector("canvas:not(.markup-canvas)") as HTMLCanvasElement | null;
-  const svgEl = preview.querySelector("svg") as SVGSVGElement | null;
+  const svgEl = preview.querySelector("svg:not(button svg)") as SVGSVGElement | null;
   const iframe = preview.querySelector("iframe") as HTMLIFrameElement | null;
 
   if (img && img.complete && img.naturalWidth > 0) {

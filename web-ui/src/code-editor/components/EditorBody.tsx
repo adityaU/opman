@@ -12,8 +12,9 @@ import { isPreviewableRenderType } from "../types";
 import { rawFileUrl } from "../../api";
 import {
   CsvViewer, MarkdownViewer, HtmlViewer, SvgViewer, MermaidViewer,
-  ImagePreview, AudioPreview, VideoPreview, PdfPreview, BinaryPreview,
+  ImagePreview, AudioPreview, VideoPreview, BinaryPreview,
 } from "./FileRenderers";
+import { PdfCanvasViewer } from "./PdfCanvasViewer";
 import { SpreadsheetEditor } from "./SpreadsheetEditor";
 import { DocumentEditor } from "./DocumentEditor";
 import { ImagePreviewZoom } from "./ImagePreviewZoom";
@@ -195,7 +196,7 @@ function FileContent({
     case "image":    return <MarkupWrapper><ImagePreviewZoom url={rawFileUrl(openFile.path)} alt={openFile.path} /></MarkupWrapper>;
     case "audio":    return <AudioPreview file={openFile} />;
     case "video":    return <MarkupWrapper><VideoPreview file={openFile} /></MarkupWrapper>;
-    case "pdf":      return <MarkupWrapper><PdfPreview file={openFile} /></MarkupWrapper>;
+    case "pdf":      return <MarkupWrapper><PdfCanvasViewer url={rawFileUrl(openFile.path)} alt={openFile.path} /></MarkupWrapper>;
     case "csv":      return <CsvViewer content={openFile.content} />;
     case "markdown": return <MarkdownViewer content={currentContent} />;
     case "html":     return <HtmlViewer content={currentContent} />;
