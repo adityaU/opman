@@ -21,17 +21,20 @@ Object.defineProperty(window, "location", {
 // ── Mock history API ─────────────────────────────────────
 const pushStateSpy = vi.fn();
 const replaceStateSpy = vi.fn();
+const historyMock = {
+  state: null as unknown,
+  pushState: pushStateSpy,
+  replaceState: replaceStateSpy,
+};
 Object.defineProperty(window, "history", {
-  value: {
-    pushState: pushStateSpy,
-    replaceState: replaceStateSpy,
-  },
+  value: historyMock,
   writable: true,
 });
 
 beforeEach(() => {
   window.location.search = "";
   window.location.pathname = "/";
+  historyMock.state = null;
   pushStateSpy.mockClear();
   replaceStateSpy.mockClear();
 });
@@ -131,5 +134,29 @@ describe("useUrlState", () => {
     rerender({ panels: panels2 });
     expect(replaceStateSpy).toHaveBeenCalled();
     expect(pushStateSpy).not.toHaveBeenCalled();
+  });
+
+  it("preserves modal and mobile history sentinels on URL sync", () => {
+    historyMock.state = { _modalLayer: true, _mobileOverlay: true, keep: 1 };
+
+    renderHook(() =>
+      useUrlState({
+        sessionId: "sess1",
+        projectIdx: 2,
+        panels: { sidebar: true, terminal: false, editor: false, git: false },
+        onPopState: vi.fn(),
+      })
+    );
+
+    const calls = replaceStateSpy.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const [stateArg] = calls[calls.length - 1];
+    expect(stateArg).toMatchObject({
+      _modalLayer: true,
+      _mobileOverlay: true,
+      keep: 1,
+      sessionId: "sess1",
+      projectIdx: 2,
+    });
   });
 });

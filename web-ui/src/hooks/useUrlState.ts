@@ -69,6 +69,16 @@ function buildSearchString(state: UrlState): string {
   return s ? `?${s}` : window.location.pathname;
 }
 
+function mergeHistoryState(state: UrlState, prev: unknown): Record<string, unknown> {
+  const prevObj = prev && typeof prev === "object" ? prev as Record<string, unknown> : {};
+  return {
+    ...prevObj,
+    sessionId: state.sessionId,
+    projectIdx: state.projectIdx,
+    panels: state.panels,
+  };
+}
+
 // ── Hook ────────────────────────────────────────────────────────────
 
 interface UseUrlStateOptions {
@@ -114,10 +124,11 @@ export function useUrlState({
 
     // Session change → pushState (new history entry)
     // Panel toggle → replaceState (no history clutter)
+    const historyState = mergeHistoryState(current, window.history.state);
     if (prev && prev.sessionId !== current.sessionId) {
-      window.history.pushState(current, "", url);
+      window.history.pushState(historyState, "", url);
     } else {
-      window.history.replaceState(current, "", url);
+      window.history.replaceState(historyState, "", url);
     }
   }, [sessionId, projectIdx, panels.sidebar, panels.terminal, panels.editor, panels.git]);
 
@@ -145,7 +156,11 @@ export function useUrlState({
   // Set initial history state on mount
   useEffect(() => {
     const initial: UrlState = { sessionId, projectIdx, panels };
-    window.history.replaceState(initial, "", buildSearchString(initial));
+    window.history.replaceState(
+      mergeHistoryState(initial, window.history.state),
+      "",
+      buildSearchString(initial),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
