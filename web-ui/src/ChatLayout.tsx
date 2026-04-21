@@ -242,6 +242,7 @@ export function ChatLayout() {
     closeMobileSidebarSilent: mobile.closeSidebarSilent,
     setUrlSession,
     openModal,
+    expectSessionSwitch: sse.expectSessionSwitch,
     openMemoryAll: modalState.openMemoryAll,
     toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
     toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,

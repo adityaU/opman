@@ -33,6 +33,8 @@ export interface HandlerDeps {
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
+  /** Signal that the next SSE session change is expected (blocks rogue session switches). */
+  expectSessionSwitch: () => void;
   /** Open memory modal showing all memories (for /memory command). */
   openMemoryAll: () => void;
   toggleSidebar: () => void;
@@ -296,6 +298,7 @@ export function createHandleSwitchProject(deps: HandlerDeps) {
 
 export function createHandleModelSelected(deps: HandlerDeps) {
   return (modelId: string, providerId: string) => {
+    deps.expectSessionSwitch();
     deps.setSelectedModel({ providerID: providerId, modelID: modelId });
     deps.addToast(`Model switched to ${modelId}`, "success");
   };
