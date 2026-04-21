@@ -95,6 +95,9 @@ export function useSSE(): SSEState {
   const expectSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sessionGenRef = useRef(0);
+  /** Tracks the server-reported active project index — compared against urlProjectIndex
+   *  to block refreshState() from drifting the active project. */
+  const activeProjectIndexRef = useRef(0);
 
   // Keep refs in sync so reclassifyInteractions can read current values synchronously.
   const permissionsRef = useRef<PermissionRequest[]>([]);
@@ -435,19 +438,24 @@ export function useSSE(): SSEState {
   }, [flushMessages]);
 
   // ── Track active session changes ──────────────────────────────
+  // activeSessionRef tracks the server's reported active session. Guard against
+  // unwanted switches: only allow the server to change active_session when either
+  // (a) no session is active yet, (b) a session switch is expected, or (c) the
+  // incoming sid matches the expected target.  Also guard against project drift —
+  // if the server's active_project differs from the URL project, ignore it.
   useEffect(() => {
     if (!appState) return;
-    const proj = appState.projects[appState.active_project];
+    const serverProjIdx = appState.active_project;
+    const proj = appState.projects[serverProjIdx];
     const sid = proj?.active_session ?? null;
     if (sid !== activeSessionRef.current) {
-      // Guard: if the user already has an active session and this change wasn't
-      // user-initiated, ignore the server's active_session to prevent unwanted
-      // session switches caused by background SSE refreshState() calls.
-      // The expected target must match the incoming sid, or be "*" (accept any).
       const expected = expectSessionSwitchRef.current;
-      if (activeSessionRef.current !== null && sid !== null) {
-        if (expected === null) return; // no switch expected — block
-        if (expected !== "*" && expected !== sid) return; // wrong target — block
+      if (sid !== null) {
+        if (activeSessionRef.current !== null) {
+          if (expected === null) return;
+          if (expected !== "*" && expected !== sid) return;
+        }
+        if (serverProjIdx !== activeProjectIndexRef.current) return;
       }
       expectSessionSwitchRef.current = null;
       if (expectSwitchTimerRef.current) {
@@ -464,6 +472,7 @@ export function useSSE(): SSEState {
       sessionGenRef.current += 1;
       const gen = sessionGenRef.current;
       activeSessionRef.current = sid;
+      activeProjectIndexRef.current = serverProjIdx;
 
       // Immediately recompute sessionStatus from the authoritative busySessions set.
       // Without this, switching to an idle session keeps the previous session's

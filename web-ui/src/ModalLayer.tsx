@@ -37,6 +37,7 @@ export interface ModalLayerProps {
   modals: Record<string, boolean>;
   openModal: (name: string) => void;
   closeModal: (name: string) => void;
+  closeModalSilent: (name: string) => void;
   appState: any;
   activeSessionId: string | null;
   activeProject: any;
@@ -103,7 +104,7 @@ const L = ({ children }: { children: React.ReactNode }) => (
 );
 
 export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLayer(p) {
-  const { modals: m, openModal: o, closeModal: c } = p;
+  const { modals: m, openModal: o, closeModal: c, closeModalSilent: cs } = p;
 
   /** Close `from` modal then open `to` modal */
   const nav = useCallback((from: string, to: string) => () => { c(from); o(to); }, [c, o]);
@@ -152,7 +153,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       )}
 
       {m.modelPicker && (
-        <L><ModelPickerModal onClose={cl("modelPicker")} sessionId={p.activeSessionId} onModelSelected={p.onModelSelected} /></L>
+        <L><ModelPickerModal onClose={cl("modelPicker")} onCloseSilent={() => cs("modelPicker")} sessionId={p.activeSessionId} onModelSelected={p.onModelSelected} /></L>
       )}
       {m.agentPicker && (
         <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} onAgentSelected={p.onAgentChange} /></L>

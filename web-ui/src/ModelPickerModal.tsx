@@ -6,6 +6,7 @@ import { Search, Cpu, Check, RefreshCw } from "lucide-react";
 
 interface Props {
   onClose: () => void;
+  onCloseSilent: () => void;
   sessionId: string | null;
   onModelSelected?: (modelId: string, providerId: string) => void;
 }
@@ -21,7 +22,7 @@ interface FlatModel {
   isDefault: boolean;
 }
 
-export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props) {
+export function ModelPickerModal({ onClose, onCloseSilent, sessionId, onModelSelected }: Props) {
   const providers = useProviders();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -100,7 +101,7 @@ export function ModelPickerModal({ onClose, sessionId, onModelSelected }: Props)
     // Don't call the broken command endpoint — just set the model locally.
     // The model will be sent with each message via the `model` field.
     onModelSelected?.(model.modelId, model.providerId);
-    onClose();
+    onCloseSilent();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -38,6 +38,8 @@ export interface ModalStateAPI {
   open: (name: ModalName) => void;
   /** Close a modal by name (with side-effect cleanup for searchBar/splitView). */
   close: (name: ModalName) => void;
+  /** Close a modal without navigating browser history. */
+  closeSilent: (name: ModalName) => void;
   /** Toggle a modal by name. */
   toggle: (name: ModalName) => void;
   /** Close the highest-priority open modal. Returns true if one was closed. */
@@ -121,6 +123,22 @@ export function useModalState(): ModalStateAPI {
     cleanupSideEffects(name);
   }, [cleanupSideEffects]);
 
+  const closeSilent = useCallback((name: ModalName) => {
+    setModals((prev) => {
+      if (!prev[name]) return prev;
+      if (historyDepthRef.current > 0) {
+        historyDepthRef.current -= 1;
+        const st = window.history.state as Record<string, unknown> | null;
+        if (st && MODAL_HISTORY_KEY in st) {
+          const { [MODAL_HISTORY_KEY]: _, ...rest } = st;
+          window.history.replaceState(Object.keys(rest).length ? rest : null, "");
+        }
+      }
+      return { ...prev, [name]: false };
+    });
+    cleanupSideEffects(name);
+  }, [cleanupSideEffects]);
+
   const toggle = useCallback((name: ModalName) => {
     if (modalsRef.current[name]) {
       close(name);
@@ -184,7 +202,7 @@ export function useModalState(): ModalStateAPI {
   }, [open]);
 
   return {
-    isOpen, open, close, toggle, closeTopModal, modals,
+    isOpen, open, close, closeSilent, toggle, closeTopModal, modals,
     searchMatchIds, setSearchMatchIds,
     activeSearchMatchId, setActiveSearchMatchId,
     splitViewSecondaryId, setSplitViewSecondaryId,

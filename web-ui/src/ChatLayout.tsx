@@ -268,6 +268,7 @@ export function ChatLayout() {
 
   // ── Stable modal openers ──
   const closeModal = useCallback((name: string) => modalState.close(name as ModalName), [modalState]);
+  const closeModalSilent = useCallback((name: string) => modalState.closeSilent(name as ModalName), [modalState]);
   const openAddProject = useCallback(() => modalState.open("addProject"), [modalState]);
   const openModelPicker = useCallback(() => modalState.open("modelPicker"), [modalState]);
   const openAgentPicker = useCallback(() => modalState.open("agentPicker"), [modalState]);
@@ -339,7 +340,7 @@ export function ChatLayout() {
         handlePanelError={callbacks.handlePanelError}
       />
       <ModalLayer
-        modals={modalState.modals} openModal={openModal} closeModal={closeModal}
+        modals={modalState.modals} openModal={openModal} closeModal={closeModal} closeModalSilent={closeModalSilent}
         appState={appState} activeSessionId={activeSessionId} activeProject={activeProject}
         activeProjectIndex={activeProjectIndex}
         onCommand={handlers.handleCommand} onNewSession={handlers.handleNewSession}
