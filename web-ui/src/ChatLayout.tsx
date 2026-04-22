@@ -243,6 +243,7 @@ export function ChatLayout() {
     setUrlSession,
     openModal,
     expectSessionSwitch: sse.expectSessionSwitch,
+    blockSessionAdoption: sse.blockSessionAdoption,
     openMemoryAll: modalState.openMemoryAll,
     toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
     toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,

@@ -37,8 +37,10 @@ export interface ChatHandlerInputs {
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string, projectIdx: number) => void;
   openModal: (name: string) => void;
-  /** Signal that the next SSE session change is expected (blocks rogue session switches). */
+  /** Signal that the next SSE session change is expected (for real session switches). */
   expectSessionSwitch: () => void;
+  /** Temporarily block background SSE-driven session adoption for non-switch actions. */
+  blockSessionAdoption: (ms?: number) => void;
   openMemoryAll: () => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
@@ -105,6 +107,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     setUrlSession: inputs.setUrlSession,
     openModal: inputs.openModal,
     expectSessionSwitch: inputs.expectSessionSwitch,
+    blockSessionAdoption: inputs.blockSessionAdoption,
     openMemoryAll: inputs.openMemoryAll,
     toggleSidebar: inputs.toggleSidebar,
     toggleTerminal: inputs.toggleTerminal,
@@ -121,7 +124,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.clearOptimistic, inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
-    inputs.openModal, inputs.expectSessionSwitch, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
+    inputs.openModal, inputs.expectSessionSwitch, inputs.blockSessionAdoption, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,
   ]);
 

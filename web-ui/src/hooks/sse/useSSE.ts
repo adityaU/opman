@@ -93,6 +93,10 @@ export function useSSE(): SSEState {
   const expectSessionSwitchRef = useRef<string | null>(null);
   /** Timeout handle for clearing a stale expectSessionSwitch target. */
   const expectSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Timestamp until which background SSE session adoption is blocked. */
+  const blockSessionAdoptionUntilRef = useRef(0);
+  /** Timeout handle for clearing a stale background-adoption block. */
+  const blockSessionAdoptionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sessionGenRef = useRef(0);
   /** Tracks the server-reported active project index — compared against urlProjectIndex
@@ -450,6 +454,7 @@ export function useSSE(): SSEState {
     const sid = proj?.active_session ?? null;
     if (sid !== activeSessionRef.current) {
       const expected = expectSessionSwitchRef.current;
+      if (Date.now() < blockSessionAdoptionUntilRef.current) return;
       if (sid !== null) {
         if (activeSessionRef.current !== null) {
           if (expected === null) return;
@@ -682,6 +687,7 @@ export function useSSE(): SSEState {
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
       if (expectSwitchTimerRef.current) { clearTimeout(expectSwitchTimerRef.current); expectSwitchTimerRef.current = null; }
+      if (blockSessionAdoptionTimerRef.current) { clearTimeout(blockSessionAdoptionTimerRef.current); blockSessionAdoptionTimerRef.current = null; }
     };
   }, [refreshState, updateSessionMeta, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
 
@@ -698,6 +704,15 @@ export function useSSE(): SSEState {
     }, 10_000);
     setActiveSessionIdOverride(null);
     setActiveProjectIndexOverride(null);
+  }, []);
+
+  const blockSessionAdoption = useCallback((ms = 10_000) => {
+    blockSessionAdoptionUntilRef.current = Date.now() + ms;
+    if (blockSessionAdoptionTimerRef.current) clearTimeout(blockSessionAdoptionTimerRef.current);
+    blockSessionAdoptionTimerRef.current = setTimeout(() => {
+      blockSessionAdoptionUntilRef.current = 0;
+      blockSessionAdoptionTimerRef.current = null;
+    }, ms);
   }, []);
 
   /** Stable callback for checking busy state — avoids passing Set reference to children. */
@@ -789,6 +804,6 @@ export function useSSE(): SSEState {
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
     clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,
-    expectSessionSwitch, beginSessionSwitch, isSessionBusy,
+    expectSessionSwitch, blockSessionAdoption, beginSessionSwitch, isSessionBusy,
   };
 }

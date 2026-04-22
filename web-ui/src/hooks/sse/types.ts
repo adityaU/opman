@@ -103,6 +103,10 @@ export interface SSEState {
    *  Call this before selectSession/newSession/switchProject so the next
    *  appState update is allowed to change the active session. */
   expectSessionSwitch: () => void;
+  /** Temporarily block background SSE-driven session adoption.
+   *  Use for non-switch UI actions (like model selection) that should never
+   *  cause the active session to change even if another session is busy. */
+  blockSessionAdoption: (ms?: number) => void;
   /** Optimistically begin a session switch — clears messages and shows loading
    *  state immediately at click-time, before any async API calls.
    *  Restores from cache if available (no shimmer).
