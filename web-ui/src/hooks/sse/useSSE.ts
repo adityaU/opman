@@ -734,6 +734,13 @@ export function useSSE(): SSEState {
     sessionGenRef.current += 1;
     const gen = sessionGenRef.current;
     activeSessionRef.current = targetSid;
+    // Update the project index ref immediately so the appState guard at line 463
+    // (serverProjIdx !== activeProjectIndexRef.current) accepts the server's
+    // confirmation of a cross-project switch.  Without this, the guard rejects
+    // the valid state_changed event because the ref still holds the old project.
+    if (projectIdx !== undefined) {
+      activeProjectIndexRef.current = projectIdx;
+    }
     // Optimistic override — makes sidebar highlight and prompt react instantly
     setActiveSessionIdOverride(targetSid);
     setActiveProjectIndexOverride(projectIdx ?? null);

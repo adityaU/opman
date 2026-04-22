@@ -96,7 +96,7 @@ export function ChatLayout() {
   }, []);
 
   // ── Modals / Toast / Providers / Bookmarks ──
-  const modalState = useModalState();
+  const modalState = useModalState({ onOpen: sse.blockSessionAdoption });
   const { toasts, addToast, removeToast } = useToast();
   const providers = useProviders();
   const { isBookmarked, toggleBookmark } = useBookmarks();

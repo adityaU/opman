@@ -62,7 +62,12 @@ export interface ModalStateAPI {
   memoryFilterActive: boolean;
 }
 
-export function useModalState(): ModalStateAPI {
+export interface ModalStateOptions {
+  /** Called whenever any modal is opened. Use to block SSE session adoption. */
+  onOpen?: () => void;
+}
+
+export function useModalState(options?: ModalStateOptions): ModalStateAPI {
   const [modals, setModals] = useState<ModalOpenState>(INITIAL_STATE);
   const [searchMatchIds, setSearchMatchIds] = useState<Set<string>>(new Set());
   const [activeSearchMatchId, setActiveSearchMatchId] = useState<string | null>(null);
@@ -102,12 +107,14 @@ export function useModalState(): ModalStateAPI {
   const open = useCallback((name: ModalName) => {
     setModals((prev) => {
       if (prev[name]) return prev; // already open
+      // Block any SSE-driven session adoption while a modal is open
+      options?.onOpen?.();
       // Push a history entry so the back gesture closes this modal
       window.history.pushState({ [MODAL_HISTORY_KEY]: true }, "");
       historyDepthRef.current += 1;
       return { ...prev, [name]: true };
     });
-  }, []);
+  }, [options]);
 
   const close = useCallback((name: ModalName) => {
     setModals((prev) => {

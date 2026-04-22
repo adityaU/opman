@@ -218,8 +218,14 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             onToggleExpand={() => toggleProjectExpand(idx)}
             onSelectSession={handleSelectSession}
             onNewSession={() => {
-              if (idx !== activeProject) onSwitchProject(idx);
-              onNewSession();
+              if (idx !== activeProject) {
+                // Switch to the other project first; onSwitchProject is async so
+                // we must NOT also call onNewSession here — it would fire before
+                // the project switch completes and create the session in the wrong project.
+                onSwitchProject(idx);
+              } else {
+                onNewSession();
+              }
             }}
             onToggleSubagents={toggleSubagents}
             onShowMore={() => setShowMore(true)}

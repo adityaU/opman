@@ -51,6 +51,14 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
   // ── setUrlSession: update URL → state updates reactively ──
 
   const setUrlSession = useCallback((sessionId: string, projectIdx: number) => {
+    // Push a new history entry with the updated session+project params so the
+    // browser URL stays current.  Without this, any history.back() (modal close,
+    // browser back button) fires popstate, reads the stale URL, and reverts to
+    // the previous session/project.
+    const params = new URLSearchParams(window.location.search);
+    params.set("session", sessionId);
+    params.set("project", String(projectIdx));
+    window.history.pushState(null, "", `?${params}`);
     setUrlSessionId(sessionId);
     setUrlProjectIndex(projectIdx);
   }, []);
