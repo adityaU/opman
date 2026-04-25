@@ -166,6 +166,11 @@ impl ApiClient {
             let err_msg = response_body
                 .get("error")
                 .and_then(|e| e.as_str())
+                .or_else(|| {
+                    response_body
+                        .pointer("/data/message")
+                        .and_then(|v| v.as_str())
+                })
                 .unwrap_or("unknown error");
             return Err(CommandError {
                 status: status.as_u16(),
