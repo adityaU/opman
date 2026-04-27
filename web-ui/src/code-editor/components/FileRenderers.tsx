@@ -98,7 +98,8 @@ export function MermaidViewer({ content }: { content: string }) {
   }, [content]);
 
   if (error) return <div className="file-preview file-preview-binary">{error}</div>;
-  return <div className="mermaid-viewer" dangerouslySetInnerHTML={{ __html: svg }} />;
+  const sanitizedSvg = useMemo(() => DOMPurify.sanitize(svg), [svg]);
+  return <div className="mermaid-viewer" dangerouslySetInnerHTML={{ __html: sanitizedSvg }} />;
 }
 
 // ── Media / Binary previews ─────────────────────────────

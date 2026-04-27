@@ -171,6 +171,13 @@ pub async fn git_stage(
 ) -> WebResult<impl IntoResponse> {
     let dir_path = git_dir(&state, &req.repo).await?;
 
+    // Validate filenames to prevent argument injection
+    for f in &req.files {
+        if f.is_empty() || f.starts_with('-') {
+            return Err(WebError::BadRequest("Invalid filename".into()));
+        }
+    }
+
     let mut args = vec!["add".to_string()];
     if req.files.is_empty() {
         args.push("-A".to_string()); // Stage all
@@ -201,6 +208,13 @@ pub async fn git_unstage(
     Json(req): Json<GitUnstageRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir_path = git_dir(&state, &req.repo).await?;
+
+    // Validate filenames to prevent argument injection
+    for f in &req.files {
+        if f.is_empty() || f.starts_with('-') {
+            return Err(WebError::BadRequest("Invalid filename".into()));
+        }
+    }
 
     let mut args = vec!["restore".to_string(), "--staged".to_string()];
     if req.files.is_empty() {
@@ -237,6 +251,11 @@ pub async fn git_commit(
 
     if req.message.trim().is_empty() {
         return Err(WebError::BadRequest("Commit message cannot be empty".into()));
+    }
+
+    // Validate message doesn't start with `-` to prevent argument injection
+    if req.message.starts_with('-') {
+        return Err(WebError::BadRequest("Invalid commit message".into()));
     }
 
     let output = tokio::process::Command::new("git")
@@ -281,6 +300,13 @@ pub async fn git_discard(
         return Err(WebError::BadRequest(
             "Must specify files to discard".into(),
         ));
+    }
+
+    // Validate filenames to prevent argument injection
+    for f in &req.files {
+        if f.is_empty() || f.starts_with('-') {
+            return Err(WebError::BadRequest("Invalid filename".into()));
+        }
     }
 
     let mut args = vec!["checkout".to_string(), "--".to_string()];

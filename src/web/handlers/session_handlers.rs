@@ -236,7 +236,8 @@ pub async fn execute_command(
                     .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
                 WebError::Upstream(status, cmd_err.message.clone())
             } else {
-                WebError::Internal(format!("{e}"))
+                tracing::error!("Session command failed: {e}");
+                WebError::Internal("Command execution failed".into())
             }
         })?;
     Ok(Json(result))

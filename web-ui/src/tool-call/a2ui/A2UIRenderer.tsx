@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import mermaid from "mermaid";
+import DOMPurify from "dompurify";
 import { extractBlocks, esc } from "./types";
 import type { A2UIBlock } from "./types";
 import { blocksToHtml } from "./render";
@@ -84,7 +85,7 @@ export function A2UIRenderer({ input }: A2UIRendererProps) {
 
   const html = useMemo(() => {
     if (!blocks.length) return "";
-    return blocksToHtml(blocks);
+    return DOMPurify.sanitize(blocksToHtml(blocks));
   }, [blocks]);
 
   useEffect(() => {

@@ -54,6 +54,30 @@ pub async fn browse_files(
             .metadata()
             .await
             .map_err(|e| WebError::Internal(format!("Failed to read metadata: {e}")))?;
+
+        // Security: skip symlinks that escape the project directory
+        let file_type = metadata.file_type();
+        if file_type.is_symlink() {
+            let link_target = match tokio::fs::read_link(entry.path()).await {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            let resolved = if link_target.is_absolute() {
+                link_target
+            } else {
+                canonical_target.join(link_target)
+            };
+            if let Ok(canonical_link) = resolved.canonicalize() {
+                if !canonical_link.starts_with(&canonical_base) {
+                    tracing::warn!("[browse] skipping symlink escaping project: {}", entry.path().display());
+                    continue;
+                }
+            } else {
+                // Can't resolve — skip to be safe
+                continue;
+            }
+        }
+
         let entry_path = if rel == "." {
             name.clone()
         } else {
@@ -173,7 +197,9 @@ pub async fn write_file(
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
 
-    tokio::fs::write(&target, &req.content)
+    // Write to the canonicalized path to prevent symlink race (TOCTOU)
+    let canonical_target = canonical_parent.join(target.file_name().unwrap_or_default());
+    tokio::fs::write(&canonical_target, &req.content)
         .await
         .map_err(|e| WebError::Internal(format!("Failed to write file: {e}")))?;
 
@@ -210,12 +236,15 @@ pub async fn create_file(
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
 
+    // Write to the canonicalized path to prevent symlink race (TOCTOU)
+    let canonical_target = canonical_parent.join(target.file_name().unwrap_or_default());
+
     // Don't overwrite existing files
-    if target.exists() {
+    if canonical_target.exists() {
         return Err(WebError::BadRequest("File already exists".into()));
     }
 
-    tokio::fs::write(&target, &req.content)
+    tokio::fs::write(&canonical_target, &req.content)
         .await
         .map_err(|e| WebError::Internal(format!("Failed to create file: {e}")))?;
 
@@ -457,27 +486,45 @@ pub async fn upload_files(
 
     // Now write all files into the target directory
     for (filename, data) in pending_files {
+        // Sanitize filename: strip path separators and traversal sequences
+        let safe_name = filename
+            .replace("..", "_")
+            .replace('/', "_")
+            .replace('\\', "_");
+        if safe_name.is_empty() || safe_name.starts_with('.') {
+            tracing::warn!("[upload] rejected unsafe filename: {filename:?}");
+            return Err(WebError::BadRequest("Invalid filename".into()));
+        }
+
         let rel_path = if upload_dir.is_empty() || upload_dir == "." {
-            filename.clone()
+            safe_name.clone()
         } else {
-            format!("{}/{}", upload_dir, filename)
+            let safe_dir = upload_dir
+                .replace("..", "_")
+                .replace('/', "_")
+                .replace('\\', "_");
+            format!("{}/{}", safe_dir, safe_name)
         };
 
         let target = base.join(&rel_path);
         tracing::info!("[upload] writing {rel_path:?} → {}", target.display());
 
-        // Security: validate parent is within project
+        // Security: validate the full resolved path is within project BEFORE any I/O
+        let canonical_target = target
+            .canonicalize()
+            .or_else(|_| {
+                // File doesn't exist yet — canonicalize the parent instead
+                target.parent().map(|p| p.canonicalize()).unwrap_or(Ok(target.clone()))
+            })
+            .map_err(|_| WebError::BadRequest("Invalid upload path".into()))?;
+        if !canonical_target.starts_with(&canonical_base) {
+            return Err(WebError::BadRequest("Path traversal not allowed".into()));
+        }
+
         if let Some(parent) = target.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
                 .map_err(|e| WebError::Internal(format!("Failed to create parent dirs: {e}")))?;
-
-            let canonical_parent = parent
-                .canonicalize()
-                .map_err(|e| WebError::Internal(format!("Failed to resolve upload path: {e}")))?;
-            if !canonical_parent.starts_with(&canonical_base) {
-                return Err(WebError::BadRequest("Path traversal not allowed".into()));
-            }
         }
 
         tokio::fs::write(&target, data)

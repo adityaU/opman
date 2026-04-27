@@ -18,6 +18,36 @@ async fn git_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBu
     }
 }
 
+/// Validate a git object hash (SHA-1 hex string).
+fn validate_git_hash(hash: &str) -> WebResult<()> {
+    if hash.is_empty() || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(WebError::BadRequest("Invalid git hash".into()));
+    }
+    Ok(())
+}
+
+/// Validate a git ref/branch name to prevent argument injection.
+fn validate_git_ref(name: &str) -> WebResult<()> {
+    if name.is_empty()
+        || name.starts_with('-')
+        || name.contains("..")
+        || name.contains('~')
+        || name.contains('^')
+        || name.contains(':')
+    {
+        return Err(WebError::BadRequest("Invalid git ref name".into()));
+    }
+    Ok(())
+}
+
+/// Validate a filename to prevent argument injection in git commands.
+fn validate_git_filename(name: &str) -> WebResult<()> {
+    if name.is_empty() || name.starts_with('-') {
+        return Err(WebError::BadRequest("Invalid filename".into()));
+    }
+    Ok(())
+}
+
 /// GET /api/git/show?hash=...&repo=... — show a commit's diff and metadata.
 pub async fn git_show(
     State(state): State<ServerState>,
@@ -25,6 +55,8 @@ pub async fn git_show(
     axum::extract::Query(query): axum::extract::Query<GitShowQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir_path = git_dir(&state, &query.repo).await?;
+
+    validate_git_hash(&query.hash)?;
 
     // Get commit metadata
     let format = "%H%x1f%an%x1f%aI%x1f%B";
@@ -157,14 +189,7 @@ pub async fn git_checkout(
 ) -> WebResult<impl IntoResponse> {
     let dir_path = git_dir(&state, &req.repo).await?;
 
-    // Validate branch name (basic safety check)
-    if req.branch.is_empty()
-        || req.branch.contains("..")
-        || req.branch.contains("~")
-        || req.branch.starts_with('-')
-    {
-        return Err(WebError::BadRequest("Invalid branch name".to_string()));
-    }
+    validate_git_ref(&req.branch)?;
 
     let output = tokio::process::Command::new("git")
         .args(["checkout", &req.branch])
@@ -202,6 +227,7 @@ pub async fn git_range_diff(
 ) -> WebResult<impl IntoResponse> {
     let dir_path = git_dir(&state, &query.repo).await?;
     let base = query.base.unwrap_or_else(|| "main".to_string());
+    validate_git_ref(&base)?;
     let limit = query.limit.unwrap_or(50);
 
     // Get current branch
@@ -290,10 +316,12 @@ pub async fn git_pull(
     let remote = if req.remote.is_empty() {
         "origin".to_string()
     } else {
+        validate_git_ref(&req.remote)?;
         req.remote
     };
     args.push(remote);
     if !req.branch.is_empty() {
+        validate_git_ref(&req.branch)?;
         args.push(req.branch);
     }
 
@@ -330,6 +358,9 @@ pub async fn git_stash(
         "push" | "" => {
             let mut args = vec!["stash".to_string(), "push".to_string()];
             if !req.message.is_empty() {
+                if req.message.starts_with('-') {
+                    return Err(WebError::BadRequest("Invalid stash message".into()));
+                }
                 args.push("-m".to_string());
                 args.push(req.message);
             }
@@ -350,6 +381,9 @@ pub async fn git_stash(
         "pop" => {
             let mut args = vec!["stash".to_string(), "pop".to_string()];
             if !req.stash_ref.is_empty() {
+                if req.stash_ref.starts_with('-') {
+                    return Err(WebError::BadRequest("Invalid stash ref".into()));
+                }
                 args.push(req.stash_ref);
             }
             let output = tokio::process::Command::new("git")
