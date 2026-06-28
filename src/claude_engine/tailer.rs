@@ -40,6 +40,9 @@ pub fn spawn_tailer(engine: Arc<ClaudeEngine>, session_id: String) {
         // A subagent is still streaming (its transcript grows even when the main file
         // doesn't), so the cheap skip-on-unchanged path must stay disabled while pending.
         let mut has_pending_sub = false;
+        // A background task's output file grows independently of the main transcript too,
+        // so its tail must keep being re-read while the command runs.
+        let mut has_pending_bg = false;
 
         loop {
             // Poll fast for near-realtime block delivery, but only re-parse when the
@@ -69,7 +72,7 @@ pub fn spawn_tailer(engine: Arc<ClaudeEngine>, session_id: String) {
             // Skip the parse entirely when the file hasn't grown since last tick —
             // unless a subagent is still running (its own transcript may be growing).
             let cur_len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-            if cur_len == last_len && idle_ticks > 0 && !has_pending_sub {
+            if cur_len == last_len && idle_ticks > 0 && !has_pending_sub && !has_pending_bg {
                 idle_ticks = idle_ticks.saturating_add(1);
                 if !entry.busy && idle_ticks > 600 {
                     if let Ok(mut t) = engine.tailers.lock() {
@@ -84,6 +87,10 @@ pub fn spawn_tailer(engine: Arc<ClaudeEngine>, session_id: String) {
             let mut parsed = jsonl::parse_file(&path, &entry.id);
             // Fill task parts' running/completed state from the child transcripts.
             jsonl::enrich_subagents(&mut parsed);
+            // Tail background-task output files into their parts.
+            jsonl::enrich_background_tasks(&mut parsed);
+            // Keep re-reading output files while any background command is still running.
+            has_pending_bg = jsonl::has_running_background_task(&parsed);
             let ts = now_ms();
 
             if let Some(title) = &parsed.title {

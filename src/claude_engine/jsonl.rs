@@ -178,6 +178,9 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
     let mut assistant_idx: HashMap<String, usize> = HashMap::new();
     // tool_use id → (message index, part index) so tool_result lines can attach output
     let mut tool_loc: HashMap<String, (usize, usize)> = HashMap::new();
+    // background task id → (message index, part index) so a later `<task-notification>`
+    // can flip the originating background-task part to completed/failed in place.
+    let mut bg_loc: HashMap<String, (usize, usize)> = HashMap::new();
     let mut user_turn: usize = 0;
     let mut sys_turn: usize = 0;
     // Index of the most recent assistant message; marked `time.completed` once its turn
@@ -217,6 +220,43 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                 }
                 match content_v {
                     Some(Value::String(s)) if is_system_injection(&v, s) => {
+                        // A `<task-notification>` that names a background task we launched
+                        // is folded back into that task's part (status + summary + end
+                        // time) instead of floating as a standalone system bubble — that
+                        // is what nests the background task inside the main turn. A
+                        // notification for a subagent (or one we can't match) still renders
+                        // as a bubble below.
+                        if let Some(notif) = parse_task_notification(s) {
+                            if let Some(&(mi, pi)) = bg_loc.get(&notif.task_id) {
+                                if let Some(state) = out
+                                    .messages
+                                    .get_mut(mi)
+                                    .and_then(|m| m.parts.get_mut(pi))
+                                    .and_then(|p| p.get_mut("state"))
+                                    .and_then(|s| s.as_object_mut())
+                                {
+                                    let status = if notif.failed { "error" } else { "completed" };
+                                    state.insert("status".into(), json!(status));
+                                    if let Some(summary) = &notif.summary {
+                                        let meta = state
+                                            .entry("metadata")
+                                            .or_insert_with(|| json!({}));
+                                        if let Some(m) = meta.as_object_mut() {
+                                            m.insert("summary".into(), json!(summary));
+                                        }
+                                        if notif.failed {
+                                            state.insert("error".into(), json!(summary));
+                                        }
+                                    }
+                                    if let Some(time) =
+                                        state.get_mut("time").and_then(|t| t.as_object_mut())
+                                    {
+                                        time.insert("end".into(), json!(ts));
+                                    }
+                                }
+                                continue;
+                            }
+                        }
                         // A harness/system injection (task-notification, system-reminder,
                         // local-command echo) — render as a distinct system bubble, not a
                         // user message.
@@ -282,6 +322,12 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                 .get("tool")
                                                 .and_then(|t| t.as_str())
                                                 == Some("task");
+                                            let is_background = part
+                                                .get("state")
+                                                .and_then(|s| s.get("metadata"))
+                                                .and_then(|m| m.get("background"))
+                                                .and_then(|b| b.as_bool())
+                                                .unwrap_or(false);
                                             if let Some(state) =
                                                 part.get_mut("state").and_then(|s| s.as_object_mut())
                                             {
@@ -297,6 +343,39 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                             .or_insert_with(|| json!({}));
                                                         if let Some(m) = meta.as_object_mut() {
                                                             m.insert("sessionId".into(), json!(aid));
+                                                        }
+                                                    }
+                                                } else if is_background {
+                                                    // Launch ack: "Command running in
+                                                    // background with ID: <id>. Output is
+                                                    // being written to: <path>." Record both
+                                                    // and stay "running" until the matching
+                                                    // `<task-notification>` arrives. If the
+                                                    // ack is itself an error (e.g. the launch
+                                                    // was blocked), surface it immediately.
+                                                    if let Some((task_id, out_file)) =
+                                                        parse_bg_launch(&output)
+                                                    {
+                                                        let meta = state
+                                                            .entry("metadata")
+                                                            .or_insert_with(|| json!({}));
+                                                        if let Some(m) = meta.as_object_mut() {
+                                                            m.insert("taskId".into(), json!(task_id));
+                                                            m.insert(
+                                                                "outputFile".into(),
+                                                                json!(out_file),
+                                                            );
+                                                        }
+                                                        bg_loc.insert(task_id, (mi, pi));
+                                                    } else if is_err {
+                                                        state.insert("output".into(), json!(output));
+                                                        state.insert("status".into(), json!("error"));
+                                                        state.insert("error".into(), json!(output));
+                                                        if let Some(time) = state
+                                                            .get_mut("time")
+                                                            .and_then(|t| t.as_object_mut())
+                                                        {
+                                                            time.insert("end".into(), json!(ts));
                                                         }
                                                     }
                                                 } else {
@@ -424,12 +503,28 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                 let is_task = raw_name == "Agent" || raw_name == "Task";
                                 let name = if is_task { "task" } else { raw_name };
                                 let input = b.get("input").cloned().unwrap_or(json!({}));
+                                // A background task is a `Bash` tool launched with
+                                // `run_in_background: true`. Its tool_result is only a
+                                // launch ack — completion arrives later via a
+                                // `<task-notification>` — so it is tagged and tracked
+                                // separately from both ordinary tools and subagents.
+                                let is_background = !is_task
+                                    && input
+                                        .get("run_in_background")
+                                        .and_then(|v| v.as_bool())
+                                        .unwrap_or(false);
                                 let title = if is_task {
                                     input
                                         .get("description")
                                         .and_then(|d| d.as_str())
                                         .or_else(|| input.get("subagent_type").and_then(|s| s.as_str()))
                                         .unwrap_or("Task")
+                                        .to_string()
+                                } else if is_background {
+                                    input
+                                        .get("description")
+                                        .and_then(|d| d.as_str())
+                                        .unwrap_or("Background task")
                                         .to_string()
                                 } else {
                                     name.to_string()
@@ -445,6 +540,11 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                 // fills it in (see the tool_result branch below).
                                 if is_task {
                                     state["metadata"] = json!({});
+                                } else if is_background {
+                                    // The launch-ack tool_result fills in `taskId` and
+                                    // `outputFile`; `enrich_background_tasks` tails the
+                                    // output file; a `<task-notification>` flips status.
+                                    state["metadata"] = json!({ "background": true });
                                 }
                                 out.messages[idx].parts.push(json!({
                                     "type": "tool",
@@ -500,6 +600,141 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
     }
 
     out
+}
+
+/// Parse a background-bash launch ack into `(task_id, output_file)`.
+///
+/// Shape (claude v2.1.x): `Command running in background with ID: <id>. Output is being
+/// written to: <path>. You will be notified when it completes. …`
+fn parse_bg_launch(s: &str) -> Option<(String, String)> {
+    let id_marker = "background with ID:";
+    let i = s.find(id_marker)?;
+    let after_id = s[i + id_marker.len()..].trim_start();
+    let task_id: String = after_id
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect();
+    if task_id.is_empty() {
+        return None;
+    }
+    // The path runs from "written to:" up to the sentence boundary ". You will" that
+    // always follows it in the ack — splitting on "." would truncate the file extension.
+    let path_marker = "written to:";
+    let j = s.find(path_marker)? + path_marker.len();
+    let tail = s[j..].trim_start();
+    let out_file = tail
+        .split(". You will")
+        .next()
+        .or_else(|| tail.lines().next())
+        .unwrap_or("")
+        .trim()
+        .trim_end_matches('.')
+        .to_string();
+    Some((task_id, out_file))
+}
+
+/// A parsed `<task-notification>` for a background task.
+struct TaskNotif {
+    task_id: String,
+    failed: bool,
+    summary: Option<String>,
+}
+
+/// Extract `<task-id>`, `<status>`, and `<summary>` from a `<task-notification>` block.
+fn parse_task_notification(s: &str) -> Option<TaskNotif> {
+    let t = s.trim_start();
+    if !t.starts_with("<task-notification>") {
+        return None;
+    }
+    let tag = |name: &str| -> Option<String> {
+        let open = format!("<{name}>");
+        let close = format!("</{name}>");
+        let a = s.find(&open)? + open.len();
+        let b = s[a..].find(&close)? + a;
+        Some(s[a..b].trim().to_string())
+    };
+    let task_id = tag("task-id")?;
+    if task_id.is_empty() {
+        return None;
+    }
+    let status = tag("status").unwrap_or_default();
+    let failed = status.eq_ignore_ascii_case("failed");
+    Some(TaskNotif {
+        task_id,
+        failed,
+        summary: tag("summary").filter(|s| !s.is_empty()),
+    })
+}
+
+/// Read up to the last `max_bytes` of a file as lossy UTF-8 (for tailing a background
+/// task's output file). Returns `None` if the file is missing or empty.
+fn read_tail(path: &str, max_bytes: usize) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.is_empty() {
+        return None;
+    }
+    let slice = if bytes.len() > max_bytes {
+        &bytes[bytes.len() - max_bytes..]
+    } else {
+        &bytes[..]
+    };
+    Some(String::from_utf8_lossy(slice).into_owned())
+}
+
+/// Tail each background-task part's output file from disk into `state.metadata.output`,
+/// so the web UI can stream live command output (and show the final captured output once
+/// the task has completed). Pure parsing produces the part; this step does the fs read,
+/// mirroring `enrich_subagents`. Called by the live tailer and the REST message endpoints.
+pub fn enrich_background_tasks(out: &mut ParsedSession) {
+    for msg in &mut out.messages {
+        for part in &mut msg.parts {
+            let is_bg = part
+                .get("state")
+                .and_then(|s| s.get("metadata"))
+                .and_then(|m| m.get("background"))
+                .and_then(|b| b.as_bool())
+                .unwrap_or(false);
+            if !is_bg {
+                continue;
+            }
+            let out_file = part
+                .get("state")
+                .and_then(|s| s.get("metadata"))
+                .and_then(|m| m.get("outputFile"))
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let Some(out_file) = out_file else {
+                continue;
+            };
+            // Keep the last ~16 KiB — enough for a useful tail without bloating the SSE.
+            let Some(tail) = read_tail(&out_file, 16 * 1024) else {
+                continue;
+            };
+            if let Some(meta) = part
+                .get_mut("state")
+                .and_then(|s| s.get_mut("metadata"))
+                .and_then(|m| m.as_object_mut())
+            {
+                meta.insert("output".into(), json!(tail));
+            }
+        }
+    }
+}
+
+/// Whether a parsed session has any background-task part still running (its
+/// `<task-notification>` hasn't arrived yet). The tailer uses this to keep re-reading
+/// output files while a background command streams.
+pub fn has_running_background_task(out: &ParsedSession) -> bool {
+    out.messages.iter().flat_map(|m| &m.parts).any(|p| {
+        let s = p.get("state");
+        let is_bg = s
+            .and_then(|s| s.get("metadata"))
+            .and_then(|m| m.get("background"))
+            .and_then(|b| b.as_bool())
+            .unwrap_or(false);
+        is_bg
+            && s.and_then(|s| s.get("status")).and_then(|s| s.as_str()) == Some("running")
+    })
 }
 
 /// Parse the `agentId: <id>` token out of an async-subagent launch ack.
@@ -593,6 +828,77 @@ mod tests {
         // Stays "running" until enrich_subagents consults the child transcript.
         assert_eq!(part["state"]["status"], "running");
         assert_eq!(parsed.subagent_ids, vec!["a1834b2decb148144".to_string()]);
+    }
+
+    // A `Bash` with run_in_background:true is tagged as a background task. Its launch ack
+    // records the task id + output file and it STAYS running — completion only arrives via
+    // a later <task-notification>, which is folded back into the same part (no floating
+    // system bubble).
+    #[test]
+    fn background_bash_tracked_and_completed_by_notification() {
+        let transcript = concat!(
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"cargo build","description":"Release build","run_in_background":true}}]}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bp3a2llyj. Output is being written to: /tmp/tasks/bp3a2llyj.output. You will be notified when it completes. To check interim output, use Read on that file path."}]}}"#, "\n",
+        );
+        let mut parsed = parse_str(transcript, "ses");
+        let part = &parsed.messages[0].parts[0];
+        assert_eq!(part["tool"], "Bash");
+        assert_eq!(part["state"]["metadata"]["background"], true);
+        assert_eq!(part["state"]["title"], "Release build");
+        assert_eq!(part["state"]["metadata"]["taskId"], "bp3a2llyj");
+        assert_eq!(part["state"]["metadata"]["outputFile"], "/tmp/tasks/bp3a2llyj.output");
+        // Still running — the launch ack must NOT complete it.
+        assert_eq!(part["state"]["status"], "running");
+        assert!(has_running_background_task(&parsed));
+
+        // Now the completion notification arrives — folded into the part, not a bubble.
+        let with_notif = format!(
+            "{transcript}{}\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>bp3a2llyj</task-id>\n<output-file>/tmp/tasks/bp3a2llyj.output</output-file>\n<status>completed</status>\n<summary>Release build finished</summary>\n</task-notification>"}}"#
+        );
+        parsed = parse_str(&with_notif, "ses");
+        // Exactly one message (the assistant turn) — no separate system bubble.
+        assert_eq!(parsed.messages.len(), 1);
+        let part = &parsed.messages[0].parts[0];
+        assert_eq!(part["state"]["status"], "completed");
+        assert_eq!(part["state"]["metadata"]["summary"], "Release build finished");
+        assert!(part["state"]["time"]["end"].is_u64());
+        assert!(!has_running_background_task(&parsed));
+    }
+
+    // A failed notification marks the part errored; a notification for an UNKNOWN id (e.g.
+    // a subagent) still renders as a standalone system bubble.
+    #[test]
+    fn background_failure_and_unmatched_notification() {
+        let failed = concat!(
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"server","run_in_background":true}}]}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bxx. Output is being written to: /tmp/tasks/bxx.output. You will be notified when it completes."}]}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>bxx</task-id>\n<status>failed</status>\n<summary>boom</summary>\n</task-notification>"}}"#, "\n",
+        );
+        let parsed = parse_str(failed, "ses");
+        assert_eq!(parsed.messages.len(), 1);
+        let part = &parsed.messages[0].parts[0];
+        assert_eq!(part["state"]["status"], "error");
+        assert_eq!(part["state"]["error"], "boom");
+
+        // An unmatched (subagent) notification keeps its bubble.
+        let unmatched = concat!(
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"text","text":"hi"}]}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>a0ba02d900f3240a6</task-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n</task-notification>"}}"#, "\n",
+        );
+        let parsed = parse_str(unmatched, "ses");
+        assert!(parsed.messages.iter().any(|m| m.info["variant"] == "notification"));
+    }
+
+    #[test]
+    fn parses_bg_launch_ack() {
+        let (id, path) = parse_bg_launch(
+            "Command running in background with ID: b83roqzom. Output is being written to: /tmp/x/b83roqzom.output. You will be notified when it completes.",
+        )
+        .unwrap();
+        assert_eq!(id, "b83roqzom");
+        assert_eq!(path, "/tmp/x/b83roqzom.output");
+        assert!(parse_bg_launch("no background marker here").is_none());
     }
 
     #[test]

@@ -10,6 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { SubagentSession } from "../SubagentSession";
+import { BackgroundTask } from "./BackgroundTask";
 import { ToolCallProps } from "./types";
 import { formatToolName, formatDuration, getTaskSessionId } from "./helpers";
 import { ToolInput, ToolOutput, TodoList, EditDiffView } from "./components";
@@ -28,6 +29,13 @@ export const ToolCall = React.memo(function ToolCall({
 
   const isTodoWrite = toolName.includes("todowrite") || toolName.includes("todo_write");
   const isTaskTool = toolName === "task";
+  // A background task is a `run_in_background` Bash call, tagged by the backend. It is
+  // distinct from a subagent ("task") and gets its own nested, tagged card. Fall back to
+  // sniffing the launch ack in case the metadata tag is ever absent.
+  const isBackgroundTask =
+    part.state?.metadata?.background === true ||
+    (typeof part.state?.output === "string" &&
+      part.state.output.startsWith("Command running in background with ID:"));
   const isBashTool = toolName.includes("bash") || toolName.includes("shell") || toolName.includes("terminal");
   const isA2UI = toolName.includes("ui_render") || toolName.includes("ui_ui_render") || toolName === "a2ui";
 
@@ -87,6 +95,11 @@ export const ToolCall = React.memo(function ToolCall({
   const errorText = isError
     ? state?.error || (hasOutput ? null : "Tool call failed")
     : null;
+
+  // Background tasks render as their own tagged, nested card (not the generic accordion).
+  if (isBackgroundTask) {
+    return <BackgroundTask part={part} />;
+  }
 
   // A2UI renders directly — no accordion wrapper
   if (isA2UI && hasInput) {

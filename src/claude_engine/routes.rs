@@ -319,6 +319,7 @@ async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> J
             let mut parsed = jsonl::parse_file(&path, &entry.id);
             if !parsed.messages.is_empty() {
                 jsonl::enrich_subagents(&mut parsed);
+                jsonl::enrich_background_tasks(&mut parsed);
                 let arr: Vec<Value> = parsed.messages.iter().map(|m| m.to_value()).collect();
                 return Json(Value::Array(arr));
             }

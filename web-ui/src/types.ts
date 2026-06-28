@@ -46,7 +46,22 @@ export interface ToolPartState {
   status?: "completed" | "pending" | "running" | "error";
   title?: string;
   time?: { start?: number; end?: number };
-  metadata?: { truncated?: boolean; sessionId?: string; model?: string; [key: string]: unknown };
+  metadata?: {
+    truncated?: boolean;
+    sessionId?: string;
+    model?: string;
+    /** Tags a `run_in_background` Bash tool call as a background task. */
+    background?: boolean;
+    /** Background task short id (from the launch ack). */
+    taskId?: string;
+    /** Path the background task streams its output to. */
+    outputFile?: string;
+    /** Tailed background-task output (streamed live by the tailer). */
+    output?: string;
+    /** Completion summary from the matching `<task-notification>`. */
+    summary?: string;
+    [key: string]: unknown;
+  };
   attachments?: unknown[];
 }
 

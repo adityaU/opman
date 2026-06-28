@@ -352,3 +352,181 @@
     white-space: nowrap;
     flex-shrink: 0
 }
+
+/* ── Background tasks ──────────────────────────────────────────────
+   A run_in_background Bash call. Visually a sibling of the subagent card but
+   tagged "BACKGROUND" and keyed to the warning/amber accent so it reads as a
+   detached, long-running side-task — distinct from a subagent. */
+.background-task {
+    --bg-task-accent: var(--color-warning, #f5a742);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-2);
+    overflow: hidden;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--color-surface) 60%, transparent) 0%,
+        var(--color-bg) 100%);
+    border-left: 3px solid var(--bg-task-accent);
+}
+
+.background-running {
+    animation: subagent-glow 3s ease-in-out infinite;
+}
+
+.background-error-state {
+    --bg-task-accent: var(--color-error);
+    border-left-color: var(--color-error);
+}
+
+.background-task-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: color-mix(in srgb, var(--bg-task-accent) 5%, var(--color-surface));
+    font-size: var(--font-size-xs);
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.background-task-header:hover {
+    background: color-mix(in srgb, var(--bg-task-accent) 10%, var(--color-surface));
+}
+
+.background-task-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.background-task-icon {
+    color: var(--bg-task-accent);
+    flex-shrink: 0;
+}
+
+.background-task-tag {
+    flex-shrink: 0;
+    font-size: var(--font-size-2xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--bg-task-accent);
+    background: color-mix(in srgb, var(--bg-task-accent) 14%, transparent);
+    border: 0.5px solid color-mix(in srgb, var(--bg-task-accent) 35%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+}
+
+.background-task-title {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
+
+.background-task-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.background-task-status-text {
+    color: var(--color-text-muted);
+}
+
+.background-task-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--color-text-muted);
+}
+
+.background-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bg-task-accent);
+    animation: subagent-pulse 1.5s ease-in-out infinite;
+}
+
+.background-task-body {
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    border-top: 1px solid var(--color-border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.background-task-command {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+}
+
+.background-task-prompt-char {
+    color: var(--bg-task-accent);
+    font-weight: 700;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.background-task-command code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--color-text);
+}
+
+.background-task-meta {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+}
+
+.background-task-output {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.background-task-waiting {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.background-task-no-data {
+    font-style: normal;
+}
+
+.background-task-summary {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-secondary);
+    border-left: 2px solid color-mix(in srgb, var(--bg-task-accent) 40%, transparent);
+    padding-left: var(--space-2);
+}
+
+.background-task-summary.is-error {
+    color: var(--color-error);
+    border-left-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+}
