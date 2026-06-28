@@ -389,6 +389,7 @@ export function ChatLayout() {
         presenceClients={sse.presenceClients} activeWorkspaceName={assistant.activeWorkspaceName}
         activeMemoryItems={callbacks.personalMemoryForInbox}
         autonomyMode={assistant.autonomyMode} assistantPulse={assistant.assistantPulse}
+        backend={appState?.backend}
         onRunAssistantPulse={handleRunAssistantPulse}
         onToggleSidebar={panels.sidebar.toggle} onToggleTerminal={panels.terminal.toggle}
         onToggleNeovim={panels.editor.toggle} onToggleGit={panels.git.toggle}

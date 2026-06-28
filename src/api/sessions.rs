@@ -129,4 +129,161 @@ impl ApiClient {
 
         Ok(())
     }
+
+    /// Revert the last message in a session, undoing its effects and restoring
+    /// the previous state.
+    ///
+    /// Uses `POST /session/{id}/revert` with `{ messageID }` from the session's
+    /// current revert pointer. If no revert pointer exists, reverts the last
+    /// assistant message.
+    pub async fn revert_session(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        // First fetch the session to get the last message ID to revert.
+        let session_url = format!("{}/session/{}", base_url, session_id);
+        let session_resp = self
+            .client
+            .get(&session_url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch session for revert")?;
+
+        let session: serde_json::Value = session_resp
+            .json()
+            .await
+            .context("Failed to parse session response")?;
+
+        // Get the last message ID from the session messages.
+        let messages_url = format!("{}/session/{}/message", base_url, session_id);
+        let msgs_resp = self
+            .client
+            .get(&messages_url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch session messages for revert")?;
+
+        let messages: serde_json::Value = msgs_resp
+            .json()
+            .await
+            .context("Failed to parse messages response")?;
+
+        // Find the last user message ID to revert from.
+        let message_id = messages
+            .as_array()
+            .and_then(|msgs| {
+                msgs.iter().rev().find_map(|m| {
+                    let info = m.get("info")?;
+                    if info.get("role")?.as_str()? == "user" {
+                        info.get("id")?.as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .or_else(|| {
+                session
+                    .get("revert")
+                    .and_then(|r| r.get("messageID"))
+                    .and_then(|id| id.as_str())
+                    .map(|s| s.to_string())
+            });
+
+        let message_id = match message_id {
+            Some(id) => id,
+            None => anyhow::bail!("No message found to revert"),
+        };
+
+        let url = format!("{}/session/{}/revert", base_url, session_id);
+        debug!(url, session_id, message_id, "Reverting session");
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .json(&serde_json::json!({ "messageID": message_id }))
+            .send()
+            .await
+            .context("Failed to send revert request")?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Session revert rejected: HTTP {} — {}", status, body);
+        }
+
+        Ok(())
+    }
+
+    /// Restore all previously reverted messages in a session (redo).
+    ///
+    /// Uses `POST /session/{id}/unrevert`.
+    pub async fn unrevert_session(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        let url = format!("{}/session/{}/unrevert", base_url, session_id);
+        debug!(url, session_id, "Unreverting session");
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to send unrevert request")?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Session unrevert rejected: HTTP {} — {}", status, body);
+        }
+
+        Ok(())
+    }
+
+    /// Share a session, creating a shareable link.
+    ///
+    /// Uses `POST /session/{id}/share`.
+    pub async fn share_session(
+        &self,
+        base_url: &str,
+        project_dir: &str,
+        session_id: &str,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/session/{}/share", base_url, session_id);
+        debug!(url, session_id, "Sharing session");
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-opencode-directory", project_dir)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to send share request")?;
+
+        let status = resp.status();
+        let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+
+        if !status.is_success() {
+            let err = body
+                .get("error")
+                .and_then(|e| e.as_str())
+                .unwrap_or("unknown error");
+            anyhow::bail!("Session share rejected: HTTP {} — {}", status, err);
+        }
+
+        Ok(body)
+    }
 }

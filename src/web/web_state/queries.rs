@@ -71,6 +71,7 @@ impl super::WebStateHandle {
             panels: inner.panels.clone(),
             focused: inner.focused.clone(),
             instance_name: None,
+            backend: String::new(),
         }
     }
 

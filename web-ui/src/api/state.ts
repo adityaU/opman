@@ -27,6 +27,8 @@ export interface AppState {
   focused: string;
   /** Optional instance name from tunnel hostname, used as page title. */
   instance_name?: string;
+  /** Active agent backend: "opencode" or "claude-code". */
+  backend?: string;
 }
 
 export interface PanelVisibility {

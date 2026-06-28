@@ -63,6 +63,7 @@ pub(crate) async fn setup_web_server(
     web_user: &str,
     web_pass: &str,
     instance_name: Option<String>,
+    backend: &str,
     app: &App,
 ) -> (u16, Option<web::WebStateHandle>) {
     if enable_web {
@@ -72,6 +73,7 @@ pub(crate) async fn setup_web_server(
                 username: web_user.to_string(),
                 password: web_pass.to_string(),
                 instance_name,
+                backend: backend.to_string(),
             },
             app.nvim_registry.clone(),
         ).await;

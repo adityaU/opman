@@ -30,6 +30,7 @@ pub async fn get_state(
 ) -> WebResult<impl IntoResponse> {
     let mut app_state = state.web_state.get_state().await;
     app_state.instance_name = state.instance_name.clone();
+    app_state.backend = state.backend.clone();
     Ok(Json(app_state))
 }
 

@@ -22,10 +22,10 @@ use tokio::sync::Mutex;
 
 use super::state::SlackState;
 
-use command_api::{do_command_api, do_passthrough_command};
+use command_api::do_passthrough_command;
 use info::{do_help_command, do_messages_command, do_status_command, do_todos_command};
 use model::do_model_command;
-use session_control::{do_compact_command, do_detach_command, do_stop_command, do_watcher_command};
+use session_control::{do_compact_command, do_detach_command, do_export_command, do_redo_command, do_stop_command, do_undo_command, do_watcher_command};
 use test_blockkit::do_test_blockkit_command;
 
 // ── Slack Thread Slash Commands ─────────────────────────────────────────
@@ -140,35 +140,25 @@ pub async fn handle_thread_slash_command(
             true
         }
         "@undo" => {
-            do_command_api(
-                "undo",
-                "",
-                None,
+            do_undo_command(
                 channel,
                 thread_ts,
                 session_id,
                 project_dir,
                 bot_token,
                 base_url,
-                ":leftwards_arrow_with_hook: Undo triggered.",
-                ":x: Undo failed",
             )
             .await;
             true
         }
         "@redo" => {
-            do_command_api(
-                "redo",
-                "",
-                None,
+            do_redo_command(
                 channel,
                 thread_ts,
                 session_id,
                 project_dir,
                 bot_token,
                 base_url,
-                ":arrow_right_hook: Redo triggered.",
-                ":x: Redo failed",
             )
             .await;
             true
@@ -187,18 +177,13 @@ pub async fn handle_thread_slash_command(
             true
         }
         "@export" => {
-            do_command_api(
-                "export",
-                "",
-                None,
+            do_export_command(
                 channel,
                 thread_ts,
                 session_id,
                 project_dir,
                 bot_token,
                 base_url,
-                ":outbox_tray: Session exported.",
-                ":x: Export failed",
             )
             .await;
             true

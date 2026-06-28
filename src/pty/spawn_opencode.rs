@@ -8,6 +8,52 @@ use tracing::debug;
 use super::reader;
 use super::{CommandState, PtyInstance};
 
+/// Build the engine command for a session's PTY pane.
+///
+/// - opencode backend: `opencode attach <url> --dir <dir> [--session <id>]`.
+/// - claude backend (embedded engine present): `claude attach <shortid>` once the
+///   session has a background agent; otherwise a placeholder that hints the user to
+///   send a message (a brand-new Claude session has no attachable agent yet).
+fn build_engine_command(
+    url: &str,
+    working_dir: &std::path::Path,
+    session_id: Option<&str>,
+) -> CommandBuilder {
+    if crate::claude_engine::engine().is_some() {
+        let short = session_id.and_then(crate::claude_engine::short_id_for_session);
+        if let Some(short) = short {
+            let mut c = CommandBuilder::new("claude");
+            c.arg("attach");
+            c.arg(short);
+            if let Some(sid) = session_id {
+                c.env("OPENCODE_SESSION_ID", sid);
+            }
+            return c;
+        }
+        let mut c = CommandBuilder::new("sh");
+        c.arg("-c");
+        c.arg("printf '\\n  Send a message to start this Claude session…\\n'; exec sleep 86400");
+        return c;
+    }
+
+    let mut c = CommandBuilder::new("opencode");
+    c.arg("attach");
+    c.arg(url);
+    c.arg("--dir");
+    c.arg(working_dir);
+    c.arg("--log-level");
+    c.arg("ERROR");
+    if let Some(sid) = session_id {
+        c.arg("--session");
+        c.arg(sid);
+        // Export session ID as env var so MCP bridge processes (spawned by
+        // opencode as children) can include it in socket requests, ensuring
+        // terminal/neovim tool calls route to the correct session.
+        c.env("OPENCODE_SESSION_ID", sid);
+    }
+    c
+}
+
 impl PtyInstance {
     /// Spawn a new PTY running `opencode attach <url>`.
     ///
@@ -31,21 +77,7 @@ impl PtyInstance {
             })
             .context("Failed to open PTY pair")?;
 
-        let mut cmd = CommandBuilder::new("opencode");
-        cmd.arg("attach");
-        cmd.arg(url);
-        cmd.arg("--dir");
-        cmd.arg(working_dir);
-        cmd.arg("--log-level");
-        cmd.arg("ERROR");
-        if let Some(sid) = session_id {
-            cmd.arg("--session");
-            cmd.arg(sid);
-            // Export session ID as env var so MCP bridge processes (spawned by
-            // opencode as children) can include it in socket requests, ensuring
-            // terminal/neovim tool calls route to the correct session.
-            cmd.env("OPENCODE_SESSION_ID", sid);
-        }
+        let mut cmd = build_engine_command(url, working_dir, session_id);
         cmd.cwd(working_dir);
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");

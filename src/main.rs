@@ -2,6 +2,7 @@ mod api;
 mod app;
 mod background_tasks;
 mod blockkit;
+mod claude_engine;
 mod cli;
 mod command_palette;
 mod config;
@@ -138,6 +139,9 @@ async fn main() -> Result<()> {
         Some(Commands::McpUi) => {
             return mcp_ui::run_mcp_ui_bridge().await.map_err(Into::into);
         }
+        Some(Commands::ClaudeHook) => {
+            return claude_engine::run_permission_hook().await.map_err(Into::into);
+        }
         Some(Commands::McpNvim { project_path }) => {
             return mcp_neovim::run_mcp_neovim_bridge(project_path)
                 .await
@@ -159,6 +163,7 @@ async fn main() -> Result<()> {
     }
 
     // ── Derive computed flags ────────────────────────────────────────
+    let backend = cli.resolved_backend();
     let enable_web = cli.enable_web();
     let tunnel_mode = cli.tunnel_mode();
 
@@ -213,9 +218,17 @@ async fn main() -> Result<()> {
     // Ensure required Docker containers (e.g. SearXNG) are running in background
     preflight::spawn_container_checks();
 
-    // Spawn `opencode serve` on a free port before anything else
-    let (base_url, server_handle) =
-        server::spawn_opencode_server().context("Failed to start opencode serve")?;
+    // Start the agent backend on a free port. opencode runs as an external
+    // `opencode serve` process; claude-code is served by an in-process adapter
+    // that speaks the same opencode REST + SSE contract (backed by `claude`
+    // background agents).
+    let (base_url, server_handle) = if backend == crate::cli::AgentBackend::ClaudeCode {
+        claude_engine::start_embedded_server()
+            .await
+            .context("Failed to start embedded claude engine")?
+    } else {
+        server::spawn_agent_server(backend).context("Failed to start agent server")?
+    };
     crate::app::init_base_url(base_url);
 
     // Kill the server on Ctrl+C (even if the TUI hasn't reached cleanup)
@@ -246,7 +259,7 @@ async fn main() -> Result<()> {
 
     // Start web UI server (if enabled)
     let (web_actual_port, web_state_handle) =
-        setup::setup_web_server(enable_web, web_port, &web_user, &web_pass, instance_name, &app).await;
+        setup::setup_web_server(enable_web, web_port, &web_user, &web_pass, instance_name, backend.display_name(), &app).await;
 
     // Make the web state handle available to the TUI (e.g. for routine panel)
     if let Some(ref wsh) = web_state_handle {

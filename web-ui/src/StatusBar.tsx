@@ -38,6 +38,8 @@ interface Props {
   autonomyMode?: AutonomyMode;
   assistantPulse?: AssistantRecommendation | null;
   contextLimit: number | null;
+  /** Active agent backend ("opencode" or "claude-code"). */
+  backend?: string;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onToggleNeovim: () => void;
@@ -100,6 +102,7 @@ export const StatusBar = React.memo(function StatusBar({
   autonomyMode,
   assistantPulse,
   contextLimit,
+  backend,
   onToggleSidebar,
   onToggleTerminal,
   onToggleNeovim,
@@ -137,6 +140,16 @@ export const StatusBar = React.memo(function StatusBar({
         >
           <PanelLeft size={13} />
         </button>
+
+        {backend && (
+          <span
+            className={`status-bar-backend status-bar-backend-${backend === "claude-code" ? "claude" : "opencode"}`}
+            title={`Agent backend: ${backend}`}
+          >
+            <Bot size={11} />
+            <span>{backend === "claude-code" ? "claude" : "opencode"}</span>
+          </span>
+        )}
 
         {project && (
           <span className="status-bar-project">{project.name}</span>

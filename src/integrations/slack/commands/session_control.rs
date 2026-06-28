@@ -1,4 +1,4 @@
-//! Session control commands: stop, watcher, compact, detach.
+//! Session control commands: stop, watcher, compact, detach, undo, redo.
 
 use std::sync::Arc;
 
@@ -134,7 +134,7 @@ pub(super) async fn do_compact_command(
     base_url: &str,
 ) {
     do_command_api(
-        "compact",
+        "session.compact",
         "",
         None,
         channel,
@@ -147,6 +147,108 @@ pub(super) async fn do_compact_command(
         ":x: Compaction failed",
     )
     .await;
+}
+
+/// `@undo` — Revert the last message in the session via `POST /session/:id/revert`.
+pub(super) async fn do_undo_command(
+    channel: &str,
+    thread_ts: &str,
+    session_id: &str,
+    project_dir: &str,
+    bot_token: &str,
+    base_url: &str,
+) {
+    let client = reqwest::Client::new();
+    let api = crate::api::ApiClient::new();
+
+    let msg = match api.revert_session(base_url, project_dir, session_id).await {
+        Ok(()) => {
+            tracing::info!(
+                "Slack @undo: reverted session {}",
+                &session_id[..8.min(session_id.len())]
+            );
+            ":leftwards_arrow_with_hook: Undo triggered — last message reverted.".to_string()
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Slack @undo: failed for session {}: {}",
+                &session_id[..8.min(session_id.len())],
+                e
+            );
+            format!(":x: Undo failed: {}", e)
+        }
+    };
+    let _ = post_message(&client, bot_token, channel, &msg, Some(thread_ts)).await;
+}
+
+/// `@redo` — Restore previously reverted messages via `POST /session/:id/unrevert`.
+pub(super) async fn do_redo_command(
+    channel: &str,
+    thread_ts: &str,
+    session_id: &str,
+    project_dir: &str,
+    bot_token: &str,
+    base_url: &str,
+) {
+    let client = reqwest::Client::new();
+    let api = crate::api::ApiClient::new();
+
+    let msg = match api.unrevert_session(base_url, project_dir, session_id).await {
+        Ok(()) => {
+            tracing::info!(
+                "Slack @redo: unreverted session {}",
+                &session_id[..8.min(session_id.len())]
+            );
+            ":arrow_right_hook: Redo triggered — reverted messages restored.".to_string()
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Slack @redo: failed for session {}: {}",
+                &session_id[..8.min(session_id.len())],
+                e
+            );
+            format!(":x: Redo failed: {}", e)
+        }
+    };
+    let _ = post_message(&client, bot_token, channel, &msg, Some(thread_ts)).await;
+}
+
+/// `@export` / `@share` — Share the session and post the shareable URL.
+pub(super) async fn do_export_command(
+    channel: &str,
+    thread_ts: &str,
+    session_id: &str,
+    project_dir: &str,
+    bot_token: &str,
+    base_url: &str,
+) {
+    let client = reqwest::Client::new();
+    let api = crate::api::ApiClient::new();
+
+    let msg = match api.share_session(base_url, project_dir, session_id).await {
+        Ok(session) => {
+            let share_url = session
+                .get("share")
+                .and_then(|s| s.get("url"))
+                .and_then(|u| u.as_str())
+                .map(|s| format!("\n:link: {}", s))
+                .unwrap_or_default();
+            tracing::info!(
+                "Slack @export: shared session {}",
+                &session_id[..8.min(session_id.len())]
+            );
+            format!(":outbox_tray: Session shared.{}", share_url)
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Slack @export: failed for session {}: {}",
+                &session_id[..8.min(session_id.len())],
+                e
+            );
+            format!(":x: Share failed: {}", e)
+        }
+    };
+    let _ = post_message(&client, bot_token, channel, &msg, Some(thread_ts)).await;
 }
 
 /// `@detach` — Disconnect the relay watcher from this thread.

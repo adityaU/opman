@@ -8,8 +8,9 @@ use anyhow::{bail, Context, Result};
 use tracing::{debug, info, warn};
 
 use crate::app::Project;
+use crate::cli::AgentBackend;
 
-/// Holds the child process for the managed opencode server.
+/// Holds the child process for the managed agent server.
 /// Wrapped in Arc<Mutex<>> so it can be shared with the ctrlc handler.
 pub type ServerHandle = Arc<Mutex<Option<Child>>>;
 
@@ -21,60 +22,66 @@ fn find_free_port() -> Result<u16> {
     Ok(port)
 }
 
-/// Spawn `opencode serve --port <port>` and wait for the "listening on" line.
-/// Returns (base_url, child_handle).
-pub fn spawn_opencode_server() -> Result<(String, ServerHandle)> {
+/// Spawn the agent server for the given backend and wait for it to be ready.
+///
+/// - `opencode`: runs `opencode serve --port <port>`
+/// - `claude-code`: runs `claude serve --port <port>`
+///
+/// Returns `(base_url, child_handle)`.
+pub fn spawn_agent_server(backend: AgentBackend) -> Result<(String, ServerHandle)> {
     let port = find_free_port().context("Could not find a free port")?;
-    info!(port, "Spawning opencode serve");
+    let binary = backend.binary();
+    info!(port, %binary, "Spawning agent server");
 
-    // Run opencode serve from a temp directory so it never picks up an
-    // opencode.json that lives in the manager's own CWD.
+    // Run from a temp directory so the server never picks up a config file
+    // from the manager's own CWD.
     let temp = std::env::temp_dir();
-    let mut child = Command::new("opencode")
+    let mut child = Command::new(binary)
         .args(["serve", "--port", &port.to_string()])
         .current_dir(&temp)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .context("Failed to spawn `opencode serve`. Is opencode installed and on PATH?")?;
+        .with_context(|| {
+            format!("Failed to spawn `{binary} serve`. Is {binary} installed and on PATH?")
+        })?;
 
-    // Read stdout line-by-line until we see the "listening on" message.
     let stdout = child
         .stdout
         .take()
-        .context("Failed to capture opencode serve stdout")?;
+        .context("Failed to capture agent server stdout")?;
 
     let reader = BufReader::new(stdout);
     let mut base_url: Option<String> = None;
 
-    // Give it up to 15 seconds to print the listening line.
-    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    // Allow up to 20 seconds for the server to print its listening line.
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
 
     for line in reader.lines() {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            bail!("Timed out waiting for opencode serve to start (15s)");
+            bail!("Timed out waiting for `{binary} serve` to start (20s)");
         }
         match line {
             Ok(line) => {
-                // Expected: "opencode server listening on http://127.0.0.1:PORT"
+                debug!(%binary, %line, "agent server stdout");
+                // Both opencode and claude-code print a line containing "http://"
                 if let Some(url_start) = line.find("http://") {
                     let url = line[url_start..].trim().to_string();
-                    info!(%url, "opencode serve is ready");
+                    info!(%url, %binary, "Agent server is ready");
                     base_url = Some(url);
                     break;
                 }
             }
             Err(e) => {
-                warn!("Error reading opencode serve stdout: {}", e);
+                warn!("Error reading agent server stdout: {}", e);
                 break;
             }
         }
     }
 
     let url = base_url.unwrap_or_else(|| {
-        // Fallback: assume the port we requested is being used
-        warn!("Could not parse listening URL from opencode serve output, using fallback");
+        warn!("Could not parse listening URL from `{binary} serve` output, using fallback");
         format!("http://127.0.0.1:{}", port)
     });
 
@@ -82,11 +89,11 @@ pub fn spawn_opencode_server() -> Result<(String, ServerHandle)> {
     Ok((url, handle))
 }
 
-/// Kill the managed opencode server if it's still running.
+/// Kill the managed agent server if it's still running.
 pub fn kill_server(handle: &ServerHandle) {
     if let Ok(mut guard) = handle.lock() {
         if let Some(ref mut child) = *guard {
-            info!("Shutting down managed opencode serve (pid={})", child.id());
+            info!("Shutting down managed agent server (pid={})", child.id());
             let _ = child.kill();
             let _ = child.wait();
         }

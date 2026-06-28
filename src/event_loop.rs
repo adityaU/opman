@@ -205,6 +205,7 @@ fn handle_pending_new_session(app: &mut App) {
             let bg_tx = app.bg_tx.clone();
             let base_url = crate::app::base_url().to_string();
             let theme_envs = app.theme.pty_env_vars();
+            let new_session_dir = project_path.to_string_lossy().to_string();
             tokio::spawn(async move {
                 let idx = proj_idx;
                 match tokio::task::spawn_blocking(move || {
@@ -225,6 +226,13 @@ fn handle_pending_new_session(app: &mut App) {
                             session_id: "__new__".to_string(),
                             pty,
                         });
+                        // opencode's server creates the session and announces it via
+                        // SSE. The claude engine has no such trigger, so mint the
+                        // session here (after the "__new__" PTY is queued) — its
+                        // `session.created` event drives the same adoption path.
+                        if let Some(eng) = crate::claude_engine::engine() {
+                            eng.create_session(&new_session_dir, "", "New session");
+                        }
                     }
                     Ok(Err(e)) => {
                         tracing::error!("Failed to spawn new session PTY: {e}");

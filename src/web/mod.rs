@@ -66,6 +66,8 @@ pub struct WebConfig {
     pub password: String,
     /// Optional instance name (from tunnel subdomain/name) used as page title.
     pub instance_name: Option<String>,
+    /// Active agent backend name ("opencode" or "claude-code").
+    pub backend: String,
 }
 
 // ── Server startup ──────────────────────────────────────────────────
@@ -127,6 +129,7 @@ pub async fn start_web_server(
         skills_registry,
         reload_tx,
         instance_name: config.instance_name,
+        backend: config.backend,
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
     };

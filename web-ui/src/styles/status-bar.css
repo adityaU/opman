@@ -267,3 +267,42 @@
     0%,100% { opacity: .5 }
     50% { opacity: 1 }
 }
+
+/* ── Agent backend badge ──────────────────────────────────────── */
+
+.status-bar-backend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    cursor: default;
+    transition: opacity 0.2s
+}
+
+.status-bar-backend-opencode {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)
+}
+
+.status-bar-backend-claude {
+    color: #d97706;
+    background: color-mix(in srgb, #d97706 12%, transparent);
+    border: 1px solid color-mix(in srgb, #d97706 25%, transparent)
+}
+
+/* flat theme overrides */
+.flat .status-bar-backend-opencode {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent)
+}
+
+.flat .status-bar-backend-claude {
+    background: transparent;
+    border-color: color-mix(in srgb, #d97706 40%, transparent)
+}

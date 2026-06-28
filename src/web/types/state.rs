@@ -22,6 +22,8 @@ pub struct WebAppState {
     /// Used as the page title in the web UI.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance_name: Option<String>,
+    /// Active agent backend ("opencode" or "claude-code").
+    pub backend: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -100,6 +102,8 @@ pub struct ServerState {
     /// Optional instance name (from tunnel hostname subdomain or tunnel name).
     /// Sent to the frontend as the page title.
     pub instance_name: Option<String>,
+    /// Active agent backend name, e.g. "opencode" or "claude-code".
+    pub backend: String,
     /// Broadcast channel for editor-specific file-change events.
     /// Consumed by the `/api/editor/events` SSE endpoint.
     pub editor_tx: broadcast::Sender<EditorEvent>,

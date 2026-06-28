@@ -1,12 +1,40 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::web::TunnelMode;
 
 /// Parse a "truthy" string into a bool.
 /// Accepts: `1`, `true`, `yes`, `on`, `quick` → `true`.
 /// Accepts: `0`, `false`, `no`, `off` → `false`.
+/// Which agent backend to spawn and proxy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub(crate) enum AgentBackend {
+    /// Use the `opencode` CLI (default).
+    #[default]
+    Opencode,
+    /// Use the `claude` CLI (Claude Code).
+    ClaudeCode,
+}
+
+impl AgentBackend {
+    /// The binary name for this backend.
+    pub fn binary(&self) -> &'static str {
+        match self {
+            AgentBackend::Opencode => "opencode",
+            AgentBackend::ClaudeCode => "claude",
+        }
+    }
+
+    /// Short display name used in the web UI status bar.
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            AgentBackend::Opencode => "opencode",
+            AgentBackend::ClaudeCode => "claude-code",
+        }
+    }
+}
+
 fn parse_truthy(s: &str) -> Result<bool, String> {
     match s.trim().to_lowercase().as_str() {
         "1" | "true" | "yes" | "on" | "quick" => Ok(true),
@@ -112,6 +140,21 @@ pub(crate) struct Cli {
     pub tunnel_edge_ip: Vec<String>,
 
     // ── MCP control ─────────────────────────────────────────────────
+    /// Which agent backend to use (opencode or claude-code).
+    /// Default: opencode.
+    #[arg(
+        long,
+        value_name = "BACKEND",
+        env = "OPMAN_BACKEND",
+        default_value = "opencode"
+    )]
+    pub backend: AgentBackend,
+
+    /// Shorthand for `--backend claude-code`: use the Claude Code CLI as the
+    /// agent engine (an in-process adapter drives `claude` background sessions).
+    #[arg(long)]
+    pub claude: bool,
+
     /// Enable all MCP integrations (terminal, neovim, time, ui)
     #[arg(long)]
     pub all_mcp: bool,
@@ -146,6 +189,11 @@ pub(crate) enum Commands {
 
     /// Run the UI render MCP bridge (A2UI)
     McpUi,
+
+    /// Internal: PreToolUse permission/question hook relay for the Claude engine.
+    /// Reads the hook payload on stdin, asks the running opman (via
+    /// `OPMAN_ENGINE_URL`), and prints the permission decision. Not for direct use.
+    ClaudeHook,
 
     /// Run the neovim MCP bridge for a project
     McpNvim {
@@ -229,6 +277,15 @@ impl Cli {
             return Some(TunnelMode::Quick);
         }
         None
+    }
+
+    /// The effective backend, honoring the `--claude` shorthand over `--backend`.
+    pub fn resolved_backend(&self) -> AgentBackend {
+        if self.claude {
+            AgentBackend::ClaudeCode
+        } else {
+            self.backend
+        }
     }
 
     /// Whether the web server should be enabled.
