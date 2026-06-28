@@ -77,6 +77,15 @@ pub enum WebEvent {
     },
     /// Routine configuration or run state changed.
     RoutineUpdated,
+    /// A kanban task changed (created, edited, moved, launched, agent update).
+    KanbanTaskUpdated {
+        project_path: String,
+        task_id: String,
+    },
+    /// A kanban board's lane/transition config changed.
+    KanbanBoardUpdated {
+        project_path: String,
+    },
     /// Toast notification from the TUI (status bar messages).
     Toast {
         message: String,

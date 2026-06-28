@@ -27,6 +27,14 @@ use tracing::info;
 use crate::server::ServerHandle;
 use registry::{Registry, SessionEntry};
 
+/// Whether the web server's loopback Kanban API descriptor exists. When present,
+/// the kanban MCP server is attached to launched sessions so they can self-update.
+fn kanban_internal_available() -> bool {
+    dirs::config_dir()
+        .map(|d| d.join("opman").join("internal.json").exists())
+        .unwrap_or(false)
+}
+
 /// How opman answered a pending permission/question request from the hook.
 #[derive(Debug)]
 pub enum PendingReply {
@@ -61,6 +69,18 @@ pub struct ClaudeEngine {
     default_mode: String,
     /// Path to the opman executable (used as the PreToolUse hook command).
     exe: PathBuf,
+    /// Cache of discovered claude slash commands, keyed by project directory.
+    command_cache: Mutex<HashMap<String, claude_cli::InitInfo>>,
+    /// opman-managed MCP servers to attach to every turn: (terminal, neovim, time, ui).
+    mcp_flags: (bool, bool, bool, bool),
+    /// Follow-up prompts queued while a session's agent is still running. Flushed (as
+    /// a single `--resume` turn) once the session goes fully idle — we never resume a
+    /// live agent, which would spawn a competing process and orphan its subagents.
+    pending_prompts: Mutex<HashMap<String, Vec<String>>>,
+    /// Sessions with a turn currently being spawned (between the decision to run and the
+    /// agent registering in `claude agents`). Treated as busy so the status poller can't
+    /// race it to "idle" and trigger a duplicate/competing turn.
+    dispatching: Mutex<HashSet<String>>,
 }
 
 static ENGINE: OnceLock<Arc<ClaudeEngine>> = OnceLock::new();
@@ -90,8 +110,13 @@ fn rand_id(prefix: &str) -> String {
     format!("{prefix}_{n:032x}")
 }
 
+/// Engine-wide default model (`OPMAN_CLAUDE_MODEL`), if set.
+fn default_model() -> Option<String> {
+    std::env::var("OPMAN_CLAUDE_MODEL").ok().filter(|s| !s.is_empty())
+}
+
 impl ClaudeEngine {
-    fn new(persist: Option<PathBuf>) -> Self {
+    fn new(persist: Option<PathBuf>, mcp_flags: (bool, bool, bool, bool)) -> Self {
         let reg = match &persist {
             Some(p) => Registry::load(p),
             None => Registry::default(),
@@ -114,7 +139,59 @@ impl ClaudeEngine {
             url: Mutex::new(String::new()),
             default_mode,
             exe,
+            command_cache: Mutex::new(HashMap::new()),
+            mcp_flags,
+            pending_prompts: Mutex::new(HashMap::new()),
+            dispatching: Mutex::new(HashSet::new()),
         }
+    }
+
+    /// Build the `--mcp-config` JSON attaching opman's managed MCP servers
+    /// (terminal/neovim/time/ui) for a turn. `OPENCODE_SESSION_ID` is injected so the
+    /// terminal/neovim bridges route to this session's resources. Returns None if no
+    /// MCP server is enabled.
+    pub fn mcp_config_json(&self, dir: &str, session_id: &str) -> Option<String> {
+        let (terminal, neovim, time, ui) = self.mcp_flags;
+        // The kanban MCP is attached whenever the web server is up (its
+        // internal descriptor exists), so launched tasks can self-update.
+        let kanban = kanban_internal_available();
+        if !(terminal || neovim || time || ui || kanban) {
+            return None;
+        }
+        let exe = self.exe.to_string_lossy().to_string();
+        let env = serde_json::json!({ "OPENCODE_SESSION_ID": session_id });
+        let mut servers = serde_json::Map::new();
+        if terminal {
+            servers.insert(
+                "terminal".into(),
+                serde_json::json!({ "command": exe, "args": ["mcp", dir], "env": env }),
+            );
+        }
+        if neovim {
+            servers.insert(
+                "neovim".into(),
+                serde_json::json!({ "command": exe, "args": ["mcp-nvim", dir], "env": env }),
+            );
+        }
+        if time {
+            servers.insert(
+                "time".into(),
+                serde_json::json!({ "command": exe, "args": ["mcp-time"] }),
+            );
+        }
+        if ui {
+            servers.insert(
+                "ui".into(),
+                serde_json::json!({ "command": exe, "args": ["mcp-ui"] }),
+            );
+        }
+        if kanban {
+            servers.insert(
+                "kanban".into(),
+                serde_json::json!({ "command": exe, "args": ["mcp-kanban"] }),
+            );
+        }
+        Some(serde_json::json!({ "mcpServers": servers }).to_string())
     }
 
     fn set_url(&self, url: &str) {
@@ -158,6 +235,100 @@ impl ClaudeEngine {
             "tui.toast.show",
             serde_json::json!({ "message": format!("Claude permission mode: {mode}"), "variant": "info" }),
         );
+    }
+
+    /// Set the model (claude `--model` value) used for a session's turns.
+    pub fn set_model(&self, session_id: &str, model: &str) {
+        if model.is_empty() {
+            return;
+        }
+        let mut changed = false;
+        if let Ok(mut g) = self.reg.lock() {
+            if let Some(e) = g.sessions.get_mut(session_id) {
+                if e.model.as_deref() != Some(model) {
+                    e.model = Some(model.to_string());
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.save();
+        }
+    }
+
+    /// Resolve a requested agent name to a real claude agent for this session's project.
+    ///
+    /// Kanban lanes and the opencode picker speak opencode agent names (`build`, `plan`,
+    /// `code-reviewer`); claude has a different set (`claude`, `Plan`, `Explore`, …, plus
+    /// project `.claude/agents/*`). We match the request (case-insensitively) against the
+    /// real agent list from claude's init event, translate well-known opencode aliases,
+    /// and otherwise fall back to the default agent (empty → no `--agent`, which is the
+    /// normal coding agent). This avoids the "no agent named 'build'" warning and a turn
+    /// silently running under the wrong/template agent.
+    fn resolve_agent(&self, session_id: &str, agent: &str) -> String {
+        let agent = agent.trim();
+        if agent.is_empty() {
+            return String::new();
+        }
+        let dir = self.get_session(session_id).map(|s| s.directory).unwrap_or_default();
+        let known = self.cached_init(&dir).map(|i| i.agents).unwrap_or_default();
+        let find = |name: &str| known.iter().find(|a| a.eq_ignore_ascii_case(name)).cloned();
+
+        // Already a real claude agent (exact or case-insensitive) → use its real casing.
+        if let Some(real) = find(agent) {
+            return real;
+        }
+        // Translate well-known opencode aliases.
+        match agent.to_ascii_lowercase().as_str() {
+            // opencode's planning agent → claude's `Plan`.
+            "plan" => find("Plan").unwrap_or_else(|| {
+                if known.is_empty() { "Plan".to_string() } else { String::new() }
+            }),
+            // opencode's default coding agent and the code reviewer have no claude
+            // equivalent — run under claude's default agent.
+            "build" | "code-reviewer" | "reviewer" => String::new(),
+            // Unknown name: if we couldn't introspect yet, pass it through (might be a
+            // real project agent); otherwise it isn't real → default agent.
+            _ => {
+                if known.is_empty() {
+                    agent.to_string()
+                } else {
+                    String::new()
+                }
+            }
+        }
+    }
+
+    /// Set the agent (`--agent`) for a session, translating opencode agent names to the
+    /// project's real claude agents (see [`resolve_agent`]). An unresolved name clears the
+    /// override so the turn runs under claude's default agent.
+    pub fn set_agent(&self, session_id: &str, agent: &str) {
+        let resolved = self.resolve_agent(session_id, agent);
+        let mut changed = false;
+        if let Ok(mut g) = self.reg.lock() {
+            if let Some(e) = g.sessions.get_mut(session_id) {
+                let new = (!resolved.is_empty()).then(|| resolved.clone());
+                if e.agent != new {
+                    e.agent = new;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.save();
+        }
+    }
+
+    /// Cached init introspection (commands + agents) for a directory, if discovered.
+    pub fn cached_init(&self, dir: &str) -> Option<claude_cli::InitInfo> {
+        self.command_cache.lock().ok()?.get(dir).cloned()
+    }
+
+    /// Store discovered init introspection for a directory.
+    pub fn set_cached_init(&self, dir: &str, info: claude_cli::InitInfo) {
+        if let Ok(mut c) = self.command_cache.lock() {
+            c.insert(dir.to_string(), info);
+        }
     }
 
     fn add_allowed_tool(&self, session_id: &str, tool: &str) {
@@ -228,6 +399,85 @@ impl ClaudeEngine {
             .unwrap_or_default()
     }
 
+    /// Import existing `claude` sessions for a directory into the registry so they
+    /// appear in opman's sidebar (e.g. prior conversations from earlier runs or
+    /// from using `claude` directly). Idempotent — already-mapped UUIDs are skipped.
+    pub fn import_agents(&self, dir: &str, mut agents: Vec<claude_cli::AgentInfo>) {
+        let now = now_ms();
+        let mut changed = false;
+        // Known UUIDs (latest + full lineage, so `--bg --resume` turns aren't dup'd),
+        // tombstoned UUIDs (deleted — never resurrect), and titles already shown for
+        // this dir (so same-titled resume chains collapse to one entry).
+        let (known, deleted, mut seen_titles) = self
+            .reg
+            .lock()
+            .map(|g| {
+                let mut known = std::collections::HashSet::new();
+                let mut titles = std::collections::HashSet::new();
+                for sess in g.sessions.values() {
+                    if let Some(c) = &sess.claude_session_id {
+                        known.insert(c.clone());
+                    }
+                    for u in &sess.lineage {
+                        known.insert(u.clone());
+                    }
+                    if sess.directory == dir {
+                        titles.insert(sess.title.to_lowercase());
+                    }
+                }
+                (known, g.deleted.clone(), titles)
+            })
+            .unwrap_or_default();
+
+        // Newest first, so the surviving entry for a duplicate title is the latest run.
+        agents.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+
+        if let Ok(mut g) = self.reg.lock() {
+            for a in agents {
+                if a.session_id.is_empty() || a.cwd != dir {
+                    continue;
+                }
+                if known.contains(&a.session_id) || deleted.contains(&a.session_id) {
+                    continue; // already represented, or deleted by the user
+                }
+                let Some(path) = claude_cli::locate_jsonl(&a.session_id) else {
+                    continue; // no transcript yet — nothing to show
+                };
+                // Only import sessions claude gave a generated title (real
+                // conversations). Trivial/command/aborted runs lack an ai-title and
+                // would otherwise flood the sidebar with duplicate prompt-name entries.
+                let Some(title) = jsonl::read_ai_title(&path).filter(|t| !t.is_empty()) else {
+                    continue;
+                };
+                // Collapse same-titled sessions (resume chains from earlier runs) to
+                // one entry — the newest (we sorted desc above).
+                if !seen_titles.insert(title.to_lowercase()) {
+                    continue;
+                }
+                let busy = a.is_busy();
+                let short_id = (!a.id.is_empty()).then(|| a.id.clone());
+                let entry = SessionEntry {
+                    id: rand_id("ses"),
+                    title,
+                    directory: dir.to_string(),
+                    parent_id: String::new(),
+                    created: now,
+                    updated: now,
+                    short_id,
+                    claude_session_id: Some(a.session_id.clone()),
+                    lineage: vec![a.session_id],
+                    busy,
+                    ..Default::default()
+                };
+                g.sessions.insert(entry.id.clone(), entry);
+                changed = true;
+            }
+        }
+        if changed {
+            self.save();
+        }
+    }
+
     /// Find the opman session whose latest claude UUID matches, returning its id.
     #[allow(dead_code)] // available for future event-routing by claude uuid
     pub fn session_id_for_claude_uuid(&self, uuid: &str) -> Option<String> {
@@ -256,6 +506,42 @@ impl ClaudeEngine {
         self.save();
         self.emit(dir, "session.created", serde_json::json!({ "info": session_info(&entry) }));
         entry
+    }
+
+    /// Register a child session row for a claude subagent so it nests under its parent
+    /// in the sidebar and can be opened directly. The session `id` is the claude
+    /// `agentId`. Idempotent; emits `session.created` only on first registration.
+    pub fn ensure_subagent_session(&self, parent_id: &str, agent_id: &str, title: &str, dir: &str) {
+        if agent_id.is_empty() {
+            return;
+        }
+        let created = {
+            let mut g = match self.reg.lock() {
+                Ok(g) => g,
+                Err(_) => return,
+            };
+            if g.sessions.contains_key(agent_id) || g.deleted.contains(agent_id) {
+                None
+            } else {
+                let now = now_ms();
+                let entry = SessionEntry {
+                    id: agent_id.to_string(),
+                    title: if title.is_empty() { "Subagent".to_string() } else { title.to_string() },
+                    directory: dir.to_string(),
+                    parent_id: parent_id.to_string(),
+                    created: now,
+                    updated: now,
+                    is_subagent: true,
+                    ..Default::default()
+                };
+                g.sessions.insert(agent_id.to_string(), entry.clone());
+                Some(entry)
+            }
+        };
+        if let Some(entry) = created {
+            self.save();
+            self.emit(dir, "session.created", serde_json::json!({ "info": session_info(&entry) }));
+        }
     }
 
     /// Record a new background turn for a session (after `bg_start`/`bg_resume`).
@@ -300,8 +586,9 @@ impl ClaudeEngine {
         self.clone().ensure_tailer(session_id);
     }
 
-    /// Update a session's title (from claude's `ai-title`) and announce it.
-    pub fn set_title(&self, session_id: &str, title: &str) {
+    /// Update a session's title and announce it. `manual` = a user rename (sticky:
+    /// locks the title so the auto ai-title no longer overrides it).
+    pub fn set_title(&self, session_id: &str, title: &str, manual: bool) {
         let dir = {
             let mut guard = match self.reg.lock() {
                 Ok(g) => g,
@@ -310,10 +597,17 @@ impl ClaudeEngine {
             let Some(entry) = guard.sessions.get_mut(session_id) else {
                 return;
             };
-            if entry.title == title {
+            // A user rename is sticky; auto-titles never override a locked title.
+            if !manual && entry.title_locked {
+                return;
+            }
+            if entry.title == title && (entry.title_locked || !manual) {
                 return;
             }
             entry.title = title.to_string();
+            if manual {
+                entry.title_locked = true;
+            }
             entry.updated = now_ms();
             entry.directory.clone()
         };
@@ -323,22 +617,72 @@ impl ClaudeEngine {
         }
     }
 
-    /// Set busy state; on a transition emit `session.status` (+ `session.idle`).
-    pub fn set_busy(&self, session_id: &str, busy: bool) {
-        let (dir, changed) = {
-            let mut guard = match self.reg.lock() {
+    /// Remove a session from the registry and announce `session.deleted`.
+    /// (Stopping the background agent is the caller's responsibility — it blocks.)
+    pub fn remove_session(&self, session_id: &str) {
+        let (dir, children) = {
+            let mut g = match self.reg.lock() {
                 Ok(g) => g,
                 Err(_) => return,
             };
-            let Some(entry) = guard.sessions.get_mut(session_id) else {
+            let Some(e) = g.sessions.remove(session_id) else {
                 return;
+            };
+            // Tombstone every claude UUID so import never resurrects this session.
+            if let Some(c) = &e.claude_session_id {
+                g.deleted.insert(c.clone());
+            }
+            for u in &e.lineage {
+                g.deleted.insert(u.clone());
+            }
+            // Drop synthesized subagent children so they don't linger as orphans.
+            let children: Vec<String> = g
+                .sessions
+                .values()
+                .filter(|s| s.is_subagent && s.parent_id == session_id)
+                .map(|s| s.id.clone())
+                .collect();
+            for c in &children {
+                g.sessions.remove(c);
+            }
+            (e.directory, children)
+        };
+        if let Ok(mut t) = self.tailers.lock() {
+            t.remove(session_id);
+        }
+        self.save();
+        for c in &children {
+            self.emit(
+                &dir,
+                "session.deleted",
+                serde_json::json!({ "sessionID": c, "id": c }),
+            );
+        }
+        self.emit(
+            &dir,
+            "session.deleted",
+            serde_json::json!({ "sessionID": session_id, "id": session_id }),
+        );
+    }
+
+    /// Set busy state; on a transition emit `session.status` (+ `session.idle`).
+    /// Returns true when this call transitioned the session busy → idle (the signal the
+    /// status poller uses to flush any queued follow-up prompt).
+    pub fn set_busy(&self, session_id: &str, busy: bool) -> bool {
+        let (dir, changed) = {
+            let mut guard = match self.reg.lock() {
+                Ok(g) => g,
+                Err(_) => return false,
+            };
+            let Some(entry) = guard.sessions.get_mut(session_id) else {
+                return false;
             };
             let changed = entry.busy != busy;
             entry.busy = busy;
             (entry.directory.clone(), changed)
         };
         if !changed {
-            return;
+            return false;
         }
         let status = if busy { "busy" } else { "idle" };
         self.emit(
@@ -349,6 +693,72 @@ impl ClaudeEngine {
         if !busy {
             self.emit(&dir, "session.idle", serde_json::json!({ "sessionID": session_id }));
         }
+        changed && !busy
+    }
+
+    /// Whether a session is busy or has a turn mid-dispatch (so a new prompt must queue
+    /// rather than resume a live agent).
+    pub fn is_occupied(&self, session_id: &str) -> bool {
+        if self
+            .dispatching
+            .lock()
+            .map(|d| d.contains(session_id))
+            .unwrap_or(false)
+        {
+            return true;
+        }
+        self.get_session(session_id).map(|s| s.busy).unwrap_or(false)
+    }
+
+    /// Record whether a session currently has an in-flight subagent (set by the tailer
+    /// from the transcript). The poller ORs this into busy so the session stays alive
+    /// while a subagent runs past the main agent's `state=done`.
+    pub fn set_subagent_pending(&self, session_id: &str, pending: bool) {
+        if let Ok(mut g) = self.reg.lock() {
+            if let Some(e) = g.sessions.get_mut(session_id) {
+                e.subagent_pending = pending;
+            }
+        }
+    }
+
+    /// Whether a session has an in-flight subagent (transcript-derived).
+    pub fn subagent_pending(&self, session_id: &str) -> bool {
+        self.get_session(session_id)
+            .map(|s| s.subagent_pending)
+            .unwrap_or(false)
+    }
+
+    /// Whether a session's turn is currently being spawned (poller must not reconcile it).
+    pub fn is_dispatching(&self, session_id: &str) -> bool {
+        self.dispatching
+            .lock()
+            .map(|d| d.contains(session_id))
+            .unwrap_or(false)
+    }
+
+    /// Queue a follow-up prompt to send once the session goes idle.
+    pub fn enqueue_prompt(&self, session_id: &str, text: String) {
+        if let Ok(mut q) = self.pending_prompts.lock() {
+            q.entry(session_id.to_string()).or_default().push(text);
+        }
+    }
+
+    /// Take all queued prompts for a session, joined into one resume turn (None if empty).
+    pub fn take_pending(&self, session_id: &str) -> Option<String> {
+        let mut q = self.pending_prompts.lock().ok()?;
+        let v = q.remove(session_id)?;
+        if v.is_empty() {
+            None
+        } else {
+            Some(v.join("\n\n"))
+        }
+    }
+
+    /// Drop any queued prompts (on abort/delete — the user no longer wants them sent).
+    pub fn clear_pending(&self, session_id: &str) {
+        if let Ok(mut q) = self.pending_prompts.lock() {
+            q.remove(session_id);
+        }
     }
 
     /// Map of session id → busy, for `GET /session/status`.
@@ -357,6 +767,92 @@ impl ClaudeEngine {
             .lock()
             .map(|r| r.sessions.values().map(|s| (s.id.clone(), s.busy)).collect())
             .unwrap_or_default()
+    }
+
+    /// Build the `--settings` JSON registering opman's PreToolUse hook
+    /// (`opman claude-hook`), through which permissions/questions route back here.
+    fn hook_settings(&self) -> String {
+        let cmd = format!("{} claude-hook", self.exe.to_string_lossy());
+        serde_json::json!({
+            "hooks": {
+                "PreToolUse": [
+                    { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] }
+                ]
+            }
+        })
+        .to_string()
+    }
+
+    /// Assemble the per-turn `claude` options for a session.
+    fn build_opts(&self, session_id: &str, dir: &str) -> claude_cli::TurnOpts {
+        claude_cli::TurnOpts {
+            model: self
+                .get_session(session_id)
+                .and_then(|s| s.model)
+                .or_else(default_model),
+            // Resolve through the alias/validation map so a previously-persisted opencode
+            // name (e.g. "build") never reaches claude as a bogus `--agent`.
+            agent: self
+                .get_session(session_id)
+                .and_then(|s| s.agent)
+                .map(|a| self.resolve_agent(session_id, &a))
+                .filter(|a| !a.is_empty()),
+            permission_mode: self.effective_mode(session_id),
+            settings_json: self.hook_settings(),
+            engine_url: self.url(),
+            mcp_config: self.mcp_config_json(dir, session_id).unwrap_or_default(),
+            session_env_id: session_id.to_string(),
+        }
+    }
+
+    /// Spawn a background `claude` turn for a session (new agent, or `--resume` of the
+    /// latest lineage UUID) and record it on completion. Marks the session busy and
+    /// "dispatching" up front so a concurrent send queues instead of racing a second
+    /// agent onto the same conversation.
+    pub fn spawn_turn(self: &Arc<Self>, session_id: String, text: String) {
+        if text.trim().is_empty() {
+            return;
+        }
+        let Some(entry) = self.get_session(&session_id) else {
+            return;
+        };
+        let dir = entry.directory.clone();
+        let resume = entry.claude_session_id.clone();
+        let opts = self.build_opts(&session_id, &dir);
+
+        // Guard against a racing dispatch and an over-eager poller until the agent
+        // registers; record_turn (or the failure path) clears these.
+        if let Ok(mut d) = self.dispatching.lock() {
+            d.insert(session_id.clone());
+        }
+        self.set_busy(&session_id, true);
+
+        let engine = self.clone();
+        tokio::spawn(async move {
+            let sid = session_id.clone();
+            let result = tokio::task::spawn_blocking(move || match resume {
+                Some(uuid) if !uuid.is_empty() => claude_cli::bg_resume(&dir, &uuid, &opts, &text),
+                _ => claude_cli::bg_start(&dir, &opts, &text),
+            })
+            .await;
+            match result {
+                Ok(Ok((short_id, uuid))) => {
+                    let model = engine.get_session(&sid).and_then(|s| s.model);
+                    engine.record_turn(&sid, short_id, uuid, model);
+                }
+                Ok(Err(e)) => {
+                    tracing::warn!("claude turn failed: {e}");
+                    engine.set_busy(&sid, false);
+                }
+                Err(e) => {
+                    tracing::warn!("claude turn join error: {e}");
+                    engine.set_busy(&sid, false);
+                }
+            }
+            if let Ok(mut d) = engine.dispatching.lock() {
+                d.remove(&sid);
+            }
+        });
     }
 
     fn ensure_tailer(self: Arc<Self>, session_id: &str) {
@@ -441,9 +937,11 @@ fn session_info(entry: &SessionEntry) -> serde_json::Value {
 
 /// Start the embedded adapter server. Mirrors `server::spawn_agent_server`'s
 /// `(base_url, ServerHandle)` return so `main.rs` can swap cleanly.
-pub async fn start_embedded_server() -> Result<(String, ServerHandle)> {
+pub async fn start_embedded_server(
+    mcp_flags: (bool, bool, bool, bool),
+) -> Result<(String, ServerHandle)> {
     let persist = dirs::config_dir().map(|d| d.join("opman").join("claude_sessions.json"));
-    let engine = Arc::new(ClaudeEngine::new(persist));
+    let engine = Arc::new(ClaudeEngine::new(persist, mcp_flags));
     let _ = ENGINE.set(engine.clone());
 
     // Background poller: reconcile busy/idle from `claude agents --json`.
@@ -467,4 +965,112 @@ pub async fn start_embedded_server() -> Result<(String, ServerHandle)> {
     // No external child process to manage; shutdown is implicit on exit.
     let handle: ServerHandle = Arc::new(std::sync::Mutex::new(None));
     Ok((url, handle))
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    fn engine() -> Arc<ClaudeEngine> {
+        Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    }
+
+    // The core of the resume-safety fix: while an agent is running, a follow-up must
+    // queue (not resume a live agent); it flushes on the busy → idle transition.
+    #[test]
+    fn busy_session_queues_followups_and_flushes_on_idle() {
+        let e = engine();
+        let s = e.create_session("/tmp/proj", "", "t");
+        let id = s.id.clone();
+
+        // Idle, empty queue → not occupied, nothing to flush.
+        assert!(!e.is_occupied(&id));
+        assert!(e.take_pending(&id).is_none());
+
+        // Goes busy → occupied; follow-ups queue.
+        assert!(!e.set_busy(&id, true)); // busy edge is not the idle edge
+        assert!(e.is_occupied(&id));
+        e.enqueue_prompt(&id, "first".into());
+        e.enqueue_prompt(&id, "second".into());
+
+        // The idle edge is reported once; queued prompts join into one resume turn.
+        assert!(e.set_busy(&id, false));
+        assert!(!e.set_busy(&id, false)); // no second edge
+        assert_eq!(e.take_pending(&id).as_deref(), Some("first\n\nsecond"));
+        assert!(e.take_pending(&id).is_none());
+    }
+
+    #[test]
+    fn dispatching_guard_marks_occupied() {
+        let e = engine();
+        let s = e.create_session("/tmp/proj", "", "t");
+        let id = s.id.clone();
+        assert!(!e.is_occupied(&id));
+        e.dispatching.lock().unwrap().insert(id.clone());
+        assert!(e.is_dispatching(&id));
+        assert!(e.is_occupied(&id)); // mid-dispatch counts as occupied
+    }
+
+    #[test]
+    fn subagent_session_registers_as_child_and_cleans_up() {
+        let e = engine();
+        let parent = e.create_session("/tmp/proj", "", "parent");
+        let pid = parent.id.clone();
+
+        // First call registers a child keyed by the agentId, with parentID = parent.
+        e.ensure_subagent_session(&pid, "agent_abc", "Count files", "/tmp/proj");
+        let sub = e.get_session("agent_abc").expect("subagent registered");
+        assert!(sub.is_subagent);
+        assert_eq!(sub.parent_id, pid);
+        assert_eq!(sub.title, "Count files");
+        assert_eq!(e.list_for_dir("/tmp/proj").len(), 2); // parent + child
+
+        // Idempotent — no duplicate.
+        e.ensure_subagent_session(&pid, "agent_abc", "Count files", "/tmp/proj");
+        assert_eq!(e.list_for_dir("/tmp/proj").len(), 2);
+
+        // Deleting the parent removes its synthesized children too.
+        e.remove_session(&pid);
+        assert!(e.get_session("agent_abc").is_none());
+        assert!(e.list_for_dir("/tmp/proj").is_empty());
+    }
+
+    #[test]
+    fn agent_resolution_validates_against_real_claude_agents() {
+        let e = engine();
+        let s = e.create_session("/proj", "", "t");
+        // Real agent list as claude's init event would report it.
+        e.set_cached_init(
+            "/proj",
+            claude_cli::InitInfo {
+                commands: vec![],
+                agents: vec![
+                    "claude".into(),
+                    "Explore".into(),
+                    "general-purpose".into(),
+                    "Plan".into(),
+                ],
+            },
+        );
+        // opencode aliases translate; case-insensitive real names normalize.
+        e.set_agent(&s.id, "plan");
+        assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Plan"));
+        e.set_agent(&s.id, "explore");
+        assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Explore"));
+        // build / unknown / reviewer have no claude equivalent → default (cleared).
+        e.set_agent(&s.id, "build");
+        assert_eq!(e.get_session(&s.id).unwrap().agent, None);
+        e.set_agent(&s.id, "code-reviewer");
+        assert_eq!(e.get_session(&s.id).unwrap().agent, None);
+    }
+
+    #[test]
+    fn clear_pending_drops_queue() {
+        let e = engine();
+        let s = e.create_session("/tmp/proj", "", "t");
+        let id = s.id.clone();
+        e.enqueue_prompt(&id, "x".into());
+        e.clear_pending(&id);
+        assert!(e.take_pending(&id).is_none());
+    }
 }

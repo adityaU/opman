@@ -5,6 +5,7 @@ import {
   Search,
   X,
   FolderPlus,
+  LayoutGrid,
 } from "lucide-react";
 import { ProjectNode } from "./sidebar/ProjectNode";
 import { OpenSessionsSection } from "./sidebar/OpenSessionsSection";
@@ -34,6 +35,10 @@ interface Props {
   onOpenAddProject: () => void;
   isMobileOpen: boolean;
   onClose: () => void;
+  /** Whether the Kanban board view is currently active. */
+  isKanbanView?: boolean;
+  /** Toggle the Kanban board view for the active project. */
+  onToggleKanban?: () => void;
 }
 
 export const ChatSidebar = React.memo(function ChatSidebar({
@@ -48,6 +53,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   onOpenAddProject,
   isMobileOpen,
   onClose,
+  isKanbanView,
+  onToggleKanban,
 }: Props) {
   // Auto-close sidebar on mobile after selecting a session
   const handleSelectSession = useCallback((sessionId: string, projectIdx: number) => {
@@ -138,6 +145,17 @@ export const ChatSidebar = React.memo(function ChatSidebar({
       <div className="sb-header">
         <span className="sb-brand">Sessions</span>
         <div className="sb-header-actions">
+          {onToggleKanban && (
+            <button
+              className={`sb-icon-btn${isKanbanView ? " sb-icon-btn-active" : ""}`}
+              onClick={onToggleKanban}
+              title={isKanbanView ? "Back to chat" : "Open Kanban board"}
+              aria-label="Toggle Kanban board"
+              aria-pressed={isKanbanView}
+            >
+              <LayoutGrid size={14} />
+            </button>
+          )}
           <button
             className="sb-icon-btn"
             onClick={() => setSearchVisible((v) => !v)}

@@ -17,6 +17,8 @@ mod background;
 mod db_sync;
 mod delegation;
 mod file_edits;
+mod kanban;
+pub(crate) use kanban::KanbanError;
 mod intelligence_inbox;
 mod intelligence_recs;
 mod intelligence_handoffs;

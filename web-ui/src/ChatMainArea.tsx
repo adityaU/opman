@@ -6,6 +6,7 @@ import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
 import { SearchBar } from "./SearchBar";
 import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity } from "lucide-react";
+import { KanbanView } from "./kanban/KanbanView";
 
 import type { SessionStatus } from "./hooks/sse/types";
 
@@ -15,6 +16,9 @@ const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default:
 const DebugPanel = lazy(() => import("./DebugPanel").then(m => ({ default: m.DebugPanel })));
 
 export interface ChatMainAreaProps {
+  /** When true, the main area shows the Kanban board instead of the chat. */
+  isKanbanView: boolean;
+  onToggleKanban: () => void;
   appState: any;
   activeProject: any;
   activeProjectIndex: number;
@@ -137,13 +141,29 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               onOpenAddProject={p.openAddProject}
               isMobileOpen={p.mobileSidebarOpen}
               onClose={p.closeMobileSidebar}
+              isKanbanView={p.isKanbanView}
+              onToggleKanban={p.onToggleKanban}
             />
           </div>
           <div {...p.sidebarResize.handleProps} />
         </>
       )}
 
-      {/* Main chat area */}
+      {/* Main area: Kanban board takes over the chat slot when active */}
+      {p.isKanbanView ? (
+        <div
+          className={`chat-main${p.focusedPanel !== "chat" ? " panel-dimmed" : ""}`}
+          onMouseDown={p.focusChat}
+          onFocus={p.focusChat}
+        >
+          <KanbanView
+            projects={p.appState.projects}
+            initialProjectIndex={p.activeProjectIndex}
+            onOpenSession={p.handleSelectSession}
+            onError={(msg) => p.handlePanelError(msg)}
+          />
+        </div>
+      ) : (
       <div
         className={`chat-main${p.focusedPanel !== "chat" ? " panel-dimmed" : ""}`}
         onMouseDown={p.focusChat}
@@ -236,6 +256,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             activeMemoryLabels={activeMemoryLabels}
             onOpenMemory={p.openMemory}
             onContentChange={p.handlePromptContentChange}
+            backend={p.appState?.backend}
           />
         </div>
 
@@ -256,6 +277,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
           </>
         )}
       </div>
+      )}
 
       {/* Side panel: Editor or Git */}
       {(hasSidePanel || p.editorMounted || p.gitMounted) && (

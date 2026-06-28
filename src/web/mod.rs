@@ -93,6 +93,9 @@ pub async fn start_web_server(
         (0..32).map(|_| rng.gen::<u8>()).collect()
     };
 
+    // Random token guarding the loopback-only `/internal/*` Kanban API.
+    let internal_token: String = format!("{:x}{:x}", rand::random::<u64>(), rand::random::<u64>());
+
     // Start the independent web PTY manager
     let pty_mgr = pty_manager::start_web_pty_manager();
 
@@ -132,6 +135,7 @@ pub async fn start_web_server(
         backend: config.backend,
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
+        internal_token: internal_token.clone(),
     };
 
     let app = routes::build_router(shared_state);
@@ -149,6 +153,10 @@ pub async fn start_web_server(
         .port();
     listener.set_nonblocking(true).ok();
 
+    // Publish the internal API URL + token so the Kanban MCP server (spawned by
+    // either backend) can reach the loopback-only `/internal/*` endpoints.
+    write_internal_descriptor(actual_port, &internal_token);
+
     let tokio_listener = tokio::net::TcpListener::from_std(listener)
         .expect("Failed to convert std TcpListener to tokio");
 
@@ -161,4 +169,20 @@ pub async fn start_web_server(
     });
 
     (actual_port, web_state_ret)
+}
+
+/// Write `~/.config/opman/internal.json` = `{ "url": ..., "token": ... }`.
+/// Read by `opman mcp-kanban` to call the internal Kanban API.
+fn write_internal_descriptor(port: u16, token: &str) {
+    let Some(dir) = dirs::config_dir().map(|d| d.join("opman")) else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    let payload = serde_json::json!({
+        "url": format!("http://127.0.0.1:{port}"),
+        "token": token,
+    });
+    if let Ok(s) = serde_json::to_string_pretty(&payload) {
+        let _ = std::fs::write(dir.join("internal.json"), s);
+    }
 }

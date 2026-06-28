@@ -96,6 +96,7 @@ export function avatarHue(name: string): number {
 
 /** Format large numbers with K/M suffix */
 export function fmtNum(n: number): string {
+  if (!Number.isFinite(n)) return "0";
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (Math.abs(n) >= 10_000) return `${(n / 1_000).toFixed(0)}K`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}K`;

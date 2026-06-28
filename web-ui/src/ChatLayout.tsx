@@ -28,6 +28,8 @@ import type { ThemeMode } from "./ThemeSelectorModal";
 import { getPersistedAppearance, initAppearance } from "./utils/appearance";
 import type { Appearance } from "./utils/appearance";
 import { SkillsUploadModal } from "./SkillsUploadModal";
+import { KanbanView } from "./kanban/KanbanView";
+import { useKanbanViewState } from "./kanban/useKanbanViewState";
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -102,6 +104,10 @@ export function ChatLayout() {
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
+
+  // ── Kanban board view (URL ?view=kanban) ──
+  const { isKanbanView, setKanbanView } = useKanbanViewState();
+  const toggleKanbanView = useCallback(() => setKanbanView(!isKanbanView), [isKanbanView, setKanbanView]);
 
   // ── Bridge SSE toast events into the toast system ──
   useEffect(() => {
@@ -300,6 +306,7 @@ export function ChatLayout() {
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
+        isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
         appState={appState} activeProject={activeProject} activeProjectIndex={activeProjectIndex}
         activeSessionId={activeSessionId}
         sessionStatus={sessionStatus} connectionStatus={sse.connectionStatus}
@@ -408,6 +415,7 @@ export function ChatLayout() {
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
         mcpAgentActivity={mcpAgentActivity}
         onError={callbacks.handlePanelError} onSendToAI={handlers.handleSend}
+        isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
       />
       {skillsUploadOpen && <SkillsUploadModal onClose={() => setSkillsUploadOpen(false)} />}
     </div>

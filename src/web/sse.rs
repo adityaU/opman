@@ -191,6 +191,18 @@ pub async fn events_stream(
                                         SseEvent::default().event("routine_updated").data(""),
                                     );
                                 }
+                                WebEvent::KanbanTaskUpdated { project_path, task_id } => {
+                                    let payload = serde_json::json!({ "project_path": project_path, "task_id": task_id });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("kanban_task").data(payload.to_string()),
+                                    );
+                                }
+                                WebEvent::KanbanBoardUpdated { project_path } => {
+                                    let payload = serde_json::json!({ "project_path": project_path });
+                                    yield Ok::<_, Infallible>(
+                                        SseEvent::default().event("kanban_board").data(payload.to_string()),
+                                    );
+                                }
                                 WebEvent::Toast { message, level } => {
                                     let payload = serde_json::json!({ "message": message, "level": level });
                                     yield Ok::<_, Infallible>(

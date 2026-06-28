@@ -9,8 +9,9 @@
 //! - Transcripts live at `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`; we
 //!   locate them by globbing on the (unique) UUID to avoid cwd-encoding logic.
 
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
@@ -36,16 +37,28 @@ pub struct AgentInfo {
     pub status: Option<String>,
     #[serde(default)]
     pub name: String,
+    #[serde(default, rename = "startedAt")]
+    pub started_at: u64,
 }
 
 impl AgentInfo {
-    /// Whether this agent is actively working.
+    /// Whether this agent's own turn is actively working.
+    ///
+    /// `state` is authoritative for background agents: "working"/"running" = busy;
+    /// "done"/"blocked"/"failed"/etc = this turn is finished. We deliberately do NOT
+    /// treat `status == "busy"` as busy on a finished `state` — `status` can linger
+    /// "busy" while connections (e.g. attached MCP servers) stay open, which would wedge
+    /// the session as permanently busy and block all follow-ups. In-flight *subagents*
+    /// (the real reason to stay alive past `state=done`) are tracked separately and
+    /// precisely from the transcript (`subagent_pending`), not from this flag.
     pub fn is_busy(&self) -> bool {
         match self.state.as_deref() {
             Some("working") | Some("running") => return true,
-            Some("done") | Some("failed") | Some("completed") | Some("stopped") => return false,
+            Some("done") | Some("blocked") | Some("failed") | Some("completed")
+            | Some("stopped") => return false,
             _ => {}
         }
+        // No `state` (e.g. an interactive agent) — fall back to `status`.
         matches!(self.status.as_deref(), Some("busy") | Some("working"))
     }
 }
@@ -87,25 +100,68 @@ fn parse_short_id(output: &str) -> Option<String> {
 #[derive(Debug, Clone, Default)]
 pub struct TurnOpts {
     pub model: Option<String>,
+    /// Agent to run as (`--agent <name>`). None = default agent.
+    pub agent: Option<String>,
     pub permission_mode: String,
     /// `--settings` JSON (PreToolUse hook config). Empty = omit.
     pub settings_json: String,
     /// Value for the `OPMAN_ENGINE_URL` env var the hook calls back on.
     pub engine_url: String,
+    /// `--mcp-config` JSON attaching opman-managed MCP servers. Empty = omit.
+    pub mcp_config: String,
+    /// opman session id, exported as `OPENCODE_SESSION_ID` so MCP bridges route
+    /// terminal/neovim tools to this session's resources.
+    pub session_env_id: String,
 }
 
 fn apply_opts(cmd: &mut Command, opts: &TurnOpts) {
-    if !opts.permission_mode.is_empty() {
-        cmd.arg("--permission-mode").arg(&opts.permission_mode);
+    // `--mcp-config` is variadic (`<configs...>`) and would greedily consume the
+    // trailing prompt positional, so emit it FIRST — always followed by another
+    // flag (`--permission-mode` below is always present) which terminates it.
+    if !opts.mcp_config.is_empty() {
+        cmd.arg("--mcp-config").arg(&opts.mcp_config);
     }
+    let mode = if opts.permission_mode.is_empty() {
+        "bypassPermissions"
+    } else {
+        &opts.permission_mode
+    };
+    cmd.arg("--permission-mode").arg(mode);
     if !opts.settings_json.is_empty() {
         cmd.arg("--settings").arg(&opts.settings_json);
     }
     if let Some(m) = &opts.model {
         cmd.arg("--model").arg(m);
     }
+    if let Some(a) = &opts.agent {
+        if !a.is_empty() {
+            cmd.arg("--agent").arg(a);
+        }
+    }
     if !opts.engine_url.is_empty() {
         cmd.env("OPMAN_ENGINE_URL", &opts.engine_url);
+    }
+    if !opts.session_env_id.is_empty() {
+        cmd.env("OPENCODE_SESSION_ID", &opts.session_env_id);
+    }
+}
+
+/// Detach a background-turn child into its own session (setsid), so the `claude`
+/// background service it starts does NOT inherit opman's process group/session and is
+/// therefore NOT torn down when opman is signalled or restarted. Without this, an opman
+/// restart kills every in-flight background agent (they flip to `state=failed` and their
+/// control socket disappears).
+fn detach_session(cmd: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: setsid() is async-signal-safe; we only call it in the forked child before
+    // exec. The child is never a process-group leader (fresh fork), so setsid succeeds.
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
     }
 }
 
@@ -116,6 +172,7 @@ pub fn bg_start(dir: &str, opts: &TurnOpts, prompt: &str) -> Result<(String, Str
     apply_opts(&mut cmd, opts);
     cmd.arg(prompt);
     cmd.current_dir(dir);
+    detach_session(&mut cmd);
     run_bg(cmd, dir)
 }
 
@@ -132,6 +189,7 @@ pub fn bg_resume(
     apply_opts(&mut cmd, opts);
     cmd.arg(prompt);
     cmd.current_dir(dir);
+    detach_session(&mut cmd);
     run_bg(cmd, dir)
 }
 
@@ -191,6 +249,72 @@ pub fn stop(short_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// What claude advertises for a directory in its `system/init` event.
+#[derive(Debug, Clone, Default)]
+pub struct InitInfo {
+    /// Slash commands (built-ins + bundled skills + plugins + custom commands).
+    pub commands: Vec<String>,
+    /// Real agents available as `--agent <name>` (built-ins + project/user agents).
+    pub agents: Vec<String>,
+}
+
+/// Introspect what claude exposes for a directory (slash commands + agents).
+///
+/// The complete lists are only available in claude's `system/init` event. We read
+/// just that first line via a stream-json process and kill it immediately — the
+/// init event is emitted at startup, before any model request, so this performs
+/// **no** model turn (and is not the prompt-running engine, which uses `--bg`).
+pub fn introspect(dir: &str) -> InitInfo {
+    let mut child = match Command::new(claude_bin())
+        .args([
+            "-p",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--model",
+            "haiku",
+            ".",
+        ])
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("failed to introspect claude init event: {e}");
+            return InitInfo::default();
+        }
+    };
+
+    let mut info = InitInfo::default();
+    if let Some(stdout) = child.stdout.take() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue;
+            };
+            let is_init = v.get("type").and_then(|t| t.as_str()) == Some("system")
+                && v.get("subtype").and_then(|s| s.as_str()) == Some("init");
+            if is_init {
+                let str_array = |key: &str| -> Vec<String> {
+                    v.get(key)
+                        .and_then(|s| s.as_array())
+                        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                        .unwrap_or_default()
+                };
+                info.commands = str_array("slash_commands");
+                info.agents = str_array("agents");
+                break; // got what we need — stop before any model work
+            }
+        }
+    }
+    // Abort the introspection process (no turn is completed).
+    let _ = child.kill();
+    let _ = child.wait();
+    info
+}
+
 /// Locate a session transcript JSONL by its (unique) UUID.
 pub fn locate_jsonl(session_uuid: &str) -> Option<PathBuf> {
     if session_uuid.is_empty() {
@@ -207,7 +331,78 @@ pub fn locate_jsonl(session_uuid: &str) -> Option<PathBuf> {
     None
 }
 
+/// Locate a subagent transcript by its `agentId`.
+///
+/// Subagents write to `~/.claude/projects/<encoded-cwd>/<parent-uuid>/subagents/
+/// agent-<agentId>.jsonl`. The parent UUID changes per `--resume` turn, so we glob
+/// across project dirs and their per-turn UUID subdirectories.
+pub fn locate_subagent_jsonl(agent_id: &str) -> Option<PathBuf> {
+    if agent_id.is_empty() {
+        return None;
+    }
+    let projects = home_projects_dir()?;
+    let fname = format!("agent-{agent_id}.jsonl");
+    for proj in std::fs::read_dir(&projects).ok()?.flatten() {
+        let pdir = proj.path();
+        if !pdir.is_dir() {
+            continue;
+        }
+        let Ok(turns) = std::fs::read_dir(&pdir) else {
+            continue;
+        };
+        for turn in turns.flatten() {
+            let candidate = turn.path().join("subagents").join(&fname);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 fn home_projects_dir() -> Option<PathBuf> {
     let home = dirs::home_dir()?;
     Some(home.join(".claude").join("projects"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agent(state: Option<&str>, status: Option<&str>) -> AgentInfo {
+        AgentInfo {
+            id: "x".into(),
+            session_id: "u".into(),
+            cwd: "/d".into(),
+            kind: "background".into(),
+            state: state.map(String::from),
+            status: status.map(String::from),
+            name: String::new(),
+            started_at: 0,
+        }
+    }
+
+    // `state` is authoritative: a finished turn is idle regardless of a lingering
+    // "busy" status (which can be held open by attached MCP connections). Subagent
+    // liveness past state=done is tracked separately via the transcript.
+    #[test]
+    fn finished_state_is_idle_even_if_status_busy() {
+        assert!(!agent(Some("done"), Some("busy")).is_busy());
+        assert!(!agent(Some("completed"), Some("busy")).is_busy());
+        assert!(!agent(Some("blocked"), Some("idle")).is_busy());
+        assert!(!agent(Some("failed"), Some("busy")).is_busy());
+    }
+
+    #[test]
+    fn working_state_is_busy() {
+        assert!(agent(Some("working"), Some("busy")).is_busy());
+        assert!(agent(Some("running"), None).is_busy());
+    }
+
+    #[test]
+    fn status_is_only_a_fallback_when_state_absent() {
+        assert!(agent(None, Some("busy")).is_busy());
+        assert!(!agent(None, Some("idle")).is_busy());
+        assert!(!agent(None, None).is_busy());
+    }
 }

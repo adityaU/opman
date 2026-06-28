@@ -14,6 +14,7 @@ mod integrations;
 mod mcp;
 mod mcp_neovim;
 mod mcp_skills;
+mod mcp_kanban;
 mod mcp_time;
 mod mcp_ui;
 mod preflight;
@@ -139,6 +140,9 @@ async fn main() -> Result<()> {
         Some(Commands::McpUi) => {
             return mcp_ui::run_mcp_ui_bridge().await.map_err(Into::into);
         }
+        Some(Commands::McpKanban) => {
+            return mcp_kanban::run_mcp_kanban_bridge().await.map_err(Into::into);
+        }
         Some(Commands::ClaudeHook) => {
             return claude_engine::run_permission_hook().await.map_err(Into::into);
         }
@@ -223,9 +227,14 @@ async fn main() -> Result<()> {
     // that speaks the same opencode REST + SSE contract (backed by `claude`
     // background agents).
     let (base_url, server_handle) = if backend == crate::cli::AgentBackend::ClaudeCode {
-        claude_engine::start_embedded_server()
-            .await
-            .context("Failed to start embedded claude engine")?
+        claude_engine::start_embedded_server((
+            enable_terminal_mcp,
+            enable_neovim_mcp,
+            enable_time_mcp,
+            enable_ui_mcp,
+        ))
+        .await
+        .context("Failed to start embedded claude engine")?
     } else {
         server::spawn_agent_server(backend).context("Failed to start agent server")?
     };

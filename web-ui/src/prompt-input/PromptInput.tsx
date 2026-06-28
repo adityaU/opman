@@ -25,12 +25,15 @@ interface Props {
   activeMemoryLabels?: string[];
   onOpenMemory?: () => void;
   onContentChange?: (hasContent: boolean) => void;
+  /** Active engine backend ("opencode" | "claude-code"). */
+  backend?: string;
 }
 
 export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
+  backend,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -149,7 +152,7 @@ export function PromptInput({
       {attach.dragOver && <DragOverlay />}
       {showSlash && (
         <SlashCommandPopover filter={text.startsWith("/") ? text.slice(1) : ""}
-          onSelect={handleSlashSelect} onClose={() => setShowSlash(false)} sessionId={sessionId} />
+          onSelect={handleSlashSelect} onClose={() => setShowSlash(false)} sessionId={sessionId} backend={backend} />
       )}
       {showPopover && (
         <AtMentionPopover agents={atMention.filteredMentionAgents}

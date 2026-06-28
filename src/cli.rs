@@ -190,6 +190,9 @@ pub(crate) enum Commands {
     /// Run the UI render MCP bridge (A2UI)
     McpUi,
 
+    /// Run the Kanban MCP bridge (task lane/notes updates for launched tasks)
+    McpKanban,
+
     /// Internal: PreToolUse permission/question hook relay for the Claude engine.
     /// Reads the hook payload on stdin, asks the running opman (via
     /// `OPMAN_ENGINE_URL`), and prints the permission decision. Not for direct use.

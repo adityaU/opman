@@ -10,7 +10,7 @@
 //! conversation history, so the latest claude session UUID alone is enough to render
 //! the entire conversation — no concatenation across the lineage is required.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -41,6 +41,9 @@ pub struct SessionEntry {
     /// Model alias/name to pass to claude (`sonnet`, `opus`, …). None = claude default.
     #[serde(default)]
     pub model: Option<String>,
+    /// Agent to run as (`--agent`), e.g. `plan`, `build`. None = default agent.
+    #[serde(default)]
+    pub agent: Option<String>,
     /// Per-session permission mode override (`default`, `acceptEdits`,
     /// `bypassPermissions`, `plan`, …). None = engine default. Changeable at runtime.
     #[serde(default)]
@@ -48,15 +51,31 @@ pub struct SessionEntry {
     /// Tools the user chose to "always allow" for this session.
     #[serde(default)]
     pub allowed_tools: Vec<String>,
+    /// Set once the user renames the session, so the auto ai-title no longer overrides it.
+    #[serde(default)]
+    pub title_locked: bool,
     /// Whether the backing agent is currently working.
     #[serde(default, skip)]
     pub busy: bool,
+    /// True for a child session synthesized from a claude subagent (`Agent`/`Task`).
+    /// Its `id` is the claude `agentId`; its transcript is located via
+    /// `locate_subagent_jsonl` rather than the normal lineage UUIDs.
+    #[serde(default)]
+    pub is_subagent: bool,
+    /// True while this session has an in-flight subagent (a `task` part still running),
+    /// derived from the transcript by the tailer. Keeps the session "busy" past the main
+    /// agent's `state=done` so a follow-up doesn't resume and kill the live subagent.
+    #[serde(default, skip)]
+    pub subagent_pending: bool,
 }
 
 /// In-memory map of opman session id → entry, with best-effort disk persistence.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Registry {
     pub sessions: HashMap<String, SessionEntry>,
+    /// claude session UUIDs the user deleted — never re-import these.
+    #[serde(default)]
+    pub deleted: HashSet<String>,
 }
 
 impl Registry {

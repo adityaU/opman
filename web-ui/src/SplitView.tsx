@@ -139,6 +139,7 @@ export function SplitView({
     onSend, onAbort, onCommand: noopCmd, onOpenModelPicker: noopVoid, onOpenAgentPicker: noopVoid,
     isBusy: busy, isSending: sending, disabled: !sid, sessionId: sid,
     currentModel: selectedModel ?? null, currentAgent: "", onAgentChange: noopAgent,
+    backend: appState?.backend,
   });
 
   return (

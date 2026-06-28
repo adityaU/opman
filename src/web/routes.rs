@@ -265,7 +265,37 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/health/status", get(handlers::get_health_status))
         .route("/health/audit", get(handlers::get_health_audit))
         .route("/health/toggle", post(handlers::toggle_health_mitigation))
-        .route("/health/config", post(handlers::set_health_config));
+        .route("/health/config", post(handlers::set_health_config))
+        // ── Kanban board ─────────────────────────────────────────────
+        .route("/kanban/board", get(handlers::get_board))
+        .route("/kanban/board/{board_id}/config", axum::routing::put(handlers::update_board_config))
+        .route("/kanban/task", post(handlers::create_task))
+        .route(
+            "/kanban/task/{task_id}",
+            get(handlers::get_task)
+                .patch(handlers::update_task)
+                .delete(handlers::delete_task),
+        )
+        .route("/kanban/task/{task_id}/launch", post(handlers::launch_task))
+        .route("/kanban/task/{task_id}/abort", post(handlers::abort_task))
+        .route("/kanban/asset/{task_id}/{filename}", get(handlers::serve_asset));
+
+    // Attachment upload gets a larger body limit (videos up to ~200 MB).
+    let kanban_upload = Router::new()
+        .route(
+            "/kanban/task/{task_id}/attachment",
+            post(handlers::upload_attachment),
+        )
+        .layer(DefaultBodyLimit::max(220 * 1024 * 1024));
+
+    let api_routes = api_routes.merge(kanban_upload);
+
+    // Internal Kanban API (loopback + shared token; no JWT auth extractor).
+    let internal_routes = Router::new()
+        .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
+        .route("/kanban/task/{task_id}/status", post(handlers::internal_set_status))
+        .route("/kanban/task/{task_id}/note", post(handlers::internal_add_note))
+        .route("/kanban/task/{task_id}/complete", post(handlers::internal_complete));
 
     // Public (unauthenticated) API routes — outside the main api_routes
     // so they don't go through the auth extractor.
@@ -274,6 +304,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
     Router::new()
         .route("/health", get(handlers::health))
         .nest("/api", public_routes.merge(api_routes))
+        .nest("/internal", internal_routes)
         .fallback(static_files::serve_react)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .layer(CompressionLayer::new().gzip(true))

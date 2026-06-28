@@ -109,4 +109,7 @@ pub struct ServerState {
     pub editor_tx: broadcast::Sender<EditorEvent>,
     /// Process health monitoring handle.
     pub health: crate::process_health::HealthHandle,
+    /// Shared secret guarding the loopback-only `/internal/*` API used by the
+    /// Kanban MCP server. Written to `~/.config/opman/internal.json` at startup.
+    pub internal_token: String,
 }

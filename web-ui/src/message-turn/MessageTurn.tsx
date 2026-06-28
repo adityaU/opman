@@ -44,9 +44,15 @@ export const MessageTurn = React.memo(function MessageTurn({
   // Detect if this group contains an optimistic (pending) message
   const isOptimistic = messages.some((msg) => (msg.info.messageID || msg.info.id || "").startsWith("__optimistic__"));
 
-  // Queued: session is still processing an earlier assistant message
+  // Queued: a user message sent while the session is still processing an earlier
+  // assistant message. An optimistic message (typed while busy, not yet persisted) is
+  // queued by definition; a confirmed message is queued when it sorts after the pending
+  // assistant id.
   const isQueued = isUser && !!pendingAssistantId &&
-    messages.some((msg) => (msg.info.messageID || msg.info.id || "") > pendingAssistantId);
+    messages.some((msg) => {
+      const id = msg.info.messageID || msg.info.id || "";
+      return id.startsWith("__optimistic__") || id > pendingAssistantId;
+    });
 
   // Collect model/agent/cost from messages
   const headerModel = useMemo(() => {
@@ -147,7 +153,27 @@ export const MessageTurn = React.memo(function MessageTurn({
     }
   }, [isUser, plainText, onRetry]);
 
-  if (role === "system") return null;
+  if (role === "system") {
+    // opman-injected notifications (task-notifications, system reminders) render as
+    // a distinct compact bubble; other system messages stay hidden.
+    const isNotification = messages.some((m) => m.info.variant === "notification");
+    if (!isNotification) return null;
+    const noteText = messages
+      .flatMap((m) => m.parts)
+      .filter((p) => p.type === "text" && p.text)
+      .map((p) => p.text as string)
+      .join("\n")
+      .trim();
+    if (!noteText) return null;
+    return (
+      <div className="message-turn message-turn-notification">
+        <div className="notification-bubble">
+          <span className="notification-icon">⚙</span>
+          <span className="notification-text">{noteText}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`message-turn message-turn-${role}${isOptimistic ? " message-turn-optimistic" : ""}${isSearchMatch ? " message-turn-search-match" : ""}${isActiveMatch ? " message-turn-active-match" : ""}`}>

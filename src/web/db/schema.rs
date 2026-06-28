@@ -106,6 +106,57 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
             created_at REAL NOT NULL DEFAULT 0,
             session_id TEXT
         );
+
+        -- ── Kanban: boards (one per project) ────────────────────────
+        CREATE TABLE IF NOT EXISTS kanban_boards (
+            id            TEXT PRIMARY KEY,
+            project_path  TEXT NOT NULL UNIQUE,
+            name          TEXT NOT NULL DEFAULT 'Board',
+            lanes         TEXT NOT NULL DEFAULT '[]',
+            transitions   TEXT NOT NULL DEFAULT '{}',
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
+        );
+
+        -- ── Kanban: tasks ───────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS kanban_tasks (
+            id            TEXT PRIMARY KEY,
+            board_id      TEXT NOT NULL REFERENCES kanban_boards(id) ON DELETE CASCADE,
+            lane_id       TEXT NOT NULL,
+            title         TEXT NOT NULL,
+            description   TEXT NOT NULL DEFAULT '',
+            tags          TEXT NOT NULL DEFAULT '[]',
+            priority      TEXT NOT NULL DEFAULT 'normal',
+            order_index   REAL NOT NULL DEFAULT 0,
+            session_id    TEXT,
+            launch_model  TEXT,
+            launch_agent  TEXT,
+            run_state     TEXT NOT NULL DEFAULT 'idle',
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
+        );
+
+        -- ── Kanban: attachments (metadata; binaries live on disk) ───
+        CREATE TABLE IF NOT EXISTS kanban_attachments (
+            id            TEXT PRIMARY KEY,
+            task_id       TEXT NOT NULL REFERENCES kanban_tasks(id) ON DELETE CASCADE,
+            filename      TEXT NOT NULL,
+            mime          TEXT NOT NULL DEFAULT '',
+            size_bytes    INTEGER NOT NULL DEFAULT 0,
+            kind          TEXT NOT NULL DEFAULT 'file',
+            created_at    TEXT NOT NULL
+        );
+
+        -- ── Kanban: notes (agent/user progress log) ─────────────────
+        CREATE TABLE IF NOT EXISTS kanban_notes (
+            id            TEXT PRIMARY KEY,
+            task_id       TEXT NOT NULL REFERENCES kanban_tasks(id) ON DELETE CASCADE,
+            author        TEXT NOT NULL DEFAULT 'agent',
+            body          TEXT NOT NULL DEFAULT '',
+            lane_from     TEXT,
+            lane_to       TEXT,
+            created_at    TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())
@@ -128,6 +179,14 @@ pub(super) fn create_indexes(conn: &Connection) -> anyhow::Result<()> {
             ON delegated_work(status);
         CREATE INDEX IF NOT EXISTS idx_signals_created
             ON signals(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_kanban_tasks_board
+            ON kanban_tasks(board_id);
+        CREATE INDEX IF NOT EXISTS idx_kanban_tasks_session
+            ON kanban_tasks(session_id);
+        CREATE INDEX IF NOT EXISTS idx_kanban_attachments_task
+            ON kanban_attachments(task_id);
+        CREATE INDEX IF NOT EXISTS idx_kanban_notes_task
+            ON kanban_notes(task_id);
         ",
     )?;
     Ok(())

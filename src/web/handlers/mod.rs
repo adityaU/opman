@@ -33,6 +33,8 @@ mod intelligence_handlers;
 pub(crate) mod system_handlers;
 mod skills_handlers;
 mod health_handlers;
+mod kanban_handlers;
+mod kanban_internal;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -114,3 +116,12 @@ pub use intelligence_handlers::{
 pub use skills_handlers::{list_skills, get_skill, create_skill, update_skill, delete_skill, upload_skills};
 
 pub use health_handlers::{get_health_status, get_health_audit, toggle_health_mitigation, set_health_config};
+
+pub use kanban_handlers::{
+    get_board, update_board_config, create_task, update_task, get_task, delete_task,
+    upload_attachment, serve_asset, launch_task, abort_task,
+};
+
+pub use kanban_internal::{
+    internal_get_task, internal_set_status, internal_add_note, internal_complete,
+};

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { MessageCircle, GitBranch, FileCode, Terminal, Sparkles, PenSquare, Command, Menu } from "lucide-react";
+import { MessageCircle, GitBranch, FileCode, Terminal, Sparkles, PenSquare, Command, Menu, LayoutGrid } from "lucide-react";
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
@@ -22,6 +22,10 @@ interface MobileDockProps {
   mcpAgentActivity: Map<string, any>;
   onError: (msg: string) => void;
   onSendToAI: (text: string, images?: any[]) => Promise<boolean>;
+  /** Whether the Kanban board view is active. */
+  isKanbanView?: boolean;
+  /** Toggle the Kanban board view. */
+  onToggleKanban?: () => void;
 }
 
 export function MobileDock(props: MobileDockProps): React.ReactElement {
@@ -30,7 +34,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
     dockCollapsed, expandDock,
     assistantCenterOpen, onOpenAssistantCenter, onOpenCommandPalette,
     activeSessionId, activeProject, mcpEditorOpenPath, mcpEditorOpenLine,
-    mcpAgentActivity, onError, onSendToAI,
+    mcpAgentActivity, onError, onSendToAI, isKanbanView, onToggleKanban,
   } = props;
 
   // Compose button visibility:
@@ -88,6 +92,12 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
             <Terminal size={18} />
             <span className="dock-label">Term</span>
           </button>
+          {onToggleKanban && (
+            <button className={`mobile-dock-btn ${isKanbanView ? "active" : ""}`} onClick={onToggleKanban} aria-label="Board">
+              <LayoutGrid size={18} />
+              <span className="dock-label">Board</span>
+            </button>
+          )}
           <button className={`mobile-dock-btn ${assistantCenterOpen ? "active" : ""}`} onClick={onOpenAssistantCenter} aria-label="Assistant">
             <Sparkles size={18} />
             <span className="dock-label">AI</span>

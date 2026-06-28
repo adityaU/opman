@@ -7,7 +7,16 @@ interface Props {
   onSelect: (command: string) => void;
   onClose: () => void;
   sessionId: string | null;
+  /** Active engine backend ("opencode" | "claude-code"). */
+  backend?: string;
 }
+
+/**
+ * Built-in commands that are sent to the agent server and are specific to
+ * opencode — they have no equivalent in the Claude engine, so they are hidden
+ * when the backend is claude-code.
+ */
+const OPENCODE_ONLY_COMMANDS = new Set(["undo", "redo", "fork", "share"]);
 
 /**
  * Built-in commands that are always available.
@@ -72,6 +81,7 @@ export function SlashCommandPopover({
   onSelect,
   onClose,
   sessionId,
+  backend,
 }: Props) {
   const [apiCommands, setApiCommands] = useState<SlashCommand[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -84,12 +94,18 @@ export function SlashCommandPopover({
       .catch(() => {});
   }, [sessionId]);
 
-  // Merge built-in + API commands, deduplicating by name (built-in wins)
+  // Merge built-in + API commands, deduplicating by name (built-in wins).
+  // Under the Claude engine, drop opencode-only commands (the API list provides
+  // Claude's own slash commands instead).
   const commands = useMemo(() => {
-    const builtinNames = new Set(BUILTIN_COMMANDS.map((c) => c.name));
+    const isClaude = backend === "claude-code";
+    const builtins = isClaude
+      ? BUILTIN_COMMANDS.filter((c) => !OPENCODE_ONLY_COMMANDS.has(c.name))
+      : BUILTIN_COMMANDS;
+    const builtinNames = new Set(builtins.map((c) => c.name));
     const apiOnly = apiCommands.filter((c) => !builtinNames.has(c.name));
-    return [...BUILTIN_COMMANDS, ...apiOnly];
-  }, [apiCommands]);
+    return [...builtins, ...apiOnly];
+  }, [apiCommands, backend]);
 
   const filtered = useMemo(() => {
     if (!filter) return commands;

@@ -26,7 +26,11 @@ pub fn router(engine: Engine) -> Router {
         .route("/session/status", get(session_status))
         .route("/provider", get(provider))
         .route("/command", get(command_list))
-        .route("/session/{id}", get(get_session))
+        .route("/agent", get(agent_list))
+        .route(
+            "/session/{id}",
+            get(get_session).patch(rename_session).delete(delete_session),
+        )
         .route("/session/{id}/message", get(get_messages).post(send_message))
         .route("/session/{id}/prompt_async", post(prompt_async))
         .route("/session/{id}/abort", post(abort))
@@ -52,10 +56,6 @@ fn dir_header(headers: &HeaderMap) -> String {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string()
-}
-
-fn default_model() -> Option<String> {
-    std::env::var("OPMAN_CLAUDE_MODEL").ok().filter(|s| !s.is_empty())
 }
 
 fn session_obj(entry: &super::registry::SessionEntry) -> Value {
@@ -107,25 +107,34 @@ const PERMISSION_MODES: &[&str] = &[
     "plan",
 ];
 
-/// Build the `--settings` JSON that registers our PreToolUse hook (the opman
-/// executable invoked as `opman claude-hook`).
-fn hook_settings(engine: &ClaudeEngine) -> String {
-    let exe = engine.exe();
-    let cmd = format!("{} claude-hook", exe.to_string_lossy());
-    json!({
-        "hooks": {
-            "PreToolUse": [
-                { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] }
-            ]
-        }
-    })
-    .to_string()
-}
-
 /// If `text` is a runtime control command (`/permission-mode <mode>`), apply it and
 /// return true (so no claude turn is dispatched).
 fn handle_control_command(engine: &Engine, session_id: &str, text: &str) -> bool {
     let t = text.trim();
+
+    // `/agent <name>` switches the session's claude agent. In opencode this is a server
+    // slash command; the claude engine applies it as the `--agent` flag on the next
+    // turn. Intercept it here so we never send a literal "/agent <name>" prompt to
+    // claude — claude has no such command and would no-op the whole turn with a
+    // synthetic "No response requested.", stalling the session.
+    if t == "/agent" || t == "/agents" {
+        return true; // bare form: nothing to switch, and don't forward to claude
+    }
+    if let Some(name) = t.strip_prefix("/agent ") {
+        let name = name.trim();
+        if !name.is_empty() {
+            engine.set_agent(session_id, name);
+            if let Some(entry) = engine.get_session(session_id) {
+                engine.emit(
+                    &entry.directory,
+                    "tui.toast.show",
+                    json!({ "message": format!("Claude agent: {name}"), "variant": "info" }),
+                );
+            }
+        }
+        return true;
+    }
+
     let rest = t
         .strip_prefix("/permission-mode")
         .or_else(|| t.strip_prefix("/perm-mode"))
@@ -156,8 +165,11 @@ fn handle_control_command(engine: &Engine, session_id: &str, text: &str) -> bool
     false
 }
 
-/// Spawn the background claude turn for a session and record it. Fire-and-forget,
-/// matching opencode's async streaming send.
+/// Dispatch a user turn. If the session's agent is still running (or a turn is
+/// mid-dispatch), the prompt is queued and sent as a single `--resume` turn once the
+/// session goes fully idle — opman never resumes a live agent, which would spawn a
+/// competing process and orphan its in-flight subagents. The status poller flushes the
+/// queue on the busy → idle transition.
 fn dispatch_turn(engine: Engine, session_id: String, text: String) {
     if text.trim().is_empty() {
         return;
@@ -168,30 +180,16 @@ fn dispatch_turn(engine: Engine, session_id: String, text: String) {
     let Some(entry) = engine.get_session(&session_id) else {
         return;
     };
-    let dir = entry.directory.clone();
-    let model = entry.model.clone().or_else(default_model);
-    let resume = entry.claude_session_id.clone();
-    let opts = claude_cli::TurnOpts {
-        model,
-        permission_mode: engine.effective_mode(&session_id),
-        settings_json: hook_settings(&engine),
-        engine_url: engine.url(),
-    };
-    tokio::spawn(async move {
-        let result = tokio::task::spawn_blocking(move || match resume {
-            Some(uuid) if !uuid.is_empty() => claude_cli::bg_resume(&dir, &uuid, &opts, &text),
-            _ => claude_cli::bg_start(&dir, &opts, &text),
-        })
-        .await;
-        match result {
-            Ok(Ok((short_id, uuid))) => {
-                let model = engine.get_session(&session_id).and_then(|s| s.model);
-                engine.record_turn(&session_id, short_id, uuid, model);
-            }
-            Ok(Err(e)) => tracing::warn!("claude turn failed: {e}"),
-            Err(e) => tracing::warn!("claude turn join error: {e}"),
-        }
-    });
+    if engine.is_occupied(&session_id) {
+        engine.enqueue_prompt(&session_id, text);
+        engine.emit(
+            &entry.directory,
+            "tui.toast.show",
+            json!({ "message": "Queued — will send when the agent is free.", "variant": "info" }),
+        );
+        return;
+    }
+    engine.spawn_turn(session_id, text);
 }
 
 // ── handlers ────────────────────────────────────────────────────────
@@ -206,6 +204,16 @@ async fn health() -> impl IntoResponse {
 
 async fn list_sessions(State(engine): State<Engine>, headers: HeaderMap) -> Json<Value> {
     let dir = dir_header(&headers);
+    // Import any existing `claude` sessions for this directory so previous
+    // conversations show up in the sidebar.
+    if !dir.is_empty() {
+        let d = dir.clone();
+        if let Ok(Ok(agents)) =
+            tokio::task::spawn_blocking(move || claude_cli::agents_json(Some(&d))).await
+        {
+            engine.import_agents(&dir, agents);
+        }
+    }
     let arr: Vec<Value> = engine.list_for_dir(&dir).iter().map(session_obj).collect();
     Json(Value::Array(arr))
 }
@@ -238,6 +246,30 @@ async fn get_session(State(engine): State<Engine>, Path(id): Path<String>) -> Js
     }
 }
 
+async fn rename_session(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+    body: Json<Value>,
+) -> Json<Value> {
+    if let Some(title) = body.get("title").and_then(|t| t.as_str()) {
+        engine.set_title(&id, title, true);
+    }
+    match engine.get_session(&id) {
+        Some(entry) => Json(session_obj(&entry)),
+        None => Json(json!({ "id": id })),
+    }
+}
+
+async fn delete_session(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+    engine.clear_pending(&id);
+    // Stop the background agent (best effort), then drop it from the registry.
+    if let Some(short) = engine.get_session(&id).and_then(|s| s.short_id) {
+        let _ = tokio::task::spawn_blocking(move || claude_cli::stop(&short)).await;
+    }
+    engine.remove_session(&id);
+    Json(json!({ "ok": true }))
+}
+
 async fn session_status(State(engine): State<Engine>) -> Json<Value> {
     // Only busy sessions are present (idle ones are absent), matching opencode.
     let mut map = serde_json::Map::new();
@@ -251,17 +283,48 @@ async fn session_status(State(engine): State<Engine>) -> Json<Value> {
 
 async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
     let Some(entry) = engine.get_session(&id) else {
+        // Not an opman session — it may be a subagent child id (the web UI fetches
+        // `/session/<agentId>/message` to backfill a completed task on reload).
+        if let Some(path) = claude_cli::locate_subagent_jsonl(&id) {
+            let parsed = jsonl::parse_file(&path, &id);
+            let arr: Vec<Value> = parsed.messages.iter().map(|m| m.to_value()).collect();
+            return Json(Value::Array(arr));
+        }
         return Json(Value::Array(vec![]));
     };
-    let Some(uuid) = entry.claude_session_id else {
+    // A subagent child session: its transcript is the agent-<id>.jsonl, located by id.
+    if entry.is_subagent {
+        if let Some(path) = claude_cli::locate_subagent_jsonl(&entry.id) {
+            let parsed = jsonl::parse_file(&path, &entry.id);
+            let arr: Vec<Value> = parsed.messages.iter().map(|m| m.to_value()).collect();
+            return Json(Value::Array(arr));
+        }
         return Json(Value::Array(vec![]));
-    };
-    let Some(path) = claude_cli::locate_jsonl(&uuid) else {
-        return Json(Value::Array(vec![]));
-    };
-    let parsed = jsonl::parse_file(&path, &entry.id);
-    let arr: Vec<Value> = parsed.messages.iter().map(|m| m.to_value()).collect();
-    Json(Value::Array(arr))
+    }
+    // A `--bg --resume` turn writes a *fresh* transcript (with full history), so the
+    // latest UUID's file may be missing/empty for a moment mid-turn. Walk the lineage
+    // newest→oldest and return the first non-empty transcript so the conversation
+    // never transiently disappears during a follow-up.
+    let mut uuids: Vec<String> = Vec::new();
+    if let Some(c) = &entry.claude_session_id {
+        uuids.push(c.clone());
+    }
+    for u in entry.lineage.iter().rev() {
+        if !uuids.contains(u) {
+            uuids.push(u.clone());
+        }
+    }
+    for uuid in uuids {
+        if let Some(path) = claude_cli::locate_jsonl(&uuid) {
+            let mut parsed = jsonl::parse_file(&path, &entry.id);
+            if !parsed.messages.is_empty() {
+                jsonl::enrich_subagents(&mut parsed);
+                let arr: Vec<Value> = parsed.messages.iter().map(|m| m.to_value()).collect();
+                return Json(Value::Array(arr));
+            }
+        }
+    }
+    Json(Value::Array(vec![]))
 }
 
 async fn send_message(
@@ -269,6 +332,18 @@ async fn send_message(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
+    // The web UI may include a selected model `{ providerID, modelID }`.
+    if let Some(model_id) = body
+        .get("model")
+        .and_then(|m| m.get("modelID"))
+        .and_then(|s| s.as_str())
+    {
+        engine.set_model(&id, model_id);
+    }
+    // The kanban launch (and agent mentions) may include a selected agent.
+    if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
+        engine.set_agent(&id, agent);
+    }
     let text = extract_text(&body.0);
     debug!(session = %id, "claude engine: send_message");
     dispatch_turn(engine, id, text);
@@ -302,6 +377,8 @@ async fn session_command(
 }
 
 async fn abort(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+    // User-initiated stop: drop any queued follow-ups so they aren't auto-sent later.
+    engine.clear_pending(&id);
     if let Some(short) = engine.get_session(&id).and_then(|s| s.short_id) {
         let _ = tokio::task::spawn_blocking(move || claude_cli::stop(&short)).await;
     }
@@ -346,26 +423,141 @@ async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json
 }
 
 async fn provider() -> Json<Value> {
-    // Synthetic provider so opman can show a context window for Claude models.
-    let model = |ctx: u64| json!({ "limit": { "context": ctx } });
-    Json(json!([
-        {
-            "id": "anthropic",
-            "name": "Anthropic",
-            "models": {
-                "claude-opus-4-8": model(200_000),
-                "opus": model(200_000),
-                "claude-sonnet-4-6": model(200_000),
-                "sonnet": model(200_000),
-                "claude-haiku-4-5-20251001": model(200_000),
-                "haiku": model(200_000),
+    // Synthetic provider list in opencode's shape: { all, connected, default }.
+    // The web model picker reads `all[].models` (keyed by modelID) and `default`.
+    let model = |id: &str, name: &str| {
+        json!({
+            "id": id,
+            "providerID": "anthropic",
+            "name": name,
+            "limit": { "context": 200_000, "output": 64_000 },
+        })
+    };
+    Json(json!({
+        "all": [
+            {
+                "id": "anthropic",
+                "name": "Anthropic",
+                "models": {
+                    "claude-opus-4-8": model("claude-opus-4-8", "Claude Opus 4.8"),
+                    "claude-sonnet-4-6": model("claude-sonnet-4-6", "Claude Sonnet 4.6"),
+                    "claude-haiku-4-5-20251001": model("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
+                }
             }
-        }
-    ]))
+        ],
+        "connected": ["anthropic"],
+        "default": { "anthropic": "claude-sonnet-4-6" },
+    }))
 }
 
-async fn command_list() -> Json<Value> {
-    Json(Value::Array(vec![]))
+/// Friendly descriptions for well-known claude built-in slash commands. Skills and
+/// custom commands (not listed here) fall back to a generic label.
+fn command_description(name: &str) -> &'static str {
+    match name {
+        "compact" => "Compact the conversation to save context",
+        "clear" => "Clear the conversation history",
+        "context" => "Show context window usage",
+        "init" => "Generate a CLAUDE.md for this project",
+        "review" => "Review the current changes",
+        "security-review" => "Security review of the pending changes",
+        "config" => "Open configuration",
+        "usage" => "Show usage and limits",
+        "usage-credits" => "Show usage credits",
+        "extra-usage" => "Show extra usage",
+        "insights" => "Show session insights",
+        "goal" => "Set or show the session goal",
+        "reload-skills" => "Reload skills",
+        "heapdump" => "Capture a heap dump (debug)",
+        "deep-research" => "Run a deep multi-source research report",
+        "code-review" => "Review the current diff for bugs and cleanups",
+        "simplify" => "Simplify the changed code",
+        "verify" => "Verify a change by running the app",
+        "debug" => "Investigate a hard bug",
+        "loop" => "Run a prompt on a recurring interval",
+        "schedule" => "Manage scheduled cloud agents",
+        "claude-api" => "Claude API / SDK reference",
+        "run" => "Launch and drive the project's app",
+        "batch" => "Batch-process a list of items",
+        "fewer-permission-prompts" => "Reduce permission prompts",
+        "update-config" => "Configure the Claude Code harness",
+        "design-sync" => "Sync design tokens",
+        "run-skill-generator" => "Generate a new skill",
+        "team-onboarding" => "Generate a team onboarding guide",
+        _ => "",
+    }
+}
+
+/// Fetch claude's init introspection (slash commands + agents) for a directory,
+/// caching it after the first (subprocess) call.
+async fn init_for_dir(engine: &Engine, dir: &str) -> claude_cli::InitInfo {
+    if let Some(info) = engine.cached_init(dir) {
+        return info;
+    }
+    let d = dir.to_string();
+    let info = tokio::task::spawn_blocking(move || claude_cli::introspect(&d))
+        .await
+        .unwrap_or_default();
+    engine.set_cached_init(dir, info.clone());
+    info
+}
+
+async fn command_list(State(engine): State<Engine>, headers: HeaderMap) -> Json<Value> {
+    let dir = dir_header(&headers);
+    if dir.is_empty() {
+        return Json(Value::Array(vec![]));
+    }
+    // Discover claude's slash commands for this directory (cached after first call).
+    let commands = init_for_dir(&engine, &dir).await.commands;
+    let arr: Vec<Value> = commands
+        .iter()
+        .map(|name| {
+            let desc = command_description(name);
+            if desc.is_empty() {
+                json!({ "name": name })
+            } else {
+                json!({ "name": name, "description": desc })
+            }
+        })
+        .collect();
+    Json(Value::Array(arr))
+}
+
+/// Friendly descriptions for well-known claude built-in agents.
+fn agent_description(name: &str) -> &'static str {
+    match name {
+        "claude" => "Default agent for general tasks",
+        "general-purpose" => "Researches complex questions and runs multi-step tasks",
+        "Explore" => "Fast read-only codebase search and exploration",
+        "Plan" => "Designs implementation plans before coding",
+        "statusline-setup" => "Configures the status line",
+        "claude-code-guide" => "Answers Claude Code / API / SDK questions",
+        _ => "",
+    }
+}
+
+/// GET /agent — the real claude agents for this directory (built-ins + project/user
+/// agents), read from claude's `system/init` event. The opman web layer proxies this
+/// for its agent picker; without it the picker falls back to opencode's `build`/`plan`.
+async fn agent_list(State(engine): State<Engine>, headers: HeaderMap) -> Json<Value> {
+    let dir = dir_header(&headers);
+    if dir.is_empty() {
+        return Json(Value::Array(vec![]));
+    }
+    let agents = init_for_dir(&engine, &dir).await.agents;
+    let arr: Vec<Value> = agents
+        .iter()
+        .map(|name| {
+            json!({
+                "name": name,
+                "description": agent_description(name),
+                // `claude` is the default primary agent; the rest are selectable too.
+                // Nothing is "subagent" (which the picker would hide).
+                "mode": if name == "claude" { "primary" } else { "all" },
+                "native": true,
+            })
+        })
+        .collect();
+    Json(Value::Array(arr))
 }
 
 async fn select_session(body: Option<Json<Value>>) -> Json<Value> {
@@ -633,4 +825,44 @@ async fn event_stream(
     };
 
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
+}
+
+#[cfg(test)]
+mod control_command_tests {
+    use super::*;
+
+    fn engine() -> Engine {
+        Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    }
+
+    // `/agent <name>` must set the session's agent and NOT be forwarded to claude as a
+    // prompt (which would no-op with "No response requested." and stall the session).
+    // Names are translated to real claude agents: opencode's `build` has no claude
+    // equivalent → cleared to the default agent; `plan` → claude's `Plan`.
+    #[test]
+    fn agent_command_translates_and_consumes() {
+        let e = engine();
+        let s = e.create_session("/d", "", "t");
+        assert!(handle_control_command(&e, &s.id, "/agent build"));
+        assert_eq!(e.get_session(&s.id).unwrap().agent, None); // build → default agent
+        assert!(handle_control_command(&e, &s.id, "/agent plan"));
+        assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Plan"));
+    }
+
+    #[test]
+    fn bare_agent_commands_are_swallowed_not_forwarded() {
+        let e = engine();
+        let s = e.create_session("/d", "", "t");
+        assert!(handle_control_command(&e, &s.id, "/agent"));
+        assert!(handle_control_command(&e, &s.id, "/agents")); // real claude CLI subcmd; useless as a bg prompt
+        assert!(e.get_session(&s.id).unwrap().agent.is_none());
+    }
+
+    #[test]
+    fn ordinary_slash_command_is_not_intercepted() {
+        let e = engine();
+        let s = e.create_session("/d", "", "t");
+        // /compact is a genuine claude slash command — must fall through to a real turn.
+        assert!(!handle_control_command(&e, &s.id, "/compact"));
+    }
 }

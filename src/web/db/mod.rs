@@ -5,6 +5,7 @@
 //! thread-safe access from async handlers (via `spawn_blocking`).
 
 mod delegation;
+mod kanban;
 mod memory;
 pub(crate) mod migrate;
 mod missions;

@@ -79,6 +79,22 @@ pub fn write_opencode_json(
         } else {
             mcp_obj.remove("ui");
         }
+        // Kanban MCP: attach whenever the web server is up (its loopback
+        // descriptor exists) so launched tasks can self-update under opencode too.
+        let kanban_up = dirs::config_dir()
+            .map(|d| d.join("opman").join("internal.json").exists())
+            .unwrap_or(false);
+        if kanban_up {
+            mcp_obj.insert(
+                "kanban".to_string(),
+                serde_json::json!({
+                    "type": "local",
+                    "command": [&exe_str, "mcp-kanban"]
+                }),
+            );
+        } else {
+            mcp_obj.remove("kanban");
+        }
     }
 
     // Disable opencode's native bash tool so it uses the manager's terminal instead

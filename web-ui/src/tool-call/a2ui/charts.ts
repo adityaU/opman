@@ -14,7 +14,8 @@ function renderLegend(datasets: ChartDataset[]): string {
 }
 
 function safeData(ds: ChartDataset): number[] {
-  return Array.isArray(ds.data) ? ds.data : [];
+  if (!Array.isArray(ds.data)) return [];
+  return ds.data.map((v) => (Number.isFinite(v) ? v : 0));
 }
 
 function computeRange(datasets: ChartDataset[]): [number, number] {
@@ -115,13 +116,13 @@ function renderBar(data: Record<string, unknown>): string {
 function renderPieDonut(data: Record<string, unknown>, donut: boolean): string {
   const values = (data.values as ChartValue[]) ?? [];
   if (!values.length) return "";
-  const total = values.reduce((s, v) => s + Math.abs(v.value), 0);
+  const total = values.reduce((s, v) => s + (Number.isFinite(v.value) ? Math.abs(v.value) : 0), 0);
   if (total === 0) return "";
   const cx = 100, cy = 100, r = 80, inner = donut ? 50 : 0;
   let svg = `<svg class="a2ui-chart-svg" viewBox="0 0 200 200" style="max-height:200px">`;
   let angle = -Math.PI / 2;
   values.forEach((v, i) => {
-    const slice = (Math.abs(v.value) / total) * Math.PI * 2;
+    const slice = ((Number.isFinite(v.value) ? Math.abs(v.value) : 0) / total) * Math.PI * 2;
     const x1 = cx + r * Math.cos(angle);
     const y1 = cy + r * Math.sin(angle);
     const x2 = cx + r * Math.cos(angle + slice);
