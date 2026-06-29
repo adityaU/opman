@@ -24,6 +24,24 @@ impl super::WebStateHandle {
         Some(resolved.to_string_lossy().to_string())
     }
 
+    /// Resolve a project's index from its (canonicalized) path, matching how
+    /// boards are keyed. Used to scope memory to the board's project.
+    async fn kanban_project_index(&self, project_path: &str) -> Option<usize> {
+        let state = self.inner.read().await;
+        state.projects.iter().position(|p| {
+            let resolved = std::fs::canonicalize(&p.path)
+                .unwrap_or_else(|_| std::path::PathBuf::from(&p.path));
+            resolved.to_string_lossy() == project_path
+        })
+    }
+
+    /// Active memory (Global + matching Project scope) for a board's project.
+    /// Session-scoped memory is excluded — a launch always starts a fresh session.
+    pub async fn kanban_active_memory(&self, project_path: &str) -> Vec<PersonalMemoryItem> {
+        let pi = self.kanban_project_index(project_path).await;
+        self.list_active_memory(pi, None).await
+    }
+
     /// Get (or lazily create) the board for a project + all its tasks.
     pub async fn get_kanban_board(&self, pi: Option<usize>) -> Option<BoardResponse> {
         let project_path = self.kanban_project_path(pi).await?;

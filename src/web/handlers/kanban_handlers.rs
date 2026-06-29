@@ -287,8 +287,11 @@ pub async fn launch_task(
         .ok_or(WebError::Internal("session id missing".into()))?
         .to_string();
 
-    // 2) Seed the brief and dispatch the first turn.
-    let brief = build_brief(&task, &board);
+    // 2) Seed the brief and dispatch the first turn. Memory active for this
+    //    project is prepended in the same format the chat UI uses, so the agent
+    //    respects it from the very first turn.
+    let memory = state.web_state.kanban_active_memory(&project_path).await;
+    let brief = inject_memory_guidance(&build_brief(&task, &board), &memory);
     let mut body = json!({ "parts": [{ "type": "text", "text": brief }] });
     if let Some(m) = &model {
         body["model"] = json!({ "providerID": "anthropic", "modelID": m });
@@ -346,6 +349,28 @@ pub async fn abort_task(
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
+
+/// Wrap a brief with active memory guidance, matching the chat UI's format
+/// (`[Assistant memory in effect] … [User request] …`) so the frontend can
+/// collapse it into the existing "Applied memories" accordion. Returns the
+/// brief unchanged when there is no active memory.
+fn inject_memory_guidance(brief: &str, memory: &[PersonalMemoryItem]) -> String {
+    if memory.is_empty() {
+        return brief.to_string();
+    }
+    let mut guidance = String::new();
+    for item in memory {
+        guidance.push_str("- ");
+        guidance.push_str(&item.label);
+        guidance.push_str(": ");
+        guidance.push_str(&item.content);
+        guidance.push('\n');
+    }
+    format!(
+        "[Assistant memory in effect]\n{}\n[User request]\n{}",
+        guidance, brief
+    )
+}
 
 fn build_brief(task: &Task, board: &Board) -> String {
     let lanes: Vec<String> = board.lanes.iter().map(|l| l.name.clone()).collect();
