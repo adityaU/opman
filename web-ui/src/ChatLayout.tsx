@@ -31,6 +31,7 @@ import { SkillsUploadModal } from "./SkillsUploadModal";
 import { KanbanView } from "./kanban/KanbanView";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
+import { appNavigate } from "./utils/navigation";
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -106,9 +107,23 @@ export function ChatLayout() {
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
 
-  // ── Kanban board view (URL ?view=kanban) ──
-  const { isKanbanView, focusTaskId, setKanbanView, openKanbanTask, clearFocusTask } = useKanbanViewState();
-  const toggleKanbanView = useCallback(() => setKanbanView(!isKanbanView), [isKanbanView, setKanbanView]);
+  // ── Kanban board view (its own route: /kanban) ──
+  const { isKanbanView, focusTaskId, openKanban, openKanbanTask, clearFocusTask } = useKanbanViewState();
+  // Leaving the board returns to the active session's chat ("/"); selecting a
+  // session is always a chat destination, so route it through setUrlSession.
+  const goToChat = useCallback(() => {
+    if (activeSessionId) setUrlSession(activeSessionId, activeProjectIndex);
+    else appNavigate(`/?project=${activeProjectIndex}`);
+  }, [activeSessionId, activeProjectIndex, setUrlSession]);
+  const toggleKanbanView = useCallback(() => {
+    if (isKanbanView) goToChat();
+    else openKanban(activeProjectIndex);
+  }, [isKanbanView, goToChat, openKanban, activeProjectIndex]);
+  // Sidebar back-link opens the task on the active project's board.
+  const handleOpenKanbanTask = useCallback(
+    (taskId: string) => openKanbanTask(taskId, activeProjectIndex),
+    [openKanbanTask, activeProjectIndex],
+  );
 
   // Reverse map (session → originating kanban task/lane) for the active project,
   // so the sidebar can tag kanban-launched sessions and link back to their task.
@@ -352,7 +367,7 @@ export function ChatLayout() {
         closeMobileSidebar={mobile.closeSidebar} toggleMobileSidebar={mobile.toggleSidebar}
         focusSidebar={panels.focusSidebar} focusChat={panels.focusChat} focusSide={panels.focusSide}
         handlePanelError={callbacks.handlePanelError}
-        sessionTaskLinks={sessionTaskLinks} onOpenKanbanTask={openKanbanTask}
+        sessionTaskLinks={sessionTaskLinks} onOpenKanbanTask={handleOpenKanbanTask}
         focusTaskId={focusTaskId} clearFocusTask={clearFocusTask}
       />
       <ModalLayer

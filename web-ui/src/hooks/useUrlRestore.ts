@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useUrlState, readUrlState } from "./useUrlState";
 import type { UrlState } from "./useUrlState";
+import { KANBAN_PATH } from "../kanban/useKanbanViewState";
 
 export interface UseUrlRestoreOptions {
   appState: any;
@@ -35,6 +36,13 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
   // If the URL didn't contain a session, try restoring from localStorage.
   useEffect(() => {
     if (!appState || urlRestoredRef.current) return;
+
+    // Don't auto-restore a session when the app was loaded on the Kanban route —
+    // setUrlSession would navigate to "/" and bounce the user off the board.
+    if (window.location.pathname.startsWith(KANBAN_PATH)) {
+      urlRestoredRef.current = true;
+      return;
+    }
 
     // Only run when URL has no session to restore
     if (initialUrlState.sessionId) {

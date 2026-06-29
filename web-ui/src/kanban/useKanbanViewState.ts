@@ -1,73 +1,73 @@
 import { useState, useCallback, useEffect } from "react";
+import { appNavigate, onLocationChange } from "../utils/navigation";
 
-/** URL-param-driven view toggle for the Kanban board (`?view=kanban`).
- *  Mirrors how session/project state lives in the URL — no router. */
+/** Path-based route for the Kanban board. The board is its own destination
+ *  (`/kanban`), mutually exclusive with the chat view by pathname — not a
+ *  `?view=` flag layered on the session URL. The optional `?project=` selects
+ *  the board's project and `?task=` deep-links a task's editor. */
 export interface KanbanViewState {
-  /** True when `?view=kanban` is present. */
+  /** True when the current path is the Kanban board. */
   isKanbanView: boolean;
   /** Task to focus/open when the board mounts (`?task=<id>`), else null. */
   focusTaskId: string | null;
-  /** Set/clear `?view=kanban` while preserving other params (pi/session). */
-  setKanbanView: (on: boolean) => void;
-  /** Open the board and request a specific task's editor (`?view=kanban&task=<id>`). */
-  openKanbanTask: (taskId: string) => void;
+  /** Navigate to the board for a project (drops any prior task focus). */
+  openKanban: (projectIndex?: number) => void;
+  /** Navigate to the board and open a specific task's editor. */
+  openKanbanTask: (taskId: string, projectIndex?: number) => void;
   /** Drop `?task` once the board has consumed it (no new history entry). */
   clearFocusTask: () => void;
 }
 
+export const KANBAN_PATH = "/kanban";
+
 function readView(): boolean {
-  return new URLSearchParams(window.location.search).get("view") === "kanban";
+  return window.location.pathname.startsWith(KANBAN_PATH);
 }
 
 function readTask(): string | null {
   return new URLSearchParams(window.location.search).get("task");
 }
 
+/** Build a `/kanban` URL with optional project + task params. */
+function kanbanUrl(projectIndex?: number, taskId?: string): string {
+  const params = new URLSearchParams();
+  if (projectIndex != null) params.set("project", String(projectIndex));
+  if (taskId) params.set("task", taskId);
+  const qs = params.toString();
+  return qs ? `${KANBAN_PATH}?${qs}` : KANBAN_PATH;
+}
+
 export function useKanbanViewState(): KanbanViewState {
   const [isKanbanView, setIsKanbanView] = useState<boolean>(readView);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(readTask);
 
-  const setKanbanView = useCallback((on: boolean) => {
-    const params = new URLSearchParams(window.location.search);
-    if (on) {
-      params.set("view", "kanban");
-    } else {
-      params.delete("view");
-      params.delete("task");
-    }
-    const qs = params.toString();
-    window.history.pushState(null, "", qs ? `?${qs}` : window.location.pathname);
-    setIsKanbanView(on);
-    if (!on) setFocusTaskId(null);
+  const openKanban = useCallback((projectIndex?: number) => {
+    appNavigate(kanbanUrl(projectIndex));
   }, []);
 
-  const openKanbanTask = useCallback((taskId: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("view", "kanban");
-    params.set("task", taskId);
-    window.history.pushState(null, "", `?${params.toString()}`);
-    setIsKanbanView(true);
-    setFocusTaskId(taskId);
+  const openKanbanTask = useCallback((taskId: string, projectIndex?: number) => {
+    appNavigate(kanbanUrl(projectIndex, taskId));
   }, []);
 
   const clearFocusTask = useCallback(() => {
     setFocusTaskId(null);
+    if (!readView()) return;
     const params = new URLSearchParams(window.location.search);
     if (!params.has("task")) return;
     params.delete("task");
     const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    appNavigate(qs ? `${KANBAN_PATH}?${qs}` : KANBAN_PATH, { replace: true });
   }, []);
 
-  // React to browser back/forward.
+  // Recompute from the URL on any navigation — back/forward (popstate) or a
+  // programmatic appNavigate from another hook (e.g. selecting a session,
+  // which leaves the board). Keeps view state in lockstep with the path.
   useEffect(() => {
-    const handler = () => {
+    return onLocationChange(() => {
       setIsKanbanView(readView());
       setFocusTaskId(readTask());
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
+    });
   }, []);
 
-  return { isKanbanView, focusTaskId, setKanbanView, openKanbanTask, clearFocusTask };
+  return { isKanbanView, focusTaskId, openKanban, openKanbanTask, clearFocusTask };
 }

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { selectSession, switchProject } from "../api";
+import { appNavigate } from "../utils/navigation";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -55,10 +56,16 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
     // browser URL stays current.  Without this, any history.back() (modal close,
     // browser back button) fires popstate, reads the stale URL, and reverts to
     // the previous session/project.
+    //
+    // Navigate to the chat root path ("/"), which also takes us OFF the Kanban
+    // board (`/kanban`): selecting a session is always a chat destination. Drop
+    // the board-only `task` (and legacy `view`) params so they don't linger.
     const params = new URLSearchParams(window.location.search);
+    params.delete("task");
+    params.delete("view");
     params.set("session", sessionId);
     params.set("project", String(projectIdx));
-    window.history.pushState(null, "", `?${params}`);
+    appNavigate(`/?${params}`);
     setUrlSessionId(sessionId);
     setUrlProjectIndex(projectIdx);
   }, []);
