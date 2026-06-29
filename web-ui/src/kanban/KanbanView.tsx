@@ -17,6 +17,10 @@ interface Props {
   /** Deep-link into a session's chat within the selected project. */
   onOpenSession: (sessionId: string, projectIndex: number) => void;
   onError: (msg: string) => void;
+  /** When set, open this task's editor once the board has loaded (back-link from the sidebar). */
+  focusTaskId?: string | null;
+  /** Called after `focusTaskId` has been opened, so the URL param can be cleared. */
+  onFocusTaskConsumed?: () => void;
 }
 
 interface DragState {
@@ -95,6 +99,17 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
     setEditorDefaultLane(undefined);
     setEditorOpen(true);
   }, []);
+
+  // Back-link from a session: open the originating task's editor once its board
+  // has loaded, then clear the URL param so it only fires once.
+  const { focusTaskId, onFocusTaskConsumed } = p;
+  useEffect(() => {
+    if (!focusTaskId || !board.board) return;
+    const task = board.tasks.find((t) => t.id === focusTaskId);
+    if (!task) return;
+    openEditTask(task);
+    onFocusTaskConsumed?.();
+  }, [focusTaskId, board.board, board.tasks, openEditTask, onFocusTaskConsumed]);
 
   const onOpenSession = useCallback(
     (sessionId: string) => p.onOpenSession(sessionId, selectedIndex),

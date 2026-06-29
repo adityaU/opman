@@ -19,6 +19,7 @@ import {
 } from "./sidebar/ConfirmModals";
 import { loadPinnedSessions, savePinnedSessions } from "./sidebar/pinnedSessions";
 import { loadOpenSessions, saveOpenSessions } from "./sidebar/openSessions";
+import type { SessionTaskLink } from "./sidebar/useSessionTaskLinks";
 
 interface Props {
   projects: ProjectInfo[];
@@ -39,6 +40,10 @@ interface Props {
   isKanbanView?: boolean;
   /** Toggle the Kanban board view for the active project. */
   onToggleKanban?: () => void;
+  /** session_id → originating kanban task/lane, for the active project's board. */
+  sessionTaskLinks?: Map<string, SessionTaskLink>;
+  /** Open the originating kanban task's editor (back-link from a session). */
+  onOpenKanbanTask?: (taskId: string) => void;
 }
 
 export const ChatSidebar = React.memo(function ChatSidebar({
@@ -55,6 +60,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   onClose,
   isKanbanView,
   onToggleKanban,
+  sessionTaskLinks,
+  onOpenKanbanTask,
 }: Props) {
   // Auto-close sidebar on mobile after selecting a session
   const handleSelectSession = useCallback((sessionId: string, projectIdx: number) => {
@@ -218,6 +225,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           onStartRename={triggerRename}
           onDeleteSession={triggerDelete}
           onContextMenu={handleContextMenu}
+          sessionTaskLinks={sessionTaskLinks}
         />
 
         {projects.map((project, idx) => (
@@ -260,6 +268,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             pinnedSessions={pinnedSessions}
             onTogglePin={togglePin}
             onDeleteSession={triggerDelete}
+            sessionTaskLinks={sessionTaskLinks}
           />
         ))}
       </div>
@@ -282,6 +291,16 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           menu={contextMenu}
           isPinned={pinnedSessions.has(contextMenu.sessionId)}
           isOpen={openSessions.has(contextMenu.sessionId)}
+          taskLink={sessionTaskLinks?.get(contextMenu.sessionId)}
+          onOpenTask={
+            onOpenKanbanTask
+              ? () => {
+                  const link = sessionTaskLinks?.get(contextMenu.sessionId);
+                  if (link) onOpenKanbanTask(link.taskId);
+                  setContextMenu(null);
+                }
+              : undefined
+          }
           onPin={() => {
             togglePin(contextMenu.sessionId);
             setContextMenu(null);

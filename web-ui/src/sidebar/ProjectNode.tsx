@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { SessionRow } from "./SessionRow";
 import { formatTime } from "./formatTime";
+import type { SessionTaskLink } from "./useSessionTaskLinks";
 
 const MAX_VISIBLE_SESSIONS = 8;
 
@@ -47,6 +48,8 @@ export interface ProjectNodeProps {
   pinnedSessions: Set<string>;
   onTogglePin: (sessionId: string) => void;
   onDeleteSession: (sessionId: string, sessionTitle: string) => void;
+  /** session_id → originating kanban task/lane (active project only). */
+  sessionTaskLinks?: Map<string, SessionTaskLink>;
 }
 
 export function ProjectNode({
@@ -78,6 +81,7 @@ export function ProjectNode({
   pinnedSessions,
   onTogglePin,
   onDeleteSession,
+  sessionTaskLinks,
 }: ProjectNodeProps) {
   const { parentSessions, childrenMap, hasActive } = useMemo(() => {
     const parents: SessionInfo[] = [];
@@ -172,6 +176,7 @@ export function ProjectNode({
                     isPinned={pinnedSessions.has(session.id)}
                     isRenaming={renameTarget?.sessionId === session.id}
                     subagentCount={subagents.length}
+                    taskLink={sessionTaskLinks?.get(session.id)}
                     renameValue={renameValue}
                     renameLoading={renameLoading}
                     renameInputRef={renameInputRef}

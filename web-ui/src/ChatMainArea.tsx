@@ -101,6 +101,14 @@ export interface ChatMainAreaProps {
   focusChat: () => void;
   focusSide: () => void;
   handlePanelError: (msg: string) => void;
+  /** session_id → originating kanban task/lane, for the active project's board. */
+  sessionTaskLinks?: Map<string, import("./sidebar/useSessionTaskLinks").SessionTaskLink>;
+  /** Open the originating kanban task (back-link from a session). */
+  onOpenKanbanTask?: (taskId: string) => void;
+  /** Task whose editor the board should open on mount (`?task=<id>`). */
+  focusTaskId?: string | null;
+  /** Clear the focus-task URL param once the board has consumed it. */
+  clearFocusTask?: () => void;
 }
 
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
@@ -143,6 +151,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               onClose={p.closeMobileSidebar}
               isKanbanView={p.isKanbanView}
               onToggleKanban={p.onToggleKanban}
+              sessionTaskLinks={p.sessionTaskLinks}
+              onOpenKanbanTask={p.onOpenKanbanTask}
             />
           </div>
           <div {...p.sidebarResize.handleProps} />
@@ -161,6 +171,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             initialProjectIndex={p.activeProjectIndex}
             onOpenSession={p.handleSelectSession}
             onError={(msg) => p.handlePanelError(msg)}
+            focusTaskId={p.focusTaskId}
+            onFocusTaskConsumed={p.clearFocusTask}
           />
         </div>
       ) : (

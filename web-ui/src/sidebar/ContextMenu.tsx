@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Pin, Pencil, Trash2, XCircle } from "lucide-react";
+import { Pin, Pencil, Trash2, XCircle, SquareKanban } from "lucide-react";
+import type { SessionTaskLink } from "./useSessionTaskLinks";
 
 // ── Types ────────────────────────────────────────────
 
@@ -17,8 +18,8 @@ function isMobile(): boolean {
   return window.innerWidth <= 768;
 }
 
-const MENU_W = 160;
-const MENU_H = 140;
+const MENU_W = 180;
+const MENU_H = 200;
 const PAD = 8;
 
 function clampedPosition(x: number, y: number): [number, number] {
@@ -73,20 +74,26 @@ interface SessionContextMenuProps {
   menu: ContextMenuState;
   isPinned: boolean;
   isOpen: boolean;
+  /** Originating kanban task/lane, when this session was launched from the board. */
+  taskLink?: SessionTaskLink;
   onPin: () => void;
   onRename: () => void;
   onDelete: () => void;
   onRemoveOpen: () => void;
+  /** Open the originating kanban task's editor (only meaningful when taskLink is set). */
+  onOpenTask?: () => void;
 }
 
 export function SessionContextMenu({
   menu,
   isPinned,
   isOpen,
+  taskLink,
   onPin,
   onRename,
   onDelete,
   onRemoveOpen,
+  onOpenTask,
 }: SessionContextMenuProps) {
   const mobile = isMobile();
   const iconSz = mobile ? 16 : 12;
@@ -99,6 +106,12 @@ export function SessionContextMenu({
 
   const items = (
     <>
+      {taskLink && onOpenTask && (
+        <button className="sb-context-item" onClick={onOpenTask} title={`Lane: ${taskLink.laneName}`}>
+          <SquareKanban size={iconSz} />
+          Go to Kanban task
+        </button>
+      )}
       <button className="sb-context-item" onClick={onPin}>
         <Pin size={iconSz} />
         {isPinned ? "Unpin" : "Pin to Top"}

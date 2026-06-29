@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useSwipeReveal } from "../hooks/useSwipeReveal";
 import { formatTime } from "./formatTime";
+import type { SessionTaskLink } from "./useSessionTaskLinks";
+import { LaneTag } from "./LaneTag";
 
 const SWIPE_ACTIONS_WIDTH = 128;
 
@@ -21,6 +23,8 @@ export interface SessionRowProps {
   isPinned: boolean;
   isRenaming: boolean;
   subagentCount: number;
+  /** Originating kanban task/lane, when this session was launched from the board. */
+  taskLink?: SessionTaskLink;
   renameValue: string;
   renameLoading: boolean;
   renameInputRef: React.RefObject<HTMLInputElement>;
@@ -44,6 +48,7 @@ export const SessionRow = React.memo(function SessionRow({
   isPinned,
   isRenaming,
   subagentCount,
+  taskLink,
   renameValue,
   renameLoading,
   renameInputRef,
@@ -118,6 +123,7 @@ export const SessionRow = React.memo(function SessionRow({
                   {session.title || session.id.slice(0, 12)}
                 </span>
                 <span className="sb-session-meta">
+                  {taskLink && <LaneTag link={taskLink} />}
                   {formatTime(session.time.updated)}
                   {subagentCount > 0 && (
                     <span

@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useSwipeReveal } from "../hooks/useSwipeReveal";
 import { formatTime } from "./formatTime";
+import type { SessionTaskLink } from "./useSessionTaskLinks";
+import { LaneTag } from "./LaneTag";
 
 // ── Types ────────────────────────────────────────────
 
@@ -40,6 +42,8 @@ export interface OpenSessionsSectionProps {
     sessionTitle: string,
     projectIdx: number,
   ) => void;
+  /** session_id → originating kanban task/lane (active project only). */
+  sessionTaskLinks?: Map<string, SessionTaskLink>;
 }
 
 // ── Component ────────────────────────────────────────
@@ -57,6 +61,7 @@ export function OpenSessionsSection({
   onStartRename,
   onDeleteSession,
   onContextMenu,
+  sessionTaskLinks,
 }: OpenSessionsSectionProps) {
   const entries = useMemo(() => {
     const out: OpenEntry[] = [];
@@ -92,6 +97,7 @@ export function OpenSessionsSection({
           isActive={e.sid === activeSessionId}
           isBusy={isSessionBusy(e.sid)}
           isPinned={pinnedSessions.has(e.sid)}
+          taskLink={sessionTaskLinks?.get(e.sid)}
           onSelect={() => onSelectSession(e.sid, e.projectIdx)}
           onRemove={() => onRemoveOpen(e.sid)}
           onTogglePin={() => onTogglePin(e.sid)}
@@ -113,6 +119,7 @@ interface OpenSessionRowProps {
   isActive: boolean;
   isBusy: boolean;
   isPinned: boolean;
+  taskLink?: SessionTaskLink;
   onSelect: () => void;
   onRemove: () => void;
   onTogglePin: () => void;
@@ -131,6 +138,7 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
   isActive,
   isBusy,
   isPinned,
+  taskLink,
   onSelect,
   onRemove,
   onTogglePin,
@@ -185,6 +193,7 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
             <span className="sb-session-title">{entry.title}</span>
             <span className="sb-session-meta">
               <span className="sb-open-project-tag">{entry.projectName}</span>
+              {taskLink && <LaneTag link={taskLink} />}
               {formatTime(entry.updated)}
             </span>
           </div>

@@ -30,6 +30,7 @@ import type { Appearance } from "./utils/appearance";
 import { SkillsUploadModal } from "./SkillsUploadModal";
 import { KanbanView } from "./kanban/KanbanView";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
+import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -106,8 +107,12 @@ export function ChatLayout() {
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
 
   // ── Kanban board view (URL ?view=kanban) ──
-  const { isKanbanView, setKanbanView } = useKanbanViewState();
+  const { isKanbanView, focusTaskId, setKanbanView, openKanbanTask, clearFocusTask } = useKanbanViewState();
   const toggleKanbanView = useCallback(() => setKanbanView(!isKanbanView), [isKanbanView, setKanbanView]);
+
+  // Reverse map (session → originating kanban task/lane) for the active project,
+  // so the sidebar can tag kanban-launched sessions and link back to their task.
+  const sessionTaskLinks = useSessionTaskLinks(activeProjectIndex, activeProject?.path);
 
   // ── Bridge SSE toast events into the toast system ──
   useEffect(() => {
@@ -347,6 +352,8 @@ export function ChatLayout() {
         closeMobileSidebar={mobile.closeSidebar} toggleMobileSidebar={mobile.toggleSidebar}
         focusSidebar={panels.focusSidebar} focusChat={panels.focusChat} focusSide={panels.focusSide}
         handlePanelError={callbacks.handlePanelError}
+        sessionTaskLinks={sessionTaskLinks} onOpenKanbanTask={openKanbanTask}
+        focusTaskId={focusTaskId} clearFocusTask={clearFocusTask}
       />
       <ModalLayer
         modals={modalState.modals} openModal={openModal} closeModal={closeModal} closeModalSilent={closeModalSilent}
