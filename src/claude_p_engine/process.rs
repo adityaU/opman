@@ -4,11 +4,14 @@
 //! child is a read-eval loop over newline-delimited user messages on stdin, so:
 //! - **push / steering**: a follow-up is written straight to the running child's stdin
 //!   (no queue, no wait — delivered even mid-turn);
-//! - **hard abort**: the child is killed outright (`start_kill`), ending the turn now.
+//! - **hard abort**: the child is killed outright (`start_kill`), ending the turn now;
+//! - **continuity**: a respawn (after abort/restart) passes `--resume <uuid>` so the
+//!   conversation continues with full history.
 //!
 //! Message rendering reuses the shared transcript parser: on each stream event we
 //! re-parse the on-disk `<uuid>.jsonl` (which `claude -p` writes in the same format the
-//! background engine uses) and emit only the messages whose content changed.
+//! background engine uses) and emit only the messages whose content changed. Subagents
+//! referenced by the transcript are registered as nested child sessions.
 
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
@@ -34,6 +37,8 @@ pub(super) struct TurnOpts {
     pub engine_url: String,
     pub mcp_config: String,
     pub session_env_id: String,
+    /// claude UUID to `--resume` (continue a prior conversation), if any.
+    pub resume_uuid: Option<String>,
 }
 
 /// A live `claude -p` child: its stdin (to push messages) and the handle (to kill it).
@@ -92,7 +97,6 @@ pub async fn send(engine: Arc<ClaudePEngine>, session_id: String, text: String) 
     if ok {
         engine.set_busy(&session_id, true);
     } else {
-        // Pipe broke — the child died. Drop it so the next send respawns.
         debug!(session = %session_id, "claude -p stdin closed; dropping process");
         procs.remove(&session_id);
         engine.set_busy(&session_id, false);
@@ -100,8 +104,8 @@ pub async fn send(engine: Arc<ClaudePEngine>, session_id: String, text: String) 
 }
 
 /// Hard-abort: kill the session's process immediately. The conversation transcript is
-/// retained on disk, so the next message starts a fresh process with full history via
-/// the stream (the model re-reads context). Idempotent.
+/// retained, so the next message respawns with `--resume` and continues with full
+/// history. Idempotent.
 pub async fn abort(engine: Arc<ClaudePEngine>, session_id: &str) {
     let removed = {
         let mut procs = engine.procs.0.lock().await;
@@ -129,6 +133,10 @@ async fn spawn(engine: &Arc<ClaudePEngine>, session_id: &str, dir: &str) -> Resu
         &opts.permission_mode
     };
     cmd.arg("--permission-mode").arg(mode);
+    // Continue a prior conversation (post-abort / post-restart) with full history.
+    if let Some(uuid) = &opts.resume_uuid {
+        cmd.arg("--resume").arg(uuid);
+    }
     if !opts.settings_json.is_empty() {
         cmd.arg("--settings").arg(&opts.settings_json);
     }
@@ -156,13 +164,19 @@ async fn spawn(engine: &Arc<ClaudePEngine>, session_id: &str, dir: &str) -> Resu
     let stdin = child.stdin.take().context("claude -p: no stdin")?;
     let stdout = child.stdout.take().context("claude -p: no stdout")?;
 
-    tokio::spawn(reader(engine.clone(), session_id.to_string(), stdout));
+    tokio::spawn(reader(engine.clone(), session_id.to_string(), stdout, opts.resume_uuid.is_some()));
     Ok(Proc { stdin, child })
 }
 
 /// Read the child's stream-json stdout, driving busy state + message emission.
-async fn reader(engine: Arc<ClaudePEngine>, session_id: String, stdout: tokio::process::ChildStdout) {
+async fn reader(
+    engine: Arc<ClaudePEngine>,
+    session_id: String,
+    stdout: tokio::process::ChildStdout,
+    attempted_resume: bool,
+) {
     let mut lines = BufReader::new(stdout).lines();
+    let mut saw_init = false;
     while let Ok(Some(line)) = lines.next_line().await {
         let line = line.trim();
         if line.is_empty() {
@@ -172,6 +186,7 @@ async fn reader(engine: Arc<ClaudePEngine>, session_id: String, stdout: tokio::p
         match v.get("type").and_then(|t| t.as_str()).unwrap_or("") {
             "system" => {
                 if v.get("subtype").and_then(|s| s.as_str()) == Some("init") {
+                    saw_init = true;
                     if let Some(uuid) = v.get("session_id").and_then(|s| s.as_str()) {
                         engine.set_claude_uuid(&session_id, uuid);
                     }
@@ -191,11 +206,16 @@ async fn reader(engine: Arc<ClaudePEngine>, session_id: String, stdout: tokio::p
     }
     // EOF: the child exited or was killed. Mark idle and drop its handle.
     engine.set_busy(&session_id, false);
-    let mut procs = engine.procs.0.lock().await;
-    procs.remove(&session_id);
+    engine.procs.0.lock().await.remove(&session_id);
+    // If a resume attempt died before any init event, the stored UUID is likely stale;
+    // forget it so the next message starts a fresh conversation instead of looping.
+    if attempted_resume && !saw_init {
+        engine.forget_claude_uuid(&session_id);
+    }
 }
 
-/// Re-parse the session's on-disk transcript and emit any changed messages.
+/// Re-parse the session's on-disk transcript: register any subagents as child sessions
+/// and emit changed messages.
 async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
     let Some(sess) = engine.get_session(session_id) else { return };
     let Some(uuid) = sess.claude_uuid.clone() else { return };
@@ -213,6 +233,10 @@ async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
 
     if let Some(title) = &parsed.title {
         engine.set_title(session_id, title, false);
+    }
+    // Nest any subagents under this session so they appear as child rows.
+    for agent_id in &parsed.subagent_ids {
+        engine.ensure_subagent_session(session_id, agent_id, "", &sess.directory);
     }
     let ts = now_ms();
     for m in &parsed.messages {
