@@ -13,8 +13,11 @@ pub(crate) enum AgentBackend {
     /// Use the `opencode` CLI (default).
     #[default]
     Opencode,
-    /// Use the `claude` CLI (Claude Code).
+    /// Use the `claude` CLI background agents (`claude --bg`).
     ClaudeCode,
+    /// Use the `claude` CLI streaming print mode (`claude -p`): one persistent
+    /// process per session, enabling true mid-turn steering and hard abort.
+    ClaudePrint,
 }
 
 impl AgentBackend {
@@ -22,7 +25,7 @@ impl AgentBackend {
     pub fn binary(&self) -> &'static str {
         match self {
             AgentBackend::Opencode => "opencode",
-            AgentBackend::ClaudeCode => "claude",
+            AgentBackend::ClaudeCode | AgentBackend::ClaudePrint => "claude",
         }
     }
 
@@ -30,7 +33,8 @@ impl AgentBackend {
     pub fn display_name(&self) -> &'static str {
         match self {
             AgentBackend::Opencode => "opencode",
-            AgentBackend::ClaudeCode => "claude-code",
+            // Both claude engines present as "claude-code" to the web UI.
+            AgentBackend::ClaudeCode | AgentBackend::ClaudePrint => "claude-code",
         }
     }
 }
@@ -154,6 +158,13 @@ pub(crate) struct Cli {
     /// agent engine (an in-process adapter drives `claude` background sessions).
     #[arg(long)]
     pub claude: bool,
+
+    /// Use the Claude Code CLI in streaming print mode (`claude -p`): one
+    /// persistent process per session. Unlike `--claude`, follow-up messages are
+    /// pushed straight to the running process (true steering) and abort hard-kills
+    /// the turn. Takes precedence over `--claude`.
+    #[arg(long)]
+    pub claudep: bool,
 
     /// Enable all MCP integrations (terminal, neovim, time, ui)
     #[arg(long)]
@@ -282,9 +293,12 @@ impl Cli {
         None
     }
 
-    /// The effective backend, honoring the `--claude` shorthand over `--backend`.
+    /// The effective backend. `--claudep` wins over `--claude`, which wins over
+    /// `--backend`.
     pub fn resolved_backend(&self) -> AgentBackend {
-        if self.claude {
+        if self.claudep {
+            AgentBackend::ClaudePrint
+        } else if self.claude {
             AgentBackend::ClaudeCode
         } else {
             self.backend

@@ -9,9 +9,9 @@
 //! `jsonl.rs` (transcript → messages), `events.rs` (transcript → SSE events),
 //! `tailer.rs` (live event streaming + busy/idle polling), `routes.rs` (REST).
 
-mod claude_cli;
+pub(crate) mod claude_cli;
 mod events;
-mod jsonl;
+pub(crate) mod jsonl;
 mod registry;
 mod routes;
 mod tailer;

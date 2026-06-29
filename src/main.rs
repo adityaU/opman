@@ -3,6 +3,7 @@ mod app;
 mod background_tasks;
 mod blockkit;
 mod claude_engine;
+mod claude_p_engine;
 mod cli;
 mod command_palette;
 mod config;
@@ -235,6 +236,15 @@ async fn main() -> Result<()> {
         ))
         .await
         .context("Failed to start embedded claude engine")?
+    } else if backend == crate::cli::AgentBackend::ClaudePrint {
+        claude_p_engine::start_embedded_server((
+            enable_terminal_mcp,
+            enable_neovim_mcp,
+            enable_time_mcp,
+            enable_ui_mcp,
+        ))
+        .await
+        .context("Failed to start embedded claude -p engine")?
     } else {
         server::spawn_agent_server(backend).context("Failed to start agent server")?
     };
