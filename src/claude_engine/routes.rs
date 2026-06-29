@@ -380,10 +380,16 @@ async fn session_command(
 async fn abort(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
     // User-initiated stop: drop any queued follow-ups so they aren't auto-sent later.
     engine.clear_pending(&id);
+    // Don't let a (now-killed) subagent's still-fresh transcript keep the session busy.
+    engine.set_subagent_pending(&id, false);
+    // Enter the abort "settling" window BEFORE stopping: `claude stop` is graceful, so the
+    // agent may report `working` for another poll or two — the poller force-idles the
+    // session while it settles so it doesn't visibly bounce back to busy.
+    engine.mark_aborting(&id);
+    engine.set_busy(&id, false);
     if let Some(short) = engine.get_session(&id).and_then(|s| s.short_id) {
         let _ = tokio::task::spawn_blocking(move || claude_cli::stop(&short)).await;
     }
-    engine.set_busy(&id, false);
     Json(json!({ "ok": true }))
 }
 

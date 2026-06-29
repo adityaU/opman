@@ -81,6 +81,11 @@ pub struct ClaudeEngine {
     /// agent registering in `claude agents`). Treated as busy so the status poller can't
     /// race it to "idle" and trigger a duplicate/competing turn.
     dispatching: Mutex<HashSet<String>>,
+    /// Sessions the user just aborted, → the abort timestamp (ms). `claude stop` is
+    /// graceful, so the agent can linger `state=working` for a poll or two; while a
+    /// session is "settling" the poller forces it idle instead of bouncing it back to
+    /// busy. Cleared once the agent actually stops, on a new turn, or after a safety cap.
+    aborting: Mutex<HashMap<String, u64>>,
 }
 
 static ENGINE: OnceLock<Arc<ClaudeEngine>> = OnceLock::new();
@@ -96,6 +101,13 @@ pub fn short_id_for_session(session_id: &str) -> Option<String> {
         .and_then(|e| e.get_session(session_id))
         .and_then(|s| s.short_id)
 }
+
+/// Upper bound on how long a session stays "settling" after an abort before the poller
+/// stops force-idling it. `claude stop` is graceful: the agent's `state` can stay
+/// `working` briefly, and a just-killed subagent's transcript stays "fresh" (mtime) for a
+/// while. We keep forcing idle past both so an abort doesn't visibly bounce back to busy;
+/// a new turn clears it sooner. Sized to outlast the subagent staleness window.
+const ABORT_SETTLE_MS: u64 = 240_000;
 
 fn now_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -143,6 +155,7 @@ impl ClaudeEngine {
             mcp_flags,
             pending_prompts: Mutex::new(HashMap::new()),
             dispatching: Mutex::new(HashSet::new()),
+            aborting: Mutex::new(HashMap::new()),
         }
     }
 
@@ -736,6 +749,36 @@ impl ClaudeEngine {
             .unwrap_or(false)
     }
 
+    /// Mark a session as just-aborted, starting its "settling" window.
+    pub fn mark_aborting(&self, session_id: &str) {
+        if let Ok(mut a) = self.aborting.lock() {
+            a.insert(session_id.to_string(), now_ms());
+        }
+    }
+
+    /// Stop tracking a session's abort (it's settled or superseded by a new turn).
+    pub fn clear_aborting(&self, session_id: &str) {
+        if let Ok(mut a) = self.aborting.lock() {
+            a.remove(session_id);
+        }
+    }
+
+    /// Whether an aborted session is still "settling": `claude stop` is graceful, so the
+    /// agent can keep reporting busy for a beat. While settling, the poller should force
+    /// the session idle rather than bounce it back to busy. Resolves (returns false and
+    /// clears the mark) once the agent has actually gone idle or the safety cap elapses.
+    pub fn abort_settling(&self, session_id: &str, agent_busy_now: bool) -> bool {
+        let since = match self.aborting.lock().ok().and_then(|a| a.get(session_id).copied()) {
+            Some(s) => s,
+            None => return false,
+        };
+        if !agent_busy_now || now_ms().saturating_sub(since) > ABORT_SETTLE_MS {
+            self.clear_aborting(session_id);
+            return false;
+        }
+        true
+    }
+
     /// Queue a follow-up prompt to send once the session goes idle.
     pub fn enqueue_prompt(&self, session_id: &str, text: String) {
         if let Ok(mut q) = self.pending_prompts.lock() {
@@ -819,6 +862,9 @@ impl ClaudeEngine {
         let dir = entry.directory.clone();
         let resume = entry.claude_session_id.clone();
         let opts = self.build_opts(&session_id, &dir);
+
+        // A fresh turn supersedes any pending abort-settling for this session.
+        self.clear_aborting(&session_id);
 
         // Guard against a racing dispatch and an over-eager poller until the agent
         // registers; record_turn (or the failure path) clears these.

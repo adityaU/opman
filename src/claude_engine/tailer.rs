@@ -262,6 +262,17 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
                     continue;
                 }
 
+                // Just-aborted sessions: `claude stop` is graceful, so the agent (and a
+                // just-killed subagent's still-fresh transcript) can read busy for a beat.
+                // Force the session idle while it settles instead of bouncing it to busy.
+                let raw_busy = busy_by_uuid.get(&uuid).copied().unwrap_or(false)
+                    || engine.subagent_pending(&id);
+                if engine.abort_settling(&id, raw_busy) {
+                    absent.remove(&uuid);
+                    engine.set_busy(&id, false);
+                    continue;
+                }
+
                 let agent_busy = match busy_by_uuid.get(&uuid).copied() {
                     Some(b) => {
                         absent.remove(&uuid);
