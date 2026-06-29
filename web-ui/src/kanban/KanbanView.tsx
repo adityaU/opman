@@ -12,8 +12,10 @@ import type { ProjectInfo } from "../api/state";
 interface Props {
   /** All projects — the board has its own selector so it's self-contained. */
   projects: ProjectInfo[];
-  /** Project to show first (usually the active one). */
-  initialProjectIndex: number;
+  /** Project to show, driven by `?project` in the URL. */
+  projectIndex: number;
+  /** Switch the board's project — persists to the URL via the route hook. */
+  onSelectProject: (projectIndex: number) => void;
   /** Deep-link into a session's chat within the selected project. */
   onOpenSession: (sessionId: string, projectIndex: number) => void;
   onError: (msg: string) => void;
@@ -29,8 +31,8 @@ interface DragState {
 }
 
 export const KanbanView: React.FC<Props> = function KanbanView(p) {
-  // The board owns which project it shows — switching it changes the whole view.
-  const [selectedIndex, setSelectedIndex] = useState<number>(p.initialProjectIndex);
+  // The shown project is URL-driven (`?project`); switching it rewrites the URL.
+  const selectedIndex = p.projectIndex;
   const project = useMemo(
     () => p.projects.find((pr) => pr.index === selectedIndex) ?? p.projects[selectedIndex],
     [p.projects, selectedIndex],
@@ -147,7 +149,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
             <select
               className="kanban-project-select"
               value={selectedIndex}
-              onChange={(e) => setSelectedIndex(Number(e.target.value))}
+              onChange={(e) => p.onSelectProject(Number(e.target.value))}
               title="Switch project board"
             >
               {p.projects.map((pr) => (

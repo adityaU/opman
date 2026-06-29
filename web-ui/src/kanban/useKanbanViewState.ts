@@ -8,12 +8,16 @@ import { appNavigate, onLocationChange } from "../utils/navigation";
 export interface KanbanViewState {
   /** True when the current path is the Kanban board. */
   isKanbanView: boolean;
+  /** Project index the board is showing (`?project=<n>`), or null when unset. */
+  boardProjectIndex: number | null;
   /** Task to focus/open when the board mounts (`?task=<id>`), else null. */
   focusTaskId: string | null;
   /** Navigate to the board for a project (drops any prior task focus). */
   openKanban: (projectIndex?: number) => void;
   /** Navigate to the board and open a specific task's editor. */
   openKanbanTask: (taskId: string, projectIndex?: number) => void;
+  /** Switch the board to another project, syncing `?project` (no history entry). */
+  setBoardProject: (projectIndex: number) => void;
   /** Drop `?task` once the board has consumed it (no new history entry). */
   clearFocusTask: () => void;
 }
@@ -28,6 +32,13 @@ function readTask(): string | null {
   return new URLSearchParams(window.location.search).get("task");
 }
 
+function readProject(): number | null {
+  const raw = new URLSearchParams(window.location.search).get("project");
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
 /** Build a `/kanban` URL with optional project + task params. */
 function kanbanUrl(projectIndex?: number, taskId?: string): string {
   const params = new URLSearchParams();
@@ -40,6 +51,7 @@ function kanbanUrl(projectIndex?: number, taskId?: string): string {
 export function useKanbanViewState(): KanbanViewState {
   const [isKanbanView, setIsKanbanView] = useState<boolean>(readView);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(readTask);
+  const [boardProjectIndex, setBoardProjectIndex] = useState<number | null>(readProject);
 
   const openKanban = useCallback((projectIndex?: number) => {
     appNavigate(kanbanUrl(projectIndex));
@@ -47,6 +59,13 @@ export function useKanbanViewState(): KanbanViewState {
 
   const openKanbanTask = useCallback((taskId: string, projectIndex?: number) => {
     appNavigate(kanbanUrl(projectIndex, taskId));
+  }, []);
+
+  // Switch the board's project: rewrite `?project` in place (replace — a project
+  // switch isn't a separate back-stop) and drop any task focus from the old board.
+  const setBoardProject = useCallback((projectIndex: number) => {
+    if (!readView()) return;
+    appNavigate(kanbanUrl(projectIndex), { replace: true });
   }, []);
 
   const clearFocusTask = useCallback(() => {
@@ -66,8 +85,17 @@ export function useKanbanViewState(): KanbanViewState {
     return onLocationChange(() => {
       setIsKanbanView(readView());
       setFocusTaskId(readTask());
+      setBoardProjectIndex(readProject());
     });
   }, []);
 
-  return { isKanbanView, focusTaskId, openKanban, openKanbanTask, clearFocusTask };
+  return {
+    isKanbanView,
+    boardProjectIndex,
+    focusTaskId,
+    openKanban,
+    openKanbanTask,
+    setBoardProject,
+    clearFocusTask,
+  };
 }

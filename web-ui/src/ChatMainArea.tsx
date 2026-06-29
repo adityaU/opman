@@ -109,6 +109,10 @@ export interface ChatMainAreaProps {
   focusTaskId?: string | null;
   /** Clear the focus-task URL param once the board has consumed it. */
   clearFocusTask?: () => void;
+  /** Project the board shows (`?project`), or null to fall back to the active project. */
+  boardProjectIndex?: number | null;
+  /** Switch the board's project, syncing it to the URL. */
+  onSelectBoardProject?: (projectIndex: number) => void;
 }
 
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
@@ -168,7 +172,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
         >
           <KanbanView
             projects={p.appState.projects}
-            initialProjectIndex={p.activeProjectIndex}
+            projectIndex={p.boardProjectIndex ?? p.activeProjectIndex}
+            onSelectProject={p.onSelectBoardProject ?? (() => {})}
             onOpenSession={p.handleSelectSession}
             onError={(msg) => p.handlePanelError(msg)}
             focusTaskId={p.focusTaskId}

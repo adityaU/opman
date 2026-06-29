@@ -71,6 +71,36 @@ describe("useKanbanViewState", () => {
     expect(replaceStateSpy).not.toHaveBeenCalled();
   });
 
+  it("reads the board project from ?project", () => {
+    window.location.pathname = "/kanban";
+    window.location.search = "?project=4";
+    const { result } = renderHook(() => useKanbanViewState());
+    expect(result.current.boardProjectIndex).toBe(4);
+  });
+
+  it("boardProjectIndex is null when ?project is absent", () => {
+    window.location.pathname = "/kanban";
+    window.location.search = "";
+    const { result } = renderHook(() => useKanbanViewState());
+    expect(result.current.boardProjectIndex).toBeNull();
+  });
+
+  it("setBoardProject rewrites ?project in place (replaceState, drops task)", () => {
+    window.location.pathname = "/kanban";
+    window.location.search = "?project=1&task=t1";
+    const { result } = renderHook(() => useKanbanViewState());
+    act(() => result.current.setBoardProject(5));
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, "", "/kanban?project=5");
+    expect(pushStateSpy).not.toHaveBeenCalled();
+  });
+
+  it("setBoardProject is a no-op when not on the board", () => {
+    window.location.pathname = "/";
+    const { result } = renderHook(() => useKanbanViewState());
+    act(() => result.current.setBoardProject(2));
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+  });
+
   it("leaves kanban view when a location change navigates back to chat", () => {
     window.location.pathname = "/kanban";
     const { result } = renderHook(() => useKanbanViewState());

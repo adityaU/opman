@@ -108,13 +108,22 @@ export function ChatLayout() {
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
 
   // ── Kanban board view (its own route: /kanban) ──
-  const { isKanbanView, focusTaskId, openKanban, openKanbanTask, clearFocusTask } = useKanbanViewState();
-  // Leaving the board returns to the active session's chat ("/"); selecting a
-  // session is always a chat destination, so route it through setUrlSession.
+  const {
+    isKanbanView, boardProjectIndex, focusTaskId,
+    openKanban, openKanbanTask, setBoardProject, clearFocusTask,
+  } = useKanbanViewState();
+  // Leaving the board returns to chat ("/") for the project the board was on —
+  // honouring an in-board project switch. Prefer the session we came from when
+  // it's the same project, else that project's backend-active session.
   const goToChat = useCallback(() => {
-    if (activeSessionId) setUrlSession(activeSessionId, activeProjectIndex);
-    else appNavigate(`/?project=${activeProjectIndex}`);
-  }, [activeSessionId, activeProjectIndex, setUrlSession]);
+    const proj = boardProjectIndex ?? activeProjectIndex;
+    const sid =
+      (proj === activeProjectIndex ? activeSessionId : null) ??
+      appState?.projects?.[proj]?.active_session ??
+      null;
+    if (sid) setUrlSession(sid, proj);
+    else appNavigate(`/?project=${proj}`);
+  }, [boardProjectIndex, activeProjectIndex, activeSessionId, appState, setUrlSession]);
   const toggleKanbanView = useCallback(() => {
     if (isKanbanView) goToChat();
     else openKanban(activeProjectIndex);
@@ -369,6 +378,7 @@ export function ChatLayout() {
         handlePanelError={callbacks.handlePanelError}
         sessionTaskLinks={sessionTaskLinks} onOpenKanbanTask={handleOpenKanbanTask}
         focusTaskId={focusTaskId} clearFocusTask={clearFocusTask}
+        boardProjectIndex={boardProjectIndex} onSelectBoardProject={setBoardProject}
       />
       <ModalLayer
         modals={modalState.modals} openModal={openModal} closeModal={closeModal} closeModalSilent={closeModalSilent}
