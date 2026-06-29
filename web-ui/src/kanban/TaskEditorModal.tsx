@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, MessageSquare } from "lucide-react";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { TaskContentEditor } from "./TaskContentEditor";
@@ -22,6 +22,8 @@ interface Props {
   onSaved: (task: Task) => void;
   onDeleted: (taskId: string) => void;
   onError: (msg: string) => void;
+  /** Open the chat session this task launched (only shown when one exists). */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 const PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
@@ -127,6 +129,18 @@ export const TaskEditorModal: React.FC<Props> = function TaskEditorModal(p) {
       >
         <div className="kanban-modal-header">
           <h3>{editing ? "Edit task" : "New task"}</h3>
+          {editing?.session_id && p.onOpenSession && (
+            <button
+              className="kanban-btn kanban-open-session-btn"
+              onClick={() => {
+                p.onOpenSession!(editing.session_id!);
+                p.onClose();
+              }}
+              title="Open the chat session launched from this task"
+            >
+              <MessageSquare size={13} /> Open session
+            </button>
+          )}
           <button className="kanban-modal-close" onClick={p.onClose} title="Close (Esc)">
             <X size={15} />
           </button>

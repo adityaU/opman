@@ -347,6 +347,8 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
   flex-shrink: 0;
 }
 .kanban-modal-header h3 { margin: 0; font-size: var(--font-size-md, 1rem); color: var(--color-text); }
+/* Push the optional "Open session" action to the right, grouped with the close button. */
+.kanban-open-session-btn { margin-left: auto; margin-right: var(--space-2); padding: 4px 8px; font-size: var(--font-size-xs, .75rem); }
 .kanban-modal-close {
   background: none; border: none; cursor: pointer; color: var(--color-text-muted);
   display: inline-flex; padding: 4px; border-radius: var(--radius-sm, 6px);

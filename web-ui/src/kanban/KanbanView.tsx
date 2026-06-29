@@ -200,6 +200,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
           onSaved={board.upsertTask}
           onDeleted={board.removeTask}
           onError={p.onError}
+          onOpenSession={onOpenSession}
         />
       )}
 
