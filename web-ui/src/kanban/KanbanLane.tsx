@@ -15,7 +15,7 @@ interface Props {
   onDragEnd: () => void;
   /** Drop a task into this lane at the given index position. */
   onDrop: (laneId: string, beforeOrderIndex: number | null, afterOrderIndex: number | null) => void;
-  onEditTask: (task: Task) => void;
+  onOpenDetail: (task: Task) => void;
   onLaunchTask: (task: Task) => void;
   onOpenSession: (sessionId: string) => void;
 }
@@ -81,7 +81,7 @@ export const KanbanLane: React.FC<Props> = function KanbanLane(p) {
             lane={lane}
             onDragStart={(taskId) => p.onDragStart(taskId, lane.id)}
             onDragEnd={p.onDragEnd}
-            onEdit={p.onEditTask}
+            onOpenDetail={p.onOpenDetail}
             onLaunch={p.onLaunchTask}
             onOpenSession={p.onOpenSession}
             hasAttachment={p.attachmentTaskIds?.has(task.id)}

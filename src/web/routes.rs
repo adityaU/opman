@@ -278,6 +278,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
         )
         .route("/kanban/task/{task_id}/launch", post(handlers::launch_task))
         .route("/kanban/task/{task_id}/abort", post(handlers::abort_task))
+        .route("/kanban/task/{task_id}/note", post(handlers::add_user_note))
         .route("/kanban/asset/{task_id}/{filename}", get(handlers::serve_asset));
 
     // Attachment upload gets a larger body limit (videos up to ~200 MB).

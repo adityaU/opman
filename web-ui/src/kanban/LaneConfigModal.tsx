@@ -36,7 +36,7 @@ export const LaneConfigModal: React.FC<Props> = function LaneConfigModal(p) {
     const id = genLaneId();
     setLanes((prev) => [
       ...prev,
-      { id, name: "New lane", color: DEFAULT_COLOR, wip: null, terminal: false, agent: null, model: null },
+      { id, name: "New lane", color: DEFAULT_COLOR, wip: null, terminal: false, agent: null, model: null, prompt: null },
     ]);
   }, []);
 
@@ -122,7 +122,8 @@ export const LaneConfigModal: React.FC<Props> = function LaneConfigModal(p) {
 
             <div className="kanban-lane-rows">
               {lanes.map((lane, i) => (
-                <div key={lane.id} className="kanban-lane-row">
+                <div key={lane.id} className="kanban-lane-item">
+                <div className="kanban-lane-row">
                   <div className="kanban-lane-row-reorder">
                     <button onClick={() => moveLane(i, -1)} disabled={i === 0} aria-label="Move up">
                       <ChevronUp size={12} />
@@ -204,6 +205,16 @@ export const LaneConfigModal: React.FC<Props> = function LaneConfigModal(p) {
                   >
                     <Trash2 size={13} />
                   </button>
+                </div>
+                  <textarea
+                    className="kanban-input kanban-lane-prompt"
+                    value={lane.prompt ?? ""}
+                    onChange={(e) =>
+                      updateLane(lane.id, { prompt: e.target.value === "" ? null : e.target.value })
+                    }
+                    placeholder={`Pipeline prompt for "${lane.name}" — used when launching in Pipeline mode. The previous stage's output is appended automatically.`}
+                    rows={2}
+                  />
                 </div>
               ))}
             </div>

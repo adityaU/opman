@@ -6,6 +6,7 @@
 
 mod delegation;
 mod kanban;
+mod kanban_pipeline;
 mod memory;
 pub(crate) mod migrate;
 mod missions;

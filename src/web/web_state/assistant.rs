@@ -983,7 +983,7 @@ impl EvalResult {
 }
 
 /// Extract text content from a message Value.
-fn extract_message_text(msg: &serde_json::Value) -> String {
+pub(super) fn extract_message_text(msg: &serde_json::Value) -> String {
     // Try parts array first
     if let Some(parts) = msg.pointer("/info/parts").and_then(|v| v.as_array()) {
         let texts: Vec<&str> = parts

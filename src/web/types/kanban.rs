@@ -23,6 +23,10 @@ pub struct Lane {
     /// Optional default model for this lane (overridable at launch).
     #[serde(default)]
     pub model: Option<String>,
+    /// Per-stage prompt used by pipeline-mode launches. Each stage runs in its
+    /// own session seeded with this prompt plus the previous stage's output.
+    #[serde(default)]
+    pub prompt: Option<String>,
 }
 
 /// Adjacency list of allowed transitions: `lane_id -> [allowed target lane_ids]`.
@@ -135,6 +139,44 @@ pub struct KanbanNote {
 pub struct BoardResponse {
     pub board: Board,
     pub tasks: Vec<Task>,
+    /// Active/finished pipeline runs for the board's tasks. Lets the UI tag every
+    /// stage session to its own lane (a task only carries its *current* session).
+    #[serde(default)]
+    pub pipelines: Vec<PipelineRun>,
+}
+
+/// One stage of a pipeline-mode launch: a lane that runs in its own session,
+/// seeded with the previous stage's output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PipelineStage {
+    pub lane_id: String,
+    /// The session created for this stage (None until the stage starts).
+    #[serde(default)]
+    pub session_id: Option<String>,
+    /// "pending" | "running" | "done" | "failed".
+    pub status: String,
+    /// Captured textual output of the stage (the agent's final message).
+    #[serde(default)]
+    pub output: Option<String>,
+}
+
+/// A staged (pipeline) launch: each lane is a separate session, chained by output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PipelineRun {
+    pub task_id: String,
+    pub stages: Vec<PipelineStage>,
+    /// Index into `stages` of the stage currently running (or last run).
+    pub current_index: usize,
+    /// "running" | "done" | "failed".
+    pub status: String,
+    /// Launch agent/model the run was started with (carried across stages when a
+    /// lane has no override of its own).
+    #[serde(default)]
+    pub launch_model: Option<String>,
+    #[serde(default)]
+    pub launch_agent: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -189,6 +231,16 @@ pub struct LaunchTaskRequest {
     pub model: Option<String>,
     #[serde(default)]
     pub agent: Option<String>,
+    /// Launch mode: "single" (one session walks the whole board, default) or
+    /// "pipeline" (each lane runs in its own session, chained by output).
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+/// User-authored note posted from the board UI (distinct from agent notes).
+#[derive(Debug, Deserialize)]
+pub struct UserNoteRequest {
+    pub body: String,
 }
 
 /// Internal (MCP-facing) request to move a task's lane.
@@ -232,6 +284,7 @@ pub fn default_board(id: String, project_path: String) -> Board {
         terminal,
         agent: agent.map(|a| a.to_string()),
         model: None,
+        prompt: None,
     };
     let lanes = vec![
         lane("lane_todo", "Todo", "#8b95a7", None, false),

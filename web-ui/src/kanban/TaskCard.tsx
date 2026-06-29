@@ -7,7 +7,8 @@ interface Props {
   lane: Lane | undefined;
   onDragStart: (taskId: string) => void;
   onDragEnd: () => void;
-  onEdit: (task: Task) => void;
+  /** Open the task's detail modal (notes, stages, attachments). */
+  onOpenDetail: (task: Task) => void;
   onLaunch: (task: Task) => void;
   /** Deep-link into the launched session's chat. */
   onOpenSession: (sessionId: string) => void;
@@ -50,7 +51,7 @@ export const TaskCard: React.FC<Props> = React.memo(function TaskCard(p) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={p.onDragEnd}
-      onClick={() => p.onEdit(task)}
+      onClick={() => p.onOpenDetail(task)}
       style={{ borderLeft: `3px solid ${accent}` }}
     >
       <div className="kanban-card-title">{task.title || "Untitled"}</div>

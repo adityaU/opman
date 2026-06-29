@@ -119,7 +119,7 @@ pub use health_handlers::{get_health_status, get_health_audit, toggle_health_mit
 
 pub use kanban_handlers::{
     get_board, update_board_config, create_task, update_task, get_task, delete_task,
-    upload_attachment, serve_asset, launch_task, abort_task,
+    upload_attachment, serve_asset, launch_task, abort_task, add_user_note,
 };
 
 pub use kanban_internal::{

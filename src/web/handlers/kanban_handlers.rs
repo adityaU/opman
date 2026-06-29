@@ -256,6 +256,17 @@ pub async fn launch_task(
     if task.run_state == "running" || task.run_state == "launching" {
         return Err(WebError::BadRequest("task already running".into()));
     }
+
+    // Pipeline mode: each lane runs as its own session, chained by output.
+    if req.mode.as_deref() == Some("pipeline") {
+        let session_id = state
+            .web_state
+            .launch_kanban_pipeline(&id, req.model, req.agent)
+            .await
+            .map_err(WebError::BadRequest)?;
+        return Ok(Json(json!({ "session_id": session_id })));
+    }
+
     let board = state
         .web_state
         .kanban_get_board(&task.board_id)
@@ -335,6 +346,8 @@ pub async fn abort_task(
             .send()
             .await;
     }
+    // Stop any pipeline so the aborted stage's idle event doesn't chain onward.
+    state.web_state.stop_kanban_pipeline(&id).await;
     state
         .web_state
         .set_kanban_task_launch(
@@ -346,6 +359,26 @@ pub async fn abort_task(
         )
         .await;
     Ok(Json(json!({ "ok": true })))
+}
+
+/// POST /api/kanban/task/{id}/note — user adds a note from the board UI.
+/// The note is recorded and, if the task has a live session, delivered into it.
+pub async fn add_user_note(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+    Json(req): Json<UserNoteRequest>,
+) -> WebResult<impl IntoResponse> {
+    let body = req.body.trim();
+    if body.is_empty() {
+        return Err(WebError::BadRequest("note body is required".into()));
+    }
+    let note = state
+        .web_state
+        .kanban_add_user_note(&id, body)
+        .await
+        .map_err(map_kanban_err)?;
+    Ok(Json(note))
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

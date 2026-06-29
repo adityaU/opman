@@ -1,13 +1,15 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { X, Play } from "lucide-react";
+import { X, Play, User, GitBranch } from "lucide-react";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useProviders } from "../hooks/useProviders";
 import { fetchAgents, type AgentInfo } from "../api/session";
-import { launchTask, type Task, type Lane } from "../api/kanban";
+import { launchTask, type Task, type Lane, type Board, type LaunchMode } from "../api/kanban";
 
 interface Props {
   task: Task;
+  /** The full board — supplies the lane order for pipeline-mode stages. */
+  board: Board;
   /** The task's current lane — supplies the default agent + model. */
   lane: Lane | undefined;
   onClose: () => void;
@@ -31,8 +33,21 @@ export const LaunchModal: React.FC<Props> = function LaunchModal(p) {
   // Pre-select agent/model resolved from the task's current lane; both editable.
   const [agent, setAgent] = useState<string>(p.lane?.agent ?? "");
   const [model, setModel] = useState<string>(p.lane?.model ?? "");
+  const [mode, setMode] = useState<LaunchMode>("single");
   const [launching, setLaunching] = useState(false);
   const [launchedSession, setLaunchedSession] = useState<string | null>(null);
+
+  // Pipeline stages: lanes from the current lane forward, excluding the terminal
+  // review lane, that have an agent or a prompt configured (mirrors the backend).
+  const stageLanes = useMemo(() => {
+    const start = Math.max(
+      0,
+      p.board.lanes.findIndex((l) => l.id === p.task.lane_id),
+    );
+    return p.board.lanes
+      .slice(start)
+      .filter((l) => !l.terminal && (l.agent || (l.prompt && l.prompt.trim())));
+  }, [p.board.lanes, p.task.lane_id]);
 
   useEffect(() => {
     let alive = true;
@@ -62,7 +77,7 @@ export const LaunchModal: React.FC<Props> = function LaunchModal(p) {
   const handleLaunch = useCallback(async () => {
     setLaunching(true);
     try {
-      const body: { model?: string; agent?: string } = {};
+      const body: { model?: string; agent?: string; mode?: LaunchMode } = { mode };
       if (model) body.model = model;
       if (agent) body.agent = agent;
       const res = await launchTask(p.task.id, body);
@@ -71,7 +86,7 @@ export const LaunchModal: React.FC<Props> = function LaunchModal(p) {
       p.onError(e instanceof Error ? e.message : "Failed to launch task");
       setLaunching(false);
     }
-  }, [model, agent, p]);
+  }, [model, agent, mode, p]);
 
   return (
     <div className="kanban-modal-overlay" onClick={p.onClose}>
@@ -94,6 +109,62 @@ export const LaunchModal: React.FC<Props> = function LaunchModal(p) {
             <span className="kanban-launch-summary-title">{p.task.title}</span>
             {p.lane && <span className="kanban-launch-summary-lane">in {p.lane.name}</span>}
           </div>
+
+          {!launchedSession && (
+            <div className="kanban-mode-toggle" role="radiogroup" aria-label="Launch mode">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "single"}
+                className={`kanban-mode-option${mode === "single" ? " is-active" : ""}`}
+                onClick={() => setMode("single")}
+              >
+                <User size={14} />
+                <span className="kanban-mode-title">Single session</span>
+                <span className="kanban-mode-desc">One agent walks the whole board.</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "pipeline"}
+                className={`kanban-mode-option${mode === "pipeline" ? " is-active" : ""}`}
+                onClick={() => setMode("pipeline")}
+              >
+                <GitBranch size={14} />
+                <span className="kanban-mode-title">Pipeline</span>
+                <span className="kanban-mode-desc">Each lane runs in its own session, chained by output.</span>
+              </button>
+            </div>
+          )}
+
+          {!launchedSession && mode === "pipeline" && (
+            <div className="kanban-pipeline-preview">
+              <span className="kanban-field-label">
+                Stages ({stageLanes.length})
+              </span>
+              {stageLanes.length === 0 ? (
+                <p className="kanban-pipeline-empty">
+                  No stages — give lanes an agent or a prompt in “Configure lanes”.
+                </p>
+              ) : (
+                <ol className="kanban-pipeline-stages">
+                  {stageLanes.map((l, i) => (
+                    <li key={l.id} className="kanban-pipeline-stage">
+                      <span className="kanban-pipeline-stage-dot" style={{ background: l.color }} />
+                      <span className="kanban-pipeline-stage-name">{l.name}</span>
+                      {l.agent && <span className="kanban-pipeline-stage-agent">{l.agent}</span>}
+                      {!l.prompt?.trim() && (
+                        <span className="kanban-pipeline-stage-warn" title="No stage prompt set; a generic one is used">
+                          no prompt
+                        </span>
+                      )}
+                      {i < stageLanes.length - 1 && <span className="kanban-pipeline-arrow">→</span>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
 
           {launchedSession ? (
             <div className="kanban-launch-done">
@@ -160,9 +231,10 @@ export const LaunchModal: React.FC<Props> = function LaunchModal(p) {
               <button
                 className="kanban-btn kanban-btn-primary"
                 onClick={handleLaunch}
-                disabled={launching}
+                disabled={launching || (mode === "pipeline" && stageLanes.length === 0)}
               >
-                <Play size={13} /> {launching ? "Launching…" : "Launch"}
+                <Play size={13} />{" "}
+                {launching ? "Launching…" : mode === "pipeline" ? "Launch pipeline" : "Launch"}
               </button>
             </div>
           </div>

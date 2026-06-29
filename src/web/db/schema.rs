@@ -157,6 +157,18 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
             lane_to       TEXT,
             created_at    TEXT NOT NULL
         );
+
+        -- ── Kanban: pipeline runs (staged, multi-session launches) ──
+        CREATE TABLE IF NOT EXISTS kanban_pipeline_runs (
+            task_id       TEXT PRIMARY KEY REFERENCES kanban_tasks(id) ON DELETE CASCADE,
+            stages        TEXT NOT NULL DEFAULT '[]',
+            current_index INTEGER NOT NULL DEFAULT 0,
+            status        TEXT NOT NULL DEFAULT 'running',
+            launch_model  TEXT,
+            launch_agent  TEXT,
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())

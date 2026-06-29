@@ -3,6 +3,7 @@ import { Settings2, Plus, LayoutGrid, RefreshCw } from "lucide-react";
 import { useKanbanBoard, midpointOrder } from "./useKanbanBoard";
 import { KanbanLane } from "./KanbanLane";
 import { TaskEditorModal } from "./TaskEditorModal";
+import { TaskDetailModal } from "./TaskDetailModal";
 import { LaneConfigModal } from "./LaneConfigModal";
 import { LaunchModal } from "./LaunchModal";
 import { fetchAgents, type AgentInfo } from "../api/session";
@@ -47,6 +48,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
   const [editorDefaultLane, setEditorDefaultLane] = useState<string | undefined>(undefined);
   const [configOpen, setConfigOpen] = useState(false);
   const [launchTask, setLaunchTask] = useState<Task | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -101,6 +103,8 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
     setEditorDefaultLane(undefined);
     setEditorOpen(true);
   }, []);
+
+  const openDetail = useCallback((task: Task) => setDetailTaskId(task.id), []);
 
   // Back-link from a session: open the originating task's editor once its board
   // has loaded, then clear the URL param so it only fires once.
@@ -185,7 +189,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDrop={handleDrop}
-              onEditTask={openEditTask}
+              onOpenDetail={openDetail}
               onLaunchTask={setLaunchTask}
               onOpenSession={onOpenSession}
             />
@@ -219,9 +223,10 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
         />
       )}
 
-      {launchTask && (
+      {launchTask && b && (
         <LaunchModal
           task={launchTask}
+          board={b}
           lane={lanesById.get(launchTask.lane_id)}
           onClose={() => setLaunchTask(null)}
           onLaunched={(sessionId) => {
@@ -229,6 +234,25 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
             board.refetch();
             p.onOpenSession(sessionId, selectedIndex);
           }}
+          onError={p.onError}
+        />
+      )}
+
+      {detailTaskId && b && (
+        <TaskDetailModal
+          board={b}
+          taskId={detailTaskId}
+          pipeline={board.pipelines.find((pl) => pl.task_id === detailTaskId)}
+          onClose={() => setDetailTaskId(null)}
+          onEdit={(task) => {
+            setDetailTaskId(null);
+            openEditTask(task);
+          }}
+          onLaunch={(task) => {
+            setDetailTaskId(null);
+            setLaunchTask(task);
+          }}
+          onOpenSession={onOpenSession}
           onError={p.onError}
         />
       )}

@@ -237,6 +237,8 @@ pub(super) async fn handle_web_sse_event(
                         handle.try_advance_mission(&sid).await;
                         // Fire any on_session_idle routines bound to this session
                         handle.try_fire_idle_routines(&sid).await;
+                        // Kanban pipeline: chain the next stage when this one finishes
+                        handle.try_advance_kanban_pipeline(&sid).await;
                     }
                     "busy" | "retry" => {
                         handle.cancel_watcher_timer(&sid).await;

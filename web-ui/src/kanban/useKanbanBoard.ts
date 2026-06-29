@@ -5,11 +5,13 @@ import {
   type Board,
   type Task,
   type Transitions,
+  type PipelineRun,
 } from "../api/kanban";
 
 export interface KanbanBoardState {
   board: Board | null;
   tasks: Task[];
+  pipelines: PipelineRun[];
   loading: boolean;
   error: string | null;
   /** Force a refetch. */
@@ -50,6 +52,7 @@ export function useKanbanBoard(
 ): KanbanBoardState {
   const [board, setBoard] = useState<Board | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [pipelines, setPipelines] = useState<PipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -62,6 +65,7 @@ export function useKanbanBoard(
       if (!mountedRef.current) return;
       setBoard(resp.board);
       setTasks(resp.tasks);
+      setPipelines(resp.pipelines ?? []);
       setError(null);
     } catch (e) {
       if (!mountedRef.current) return;
@@ -172,5 +176,5 @@ export function useKanbanBoard(
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
   }, []);
 
-  return { board, tasks, loading, error, refetch: load, moveTask, upsertTask, removeTask, canMove };
+  return { board, tasks, pipelines, loading, error, refetch: load, moveTask, upsertTask, removeTask, canMove };
 }

@@ -55,7 +55,8 @@ impl super::WebStateHandle {
             }
         };
         let tasks = self.db.kanban_tasks_for_board(&board.id);
-        Some(BoardResponse { board, tasks })
+        let pipelines = self.db.kanban_pipelines_for_board(&board.id);
+        Some(BoardResponse { board, tasks, pipelines })
     }
 
     /// Replace a board's lanes + transition graph.
@@ -338,6 +339,56 @@ impl super::WebStateHandle {
             self.broadcast_task(&board.project_path, id);
         }
         Ok(())
+    }
+
+    /// Append a **user**-authored note from the board UI. Records it on the
+    /// timeline and, when the task has a live session, forwards it into that
+    /// session so the working agent is notified mid-flight. Returns the new note.
+    pub async fn kanban_add_user_note(&self, id: &str, body: &str) -> Result<KanbanNote, KanbanError> {
+        let task = self.db.kanban_task(id).ok_or(KanbanError::NotFound)?;
+        let note = KanbanNote {
+            id: format!("nte_{}", uuid_like_id()),
+            author: "user".to_string(),
+            body: body.to_string(),
+            lane_from: None,
+            lane_to: None,
+            created_at: Utc::now().to_rfc3339(),
+        };
+        self.db.insert_kanban_note(&note, id);
+
+        let board = self.db.kanban_board(&task.board_id);
+        if let Some(b) = &board {
+            self.broadcast_task(&b.project_path, id);
+        }
+
+        // Notify the running agent: inject the note as a message into its session.
+        let live = task.run_state == "running" || task.run_state == "launching";
+        if let (true, Some(session_id), Some(b)) = (live, task.session_id.as_deref(), &board) {
+            let dir = b.project_path.clone();
+            let sid = session_id.to_string();
+            let msg = format!(
+                "📝 New note from the human reviewer on this Kanban task:\n\n{body}\n\n\
+                 Take it into account and reply via kanban_add_note if it changes your plan."
+            );
+            let level = "info".to_string();
+            let event_tx = self.event_tx.clone();
+            // Fire-and-forget so the note POST returns immediately.
+            tokio::spawn(async move {
+                let base = crate::app::base_url().to_string();
+                let client = reqwest::Client::new();
+                let _ = client
+                    .post(format!("{base}/session/{sid}/message"))
+                    .header("x-opencode-directory", &dir)
+                    .json(&serde_json::json!({ "parts": [{ "type": "text", "text": msg }] }))
+                    .send()
+                    .await;
+                let _ = event_tx.send(WebEvent::Toast {
+                    message: "Note delivered to the running agent".to_string(),
+                    level,
+                });
+            });
+        }
+        Ok(note)
     }
 
     // ── Broadcast helpers ───────────────────────────────────────────

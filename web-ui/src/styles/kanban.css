@@ -504,3 +504,108 @@ html.flat-theme .kanban-modal { box-shadow: 0 4px 24px var(--black-15); }
 html.flat-theme .kanban-lane {
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-bg-panel));
 }
+
+/* ── Launch mode toggle ── */
+.kanban-mode-toggle { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
+.kanban-mode-option {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: var(--space-2) var(--space-3); border-radius: 8px; cursor: pointer; text-align: left;
+  border: 1px solid var(--color-border-subtle); background: var(--color-bg-element);
+  color: var(--color-text); transition: border-color .12s, background .12s;
+}
+.kanban-mode-option:hover { border-color: var(--color-border); }
+.kanban-mode-option.is-active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-element));
+}
+.kanban-mode-option svg { color: var(--color-primary); }
+.kanban-mode-title { font-weight: 600; font-size: 0.85rem; }
+.kanban-mode-desc { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.25; }
+
+/* ── Pipeline stage preview / list ── */
+.kanban-pipeline-preview { margin-bottom: var(--space-3); }
+.kanban-pipeline-empty { font-size: 0.78rem; color: var(--color-text-muted); margin: var(--space-1) 0 0; }
+.kanban-pipeline-stages {
+  list-style: none; margin: var(--space-2) 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-1); align-items: center;
+}
+.kanban-pipeline-stages-vert { flex-direction: column; align-items: stretch; gap: var(--space-1); }
+.kanban-pipeline-stage {
+  display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--color-text);
+  padding: 4px 8px; border-radius: 6px; background: var(--color-bg-element);
+  border: 1px solid var(--color-border-subtle);
+}
+.kanban-pipeline-stages-vert .kanban-pipeline-stage.is-active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-element));
+}
+.kanban-pipeline-stage-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.kanban-pipeline-stage-idx {
+  width: 18px; height: 18px; flex: none; border-radius: 50%; font-size: 0.68rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent); color: var(--color-primary);
+}
+.kanban-pipeline-stage-name { font-weight: 500; }
+.kanban-pipeline-stage-agent,
+.kanban-pipeline-stage-warn {
+  font-size: 0.68rem; color: var(--color-text-muted);
+  padding: 1px 5px; border-radius: 4px; background: var(--color-bg-panel);
+}
+.kanban-pipeline-stage-warn { color: var(--color-warning, #e0af68); }
+.kanban-pipeline-arrow { color: var(--color-text-muted); margin: 0 2px; }
+.kanban-stage-badge {
+  margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: .03em;
+  padding: 1px 6px; border-radius: 4px; background: var(--color-bg-panel); color: var(--color-text-muted);
+}
+.kanban-stage-badge-running { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.kanban-stage-badge-done { color: var(--color-success, #9ece6a); background: color-mix(in srgb, var(--color-success, #9ece6a) 14%, transparent); }
+.kanban-stage-badge-failed { color: var(--color-error, #f7768e); background: color-mix(in srgb, var(--color-error, #f7768e) 14%, transparent); }
+.kanban-stage-open {
+  display: inline-flex; align-items: center; border: none; background: transparent;
+  color: var(--color-text-muted); cursor: pointer; padding: 2px;
+}
+.kanban-stage-open:hover { color: var(--color-primary); }
+
+/* ── Per-lane prompt (config modal) ── */
+.kanban-lane-item { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-2); }
+.kanban-lane-prompt { width: 100%; resize: vertical; min-height: 2.2rem; font-size: 0.78rem; font-family: inherit; }
+
+/* ── Task detail modal ── */
+.kanban-detail-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.kanban-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.kanban-detail-lane { font-size: 0.78rem; color: var(--color-text-muted); }
+.kanban-detail-desc { font-size: 0.85rem; color: var(--color-text); white-space: pre-wrap; line-height: 1.45; }
+.kanban-detail-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.kanban-detail-h {
+  display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted);
+}
+.kanban-detail-empty { font-size: 0.8rem; color: var(--color-text-muted); margin: 0; }
+.kanban-detail-attachments { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.kanban-detail-attachments img { max-height: 90px; border-radius: 6px; border: 1px solid var(--color-border-subtle); }
+.kanban-attach-file { font-size: 0.78rem; color: var(--color-primary); }
+
+/* ── Notes timeline ── */
+.kanban-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.kanban-note { display: flex; gap: var(--space-2); }
+.kanban-note-icon {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; background: var(--color-bg-element); color: var(--color-text-muted);
+}
+.kanban-note-user .kanban-note-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.kanban-note-main { flex: 1; min-width: 0; }
+.kanban-note-head { display: flex; align-items: center; gap: var(--space-2); font-size: 0.72rem; color: var(--color-text-muted); }
+.kanban-note-author { font-weight: 600; color: var(--color-text); }
+.kanban-note-move { padding: 0 5px; border-radius: 4px; background: var(--color-bg-element); }
+.kanban-note-time { margin-left: auto; }
+.kanban-note-body { font-size: 0.83rem; color: var(--color-text); white-space: pre-wrap; line-height: 1.4; margin-top: 2px; }
+.kanban-note-user .kanban-note-body {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  padding: 6px 8px; border-radius: 6px;
+}
+
+/* ── Note compose (detail footer) ── */
+.kanban-detail-footer { display: block; }
+.kanban-note-compose { display: flex; gap: var(--space-2); align-items: flex-end; width: 100%; }
+.kanban-note-compose textarea { flex: 1; resize: vertical; min-height: 2.4rem; font-family: inherit; font-size: 0.83rem; }
+.kanban-btn-sm { padding: 2px 8px; font-size: 0.72rem; }

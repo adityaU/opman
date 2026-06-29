@@ -10,6 +10,8 @@ export interface Lane {
   terminal: boolean;
   agent: string | null;
   model: string | null;
+  /** Per-stage prompt used by pipeline-mode launches. */
+  prompt: string | null;
 }
 
 /** Adjacency list: laneId -> allowed target laneIds. */
@@ -66,9 +68,31 @@ export interface TaskDetail extends Task {
   attachments: Attachment[];
 }
 
+export type StageStatus = "pending" | "running" | "done" | "failed";
+
+export interface PipelineStage {
+  lane_id: string;
+  session_id: string | null;
+  status: StageStatus;
+  output: string | null;
+}
+
+export interface PipelineRun {
+  task_id: string;
+  stages: PipelineStage[];
+  current_index: number;
+  status: "running" | "done" | "failed" | "stopped";
+  launch_model: string | null;
+  launch_agent: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BoardResponse {
   board: Board;
   tasks: Task[];
+  /** Pipeline runs for the board's tasks (staged, multi-session launches). */
+  pipelines: PipelineRun[];
 }
 
 // ── Board ──────────────────────────────────────────────────────────────
@@ -151,13 +175,22 @@ export function assetUrl(taskId: string, filename: string): string {
 
 // ── Launch / Abort ─────────────────────────────────────────────────────
 
+export type LaunchMode = "single" | "pipeline";
+
 export async function launchTask(
   taskId: string,
-  body: { model?: string; agent?: string },
+  body: { model?: string; agent?: string; mode?: LaunchMode },
 ): Promise<{ session_id: string }> {
   return apiPost<{ session_id: string }>(`/kanban/task/${taskId}/launch`, body);
 }
 
 export async function abortTask(taskId: string): Promise<void> {
   return apiPost(`/kanban/task/${taskId}/abort`);
+}
+
+// ── Notes ──────────────────────────────────────────────────────────────
+
+/** Add a user-authored note; delivered into the running session when present. */
+export async function addUserNote(taskId: string, body: string): Promise<Note> {
+  return apiPost<Note>(`/kanban/task/${taskId}/note`, { body });
 }
