@@ -7,8 +7,16 @@
     background: transparent
 }
 
+/* Expanded = true full-screen overlay. Use fixed positioning so it escapes the
+   parent layout wrapper (whose inline height would otherwise pin the panel). */
 .terminal-panel.expanded {
-    height: 50vh
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 40;
+    background: var(--color-bg-panel);
+    border-top: none
 }
 
 .terminal-panel-header {
@@ -87,12 +95,22 @@
     gap: 1px;
     flex: 1;
     min-width: 0;
+    padding-left: var(--space-1)
+}
+
+/* Only the tab strip scrolls. Keeping overflow off .term-tab-bar lets the
+   new-tab dropdown (.term-kind-menu) overflow the bar instead of being clipped. */
+.term-tab-scroll {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
     overflow-x: auto;
-    padding-left: var(--space-1);
     scrollbar-width: none
 }
 
-.term-tab-bar::-webkit-scrollbar {
+.term-tab-scroll::-webkit-scrollbar {
     display: none
 }
 

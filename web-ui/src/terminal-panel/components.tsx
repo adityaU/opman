@@ -46,6 +46,7 @@ export function TabBar({
 }: TabBarProps) {
   return (
     <div className="term-tab-bar">
+      <div className="term-tab-scroll">
       {tabs.map((tab) => (
         <div
           key={tab.id}
@@ -85,6 +86,7 @@ export function TabBar({
           )}
         </div>
       ))}
+      </div>
 
       <div className="term-tab-new-wrapper">
         <button
