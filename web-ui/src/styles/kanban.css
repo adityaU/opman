@@ -587,17 +587,62 @@ html.flat-theme .kanban-lane {
 
 /* ── Notes timeline ── */
 .kanban-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.kanban-note { display: flex; gap: var(--space-2); }
+
+/* Every message note gets a consistent themed card; author is signalled by a
+   thin left accent + icon tint, not by the presence/absence of a surface. */
+.kanban-note {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 2px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+  background: var(--color-bg-element, color-mix(in srgb, var(--color-text) 5%, transparent));
+}
+.kanban-note-user {
+  border-left-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-element));
+}
 .kanban-note-icon {
   flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
-  align-items: center; justify-content: center; background: var(--color-bg-element); color: var(--color-text-muted);
+  align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent); color: var(--color-text-muted);
 }
 .kanban-note-user .kanban-note-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
 .kanban-note-main { flex: 1; min-width: 0; }
 .kanban-note-head { display: flex; align-items: center; gap: var(--space-2); font-size: 0.72rem; color: var(--color-text-muted); }
 .kanban-note-author { font-weight: 600; color: var(--color-text); }
-.kanban-note-move { padding: 0 5px; border-radius: 4px; background: var(--color-bg-element); }
 .kanban-note-time { margin-left: auto; }
+
+/* Lane-move / pipeline-transition entries — slim centered divider with a pill,
+   distinct from the author message cards. */
+.kanban-note-move-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 1px 0;
+  font-size: 0.7rem;
+}
+.kanban-note-move-row::before,
+.kanban-note-move-row::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-subtle);
+}
+.kanban-note-move-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 80%;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-element, color-mix(in srgb, var(--color-text) 5%, transparent));
+}
+.kanban-note-move-lanes { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text); font-weight: 600; white-space: nowrap; }
+.kanban-note-move-lanes svg { color: var(--color-text-muted); flex: none; }
+.kanban-note-move-label { color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kanban-note-body { font-size: 0.83rem; color: var(--color-text); line-height: 1.4; margin-top: 2px; word-break: break-word; overflow-wrap: anywhere; }
 .kanban-note-body > :first-child { margin-top: 0; }
 .kanban-note-body > :last-child { margin-bottom: 0; }
@@ -621,10 +666,11 @@ html.flat-theme .kanban-lane {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 .kanban-note-markdown pre code { background: none; padding: 0; }
-.kanban-note-user .kanban-note-body {
-  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-  padding: 6px 8px; border-radius: 6px;
-}
+
+/* Flat theme — solid panel surfaces, no translucency, mirrors the card/modal block above. */
+html.flat-theme .kanban-note { background: var(--color-bg-panel); }
+html.flat-theme .kanban-note-user { background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-panel)); }
+html.flat-theme .kanban-note-move-pill { background: var(--color-bg-panel); }
 
 /* ── Note compose (detail footer) ── */
 .kanban-detail-footer { display: block; }

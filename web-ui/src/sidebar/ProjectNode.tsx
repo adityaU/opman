@@ -6,21 +6,13 @@ import {
   Plus,
   Zap,
   GitBranch,
-  SquareKanban,
 } from "lucide-react";
 import { SessionRow } from "./SessionRow";
+import { TaskGroupNode, type TaskGroup } from "./TaskGroupNode";
 import { formatTime } from "./formatTime";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
 
 const MAX_VISIBLE_SESSIONS = 8;
-
-/** A kanban task and the (root) sessions launched from it — single-session
- *  tasks contribute one session, pipeline tasks one per stage. */
-interface TaskGroup {
-  taskId: string;
-  taskTitle: string;
-  sessions: SessionInfo[];
-}
 
 export interface ProjectNodeProps {
   project: ProjectInfo;
@@ -148,6 +140,9 @@ export function ProjectNode({
         group = {
           taskId: link.taskId,
           taskTitle: link.taskTitle || s.title || s.id.slice(0, 12),
+          // filteredParents is recency-sorted, so the first session seen carries
+          // the group's most-recent lane colour (the active stage in pipelines).
+          laneColor: link.laneColor,
           sessions: [],
         };
         byTask.set(link.taskId, group);
@@ -258,21 +253,12 @@ export function ProjectNode({
           {/* Kanban task groups — all sessions launched from a task, grouped
               under its title. Subsessions render nested via renderSession. */}
           {taskGroups.map((group) => (
-            <div key={group.taskId} className="sb-task-group">
-              <button
-                type="button"
-                className="sb-task-group-header"
-                onClick={onOpenKanbanTask ? () => onOpenKanbanTask(group.taskId) : undefined}
-                title={`Kanban task · ${group.taskTitle}`}
-              >
-                <SquareKanban size={12} className="sb-task-group-icon" />
-                <span className="sb-task-group-title">{group.taskTitle}</span>
-                <span className="sb-task-group-count">{group.sessions.length}</span>
-              </button>
-              <div className="sb-task-group-sessions">
-                {group.sessions.map(renderSession)}
-              </div>
-            </div>
+            <TaskGroupNode
+              key={group.taskId}
+              group={group}
+              onOpenKanbanTask={onOpenKanbanTask}
+              renderSession={renderSession}
+            />
           ))}
 
           {isEmpty ? (

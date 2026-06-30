@@ -69,13 +69,16 @@
 }
 
 /* ── Kanban task groups (sessions grouped under their task) ──── */
-/* Theme-agnostic: relies on color-mix tints + shared border vars so it reads
-   in both glassy and flat themes. */
+/* Lightweight section: a thin lane-coloured left accent instead of a heavy
+   filled block, with the header reading as a label. --lane-color is set per
+   group (the active stage's lane), falling back to the accent colour. Relies
+   only on color-mix tints + shared border vars so it reads in both themes. */
 
 .sb-task-group {
     margin: var(--space-1) 0;
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-accent) 5%, transparent)
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-left: 2px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 55%, transparent);
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 4%, transparent)
 }
 
 .sb-task-group-header {
@@ -86,8 +89,8 @@
     padding: var(--space-1-5) var(--space-2);
     background: none;
     border: none;
-    border-radius: var(--radius-lg);
-    color: var(--color-accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: var(--color-text);
     font-size: var(--font-size-2xs);
     font-weight: 600;
     text-align: left;
@@ -96,12 +99,13 @@
 }
 
 .sb-task-group-header:hover {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent)
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 10%, transparent)
 }
 
 .sb-task-group-icon {
     flex-shrink: 0;
-    opacity: .85
+    color: var(--lane-color, var(--color-accent));
+    opacity: .9
 }
 
 .sb-task-group-title {
@@ -120,16 +124,18 @@
     line-height: 14px;
     border-radius: 7px;
     text-align: center;
-    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color: var(--color-text-muted);
+    background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
     font-size: 9px;
     font-weight: 600
 }
 
-/* Sessions nested under a task group — left rail echoes the subagent grouping. */
+/* Sessions nested under a task group — left rail echoes the lane accent so the
+   group reads as one tidy sub-tree, aligned with the subagent indent. */
 .sb-task-group-sessions {
     padding-left: var(--space-1);
     margin-left: var(--space-3);
-    border-left: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent)
+    border-left: 1px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent)
 }
 
 .sb-open-remove {
@@ -285,4 +291,18 @@ html.flat-theme .sb-ctx-cancel {
 
 html.flat-theme .chat-sidebar .swipe-row-content {
     background: var(--color-bg-panel, var(--color-surface, #161b22))
+}
+
+/* Task groups: solid panel surface, opaque lane accent (no translucency). */
+html.flat-theme .sb-task-group {
+    background: var(--color-bg-panel);
+    border-left-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 65%, var(--color-bg-panel))
+}
+
+html.flat-theme .sb-task-group-header:hover {
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 14%, var(--color-bg-panel))
+}
+
+html.flat-theme .sb-task-group-sessions {
+    border-left-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 30%, var(--color-bg-panel))
 }

@@ -16,10 +16,15 @@ impl ClaudePEngine {
         }
     }
 
+    /// `--settings` JSON for each `claude -p` turn: the PreToolUse permission hook
+    /// plus `worktree.bgIsolation: "none"`. `-p` runs in the cwd and doesn't isolate
+    /// today, but pinning it keeps opman's "every session edits the one shared
+    /// working copy" invariant explicit and aligned with the `--bg` engine.
     fn hook_settings(&self) -> String {
         let cmd = format!("{} claude-hook", self.exe.to_string_lossy());
         json!({
-            "hooks": { "PreToolUse": [ { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] } ] }
+            "hooks": { "PreToolUse": [ { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] } ] },
+            "worktree": { "bgIsolation": "none" }
         })
         .to_string()
     }

@@ -844,8 +844,20 @@ impl ClaudeEngine {
             .unwrap_or_default()
     }
 
-    /// Build the `--settings` JSON registering opman's PreToolUse hook
-    /// (`opman claude-hook`), through which permissions/questions route back here.
+    /// Build the `--settings` JSON for every `claude --bg` turn opman spawns. It
+    /// registers opman's PreToolUse hook (`opman claude-hook`, through which
+    /// permissions/questions route back here) and pins `worktree.bgIsolation` to
+    /// `"none"`.
+    ///
+    /// The isolation pin is load-bearing for opman's whole model: by default a
+    /// `claude --bg` agent moves into its own `.claude/worktrees/<name>/` checkout
+    /// before editing, so each turn (and, in a kanban pipeline, each lane's fresh
+    /// session) lands in a *different* worktree — stranding the prior stage's
+    /// uncommitted work and hiding edits from opman's git/diff panels, which all
+    /// operate on the session directory. opman always wants every session to edit
+    /// the one shared working copy, so we declare that here rather than relying on
+    /// a hand-placed (untracked) `.claude/settings.json` that may be absent for a
+    /// given project path.
     fn hook_settings(&self) -> String {
         let cmd = format!("{} claude-hook", self.exe.to_string_lossy());
         serde_json::json!({
@@ -853,7 +865,8 @@ impl ClaudeEngine {
                 "PreToolUse": [
                     { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] }
                 ]
-            }
+            },
+            "worktree": { "bgIsolation": "none" }
         })
         .to_string()
     }
