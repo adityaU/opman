@@ -8,8 +8,12 @@ import {
   Flag,
   Loader2,
   AlertTriangle,
+  MessagesSquare,
+  ListTodo,
+  LayoutDashboard,
 } from "lucide-react";
 import { MessagePart } from "../types";
+import { ReadNotesBody, ListTasksBody, BoardSummaryBody } from "./KanbanQueryBodies";
 
 // ── Kanban MCP tool cards ─────────────────────────────────────────────
 //
@@ -18,11 +22,22 @@ import { MessagePart } from "../types";
 // action gets its own accent colour, icon and layout. Theme-aware: every colour
 // resolves from CSS custom properties so glassy and flat both work.
 
-type KanbanAction = "get_task" | "add_note" | "set_lane" | "complete" | "other";
+type KanbanAction =
+  | "get_task"
+  | "add_note"
+  | "set_lane"
+  | "complete"
+  | "read_notes"
+  | "list_tasks"
+  | "board_summary"
+  | "other";
 
 /** Strip provider prefixes (mcp__kanban__kanban_get_task, kanban_kanban_get_task…) */
 function kanbanAction(toolName: string): KanbanAction {
   const n = toolName.toLowerCase();
+  if (n.includes("read_notes")) return "read_notes";
+  if (n.includes("list_tasks")) return "list_tasks";
+  if (n.includes("board_summary") || n.includes("summary")) return "board_summary";
   if (n.includes("get_task")) return "get_task";
   if (n.includes("add_note")) return "add_note";
   if (n.includes("set_lane")) return "set_lane";
@@ -34,7 +49,7 @@ export function isKanbanTool(toolName: string): boolean {
   return toolName.toLowerCase().includes("kanban");
 }
 
-const asObj = (v: unknown): Record<string, unknown> => {
+export const asObj = (v: unknown): Record<string, unknown> => {
   if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
   if (typeof v === "string") {
     try {
@@ -47,9 +62,9 @@ const asObj = (v: unknown): Record<string, unknown> => {
   return {};
 };
 
-const str = (v: unknown): string => (typeof v === "string" ? v : "");
+export const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
-const shortId = (id: string): string => {
+export const shortId = (id: string): string => {
   if (!id) return "";
   const tail = id.startsWith("tsk_") ? id.slice(4) : id;
   return tail.length > 8 ? `${tail.slice(0, 8)}…` : tail;
@@ -66,6 +81,9 @@ const ACTION_META: Record<KanbanAction, { label: string; Icon: typeof Trello; to
   add_note: { label: "Kanban · Note", Icon: StickyNote, tone: "note" },
   set_lane: { label: "Kanban · Move", Icon: ArrowRightLeft, tone: "move" },
   complete: { label: "Kanban · Complete", Icon: CheckCircle2, tone: "done" },
+  read_notes: { label: "Kanban · Notes", Icon: MessagesSquare, tone: "info" },
+  list_tasks: { label: "Kanban · Tasks", Icon: ListTodo, tone: "info" },
+  board_summary: { label: "Kanban · Board", Icon: LayoutDashboard, tone: "info" },
   other: { label: "Kanban", Icon: Trello, tone: "info" },
 };
 
@@ -110,6 +128,9 @@ export function KanbanToolCard({ part }: { part: MessagePart }) {
         {action === "add_note" && <AddNoteBody body={str(input.body)} />}
         {action === "set_lane" && <SetLaneBody lane={str(input.lane)} />}
         {action === "complete" && <CompleteBody summary={str(input.summary)} />}
+        {action === "read_notes" && <ReadNotesBody output={output} isRunning={isRunning} />}
+        {action === "list_tasks" && <ListTasksBody output={output} isRunning={isRunning} />}
+        {action === "board_summary" && <BoardSummaryBody output={output} isRunning={isRunning} />}
         {action === "other" && output && <pre className="kanban-card-pre">{output}</pre>}
 
         {isError && (
