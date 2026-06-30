@@ -1,5 +1,7 @@
 import React from "react";
 import { Bot, UserRound } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
 import type { Note } from "../api/kanban";
 
 function fmtTime(iso: string): string {
@@ -27,7 +29,11 @@ export const NoteRow: React.FC<{ note: Note; laneName: (id: string | null) => st
             )}
             <span className="kanban-note-time">{fmtTime(note.created_at)}</span>
           </div>
-          <div className="kanban-note-body">{note.body}</div>
+          <div className="kanban-note-body">
+            <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
+              {note.body}
+            </ReactMarkdown>
+          </div>
         </div>
       </li>
     );

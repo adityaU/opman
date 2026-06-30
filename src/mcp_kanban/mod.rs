@@ -175,6 +175,42 @@ fn tool_definitions() -> serde_json::Value {
                 },
                 "required": ["task_id"]
             }
+        },
+        {
+            "name": "kanban_list_tasks",
+            "description": "List/search other tasks on your board. Use task_id to anchor to your board, then filter: by lane (all tasks in a lane), by tags (match any), and/or by a free-text query (matched against title, description and tags). Archived tasks are excluded unless include_archived is set. Returns compact task summaries (id, title, lane, tags, priority, run_state).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "task_id": task_id,
+                    "lane": { "type": "string", "description": "Only tasks in this lane (id or display name)." },
+                    "tags": { "type": "array", "items": { "type": "string" }, "description": "Match tasks having ANY of these tags (case-insensitive)." },
+                    "query": { "type": "string", "description": "Free-text search over title, description and tags (case-insensitive)." },
+                    "include_archived": { "type": "boolean", "description": "Include archived tasks (default false)." }
+                },
+                "required": ["task_id"]
+            }
+        },
+        {
+            "name": "kanban_board_summary",
+            "description": "Get an overview of your board: every lane with its active/archived task counts, WIP limit, terminal flag, and the lanes each lane may move to. Use task_id to anchor to your board. Good for orienting before drilling into a lane with kanban_list_tasks.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "task_id": task_id },
+                "required": ["task_id"]
+            }
+        },
+        {
+            "name": "kanban_read_notes",
+            "description": "Read the activity-timeline notes for one or more tasks (e.g. to learn what other tasks decided or where they got stuck). Pass task_ids; an empty list defaults to your own task. task_id anchors to your board and tasks on other boards are skipped. Returns each task's notes (author, body, lane transitions, timestamp).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "task_id": task_id,
+                    "task_ids": { "type": "array", "items": { "type": "string" }, "description": "Task ids whose notes to read (e.g. tsk_...). Empty = your own task." }
+                },
+                "required": ["task_id"]
+            }
         }
     ])
 }

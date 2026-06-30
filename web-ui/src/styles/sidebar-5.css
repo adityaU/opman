@@ -68,6 +68,70 @@
     flex-shrink: 0
 }
 
+/* ── Kanban task groups (sessions grouped under their task) ──── */
+/* Theme-agnostic: relies on color-mix tints + shared border vars so it reads
+   in both glassy and flat themes. */
+
+.sb-task-group {
+    margin: var(--space-1) 0;
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-accent) 5%, transparent)
+}
+
+.sb-task-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-2);
+    background: none;
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--color-accent);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.sb-task-group-header:hover {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent)
+}
+
+.sb-task-group-icon {
+    flex-shrink: 0;
+    opacity: .85
+}
+
+.sb-task-group-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.sb-task-group-count {
+    flex-shrink: 0;
+    min-width: 16px;
+    height: 14px;
+    padding: 0 5px;
+    line-height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    font-size: 9px;
+    font-weight: 600
+}
+
+/* Sessions nested under a task group — left rail echoes the subagent grouping. */
+.sb-task-group-sessions {
+    padding-left: var(--space-1);
+    margin-left: var(--space-3);
+    border-left: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent)
+}
+
 .sb-open-remove {
     display: flex;
     align-items: center;

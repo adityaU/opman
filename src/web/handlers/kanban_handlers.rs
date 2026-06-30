@@ -489,7 +489,7 @@ Begin now.",
 }
 
 /// Directory holding a task's uploaded assets (outside any project repo).
-fn assets_dir(task_id: &str) -> std::path::PathBuf {
+pub(crate) fn assets_dir(task_id: &str) -> std::path::PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("opman")

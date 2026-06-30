@@ -53,6 +53,25 @@ pub(super) async fn dispatch_tool(internal: Option<&Internal>, params: Option<Va
             )
             .await
         }
+        "kanban_list_tasks" => {
+            let body = json!({
+                "lane": args.get("lane").and_then(|v| v.as_str()),
+                "tags": args.get("tags").cloned().unwrap_or(json!([])),
+                "query": args.get("query").and_then(|v| v.as_str()),
+                "include_archived": args
+                    .get("include_archived")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
+            });
+            post(internal, &format!("/internal/kanban/task/{task_id}/query"), body).await
+        }
+        "kanban_board_summary" => {
+            get(internal, &format!("/internal/kanban/task/{task_id}/board")).await
+        }
+        "kanban_read_notes" => {
+            let body = json!({ "task_ids": args.get("task_ids").cloned().unwrap_or(json!([])) });
+            post(internal, &format!("/internal/kanban/task/{task_id}/notes"), body).await
+        }
         other => format!("Unknown tool: {other}"),
     }
 }

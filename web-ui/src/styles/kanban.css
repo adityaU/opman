@@ -598,7 +598,18 @@ html.flat-theme .kanban-lane {
 .kanban-note-author { font-weight: 600; color: var(--color-text); }
 .kanban-note-move { padding: 0 5px; border-radius: 4px; background: var(--color-bg-element); }
 .kanban-note-time { margin-left: auto; }
-.kanban-note-body { font-size: 0.83rem; color: var(--color-text); white-space: pre-wrap; line-height: 1.4; margin-top: 2px; }
+.kanban-note-body { font-size: 0.83rem; color: var(--color-text); line-height: 1.4; margin-top: 2px; word-break: break-word; overflow-wrap: anywhere; }
+.kanban-note-body > :first-child { margin-top: 0; }
+.kanban-note-body > :last-child { margin-bottom: 0; }
+.kanban-note-body p { margin: 0 0 0.4em; }
+.kanban-note-body ul, .kanban-note-body ol { margin: 0.2em 0; padding-left: 1.3em; }
+.kanban-note-body li { margin: 0.1em 0; }
+.kanban-note-body pre { margin: 0.4em 0; max-width: 100%; overflow-x: auto; }
+.kanban-note-body h1, .kanban-note-body h2, .kanban-note-body h3,
+.kanban-note-body h4, .kanban-note-body h5, .kanban-note-body h6 { margin: 0.4em 0 0.2em; font-size: 0.9rem; }
+.kanban-note-body a { color: var(--color-primary); }
+.kanban-note-body table { border-collapse: collapse; display: block; max-width: 100%; overflow-x: auto; }
+.kanban-note-body th, .kanban-note-body td { border: 1px solid var(--color-border); padding: 2px 6px; }
 .kanban-note-user .kanban-note-body {
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   padding: 6px 8px; border-radius: 6px;
@@ -613,7 +624,9 @@ html.flat-theme .kanban-lane {
 /* ── Archive column — slim by default, expands on hover or while dragging ─── */
 .kanban-archive-lane {
   flex: 0 0 48px;
-  overflow: hidden;
+  /* Always full height (the board stretches other lanes only to their content). */
+  align-self: stretch;
+  height: 100%;
   background: color-mix(in srgb, var(--color-text-muted) 5%, transparent);
   border-style: dashed;
   transition: flex-basis var(--transition-fast, 0.18s) ease,
@@ -621,9 +634,12 @@ html.flat-theme .kanban-lane {
 }
 .kanban-archive-lane:hover,
 .kanban-archive-lane.kanban-archive-armed {
-  flex: 0 0 260px;
+  flex: 0 0 280px;
 }
-/* Collapsed: rotate the header into a vertical rail so it reads as a spine. */
+/* Collapsed: clip the rail, hide the body, and rotate the header into a spine. */
+.kanban-archive-lane:not(:hover):not(.kanban-archive-armed) {
+  overflow: hidden;
+}
 .kanban-archive-header {
   gap: var(--space-2);
   white-space: nowrap;
@@ -642,40 +658,9 @@ html.flat-theme .kanban-lane {
 .kanban-archive-lane:not(:hover):not(.kanban-archive-armed) .kanban-archive-body {
   display: none;
 }
-.kanban-archive-icon { color: var(--color-text-muted); flex-shrink: 0; }
-
-.kanban-archive-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  opacity: 0.85;
-}
-.kanban-archive-card-title {
+/* Expanded body fills the column height and scrolls like a normal lane. */
+.kanban-archive-body {
   flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: none;
-  border: none;
-  color: var(--color-text);
-  text-align: left;
-  cursor: pointer;
-  font-size: var(--font-size-sm, 0.85rem);
+  overflow-y: auto;
 }
-.kanban-archive-card-title:hover { text-decoration: underline; }
-.kanban-archive-restore {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  background: none;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md, 8px);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px 6px;
-  font-size: var(--font-size-xs, 0.75rem);
-}
-.kanban-archive-restore:hover { color: var(--color-text); border-color: var(--color-primary); }
+.kanban-archive-icon { color: var(--color-text-muted); flex-shrink: 0; }

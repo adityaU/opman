@@ -1,24 +1,31 @@
 import React, { useState, useCallback } from "react";
-import { Archive, RotateCcw } from "lucide-react";
-import type { Task } from "../api/kanban";
+import { Archive } from "lucide-react";
+import type { Task, Lane } from "../api/kanban";
+import { TaskCard } from "./TaskCard";
 
 interface Props {
   /** Archived tasks for this board. */
   tasks: Task[];
+  /** Lane lookup for each card's accent color. */
+  lanesById: Map<string, Lane>;
   /** True while any card is being dragged — keeps the column expanded as a drop target. */
   isDragging: boolean;
   /** Archive the currently-dragged task (called on drop). */
   onArchiveDrop: () => void;
-  /** Restore an archived task to its lane. */
-  onUnarchive: (taskId: string) => void;
+  /** Begin dragging an archived card (marks it as an archive-sourced drag). */
+  onCardDragStart: (taskId: string) => void;
+  onDragEnd: () => void;
   onOpenDetail: (task: Task) => void;
+  onLaunchTask: (task: Task) => void;
+  onOpenSession: (sessionId: string) => void;
 }
 
 /**
  * A slim column pinned to the end of the board. Collapsed it shows just an icon +
  * count; on hover (or while a card is being dragged) it expands to a normal lane
- * width so tasks can be dropped in to archive them. Archived tasks live here and
- * can be restored. Archiving is distinct from deleting — the task is kept.
+ * width and full height, showing archived tasks as normal cards. Drop a task in to
+ * archive it; drag a card out (to any lane) to restore it. Archiving is distinct from
+ * deleting — the task is kept.
  */
 export const ArchiveColumn: React.FC<Props> = function ArchiveColumn(p) {
   const [isOver, setIsOver] = useState(false);
@@ -59,24 +66,16 @@ export const ArchiveColumn: React.FC<Props> = function ArchiveColumn(p) {
 
       <div className="kanban-lane-body kanban-archive-body">
         {sorted.map((task) => (
-          <div key={task.id} className="kanban-card kanban-archive-card">
-            <button
-              className="kanban-archive-card-title"
-              onClick={() => p.onOpenDetail(task)}
-              title={task.title}
-              type="button"
-            >
-              {task.title}
-            </button>
-            <button
-              className="kanban-archive-restore"
-              onClick={() => p.onUnarchive(task.id)}
-              title="Restore to its lane"
-              type="button"
-            >
-              <RotateCcw size={12} /> Restore
-            </button>
-          </div>
+          <TaskCard
+            key={task.id}
+            task={task}
+            lane={p.lanesById.get(task.lane_id)}
+            onDragStart={p.onCardDragStart}
+            onDragEnd={p.onDragEnd}
+            onOpenDetail={p.onOpenDetail}
+            onLaunch={p.onLaunchTask}
+            onOpenSession={p.onOpenSession}
+          />
         ))}
         {sorted.length === 0 && <div className="kanban-lane-empty">Drop tasks here to archive</div>}
       </div>

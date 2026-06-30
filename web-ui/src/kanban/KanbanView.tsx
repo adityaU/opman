@@ -11,6 +11,9 @@ import { fetchAgents, type AgentInfo } from "../api/session";
 import type { Board, Task, Lane } from "../api/kanban";
 import type { ProjectInfo } from "../api/state";
 
+/** Sentinel `fromLaneId` marking a drag that originated in the archive column. */
+const ARCHIVE_SOURCE = "__archive__";
+
 interface Props {
   /** All projects — the board has its own selector so it's self-contained. */
   projects: ProjectInfo[];
@@ -89,20 +92,24 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
 
   const handleDragEnd = useCallback(() => setDrag(null), []);
 
+  // Dropping onto the archive column archives the dragged task. (A card already
+  // dragged FROM the archive that's dropped back here is a no-op.)
   const handleArchiveDrop = useCallback(() => {
     if (!drag) return;
     board.archiveTask(drag.taskId, true);
     setDrag(null);
   }, [drag, board]);
 
-  const handleUnarchive = useCallback(
-    (taskId: string) => board.archiveTask(taskId, false),
-    [board],
-  );
-
   const handleDrop = useCallback(
     (laneId: string, beforeOrderIndex: number | null, afterOrderIndex: number | null) => {
       if (!drag) return;
+      // A card dragged out of the archive onto any lane is restored (unarchived) to its
+      // original lane — the drop target lane is ignored to avoid transition conflicts.
+      if (drag.fromLaneId === ARCHIVE_SOURCE) {
+        board.archiveTask(drag.taskId, false);
+        setDrag(null);
+        return;
+      }
       const order = midpointOrder(beforeOrderIndex, afterOrderIndex);
       board.moveTask(drag.taskId, laneId, order);
       setDrag(null);
@@ -196,7 +203,11 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
 
       <div className="kanban-board-scroll">
         {b?.lanes.map((lane) => {
-          const canDropHere = drag ? board.canMove(drag.fromLaneId, lane.id) : false;
+          // Archive-sourced drags can be restored into any lane; normal drags follow
+          // the transition graph.
+          const canDropHere = drag
+            ? drag.fromLaneId === ARCHIVE_SOURCE || board.canMove(drag.fromLaneId, lane.id)
+            : false;
           return (
             <KanbanLane
               key={lane.id}
@@ -216,10 +227,14 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
         {b && (
           <ArchiveColumn
             tasks={archivedTasks}
+            lanesById={lanesById}
             isDragging={!!drag}
             onArchiveDrop={handleArchiveDrop}
-            onUnarchive={handleUnarchive}
+            onCardDragStart={(taskId) => handleDragStart(taskId, ARCHIVE_SOURCE)}
+            onDragEnd={handleDragEnd}
             onOpenDetail={openDetail}
+            onLaunchTask={setLaunchTask}
+            onOpenSession={onOpenSession}
           />
         )}
       </div>

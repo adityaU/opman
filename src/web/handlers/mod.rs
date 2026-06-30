@@ -35,6 +35,7 @@ mod skills_handlers;
 mod health_handlers;
 mod kanban_handlers;
 mod kanban_internal;
+mod kanban_internal_query;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -124,4 +125,8 @@ pub use kanban_handlers::{
 
 pub use kanban_internal::{
     internal_get_task, internal_set_status, internal_add_note, internal_complete,
+};
+
+pub use kanban_internal_query::{
+    internal_query_tasks, internal_board_overview, internal_read_notes,
 };

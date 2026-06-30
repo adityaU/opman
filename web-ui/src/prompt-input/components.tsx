@@ -165,7 +165,7 @@ export function TextareaRow({
         <Paperclip size={15} />
       </button>
       {onAttachTerminal && (
-        <button className="prompt-btn prompt-terminal-btn" onClick={onAttachTerminal}
+        <button className="prompt-btn prompt-attach-btn prompt-terminal-btn" onClick={onAttachTerminal}
           disabled={disabled} title="Open the claude CLI attached to this session"
           aria-label="Attach terminal">
           <SquareTerminal size={15} />

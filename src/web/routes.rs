@@ -296,7 +296,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
         .route("/kanban/task/{task_id}/status", post(handlers::internal_set_status))
         .route("/kanban/task/{task_id}/note", post(handlers::internal_add_note))
-        .route("/kanban/task/{task_id}/complete", post(handlers::internal_complete));
+        .route("/kanban/task/{task_id}/complete", post(handlers::internal_complete))
+        .route("/kanban/task/{task_id}/query", post(handlers::internal_query_tasks))
+        .route("/kanban/task/{task_id}/board", get(handlers::internal_board_overview))
+        .route("/kanban/task/{task_id}/notes", post(handlers::internal_read_notes));
 
     // Public (unauthenticated) API routes — outside the main api_routes
     // so they don't go through the auth extractor.

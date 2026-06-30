@@ -97,6 +97,70 @@ fn extract_text(body: &Value) -> String {
         .to_string()
 }
 
+/// Decode any `file`/image parts (data-URL attachments from the web input) to disk and
+/// return their absolute paths. claude has no inline-image channel via `--bg`, so we
+/// persist uploads and reference the paths in the prompt — the agent reads them with its
+/// `Read` tool (which handles images). Files land under a per-session temp dir.
+fn save_attachments(body: &Value, session_id: &str) -> Vec<String> {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+    let Some(parts) = body.get("parts").and_then(|p| p.as_array()) else {
+        return vec![];
+    };
+    let mut saved = vec![];
+    let dir = std::env::temp_dir().join("opman-uploads").join(session_id);
+    for (i, p) in parts.iter().enumerate() {
+        let ty = p.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        if ty != "file" && ty != "image" {
+            continue;
+        }
+        // Accept either a `url`/`source.url` data URL or raw `data`+`mime`.
+        let url = p
+            .get("url")
+            .and_then(|u| u.as_str())
+            .or_else(|| p.get("source").and_then(|s| s.get("url")).and_then(|u| u.as_str()));
+        let (mime, b64) = match url.and_then(|u| u.strip_prefix("data:")).and_then(|rest| rest.split_once(";base64,")) {
+            Some((mime, b64)) => (mime.to_string(), b64.to_string()),
+            None => continue,
+        };
+        let Ok(bytes) = BASE64.decode(b64.as_bytes()) else {
+            continue;
+        };
+        let ext = mime.rsplit('/').next().filter(|e| !e.is_empty()).unwrap_or("bin");
+        let name = p
+            .get("filename")
+            .and_then(|n| n.as_str())
+            .filter(|n| !n.is_empty())
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| format!("upload-{i}.{ext}"));
+        // Sanitize: basename only, no traversal.
+        let name = std::path::Path::new(&name)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| format!("upload-{i}.{ext}"));
+        if std::fs::create_dir_all(&dir).is_err() {
+            continue;
+        }
+        let path = dir.join(&name);
+        if std::fs::write(&path, &bytes).is_ok() {
+            saved.push(path.to_string_lossy().into_owned());
+        }
+    }
+    saved
+}
+
+/// Append references to saved attachments to a prompt so the agent reads them.
+fn with_attachments(text: String, paths: &[String]) -> String {
+    if paths.is_empty() {
+        return text;
+    }
+    let list = paths
+        .iter()
+        .map(|p| format!("- {p}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{text}\n\n[Attached file(s) — use the Read tool to view]:\n{list}")
+}
+
 /// Valid claude permission modes (for the runtime `/permission-mode` command).
 const PERMISSION_MODES: &[&str] = &[
     "default",
@@ -345,7 +409,8 @@ async fn send_message(
     if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
         engine.set_agent(&id, agent);
     }
-    let text = extract_text(&body.0);
+    let attachments = save_attachments(&body.0, &id);
+    let text = with_attachments(extract_text(&body.0), &attachments);
     debug!(session = %id, "claude engine: send_message");
     dispatch_turn(engine, id, text);
     Json(json!({ "ok": true }))
@@ -356,7 +421,8 @@ async fn prompt_async(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    let text = extract_text(&body.0);
+    let attachments = save_attachments(&body.0, &id);
+    let text = with_attachments(extract_text(&body.0), &attachments);
     dispatch_turn(engine, id, text);
     Json(json!({ "ok": true }))
 }

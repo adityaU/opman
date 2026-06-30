@@ -18,6 +18,7 @@ mod db_sync;
 mod delegation;
 mod file_edits;
 mod kanban;
+mod kanban_query;
 mod kanban_pipeline;
 mod kanban_pipeline_brief;
 pub(crate) use kanban::KanbanError;

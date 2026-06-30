@@ -15,6 +15,7 @@ import { ToolCallProps } from "./types";
 import { formatToolName, formatDuration, getTaskSessionId } from "./helpers";
 import { ToolInput, ToolOutput, TodoList, EditDiffView } from "./components";
 import { A2UIRenderer } from "./a2ui";
+import { KanbanToolCard, isKanbanTool } from "./KanbanToolCard";
 import { useAutoOpen } from "../hooks/useAutoOpen";
 
 export const ToolCall = React.memo(function ToolCall({
@@ -38,6 +39,7 @@ export const ToolCall = React.memo(function ToolCall({
       part.state.output.startsWith("Command running in background with ID:"));
   const isBashTool = toolName.includes("bash") || toolName.includes("shell") || toolName.includes("terminal");
   const isA2UI = toolName.includes("ui_render") || toolName.includes("ui_ui_render") || toolName === "a2ui";
+  const isKanban = isKanbanTool(toolName);
 
   const state = part.state;
   const status = state?.status || "pending";
@@ -120,6 +122,11 @@ export const ToolCall = React.memo(function ToolCall({
         Rendering...
       </div>
     );
+  }
+
+  // Kanban MCP tools render as purpose-built cards — no accordion wrapper
+  if (isKanban) {
+    return <KanbanToolCard part={part} />;
   }
 
   // Task tools render directly without accordion wrapper

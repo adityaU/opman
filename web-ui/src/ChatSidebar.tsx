@@ -269,6 +269,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             onTogglePin={togglePin}
             onDeleteSession={triggerDelete}
             sessionTaskLinks={sessionTaskLinks}
+            onOpenKanbanTask={onOpenKanbanTask}
           />
         ))}
       </div>

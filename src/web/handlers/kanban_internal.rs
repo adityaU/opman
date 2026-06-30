@@ -65,6 +65,27 @@ pub async fn internal_get_task(
         .and_then(|tid| board.lane(tid))
         .map(lane_obj);
 
+    // Expose uploaded attachments with their absolute on-disk path so an agent (via the
+    // kanban MCP) can Read them directly — the HTTP asset URL is auth-gated and not
+    // reachable from a launched agent.
+    let attachments: Vec<_> = state
+        .web_state
+        .get_kanban_task_detail(&id)
+        .await
+        .map(|d| d.attachments)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|a| {
+            let path = super::kanban_handlers::assets_dir(&task.id).join(&a.filename);
+            json!({
+                "filename": a.filename,
+                "mime": a.mime,
+                "kind": a.kind,
+                "path": path.to_string_lossy(),
+            })
+        })
+        .collect();
+
     Ok(Json(json!({
         "id": task.id,
         "title": task.title,
@@ -76,6 +97,7 @@ pub async fn internal_get_task(
         "allowed_transitions": allowed,
         "terminal_lane": terminal,
         "run_state": task.run_state,
+        "attachments": attachments,
     })))
 }
 

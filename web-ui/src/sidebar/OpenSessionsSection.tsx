@@ -69,6 +69,9 @@ export function OpenSessionsSection({
       for (const s of p.sessions) {
         if (!openSessions.has(s.id)) continue;
         if (s.parentID && s.parentID !== "") continue;
+        // Sessions launched from a kanban task live under their task group in
+        // the project tree — keep them out of the plain Open Sessions list.
+        if (sessionTaskLinks?.has(s.id)) continue;
         out.push({
           sid: s.id,
           title: s.title || s.id.slice(0, 12),
@@ -80,7 +83,7 @@ export function OpenSessionsSection({
     }
     out.sort((a, b) => b.updated - a.updated);
     return out;
-  }, [projects, openSessions]);
+  }, [projects, openSessions, sessionTaskLinks]);
 
   if (entries.length === 0) return null;
 
