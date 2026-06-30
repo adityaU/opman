@@ -85,8 +85,8 @@ export function ChatLayout() {
     [permissions, crossSessionPermissions, subSessionIds],
   );
   const allQuestions = useMemo(
-    () => [...questions, ...crossSessionQuestions.filter((q) => subSessionIds.has(q.sessionID))],
-    [questions, crossSessionQuestions, subSessionIds],
+    () => [...questions, ...crossSessionQuestions],
+    [questions, crossSessionQuestions],
   );
 
   // ── Theme ──
