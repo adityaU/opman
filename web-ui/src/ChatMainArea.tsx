@@ -51,6 +51,10 @@ export interface ChatMainAreaProps {
   sidebarOpen: boolean;
   terminalOpen: boolean;
   terminalMounted: boolean;
+  /** Bumped when the input's "Attach terminal" button is clicked. */
+  terminalAttachNonce?: number;
+  /** Open an interactive terminal attached to the session's claude CLI agent. */
+  onAttachTerminal?: () => void;
   neovimOpen: boolean;
   editorMounted: boolean;
   gitOpen: boolean;
@@ -274,6 +278,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onOpenMemory={p.openMemory}
             onContentChange={p.handlePromptContentChange}
             backend={p.appState?.backend}
+            onAttachTerminal={p.onAttachTerminal}
           />
         </div>
 
@@ -287,6 +292,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
                   sessionId={p.activeSessionId}
                   onClose={p.closeTerminal}
                   visible={p.terminalOpen}
+                  attachNonce={p.terminalAttachNonce}
+                  attachKind="claude-attach"
                   mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))}
                 />
               </Suspense>

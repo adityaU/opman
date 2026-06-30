@@ -177,6 +177,7 @@ async fn reader(
 ) {
     let mut lines = BufReader::new(stdout).lines();
     let mut saw_init = false;
+    let mut clean_result = false;
     while let Ok(Some(line)) = lines.next_line().await {
         let line = line.trim();
         if line.is_empty() {
@@ -199,12 +200,39 @@ async fn reader(
             "user" => reparse_emit(&engine, &session_id).await,
             "result" => {
                 reparse_emit(&engine, &session_id).await;
+                // Surface a turn-level error (the transcript may not record it).
+                let is_err = v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false)
+                    || v.get("subtype").and_then(|s| s.as_str()).is_some_and(|s| s != "success");
+                if is_err {
+                    let detail = v
+                        .get("result")
+                        .or_else(|| v.get("error"))
+                        .and_then(|r| r.as_str())
+                        .map(str::to_string)
+                        .unwrap_or_else(|| {
+                            format!(
+                                "claude turn ended with an error ({})",
+                                v.get("subtype").and_then(|s| s.as_str()).unwrap_or("error")
+                            )
+                        });
+                    emit_system(&engine, &session_id, "error", &detail);
+                }
+                clean_result = true;
                 engine.set_busy(&session_id, false);
             }
             _ => {}
         }
     }
-    // EOF: the child exited or was killed. Mark idle and drop its handle.
+    // EOF: the child exited or was killed. If it died mid-turn (no clean result event),
+    // surface that to the frontend — this is the crash/kill case users were hitting.
+    if !clean_result && saw_init {
+        emit_system(
+            &engine,
+            &session_id,
+            "error",
+            "The claude process exited unexpectedly — the turn was interrupted. Send a message to resume.",
+        );
+    }
     engine.set_busy(&session_id, false);
     engine.procs.0.lock().await.remove(&session_id);
     // If a resume attempt died before any init event, the stored UUID is likely stale;
@@ -212,6 +240,36 @@ async fn reader(
     if attempted_resume && !saw_init {
         engine.forget_claude_uuid(&session_id);
     }
+}
+
+/// Emit a one-off system bubble (info/warning/error) to the session's frontend. Used for
+/// process/turn-level signals that never land in the transcript (crashes, result errors).
+fn emit_system(engine: &Arc<ClaudePEngine>, session_id: &str, level: &str, text: &str) {
+    let Some(sess) = engine.get_session(session_id) else { return };
+    let variant = match level {
+        "error" => "error",
+        "warning" | "warn" => "warning",
+        _ => "notification",
+    };
+    let ts = now_ms();
+    let mid = format!("msg_sys_{session_id}_{ts}");
+    engine.emit(
+        &sess.directory,
+        "message.updated",
+        json!({ "info": {
+            "role": "system", "variant": variant, "level": level,
+            "id": mid, "sessionID": session_id,
+            "time": { "created": ts, "completed": ts },
+        }}),
+    );
+    engine.emit(
+        &sess.directory,
+        "message.part.updated",
+        json!({ "sessionID": session_id, "time": ts, "part": {
+            "type": "text", "id": format!("{mid}:0"),
+            "messageID": mid, "sessionID": session_id, "text": text,
+        }}),
+    );
 }
 
 /// Re-parse the session's on-disk transcript: register any subagents as child sessions

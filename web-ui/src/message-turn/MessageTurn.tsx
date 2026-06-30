@@ -154,10 +154,14 @@ export const MessageTurn = React.memo(function MessageTurn({
   }, [isUser, plainText, onRetry]);
 
   if (role === "system") {
-    // opman-injected notifications (task-notifications, system reminders) render as
-    // a distinct compact bubble; other system messages stay hidden.
-    const isNotification = messages.some((m) => m.info.variant === "notification");
-    if (!isNotification) return null;
+    // System bubbles: opman-injected notifications (task-notifications, reminders) and
+    // claude's own surfaced system messages (info / warning / error). Anything without a
+    // recognized variant stays hidden.
+    const variant = (messages
+      .map((m) => m.info.variant as string | undefined)
+      .find((v) => v === "notification" || v === "warning" || v === "error")) as
+      | "notification" | "warning" | "error" | undefined;
+    if (!variant) return null;
     const noteText = messages
       .flatMap((m) => m.parts)
       .filter((p) => p.type === "text" && p.text)
@@ -165,10 +169,11 @@ export const MessageTurn = React.memo(function MessageTurn({
       .join("\n")
       .trim();
     if (!noteText) return null;
+    const icon = variant === "error" ? "⛔" : variant === "warning" ? "⚠️" : "⚙";
     return (
-      <div className="message-turn message-turn-notification">
-        <div className="notification-bubble">
-          <span className="notification-icon">⚙</span>
+      <div className={`message-turn message-turn-notification message-turn-sys-${variant}`}>
+        <div className={`notification-bubble notification-${variant}`}>
+          <span className="notification-icon">{icon}</span>
           <span className="notification-text">{noteText}</span>
         </div>
       </div>

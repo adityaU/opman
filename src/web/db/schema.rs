@@ -132,6 +132,7 @@ pub(super) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
             launch_model  TEXT,
             launch_agent  TEXT,
             run_state     TEXT NOT NULL DEFAULT 'idle',
+            archived      INTEGER NOT NULL DEFAULT 0,
             created_at    TEXT NOT NULL,
             updated_at    TEXT NOT NULL
         );

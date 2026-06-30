@@ -39,6 +39,16 @@ pub enum PtyCmd {
         session_id: Option<String>,
         reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
     },
+    /// Spawn an interactive `claude attach <short_id>` PTY for the Claude engine.
+    SpawnClaudeAttach {
+        id: String,
+        rows: u16,
+        cols: u16,
+        working_dir: std::path::PathBuf,
+        /// The claude background agent's short id to attach to.
+        short_id: String,
+        reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
+    },
     /// Write bytes to a web PTY.
     Write {
         id: String,

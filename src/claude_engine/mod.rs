@@ -401,6 +401,38 @@ impl ClaudeEngine {
         });
     }
 
+    /// Emit a one-off system bubble (info/warning/error) to a session's frontend, for
+    /// process/turn-level signals that never reach the transcript (spawn failures, crashes).
+    pub fn emit_system(&self, session_id: &str, level: &str, text: &str) {
+        let Some(dir) = self.get_session(session_id).map(|s| s.directory) else {
+            return;
+        };
+        let variant = match level {
+            "error" => "error",
+            "warning" | "warn" => "warning",
+            _ => "notification",
+        };
+        let ts = now_ms();
+        let mid = format!("msg_sys_{session_id}_{ts}");
+        self.emit(
+            &dir,
+            "message.updated",
+            serde_json::json!({ "info": {
+                "role": "system", "variant": variant, "level": level,
+                "id": mid, "sessionID": session_id,
+                "time": { "created": ts, "completed": ts },
+            }}),
+        );
+        self.emit(
+            &dir,
+            "message.part.updated",
+            serde_json::json!({ "sessionID": session_id, "time": ts, "part": {
+                "type": "text", "id": format!("{mid}:0"),
+                "messageID": mid, "sessionID": session_id, "text": text,
+            }}),
+        );
+    }
+
     pub fn get_session(&self, id: &str) -> Option<SessionEntry> {
         self.reg.lock().ok()?.sessions.get(id).cloned()
     }
@@ -888,10 +920,12 @@ impl ClaudeEngine {
                 }
                 Ok(Err(e)) => {
                     tracing::warn!("claude turn failed: {e}");
+                    engine.emit_system(&sid, "error", &format!("Failed to start the claude turn: {e}"));
                     engine.set_busy(&sid, false);
                 }
                 Err(e) => {
                     tracing::warn!("claude turn join error: {e}");
+                    engine.emit_system(&sid, "error", &format!("claude turn crashed: {e}"));
                     engine.set_busy(&sid, false);
                 }
             }

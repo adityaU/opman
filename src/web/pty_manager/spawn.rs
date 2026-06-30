@@ -283,3 +283,66 @@ pub(crate) fn spawn_opencode_pty(
         cols,
     })
 }
+
+/// Spawn an interactive `claude attach <short_id>` PTY for the Claude engine — opens the
+/// running background agent in a full interactive terminal. `short_id` is the claude
+/// background agent's short id (resolved from the opman session).
+pub(crate) fn spawn_claude_attach_pty(
+    rows: u16,
+    cols: u16,
+    working_dir: &std::path::Path,
+    short_id: &str,
+) -> Result<WebPty> {
+    let pty_system = native_pty_system();
+
+    let pair = pty_system
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .context("Failed to open PTY pair for claude attach")?;
+
+    let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
+    let mut cmd = CommandBuilder::new(claude_bin);
+    cmd.arg("attach");
+    cmd.arg(short_id);
+    cmd.cwd(working_dir);
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+
+    let child = pair
+        .slave
+        .spawn_command(cmd)
+        .context("Failed to spawn claude attach in web PTY")?;
+
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .context("Failed to clone web PTY reader")?;
+    let writer = pair
+        .master
+        .take_writer()
+        .context("Failed to get web PTY writer")?;
+
+    let output = RawOutputBuffer::new();
+    let output_clone = output.clone();
+    std::thread::Builder::new()
+        .name("web-pty-reader-claude".into())
+        .spawn(move || {
+            read_raw_pty_output(reader, output_clone);
+        })
+        .context("Failed to spawn web PTY reader thread")?;
+
+    debug!(rows, cols, ?working_dir, short_id, "Web claude attach PTY spawned");
+
+    Ok(WebPty {
+        writer,
+        master: pair.master,
+        child,
+        output,
+        rows,
+        cols,
+    })
+}

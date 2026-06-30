@@ -4,7 +4,7 @@ import { SearchAddon } from "@xterm/addon-search";
 
 // ── Types ──────────────────────────────────────────────
 
-export type PtyKind = "shell" | "neovim" | "git" | "opencode";
+export type PtyKind = "shell" | "neovim" | "git" | "opencode" | "claude-attach";
 export type TabStatus = "connecting" | "ready" | "error";
 
 export interface TabInfo {
@@ -21,6 +21,11 @@ export interface TerminalPanelProps {
   visible?: boolean;
   /** MCP: whether an AI agent is currently using terminal tools */
   mcpAgentActive?: boolean;
+  /** Bumped each time the user requests a fresh attach tab (e.g. the input's
+   *  "Attach terminal" button). On change, a new tab of `attachKind` is created. */
+  attachNonce?: number;
+  /** Kind to create when `attachNonce` changes (defaults to "claude-attach"). */
+  attachKind?: PtyKind;
 }
 
 export interface TabRuntime {
@@ -39,6 +44,7 @@ export const KIND_LABELS: Record<PtyKind, string> = {
   neovim: "Neovim",
   git: "Git",
   opencode: "OpenCode",
+  "claude-attach": "Claude",
 };
 
 export const TERM_OPTIONS = {

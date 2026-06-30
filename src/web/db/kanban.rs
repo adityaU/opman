@@ -82,7 +82,7 @@ impl Db {
         let conn = self.conn();
         conn.query_row(
             "SELECT id, board_id, lane_id, title, description, tags, priority, order_index,
-                    session_id, launch_model, launch_agent, run_state, created_at, updated_at
+                    session_id, launch_model, launch_agent, run_state, created_at, updated_at, archived
              FROM kanban_tasks WHERE id = ?1",
             params![id],
             row_to_task,
@@ -109,12 +109,12 @@ impl Db {
         let _ = conn.execute(
             "INSERT INTO kanban_tasks
                 (id, board_id, lane_id, title, description, tags, priority, order_index,
-                 session_id, launch_model, launch_agent, run_state, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+                 session_id, launch_model, launch_agent, run_state, created_at, updated_at, archived)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
             params![
                 t.id, t.board_id, t.lane_id, t.title, t.description, tags, t.priority,
                 t.order_index, t.session_id, t.launch_model, t.launch_agent, t.run_state,
-                t.created_at, t.updated_at
+                t.created_at, t.updated_at, t.archived as i64
             ],
         );
     }
@@ -126,11 +126,12 @@ impl Db {
         conn.execute(
             "UPDATE kanban_tasks SET lane_id=?2, title=?3, description=?4, tags=?5, priority=?6,
                  order_index=?7, session_id=?8, launch_model=?9, launch_agent=?10, run_state=?11,
-                 updated_at=?12
+                 updated_at=?12, archived=?13
              WHERE id=?1",
             params![
                 t.id, t.lane_id, t.title, t.description, tags, t.priority, t.order_index,
-                t.session_id, t.launch_model, t.launch_agent, t.run_state, t.updated_at
+                t.session_id, t.launch_model, t.launch_agent, t.run_state, t.updated_at,
+                t.archived as i64
             ],
         )
         .unwrap_or(0)
@@ -216,7 +217,7 @@ impl Db {
 }
 
 const TASK_SELECT: &str = "SELECT id, board_id, lane_id, title, description, tags, priority,
-        order_index, session_id, launch_model, launch_agent, run_state, created_at, updated_at
+        order_index, session_id, launch_model, launch_agent, run_state, created_at, updated_at, archived
      FROM kanban_tasks WHERE board_id = ?1 ORDER BY lane_id, order_index ASC";
 
 fn row_to_board(row: &rusqlite::Row) -> rusqlite::Result<Board> {
@@ -265,6 +266,7 @@ mod tests {
             launch_model: None,
             launch_agent: None,
             run_state: "idle".into(),
+            archived: false,
             created_at: "2026-01-01T00:00:00Z".into(),
             updated_at: "2026-01-01T00:00:00Z".into(),
         };
@@ -310,5 +312,6 @@ fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         run_state: row.get(11)?,
         created_at: row.get(12)?,
         updated_at: row.get(13)?,
+        archived: row.get::<_, i64>(14)? != 0,
     })
 }

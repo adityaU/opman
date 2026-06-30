@@ -1,7 +1,7 @@
 import React from "react";
 import {
   Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
-  ImageIcon, Paperclip, Send, Square, Loader2,
+  ImageIcon, Paperclip, Send, Square, Loader2, SquareTerminal,
 } from "lucide-react";
 import type { AgentInfo, ImageAttachment, FileSearchEntry } from "../api";
 import type { FileMention } from "./useFileMention";
@@ -150,11 +150,13 @@ interface TextareaRowProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
   onAbort: () => void;
+  /** Claude engine only: open an interactive terminal attached to this session's agent. */
+  onAttachTerminal?: () => void;
 }
 
 export function TextareaRow({
   textareaRef, fileInputRef, text, disabled, isBusy, isSending, hasContent,
-  onChange, onKeyDown, onPaste, onFileSelect, onSubmit, onAbort,
+  onChange, onKeyDown, onPaste, onFileSelect, onSubmit, onAbort, onAttachTerminal,
 }: TextareaRowProps) {
   return (
     <div className="prompt-textarea-row">
@@ -162,6 +164,13 @@ export function TextareaRow({
         disabled={disabled} title="Attach image (or paste/drag)" aria-label="Attach image">
         <Paperclip size={15} />
       </button>
+      {onAttachTerminal && (
+        <button className="prompt-btn prompt-terminal-btn" onClick={onAttachTerminal}
+          disabled={disabled} title="Open the claude CLI attached to this session"
+          aria-label="Attach terminal">
+          <SquareTerminal size={15} />
+        </button>
+      )}
       <input ref={fileInputRef} type="file"
         accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/bmp"
         multiple onChange={onFileSelect} style={{ display: "none" }} />

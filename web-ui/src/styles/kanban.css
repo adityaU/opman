@@ -609,3 +609,73 @@ html.flat-theme .kanban-lane {
 .kanban-note-compose { display: flex; gap: var(--space-2); align-items: flex-end; width: 100%; }
 .kanban-note-compose textarea { flex: 1; resize: vertical; min-height: 2.4rem; font-family: inherit; font-size: 0.83rem; }
 .kanban-btn-sm { padding: 2px 8px; font-size: 0.72rem; }
+
+/* ── Archive column — slim by default, expands on hover or while dragging ─── */
+.kanban-archive-lane {
+  flex: 0 0 48px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text-muted) 5%, transparent);
+  border-style: dashed;
+  transition: flex-basis var(--transition-fast, 0.18s) ease,
+    background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
+}
+.kanban-archive-lane:hover,
+.kanban-archive-lane.kanban-archive-armed {
+  flex: 0 0 260px;
+}
+/* Collapsed: rotate the header into a vertical rail so it reads as a spine. */
+.kanban-archive-header {
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.kanban-archive-lane:not(:hover):not(.kanban-archive-armed) .kanban-archive-header {
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-start;
+  padding-top: var(--space-3);
+}
+.kanban-archive-lane:not(:hover):not(.kanban-archive-armed) .kanban-archive-name {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.05em;
+}
+.kanban-archive-lane:not(:hover):not(.kanban-archive-armed) .kanban-archive-body {
+  display: none;
+}
+.kanban-archive-icon { color: var(--color-text-muted); flex-shrink: 0; }
+
+.kanban-archive-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  opacity: 0.85;
+}
+.kanban-archive-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--font-size-sm, 0.85rem);
+}
+.kanban-archive-card-title:hover { text-decoration: underline; }
+.kanban-archive-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: var(--font-size-xs, 0.75rem);
+}
+.kanban-archive-restore:hover { color: var(--color-text); border-color: var(--color-primary); }

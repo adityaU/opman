@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { TerminalPanelProps } from "./types";
 import { useTerminalTabs, useTerminalLifecycle, useTerminalSearch } from "./hooks";
@@ -9,6 +9,8 @@ export function TerminalPanel({
   onClose,
   visible = true,
   mcpAgentActive = false,
+  attachNonce,
+  attachKind = "claude-attach",
 }: TerminalPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -54,6 +56,15 @@ export function TerminalPanel({
     searchPrev,
     closeSearch,
   } = useTerminalSearch(activeTabId, runtimesRef);
+
+  // Open a fresh attach tab whenever the caller bumps `attachNonce` (the input's
+  // "Attach terminal" button). Skip the initial render so it doesn't fire spuriously.
+  const lastAttachNonce = useRef<number | undefined>(attachNonce);
+  useEffect(() => {
+    if (attachNonce === undefined || attachNonce === lastAttachNonce.current) return;
+    lastAttachNonce.current = attachNonce;
+    createTab(attachKind);
+  }, [attachNonce, attachKind, createTab]);
 
   const handleCloseAll = useCallback(() => closeAll(onClose), [closeAll, onClose]);
 

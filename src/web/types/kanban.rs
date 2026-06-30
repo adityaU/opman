@@ -94,6 +94,10 @@ pub struct Task {
     pub launch_agent: Option<String>,
     #[serde(default = "default_run_state")]
     pub run_state: String,
+    /// Archived tasks are hidden from their lane and collected in the board's
+    /// archive column. Distinct from deletion — the task (and its lane) is kept.
+    #[serde(default)]
+    pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -185,6 +189,8 @@ pub struct UpdateTaskRequest {
     pub lane_id: Option<String>,
     #[serde(default)]
     pub order_index: Option<f64>,
+    #[serde(default)]
+    pub archived: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

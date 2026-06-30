@@ -441,3 +441,17 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Surfaced claude system messages — warnings & errors get a colored, solid accent
+   so they stand apart from muted info notifications. */
+.message-turn-notification .notification-bubble.notification-warning {
+  border-style: solid;
+  border-color: var(--color-warning, #e0af68);
+  color: var(--color-warning, #e0af68);
+  opacity: 1;
+}
+.message-turn-notification .notification-bubble.notification-error {
+  border-style: solid;
+  border-color: var(--color-error, #f7768e);
+  color: var(--color-error, #f7768e);
+  opacity: 1;
+}

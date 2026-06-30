@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   fetchBoard,
   patchTask as apiPatchTask,
+  setTaskArchived as apiSetArchived,
   type Board,
   type Task,
   type Transitions,
@@ -22,6 +23,8 @@ export interface KanbanBoardState {
   upsertTask: (task: Task) => void;
   /** Remove a task from local state (after delete). */
   removeTask: (taskId: string) => void;
+  /** Optimistically archive/unarchive a task (distinct from delete). Reverts on failure. */
+  archiveTask: (taskId: string, archived: boolean) => Promise<void>;
   /** Whether a lane move is allowed by the transition graph. */
   canMove: (fromLaneId: string, toLaneId: string) => boolean;
 }
@@ -176,5 +179,27 @@ export function useKanbanBoard(
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
   }, []);
 
-  return { board, tasks, pipelines, loading, error, refetch: load, moveTask, upsertTask, removeTask, canMove };
+  const archiveTask = useCallback(async (taskId: string, archived: boolean) => {
+    let previous: Task | undefined;
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== taskId) return t;
+        previous = t;
+        return { ...t, archived };
+      }),
+    );
+    try {
+      const updated = await apiSetArchived(taskId, archived);
+      if (!mountedRef.current) return;
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    } catch (e) {
+      if (mountedRef.current && previous) {
+        const prevTask = previous;
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? prevTask : t)));
+      }
+      onErrorRef.current?.(e instanceof Error ? e.message : "Failed to archive task");
+    }
+  }, []);
+
+  return { board, tasks, pipelines, loading, error, refetch: load, moveTask, upsertTask, removeTask, archiveTask, canMove };
 }

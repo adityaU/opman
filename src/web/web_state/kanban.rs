@@ -93,6 +93,7 @@ impl super::WebStateHandle {
             launch_model: None,
             launch_agent: None,
             run_state: "idle".to_string(),
+            archived: false,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -133,6 +134,9 @@ impl super::WebStateHandle {
         }
         if let Some(v) = req.order_index {
             task.order_index = v;
+        }
+        if let Some(v) = req.archived {
+            task.archived = v;
         }
         task.updated_at = Utc::now().to_rfc3339();
         self.db.update_kanban_task(&task);

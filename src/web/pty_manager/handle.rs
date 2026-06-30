@@ -98,6 +98,29 @@ impl WebPtyHandle {
         rx.await.map_err(|_| "PTY manager dropped".to_string())?
     }
 
+    /// Spawn an interactive `claude attach <short_id>` PTY (Claude engine).
+    pub async fn spawn_claude_attach(
+        &self,
+        id: String,
+        rows: u16,
+        cols: u16,
+        working_dir: std::path::PathBuf,
+        short_id: String,
+    ) -> Result<RawOutputBuffer, String> {
+        let (tx, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(PtyCmd::SpawnClaudeAttach {
+                id,
+                rows,
+                cols,
+                working_dir,
+                short_id,
+                reply: tx,
+            })
+            .map_err(|_| "PTY manager not running".to_string())?;
+        rx.await.map_err(|_| "PTY manager dropped".to_string())?
+    }
+
     /// Write bytes to a web PTY.
     pub async fn write(&self, id: &str, data: Vec<u8>) -> bool {
         let (tx, rx) = oneshot::channel();

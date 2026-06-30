@@ -77,6 +77,20 @@ pub async fn create_task(
     Ok(Json(task))
 }
 
+/// Stop the background agent for a launched task's session, **without deleting the
+/// session** — used when a task is archived or deleted so a running `claude` background
+/// agent (claude/claudep backends) doesn't keep working. `POST /session/{id}/abort` stops
+/// the agent and keeps the conversation. No-op if the task never launched a session.
+async fn stop_task_agent(state: &ServerState, session_id: Option<&str>) {
+    let Some(sid) = session_id else { return };
+    let base = crate::app::base_url().to_string();
+    let _ = state
+        .http_client
+        .post(format!("{base}/session/{sid}/abort"))
+        .send()
+        .await;
+}
+
 /// PATCH /api/kanban/task/{id}
 pub async fn update_task(
     State(state): State<ServerState>,
@@ -84,11 +98,27 @@ pub async fn update_task(
     Path(id): Path<String>,
     Json(req): Json<UpdateTaskRequest>,
 ) -> WebResult<impl IntoResponse> {
+    let archiving = matches!(req.archived, Some(true));
     let task = state
         .web_state
         .update_kanban_task(&id, req)
         .await
         .map_err(map_kanban_err)?;
+    // Archiving a task stops its background agent (the session is kept).
+    if archiving {
+        stop_task_agent(&state, task.session_id.as_deref()).await;
+        state.web_state.stop_kanban_pipeline(&id).await;
+        state
+            .web_state
+            .set_kanban_task_launch(
+                &id,
+                task.session_id.clone(),
+                task.launch_model.clone(),
+                task.launch_agent.clone(),
+                "idle",
+            )
+            .await;
+    }
     Ok(Json(task))
 }
 
@@ -112,6 +142,10 @@ pub async fn delete_task(
     _auth: AuthUser,
     Path(id): Path<String>,
 ) -> WebResult<impl IntoResponse> {
+    // Stop the background agent first (keep the session — only the task row is removed).
+    if let Some(task) = state.web_state.kanban_get_task(&id).await {
+        stop_task_agent(&state, task.session_id.as_deref()).await;
+    }
     if state.web_state.delete_kanban_task(&id).await {
         Ok(Json(json!({ "ok": true })))
     } else {

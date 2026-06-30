@@ -563,16 +563,70 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                         }
                     }
                 }
+
+                // Surface API/refusal errors: claude marks the assistant line
+                // `isApiErrorMessage` (e.g. overloaded, rate-limited, refusal). Set
+                // `info.error` so the web UI renders its red error banner.
+                if v.get("isApiErrorMessage").and_then(|b| b.as_bool()).unwrap_or(false) {
+                    let errtext: String = out.messages[idx]
+                        .parts
+                        .iter()
+                        .filter(|p| p.get("type").and_then(|t| t.as_str()) == Some("text"))
+                        .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    let errtext = if errtext.trim().is_empty() {
+                        "Claude API error".to_string()
+                    } else {
+                        errtext
+                    };
+                    out.messages[idx].info["error"] = json!(errtext);
+                }
             }
             "system" => {
-                // `turn_duration` is written when a turn finishes — complete its assistant.
-                if v.get("subtype").and_then(|s| s.as_str()) == Some("turn_duration") {
-                    let ts = v
-                        .get("timestamp")
-                        .and_then(|t| t.as_str())
-                        .map(iso_to_ms)
-                        .unwrap_or(0);
+                let subtype = v.get("subtype").and_then(|s| s.as_str()).unwrap_or("");
+                let ts = v
+                    .get("timestamp")
+                    .and_then(|t| t.as_str())
+                    .map(iso_to_ms)
+                    .unwrap_or(0);
+                if subtype == "turn_duration" {
+                    // Written when a turn finishes — complete its assistant.
                     mark_completed(&mut out.messages, last_assistant_idx.take(), ts);
+                } else if let Some(content) = v
+                    .get("content")
+                    .and_then(|c| c.as_str())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
+                    // Surface claude's own system messages — warnings, errors, and other
+                    // informational notices (e.g. "Unknown command", "no agent named …")
+                    // — as a distinct bubble so nothing claude reports is hidden.
+                    let level = v.get("level").and_then(|l| l.as_str()).unwrap_or("info");
+                    let variant = match level {
+                        "error" => "error",
+                        "warning" | "warn" => "warning",
+                        _ => "notification",
+                    };
+                    sys_turn += 1;
+                    let mid = format!("msg_sys_{session_id}_{sys_turn}");
+                    out.messages.push(MsgOut {
+                        info: json!({
+                            "role": "system",
+                            "variant": variant,
+                            "level": level,
+                            "id": mid,
+                            "sessionID": session_id,
+                            "time": { "created": ts, "completed": ts },
+                        }),
+                        parts: vec![json!({
+                            "type": "text",
+                            "id": format!("{mid}:0"),
+                            "messageID": mid,
+                            "sessionID": session_id,
+                            "text": notification_text(content),
+                        })],
+                    });
                 }
             }
             _ => {}
@@ -945,5 +999,33 @@ mod tests {
             Some("a1834b2decb148144".to_string())
         );
         assert_eq!(parse_agent_id("no id here"), None);
+    }
+
+    // claude's own system messages (warnings/errors) must surface as system bubbles with
+    // a level-derived variant; turn_duration stays a control line (no bubble).
+    #[test]
+    fn system_lines_surface_as_bubbles_by_level() {
+        let transcript = concat!(
+            r#"{"type":"system","subtype":"informational","level":"warning","content":"Unknown command: /agent. Did you mean /agents?","timestamp":"2026-06-28T08:00:00.000Z"}"#, "\n",
+            r#"{"type":"system","subtype":"informational","level":"error","content":"Tool execution failed","timestamp":"2026-06-28T08:00:01.000Z"}"#, "\n",
+            r#"{"type":"system","subtype":"turn_duration","timestamp":"2026-06-28T08:00:02.000Z"}"#, "\n",
+        );
+        let p = parse_str(transcript, "ses");
+        let sys: Vec<_> = p.messages.iter().filter(|m| m.info["role"] == "system").collect();
+        assert_eq!(sys.len(), 2, "two content system lines surface; turn_duration does not");
+        assert_eq!(sys[0].info["variant"], "warning");
+        assert_eq!(sys[0].parts[0]["text"], "Unknown command: /agent. Did you mean /agents?");
+        assert_eq!(sys[1].info["variant"], "error");
+    }
+
+    // An API/refusal error assistant line gets `info.error` so the UI shows its banner.
+    #[test]
+    fn api_error_message_sets_error_field() {
+        let transcript = concat!(
+            r#"{"type":"assistant","isApiErrorMessage":true,"timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_e","content":[{"type":"text","text":"Overloaded. Please try again."}]}}"#, "\n",
+        );
+        let p = parse_str(transcript, "ses");
+        let asst = p.messages.iter().find(|m| m.info["role"] == "assistant").unwrap();
+        assert_eq!(asst.info["error"], "Overloaded. Please try again.");
     }
 }

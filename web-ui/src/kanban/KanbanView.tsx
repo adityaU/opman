@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Settings2, Plus, LayoutGrid, RefreshCw } from "lucide-react";
 import { useKanbanBoard, midpointOrder } from "./useKanbanBoard";
 import { KanbanLane } from "./KanbanLane";
+import { ArchiveColumn } from "./ArchiveColumn";
 import { TaskEditorModal } from "./TaskEditorModal";
 import { TaskDetailModal } from "./TaskDetailModal";
 import { LaneConfigModal } from "./LaneConfigModal";
@@ -69,6 +70,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
   const tasksByLane = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const t of board.tasks) {
+      if (t.archived) continue; // archived tasks live in the archive column, not their lane
       const arr = map.get(t.lane_id) ?? [];
       arr.push(t);
       map.set(t.lane_id, arr);
@@ -76,11 +78,27 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
     return map;
   }, [board.tasks]);
 
+  const archivedTasks = useMemo(
+    () => board.tasks.filter((t) => t.archived),
+    [board.tasks],
+  );
+
   const handleDragStart = useCallback((taskId: string, fromLaneId: string) => {
     setDrag({ taskId, fromLaneId });
   }, []);
 
   const handleDragEnd = useCallback(() => setDrag(null), []);
+
+  const handleArchiveDrop = useCallback(() => {
+    if (!drag) return;
+    board.archiveTask(drag.taskId, true);
+    setDrag(null);
+  }, [drag, board]);
+
+  const handleUnarchive = useCallback(
+    (taskId: string) => board.archiveTask(taskId, false),
+    [board],
+  );
 
   const handleDrop = useCallback(
     (laneId: string, beforeOrderIndex: number | null, afterOrderIndex: number | null) => {
@@ -195,6 +213,15 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
             />
           );
         })}
+        {b && (
+          <ArchiveColumn
+            tasks={archivedTasks}
+            isDragging={!!drag}
+            onArchiveDrop={handleArchiveDrop}
+            onUnarchive={handleUnarchive}
+            onOpenDetail={openDetail}
+          />
+        )}
       </div>
 
       {editorOpen && b && (

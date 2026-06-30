@@ -432,12 +432,15 @@ async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json
 async fn provider() -> Json<Value> {
     // Synthetic provider list in opencode's shape: { all, connected, default }.
     // The web model picker reads `all[].models` (keyed by modelID) and `default`.
-    let model = |id: &str, name: &str| {
+    // `limit.context` is the model's input context window; `limit.output` its max
+    // output tokens — per-model, not a single shared value (these drive the token
+    // budget the UI shows). Values match the current Claude model catalog.
+    let model = |id: &str, name: &str, context: u64, output: u64| {
         json!({
             "id": id,
             "providerID": "anthropic",
             "name": name,
-            "limit": { "context": 200_000, "output": 64_000 },
+            "limit": { "context": context, "output": output },
         })
     };
     Json(json!({
@@ -446,9 +449,9 @@ async fn provider() -> Json<Value> {
                 "id": "anthropic",
                 "name": "Anthropic",
                 "models": {
-                    "claude-opus-4-8": model("claude-opus-4-8", "Claude Opus 4.8"),
-                    "claude-sonnet-4-6": model("claude-sonnet-4-6", "Claude Sonnet 4.6"),
-                    "claude-haiku-4-5-20251001": model("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
+                    "claude-opus-4-8": model("claude-opus-4-8", "Claude Opus 4.8", 1_000_000, 128_000),
+                    "claude-sonnet-4-6": model("claude-sonnet-4-6", "Claude Sonnet 4.6", 1_000_000, 64_000),
+                    "claude-haiku-4-5-20251001": model("claude-haiku-4-5-20251001", "Claude Haiku 4.5", 200_000, 64_000),
                 }
             }
         ],

@@ -9,7 +9,8 @@ use tokio::sync::mpsc;
 use super::commands::PtyCmd;
 use super::handle::WebPtyHandle;
 use super::spawn::{
-    spawn_gitui_pty, spawn_neovim_pty, spawn_opencode_pty, spawn_shell_pty, WebPty,
+    spawn_claude_attach_pty, spawn_gitui_pty, spawn_neovim_pty, spawn_opencode_pty,
+    spawn_shell_pty, WebPty,
 };
 
 /// Start the web PTY manager on a dedicated OS thread.
@@ -106,6 +107,26 @@ async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
                 reply,
             } => {
                 let result = spawn_opencode_pty(rows, cols, &working_dir, session_id.as_deref());
+                match result {
+                    Ok(pty) => {
+                        let output = pty.output.clone();
+                        ptys.insert(id, pty);
+                        let _ = reply.send(Ok(output));
+                    }
+                    Err(e) => {
+                        let _ = reply.send(Err(e.to_string()));
+                    }
+                }
+            }
+            PtyCmd::SpawnClaudeAttach {
+                id,
+                rows,
+                cols,
+                working_dir,
+                short_id,
+                reply,
+            } => {
+                let result = spawn_claude_attach_pty(rows, cols, &working_dir, &short_id);
                 match result {
                     Ok(pty) => {
                         let output = pty.output.clone();

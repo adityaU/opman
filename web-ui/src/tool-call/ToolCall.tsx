@@ -44,7 +44,15 @@ export const ToolCall = React.memo(function ToolCall({
   const isError = status === "error";
   const isCompleted = status === "completed";
   const isRunning = status === "running" || status === "pending";
-  const isEditTool = toolName.includes("edit") && !toolName.includes("neovim");
+  // Render a file diff for edit/write tools across all engines. Match case-INsensitively:
+  // claude/claudep send capitalized names (`Edit`, `Write`, `MultiEdit`, `NotebookEdit`),
+  // opencode sends lowercase (`edit`, `write`). Exclude neovim edits and TodoWrite (which
+  // has its own renderer).
+  const lname = toolName.toLowerCase();
+  const isEditTool =
+    !lname.includes("neovim") &&
+    !lname.includes("todo") &&
+    (lname.includes("edit") || lname.includes("write"));
 
   const taskSessionId = isTaskTool ? getTaskSessionId(part, childSession) : null;
   const hasSubagentMessages = isTaskTool && taskSessionId

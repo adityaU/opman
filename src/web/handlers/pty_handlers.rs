@@ -67,6 +67,26 @@ pub async fn spawn_pty(
                 .spawn_opencode(req.id.clone(), rows, cols, working_dir, session_id)
                 .await
         }
+        "claude-attach" => {
+            // Resolve the opman session → its live claude background short id.
+            let session_id = match req.session_id.clone() {
+                Some(sid) => sid,
+                None => state
+                    .web_state
+                    .active_session_id()
+                    .await
+                    .ok_or(WebError::BadRequest("No session to attach".into()))?,
+            };
+            let short_id = crate::claude_engine::short_id_for_session(&session_id).ok_or(
+                WebError::BadRequest(
+                    "This session has no running claude agent to attach to".into(),
+                ),
+            )?;
+            state
+                .pty_mgr
+                .spawn_claude_attach(req.id.clone(), rows, cols, working_dir, short_id)
+                .await
+        }
         _ => {
             return Err(WebError::BadRequest(format!(
                 "Unknown PTY kind: {}",

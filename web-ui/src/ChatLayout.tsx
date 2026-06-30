@@ -106,6 +106,9 @@ export function ChatLayout() {
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
+  // Bumped each time the input's "Attach terminal" button is clicked, so the terminal
+  // panel opens a fresh `claude attach` tab for the active session.
+  const [terminalAttachNonce, setTerminalAttachNonce] = useState(0);
 
   // ── Kanban board view (its own route: /kanban) ──
   const {
@@ -335,6 +338,8 @@ export function ChatLayout() {
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
+        terminalAttachNonce={terminalAttachNonce}
+        onAttachTerminal={() => { panels.terminal.setOpen(true); setTerminalAttachNonce((n) => n + 1); }}
         isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
         appState={appState} activeProject={activeProject} activeProjectIndex={activeProjectIndex}
         activeSessionId={activeSessionId}

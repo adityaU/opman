@@ -59,6 +59,7 @@ export interface Task {
   launch_model: string | null;
   launch_agent: string | null;
   run_state: RunState;
+  archived: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -131,10 +132,16 @@ export interface PatchTaskInput {
   priority?: Priority;
   lane_id?: string;
   order_index?: number;
+  archived?: boolean;
 }
 
 export async function patchTask(taskId: string, input: PatchTaskInput): Promise<Task> {
   return apiPatch<Task>(`/kanban/task/${taskId}`, input);
+}
+
+/** Archive (hide from lanes) or unarchive a task — distinct from delete. */
+export async function setTaskArchived(taskId: string, archived: boolean): Promise<Task> {
+  return patchTask(taskId, { archived });
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

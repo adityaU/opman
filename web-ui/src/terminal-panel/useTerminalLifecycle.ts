@@ -93,7 +93,8 @@ export function useTerminalLifecycle(
 
       const rows = term.rows;
       const cols = term.cols;
-      const sid = tab.kind === "opencode" ? sessionId ?? undefined : undefined;
+      const sid =
+        tab.kind === "opencode" || tab.kind === "claude-attach" ? sessionId ?? undefined : undefined;
 
       spawnPty(tab.kind, tab.id, rows, cols, sid)
         .then(() => {

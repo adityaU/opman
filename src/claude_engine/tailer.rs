@@ -224,6 +224,12 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
     tokio::spawn(async move {
         // uuid → consecutive polls missing from the agent list (debounce, see above).
         let mut absent: HashMap<String, u32> = HashMap::new();
+        // uuids we've observed actively running this process — so we only surface a
+        // *failure* for a turn we actually saw start (never pre-existing failed agents
+        // from earlier runs, which would otherwise spam an error on every opman restart).
+        let mut seen_busy: std::collections::HashSet<String> = std::collections::HashSet::new();
+        // uuids we've already surfaced a failure for (notify once per turn).
+        let mut notified_failed: std::collections::HashSet<String> = std::collections::HashSet::new();
         loop {
             // Run the (blocking) CLI call off the async reactor.
             let agents = tokio::task::spawn_blocking(|| claude_cli::agents_json(None))
@@ -232,11 +238,15 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
                 .and_then(|r| r.ok())
                 .unwrap_or_default();
 
-            // uuid → busy
+            // uuid → busy, and uuid → raw state (to detect failures distinctly from done).
             let mut busy_by_uuid: HashMap<String, bool> = HashMap::new();
+            let mut state_by_uuid: HashMap<String, String> = HashMap::new();
             for a in &agents {
                 if !a.session_id.is_empty() {
                     busy_by_uuid.insert(a.session_id.clone(), a.is_busy());
+                    if let Some(s) = &a.state {
+                        state_by_uuid.insert(a.session_id.clone(), s.clone());
+                    }
                 }
             }
 
@@ -295,6 +305,23 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
                 // running; the transcript-derived `subagent_pending` keeps the session
                 // busy until the subagent actually finishes (so we never resume into it).
                 let busy = agent_busy || engine.subagent_pending(&id);
+                if busy {
+                    seen_busy.insert(uuid.clone());
+                }
+
+                // Surface a hard agent failure (process/daemon died mid-turn) to the
+                // frontend — but only for a turn we actually saw running this run, and
+                // only once per turn.
+                if state_by_uuid.get(&uuid).map(|s| s == "failed").unwrap_or(false)
+                    && seen_busy.contains(&uuid)
+                    && notified_failed.insert(uuid.clone())
+                {
+                    engine.emit_system(
+                        &id,
+                        "error",
+                        "The background agent failed — its process or daemon ended mid-turn. Send a message to resume from where it left off.",
+                    );
+                }
 
                 // Recover live streaming after an opman restart: any still-running
                 // (detached) agent needs a tailer re-spawned so its (and its subagents')

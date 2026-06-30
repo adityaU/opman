@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { X, Trash2, MessageSquare } from "lucide-react";
+import { X, Trash2, MessageSquare, Archive, RotateCcw } from "lucide-react";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { TaskContentEditor } from "./TaskContentEditor";
@@ -7,6 +7,7 @@ import {
   createTask,
   patchTask,
   deleteTask as apiDeleteTask,
+  setTaskArchived,
   type Board,
   type Task,
   type Priority,
@@ -101,6 +102,19 @@ export const TaskEditorModal: React.FC<Props> = function TaskEditorModal(p) {
       setSaving(false);
     }
   }, [savedTaskId, title, description, tags, priority, laneId, p]);
+
+  const handleArchive = useCallback(async () => {
+    if (!savedTaskId) return;
+    setSaving(true);
+    try {
+      const result = await setTaskArchived(savedTaskId, !editing?.archived);
+      p.onSaved(result);
+      p.onClose();
+    } catch (e) {
+      p.onError(e instanceof Error ? e.message : "Failed to archive task");
+      setSaving(false);
+    }
+  }, [savedTaskId, editing?.archived, p]);
 
   const handleDelete = useCallback(async () => {
     if (!savedTaskId) {
@@ -223,9 +237,14 @@ export const TaskEditorModal: React.FC<Props> = function TaskEditorModal(p) {
 
         <div className="kanban-modal-footer">
           {editing && (
-            <button className="kanban-btn kanban-btn-danger" onClick={handleDelete} disabled={saving}>
-              <Trash2 size={13} /> Delete
-            </button>
+            <>
+              <button className="kanban-btn kanban-btn-danger" onClick={handleDelete} disabled={saving}>
+                <Trash2 size={13} /> Delete
+              </button>
+              <button className="kanban-btn" onClick={handleArchive} disabled={saving}>
+                {editing.archived ? <><RotateCcw size={13} /> Unarchive</> : <><Archive size={13} /> Archive</>}
+              </button>
+            </>
           )}
           <div className="kanban-modal-footer-right">
             <button className="kanban-btn" onClick={p.onClose} disabled={saving}>

@@ -20,6 +20,24 @@ use crate::web::types::*;
 pub fn run_schema_migrations(db: &Db) {
     migrate_missions_v2(db);
     migrate_routines_v2(db);
+    migrate_kanban_archived(db);
+}
+
+/// Add the `archived` column to `kanban_tasks` for databases created before the
+/// archive feature. Idempotent — checks for the column first.
+fn migrate_kanban_archived(db: &Db) {
+    let conn = db.conn();
+    let has_archived = conn
+        .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
+        .is_ok();
+    if has_archived {
+        return;
+    }
+    info!("adding `archived` column to kanban_tasks");
+    let _ = conn.execute(
+        "ALTER TABLE kanban_tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
 }
 
 /// Migrate missions table from v1 (CRUD tracker) to v2 (goal-driven loop).

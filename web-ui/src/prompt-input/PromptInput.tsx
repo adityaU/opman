@@ -27,13 +27,15 @@ interface Props {
   onContentChange?: (hasContent: boolean) => void;
   /** Active engine backend ("opencode" | "claude-code"). */
   backend?: string;
+  /** Open an interactive terminal attached to this session's claude CLI agent. */
+  onAttachTerminal?: () => void;
 }
 
 export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
-  backend,
+  backend, onAttachTerminal,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -172,6 +174,9 @@ export function PromptInput({
           text={text} disabled={disabled} isBusy={isBusy} isSending={isSending} hasContent={hasContent}
           onChange={handleChange} onKeyDown={handleKeyDown} onPaste={attach.handlePaste}
           onFileSelect={attach.handleFileSelect} onSubmit={handleSubmit} onAbort={onAbort}
+          onAttachTerminal={
+            backend === "claude-code" && sessionId && onAttachTerminal ? onAttachTerminal : undefined
+          }
         />
       </div>
       <HintBar />
