@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { X, MessageSquare, Play, Pencil, Send, Bot, UserRound, Paperclip, Square } from "lucide-react";
+import { X, MessageSquare, Play, Pencil, Send, Paperclip, Square } from "lucide-react";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import { NoteRow } from "./TaskNoteRow";
 import {
   fetchTaskDetail,
   addUserNote,
@@ -10,7 +11,6 @@ import {
   type Board,
   type Task,
   type TaskDetail,
-  type Note,
   type PipelineRun,
 } from "../api/kanban";
 
@@ -32,11 +32,6 @@ const STAGE_LABEL: Record<string, string> = {
   done: "Done",
   failed: "Failed",
 };
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
-}
 
 export const TaskDetailModal: React.FC<Props> = function TaskDetailModal(p) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -277,32 +272,5 @@ export const TaskDetailModal: React.FC<Props> = function TaskDetailModal(p) {
         </div>
       </div>
     </div>
-  );
-};
-
-const NoteRow: React.FC<{ note: Note; laneName: (id: string | null) => string }> = function NoteRow({
-  note,
-  laneName,
-}) {
-  const isUser = note.author === "user";
-  const moved = note.lane_from && note.lane_to && note.lane_from !== note.lane_to;
-  return (
-    <li className={`kanban-note kanban-note-${note.author}`}>
-      <span className="kanban-note-icon">
-        {isUser ? <UserRound size={13} /> : <Bot size={13} />}
-      </span>
-      <div className="kanban-note-main">
-        <div className="kanban-note-head">
-          <span className="kanban-note-author">{isUser ? "You" : "Agent"}</span>
-          {moved && (
-            <span className="kanban-note-move">
-              {laneName(note.lane_from)} → {laneName(note.lane_to)}
-            </span>
-          )}
-          <span className="kanban-note-time">{fmtTime(note.created_at)}</span>
-        </div>
-        <div className="kanban-note-body">{note.body}</div>
-      </div>
-    </li>
   );
 };
