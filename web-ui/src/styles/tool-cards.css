@@ -82,6 +82,30 @@
     font-size: var(--font-size-2xs)
 }
 
+/* Clickable collapsible heads (tc + gmc share these rules) */
+.tc-card-head-btn,
+.gmc-card-head-btn {
+    width: 100%;
+    border: none;
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+/* Collapsed command preview for Bash */
+.tc-card-cmd-preview {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
 .tc-card-body {
     padding: var(--space-2) var(--space-3);
     border-top: .5px solid var(--white-4);
@@ -152,8 +176,20 @@
 
 .gmc-card-icon { display: flex; align-items: center; color: var(--color-accent) }
 .gmc-card-name { font-weight: 600; color: var(--color-text); letter-spacing: .01em }
-.gmc-card-title { font-size: var(--font-size-2xs); color: var(--color-text-muted); }
+.gmc-card-title { font-size: var(--font-size-2xs); color: var(--color-text-muted) }
 .gmc-card-status { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0 }
+
+/* Shared collapsible head styles (tc + gmc) */
+.tc-card-chevron,
+.gmc-card-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0
+}
+
+.tc-card-head-btn:hover,
+.gmc-card-head-btn:hover { background: var(--white-6) }
 
 .gmc-card-body {
     padding: var(--space-3);

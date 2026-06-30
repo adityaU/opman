@@ -6,6 +6,7 @@ import type { MessagePart } from "../types";
 import { formatToolName } from "./helpers";
 import { asObj, TcStatus } from "./tcUtils";
 import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
+import { useAutoOpen } from "../hooks/useAutoOpen";
 
 // ── Generic MCP Tool Card ─────────────────────────────────────────
 // Catches any tool without a dedicated card. Shows input as KV pairs,
@@ -23,6 +24,9 @@ const CODE_STYLE = {
 export function GenericToolCard({ part }: { part: MessagePart }) {
   const toolName = part.tool || part.toolName || "unknown";
   const shortName = formatToolName(toolName);
+  const { shouldAutoOpen } = useAutoOpen();
+  const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
+
   const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
@@ -44,18 +48,21 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
     finalOutput && finalOutput.length > 0 ? finalOutput : liveOutput;
   const hasOutput = outputRaw != null && outputRaw.length > 0;
 
+  const toggle = () => setExpanded(e => !e);
+
   return (
     <div className={`gmc-card${isError ? " gmc-card-error" : ""}`}>
-      <div className="gmc-card-head">
+      <button className="gmc-card-head gmc-card-head-btn" onClick={toggle}>
+        <span className="gmc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <Wrench size={12} className="gmc-card-icon" />
         <span className="gmc-card-name">{shortName}</span>
         {state?.title && <span className="gmc-card-title">{state.title}</span>}
         <span className="gmc-card-status">
           <TcStatus status={status} durationMs={durationMs} />
         </span>
-      </div>
+      </button>
 
-      {(hasInput || hasOutput || isError || isRunning) && (
+      {expanded && (hasInput || hasOutput || isError || isRunning) && (
         <div className="gmc-card-body">
           {hasInput && (
             <div>

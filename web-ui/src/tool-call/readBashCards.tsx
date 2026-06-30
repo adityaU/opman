@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
-import { FileText, Terminal, Pencil, AlertTriangle, Loader2 } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { FileText, Terminal, Pencil, AlertTriangle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import type { MessagePart } from "../types";
 import { parseOutput, guessLanguage } from "./helpers";
 import { str, asObj, TcStatus } from "./tcUtils";
 import { EditDiffView } from "./components";
+import { useAutoOpen, classifyTool } from "../hooks/useAutoOpen";
 
 // ── Read Tool Card ─────────────────────────────────────────────────────────
 
@@ -23,6 +24,11 @@ const CODE_STYLE = {
 const CODE_TAG = { style: { fontFamily: "var(--font-mono)" } };
 
 export function ReadCard({ part }: { part: MessagePart }) {
+  const toolName = part.tool || part.toolName || "unknown";
+  const { shouldAutoOpen } = useAutoOpen();
+  const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
+  const [userToggled, setUserToggled] = useState(false);
+
   const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
@@ -37,9 +43,12 @@ export function ReadCard({ part }: { part: MessagePart }) {
   const lang = guessLanguage(filePath || parsed.path);
   const displayPath = filePath || parsed.path || "file";
 
+  const toggle = () => { setUserToggled(true); setExpanded(e => !e); };
+
   return (
     <div className={`tc-card tc-read${isError ? " tool-call-error" : ""}`}>
-      <div className="tc-card-head">
+      <button className="tc-card-head tc-card-head-btn" onClick={toggle}>
+        <span className="tc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <FileText size={12} className="tc-card-icon" />
         <span className="tc-card-label">Read</span>
         <span className="tc-card-path">{displayPath}</span>
@@ -49,9 +58,9 @@ export function ReadCard({ part }: { part: MessagePart }) {
           </span>
         )}
         <TcStatus status={status} durationMs={durationMs} />
-      </div>
+      </button>
 
-      {isError && (
+      {expanded && isError && (
         <div className="tc-card-body">
           <div className="tool-call-error-banner">
             <AlertTriangle size={12} />
@@ -60,7 +69,7 @@ export function ReadCard({ part }: { part: MessagePart }) {
         </div>
       )}
 
-      {!isError && output.length > 0 && (
+      {expanded && !isError && output.length > 0 && (
         <div className="tc-card-body tc-card-body-flush">
           {parsed.type === "file" ? (
             <SyntaxHighlighter
@@ -81,7 +90,7 @@ export function ReadCard({ part }: { part: MessagePart }) {
         </div>
       )}
 
-      {!isError && isRunning && !output && (
+      {expanded && !isError && isRunning && !output && (
         <div className="tc-card-body">
           <div className="tc-card-muted">
             <Loader2 size={11} className="tool-spin-icon" /> Reading…
@@ -100,6 +109,11 @@ export function isBashCard(name: string): boolean {
 }
 
 export function BashCard({ part }: { part: MessagePart }) {
+  const toolName = part.tool || part.toolName || "unknown";
+  const { shouldAutoOpen } = useAutoOpen();
+  const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
+  const [userToggled, setUserToggled] = useState(false);
+
   const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
@@ -116,55 +130,61 @@ export function BashCard({ part }: { part: MessagePart }) {
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
   const liveRef = React.useRef<HTMLPreElement>(null);
 
-  React.useEffect(() => {
-    if (isRunning && liveRef.current) {
-      liveRef.current.scrollTop = liveRef.current.scrollHeight;
-    }
+  // Auto-expand when running (matches old accordion behavior)
+  useEffect(() => {
+    if (!userToggled && isRunning) setExpanded(true);
+  }, [userToggled, isRunning]);
+
+  useEffect(() => {
+    if (isRunning && liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight;
   }, [output, isRunning]);
+
+  const toggle = () => { setUserToggled(true); setExpanded(e => !e); };
 
   return (
     <div className={`tc-card tc-bash${isError ? " tool-call-error" : ""}`}>
-      <div className="tc-card-head">
+      <button className="tc-card-head tc-card-head-btn" onClick={toggle}>
+        <span className="tc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <Terminal size={12} className="tc-card-icon" />
         <span className="tc-card-label">Bash</span>
         {description && <span className="tc-card-desc">{description}</span>}
+        {!expanded && command && <span className="tc-card-cmd-preview">$ {command.slice(0, 60)}{command.length > 60 ? "…" : ""}</span>}
         <TcStatus status={status} durationMs={durationMs} />
-      </div>
+      </button>
 
-      <div className="tc-card-body">
-        {command && (
-          <div className="tc-bash-cmd">
-            <span className="tc-bash-prompt">$</span>
-            <code>{command}</code>
-          </div>
-        )}
+      {expanded && (
+        <div className="tc-card-body">
+          {command && (
+            <div className="tc-bash-cmd">
+              <span className="tc-bash-prompt">$</span>
+              <code>{command}</code>
+            </div>
+          )}
 
-        {output.length > 0 && (
-          <pre
-            ref={liveRef}
-            className={`tool-call-pre${isRunning ? " tool-call-live-output" : ""}`}
-            style={{ maxHeight: 300 }}
-          >
-            {output}
-          </pre>
-        )}
+          {output.length > 0 && (
+            <pre
+              ref={liveRef}
+              className={`tool-call-pre${isRunning ? " tool-call-live-output" : ""}`}
+              style={{ maxHeight: 300 }}
+            >
+              {output}
+            </pre>
+          )}
 
-        {!output && isRunning && (
-          <div className="tc-card-muted">
-            <Loader2 size={11} className="tool-spin-icon" /> Running…
-          </div>
-        )}
+          {!output && isRunning && (
+            <div className="tc-card-muted">
+              <Loader2 size={11} className="tool-spin-icon" /> Running…
+            </div>
+          )}
 
-        {isError && (
-          <div
-            className="tool-call-error-banner"
-            style={{ marginTop: output ? "var(--space-2)" : 0 }}
-          >
-            <AlertTriangle size={12} />
-            <span>{state?.error || "Command failed"}</span>
-          </div>
-        )}
-      </div>
+          {isError && (
+            <div className="tool-call-error-banner" style={{ marginTop: output ? "var(--space-2)" : 0 }}>
+              <AlertTriangle size={12} />
+              <span>{state?.error || "Command failed"}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -182,14 +202,15 @@ export function isEditCard(name: string): boolean {
 }
 
 export function EditCard({ part }: { part: MessagePart }) {
-  const state = part.state;
   const toolName = part.tool || part.toolName || "unknown";
+  const { shouldAutoOpen } = useAutoOpen();
+  const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
+
+  const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
   const durationMs =
-    state?.time?.start && state?.time?.end
-      ? state.time.end - state.time.start
-      : null;
+    state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
 
   const input = useMemo(() => asObj(state?.input), [state?.input]);
   const filePath = str(input.filePath || input.file_path || input.path);
@@ -201,20 +222,23 @@ export function EditCard({ part }: { part: MessagePart }) {
     ? "MultiEdit"
     : "Edit";
 
+  const toggle = () => setExpanded(e => !e);
+
   return (
     <div className={`tc-card tc-edit${isError ? " tool-call-error" : ""}`}>
-      <div className="tc-card-head">
+      <button className="tc-card-head tc-card-head-btn" onClick={toggle}>
+        <span className="tc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <Pencil size={12} className="tc-card-icon" />
         <span className="tc-card-label">{label}</span>
         {filePath && <span className="tc-card-path">{filePath}</span>}
         <TcStatus status={status} durationMs={durationMs} />
-      </div>
-      {state?.input && (
+      </button>
+      {expanded && state?.input && (
         <div className="tc-card-body-flush">
           <EditDiffView input={state.input as Record<string, unknown>} />
         </div>
       )}
-      {isError && (
+      {expanded && isError && (
         <div className="tc-card-body">
           <div className="tool-call-error-banner">
             <AlertTriangle size={12} />
