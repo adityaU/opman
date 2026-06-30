@@ -178,15 +178,39 @@ function OutputView({
       liveRef.current.scrollTop = liveRef.current.scrollHeight;
   }, [isLive, output]);
 
+  const jsonlRows = useMemo(() => {
+    const lines = output.trim().split("\n").map(l => l.trim()).filter(l => l.startsWith("{") || l.startsWith("["));
+    if (lines.length < 2) return null;
+    const parsed: Record<string, unknown>[] = [];
+    for (const line of lines) {
+      try { parsed.push(JSON.parse(line)); } catch { return null; }
+    }
+    return parsed;
+  }, [output]);
+
   const jsonData = useMemo(() => {
+    if (jsonlRows !== null) return null;
     const t = output.trim();
     if (!t.startsWith("{") && !t.startsWith("[")) return null;
-    try {
-      return JSON.parse(t);
-    } catch {
-      return null;
-    }
-  }, [output]);
+    try { return JSON.parse(t); } catch { return null; }
+  }, [output, jsonlRows]);
+
+  if (jsonlRows !== null) {
+    return (
+      <div className="gmc-jsonl">
+        {jsonlRows.map((row, i) => (
+          <div key={i} className="gmc-jsonl-row">
+            {Object.entries(row).map(([k, v]) => (
+              <span key={k} className="gmc-jsonl-field">
+                <span className="gmc-jsonl-key">{k}</span>
+                <span className="gmc-jsonl-val"><KvValue value={v} /></span>
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (jsonData !== null) {
     if (
