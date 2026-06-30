@@ -29,7 +29,7 @@ export const NoteRow: React.FC<{ note: Note; laneName: (id: string | null) => st
             )}
             <span className="kanban-note-time">{fmtTime(note.created_at)}</span>
           </div>
-          <div className="kanban-note-body">
+          <div className="kanban-note-body kanban-note-markdown">
             <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
               {note.body}
             </ReactMarkdown>
