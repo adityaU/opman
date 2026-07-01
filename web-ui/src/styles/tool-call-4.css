@@ -1,0 +1,227 @@
+/* ── gmc-card: Generic MCP / unknown tool card ──────────────────────────────
+   Renders any tool that doesn't have a dedicated card. Input shown as
+   key-value rows; output rendered as JSONL rows, flat JSON KV, JSON block,
+   markdown, or plain text — whatever fits best. */
+
+.gmc-card {
+    margin: var(--space-2) 0;
+    border: 0.5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.gmc-card-error {
+    border-color: var(--color-error);
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.gmc-card-head,
+.gmc-card-head-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--white-3);
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    font-family: inherit;
+}
+
+.gmc-card-head-btn {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.gmc-card-head-btn:hover {
+    background: var(--white-5);
+}
+
+.gmc-card-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.gmc-card-icon {
+    color: var(--color-accent);
+    flex-shrink: 0;
+}
+
+.gmc-card-name {
+    font-weight: 700;
+    color: var(--color-accent);
+    font-size: var(--font-size-xs);
+}
+
+.gmc-card-title {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+    margin-left: var(--space-1);
+}
+
+.gmc-card-status {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── Body ─────────────────────────────────────────────────────── */
+.gmc-card-body {
+    padding: var(--space-2) var(--space-3);
+    border-top: 0.5px solid var(--white-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.gmc-section-label {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-1);
+}
+
+/* ── Key-value input / flat JSON output ───────────────────────── */
+.gmc-kv {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.gmc-kv-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    font-size: var(--font-size-xs);
+    padding: 2px 0;
+    border-bottom: 0.5px solid var(--white-3);
+}
+
+.gmc-kv-row:last-child {
+    border-bottom: none;
+}
+
+.gmc-kv-key {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    min-width: 90px;
+    max-width: 140px;
+    padding-top: 2px;
+    word-break: break-word;
+    flex-shrink: 0;
+}
+
+.gmc-kv-val {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    color: var(--color-text);
+}
+
+/* ── KvValue display types ────────────────────────────────────── */
+.gmc-val-null  { color: var(--color-text-muted); font-style: italic; font-size: var(--font-size-xs); }
+.gmc-val-bool  { color: var(--color-warning); font-size: var(--font-size-xs); font-family: var(--font-mono); }
+.gmc-val-num   { color: var(--color-success); font-size: var(--font-size-xs); font-family: var(--font-mono); }
+.gmc-val-str   { font-size: var(--font-size-xs); color: var(--color-text); }
+
+.gmc-val-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: var(--font-size-2xs);
+    color: var(--color-accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    vertical-align: middle;
+}
+
+.gmc-val-toggle:hover {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.gmc-val-obj {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gmc-val-json {
+    margin: var(--space-1) 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    max-height: 200px;
+    overflow: auto;
+    white-space: pre;
+    word-break: break-word;
+}
+
+/* ── JSONL output rows ────────────────────────────────────────── */
+.gmc-jsonl {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.gmc-jsonl-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--white-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-2xs);
+}
+
+.gmc-jsonl-field {
+    display: inline-flex;
+    gap: 4px;
+    align-items: baseline;
+}
+
+.gmc-jsonl-key {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.gmc-jsonl-val {
+    color: var(--color-text);
+}
+
+/* ── Plain-text output ────────────────────────────────────────── */
+.gmc-pre {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}

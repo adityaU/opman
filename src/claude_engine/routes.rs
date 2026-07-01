@@ -495,34 +495,58 @@ async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json
     Json(Value::Array(todos))
 }
 
-async fn provider() -> Json<Value> {
-    // Synthetic provider list in opencode's shape: { all, connected, default }.
-    // The web model picker reads `all[].models` (keyed by modelID) and `default`.
-    // `limit.context` is the model's input context window; `limit.output` its max
-    // output tokens — per-model, not a single shared value (these drive the token
-    // budget the UI shows). Values match the current Claude model catalog.
-    let model = |id: &str, name: &str, context: u64, output: u64| {
-        json!({
-            "id": id,
-            "providerID": "anthropic",
-            "name": name,
-            "limit": { "context": context, "output": output },
+/// Fallback model list used when dynamic fetching is unavailable.
+fn default_models() -> Vec<claude_cli::ModelInfo> {
+    use claude_cli::ModelInfo;
+    vec![
+        ModelInfo { id: "claude-opus-4-8".into(), display_name: "Claude Opus 4.8".into(), context_window: 1_000_000, max_output: 128_000 },
+        ModelInfo { id: "claude-sonnet-5".into(), display_name: "Claude Sonnet 5".into(), context_window: 1_000_000, max_output: 128_000 },
+        ModelInfo { id: "claude-sonnet-4-6".into(), display_name: "Claude Sonnet 4.6".into(), context_window: 1_000_000, max_output: 64_000 },
+        ModelInfo { id: "claude-haiku-4-5-20251001".into(), display_name: "Claude Haiku 4.5".into(), context_window: 200_000, max_output: 32_000 },
+    ]
+}
+
+/// Pick the best default model from a list: prefer a sonnet or fable, then opus, then first.
+fn pick_default(models: &[claude_cli::ModelInfo]) -> &str {
+    models
+        .iter()
+        .find(|m| m.id.contains("sonnet") || m.id.contains("fable"))
+        .or_else(|| models.iter().find(|m| m.id.contains("opus")))
+        .or_else(|| models.first())
+        .map(|m| m.id.as_str())
+        .unwrap_or("claude-sonnet-4-6")
+}
+
+/// Provider list — models are fetched once at engine startup and cached for the
+/// lifetime of the process. Returns the opencode `{ all, connected, default }` shape.
+async fn provider(State(engine): State<Engine>) -> Json<Value> {
+    // Use the startup-cached list; fall back to hardcoded defaults if the
+    // background fetch hasn't completed yet or failed.
+    let models = engine.cached_models_any().unwrap_or_else(default_models);
+
+    let default_id = pick_default(&models).to_string();
+
+    let models_map: serde_json::Map<String, Value> = models
+        .iter()
+        .map(|m| {
+            let v = json!({
+                "id": m.id,
+                "providerID": "anthropic",
+                "name": m.display_name,
+                "limit": { "context": m.context_window, "output": m.max_output },
+            });
+            (m.id.clone(), v)
         })
-    };
+        .collect();
+
     Json(json!({
-        "all": [
-            {
-                "id": "anthropic",
-                "name": "Anthropic",
-                "models": {
-                    "claude-opus-4-8": model("claude-opus-4-8", "Claude Opus 4.8", 1_000_000, 128_000),
-                    "claude-sonnet-4-6": model("claude-sonnet-4-6", "Claude Sonnet 4.6", 1_000_000, 64_000),
-                    "claude-haiku-4-5-20251001": model("claude-haiku-4-5-20251001", "Claude Haiku 4.5", 200_000, 64_000),
-                }
-            }
-        ],
+        "all": [{
+            "id": "anthropic",
+            "name": "Anthropic",
+            "models": models_map,
+        }],
         "connected": ["anthropic"],
-        "default": { "anthropic": "claude-sonnet-4-6" },
+        "default": { "anthropic": default_id },
     }))
 }
 

@@ -249,6 +249,17 @@ pub fn stop(short_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// One Claude model entry returned by the dynamic model fetch.
+#[derive(Debug, Clone)]
+pub struct ModelInfo {
+    pub id: String,
+    pub display_name: String,
+    /// Maximum input context tokens.
+    pub context_window: u64,
+    /// Maximum output tokens.
+    pub max_output: u64,
+}
+
 /// What claude advertises for a directory in its `system/init` event.
 #[derive(Debug, Clone, Default)]
 pub struct InitInfo {
@@ -358,6 +369,122 @@ pub fn locate_subagent_jsonl(agent_id: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Derive a human-readable display name from a model ID.
+/// e.g. "claude-opus-4-8" → "Claude Opus 4.8"
+fn model_display_name(id: &str) -> String {
+    // Strip "claude-" prefix
+    let bare = id.strip_prefix("claude-").unwrap_or(id);
+    // Strip [1m] or similar bracket suffixes
+    let (bare, variant) = if let Some(idx) = bare.find('[') {
+        let inner = bare[idx + 1..].trim_end_matches(']');
+        (bare[..idx].trim_end_matches('-'), format!(" ({inner})"))
+    } else {
+        (bare, String::new())
+    };
+    // Remove trailing date segment: "-YYYYMMDD" (8+ digits)
+    let bare = match bare.rfind('-') {
+        Some(pos) if bare[pos + 1..].len() >= 8 && bare[pos + 1..].chars().all(|c| c.is_ascii_digit()) => {
+            &bare[..pos]
+        }
+        _ => bare,
+    };
+    // Split into segments: first alphabetic segment(s) = tier, rest = version numbers
+    let segs: Vec<&str> = bare.split('-').collect();
+    let tier_end = segs.iter().position(|s| s.chars().all(|c| c.is_ascii_digit())).unwrap_or(segs.len());
+    let tier: String = segs[..tier_end]
+        .iter()
+        .map(|s| {
+            let mut c = s.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let version = segs[tier_end..].join(".");
+    if version.is_empty() {
+        format!("Claude {tier}{variant}")
+    } else {
+        format!("Claude {tier} {version}{variant}")
+    }
+}
+
+/// Conservative context/output limits keyed by model name patterns.
+fn model_limits(id: &str) -> (u64, u64) {
+    let n = id.to_lowercase();
+    if n.contains("[1m]") || n.contains("1m]") {
+        return (1_000_000, 128_000);
+    }
+    if n.contains("opus") {
+        (1_000_000, 128_000)
+    } else if n.contains("sonnet-5") || n.contains("fable") {
+        (1_000_000, 128_000)
+    } else if n.contains("sonnet") {
+        (200_000, 64_000)
+    } else if n.contains("haiku") {
+        (200_000, 32_000)
+    } else {
+        (200_000, 64_000)
+    }
+}
+
+/// Fetch available Claude models by running a lightweight `claude -p` turn.
+///
+/// Runs `claude -p --model haiku --output-format json` with a structured prompt,
+/// parses the result field for a JSON array of model IDs, and derives display
+/// names and context-window limits from known patterns.
+///
+/// Returns `None` if the CLI call fails or the output cannot be parsed — the caller
+/// should fall back to a hardcoded default list.
+pub fn fetch_models_via_cli() -> Option<Vec<ModelInfo>> {
+    let out = Command::new(claude_bin())
+        .args([
+            "-p",
+            "--model",
+            "haiku",
+            "--output-format",
+            "json",
+            "Output ONLY a raw JSON array of currently available Claude model IDs. \
+             No explanation, no markdown, no code block — just the array. \
+             Example: [\"claude-haiku-4-5-20251001\",\"claude-sonnet-5\"]",
+        ])
+        .output()
+        .ok()?;
+
+    if !out.status.success() {
+        warn!("claude -p model fetch exited non-zero");
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(text.trim()).ok()?;
+    let raw = v.get("result")?.as_str()?;
+
+    // Strip optional markdown code-fence wrapping
+    let stripped = raw
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    let ids: Vec<String> = serde_json::from_str(stripped).ok()?;
+    if ids.is_empty() {
+        return None;
+    }
+
+    Some(
+        ids.into_iter()
+            .map(|id| {
+                let display_name = model_display_name(&id);
+                let (context_window, max_output) = model_limits(&id);
+                ModelInfo { id, display_name, context_window, max_output }
+            })
+            .collect(),
+    )
 }
 
 fn home_projects_dir() -> Option<PathBuf> {

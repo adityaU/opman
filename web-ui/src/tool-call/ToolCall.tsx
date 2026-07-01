@@ -13,6 +13,7 @@ import { ToolOutput, TodoList } from "./components";
 import { A2UIRenderer } from "./a2ui";
 import { KanbanToolCard, isKanbanTool } from "./KanbanToolCard";
 import { ReadCard, isReadTool, BashCard, isBashCard, EditCard, isEditCard } from "./readBashCards";
+import { WebSearchCard, isWebSearchCard, WebFetchCard, isWebFetchCard, GlobCard, isGlobCard } from "./webGlobCards";
 import { GenericToolCard } from "./GenericToolCard";
 import { useAutoOpen } from "../hooks/useAutoOpen";
 
@@ -40,6 +41,9 @@ export const ToolCall = React.memo(function ToolCall({
   const isRead = !isKanban && isReadTool(toolName);
   const isBash = !isBackgroundTask && isBashCard(toolName);
   const isEdit = isEditCard(toolName);
+  const isWebSearch = isWebSearchCard(toolName);
+  const isWebFetch = isWebFetchCard(toolName);
+  const isGlob = !isRead && isGlobCard(toolName);
 
   const state = part.state;
   const status = state?.status || "pending";
@@ -122,6 +126,21 @@ export const ToolCall = React.memo(function ToolCall({
   // Edit / Write / MultiEdit — diff card
   if (isEdit) {
     return <EditCard part={part} />;
+  }
+
+  // Web search — result list card
+  if (isWebSearch) {
+    return <WebSearchCard part={part} />;
+  }
+
+  // Web fetch — URL + content card
+  if (isWebFetch) {
+    return <WebFetchCard part={part} />;
+  }
+
+  // Glob / Grep / LS — file list card
+  if (isGlob) {
+    return <GlobCard part={part} />;
   }
 
   // Task tools render directly without accordion wrapper

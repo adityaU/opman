@@ -86,6 +86,9 @@ pub struct ClaudeEngine {
     /// session is "settling" the poller forces it idle instead of bouncing it back to
     /// busy. Cleared once the agent actually stops, on a new turn, or after a safety cap.
     aborting: Mutex<HashMap<String, u64>>,
+    /// Cached dynamic model list from `claude -p` with the fetch timestamp (ms).
+    /// Refreshed every hour by the `/provider` route.
+    model_cache: Mutex<Option<(Vec<claude_cli::ModelInfo>, u64)>>,
 }
 
 static ENGINE: OnceLock<Arc<ClaudeEngine>> = OnceLock::new();
@@ -156,6 +159,7 @@ impl ClaudeEngine {
             pending_prompts: Mutex::new(HashMap::new()),
             dispatching: Mutex::new(HashSet::new()),
             aborting: Mutex::new(HashMap::new()),
+            model_cache: Mutex::new(None),
         }
     }
 
@@ -341,6 +345,19 @@ impl ClaudeEngine {
     pub fn set_cached_init(&self, dir: &str, info: claude_cli::InitInfo) {
         if let Ok(mut c) = self.command_cache.lock() {
             c.insert(dir.to_string(), info);
+        }
+    }
+
+    /// Return the cached model list if one has been stored (no TTL — updated only at startup).
+    pub fn cached_models_any(&self) -> Option<Vec<claude_cli::ModelInfo>> {
+        let guard = self.model_cache.lock().ok()?;
+        Some(guard.as_ref()?.0.clone())
+    }
+
+    /// Store the model list fetched at startup.
+    pub fn set_cached_models(&self, models: Vec<claude_cli::ModelInfo>) {
+        if let Ok(mut g) = self.model_cache.lock() {
+            *g = Some((models, now_ms()));
         }
     }
 
@@ -1036,6 +1053,21 @@ pub async fn start_embedded_server(
     let persist = dirs::config_dir().map(|d| d.join("opman").join("claude_sessions.json"));
     let engine = Arc::new(ClaudeEngine::new(persist, mcp_flags));
     let _ = ENGINE.set(engine.clone());
+
+    // Fetch available models once at startup in a background task so the
+    // /provider route is ready without blocking server startup.
+    {
+        let eng = engine.clone();
+        tokio::task::spawn(async move {
+            if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli)
+                .await
+                .ok()
+                .flatten()
+            {
+                eng.set_cached_models(models);
+            }
+        });
+    }
 
     // Background poller: reconcile busy/idle from `claude agents --json`.
     tailer::spawn_status_poller(engine.clone());

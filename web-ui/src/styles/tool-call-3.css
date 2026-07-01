@@ -1,0 +1,278 @@
+/* ── tc-card: shared base for Read / Bash / Edit / Web / Glob cards ─────────
+   Color theming via --tc-accent, set per variant. Glassy and flat both resolve
+   correctly because every value uses CSS custom properties from the base theme. */
+
+.tc-card {
+    --tc-accent: var(--color-accent);
+    margin: var(--space-2) 0;
+    border: 0.5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border-left: 2.5px solid var(--tc-accent);
+}
+
+.tc-card.tool-call-error {
+    border-color: var(--color-error);
+    --tc-accent: var(--color-error);
+}
+
+/* ── Variant accents ─────────────────────────────────────────── */
+.tc-read  { --tc-accent: var(--color-info, #60a5fa); }
+.tc-bash  { --tc-accent: var(--color-warning, #f59e0b); }
+.tc-edit  { --tc-accent: color-mix(in srgb, var(--color-secondary, #a78bfa) 90%, transparent); }
+.tc-web   { --tc-accent: var(--color-success, #34d399); }
+.tc-glob  { --tc-accent: var(--color-accent); }
+
+/* ── Header (static + clickable variants) ────────────────────── */
+.tc-card-head,
+.tc-card-head-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: color-mix(in srgb, var(--tc-accent) 7%, var(--white-3));
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    font-family: inherit;
+}
+
+.tc-card-head-btn {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.tc-card-head-btn:hover {
+    background: color-mix(in srgb, var(--tc-accent) 14%, var(--white-4));
+}
+
+.tc-card-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.tc-card-icon {
+    color: var(--tc-accent);
+    flex-shrink: 0;
+}
+
+.tc-card-label {
+    font-weight: 700;
+    color: var(--tc-accent);
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.tc-card-path {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.tc-card-badge {
+    flex-shrink: 0;
+    font-size: var(--font-size-2xs);
+    font-family: var(--font-mono);
+    color: var(--tc-accent);
+    background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
+    border: 0.5px solid color-mix(in srgb, var(--tc-accent) 30%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+}
+
+.tc-card-desc {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.tc-card-cmd-preview {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.tc-card-status {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.tc-card-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+}
+
+/* ── Body ─────────────────────────────────────────────────────── */
+.tc-card-body {
+    padding: var(--space-2) var(--space-3);
+    border-top: 0.5px solid var(--white-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.tc-card-body-flush {
+    padding: 0;
+    border-top: 0.5px solid var(--white-4);
+    overflow: hidden;
+}
+
+.tc-card-muted {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-style: italic;
+    padding: var(--space-2) var(--space-3);
+}
+
+/* ── Bash: command line ───────────────────────────────────────── */
+.tc-bash-cmd {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+}
+
+.tc-bash-prompt {
+    color: var(--tc-accent);
+    font-weight: 700;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.tc-bash-cmd code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--color-text);
+}
+
+/* ── Web search / fetch ───────────────────────────────────────── */
+.tc-search-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.tc-search-result {
+    padding: var(--space-2) 0;
+    border-bottom: 0.5px solid var(--white-4);
+}
+
+.tc-search-result:last-child { border-bottom: none; }
+
+.tc-search-result-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 2px;
+}
+
+.tc-search-result-url {
+    font-size: var(--font-size-2xs);
+    font-family: var(--font-mono);
+    color: var(--tc-accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 2px;
+}
+
+.tc-search-result-snippet {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tc-search-count {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    padding: var(--space-1) 0 0;
+    border-top: 0.5px solid var(--white-4);
+    margin-top: var(--space-1);
+}
+
+/* ── Glob / Grep / LS file list ──────────────────────────────── */
+.tc-glob-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 220px;
+    overflow-y: auto;
+    gap: 1px;
+}
+
+.tc-glob-item {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    padding: 1px var(--space-1);
+    border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tc-glob-item:hover {
+    background: var(--white-3);
+    color: var(--color-text);
+}
+
+.tc-glob-count {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+    margin-top: var(--space-1);
+}
+
+/* ── Compact tc-status (used without tc-card wrapper) ─────────── */
+.tc-status {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.tc-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+}
