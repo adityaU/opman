@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
-import type { ImageAttachment, FileSearchEntry } from "../api";
+import type { ImageAttachment, FileSearchEntry, SessionStats } from "../api";
 import { SlashCommandPopover } from "../SlashCommandPopover";
 import { NO_ARG_COMMANDS } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
@@ -29,13 +29,15 @@ interface Props {
   backend?: string;
   /** Open an interactive terminal attached to this session's claude CLI agent. */
   onAttachTerminal?: () => void;
+  /** Session token/cost stats, shown via the pill row's usage info button. */
+  stats?: SessionStats | null;
 }
 
 export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
-  backend, onAttachTerminal,
+  backend, onAttachTerminal, stats,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -164,7 +166,7 @@ export function PromptInput({
       )}
       <div className="prompt-input-wrapper">
         <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
-          disabled={disabled} activeMemoryLabels={activeMemoryLabels}
+          disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
           onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />

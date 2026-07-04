@@ -1,5 +1,5 @@
 .terminal-panel {
-    height: 280px;
+    height: 100%;
     border-top: .5px solid var(--glass-border-light);
     display: flex;
     flex-direction: column;

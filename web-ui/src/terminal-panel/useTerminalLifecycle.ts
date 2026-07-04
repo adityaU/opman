@@ -7,7 +7,6 @@ import { spawnPty, ptyWrite, ptyResize, ptyKill, createPtySSE } from "../api";
 import {
   TabInfo,
   TabRuntime,
-  PtyKind,
   TERM_OPTIONS,
   getTerminalTheme,
 } from "./types";
@@ -22,18 +21,8 @@ export function useTerminalLifecycle(
   containerRefs: React.MutableRefObject<Map<string, HTMLDivElement>>,
   activeTabId: string | null,
   expanded: boolean,
-  visible: boolean,
-  createTab: (kind: PtyKind) => void
+  visible: boolean
 ) {
-  // Auto-create first tab on mount
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      createTab("shell");
-    }
-  }, [createTab]);
-
   // Track pending tabs whose container refs weren't available yet
   const pendingRef = useRef<Set<string>>(new Set());
 

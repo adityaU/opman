@@ -90,6 +90,8 @@ export interface SSEState {
   clearQuestion: (id: string) => void;
   /** Clear MCP editor open request (after frontend has handled it). */
   clearMcpEditorOpen: () => void;
+  /** Imperatively open a file in the editor panel (e.g. tool-card path click). */
+  openMcpEditor: (path: string, line?: number | null) => void;
   /** Clear MCP terminal focus request (after frontend has handled it). */
   clearMcpTerminalFocus: () => void;
   /** Add an optimistic user message that shows immediately.

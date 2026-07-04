@@ -3,9 +3,10 @@ import {
   Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
   ImageIcon, Paperclip, Send, Square, Loader2, SquareTerminal,
 } from "lucide-react";
-import type { AgentInfo, ImageAttachment, FileSearchEntry } from "../api";
+import type { AgentInfo, ImageAttachment, FileSearchEntry, SessionStats } from "../api";
 import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
+import { UsageInfoButton } from "./UsagePopover";
 
 // ── SelectorChips ───────────────────────────────────────────────
 
@@ -18,11 +19,13 @@ interface SelectorChipsProps {
   onOpenModelPicker: () => void;
   onOpenAgentPicker: () => void;
   onOpenMemory?: () => void;
+  /** Session token/cost stats — renders an "i" info button with a breakdown when present. */
+  stats?: SessionStats | null;
 }
 
 export function SelectorChips({
   currentModel, currentAgent, agents, disabled,
-  activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory,
+  activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory, stats,
 }: SelectorChipsProps) {
   const info = agents.find((a) => a.id === currentAgent);
   const label = info?.label || currentAgent;
@@ -49,6 +52,7 @@ export function SelectorChips({
           </span>
         </button>
       )}
+      <UsageInfoButton stats={stats} />
     </div>
   );
 }

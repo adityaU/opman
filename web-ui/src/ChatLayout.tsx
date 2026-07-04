@@ -32,6 +32,7 @@ import { KanbanView } from "./kanban/KanbanView";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 import { appNavigate } from "./utils/navigation";
+import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -43,7 +44,7 @@ export function ChatLayout() {
     watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
-    clearMcpEditorOpen, clearMcpTerminalFocus,
+    clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus,
     addOptimisticMessage, clearOptimistic, loadOlderMessages, beginSessionSwitch,
     isSessionBusy,
   } = sse;
@@ -210,6 +211,16 @@ export function ChatLayout() {
   const mobile = useMobileState();
   useVirtualKeyboard();
 
+  // ── Open a file in the editor from a tool-card path click ──
+  // Desktop: usePanelState auto-opens the editor when mcpEditorOpenPath is set.
+  // Mobile: the dock must be switched to the editor sheet explicitly.
+  const openFileInEditor = useCallback((path: string, line?: number | null) => {
+    openMcpEditor(path, line);
+    if (typeof window !== "undefined" && window.innerWidth < 768 && mobile.activePanel !== "editor") {
+      mobile.togglePanel("editor");
+    }
+  }, [openMcpEditor, mobile]);
+
   // ── Model / Agent ──
   const model = useModelState(messages, providers, activeSessionId);
 
@@ -335,6 +346,7 @@ export function ChatLayout() {
   }
 
   return (
+    <EditorOpenProvider value={openFileInEditor}>
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
@@ -344,6 +356,7 @@ export function ChatLayout() {
         appState={appState} activeProject={activeProject} activeProjectIndex={activeProjectIndex}
         activeSessionId={activeSessionId}
         sessionStatus={sessionStatus} connectionStatus={sse.connectionStatus}
+        stats={stats}
         messages={messages} isSessionBusy={isSessionBusy} busyKey={busyKey}
         isLoadingMessages={isLoadingMessages} isLoadingOlder={isLoadingOlder}
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
@@ -456,5 +469,6 @@ export function ChatLayout() {
       />
       {skillsUploadOpen && <SkillsUploadModal onClose={() => setSkillsUploadOpen(false)} />}
     </div>
+    </EditorOpenProvider>
   );
 }

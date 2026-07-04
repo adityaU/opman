@@ -123,7 +123,7 @@ interface HeaderActionsProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   onToggleSearch: () => void;
   onToggleExpand: () => void;
-  onCloseAll: () => void;
+  onHidePanel: () => void;
 }
 
 export function HeaderActions({
@@ -133,7 +133,7 @@ export function HeaderActions({
   searchInputRef,
   onToggleSearch,
   onToggleExpand,
-  onCloseAll,
+  onHidePanel,
 }: HeaderActionsProps) {
   return (
     <div className="terminal-panel-actions">
@@ -158,9 +158,9 @@ export function HeaderActions({
         {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
       </button>
       <button
-        onClick={onCloseAll}
-        title="Close terminal panel"
-        aria-label="Close terminal panel"
+        onClick={onHidePanel}
+        title="Hide terminal panel"
+        aria-label="Hide terminal panel"
       >
         <X size={14} />
       </button>

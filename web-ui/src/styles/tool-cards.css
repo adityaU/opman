@@ -46,6 +46,20 @@
     min-width: 0
 }
 
+.tc-card-path-link {
+    cursor: pointer;
+    border-radius: var(--radius-xs, 3px);
+    transition: color .12s ease, text-decoration-color .12s ease;
+}
+
+.tc-card-path-link:hover,
+.tc-card-path-link:focus-visible {
+    color: var(--color-accent, var(--color-primary));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    outline: none;
+}
+
 .tc-card-desc {
     flex: 1;
     min-width: 0;

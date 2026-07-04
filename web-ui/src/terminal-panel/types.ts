@@ -12,10 +12,14 @@ export interface TabInfo {
   kind: PtyKind;
   label: string;
   status: TabStatus;
+  projectKey: string;
 }
 
 export interface TerminalPanelProps {
   sessionId: string | null;
+  /** Path of the active project — used to scope terminal tabs per project so
+   *  switching projects doesn't tear down other projects' running terminals. */
+  projectPath: string | null;
   onClose: () => void;
   /** Whether the panel is currently visible (used to re-fit xterm on reopen) */
   visible?: boolean;

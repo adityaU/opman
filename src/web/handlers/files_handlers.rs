@@ -7,7 +7,7 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
+use super::common::{resolve_project_dir, resolve_readable_path};
 
 /// GET /api/files?path=... — list directory contents.
 pub async fn browse_files(
@@ -112,18 +112,7 @@ pub async fn read_file(
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
     let base = std::path::Path::new(&dir);
-    let target = base.join(&query.path);
-
-    // Security check
-    let canonical_base = base
-        .canonicalize()
-        .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
-    let canonical_target = target
-        .canonicalize()
-        .map_err(|_| WebError::NotFound("File not found"))?;
-    if !canonical_target.starts_with(&canonical_base) {
-        return Err(WebError::BadRequest("Path traversal not allowed".into()));
-    }
+    let canonical_target = resolve_readable_path(base, &query.path)?;
 
     let content = tokio::fs::read_to_string(&canonical_target)
         .await
@@ -147,18 +136,7 @@ pub async fn read_file_raw(
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
     let base = std::path::Path::new(&dir);
-    let target = base.join(&query.path);
-
-    // Security check
-    let canonical_base = base
-        .canonicalize()
-        .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
-    let canonical_target = target
-        .canonicalize()
-        .map_err(|_| WebError::NotFound("File not found"))?;
-    if !canonical_target.starts_with(&canonical_base) {
-        return Err(WebError::BadRequest("Path traversal not allowed".into()));
-    }
+    let canonical_target = resolve_readable_path(base, &query.path)?;
 
     let bytes = tokio::fs::read(&canonical_target)
         .await

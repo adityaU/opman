@@ -9,6 +9,7 @@ import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity } from "lu
 import { KanbanView } from "./kanban/KanbanView";
 
 import type { SessionStatus } from "./hooks/sse/types";
+import type { SessionStats } from "./api";
 
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
@@ -24,6 +25,8 @@ export interface ChatMainAreaProps {
   activeProjectIndex: number;
   activeSessionId: string | null;
   sessionStatus: SessionStatus;
+  /** Session token/cost stats — passed through to the prompt input's usage info button. */
+  stats: SessionStats | null;
   connectionStatus?: "connected" | "reconnecting" | "disconnected";
   messages: any[];
   /** Stable callback — reads from ref, never changes identity. */
@@ -274,6 +277,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             currentModel={p.currentModel}
             currentAgent={p.selectedAgent}
             onAgentChange={p.handleAgentChange}
+            stats={p.stats}
             activeMemoryLabels={activeMemoryLabels}
             onOpenMemory={p.openMemory}
             onContentChange={p.handlePromptContentChange}
@@ -290,6 +294,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               <Suspense fallback={null}>
                 <TerminalPanel
                   sessionId={p.activeSessionId}
+                  projectPath={p.activeProject?.path ?? null}
                   onClose={p.closeTerminal}
                   visible={p.terminalOpen}
                   attachNonce={p.terminalAttachNonce}

@@ -6,6 +6,7 @@ import { TabBar, HeaderActions, SearchBar, TabBody } from "./components";
 
 export function TerminalPanel({
   sessionId,
+  projectPath,
   onClose,
   visible = true,
   mcpAgentActive = false,
@@ -13,6 +14,7 @@ export function TerminalPanel({
   attachKind = "claude-attach",
 }: TerminalPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const projectKey = projectPath ?? "default";
 
   const {
     tabs,
@@ -29,10 +31,9 @@ export function TerminalPanel({
     containerRefs,
     createTab,
     closeTab,
-    closeAll,
     startRename,
     commitRename,
-  } = useTerminalTabs();
+  } = useTerminalTabs(projectKey);
 
   useTerminalLifecycle(
     tabs,
@@ -42,8 +43,14 @@ export function TerminalPanel({
     containerRefs,
     activeTabId,
     expanded,
-    visible,
-    createTab
+    visible
+  );
+
+  // Only the active project's tabs are shown in the tab bar — tabs for other
+  // projects stay mounted in TabBody so their terminals keep running.
+  const visibleTabs = useMemo(
+    () => tabs.filter((t) => t.projectKey === projectKey),
+    [tabs, projectKey]
   );
 
   const {
@@ -66,7 +73,7 @@ export function TerminalPanel({
     createTab(attachKind);
   }, [attachNonce, attachKind, createTab]);
 
-  const handleCloseAll = useCallback(() => closeAll(onClose), [closeAll, onClose]);
+  const handleHidePanel = useCallback(() => onClose(), [onClose]);
 
   const handleToggleSearch = useCallback(() => {
     if (searchOpen) {
@@ -91,7 +98,7 @@ export function TerminalPanel({
     <div className={`terminal-panel ${expanded ? "expanded" : ""}`}>
       <div className="terminal-panel-header">
         <TabBar
-          tabs={tabs}
+          tabs={visibleTabs}
           activeTabId={activeTabId}
           renameId={renameId}
           renameValue={renameValue}
@@ -112,7 +119,7 @@ export function TerminalPanel({
           searchInputRef={searchInputRef}
           onToggleSearch={handleToggleSearch}
           onToggleExpand={() => setExpanded((v) => !v)}
-          onCloseAll={handleCloseAll}
+          onHidePanel={handleHidePanel}
         />
       </div>
 

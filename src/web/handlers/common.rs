@@ -51,6 +51,46 @@ pub(super) async fn resolve_editor_buffer(
     Ok((socket, resolved_str, buf))
 }
 
+/// Resolve a *read-only* request path against the project dir.
+///
+/// Accepts both project-relative paths and absolute paths, but only allows the
+/// result to resolve inside the project root or inside the user's `~/.claude/`
+/// directory — the state files opencode/Claude Code itself writes (plans,
+/// project session logs, memory) that tool-call links in the UI point at.
+/// Write/create handlers must NOT use this — they keep the stricter
+/// project-only sandbox.
+pub(super) fn resolve_readable_path(
+    base: &std::path::Path,
+    path: &str,
+) -> WebResult<PathBuf> {
+    let target = if std::path::Path::new(path).is_absolute() {
+        PathBuf::from(path)
+    } else {
+        base.join(path)
+    };
+    let canonical_target = target
+        .canonicalize()
+        .map_err(|_| WebError::NotFound("File not found"))?;
+
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
+    if canonical_target.starts_with(&canonical_base) {
+        return Ok(canonical_target);
+    }
+
+    let claude_home = dirs::home_dir()
+        .map(|h| h.join(".claude"))
+        .and_then(|p| p.canonicalize().ok());
+    if let Some(claude_home) = claude_home {
+        if canonical_target.starts_with(&claude_home) {
+            return Ok(canonical_target);
+        }
+    }
+
+    Err(WebError::BadRequest("Path traversal not allowed".into()))
+}
+
 /// Helper: resolve project directory from web state.
 pub(super) async fn resolve_project_dir(state: &ServerState) -> WebResult<String> {
     state

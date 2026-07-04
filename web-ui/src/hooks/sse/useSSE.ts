@@ -419,6 +419,13 @@ export function useSSE(): SSEState {
   const clearMcpEditorOpen = useCallback(() => {
     setMcpEditorOpenPath(null); setMcpEditorOpenLine(null);
   }, []);
+  // Imperatively open a file in the editor panel (e.g. clicking a tool-card path).
+  // Reuses the same state the MCP editor-open event drives, so the panel auto-opens.
+  const openMcpEditor = useCallback((path: string, line?: number | null) => {
+    if (!path) return;
+    setMcpEditorOpenLine(line ?? null);
+    setMcpEditorOpenPath(path);
+  }, []);
   const clearMcpTerminalFocus = useCallback(() => { setMcpTerminalFocusId(null); }, []);
 
   const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[]) => {
@@ -810,7 +817,7 @@ export function useSSE(): SSEState {
     mcpAgentActivity, presenceClients, liveActivityEvents,
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
-    clearMcpEditorOpen, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,
+    clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,
     expectSessionSwitch, blockSessionAdoption, beginSessionSwitch, isSessionBusy,
   };
 }

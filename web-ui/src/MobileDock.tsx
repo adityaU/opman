@@ -149,6 +149,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
           <Suspense fallback={null}>
             <TerminalPanel
               sessionId={activeSessionId}
+              projectPath={activeProject?.path ?? null}
               onClose={() => togglePanel("terminal")}
               mcpAgentActive={Array.from(mcpAgentActivity.keys()).some(t => t.startsWith("web_terminal"))}
             />

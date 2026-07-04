@@ -6,6 +6,32 @@ import { parseOutput, guessLanguage } from "./helpers";
 import { str, asObj, TcStatus } from "./tcUtils";
 import { EditDiffView } from "./components";
 import { useAutoOpen, classifyTool } from "../hooks/useAutoOpen";
+import { useOpenFileInEditor } from "./EditorOpenContext";
+
+// Clickable file path that opens the file in the editor panel. Renders as a plain
+// span (not a button) since it lives inside the card's toggle <button>; stops
+// propagation so opening the file doesn't also toggle the accordion.
+function FilePath({ path, line }: { path: string; line?: number | null }) {
+  const openFile = useOpenFileInEditor();
+  if (!openFile) return <span className="tc-card-path">{path}</span>;
+  const open = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    openFile(path, line);
+  };
+  return (
+    <span
+      className="tc-card-path tc-card-path-link"
+      role="link"
+      tabIndex={0}
+      title={`Open ${path} in editor`}
+      onClick={open}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") open(e); }}
+    >
+      {path}
+    </span>
+  );
+}
 
 // ── Read Tool Card ─────────────────────────────────────────────────────────
 
@@ -51,7 +77,11 @@ export function ReadCard({ part }: { part: MessagePart }) {
         <span className="tc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <FileText size={12} className="tc-card-icon" />
         <span className="tc-card-label">Read</span>
-        <span className="tc-card-path">{displayPath}</span>
+        {filePath || parsed.path ? (
+          <FilePath path={(filePath || parsed.path)!} line={offset != null ? offset + 1 : null} />
+        ) : (
+          <span className="tc-card-path">{displayPath}</span>
+        )}
         {offset != null && (
           <span className="tc-card-badge">
             L{offset}–{limit != null ? offset + limit : "end"}
@@ -230,7 +260,7 @@ export function EditCard({ part }: { part: MessagePart }) {
         <span className="tc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <Pencil size={12} className="tc-card-icon" />
         <span className="tc-card-label">{label}</span>
-        {filePath && <span className="tc-card-path">{filePath}</span>}
+        {filePath && <FilePath path={filePath} />}
         <TcStatus status={status} durationMs={durationMs} />
       </button>
       {expanded && state?.input && (
