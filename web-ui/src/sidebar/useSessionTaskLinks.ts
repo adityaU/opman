@@ -9,6 +9,9 @@ export interface SessionTaskLink {
   laneName: string;
   /** Lane colour (hex) for tinting the sidebar tag; empty when unknown. */
   laneColor: string;
+  /** Whether the originating task is archived — archived tasks (and their
+   *  sessions) are hidden from the sidebar entirely. */
+  archived: boolean;
 }
 
 /** Build a `session_id → originating task/lane` map for the active project's
@@ -31,7 +34,14 @@ export function useSessionTaskLinks(
 
     const lanes = new Map(board.lanes.map((l) => [l.id, l]));
     const titles = new Map(tasks.map((t) => [t.id, t.title]));
-    const link = (taskId: string, taskTitle: string, laneId: string, sessionId: string) => {
+    const archivedTasks = new Map(tasks.map((t) => [t.id, t.archived]));
+    const link = (
+      taskId: string,
+      taskTitle: string,
+      laneId: string,
+      sessionId: string,
+      archived: boolean,
+    ) => {
       const lane = lanes.get(laneId);
       map.set(sessionId, {
         taskId,
@@ -39,18 +49,20 @@ export function useSessionTaskLinks(
         laneId,
         laneName: lane?.name ?? laneId,
         laneColor: lane?.color ?? "",
+        archived,
       });
     };
 
     for (const t of tasks) {
-      if (t.session_id) link(t.id, t.title, t.lane_id, t.session_id);
+      if (t.session_id) link(t.id, t.title, t.lane_id, t.session_id, t.archived);
     }
     // Pipeline mode: each stage runs in its own session — tag each to its lane.
     // Listed after tasks so a stage's own lane wins over the task's current lane.
     for (const run of pipelines) {
       const title = titles.get(run.task_id) ?? "";
+      const archived = archivedTasks.get(run.task_id) ?? false;
       for (const stage of run.stages) {
-        if (stage.session_id) link(run.task_id, title, stage.lane_id, stage.session_id);
+        if (stage.session_id) link(run.task_id, title, stage.lane_id, stage.session_id, archived);
       }
     }
     return map;

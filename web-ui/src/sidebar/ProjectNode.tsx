@@ -53,6 +53,10 @@ export interface ProjectNodeProps {
   sessionTaskLinks?: Map<string, SessionTaskLink>;
   /** Open the originating kanban task's editor (clicking a task-group header). */
   onOpenKanbanTask?: (taskId: string) => void;
+  /** Which kanban task group is currently expanded, sidebar-wide (only one at a time). */
+  expandedKanbanTask: string | null;
+  /** Toggle a kanban task group's expanded state (collapses any other open one). */
+  onToggleKanbanTaskExpand: (taskId: string) => void;
 }
 
 export function ProjectNode({
@@ -86,6 +90,8 @@ export function ProjectNode({
   onDeleteSession,
   sessionTaskLinks,
   onOpenKanbanTask,
+  expandedKanbanTask,
+  onToggleKanbanTaskExpand,
 }: ProjectNodeProps) {
   const { parentSessions, childrenMap, hasActive } = useMemo(() => {
     const parents: SessionInfo[] = [];
@@ -135,6 +141,8 @@ export function ProjectNode({
     for (const s of filteredParents) {
       const link = sessionTaskLinks.get(s.id);
       if (!link) { ungrouped.push(s); continue; }
+      // Archived tasks (and their sessions) are hidden from the sidebar entirely.
+      if (link.archived) continue;
       let group = byTask.get(link.taskId);
       if (!group) {
         group = {
@@ -143,11 +151,13 @@ export function ProjectNode({
           // filteredParents is recency-sorted, so the first session seen carries
           // the group's most-recent lane colour (the active stage in pipelines).
           laneColor: link.laneColor,
+          lastUpdated: 0,
           sessions: [],
         };
         byTask.set(link.taskId, group);
       }
       group.sessions.push(s);
+      if (s.time.updated > group.lastUpdated) group.lastUpdated = s.time.updated;
     }
     // filteredParents is already sorted (pinned, then recency), so group order
     // and per-group order follow that ordering by first-seen insertion.
@@ -256,6 +266,8 @@ export function ProjectNode({
             <TaskGroupNode
               key={group.taskId}
               group={group}
+              isExpanded={expandedKanbanTask === group.taskId}
+              onToggleExpand={onToggleKanbanTaskExpand}
               onOpenKanbanTask={onOpenKanbanTask}
               renderSession={renderSession}
             />

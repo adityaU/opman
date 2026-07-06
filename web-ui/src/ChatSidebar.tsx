@@ -80,6 +80,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   // ── Local UI state ────────────────────────────────
   const [expandedProject, setExpandedProject] = useState<number | null>(activeProject);
   const [expandedSubagents, setExpandedSubagents] = useState<string | null>(null);
+  // Only one kanban task-group card can be open at a time, sidebar-wide.
+  const [expandedKanbanTask, setExpandedKanbanTask] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
@@ -134,11 +136,16 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   const toggleProjectExpand = useCallback((index: number) => {
     setExpandedProject((prev) => (prev === index ? null : index));
     setExpandedSubagents(null);
+    setExpandedKanbanTask(null);
     setShowMore(false);
   }, []);
 
   const toggleSubagents = useCallback((sessionId: string) => {
     setExpandedSubagents((prev) => (prev === sessionId ? null : sessionId));
+  }, []);
+
+  const toggleKanbanTaskExpand = useCallback((taskId: string) => {
+    setExpandedKanbanTask((prev) => (prev === taskId ? null : taskId));
   }, []);
 
   return (
@@ -270,6 +277,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             onDeleteSession={triggerDelete}
             sessionTaskLinks={sessionTaskLinks}
             onOpenKanbanTask={onOpenKanbanTask}
+            expandedKanbanTask={expandedKanbanTask}
+            onToggleKanbanTaskExpand={toggleKanbanTaskExpand}
           />
         ))}
       </div>

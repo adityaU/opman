@@ -69,37 +69,56 @@
 }
 
 /* ── Kanban task groups (sessions grouped under their task) ──── */
-/* Lightweight section: a thin lane-coloured left accent instead of a heavy
-   filled block, with the header reading as a label. --lane-color is set per
+/* Collapsible card, styled after .subagent-session: a bordered card with a
+   lane-tinted left accent, a header row split into a toggle (chevron + icon +
+   title) and a right-aligned "open task" count pill with its own padding so
+   the pill never sits flush against the sidebar edge. --lane-color is set per
    group (the active stage's lane), falling back to the accent colour. Relies
    only on color-mix tints + shared border vars so it reads in both themes. */
 
 .sb-task-group {
     margin: var(--space-1) 0;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
     border-left: 2px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 55%, transparent);
-    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 4%, transparent)
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 4%, transparent);
+    overflow: hidden
 }
 
 .sb-task-group-header {
     display: flex;
     align-items: center;
-    gap: var(--space-1-5);
-    width: 100%;
-    padding: var(--space-1-5) var(--space-2);
+    gap: 0;
+    width: 100%
+}
+
+.sb-task-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2) var(--space-1) var(--space-2) var(--space-3);
     background: none;
     border: none;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
     color: var(--color-text);
     font-size: var(--font-size-2xs);
     font-weight: 600;
+    font-family: inherit;
     text-align: left;
     cursor: pointer;
     transition: background var(--transition-fast)
 }
 
-.sb-task-group-header:hover {
+.sb-task-group-toggle:hover {
     background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 10%, transparent)
+}
+
+.sb-task-group-chevron {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--color-text-muted)
 }
 
 .sb-task-group-icon {
@@ -116,26 +135,44 @@
     white-space: nowrap
 }
 
+.sb-task-group-time {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    opacity: .6
+}
+
 .sb-task-group-count {
     flex-shrink: 0;
     min-width: 16px;
     height: 14px;
     padding: 0 5px;
+    margin: 0 var(--space-3) 0 0;
     line-height: 14px;
     border-radius: 7px;
     text-align: center;
     color: var(--color-text-muted);
     background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
     font-size: 9px;
-    font-weight: 600
+    font-weight: 600;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast)
 }
 
-/* Sessions nested under a task group — left rail echoes the lane accent so the
-   group reads as one tidy sub-tree, aligned with the subagent indent. */
+.sb-task-group-count:hover {
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 35%, transparent);
+    color: var(--color-text)
+}
+
+/* Sessions nested under an open task group — left rail echoes the lane accent
+   so the group reads as one tidy sub-tree, aligned with the subagent indent. */
 .sb-task-group-sessions {
-    padding-left: var(--space-1);
-    margin-left: var(--space-3);
-    border-left: 1px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent)
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-1);
+    margin-left: var(--space-2);
+    border-top: 1px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 16%, transparent)
 }
 
 .sb-open-remove {
@@ -296,13 +333,14 @@ html.flat-theme .chat-sidebar .swipe-row-content {
 /* Task groups: solid panel surface, opaque lane accent (no translucency). */
 html.flat-theme .sb-task-group {
     background: var(--color-bg-panel);
+    border-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 30%, var(--color-bg-panel));
     border-left-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 65%, var(--color-bg-panel))
 }
 
-html.flat-theme .sb-task-group-header:hover {
+html.flat-theme .sb-task-group-toggle:hover {
     background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 14%, var(--color-bg-panel))
 }
 
 html.flat-theme .sb-task-group-sessions {
-    border-left-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 30%, var(--color-bg-panel))
+    border-top-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 24%, var(--color-bg-panel))
 }
