@@ -127,3 +127,7 @@ pub fn load_sessions(persist: &Option<PathBuf>) -> HashMap<String, Session> {
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "session_tests.rs"]
+mod session_tests;

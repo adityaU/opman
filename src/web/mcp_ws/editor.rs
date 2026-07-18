@@ -181,3 +181,7 @@ fn collect_files(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "editor_tests.rs"]
+mod editor_tests;

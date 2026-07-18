@@ -193,3 +193,7 @@ impl WebPtyHandle {
         rx.await.unwrap_or_default()
     }
 }
+
+#[cfg(test)]
+#[path = "handle_tests.rs"]
+mod handle_tests;

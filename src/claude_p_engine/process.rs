@@ -278,7 +278,19 @@ async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
     let Some(sess) = engine.get_session(session_id) else { return };
     let Some(uuid) = sess.claude_uuid.clone() else { return };
     let Some(path) = claude_cli::locate_jsonl(&uuid) else { return };
+    reparse_emit_from_path(engine, session_id, &sess.directory, path).await;
+}
 
+/// Parse an already-located transcript `path`, register any subagents as child
+/// sessions, and emit changed messages for `directory`. Split out of
+/// [`reparse_emit`] (which locates the path from the session's claude UUID) so it
+/// can be driven directly from a crafted temp transcript in tests.
+pub(super) async fn reparse_emit_from_path(
+    engine: &Arc<ClaudePEngine>,
+    session_id: &str,
+    directory: &str,
+    path: std::path::PathBuf,
+) {
     let sid = session_id.to_string();
     let parsed = tokio::task::spawn_blocking(move || {
         let mut p = jsonl::parse_file(&path, &sid);
@@ -294,7 +306,7 @@ async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
     }
     // Nest any subagents under this session so they appear as child rows.
     for agent_id in &parsed.subagent_ids {
-        engine.ensure_subagent_session(session_id, agent_id, "", &sess.directory);
+        engine.ensure_subagent_session(session_id, agent_id, "", directory);
     }
     let ts = now_ms();
     for m in &parsed.messages {
@@ -303,13 +315,29 @@ async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
         if !engine.should_emit(session_id, &msg_id, h) {
             continue;
         }
-        engine.emit(&sess.directory, "message.updated", json!({ "info": m.info }));
+        engine.emit(directory, "message.updated", json!({ "info": m.info }));
         for part in &m.parts {
             engine.emit(
-                &sess.directory,
+                directory,
                 "message.part.updated",
                 json!({ "sessionID": session_id, "part": part, "time": ts }),
             );
         }
     }
 }
+
+#[cfg(test)]
+#[path = "process_tests.rs"]
+mod process_tests;
+
+#[cfg(test)]
+#[path = "process_driver_tests.rs"]
+mod process_driver_tests;
+
+#[cfg(test)]
+#[path = "process_spawn_args_tests.rs"]
+mod process_spawn_args_tests;
+
+#[cfg(test)]
+#[path = "process_reader_edge_tests.rs"]
+mod process_reader_edge_tests;

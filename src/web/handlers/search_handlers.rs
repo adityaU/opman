@@ -1,5 +1,6 @@
 //! File edits and cross-session search handlers.
 
+
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
 
@@ -117,90 +118,15 @@ pub async fn search_messages(
             Err(_) => continue,
         };
 
-        // Normalise into flat Vec
-        let messages: Vec<&serde_json::Value> = if let Some(arr) = body.as_array() {
-            arr.iter().collect()
-        } else if let Some(obj) = body.as_object() {
-            obj.values().collect()
-        } else {
-            continue;
-        };
-
-        for msg in &messages {
-            if results.len() >= limit {
-                break;
-            }
-
-            let role = msg
-                .pointer("/info/role")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-            let msg_id = msg
-                .pointer("/info/id")
-                .or_else(|| msg.pointer("/info/messageID"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let timestamp = msg
-                .pointer("/info/time/created")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-
-            // Collect all searchable text from parts
-            let parts = msg.get("parts").and_then(|v| v.as_array());
-            if let Some(parts) = parts {
-                for part in parts {
-                    let mut searchable_texts: Vec<&str> = Vec::new();
-
-                    // Text content
-                    if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
-                        searchable_texts.push(text);
-                    }
-
-                    // Tool call name
-                    if let Some(name) = part.get("toolName").and_then(|v| v.as_str()) {
-                        searchable_texts.push(name);
-                    }
-
-                    // Tool call args (stringify)
-                    if let Some(args) = part.get("args") {
-                        if let Some(s) = args.as_str() {
-                            searchable_texts.push(s);
-                        }
-                    }
-
-                    // Tool call output/result
-                    if let Some(output) = part.get("output").and_then(|v| v.as_str()) {
-                        searchable_texts.push(output);
-                    }
-                    if let Some(result) = part.get("result").and_then(|v| v.as_str()) {
-                        searchable_texts.push(result);
-                    }
-
-                    // Check if any text matches
-                    for text in &searchable_texts {
-                        if text.to_lowercase().contains(&query_lower) {
-                            // Build snippet: find match position and extract context
-                            let snippet = build_snippet(text, &query_lower, 120);
-                            results.push(SearchResultEntry {
-                                session_id: session_id.clone(),
-                                session_title: session_title.clone(),
-                                project_name: project_name.clone(),
-                                message_id: msg_id.clone(),
-                                role: role.to_string(),
-                                snippet,
-                                timestamp,
-                            });
-                            break; // one match per message is enough
-                        }
-                    }
-
-                    if results.len() >= limit {
-                        break;
-                    }
-                }
-            }
-        }
+        collect_session_matches(
+            &body,
+            session_id,
+            session_title,
+            &project_name,
+            &query_lower,
+            limit,
+            &mut results,
+        );
     }
 
     let total = results.len();
@@ -209,6 +135,108 @@ pub async fn search_messages(
         results,
         total,
     }))
+}
+
+/// Scan one session's raw message payload (`body`), appending a
+/// [`SearchResultEntry`] for every message whose text/tool parts contain
+/// `query_lower` (case-insensitively), until `results` reaches `limit`.
+///
+/// Pure — no I/O — so the parsing/matching logic can be unit-tested directly
+/// (the surrounding handler only supplies the already-fetched JSON body).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn collect_session_matches(
+    body: &serde_json::Value,
+    session_id: &str,
+    session_title: &str,
+    project_name: &str,
+    query_lower: &str,
+    limit: usize,
+    results: &mut Vec<SearchResultEntry>,
+) {
+    // Normalise into flat Vec
+    let messages: Vec<&serde_json::Value> = if let Some(arr) = body.as_array() {
+        arr.iter().collect()
+    } else if let Some(obj) = body.as_object() {
+        obj.values().collect()
+    } else {
+        return;
+    };
+
+    for msg in &messages {
+        if results.len() >= limit {
+            break;
+        }
+
+        let role = msg
+            .pointer("/info/role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let msg_id = msg
+            .pointer("/info/id")
+            .or_else(|| msg.pointer("/info/messageID"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let timestamp = msg
+            .pointer("/info/time/created")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        // Collect all searchable text from parts
+        let parts = msg.get("parts").and_then(|v| v.as_array());
+        if let Some(parts) = parts {
+            for part in parts {
+                let mut searchable_texts: Vec<&str> = Vec::new();
+
+                // Text content
+                if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
+                    searchable_texts.push(text);
+                }
+
+                // Tool call name
+                if let Some(name) = part.get("toolName").and_then(|v| v.as_str()) {
+                    searchable_texts.push(name);
+                }
+
+                // Tool call args (stringify)
+                if let Some(args) = part.get("args") {
+                    if let Some(s) = args.as_str() {
+                        searchable_texts.push(s);
+                    }
+                }
+
+                // Tool call output/result
+                if let Some(output) = part.get("output").and_then(|v| v.as_str()) {
+                    searchable_texts.push(output);
+                }
+                if let Some(result) = part.get("result").and_then(|v| v.as_str()) {
+                    searchable_texts.push(result);
+                }
+
+                // Check if any text matches
+                for text in &searchable_texts {
+                    if text.to_lowercase().contains(query_lower) {
+                        // Build snippet: find match position and extract context
+                        let snippet = build_snippet(text, query_lower, 120);
+                        results.push(SearchResultEntry {
+                            session_id: session_id.to_string(),
+                            session_title: session_title.to_string(),
+                            project_name: project_name.to_string(),
+                            message_id: msg_id.clone(),
+                            role: role.to_string(),
+                            snippet,
+                            timestamp,
+                        });
+                        break; // one match per message is enough
+                    }
+                }
+
+                if results.len() >= limit {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// Build a snippet around the first occurrence of `needle` in `haystack`.
@@ -248,3 +276,19 @@ pub(super) fn build_snippet(haystack: &str, needle_lower: &str, max_len: usize) 
     }
     snippet
 }
+
+#[cfg(test)]
+#[path = "search_handlers_files_tests.rs"]
+mod search_handlers_files_tests;
+
+#[cfg(test)]
+#[path = "search_handlers_messages_tests.rs"]
+mod search_handlers_messages_tests;
+
+#[cfg(test)]
+#[path = "search_handlers_loop_tests.rs"]
+mod search_handlers_loop_tests;
+
+#[cfg(test)]
+#[path = "search_handlers_upstream_tests.rs"]
+mod search_handlers_upstream_tests;

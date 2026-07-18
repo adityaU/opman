@@ -289,3 +289,11 @@ impl super::WebStateHandle {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "watchers_tests.rs"]
+mod watchers_tests;
+
+#[cfg(test)]
+#[path = "watchers_upstream_tests.rs"]
+mod watchers_upstream_tests;

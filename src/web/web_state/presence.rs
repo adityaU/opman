@@ -127,3 +127,7 @@ impl super::WebStateHandle {
         });
     }
 }
+
+#[cfg(test)]
+#[path = "presence_tests.rs"]
+mod presence_tests;

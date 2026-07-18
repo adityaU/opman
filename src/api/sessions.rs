@@ -287,3 +287,7 @@ impl ApiClient {
         Ok(body)
     }
 }
+
+#[cfg(test)]
+#[path = "sessions_tests.rs"]
+mod sessions_tests;

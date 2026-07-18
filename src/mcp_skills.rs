@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use serde::{Deserialize, Serialize};
@@ -50,15 +50,21 @@ pub fn get_skills_dir() -> PathBuf {
 }
 
 pub async fn load_skills() -> Result<HashMap<String, Skill>> {
-    let skills_dir = get_skills_dir();
+    load_skills_from(&get_skills_dir())
+}
+
+/// Load skills from a specific directory. Extracted so the directory-walking /
+/// parsing logic can be tested against a temp dir without touching the real
+/// config directory. Creates the directory (and returns empty) if it is absent.
+pub(crate) fn load_skills_from(skills_dir: &Path) -> Result<HashMap<String, Skill>> {
     let mut skills = HashMap::new();
 
     if !skills_dir.exists() {
-        std::fs::create_dir_all(&skills_dir)?;
+        std::fs::create_dir_all(skills_dir)?;
         return Ok(skills);
     }
 
-    for entry in std::fs::read_dir(&skills_dir)? {
+    for entry in std::fs::read_dir(skills_dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
@@ -192,3 +198,14 @@ async fn dispatch_tool(registry: &SkillsRegistry, tool_name: &str, args: &Value)
         _ => serde_json::json!([{ "type": "text", "text": format!("Unknown tool: {}", tool_name) }]),
     }
 }
+#[cfg(test)]
+#[path = "mcp_skills_tests.rs"]
+mod mcp_skills_tests;
+
+#[cfg(test)]
+#[path = "mcp_skills_load_tests.rs"]
+mod mcp_skills_load_tests;
+
+#[cfg(test)]
+#[path = "mcp_skills_dispatch_tests.rs"]
+mod mcp_skills_dispatch_tests;

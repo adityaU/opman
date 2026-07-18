@@ -238,17 +238,7 @@ impl super::WebStateHandle {
             .await
             .ok()?;
         let body: serde_json::Value = resp.json().await.ok()?;
-        let messages: Vec<serde_json::Value> = match &body {
-            serde_json::Value::Array(a) => a.clone(),
-            serde_json::Value::Object(o) => o.values().cloned().collect(),
-            _ => return None,
-        };
-        let latest = messages
-            .iter()
-            .filter(|m| m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant"))
-            .max_by_key(|m| m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0))?;
-        let text = super::assistant::extract_message_text(latest);
-        (!text.trim().is_empty()).then_some(text)
+        latest_assistant_output(&body)
     }
 
     fn record_note(&self, task_id: &str, author: &str, body: &str) {
@@ -270,4 +260,30 @@ impl super::WebStateHandle {
         });
     }
 }
+
+/// Pick the latest assistant message text from a `/session/{id}/message` payload
+/// (array- or object-shaped). Returns `None` when there is no non-empty assistant
+/// output. Extracted from `capture_session_output` so it is testable without a
+/// live upstream session server.
+fn latest_assistant_output(body: &serde_json::Value) -> Option<String> {
+    let messages: Vec<serde_json::Value> = match body {
+        serde_json::Value::Array(a) => a.clone(),
+        serde_json::Value::Object(o) => o.values().cloned().collect(),
+        _ => return None,
+    };
+    let latest = messages
+        .iter()
+        .filter(|m| m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant"))
+        .max_by_key(|m| m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0))?;
+    let text = super::assistant::extract_message_text(latest);
+    (!text.trim().is_empty()).then_some(text)
+}
+
+#[cfg(test)]
+#[path = "kanban_pipeline_tests.rs"]
+mod kanban_pipeline_tests;
+
+#[cfg(test)]
+#[path = "kanban_pipeline_upstream_tests.rs"]
+mod kanban_pipeline_upstream_tests;
 

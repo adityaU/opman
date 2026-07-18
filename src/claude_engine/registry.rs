@@ -107,11 +107,28 @@ impl Registry {
         v
     }
 
-    /// Find the entry whose latest claude session UUID matches `uuid`.
+    /// Find the entry whose latest claude session UUID matches `uuid`, falling back to any
+    /// entry carrying it in its lineage. The lineage fallback matters for the PreToolUse
+    /// hook: claude mints a fresh UUID per turn, and a just-resumed turn's UUID can reach
+    /// the hook a beat before `record_turn` promotes it to `claude_session_id` — matching
+    /// lineage keeps questions/permissions routed to the right session instead of failing
+    /// open (which sends the prompt to the terminal).
     #[allow(dead_code)] // paired with ClaudeEngine::session_id_for_claude_uuid
     pub fn by_claude_uuid(&self, uuid: &str) -> Option<&SessionEntry> {
+        if uuid.is_empty() {
+            return None;
+        }
         self.sessions
             .values()
             .find(|s| s.claude_session_id.as_deref() == Some(uuid))
+            .or_else(|| {
+                self.sessions
+                    .values()
+                    .find(|s| s.lineage.iter().any(|u| u == uuid))
+            })
     }
 }
+
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod registry_tests;

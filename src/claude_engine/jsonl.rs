@@ -218,6 +218,18 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                 if !matches!(content_v, Some(Value::Array(_))) {
                     mark_completed(&mut out.messages, last_assistant_idx.take(), ts);
                 }
+                // The post-compaction continuation summary claude injects
+                // (`isCompactSummary` / `isVisibleInTranscriptOnly`) is a transcript-only
+                // artifact, not a human prompt — skip it so the giant "This session is
+                // being continued…" block never renders as a user bubble.
+                let compact_summary = v
+                    .get("isCompactSummary")
+                    .or_else(|| v.get("isVisibleInTranscriptOnly"))
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false);
+                if compact_summary {
+                    continue;
+                }
                 match content_v {
                     Some(Value::String(s)) if is_system_injection(&v, s) => {
                         // A `<task-notification>` that names a background task we launched
@@ -593,6 +605,40 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                 if subtype == "turn_duration" {
                     // Written when a turn finishes — complete its assistant.
                     mark_completed(&mut out.messages, last_assistant_idx.take(), ts);
+                } else if subtype == "compact_boundary" {
+                    // End of a compaction. Surface a dedicated card carrying the metadata
+                    // (trigger + pre-compaction token count + duration) so the completed
+                    // state is informative instead of a bare "Conversation compacted".
+                    let cm = v.get("compactMetadata");
+                    let num = |k: &str| {
+                        cm.and_then(|m| m.get(k)).and_then(|x| x.as_u64()).unwrap_or(0)
+                    };
+                    let trigger = cm
+                        .and_then(|m| m.get("trigger"))
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("manual");
+                    mark_completed(&mut out.messages, last_assistant_idx.take(), ts);
+                    sys_turn += 1;
+                    let mid = format!("msg_sys_{session_id}_{sys_turn}");
+                    out.messages.push(MsgOut {
+                        info: json!({
+                            "role": "system",
+                            "variant": "compact",
+                            "id": mid,
+                            "sessionID": session_id,
+                            "trigger": trigger,
+                            "preTokens": num("preTokens"),
+                            "durationMs": num("durationMs"),
+                            "time": { "created": ts, "completed": ts },
+                        }),
+                        parts: vec![json!({
+                            "type": "text",
+                            "id": format!("{mid}:0"),
+                            "messageID": mid,
+                            "sessionID": session_id,
+                            "text": "Conversation compacted",
+                        })],
+                    });
                 } else if let Some(content) = v
                     .get("content")
                     .and_then(|c| c.as_str())
@@ -1028,4 +1074,39 @@ mod tests {
         let asst = p.messages.iter().find(|m| m.info["role"] == "assistant").unwrap();
         assert_eq!(asst.info["error"], "Overloaded. Please try again.");
     }
+
+    // A /compact turn: the `/compact` prompt is a normal user bubble; the injected
+    // continuation summary is hidden; the compact_boundary becomes a `compact` card
+    // carrying trigger + preTokens + durationMs.
+    #[test]
+    fn compaction_hides_summary_and_surfaces_metadata_card() {
+        let transcript = concat!(
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","message":{"role":"user","content":"/compact"}}"#, "\n",
+            r#"{"type":"user","isCompactSummary":true,"isVisibleInTranscriptOnly":true,"timestamp":"2026-06-28T08:01:19.000Z","message":{"role":"user","content":"This session is being continued from a previous conversation…"}}"#, "\n",
+            r#"{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","level":"info","timestamp":"2026-06-28T08:01:20.000Z","compactMetadata":{"trigger":"manual","preTokens":167917,"durationMs":95722}}"#, "\n",
+        );
+        let p = parse_str(transcript, "ses");
+
+        let users: Vec<_> = p.messages.iter().filter(|m| m.info["role"] == "user").collect();
+        assert_eq!(users.len(), 1, "only the /compact prompt is a user bubble");
+        assert_eq!(users[0].parts[0]["text"], "/compact");
+
+        let compact = p
+            .messages
+            .iter()
+            .find(|m| m.info["variant"] == "compact")
+            .expect("compact_boundary yields a compact card");
+        assert_eq!(compact.info["trigger"], "manual");
+        assert_eq!(compact.info["preTokens"], 167917);
+        assert_eq!(compact.info["durationMs"], 95722);
+        assert_eq!(compact.parts[0]["text"], "Conversation compacted");
+    }
 }
+
+#[cfg(test)]
+#[path = "jsonl_parsing_tests.rs"]
+mod jsonl_parsing_tests;
+
+#[cfg(test)]
+#[path = "jsonl_fs_tests.rs"]
+mod jsonl_fs_tests;

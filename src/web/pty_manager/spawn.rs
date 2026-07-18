@@ -284,6 +284,10 @@ pub(crate) fn spawn_opencode_pty(
     })
 }
 
+#[cfg(test)]
+#[path = "spawn_tests.rs"]
+mod spawn_tests;
+
 /// Spawn an interactive `claude attach <short_id>` PTY for the Claude engine — opens the
 /// running background agent in a full interactive terminal. `short_id` is the claude
 /// background agent's short id (resolved from the opman session).
@@ -346,3 +350,7 @@ pub(crate) fn spawn_claude_attach_pty(
         cols,
     })
 }
+
+#[cfg(test)]
+#[path = "spawn_real_tests.rs"]
+mod spawn_real_tests;

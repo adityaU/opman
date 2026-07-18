@@ -225,3 +225,7 @@ pub struct FileEditsResponse {
     /// Total number of files edited.
     pub file_count: usize,
 }
+
+#[cfg(test)]
+#[path = "files_tests.rs"]
+mod files_tests;

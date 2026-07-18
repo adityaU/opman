@@ -1,5 +1,6 @@
 //! Web PTY spawn/write/resize/kill/list handlers.
 
+
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -159,3 +160,19 @@ pub async fn pty_list(
     let ids = state.pty_mgr.list().await;
     Ok(Json(ids))
 }
+
+#[cfg(test)]
+#[path = "pty_handlers_tests.rs"]
+mod pty_handlers_tests;
+
+#[cfg(test)]
+#[path = "pty_handlers_live_tests.rs"]
+mod pty_handlers_live_tests;
+
+#[cfg(test)]
+#[path = "pty_handlers_live_extra_tests.rs"]
+mod pty_handlers_live_extra_tests;
+
+#[cfg(test)]
+#[path = "pty_handlers_attach_tests.rs"]
+mod pty_handlers_attach_tests;

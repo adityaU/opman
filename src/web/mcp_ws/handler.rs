@@ -224,3 +224,11 @@ async fn handle_tools_call(state: &ServerState, req: &JsonRpcRequest) -> JsonRpc
         ),
     }
 }
+
+#[cfg(test)]
+#[path = "handler_tests.rs"]
+mod handler_tests;
+
+#[cfg(test)]
+#[path = "handler_dispatch_extra_tests.rs"]
+mod handler_dispatch_extra_tests;

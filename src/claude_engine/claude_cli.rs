@@ -492,6 +492,19 @@ fn home_projects_dir() -> Option<PathBuf> {
     Some(home.join(".claude").join("projects"))
 }
 
+/// Serializes all tests (across `claude_engine` submodules) that mutate the
+/// process-global `OPMAN_CLAUDE_BIN` env var, so parallel test threads never race it.
+#[cfg(test)]
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
+#[path = "claude_cli_tests.rs"]
+mod claude_cli_tests;
+
+#[cfg(test)]
+#[path = "claude_cli_locate_tests.rs"]
+mod claude_cli_locate_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

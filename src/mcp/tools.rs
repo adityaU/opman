@@ -296,3 +296,7 @@ async fn handle_ephemeral_run_inner(
         "text": final_output
     }]))
 }
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

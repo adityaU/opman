@@ -62,3 +62,11 @@ pub(super) async fn agent_list(State(engine): State<Engine>, headers: HeaderMap)
         .collect();
     Json(Value::Array(arr))
 }
+
+#[cfg(test)]
+#[path = "routes_meta_tests.rs"]
+mod routes_meta_tests;
+
+#[cfg(test)]
+#[path = "routes_meta_init_tests.rs"]
+mod routes_meta_init_tests;

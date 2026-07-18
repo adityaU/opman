@@ -24,3 +24,7 @@ pub fn save_todos_to_db(session_id: &str, todos: &[TodoItem]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "todo_db_tests.rs"]
+mod todo_db_tests;

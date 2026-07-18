@@ -1,5 +1,6 @@
 //! File and directory download handlers.
 
+
 use axum::extract::State;
 use axum::response::IntoResponse;
 
@@ -166,3 +167,15 @@ fn add_dir_recursive(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "download_handlers_tests.rs"]
+mod download_handlers_tests;
+
+#[cfg(test)]
+#[path = "download_handlers_edge_tests.rs"]
+mod download_handlers_edge_tests;
+
+#[cfg(test)]
+#[path = "download_handlers_zip_content_tests.rs"]
+mod download_handlers_zip_content_tests;

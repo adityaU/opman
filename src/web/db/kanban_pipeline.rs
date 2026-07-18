@@ -104,3 +104,7 @@ fn row_to_run(row: &rusqlite::Row) -> rusqlite::Result<PipelineRun> {
         updated_at: row.get(7)?,
     })
 }
+
+#[cfg(test)]
+#[path = "kanban_pipeline_tests.rs"]
+mod kanban_pipeline_tests;

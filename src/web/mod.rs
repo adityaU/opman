@@ -41,6 +41,8 @@ pub mod pty_manager;
 mod routes;
 mod sse;
 mod static_files;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub mod types;
 mod tunnel;
 mod web_state;
@@ -186,3 +188,11 @@ fn write_internal_descriptor(port: u16, token: &str) {
         let _ = std::fs::write(dir.join("internal.json"), s);
     }
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "mod_startup_tests.rs"]
+mod mod_startup_tests;

@@ -328,3 +328,7 @@ pub async fn git_discard(
 
     Ok(StatusCode::OK)
 }
+
+#[cfg(test)]
+#[path = "git_handlers_tests.rs"]
+mod git_handlers_tests;

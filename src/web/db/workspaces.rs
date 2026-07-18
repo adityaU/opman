@@ -86,3 +86,7 @@ mod tests {
         assert!(db.list_workspaces().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "workspaces_tests.rs"]
+mod workspaces_tests;

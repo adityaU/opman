@@ -1,5 +1,6 @@
 //! System monitor handler — returns a snapshot of system metrics.
 
+
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
 use sysinfo::{System, Disks, Networks};
@@ -42,11 +43,7 @@ pub(crate) fn collect_system_stats_reuse(
 ) -> SystemStats {
     // CPU usage
     let cpu_usage: Vec<f32> = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
-    let cpu_avg = if cpu_usage.is_empty() {
-        0.0
-    } else {
-        cpu_usage.iter().sum::<f32>() / cpu_usage.len() as f32
-    };
+    let cpu_avg = cpu_average(&cpu_usage);
 
     // Memory
     let mem_total = sys.total_memory();
@@ -81,7 +78,7 @@ pub(crate) fn collect_system_stats_reuse(
             }
         })
         .collect();
-    procs.sort_by(|a, b| b.cpu.partial_cmp(&a.cpu).unwrap_or(std::cmp::Ordering::Equal));
+    procs.sort_by(|a, b| cpu_desc(a.cpu, b.cpu));
     let process_count = procs.len();
     procs.truncate(40);
 
@@ -124,6 +121,21 @@ pub(crate) fn collect_system_stats_reuse(
     }
 }
 
+/// Average of the per-core CPU usages, or 0.0 when there are no cores.
+pub(crate) fn cpu_average(cpu_usage: &[f32]) -> f32 {
+    if cpu_usage.is_empty() {
+        0.0
+    } else {
+        cpu_usage.iter().sum::<f32>() / cpu_usage.len() as f32
+    }
+}
+
+/// Descending CPU comparator (NaN-safe: unorderable pairs compare Equal). Used to
+/// sort the process list so the busiest processes come first.
+pub(crate) fn cpu_desc(a: f32, b: f32) -> std::cmp::Ordering {
+    b.partial_cmp(&a).unwrap_or(std::cmp::Ordering::Equal)
+}
+
 fn fallback_stats() -> SystemStats {
     SystemStats {
         mem_total: 0,
@@ -141,3 +153,11 @@ fn fallback_stats() -> SystemStats {
         networks: vec![],
     }
 }
+
+#[cfg(test)]
+#[path = "system_handlers_tests.rs"]
+mod system_handlers_tests;
+
+#[cfg(test)]
+#[path = "system_handlers_helpers_tests.rs"]
+mod system_handlers_helpers_tests;

@@ -93,3 +93,7 @@ impl super::WebStateHandle {
         removed
     }
 }
+
+#[cfg(test)]
+#[path = "delegation_tests.rs"]
+mod delegation_tests;

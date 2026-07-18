@@ -199,3 +199,7 @@ impl WebThemePair {
 pub struct SwitchThemeRequest {
     pub name: String,
 }
+
+#[cfg(test)]
+#[path = "events_tests.rs"]
+mod events_tests;

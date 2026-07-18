@@ -197,3 +197,15 @@ async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
         let _ = pty.child.kill();
     }
 }
+
+#[cfg(test)]
+#[path = "manager_tests.rs"]
+mod manager_tests;
+
+#[cfg(test)]
+#[path = "pty_test_support.rs"]
+pub(crate) mod pty_test_support;
+
+#[cfg(test)]
+#[path = "manager_real_tests.rs"]
+mod manager_real_tests;

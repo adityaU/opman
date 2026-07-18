@@ -235,3 +235,7 @@ fn deleg_str(s: &DelegationStatus) -> &'static str {
         DelegationStatus::Completed => "completed",
     }
 }
+
+#[cfg(test)]
+#[path = "db_sync_tests.rs"]
+mod db_sync_tests;

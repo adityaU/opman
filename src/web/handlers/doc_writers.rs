@@ -217,3 +217,7 @@ const STYLES_XML: &str = "\
 <w:pPr><w:outlineLvl w:val=\"4\"/></w:pPr>\
 <w:rPr><w:sz w:val=\"22\"/></w:rPr></w:style>\
 </w:styles>";
+
+#[cfg(test)]
+#[path = "doc_writers_tests.rs"]
+mod doc_writers_tests;

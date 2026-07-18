@@ -291,3 +291,7 @@ pub fn default_board(id: String, project_path: String) -> Board {
         transitions,
     }
 }
+
+#[cfg(test)]
+#[path = "kanban_tests.rs"]
+mod kanban_tests;

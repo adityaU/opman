@@ -548,3 +548,15 @@ fn guess_mime(name: &str) -> String {
     };
     m.to_string()
 }
+
+#[cfg(test)]
+#[path = "kanban_handlers_crud_tests.rs"]
+mod kanban_handlers_crud_tests;
+
+#[cfg(test)]
+#[path = "kanban_handlers_launch_tests.rs"]
+mod kanban_handlers_launch_tests;
+
+#[cfg(test)]
+#[path = "kanban_handlers_upstream_tests.rs"]
+mod kanban_handlers_upstream_tests;

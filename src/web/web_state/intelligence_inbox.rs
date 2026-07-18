@@ -103,3 +103,7 @@ fn priority_ord(p: &InboxItemPriority) -> u8 {
         InboxItemPriority::Low => 2,
     }
 }
+
+#[cfg(test)]
+#[path = "intelligence_inbox_tests.rs"]
+mod intelligence_inbox_tests;

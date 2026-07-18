@@ -241,3 +241,19 @@ async fn event_stream(
     };
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
 }
+
+#[cfg(test)]
+#[path = "routes_endpoints_tests.rs"]
+mod routes_endpoints_tests;
+
+#[cfg(test)]
+#[path = "routes_dispatch_tests.rs"]
+mod routes_dispatch_tests;
+
+#[cfg(test)]
+#[path = "routes_transcript_tests.rs"]
+mod routes_transcript_tests;
+
+#[cfg(test)]
+#[path = "routes_stream_tests.rs"]
+mod routes_stream_tests;

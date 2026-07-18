@@ -195,3 +195,7 @@ pub(super) fn resolve_theme_color(
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "state_handlers_tests.rs"]
+mod state_handlers_tests;

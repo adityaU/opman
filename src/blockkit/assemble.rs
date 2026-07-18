@@ -223,3 +223,7 @@ fn build_table_block(
 
     block
 }
+
+#[cfg(test)]
+#[path = "assemble_tests.rs"]
+mod assemble_tests;

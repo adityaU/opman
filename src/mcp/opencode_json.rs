@@ -133,3 +133,7 @@ pub fn write_opencode_json(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "opencode_json_tests.rs"]
+mod opencode_json_tests;

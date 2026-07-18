@@ -15,12 +15,13 @@ const COMPACT_THRESHOLD: usize = 256 * 1024; // 256 KiB of consumed prefix
 
 /// Thread-safe buffer that accumulates raw PTY output bytes.
 /// The SSE stream reads from `read_pos` and the reader thread appends.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RawOutputBuffer {
     inner: Arc<Mutex<RawOutputInner>>,
     pub dirty: Arc<AtomicBool>,
 }
 
+#[derive(Debug)]
 struct RawOutputInner {
     buf: Vec<u8>,
     /// How many bytes have been consumed by the SSE reader.
@@ -87,3 +88,7 @@ impl RawOutputBuffer {
         Vec::new()
     }
 }
+
+#[cfg(test)]
+#[path = "buffer_tests.rs"]
+mod buffer_tests;

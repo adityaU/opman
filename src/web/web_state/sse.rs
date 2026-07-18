@@ -96,3 +96,7 @@ pub(super) fn extract_sse_data(message: &str) -> Option<String> {
         Some(data_parts.join("\n"))
     }
 }
+
+#[cfg(test)]
+#[path = "sse_tests.rs"]
+mod sse_tests;

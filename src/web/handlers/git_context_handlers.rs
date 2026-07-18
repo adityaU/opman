@@ -285,3 +285,7 @@ async fn quick_repo_info(repo_path: &std::path::Path, rel_path: &str) -> Option<
         untracked_count,
     })
 }
+
+#[cfg(test)]
+#[path = "git_context_handlers_tests.rs"]
+mod git_context_handlers_tests;

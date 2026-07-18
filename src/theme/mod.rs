@@ -10,3 +10,7 @@ mod tests;
 pub use colors::{ansi_palette_from_theme, color_to_hex};
 pub use loading::{deploy_embedded_themes, load_theme, load_theme_with_mode};
 pub use types::ThemeColors;
+
+#[cfg(test)]
+#[path = "theme_mod_tests.rs"]
+mod theme_mod_tests;

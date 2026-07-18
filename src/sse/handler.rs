@@ -196,3 +196,7 @@ pub(super) fn handle_sse_data(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "handler_dispatch_tests.rs"]
+mod handler_dispatch_tests;

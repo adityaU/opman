@@ -155,3 +155,7 @@ impl ApiClient {
         Ok(messages)
     }
 }
+
+#[cfg(test)]
+#[path = "messages_tests.rs"]
+mod messages_tests;

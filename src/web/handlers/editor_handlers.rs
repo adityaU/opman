@@ -1,5 +1,6 @@
 //! Editor LSP proxy handlers (diagnostics, hover, definition, format).
 
+
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Json};
 
@@ -78,3 +79,11 @@ pub async fn editor_lsp_format(
         "content": content,
     })))
 }
+
+#[cfg(test)]
+#[path = "editor_handlers_tests.rs"]
+mod editor_handlers_tests;
+
+#[cfg(test)]
+#[path = "editor_handlers_mock_tests.rs"]
+mod editor_handlers_mock_tests;

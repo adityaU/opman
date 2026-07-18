@@ -185,3 +185,7 @@ impl ApiClient {
         Ok(response_body)
     }
 }
+
+#[cfg(test)]
+#[path = "interactions_tests.rs"]
+mod interactions_tests;

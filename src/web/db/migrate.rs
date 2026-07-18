@@ -383,10 +383,15 @@ struct LegacyState {
 /// Note: Old missions are NOT migrated from JSON since the model has
 /// fundamentally changed. They will be dropped.
 pub fn run_migration(db: &Db) {
+    run_migration_from(db, legacy_json_path());
+}
+
+/// Testable core of [`run_migration`]: same logic, but the legacy JSON path is
+/// passed in explicitly so tests can point it at a temp file.
+fn run_migration_from(db: &Db, json_path: PathBuf) {
     // First, run schema migrations for existing SQLite databases
     run_schema_migrations(db);
 
-    let json_path = legacy_json_path();
     if !json_path.exists() {
         return;
     }
@@ -588,3 +593,7 @@ mod tests {
         assert!(db.list_missions().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "migrate_tests.rs"]
+mod migrate_tests;

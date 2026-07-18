@@ -69,3 +69,7 @@ pub(crate) const INVALID_REQUEST: i64 = -32600;
 pub(crate) const METHOD_NOT_FOUND: i64 = -32601;
 #[allow(dead_code)]
 pub(crate) const INTERNAL_ERROR: i64 = -32603;
+
+#[cfg(test)]
+#[path = "protocol_tests.rs"]
+mod protocol_tests;

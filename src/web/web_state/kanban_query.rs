@@ -112,3 +112,7 @@ impl super::WebStateHandle {
         Ok(out)
     }
 }
+
+#[cfg(test)]
+#[path = "kanban_query_tests.rs"]
+mod kanban_query_tests;

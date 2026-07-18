@@ -131,3 +131,7 @@ mod tests {
         assert!(db.list_memory().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "memory_tests.rs"]
+mod memory_tests;

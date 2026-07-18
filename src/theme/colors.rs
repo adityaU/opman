@@ -172,3 +172,7 @@ pub fn remap_ansi_colors(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "colors_tests.rs"]
+mod colors_tests;

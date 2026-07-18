@@ -185,3 +185,11 @@ pub async fn get_agents(
 
     Ok(Json(agents))
 }
+
+#[cfg(test)]
+#[path = "agents_handlers_tests.rs"]
+mod agents_handlers_tests;
+
+#[cfg(test)]
+#[path = "agents_handlers_upstream_tests.rs"]
+mod agents_handlers_upstream_tests;

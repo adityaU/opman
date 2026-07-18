@@ -539,3 +539,11 @@ fn combined_output(output: &std::process::Output) -> String {
     };
     combined.trim().to_string()
 }
+
+#[cfg(test)]
+#[path = "git_ext_handlers_history_tests.rs"]
+mod git_ext_handlers_history_tests;
+
+#[cfg(test)]
+#[path = "git_ext_handlers_stash_tests.rs"]
+mod git_ext_handlers_stash_tests;

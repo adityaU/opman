@@ -252,3 +252,7 @@ pub struct UpdateDelegatedWorkRequest {
 pub struct DelegatedWorkListResponse {
     pub items: Vec<DelegatedWorkItem>,
 }
+
+#[cfg(test)]
+#[path = "autonomy_tests.rs"]
+mod autonomy_tests;

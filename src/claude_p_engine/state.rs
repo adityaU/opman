@@ -290,3 +290,11 @@ impl ClaudePEngine {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod state_tests;
+
+#[cfg(test)]
+#[path = "state_poison_tests.rs"]
+mod state_poison_tests;

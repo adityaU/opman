@@ -35,10 +35,13 @@ pub fn router(engine: Engine) -> Router {
         .route("/session/{id}/prompt_async", post(prompt_async))
         .route("/session/{id}/abort", post(abort))
         .route("/session/{id}/todo", get(get_todos))
+        .route("/session/{id}/queue", get(get_queue).delete(clear_queue))
+        .route("/session/{id}/queue/{index}", axum::routing::delete(remove_queue_item))
         .route("/session/{id}/command", post(session_command))
         .route("/session/{id}/revert", post(noop_ok))
         .route("/session/{id}/unrevert", post(noop_ok))
         .route("/session/{id}/share", post(noop_obj))
+        .route("/reap", post(reap_agents))
         .route("/tui/select-session", post(select_session))
         .route("/permission/{id}/reply", post(permission_reply))
         .route("/question/{id}/reply", post(question_reply))
@@ -251,6 +254,7 @@ fn dispatch_turn(engine: Engine, session_id: String, text: String) {
             "tui.toast.show",
             json!({ "message": "Queued — will send when the agent is free.", "variant": "info" }),
         );
+        engine.emit_queue_changed(&session_id);
         return;
     }
     engine.spawn_turn(session_id, text);
@@ -332,6 +336,12 @@ async fn delete_session(State(engine): State<Engine>, Path(id): Path<String>) ->
     }
     engine.remove_session(&id);
     Json(json!({ "ok": true }))
+}
+
+/// Manually reap finished/untracked/stale-idle background agents on demand.
+async fn reap_agents(State(engine): State<Engine>) -> Json<Value> {
+    let reaped = super::reaper::reap_once(&engine).await;
+    Json(json!({ "ok": true, "reaped": reaped }))
 }
 
 async fn session_status(State(engine): State<Engine>) -> Json<Value> {
@@ -446,6 +456,7 @@ async fn session_command(
 async fn abort(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
     // User-initiated stop: drop any queued follow-ups so they aren't auto-sent later.
     engine.clear_pending(&id);
+    engine.emit_queue_changed(&id);
     // Don't let a (now-killed) subagent's still-fresh transcript keep the session busy.
     engine.set_subagent_pending(&id, false);
     // Enter the abort "settling" window BEFORE stopping: `claude stop` is graceful, so the
@@ -457,6 +468,30 @@ async fn abort(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Val
         let _ = tokio::task::spawn_blocking(move || claude_cli::stop(&short)).await;
     }
     Json(json!({ "ok": true }))
+}
+
+/// List a session's queued follow-up prompts (oldest first).
+async fn get_queue(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+    Json(json!({ "pending": engine.pending_list(&id) }))
+}
+
+/// Drop every queued follow-up for a session.
+async fn clear_queue(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+    engine.clear_pending(&id);
+    engine.emit_queue_changed(&id);
+    Json(json!({ "ok": true, "pending": [] }))
+}
+
+/// Remove a single queued follow-up by index; returns the remaining queue.
+async fn remove_queue_item(
+    State(engine): State<Engine>,
+    Path((id, index)): Path<(String, usize)>,
+) -> Json<Value> {
+    let ok = engine.remove_pending(&id, index);
+    if ok {
+        engine.emit_queue_changed(&id);
+    }
+    Json(json!({ "ok": ok, "pending": engine.pending_list(&id) }))
 }
 
 async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
@@ -720,7 +755,12 @@ async fn internal_ask(State(engine): State<Engine>, body: Json<Value>) -> Json<V
             json!({ "id": id, "sessionID": session_id, "questions": questions }),
         );
         let rx = engine.register_pending(&id);
-        match tokio::time::timeout(Duration::from_secs(3600), rx).await {
+        let outcome = tokio::time::timeout(Duration::from_secs(3600), rx).await;
+        // Clear the card everywhere the moment it resolves — answered, rejected, or timed
+        // out. This is what stops answered questions lingering in the web mirror (and thus
+        // reappearing on the next reconnect/session switch via GET /api/pending).
+        emit_resolved(&engine, &dir, &id, &session_id, "question.replied");
+        match outcome {
             Ok(Ok(super::PendingReply::Question(answers))) => {
                 let reason = format_answers(&tool_input, &answers);
                 return Json(hook_deny(&reason));
@@ -766,7 +806,9 @@ async fn internal_ask(State(engine): State<Engine>, body: Json<Value>) -> Json<V
         }),
     );
     let rx = engine.register_pending(&id);
-    match tokio::time::timeout(Duration::from_secs(3600), rx).await {
+    let outcome = tokio::time::timeout(Duration::from_secs(3600), rx).await;
+    emit_resolved(&engine, &dir, &id, &session_id, "permission.replied");
+    match outcome {
         Ok(Ok(super::PendingReply::Permission(reply))) => match reply.as_str() {
             "always" => {
                 engine.add_allowed_tool(&session_id, tool);
@@ -780,6 +822,17 @@ async fn internal_ask(State(engine): State<Engine>, body: Json<Value>) -> Json<V
             Json(hook_deny("[USER] Permission request was not answered."))
         }
     }
+}
+
+/// Broadcast that a permission/question request is resolved so the web mirror and every
+/// connected client remove the card. Safe to call more than once for an id (removal is
+/// idempotent). Includes both `id` and `requestID` since consumers key on either.
+fn emit_resolved(engine: &Engine, dir: &str, id: &str, session_id: &str, event: &str) {
+    engine.emit(
+        dir,
+        event,
+        json!({ "id": id, "requestID": id, "sessionID": session_id }),
+    );
 }
 
 fn rand_request_id() -> String {
@@ -872,6 +925,10 @@ async fn permission_reply(
         .unwrap_or("once")
         .to_string();
     engine.resolve_pending(&id, super::PendingReply::Permission(reply));
+    // Also clear on the user action itself: if the hook already gave up (its 600s→3600s
+    // window elapsed, or the agent moved on), no waiter emits on resolution, so the card
+    // would otherwise be stuck in the mirror. Broadcast (empty dir) since we lack it here.
+    emit_resolved(&engine, "", &id, "", "permission.replied");
     Json(json!({ "ok": true }))
 }
 
@@ -885,11 +942,13 @@ async fn question_reply(
         .and_then(|a| serde_json::from_value(a.clone()).ok())
         .unwrap_or_default();
     engine.resolve_pending(&id, super::PendingReply::Question(answers));
+    emit_resolved(&engine, "", &id, "", "question.replied");
     Json(json!({ "ok": true }))
 }
 
 async fn question_reject(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
     engine.resolve_pending(&id, super::PendingReply::Reject);
+    emit_resolved(&engine, "", &id, "", "question.rejected");
     Json(json!({ "ok": true }))
 }
 
@@ -904,9 +963,19 @@ async fn event_stream(
     headers: HeaderMap,
 ) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
     let dir = dir_header(&headers);
-    let mut rx = engine.subscribe();
+    Sse::new(event_stream_body(engine, dir))
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
+}
 
-    let stream = async_stream::stream! {
+/// The SSE event body: an initial `server.connected` event followed by every engine
+/// event whose directory matches (or is unscoped). Extracted from [`event_stream`] so it
+/// can be polled directly in tests without standing up an HTTP server.
+fn event_stream_body(
+    engine: Engine,
+    dir: String,
+) -> impl futures::Stream<Item = Result<Event, Infallible>> {
+    let mut rx = engine.subscribe();
+    async_stream::stream! {
         // Initial connected event (opencode emits one; opman ignores unknowns).
         yield Ok::<_, Infallible>(
             Event::default().data(json!({ "type": "server.connected", "properties": {} }).to_string()),
@@ -922,10 +991,16 @@ async fn event_stream(
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
         }
-    };
-
-    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
+    }
 }
+
+#[cfg(test)]
+#[path = "routes_endpoints_tests.rs"]
+mod routes_endpoints_tests;
+
+#[cfg(test)]
+#[path = "routes_ask_reply_tests.rs"]
+mod routes_ask_reply_tests;
 
 #[cfg(test)]
 mod control_command_tests {

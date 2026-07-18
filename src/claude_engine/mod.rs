@@ -12,6 +12,7 @@
 pub(crate) mod claude_cli;
 mod events;
 pub(crate) mod jsonl;
+mod reaper;
 mod registry;
 mod routes;
 mod tailer;
@@ -853,6 +854,47 @@ impl ClaudeEngine {
         }
     }
 
+    /// Snapshot the queued follow-up prompts for a session (oldest first).
+    pub fn pending_list(&self, session_id: &str) -> Vec<String> {
+        self.pending_prompts
+            .lock()
+            .ok()
+            .and_then(|q| q.get(session_id).cloned())
+            .unwrap_or_default()
+    }
+
+    /// Remove a single queued prompt by index. Returns true if one was removed.
+    pub fn remove_pending(&self, session_id: &str, index: usize) -> bool {
+        let Ok(mut q) = self.pending_prompts.lock() else {
+            return false;
+        };
+        let Some(v) = q.get_mut(session_id) else {
+            return false;
+        };
+        if index >= v.len() {
+            return false;
+        }
+        v.remove(index);
+        if v.is_empty() {
+            q.remove(session_id);
+        }
+        true
+    }
+
+    /// Announce the current queued-prompt list for a session so the frontend's queue pill
+    /// updates live (`session.queue` → `{ sessionID, pending: [...] }`).
+    pub fn emit_queue_changed(&self, session_id: &str) {
+        let Some(entry) = self.get_session(session_id) else {
+            return;
+        };
+        let pending = self.pending_list(session_id);
+        self.emit(
+            &entry.directory,
+            "session.queue",
+            serde_json::json!({ "sessionID": session_id, "pending": pending }),
+        );
+    }
+
     /// Map of session id → busy, for `GET /session/status`.
     pub fn busy_map(&self) -> std::collections::HashMap<String, bool> {
         self.reg
@@ -880,7 +922,14 @@ impl ClaudeEngine {
         serde_json::json!({
             "hooks": {
                 "PreToolUse": [
-                    { "matcher": "*", "hooks": [ { "type": "command", "command": cmd } ] }
+                    { "matcher": "*", "hooks": [
+                        // `timeout` (seconds) must exceed claude's 600s default so the hook
+                        // keeps blocking while a human answers a permission/question in the
+                        // web UI. Without it claude cancels the hook at 600s and runs the
+                        // tool natively (AskUserQuestion then prompts in the attached
+                        // terminal instead of surfacing in opman).
+                        { "type": "command", "command": cmd, "timeout": 3600 }
+                    ] }
                 ]
             },
             "worktree": { "bgIsolation": "none" }
@@ -988,31 +1037,36 @@ impl ClaudeEngine {
 pub async fn run_permission_hook() -> Result<()> {
     use std::io::Read;
 
-    let allow = || {
-        println!(
-            "{}",
-            serde_json::json!({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "allow"
-                }
-            })
-        );
-    };
-
     let mut input = String::new();
     if std::io::stdin().read_to_string(&mut input).is_err() {
-        allow();
+        println!("{}", allow_decision());
         return Ok(());
     }
     let payload: serde_json::Value = serde_json::from_str(&input).unwrap_or(serde_json::Value::Null);
+    let engine_url = std::env::var("OPMAN_ENGINE_URL").ok();
+    println!("{}", permission_hook_reply(payload, engine_url).await);
+    Ok(())
+}
 
-    let url = match std::env::var("OPMAN_ENGINE_URL") {
-        Ok(u) if !u.is_empty() => u,
-        _ => {
-            allow();
-            return Ok(());
+/// The "allow" permission-decision JSON the `claude` agent expects (fail-open default).
+fn allow_decision() -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow"
         }
+    })
+    .to_string()
+}
+
+/// Core of the PreToolUse hook: relay the parsed hook `payload` to the engine's
+/// `/internal/ask` endpoint (from `OPMAN_ENGINE_URL`) and return the permission-decision
+/// JSON to print. Extracted from [`run_permission_hook`] so the relay logic is unit-
+/// testable without stdin. Fails open (allow) on a missing/empty URL or any relay error.
+async fn permission_hook_reply(payload: serde_json::Value, engine_url: Option<String>) -> String {
+    let url = match engine_url {
+        Some(u) if !u.is_empty() => u,
+        _ => return allow_decision(),
     };
 
     let client = reqwest::Client::new();
@@ -1026,12 +1080,11 @@ pub async fn run_permission_hook() -> Result<()> {
 
     match resp {
         Ok(r) => match r.text().await {
-            Ok(body) if !body.trim().is_empty() => println!("{body}"),
-            _ => allow(),
+            Ok(body) if !body.trim().is_empty() => body,
+            _ => allow_decision(),
         },
-        Err(_) => allow(),
+        Err(_) => allow_decision(),
     }
-    Ok(())
 }
 
 /// Build the opencode `session.info` object opman/web expect.
@@ -1072,6 +1125,10 @@ pub async fn start_embedded_server(
     // Background poller: reconcile busy/idle from `claude agents --json`.
     tailer::spawn_status_poller(engine.clone());
 
+    // Background reaper: stop finished/untracked/stale-idle background agents so their
+    // warm claude daemon/spare processes don't accumulate and slow the host over time.
+    reaper::spawn_reaper(engine.clone());
+
     let app = routes::router(engine.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -1091,6 +1148,30 @@ pub async fn start_embedded_server(
     let handle: ServerHandle = Arc::new(std::sync::Mutex::new(None));
     Ok((url, handle))
 }
+
+#[cfg(test)]
+#[path = "engine_state_tests.rs"]
+mod engine_state_tests;
+
+#[cfg(test)]
+#[path = "engine_lifecycle_tests.rs"]
+mod engine_lifecycle_tests;
+
+#[cfg(test)]
+#[path = "import_agents_tests.rs"]
+mod import_agents_tests;
+
+#[cfg(test)]
+#[path = "permission_hook_tests.rs"]
+mod permission_hook_tests;
+
+#[cfg(test)]
+#[path = "spawn_turn_tests.rs"]
+mod spawn_turn_tests;
+
+#[cfg(test)]
+#[path = "embedded_server_tests.rs"]
+mod embedded_server_tests;
 
 #[cfg(test)]
 mod lifecycle_tests {

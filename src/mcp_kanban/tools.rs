@@ -111,3 +111,7 @@ async fn handle(res: Result<reqwest::Response, reqwest::Error>) -> String {
         Err(e) => format!("Request failed: {e}"),
     }
 }
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

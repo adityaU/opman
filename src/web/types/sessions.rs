@@ -139,3 +139,7 @@ pub struct AgentEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
 }
+
+#[cfg(test)]
+#[path = "sessions_tests.rs"]
+mod sessions_tests;

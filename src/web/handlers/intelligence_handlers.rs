@@ -116,3 +116,7 @@ pub async fn list_active_memory(
         .await;
     Json(PersonalMemoryListResponse { memory })
 }
+
+#[cfg(test)]
+#[path = "intelligence_handlers_tests.rs"]
+mod intelligence_handlers_tests;

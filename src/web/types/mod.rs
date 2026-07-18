@@ -41,3 +41,7 @@ pub use state::*;
 pub use system::*;
 pub use watchers::*;
 pub use workspaces::*;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

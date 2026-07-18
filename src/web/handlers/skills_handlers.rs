@@ -1,3 +1,4 @@
+
 use axum::extract::{Multipart, State, Path};
 use axum::http::StatusCode;
 use axum::Json;
@@ -121,3 +122,11 @@ pub async fn upload_skills(
 
     Err(StatusCode::BAD_REQUEST)
 }
+
+#[cfg(test)]
+#[path = "skills_handlers_tests.rs"]
+mod skills_handlers_tests;
+
+#[cfg(test)]
+#[path = "skills_handlers_fs_tests.rs"]
+mod skills_handlers_fs_tests;

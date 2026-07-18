@@ -189,3 +189,11 @@ pub(crate) async fn handle_terminal_close(
         Err(format!("PTY '{}' not found", id))
     }
 }
+
+#[cfg(test)]
+#[path = "terminal_tests.rs"]
+mod terminal_tests;
+
+#[cfg(test)]
+#[path = "terminal_pty_success_tests.rs"]
+mod terminal_pty_success_tests;

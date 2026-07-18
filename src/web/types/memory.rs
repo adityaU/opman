@@ -53,3 +53,7 @@ pub struct UpdatePersonalMemoryRequest {
 pub struct PersonalMemoryListResponse {
     pub memory: Vec<PersonalMemoryItem>,
 }
+
+#[cfg(test)]
+#[path = "memory_tests.rs"]
+mod memory_tests;

@@ -62,3 +62,7 @@ impl ThemeColors {
         vars
     }
 }
+
+#[cfg(test)]
+#[path = "pty_env_tests.rs"]
+mod pty_env_tests;

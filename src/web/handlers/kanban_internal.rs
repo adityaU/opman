@@ -148,3 +148,7 @@ pub async fn internal_complete(
         .map_err(map_err)?;
     Ok(Json(json!({ "ok": true, "lane_id": task.lane_id })))
 }
+
+#[cfg(test)]
+#[path = "kanban_internal_tests.rs"]
+mod kanban_internal_tests;

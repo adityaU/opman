@@ -161,3 +161,7 @@ pub async fn close_tab(
     )
     .await
 }
+
+#[cfg(test)]
+#[path = "socket_client_tests.rs"]
+mod socket_client_tests;

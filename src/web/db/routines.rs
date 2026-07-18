@@ -301,3 +301,7 @@ mod tests {
         assert!(db.list_routines().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "routines_tests.rs"]
+mod routines_tests;

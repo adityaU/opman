@@ -50,3 +50,7 @@ pub struct SearchResponse {
     pub results: Vec<SearchResultEntry>,
     pub total: usize,
 }
+
+#[cfg(test)]
+#[path = "activity_tests.rs"]
+mod activity_tests;

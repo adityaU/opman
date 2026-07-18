@@ -11,7 +11,7 @@
 mod tools;
 
 use serde::Deserialize;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 // ─── JSON-RPC types ──────────────────────────────────────────────────────────
 
@@ -28,9 +28,18 @@ struct McpRequest {
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 pub async fn run_mcp_time_bridge() -> anyhow::Result<()> {
-    let stdin = tokio::io::stdin();
-    let mut stdout = tokio::io::stdout();
-    let mut reader = BufReader::new(stdin);
+    run_time_bridge(tokio::io::stdin(), tokio::io::stdout()).await
+}
+
+/// Generic stdio read-loop, parameterized over reader/writer so it can be
+/// driven with in-memory buffers in tests. Behavior identical to the public
+/// entry point using real stdin/stdout.
+async fn run_time_bridge<R, W>(reader: R, mut writer: W) -> anyhow::Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut reader = BufReader::new(reader);
     let mut line = String::new();
 
     loop {
@@ -46,71 +55,86 @@ pub async fn run_mcp_time_bridge() -> anyhow::Result<()> {
             break; // EOF — client closed the pipe
         }
 
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
+        if let Some(resp) = handle_line(&line) {
+            write_response(&mut writer, &resp).await;
         }
-
-        let req: McpRequest = match serde_json::from_str(trimmed) {
-            Ok(r) => r,
-            Err(e) => {
-                let resp = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "error": { "code": -32700, "message": format!("Parse error: {}", e) },
-                    "id": null
-                });
-                write_response(&mut stdout, &resp).await;
-                continue;
-            }
-        };
-
-        let resp = match req.method.as_str() {
-            "initialize" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": { "tools": {} },
-                    "serverInfo": {
-                        "name": "opman-time",
-                        "version": "1.0.0"
-                    }
-                },
-                "id": req.id
-            }),
-
-            "notifications/initialized" => continue,
-
-            "tools/list" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": { "tools": tool_definitions() },
-                "id": req.id
-            }),
-
-            "tools/call" => {
-                let result = dispatch_tool(req.params);
-                serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "result": { "content": result },
-                    "id": req.id
-                })
-            }
-
-            other => serde_json::json!({
-                "jsonrpc": "2.0",
-                "error": { "code": -32601, "message": format!("Method not found: {}", other) },
-                "id": req.id
-            }),
-        };
-
-        write_response(&mut stdout, &resp).await;
     }
 
     Ok(())
 }
 
+/// Handle one raw input line: skip blanks, parse, and route. Returns the
+/// response to write (if any). Empty lines and notifications yield `None`.
+fn handle_line(line: &str) -> Option<serde_json::Value> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let req: McpRequest = match serde_json::from_str(trimmed) {
+        Ok(r) => r,
+        Err(e) => {
+            return Some(serde_json::json!({
+                "jsonrpc": "2.0",
+                "error": { "code": -32700, "message": format!("Parse error: {}", e) },
+                "id": null
+            }));
+        }
+    };
+
+    route_request(&req.method, req.params, req.id)
+}
+
+/// Route a JSON-RPC request to its response. Returns `None` for notifications
+/// that require no reply (e.g. `notifications/initialized`).
+fn route_request(
+    method: &str,
+    params: Option<serde_json::Value>,
+    id: serde_json::Value,
+) -> Option<serde_json::Value> {
+    let resp = match method {
+        "initialize" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": { "tools": {} },
+                "serverInfo": {
+                    "name": "opman-time",
+                    "version": "1.0.0"
+                }
+            },
+            "id": id
+        }),
+
+        "notifications/initialized" => return None,
+
+        "tools/list" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": { "tools": tool_definitions() },
+            "id": id
+        }),
+
+        "tools/call" => {
+            let result = dispatch_tool(params);
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "result": { "content": result },
+                "id": id
+            })
+        }
+
+        other => serde_json::json!({
+            "jsonrpc": "2.0",
+            "error": { "code": -32601, "message": format!("Method not found: {}", other) },
+            "id": id
+        }),
+    };
+    Some(resp)
+}
+
 /// Write a JSON-RPC response to stdout. Swallows write errors so the bridge
 /// never dies due to a transient stdout issue.
-async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+async fn write_response<W: AsyncWrite + Unpin>(stdout: &mut W, resp: &serde_json::Value) {
     let json = match serde_json::to_string(resp) {
         Ok(j) => j,
         Err(e) => {
@@ -205,3 +229,15 @@ fn dispatch_tool(params: Option<serde_json::Value>) -> serde_json::Value {
 
     serde_json::json!([{ "type": "text", "text": text }])
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "mod_loop_tests.rs"]
+mod mod_loop_tests;
+
+#[cfg(test)]
+#[path = "time_dispatch_tests.rs"]
+mod time_dispatch_tests;

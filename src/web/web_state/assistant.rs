@@ -226,19 +226,8 @@ impl super::WebStateHandle {
         };
 
         // Update mission state based on verdict
-        let (new_state, new_iteration) = match eval_result.verdict {
-            EvalVerdict::Achieved => (MissionState::Completed, mission.iteration),
-            EvalVerdict::Failed => (MissionState::Failed, mission.iteration),
-            EvalVerdict::Blocked => (MissionState::Paused, mission.iteration),
-            EvalVerdict::Continue => {
-                let next_iter = mission.iteration + 1;
-                if mission.max_iterations > 0 && next_iter > mission.max_iterations {
-                    (MissionState::Failed, mission.iteration)
-                } else {
-                    (MissionState::Executing, next_iter)
-                }
-            }
-        };
+        let (new_state, new_iteration) =
+            apply_verdict(&eval_result.verdict, mission.iteration, mission.max_iterations);
 
         let should_continue = new_state == MissionState::Executing;
 
@@ -382,15 +371,7 @@ impl super::WebStateHandle {
         let base = crate::app::base_url().to_string();
         let url = format!("{}/session/{}/message", base, session_id);
 
-        let mut body = serde_json::json!({
-            "parts": [{ "type": "text", "text": message }]
-        });
-        if let Some(model_ref) = model {
-            body["model"] = serde_json::json!({
-                "providerID": model_ref.provider_id,
-                "modelID": model_ref.model_id,
-            });
-        }
+        let body = build_send_message_body(message, model);
 
         let client = reqwest::Client::new();
         match client
@@ -401,23 +382,23 @@ impl super::WebStateHandle {
             .send()
             .await
         {
-            Ok(resp) if resp.status().is_success() => {
-                tracing::debug!(
-                    session_id = %session_id,
-                    "Message sent successfully"
-                );
-                Ok(())
-            }
             Ok(resp) => {
                 let status = resp.status();
-                let detail = resp.text().await.unwrap_or_default();
-                tracing::warn!(
-                    session_id = %session_id,
-                    status = %status,
-                    detail = %detail,
-                    "Message rejected by upstream"
-                );
-                Err(format!("Upstream rejected message: HTTP {status}"))
+                if status.is_success() {
+                    tracing::debug!(
+                        session_id = %session_id,
+                        "Message sent successfully"
+                    );
+                } else {
+                    let detail = resp.text().await.unwrap_or_default();
+                    tracing::warn!(
+                        session_id = %session_id,
+                        status = %status,
+                        detail = %detail,
+                        "Message rejected by upstream"
+                    );
+                }
+                map_send_status(status)
             }
             Err(e) => {
                 tracing::warn!(
@@ -467,37 +448,7 @@ impl super::WebStateHandle {
             }
         };
 
-        // Messages can be an array or object keyed by ID
-        let messages: Vec<serde_json::Value> = if let Some(arr) = body.as_array() {
-            arr.clone()
-        } else if let Some(obj) = body.as_object() {
-            obj.values().cloned().collect()
-        } else {
-            return EvalResult::default_continue("No messages found");
-        };
-
-        // Find the latest assistant message by time
-        let latest_assistant = messages
-            .iter()
-            .filter(|m| {
-                m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant")
-            })
-            .max_by_key(|m| {
-                m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0)
-            });
-
-        let Some(msg) = latest_assistant else {
-            return EvalResult::default_continue("No assistant response found");
-        };
-
-        // Extract text content from the message parts
-        let text = extract_message_text(msg);
-        if text.is_empty() {
-            return EvalResult::default_continue("Empty assistant response");
-        }
-
-        // Try to parse JSON from the response
-        parse_eval_json(&text)
+        parse_eval_messages_body(&body)
     }
 
     /// Broadcast a mission update event via SSE.
@@ -946,10 +897,7 @@ impl super::WebStateHandle {
             Ok(resp) if resp.status().is_success() => {
                 let body: serde_json::Value = resp.json().await
                     .map_err(|e| format!("Failed to parse session response: {e}"))?;
-                body.get("id")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| "No session ID in response".to_string())
+                parse_session_id_from_body(&body)
             }
             Ok(resp) => Err(format!("Failed to create session: HTTP {}", resp.status())),
             Err(e) => Err(format!("Failed to create session: {e}")),
@@ -963,10 +911,118 @@ impl super::WebStateHandle {
 
 }
 
+#[cfg(test)]
+#[path = "assistant_missions_tests.rs"]
+mod assistant_missions_tests;
+
+#[cfg(test)]
+#[path = "assistant_routines_tests.rs"]
+mod assistant_routines_tests;
+
+// ── Mission-loop pure helpers (extracted for testability) ───────────
+
+/// Build the JSON body sent to `POST /session/{id}/message`.
+///
+/// Includes an optional `model` override object when a `ModelRef` is provided.
+pub(crate) fn build_send_message_body(
+    message: &str,
+    model: Option<&crate::web::types::ModelRef>,
+) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "parts": [{ "type": "text", "text": message }]
+    });
+    if let Some(model_ref) = model {
+        body["model"] = serde_json::json!({
+            "providerID": model_ref.provider_id,
+            "modelID": model_ref.model_id,
+        });
+    }
+    body
+}
+
+/// Map an upstream HTTP status for a message-send into the handler result.
+pub(crate) fn map_send_status(status: reqwest::StatusCode) -> Result<(), String> {
+    if status.is_success() {
+        Ok(())
+    } else {
+        Err(format!("Upstream rejected message: HTTP {status}"))
+    }
+}
+
+/// Extract a session ID from a `POST /session` response body.
+pub(crate) fn parse_session_id_from_body(
+    body: &serde_json::Value,
+) -> Result<String, String> {
+    body.get("id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "No session ID in response".to_string())
+}
+
+/// Parse a session's messages response body into an evaluation result.
+///
+/// Selects the latest (by `info.time.created`) assistant message, extracts its
+/// text, and parses the evaluation JSON. Falls back to a `Continue` verdict with
+/// a descriptive reason for every shape that cannot be interpreted.
+pub(crate) fn parse_eval_messages_body(body: &serde_json::Value) -> EvalResult {
+    // Messages can be an array or object keyed by ID
+    let messages: Vec<serde_json::Value> = if let Some(arr) = body.as_array() {
+        arr.clone()
+    } else if let Some(obj) = body.as_object() {
+        obj.values().cloned().collect()
+    } else {
+        return EvalResult::default_continue("No messages found");
+    };
+
+    // Find the latest assistant message by time
+    let latest_assistant = messages
+        .iter()
+        .filter(|m| {
+            m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant")
+        })
+        .max_by_key(|m| {
+            m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0)
+        });
+
+    let Some(msg) = latest_assistant else {
+        return EvalResult::default_continue("No assistant response found");
+    };
+
+    // Extract text content from the message parts
+    let text = extract_message_text(msg);
+    if text.is_empty() {
+        return EvalResult::default_continue("Empty assistant response");
+    }
+
+    // Try to parse JSON from the response
+    parse_eval_json(&text)
+}
+
+/// Compute the next mission `(state, iteration)` from an evaluator verdict.
+pub(crate) fn apply_verdict(
+    verdict: &EvalVerdict,
+    iteration: u32,
+    max_iterations: u32,
+) -> (MissionState, u32) {
+    match verdict {
+        EvalVerdict::Achieved => (MissionState::Completed, iteration),
+        EvalVerdict::Failed => (MissionState::Failed, iteration),
+        EvalVerdict::Blocked => (MissionState::Paused, iteration),
+        EvalVerdict::Continue => {
+            let next_iter = iteration + 1;
+            if max_iterations > 0 && next_iter > max_iterations {
+                (MissionState::Failed, iteration)
+            } else {
+                (MissionState::Executing, next_iter)
+            }
+        }
+    }
+}
+
 // ── Eval parsing helpers ────────────────────────────────────────────
 
 /// Parsed evaluation result.
-struct EvalResult {
+pub(crate) struct EvalResult {
     verdict: EvalVerdict,
     summary: String,
     next_step: Option<String>,
@@ -1092,3 +1148,15 @@ fn parse_eval_json(text: &str) -> EvalResult {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "assistant_helpers_tests.rs"]
+mod assistant_helpers_tests;
+
+#[cfg(test)]
+#[path = "assistant_mission_upstream_tests.rs"]
+mod assistant_mission_upstream_tests;
+
+#[cfg(test)]
+#[path = "assistant_routine_upstream_tests.rs"]
+mod assistant_routine_upstream_tests;

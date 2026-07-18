@@ -85,3 +85,7 @@ pub struct SaveWorkspaceRequest {
 pub struct WorkspacesListResponse {
     pub workspaces: Vec<WorkspaceSnapshot>,
 }
+
+#[cfg(test)]
+#[path = "workspaces_tests.rs"]
+mod workspaces_tests;

@@ -120,3 +120,7 @@ pub fn mcp_tool_definitions() -> serde_json::Value {
         }
     ])
 }
+
+#[cfg(test)]
+#[path = "tool_defs_tests.rs"]
+mod tool_defs_tests;

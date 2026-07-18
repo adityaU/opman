@@ -85,3 +85,7 @@ pub(super) fn dispatch_turn(engine: Engine, session_id: String, text: String) {
     }
     tokio::spawn(process::send(engine, session_id, text));
 }
+
+#[cfg(test)]
+#[path = "dispatch_tests.rs"]
+mod dispatch_tests;

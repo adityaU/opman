@@ -185,3 +185,7 @@ pub struct ActiveMemoryQuery {
     #[serde(default)]
     pub session_id: Option<String>,
 }
+
+#[cfg(test)]
+#[path = "computed_tests.rs"]
+mod computed_tests;

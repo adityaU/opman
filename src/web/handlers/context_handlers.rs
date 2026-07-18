@@ -83,62 +83,77 @@ pub async fn get_context_window(
         .await
         .unwrap_or_default();
 
+    // 3. Get context limit from providers
+    let context_limit = {
+        let client = ApiClient::with_client(state.http_client.clone());
+        // Fetch providers to find the max context window
+        match client.fetch_providers(&base, &dir).await {
+            Ok(providers_val) => max_context_from_providers(&providers_val),
+            Err(_) => 200_000, // Fallback
+        }
+    };
+
+    Ok(Json(build_context_window_response(&stats, context_limit)))
+}
+
+/// Extract the maximum model context window from a providers JSON payload.
+///
+/// Handles both the `{ "all": [ {models: {..}} ] }` shape and the bare
+/// top-level array shape. Falls back to `200_000` when no `/limit/context`
+/// value can be found. Pure — no I/O — so it is unit-testable directly.
+pub(super) fn max_context_from_providers(providers_val: &serde_json::Value) -> u64 {
+    // providers_val is a serde_json::Value
+    // Extract the default model's context limit, or find the max
+    let mut max_context: u64 = 0;
+    if let Some(all) = providers_val.get("all").and_then(|v| v.as_array()) {
+        for provider in all {
+            if let Some(models) = provider.get("models").and_then(|m| m.as_object()) {
+                for (_model_id, model_info) in models {
+                    if let Some(ctx) = model_info
+                        .pointer("/limit/context")
+                        .and_then(|c| c.as_u64())
+                    {
+                        if ctx > max_context {
+                            max_context = ctx;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Also try the flat array format
+    if max_context == 0 {
+        if let Some(arr) = providers_val.as_array() {
+            for provider in arr {
+                if let Some(models) = provider.get("models").and_then(|m| m.as_object()) {
+                    for (_model_id, model_info) in models {
+                        if let Some(ctx) = model_info
+                            .pointer("/limit/context")
+                            .and_then(|c| c.as_u64())
+                        {
+                            if ctx > max_context {
+                                max_context = ctx;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if max_context > 0 { max_context } else { 200_000 }
+}
+
+/// Build the context-window usage breakdown from raw session stats and a
+/// resolved context limit. Pure — no I/O — so it can be unit-tested directly.
+pub(super) fn build_context_window_response(
+    stats: &WebSessionStats,
+    context_limit: u64,
+) -> ContextWindowResponse {
     let total_used = stats.input_tokens
         + stats.output_tokens
         + stats.reasoning_tokens
         + stats.cache_read
         + stats.cache_write;
-
-    // 3. Get context limit from providers
-    let context_limit = {
-        let client = ApiClient::with_client(state.http_client.clone());
-        // Fetch providers to find the max context window
-        let providers_result = client.fetch_providers(&base, &dir).await;
-        match providers_result {
-            Ok(providers_val) => {
-                // providers_val is a serde_json::Value
-                // Extract the default model's context limit, or find the max
-                let mut max_context: u64 = 0;
-                if let Some(all) = providers_val.get("all").and_then(|v| v.as_array()) {
-                    for provider in all {
-                        if let Some(models) = provider.get("models").and_then(|m| m.as_object()) {
-                            for (_model_id, model_info) in models {
-                                if let Some(ctx) = model_info
-                                    .pointer("/limit/context")
-                                    .and_then(|c| c.as_u64())
-                                {
-                                    if ctx > max_context {
-                                        max_context = ctx;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                // Also try the flat array format
-                if max_context == 0 {
-                    if let Some(arr) = providers_val.as_array() {
-                        for provider in arr {
-                            if let Some(models) = provider.get("models").and_then(|m| m.as_object()) {
-                                for (_model_id, model_info) in models {
-                                    if let Some(ctx) = model_info
-                                        .pointer("/limit/context")
-                                        .and_then(|c| c.as_u64())
-                                    {
-                                        if ctx > max_context {
-                                            max_context = ctx;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if max_context > 0 { max_context } else { 200_000 }
-            }
-            Err(_) => 200_000, // Fallback
-        }
-    };
 
     let usage_pct = if context_limit > 0 {
         (total_used as f64 / context_limit as f64) * 100.0
@@ -146,7 +161,7 @@ pub async fn get_context_window(
         0.0
     };
 
-    // 4. Build category breakdown from stats
+    // Build category breakdown from stats
     let mut categories = Vec::new();
 
     if stats.input_tokens > 0 {
@@ -207,20 +222,14 @@ pub async fn get_context_window(
         });
     }
 
-    // 5. Estimate remaining messages
+    // Estimate remaining messages
     // Use average tokens per message pair to estimate remaining capacity
     let estimated_messages_remaining = if total_used > 0 && context_limit > total_used {
-        // Fetch message count to calculate average
         let remaining = context_limit - total_used;
-        // Rough heuristic: count messages via the stats
-        // Average input per exchange ~ input_tokens / max(1, number_of_exchanges)
-        // Since we don't have message count here, use a simple heuristic
         let avg_per_exchange = if stats.input_tokens > 0 {
-            // Assume input_tokens is split across ~N exchanges, each response
-            // generates roughly equal output. Simple estimate: total / 2
-            total_used / 2 // very rough: each exchange = total_so_far / messages
+            total_used / 2
         } else {
-            10_000 // default assumption: 10K tokens per exchange
+            10_000
         };
         if avg_per_exchange > 0 {
             Some(remaining / avg_per_exchange)
@@ -231,11 +240,23 @@ pub async fn get_context_window(
         None
     };
 
-    Ok(Json(ContextWindowResponse {
+    ContextWindowResponse {
         context_limit,
         total_used,
         usage_pct,
         categories,
         estimated_messages_remaining,
-    }))
+    }
 }
+
+#[cfg(test)]
+#[path = "context_handlers_tests.rs"]
+mod context_handlers_tests;
+
+#[cfg(test)]
+#[path = "context_handlers_providers_tests.rs"]
+mod context_handlers_providers_tests;
+
+#[cfg(test)]
+#[path = "context_handlers_upstream_tests.rs"]
+mod context_handlers_upstream_tests;

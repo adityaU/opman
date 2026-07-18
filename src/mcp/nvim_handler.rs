@@ -298,3 +298,11 @@ pub fn handle_nvim_op_blocking(nvim_socket: &Path, request: &SocketRequest) -> S
         _ => SocketResponse::err(format!("Unknown nvim operation: {}", request.op)),
     }
 }
+
+#[cfg(test)]
+#[path = "nvim_handler_tests.rs"]
+mod nvim_handler_tests;
+
+#[cfg(test)]
+#[path = "nvim_handler_success_tests.rs"]
+mod nvim_handler_success_tests;

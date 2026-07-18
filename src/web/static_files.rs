@@ -217,3 +217,7 @@ pub async fn serve_react(
     let theme = resolve_theme(&state).await;
     serve_ui(&state, &headers, path, |p| ReactAssets::get(p), &REACT_DEFAULTS, &theme)
 }
+
+#[cfg(test)]
+#[path = "static_files_tests.rs"]
+mod static_files_tests;

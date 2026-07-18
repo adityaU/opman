@@ -9,16 +9,23 @@ use tracing::{debug, info, warn};
 use super::helpers::{apply_tunnel_opts_to_args, apply_tunnel_opts_to_env, extract_tunnel_url};
 use super::types::TunnelOptions;
 
+/// Build the argument vector for `cloudflared tunnel --url http://localhost:<port>`.
+/// Pure helper extracted for testability.
+fn build_quick_args(local_port: u16, opts: &TunnelOptions) -> Vec<String> {
+    let local_url = format!("http://localhost:{local_port}");
+    let mut args = vec!["tunnel".to_string()];
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["--url".to_string(), local_url]);
+    args
+}
+
 /// `cloudflared tunnel --url http://localhost:<port>`
 pub(crate) async fn spawn_quick(local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
         "Starting quick Cloudflare tunnel → http://localhost:{local_port}"
     );
 
-    let local_url = format!("http://localhost:{local_port}");
-    let mut args = vec!["tunnel".to_string()];
-    apply_tunnel_opts_to_args(&mut args, opts);
-    args.extend(["--url".to_string(), local_url]);
+    let args = build_quick_args(local_port, opts);
 
     let mut cmd = Command::new("cloudflared");
     cmd.args(&args);
@@ -88,3 +95,11 @@ pub(crate) async fn spawn_quick(local_port: u16, opts: &TunnelOptions) -> anyhow
 
     Ok((child, None))
 }
+
+#[cfg(test)]
+#[path = "quick_tests.rs"]
+mod quick_tests;
+
+#[cfg(test)]
+#[path = "quick_spawn_tests.rs"]
+mod quick_spawn_tests;

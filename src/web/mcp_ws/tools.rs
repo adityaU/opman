@@ -145,3 +145,7 @@ pub(crate) fn web_mcp_tool_definitions() -> serde_json::Value {
         }
     ])
 }
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

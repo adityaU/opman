@@ -133,3 +133,7 @@ pub struct WorkspaceTemplate {
 pub struct WorkspaceTemplatesResponse {
     pub templates: Vec<WorkspaceTemplate>,
 }
+
+#[cfg(test)]
+#[path = "computed_responses_tests.rs"]
+mod computed_responses_tests;

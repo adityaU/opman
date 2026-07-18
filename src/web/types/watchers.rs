@@ -81,3 +81,7 @@ pub struct WatcherMessageEntry {
     pub role: String,
     pub text: String,
 }
+
+#[cfg(test)]
+#[path = "watchers_tests.rs"]
+mod watchers_tests;

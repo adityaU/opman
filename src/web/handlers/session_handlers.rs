@@ -52,6 +52,20 @@ pub async fn get_session_messages(
         .await
         .map_err(|e| WebError::Internal(format!("Parse error: {e}")))?;
 
+    let limit = page.limit.unwrap_or(0);
+    Ok(Json(paginate_messages(body, limit, page.before)))
+}
+
+/// Normalise a raw upstream messages payload into a flat, chronologically
+/// sorted list and apply optional `limit` / `before` pagination.
+///
+/// Upstream may return either an array of messages or an object keyed by
+/// message ID. Returns `{ messages, has_more, total }`.
+pub(super) fn paginate_messages(
+    body: serde_json::Value,
+    limit: usize,
+    before: Option<u64>,
+) -> serde_json::Value {
     // Normalise the response into a flat Vec — upstream may return an array
     // or an object keyed by message ID.
     let mut all_messages: Vec<serde_json::Value> = if let Some(arr) = body.as_array() {
@@ -72,11 +86,9 @@ pub async fn get_session_messages(
     let total = all_messages.len();
 
     // Apply pagination: filter by `before` timestamp, then take last `limit`.
-    let limit = page.limit.unwrap_or(0);
-
-    if limit > 0 || page.before.is_some() {
+    if limit > 0 || before.is_some() {
         // Filter by `before` — keep only messages with created < before
-        if let Some(before_ts) = page.before {
+        if let Some(before_ts) = before {
             all_messages.retain(|m| {
                 let ts = m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
                 ts < before_ts
@@ -92,18 +104,18 @@ pub async fn get_session_messages(
             all_messages = all_messages.split_off(filtered_count - effective_limit);
         }
 
-        Ok(Json(serde_json::json!({
+        serde_json::json!({
             "messages": all_messages,
             "has_more": has_more,
             "total": total,
-        })))
+        })
     } else {
         // No pagination — return everything (backward compatible)
-        Ok(Json(serde_json::json!({
+        serde_json::json!({
             "messages": all_messages,
             "has_more": false,
             "total": total,
-        })))
+        })
     }
 }
 
@@ -126,6 +138,18 @@ pub async fn send_message(
         .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
     let status = resp.status();
     let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+    map_send_message_response(&session_id, status, body)
+}
+
+/// Map a `send_message` upstream response into the handler result.
+///
+/// On success the raw body is relayed verbatim; on failure the upstream status
+/// and body are logged and surfaced as an internal error.
+pub(crate) fn map_send_message_response(
+    session_id: &str,
+    status: StatusCode,
+    body: serde_json::Value,
+) -> WebResult<Json<serde_json::Value>> {
     if !status.is_success() {
         tracing::error!(
             %session_id,
@@ -154,6 +178,72 @@ pub async fn abort_session(
     Ok(StatusCode::OK)
 }
 
+/// GET /api/session/:id/queue — list queued follow-up prompts.
+pub async fn get_session_queue(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+) -> WebResult<impl IntoResponse> {
+    proxy_queue(&state, reqwest::Method::GET, &session_id, None).await
+}
+
+/// DELETE /api/session/:id/queue — clear all queued follow-ups.
+pub async fn clear_session_queue(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+) -> WebResult<impl IntoResponse> {
+    proxy_queue(&state, reqwest::Method::DELETE, &session_id, None).await
+}
+
+/// DELETE /api/session/:id/queue/:index — remove one queued follow-up by index.
+pub async fn remove_session_queue_item(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path((session_id, index)): axum::extract::Path<(String, usize)>,
+) -> WebResult<impl IntoResponse> {
+    proxy_queue(&state, reqwest::Method::DELETE, &session_id, Some(index)).await
+}
+
+/// Forward a queue request to the engine and relay its JSON body.
+async fn proxy_queue(
+    state: &ServerState,
+    method: reqwest::Method,
+    session_id: &str,
+    index: Option<usize>,
+) -> WebResult<Json<serde_json::Value>> {
+    let dir = resolve_project_dir(state).await?;
+    let base = base_url().to_string();
+    let path = match index {
+        Some(i) => format!("{}/session/{}/queue/{}", base, session_id, i),
+        None => format!("{}/session/{}/queue", base, session_id),
+    };
+    let resp = state
+        .http_client
+        .request(method, path)
+        .header("x-opencode-directory", &dir)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
+    let status = resp.status();
+    let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+    map_proxy_json_response(status, body)
+}
+
+/// Relay a proxied upstream JSON body, mapping non-2xx statuses to an internal
+/// error carrying the upstream status and body. Shared by the queue and rename
+/// proxies (identical semantics).
+pub(crate) fn map_proxy_json_response(
+    status: StatusCode,
+    body: serde_json::Value,
+) -> WebResult<Json<serde_json::Value>> {
+    if !status.is_success() {
+        return Err(WebError::Internal(format!("Upstream {}: {:?}", status, body)));
+    }
+    Ok(Json(body))
+}
+
 /// DELETE /api/session/:id — delete a session.
 pub async fn delete_session(
     State(state): State<ServerState>,
@@ -171,8 +261,21 @@ pub async fn delete_session(
         .await
         .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
     let status = resp.status();
+    let body: serde_json::Value = if status.is_success() {
+        serde_json::Value::Null
+    } else {
+        resp.json().await.unwrap_or(serde_json::Value::Null)
+    };
+    map_status_only_response(status, body)
+}
+
+/// Map a status-only upstream response (delete): success → `200 OK`, otherwise
+/// an internal error carrying the upstream status and body.
+pub(crate) fn map_status_only_response(
+    status: StatusCode,
+    body: serde_json::Value,
+) -> WebResult<StatusCode> {
     if !status.is_success() {
-        let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
         return Err(WebError::Internal(format!(
             "Upstream {}: {:?}",
             status, body
@@ -201,13 +304,7 @@ pub async fn rename_session(
         .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
     let status = resp.status();
     let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
-    if !status.is_success() {
-        return Err(WebError::Internal(format!(
-            "Upstream {}: {:?}",
-            status, body
-        )));
-    }
-    Ok(Json(body))
+    map_proxy_json_response(status, body)
 }
 
 /// POST /api/session/:id/command — execute a slash command.
@@ -230,17 +327,23 @@ pub async fn execute_command(
             req.model.as_deref(),
         )
         .await
-        .map_err(|e| {
-            if let Some(cmd_err) = e.downcast_ref::<CommandError>() {
-                let status = StatusCode::from_u16(cmd_err.status)
-                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-                WebError::Upstream(status, cmd_err.message.clone())
-            } else {
-                tracing::error!("Session command failed: {e}");
-                WebError::Internal("Command execution failed".into())
-            }
-        })?;
+        .map_err(|e| map_command_error(&e))?;
     Ok(Json(result))
+}
+
+/// Map an error from an upstream session command into a `WebError`.
+///
+/// A `CommandError` preserves the upstream HTTP status; anything else is logged
+/// and collapsed into a generic internal error.
+pub(crate) fn map_command_error(e: &anyhow::Error) -> WebError {
+    if let Some(cmd_err) = e.downcast_ref::<CommandError>() {
+        let status =
+            StatusCode::from_u16(cmd_err.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        WebError::Upstream(status, cmd_err.message.clone())
+    } else {
+        tracing::error!("Session command failed: {e}");
+        WebError::Internal("Command execution failed".into())
+    }
 }
 
 /// GET /api/providers — fetch available providers and models.
@@ -344,15 +447,7 @@ pub async fn a2ui_callback(
     let base = base_url().to_string();
 
     // Format the callback as a structured user message the agent can parse.
-    let text = if req.payload.is_null() || req.payload == serde_json::json!({}) {
-        format!("[A2UI callback: {}]", req.callback_id)
-    } else {
-        let payload_str = serde_json::to_string_pretty(&req.payload).unwrap_or_default();
-        format!(
-            "[A2UI callback: {}]\n```json\n{}\n```",
-            req.callback_id, payload_str
-        )
-    };
+    let text = a2ui_callback_text(&req.callback_id, &req.payload);
 
     let msg_body = serde_json::json!({
         "parts": [{
@@ -372,13 +467,57 @@ pub async fn a2ui_callback(
         .map_err(|e| WebError::Internal(format!("Upstream error: {e}")))?;
 
     let status = resp.status();
+    let body: serde_json::Value = if status.is_success() {
+        serde_json::Value::Null
+    } else {
+        resp.json().await.unwrap_or(serde_json::Value::Null)
+    };
+    a2ui_callback_result(status, body)
+}
+
+/// Build the structured user-message text that represents an A2UI callback.
+///
+/// A null or empty-object payload produces a bare marker line; any other
+/// payload is appended as a pretty-printed fenced JSON block.
+pub(crate) fn a2ui_callback_text(callback_id: &str, payload: &serde_json::Value) -> String {
+    if payload.is_null() || *payload == serde_json::json!({}) {
+        format!("[A2UI callback: {}]", callback_id)
+    } else {
+        let payload_str = serde_json::to_string_pretty(payload).unwrap_or_default();
+        format!(
+            "[A2UI callback: {}]\n```json\n{}\n```",
+            callback_id, payload_str
+        )
+    }
+}
+
+/// Map the A2UI callback upstream response: success → `{ "ok": true }`,
+/// otherwise an internal error carrying the upstream status and body.
+pub(crate) fn a2ui_callback_result(
+    status: StatusCode,
+    body: serde_json::Value,
+) -> WebResult<Json<serde_json::Value>> {
     if !status.is_success() {
-        let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
         return Err(WebError::Internal(format!(
             "Upstream {}: {:?}",
             status, body
         )));
     }
-
     Ok(Json(serde_json::json!({ "ok": true })))
 }
+
+#[cfg(test)]
+#[path = "session_handlers_direct_tests.rs"]
+mod session_handlers_direct_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_proxy_tests.rs"]
+mod session_handlers_proxy_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_maps_tests.rs"]
+mod session_handlers_maps_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_upstream_tests.rs"]
+mod session_handlers_upstream_tests;

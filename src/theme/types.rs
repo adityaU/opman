@@ -43,3 +43,7 @@ impl Default for ThemeColors {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod types_tests;

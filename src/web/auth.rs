@@ -203,6 +203,10 @@ fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
 }
 
 #[cfg(test)]
+#[path = "auth_tests.rs"]
+mod auth_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

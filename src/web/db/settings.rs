@@ -81,3 +81,7 @@ mod tests {
         assert_eq!(loaded.updated_at, "2025-06-01T00:00:00Z");
     }
 }
+
+#[cfg(test)]
+#[path = "settings_tests.rs"]
+mod settings_tests;

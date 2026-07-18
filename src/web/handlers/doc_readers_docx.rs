@@ -233,3 +233,7 @@ fn format_table_html(rows: &[Vec<String>]) -> String {
     html.push_str("</table>");
     html
 }
+
+#[cfg(test)]
+#[path = "doc_readers_docx_tests.rs"]
+mod doc_readers_docx_tests;

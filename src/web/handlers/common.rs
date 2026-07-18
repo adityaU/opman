@@ -1,5 +1,6 @@
 //! Shared helper functions used across handler modules.
 
+
 use std::path::PathBuf;
 
 use super::super::error::{WebError, WebResult};
@@ -137,3 +138,15 @@ pub(super) async fn resolve_repo_dir(state: &ServerState, repo: &str) -> WebResu
 
     Ok(canonical_target)
 }
+
+#[cfg(test)]
+#[path = "common_tests.rs"]
+mod common_tests;
+
+#[cfg(test)]
+#[path = "common_extra_tests.rs"]
+mod common_extra_tests;
+
+#[cfg(test)]
+#[path = "common_resolve_branch_tests.rs"]
+mod common_resolve_branch_tests;

@@ -56,3 +56,7 @@ pub struct HealthToggleRequest {
 pub struct HealthConfigRequest {
     pub config: MitigationConfig,
 }
+
+#[cfg(test)]
+#[path = "health_tests.rs"]
+mod health_tests;

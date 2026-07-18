@@ -142,3 +142,7 @@ That's it! Each program prints "Hello, World!" to the console."#;
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

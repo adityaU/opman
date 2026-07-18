@@ -113,3 +113,7 @@ pub struct ServerState {
     /// Kanban MCP server. Written to `~/.config/opman/internal.json` at startup.
     pub internal_token: String,
 }
+
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod state_tests;

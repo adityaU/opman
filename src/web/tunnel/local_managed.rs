@@ -70,16 +70,7 @@ pub(crate) async fn spawn_local_managed(
         hostname, local_port
     );
 
-    let mut args = vec![
-        "--no-autoupdate".to_string(),
-        "--origincert".to_string(),
-        cert_path.to_str().unwrap_or_default().to_string(),
-        "--config".to_string(),
-        config_path.to_str().unwrap_or_default().to_string(),
-        "tunnel".to_string(),
-    ];
-    apply_tunnel_opts_to_args(&mut args, opts);
-    args.extend(["run".to_string(), tunnel_name.to_string()]);
+    let args = build_run_args(&cert_path, &config_path, tunnel_name, opts);
 
     info!("cloudflared args: {:?}", args);
 
@@ -252,6 +243,27 @@ async fn ensure_certificate(cert_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Build the argument vector for `cloudflared ... tunnel run <name>` (local-managed).
+/// Pure helper extracted for testability.
+fn build_run_args(
+    cert_path: &Path,
+    config_path: &Path,
+    tunnel_name: &str,
+    opts: &TunnelOptions,
+) -> Vec<String> {
+    let mut args = vec![
+        "--no-autoupdate".to_string(),
+        "--origincert".to_string(),
+        cert_path.to_str().unwrap_or_default().to_string(),
+        "--config".to_string(),
+        config_path.to_str().unwrap_or_default().to_string(),
+        "tunnel".to_string(),
+    ];
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["run".to_string(), tunnel_name.to_string()]);
+    args
+}
+
 /// Read the TunnelID from tunnel.json
 pub(crate) fn read_tunnel_uuid(tunnel_json_path: &Path) -> anyhow::Result<String> {
     let content = std::fs::read_to_string(tunnel_json_path)?;
@@ -261,5 +273,17 @@ pub(crate) fn read_tunnel_uuid(tunnel_json_path: &Path) -> anyhow::Result<String
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("tunnel.json missing TunnelID field"))
 }
+
+#[cfg(test)]
+#[path = "local_managed_tests.rs"]
+mod local_managed_tests;
+
+#[cfg(test)]
+#[path = "local_managed_spawn_tests.rs"]
+mod local_managed_spawn_tests;
+
+#[cfg(test)]
+#[path = "local_managed_login_url_tests.rs"]
+mod local_managed_login_url_tests;
 
 

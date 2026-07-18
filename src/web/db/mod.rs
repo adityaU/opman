@@ -122,3 +122,7 @@ mod tests {
         assert!(count >= 7, "expected >=7 tables, got {}", count);
     }
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

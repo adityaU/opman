@@ -200,7 +200,37 @@ impl WebStateHandle {
         });
         super::db::migrate::run_migration(&db);
 
-        // Load persisted state from SQLite.
+        let projects: Vec<WebProject> = config
+            .projects
+            .iter()
+            .map(|entry| WebProject {
+                name: entry.name.clone(),
+                path: PathBuf::from(&entry.path),
+                sessions: Vec::new(),
+                active_session: None,
+                git_branch: String::new(),
+            })
+            .collect();
+
+        let inner = Arc::new(RwLock::new(Self::build_inner(&db, projects)));
+
+        let (persist_tx, persist_rx) = mpsc::unbounded_channel();
+
+        let handle = Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx };
+
+        // Spawn background tasks
+        handle.spawn_persist_worker(persist_rx);
+        handle.spawn_session_poller();
+        handle.spawn_opencode_sse_listener();
+        handle.spawn_routine_scheduler();
+        handle.spawn_presence_cleanup();
+
+        handle
+    }
+
+    /// Build the inner mutable state, loading persisted collections from `db`.
+    /// Shared by the production constructor and the test constructors.
+    fn build_inner(db: &Db, projects: Vec<WebProject>) -> WebStateInner {
         let missions: HashMap<String, Mission> = db
             .list_missions()
             .into_iter()
@@ -230,29 +260,7 @@ impl WebStateHandle {
             .collect();
         let signals = db.list_signals(100);
 
-        info!(
-            "loaded from SQLite: {} missions, {} memory, {} routines, {} delegated, {} workspaces, {} signals",
-            missions.len(),
-            personal_memory.len(),
-            routines.len(),
-            delegated_work.len(),
-            workspaces.len(),
-            signals.len(),
-        );
-
-        let projects: Vec<WebProject> = config
-            .projects
-            .iter()
-            .map(|entry| WebProject {
-                name: entry.name.clone(),
-                path: PathBuf::from(&entry.path),
-                sessions: Vec::new(),
-                active_session: None,
-                git_branch: String::new(),
-            })
-            .collect();
-
-        let inner = Arc::new(RwLock::new(WebStateInner {
+        WebStateInner {
             active_project: 0,
             projects,
             panels: WebPanelVisibility {
@@ -288,20 +296,43 @@ impl WebStateHandle {
             input_sessions: HashSet::new(),
             unseen_sessions: HashMap::new(),
             routine_idle_cooldown: HashMap::new(),
-        }));
+        }
+    }
 
-        let (persist_tx, persist_rx) = mpsc::unbounded_channel();
+    /// Test-only constructor: in-memory DB, no background pollers/scheduler.
+    ///
+    /// The persist channel receiver is dropped, so `mark_dirty()` calls are
+    /// silently discarded (no persistence worker runs).
+    #[cfg(test)]
+    pub(crate) fn new_test() -> Self {
+        Self::new_test_with_projects(Vec::new())
+    }
 
-        let handle = Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx };
+    /// Test-only constructor with pre-populated projects (`(name, path)`).
+    #[cfg(test)]
+    pub(crate) fn new_test_with_projects(projects: Vec<(String, PathBuf)>) -> Self {
+        let db = Db::open_memory().expect("open in-memory test db");
+        let (event_tx, _) = broadcast::channel::<WebEvent>(1000);
+        let (raw_sse_tx, _) = broadcast::channel::<String>(2000);
+        let projects: Vec<WebProject> = projects
+            .into_iter()
+            .map(|(name, path)| WebProject {
+                name,
+                path,
+                sessions: Vec::new(),
+                active_session: None,
+                git_branch: String::new(),
+            })
+            .collect();
+        let inner = Arc::new(RwLock::new(Self::build_inner(&db, projects)));
+        let (persist_tx, _persist_rx) = mpsc::unbounded_channel();
+        Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx }
+    }
 
-        // Spawn background tasks
-        handle.spawn_persist_worker(persist_rx);
-        handle.spawn_session_poller();
-        handle.spawn_opencode_sse_listener();
-        handle.spawn_routine_scheduler();
-        handle.spawn_presence_cleanup();
-
-        handle
+    /// Access the underlying DB handle (tests only).
+    #[cfg(test)]
+    pub(crate) fn db_for_test(&self) -> &Db {
+        &self.db
     }
 
     /// Subscribe to internal web-state events (e.g. `RoutineUpdated`).
@@ -335,3 +366,11 @@ pub(super) fn uuid_like_id() -> String {
         rand::random::<u64>()
     )
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "mod_build_inner_tests.rs"]
+mod mod_build_inner_tests;

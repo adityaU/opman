@@ -86,3 +86,7 @@ impl ClaudePEngine {
         true
     }
 }
+
+#[cfg(test)]
+#[path = "opts_tests.rs"]
+mod opts_tests;

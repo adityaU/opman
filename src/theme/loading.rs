@@ -261,3 +261,11 @@ fn find_opencode_themes_dir(start: &Path) -> Option<PathBuf> {
         current = current.parent()?;
     }
 }
+
+#[cfg(test)]
+#[path = "loading_tests.rs"]
+mod loading_tests;
+
+#[cfg(test)]
+#[path = "loading_fs_tests.rs"]
+mod loading_fs_tests;

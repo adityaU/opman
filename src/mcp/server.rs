@@ -298,3 +298,7 @@ async fn handle_connection(
     drop(_nvim_guards);
     drop(_term_guard);
 }
+
+#[cfg(test)]
+#[path = "server_tests.rs"]
+mod server_tests;

@@ -249,3 +249,7 @@ pub fn html_unescape(s: &str) -> String {
         .replace("&#39;", "'")
         .replace("&nbsp;", " ")
 }
+
+#[cfg(test)]
+#[path = "doc_writers_html_tests.rs"]
+mod doc_writers_html_tests;

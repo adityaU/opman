@@ -1,5 +1,6 @@
 //! Watcher CRUD and watcher session/message handlers.
 
+
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -96,6 +97,16 @@ pub async fn get_watcher_messages(
         .await
         .map_err(|e| WebError::Internal(format!("Parse error: {e}")))?;
 
+    Ok(Json(parse_watcher_messages(&body)))
+}
+
+/// Extract the user messages from an opencode `/session/:id/message` response.
+///
+/// The upstream body may be either a JSON array of message objects or an object
+/// whose values are message objects. Only `user`-role messages contribute, and
+/// their non-empty text parts are collected. The result is reversed so the most
+/// recent message is first (matching the "re-inject original message" picker).
+pub(crate) fn parse_watcher_messages(body: &serde_json::Value) -> Vec<WatcherMessageEntry> {
     // Extract user messages only
     let all_messages: Vec<serde_json::Value> = if let Some(arr) = body.as_array() {
         arr.clone()
@@ -132,5 +143,17 @@ pub async fn get_watcher_messages(
     // Reverse so most recent is first
     user_messages.reverse();
 
-    Ok(Json(user_messages))
+    user_messages
 }
+
+#[cfg(test)]
+#[path = "watcher_handlers_tests.rs"]
+mod watcher_handlers_tests;
+
+#[cfg(test)]
+#[path = "watcher_handlers_parse_tests.rs"]
+mod watcher_handlers_parse_tests;
+
+#[cfg(test)]
+#[path = "watcher_handlers_upstream_tests.rs"]
+mod watcher_handlers_upstream_tests;

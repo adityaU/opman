@@ -7,6 +7,7 @@ use super::super::types::*;
 use super::uuid_like_id;
 
 /// Failure modes for task mutations.
+#[derive(Debug)]
 pub enum KanbanError {
     NotFound,
     /// Illegal lane transition (not an edge in the board's graph).
@@ -370,10 +371,7 @@ impl super::WebStateHandle {
         if let (true, Some(session_id), Some(b)) = (live, task.session_id.as_deref(), &board) {
             let dir = b.project_path.clone();
             let sid = session_id.to_string();
-            let msg = format!(
-                "📝 New note from the human reviewer on this Kanban task:\n\n{body}\n\n\
-                 Take it into account and reply via kanban_add_note if it changes your plan."
-            );
+            let msg = user_note_agent_message(body);
             let level = "info".to_string();
             let event_tx = self.event_tx.clone();
             // Fire-and-forget so the note POST returns immediately.
@@ -414,3 +412,27 @@ impl super::WebStateHandle {
 fn asset_url(task_id: &str, filename: &str) -> String {
     format!("/api/kanban/asset/{task_id}/{filename}")
 }
+
+/// Message injected into a running agent's session when a human adds a Kanban note.
+pub(crate) fn user_note_agent_message(body: &str) -> String {
+    format!(
+        "📝 New note from the human reviewer on this Kanban task:\n\n{body}\n\n\
+         Take it into account and reply via kanban_add_note if it changes your plan."
+    )
+}
+
+#[cfg(test)]
+#[path = "kanban_crud_tests.rs"]
+mod kanban_crud_tests;
+
+#[cfg(test)]
+#[path = "kanban_mutations_tests.rs"]
+mod kanban_mutations_tests;
+
+#[cfg(test)]
+#[path = "kanban_notes_tests.rs"]
+mod kanban_notes_tests;
+
+#[cfg(test)]
+#[path = "kanban_user_note_forward_tests.rs"]
+mod kanban_user_note_forward_tests;

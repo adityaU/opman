@@ -193,3 +193,7 @@ fn system_timezone_name() -> String {
         format!("UTC{:+}:{:02}", h, m)
     }
 }
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

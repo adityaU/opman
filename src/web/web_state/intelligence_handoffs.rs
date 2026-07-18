@@ -212,3 +212,7 @@ impl super::WebStateHandle {
         parts.join(" \u{2022} ")
     }
 }
+
+#[cfg(test)]
+#[path = "intelligence_handoffs_tests.rs"]
+mod intelligence_handoffs_tests;

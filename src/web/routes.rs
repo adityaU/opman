@@ -78,6 +78,14 @@ pub(super) fn build_router(state: ServerState) -> Router {
             get(handlers::get_session_todos).put(handlers::update_session_todos),
         )
         .route(
+            "/session/{session_id}/queue",
+            get(handlers::get_session_queue).delete(handlers::clear_session_queue),
+        )
+        .route(
+            "/session/{session_id}/queue/{index}",
+            delete(handlers::remove_session_queue_item),
+        )
+        .route(
             "/session/{session_id}/mark_seen",
             post(handlers::mark_session_seen),
         )
@@ -314,3 +322,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .layer(CompressionLayer::new().gzip(true))
         .with_state(state)
 }
+
+#[cfg(test)]
+#[path = "routes_tests.rs"]
+mod routes_tests;

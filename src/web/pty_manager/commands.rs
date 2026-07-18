@@ -75,3 +75,7 @@ pub enum PtyCmd {
     /// List active web PTY IDs.
     List { reply: oneshot::Sender<Vec<String>> },
 }
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod commands_tests;

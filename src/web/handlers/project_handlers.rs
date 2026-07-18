@@ -252,3 +252,11 @@ pub async fn focus_panel(
         Err(WebError::BadRequest("Unknown panel name".into()))
     }
 }
+
+#[cfg(test)]
+#[path = "project_handlers_tests.rs"]
+mod project_handlers_tests;
+
+#[cfg(test)]
+#[path = "project_handlers_upstream_tests.rs"]
+mod project_handlers_upstream_tests;

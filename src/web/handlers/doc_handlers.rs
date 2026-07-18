@@ -105,3 +105,7 @@ pub async fn doc_write(
 
     Ok(axum::http::StatusCode::OK)
 }
+
+#[cfg(test)]
+#[path = "doc_handlers_tests.rs"]
+mod doc_handlers_tests;

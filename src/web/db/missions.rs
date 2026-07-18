@@ -201,3 +201,7 @@ mod tests {
         assert!(db.list_missions().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "missions_tests.rs"]
+mod missions_tests;

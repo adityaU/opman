@@ -274,3 +274,11 @@ impl super::WebStateHandle {
     }
 
 }
+
+#[cfg(test)]
+#[path = "mutations_tests.rs"]
+mod mutations_tests;
+
+#[cfg(test)]
+#[path = "mutations_upstream_tests.rs"]
+mod mutations_upstream_tests;

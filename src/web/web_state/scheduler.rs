@@ -188,3 +188,7 @@ fn compute_next_run(
     // Default: compute in UTC
     schedule.after(&Utc::now()).next().map(|dt| dt.with_timezone(&Utc))
 }
+
+#[cfg(test)]
+#[path = "scheduler_tests.rs"]
+mod scheduler_tests;

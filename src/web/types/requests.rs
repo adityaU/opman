@@ -225,3 +225,7 @@ pub struct SessionSseQuery {
     #[allow(dead_code)]
     pub project_dir: Option<String>,
 }
+
+#[cfg(test)]
+#[path = "requests_tests.rs"]
+mod requests_tests;

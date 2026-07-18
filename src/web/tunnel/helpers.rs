@@ -79,3 +79,7 @@ pub(crate) fn extract_auth_url(line: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+#[path = "helpers_tests.rs"]
+mod helpers_tests;

@@ -170,3 +170,11 @@ pub(crate) async fn verify_tunnel(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "local_managed_setup_tests.rs"]
+mod local_managed_setup_tests;
+
+#[cfg(test)]
+#[path = "local_managed_setup_spawn_tests.rs"]
+mod local_managed_setup_spawn_tests;

@@ -28,7 +28,25 @@ pub fn init_base_url(url: String) {
     BASE_URL.set(url).expect("BASE_URL already initialized");
 }
 
+#[cfg(test)]
+tokio::task_local! {
+    /// Test-only per-task override for the opencode base URL. Set via
+    /// `crate::web::test_support::scope_base_url(...)`. Because it is a tokio
+    /// task-local, each `#[tokio::test]` (and the request future it awaits) sees
+    /// its own value with full isolation from parallel tests. Fire-and-forget
+    /// `tokio::spawn`ed work does NOT inherit it and falls back to the global.
+    pub static TEST_BASE_URL: String;
+}
+
 pub fn base_url() -> &'static str {
+    #[cfg(test)]
+    {
+        if let Ok(leaked) =
+            TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str()))
+        {
+            return leaked;
+        }
+    }
     BASE_URL
         .get()
         .expect("BASE_URL not initialized — opencode server not started")

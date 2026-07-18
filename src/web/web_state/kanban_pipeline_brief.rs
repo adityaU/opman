@@ -80,3 +80,7 @@ pub(super) fn truncate(s: &str, max: usize) -> String {
     let truncated: String = s.chars().take(max).collect();
     format!("{truncated}\n…[truncated]")
 }
+
+#[cfg(test)]
+#[path = "kanban_pipeline_brief_tests.rs"]
+mod kanban_pipeline_brief_tests;

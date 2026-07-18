@@ -69,3 +69,7 @@ pub struct NetworkInfo {
     /// Total bytes transmitted.
     pub tx_bytes: u64,
 }
+
+#[cfg(test)]
+#[path = "system_tests.rs"]
+mod system_tests;

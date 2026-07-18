@@ -164,3 +164,7 @@ pub async fn delete_workspace(
         StatusCode::NOT_FOUND
     }
 }
+
+#[cfg(test)]
+#[path = "dashboard_ext_handlers_tests.rs"]
+mod dashboard_ext_handlers_tests;

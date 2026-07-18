@@ -87,3 +87,7 @@ pub(crate) fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
+
+#[cfg(test)]
+#[path = "doc_readers_tests.rs"]
+mod doc_readers_tests;

@@ -180,3 +180,7 @@ pub async fn internal_read_notes(
 
     Ok(Json(json!({ "tasks": tasks })))
 }
+
+#[cfg(test)]
+#[path = "kanban_internal_query_tests.rs"]
+mod kanban_internal_query_tests;

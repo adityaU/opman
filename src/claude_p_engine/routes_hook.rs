@@ -174,3 +174,11 @@ pub(super) async fn question_reject(State(engine): State<Engine>, Path(id): Path
     engine.resolve_pending(&id, PendingReply::Reject);
     Json(json!({ "ok": true }))
 }
+
+#[cfg(test)]
+#[path = "routes_hook_tests.rs"]
+mod routes_hook_tests;
+
+#[cfg(test)]
+#[path = "routes_hook_blocking_tests.rs"]
+mod routes_hook_blocking_tests;

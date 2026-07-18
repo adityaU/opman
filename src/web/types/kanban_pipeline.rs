@@ -36,3 +36,7 @@ pub struct PipelineRun {
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[cfg(test)]
+#[path = "kanban_pipeline_tests.rs"]
+mod kanban_pipeline_tests;

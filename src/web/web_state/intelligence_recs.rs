@@ -137,3 +137,7 @@ impl super::WebStateHandle {
         recs
     }
 }
+
+#[cfg(test)]
+#[path = "intelligence_recs_tests.rs"]
+mod intelligence_recs_tests;

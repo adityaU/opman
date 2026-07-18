@@ -142,3 +142,7 @@ pub struct MissionActionRequest {
 pub struct MissionsListResponse {
     pub missions: Vec<Mission>,
 }
+
+#[cfg(test)]
+#[path = "missions_tests.rs"]
+mod missions_tests;

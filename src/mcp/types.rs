@@ -192,3 +192,7 @@ pub fn cleanup_socket(project_path: &Path) {
     let sock = socket_path_for_project(project_path);
     let _ = std::fs::remove_file(&sock);
 }
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod types_tests;

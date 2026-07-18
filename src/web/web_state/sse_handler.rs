@@ -443,3 +443,15 @@ fn recalc_input_sessions(
         });
     }
 }
+
+#[cfg(test)]
+#[path = "sse_handler_events_tests.rs"]
+mod sse_handler_events_tests;
+
+#[cfg(test)]
+#[path = "sse_handler_permissions_tests.rs"]
+mod sse_handler_permissions_tests;
+
+#[cfg(test)]
+#[path = "sse_handler_more_events_tests.rs"]
+mod sse_handler_more_events_tests;

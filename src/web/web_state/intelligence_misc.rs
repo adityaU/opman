@@ -166,3 +166,7 @@ impl super::WebStateHandle {
             .collect()
     }
 }
+
+#[cfg(test)]
+#[path = "intelligence_misc_tests.rs"]
+mod intelligence_misc_tests;

@@ -142,3 +142,11 @@ pub async fn start_embedded_server(
     let handle: ServerHandle = Arc::new(std::sync::Mutex::new(None));
     Ok((url, handle))
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "mod_env_config_tests.rs"]
+mod mod_env_config_tests;

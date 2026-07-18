@@ -34,3 +34,7 @@ pub fn emit_message(engine: &ClaudeEngine, directory: &str, session_id: &str, ms
         );
     }
 }
+
+#[cfg(test)]
+#[path = "events_tests.rs"]
+mod events_tests;

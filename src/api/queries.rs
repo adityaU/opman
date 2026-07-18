@@ -180,3 +180,7 @@ impl ApiClient {
         Ok(body)
     }
 }
+
+#[cfg(test)]
+#[path = "queries_tests.rs"]
+mod queries_tests;

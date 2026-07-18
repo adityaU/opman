@@ -130,3 +130,7 @@ impl super::WebStateHandle {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "file_edits_tests.rs"]
+mod file_edits_tests;

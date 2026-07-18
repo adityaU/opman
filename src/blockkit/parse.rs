@@ -269,3 +269,7 @@ fn is_ordered_line(line: &str) -> bool {
         || (rest.chars().next().map_or(false, |c| c.is_ascii_digit())
             && (rest.contains(". ") || rest.contains(") ")))
 }
+
+#[cfg(test)]
+#[path = "parse_tests.rs"]
+mod parse_tests;

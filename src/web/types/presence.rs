@@ -42,3 +42,7 @@ pub struct PresenceDeregisterRequest {
 pub struct PresenceResponse {
     pub clients: Vec<ClientPresence>,
 }
+
+#[cfg(test)]
+#[path = "presence_tests.rs"]
+mod presence_tests;

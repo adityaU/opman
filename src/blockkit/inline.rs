@@ -228,3 +228,7 @@ fn try_parse_double_delimited(
     }
     None
 }
+
+#[cfg(test)]
+#[path = "inline_tests.rs"]
+mod inline_tests;

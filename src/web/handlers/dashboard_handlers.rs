@@ -224,3 +224,7 @@ pub async fn update_autonomy_settings(
 ) -> impl IntoResponse {
     Json(state.web_state.update_autonomy_settings(req.mode).await)
 }
+
+#[cfg(test)]
+#[path = "dashboard_handlers_tests.rs"]
+mod dashboard_handlers_tests;

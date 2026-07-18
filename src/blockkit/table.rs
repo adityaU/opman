@@ -186,3 +186,7 @@ mod tests {
         assert!(matches!(&segs[4], MdTextSegment::Text(_)));
     }
 }
+
+#[cfg(test)]
+#[path = "table_tests.rs"]
+mod table_tests;

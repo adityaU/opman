@@ -1,5 +1,6 @@
 //! File browsing, reading, writing, and helper utilities.
 
+
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -774,3 +775,22 @@ pub(crate) fn detect_language(path: &str) -> String {
     }
     .to_string()
 }
+
+#[cfg(test)]
+#[path = "files_handlers_helpers_tests.rs"]
+mod files_handlers_helpers_tests;
+#[cfg(test)]
+#[path = "files_handlers_browse_tests.rs"]
+mod files_handlers_browse_tests;
+#[cfg(test)]
+#[path = "files_handlers_mutate_tests.rs"]
+mod files_handlers_mutate_tests;
+#[cfg(test)]
+#[path = "files_handlers_edge_tests.rs"]
+mod files_handlers_edge_tests;
+#[cfg(test)]
+#[path = "files_handlers_extra_tests.rs"]
+mod files_handlers_extra_tests;
+#[cfg(test)]
+#[path = "files_handlers_browse_error_tests.rs"]
+mod files_handlers_browse_error_tests;

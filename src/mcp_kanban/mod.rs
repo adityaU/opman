@@ -8,7 +8,7 @@
 mod tools;
 
 use serde::Deserialize;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 #[derive(Debug, Deserialize)]
 struct McpRequest {
@@ -30,6 +30,14 @@ pub(crate) struct Internal {
 
 fn load_internal() -> Option<Internal> {
     let path = dirs::config_dir()?.join("opman").join("internal.json");
+    load_internal_from(&path)
+}
+
+/// Parse an `internal.json` descriptor from a specific path. Extracted so the
+/// parsing/validation logic is testable without depending on the real config
+/// directory. Returns `None` if the file is missing, malformed, or lacks the
+/// required `url`/`token` string fields.
+pub(crate) fn load_internal_from(path: &std::path::Path) -> Option<Internal> {
     let content = std::fs::read_to_string(path).ok()?;
     let v: serde_json::Value = serde_json::from_str(&content).ok()?;
     Some(Internal {
@@ -41,9 +49,20 @@ fn load_internal() -> Option<Internal> {
 
 pub async fn run_mcp_kanban_bridge() -> anyhow::Result<()> {
     let internal = load_internal();
-    let stdin = tokio::io::stdin();
-    let mut stdout = tokio::io::stdout();
-    let mut reader = BufReader::new(stdin);
+    run_kanban_bridge(internal, tokio::io::stdin(), tokio::io::stdout()).await
+}
+
+/// Generic stdio read-loop, parameterized over reader/writer for testability.
+async fn run_kanban_bridge<R, W>(
+    internal: Option<Internal>,
+    reader: R,
+    mut writer: W,
+) -> anyhow::Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut reader = BufReader::new(reader);
     let mut line = String::new();
 
     loop {
@@ -71,48 +90,60 @@ pub async fn run_mcp_kanban_bridge() -> anyhow::Result<()> {
                     "error": { "code": -32700, "message": format!("Parse error: {}", e) },
                     "id": null
                 });
-                write_response(&mut stdout, &resp).await;
+                write_response(&mut writer, &resp).await;
                 continue;
             }
         };
 
-        let resp = match req.method.as_str() {
-            "initialize" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": { "tools": {} },
-                    "serverInfo": { "name": "opman-kanban", "version": "1.0.0" }
-                },
-                "id": req.id
-            }),
-            "notifications/initialized" => continue,
-            "tools/list" => serde_json::json!({
-                "jsonrpc": "2.0",
-                "result": { "tools": tool_definitions() },
-                "id": req.id
-            }),
-            "tools/call" => {
-                let text = tools::dispatch_tool(internal.as_ref(), req.params).await;
-                serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "result": { "content": [{ "type": "text", "text": text }] },
-                    "id": req.id
-                })
-            }
-            other => serde_json::json!({
-                "jsonrpc": "2.0",
-                "error": { "code": -32601, "message": format!("Method not found: {}", other) },
-                "id": req.id
-            }),
-        };
-
-        write_response(&mut stdout, &resp).await;
+        if let Some(resp) = route_request(internal.as_ref(), &req.method, req.params, req.id).await {
+            write_response(&mut writer, &resp).await;
+        }
     }
     Ok(())
 }
 
-async fn write_response(stdout: &mut tokio::io::Stdout, resp: &serde_json::Value) {
+/// Route a JSON-RPC request to its response. Returns `None` for notifications
+/// that require no reply.
+async fn route_request(
+    internal: Option<&Internal>,
+    method: &str,
+    params: Option<serde_json::Value>,
+    id: serde_json::Value,
+) -> Option<serde_json::Value> {
+    let resp = match method {
+        "initialize" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": { "tools": {} },
+                "serverInfo": { "name": "opman-kanban", "version": "1.0.0" }
+            },
+            "id": id
+        }),
+        "notifications/initialized" => return None,
+        "tools/list" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": { "tools": tool_definitions() },
+            "id": id
+        }),
+        "tools/call" => {
+            let text = tools::dispatch_tool(internal, params).await;
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "result": { "content": [{ "type": "text", "text": text }] },
+                "id": id
+            })
+        }
+        other => serde_json::json!({
+            "jsonrpc": "2.0",
+            "error": { "code": -32601, "message": format!("Method not found: {}", other) },
+            "id": id
+        }),
+    };
+    Some(resp)
+}
+
+async fn write_response<W: AsyncWrite + Unpin>(stdout: &mut W, resp: &serde_json::Value) {
     let json = match serde_json::to_string(resp) {
         Ok(j) => j,
         Err(e) => {
@@ -214,3 +245,15 @@ fn tool_definitions() -> serde_json::Value {
         }
     ])
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "mod_loop_tests.rs"]
+mod mod_loop_tests;
+
+#[cfg(test)]
+#[path = "dispatch_route_tests.rs"]
+mod dispatch_route_tests;

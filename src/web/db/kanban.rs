@@ -315,3 +315,7 @@ fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         archived: row.get::<_, i64>(14)? != 0,
     })
 }
+
+#[cfg(test)]
+#[path = "kanban_tests.rs"]
+mod kanban_tests;

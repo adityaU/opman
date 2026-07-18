@@ -9,6 +9,15 @@ use tracing::{debug, info};
 use super::helpers::{apply_tunnel_opts_to_args, apply_tunnel_opts_to_env};
 use super::types::TunnelOptions;
 
+/// Build the argument vector for `cloudflared tunnel run --token <token>`.
+/// Pure helper extracted for testability.
+fn build_named_args(token: &str, opts: &TunnelOptions) -> Vec<String> {
+    let mut args = vec!["tunnel".to_string()];
+    apply_tunnel_opts_to_args(&mut args, opts);
+    args.extend(["run".to_string(), "--token".to_string(), token.to_string()]);
+    args
+}
+
 /// `cloudflared tunnel run --token <token>`
 pub(crate) async fn spawn_named(token: &str, local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
     info!(
@@ -16,9 +25,7 @@ pub(crate) async fn spawn_named(token: &str, local_port: u16, opts: &TunnelOptio
         local_port
     );
 
-    let mut args = vec!["tunnel".to_string()];
-    apply_tunnel_opts_to_args(&mut args, opts);
-    args.extend(["run".to_string(), "--token".to_string(), token.to_string()]);
+    let args = build_named_args(token, opts);
 
     let mut cmd = Command::new("cloudflared");
     cmd.args(&args);
@@ -51,3 +58,11 @@ pub(crate) async fn spawn_named(token: &str, local_port: u16, opts: &TunnelOptio
 
     Ok((child, None))
 }
+
+#[cfg(test)]
+#[path = "named_tests.rs"]
+mod named_tests;
+
+#[cfg(test)]
+#[path = "named_spawn_tests.rs"]
+mod named_spawn_tests;

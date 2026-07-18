@@ -170,3 +170,7 @@ fn extract_sse_data(message: &str) -> Option<String> {
         Some(data_parts.join("\n"))
     }
 }
+
+#[cfg(test)]
+#[path = "mod_stream_tests.rs"]
+mod mod_stream_tests;

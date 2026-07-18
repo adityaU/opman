@@ -337,3 +337,7 @@ pub struct GitIgnoreResponse {
     /// Current .gitignore contents.
     pub content: String,
 }
+
+#[cfg(test)]
+#[path = "git_tests.rs"]
+mod git_tests;

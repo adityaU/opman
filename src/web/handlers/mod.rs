@@ -60,6 +60,7 @@ pub use session_handlers::{
     get_session_messages, send_message, abort_session, delete_session, rename_session,
     execute_command, get_providers, get_commands, reply_permission, reply_question,
     get_pending, mark_session_seen, a2ui_callback,
+    get_session_queue, clear_session_queue, remove_session_queue_item,
 };
 
 pub use git_handlers::{

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::Deserialize;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 use super::tool_defs::mcp_tool_definitions;
 use super::tools::handle_tool_call;
@@ -41,12 +41,27 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     // Read session ID from env var set by opencode PTY spawn, so all
     // socket requests route to the correct per-session resources.
     let session_id: Arc<Option<String>> = Arc::new(std::env::var("OPENCODE_SESSION_ID").ok());
-    let stdin = tokio::io::stdin();
     // Shared stdout writer protected by a tokio Mutex so concurrent tasks can
     // write responses without interleaving.
     let stdout: Arc<tokio::sync::Mutex<tokio::io::Stdout>> =
         Arc::new(tokio::sync::Mutex::new(tokio::io::stdout()));
-    let mut reader = BufReader::new(stdin);
+    run_bridge_over(tokio::io::stdin(), stdout, sock_path, session_id).await
+}
+
+/// Core bridge read-loop, parameterized over the input reader and output writer
+/// so it can be driven with in-memory buffers in tests. Behavior is identical
+/// to `run_mcp_bridge` using real stdin/stdout.
+async fn run_bridge_over<R, W>(
+    reader: R,
+    stdout: Arc<tokio::sync::Mutex<W>>,
+    sock_path: Arc<PathBuf>,
+    session_id: Arc<Option<String>>,
+) -> anyhow::Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let mut reader = BufReader::new(reader);
 
     let mut line = String::new();
     loop {
@@ -70,12 +85,7 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
         let rpc_req: McpJsonRpcRequest = match serde_json::from_str(trimmed) {
             Ok(r) => r,
             Err(e) => {
-                let error_resp = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "error": { "code": -32700, "message": format!("Parse error: {}", e) },
-                    "id": null
-                });
-                write_jsonrpc_stdout(&stdout, &error_resp).await;
+                write_jsonrpc_stdout(&stdout, &parse_error_response(&e.to_string())).await;
                 continue;
             }
         };
@@ -84,35 +94,14 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
 
         match rpc_req.method.as_str() {
             "initialize" => {
-                let response = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "result": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {
-                            "tools": {}
-                        },
-                        "serverInfo": {
-                            "name": "opman-terminal",
-                            "version": "1.0.0"
-                        }
-                    },
-                    "id": rpc_req.id
-                });
-                write_jsonrpc_stdout(&stdout, &response).await;
+                write_jsonrpc_stdout(&stdout, &initialize_response(&rpc_req.id)).await;
             }
             "notifications/initialized" => {
                 // Client acknowledgment, no response needed
                 continue;
             }
             "tools/list" => {
-                let response = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "result": {
-                        "tools": mcp_tool_definitions()
-                    },
-                    "id": rpc_req.id
-                });
-                write_jsonrpc_stdout(&stdout, &response).await;
+                write_jsonrpc_stdout(&stdout, &tools_list_response(&rpc_req.id)).await;
             }
             "tools/call" => {
                 // Spawn tool call concurrently — does not block the stdin reader
@@ -123,37 +112,16 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
                 let params = rpc_req.params;
                 tokio::spawn(async move {
                     let result = handle_tool_call(&sock, params, sid.as_deref()).await;
-                    let response = match result {
-                        Ok(content) => {
-                            serde_json::json!({
-                                "jsonrpc": "2.0",
-                                "result": {
-                                    "content": content
-                                },
-                                "id": id
-                            })
-                        }
-                        Err(e) => {
-                            serde_json::json!({
-                                "jsonrpc": "2.0",
-                                "result": {
-                                    "content": [{ "type": "text", "text": format!("Error: {}", e) }],
-                                    "isError": true
-                                },
-                                "id": id
-                            })
-                        }
-                    };
+                    let response = tool_call_response(result, &id);
                     write_jsonrpc_stdout(&out, &response).await;
                 });
             }
             _ => {
-                let response = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "error": { "code": -32601, "message": format!("Method not found: {}", rpc_req.method) },
-                    "id": rpc_req.id
-                });
-                write_jsonrpc_stdout(&stdout, &response).await;
+                write_jsonrpc_stdout(
+                    &stdout,
+                    &method_not_found_response(&rpc_req.method, &rpc_req.id),
+                )
+                .await;
             }
         }
     }
@@ -161,11 +129,82 @@ pub async fn run_mcp_bridge(project_path: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Build the JSON-RPC response for an `initialize` request.
+fn initialize_response(id: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "result": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {}
+            },
+            "serverInfo": {
+                "name": "opman-terminal",
+                "version": "1.0.0"
+            }
+        },
+        "id": id
+    })
+}
+
+/// Build the JSON-RPC response for a `tools/list` request.
+fn tools_list_response(id: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "result": {
+            "tools": mcp_tool_definitions()
+        },
+        "id": id
+    })
+}
+
+/// Build the JSON-RPC response for an unknown method.
+fn method_not_found_response(method: &str, id: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "error": { "code": -32601, "message": format!("Method not found: {}", method) },
+        "id": id
+    })
+}
+
+/// Build the JSON-RPC response for a JSON parse error.
+fn parse_error_response(msg: &str) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "error": { "code": -32700, "message": format!("Parse error: {}", msg) },
+        "id": null
+    })
+}
+
+/// Build the JSON-RPC response wrapping a tool-call result.
+fn tool_call_response(
+    result: anyhow::Result<serde_json::Value>,
+    id: &serde_json::Value,
+) -> serde_json::Value {
+    match result {
+        Ok(content) => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {
+                "content": content
+            },
+            "id": id
+        }),
+        Err(e) => serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {
+                "content": [{ "type": "text", "text": format!("Error: {}", e) }],
+                "isError": true
+            },
+            "id": id
+        }),
+    }
+}
+
 /// Write a JSON-RPC response to a shared stdout (tokio Mutex-protected).
 /// The entire write (json + newline + flush) is atomic w.r.t. the lock so
 /// concurrent tasks never interleave their output.
-async fn write_jsonrpc_stdout(
-    stdout: &Arc<tokio::sync::Mutex<tokio::io::Stdout>>,
+async fn write_jsonrpc_stdout<W: AsyncWrite + Unpin>(
+    stdout: &Arc<tokio::sync::Mutex<W>>,
     resp: &serde_json::Value,
 ) {
     let json = match serde_json::to_string(resp) {
@@ -188,3 +227,15 @@ async fn write_jsonrpc_stdout(
         eprintln!("MCP bridge: stdout flush error: {}", e);
     }
 }
+
+#[cfg(test)]
+#[path = "bridge_tests.rs"]
+mod bridge_tests;
+
+#[cfg(test)]
+#[path = "bridge_loop_tests.rs"]
+mod bridge_loop_tests;
+
+#[cfg(test)]
+#[path = "bridge_response_tests.rs"]
+mod bridge_response_tests;

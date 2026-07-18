@@ -272,3 +272,7 @@ impl super::WebStateHandle {
             .and_then(|p| p.active_session.clone())
     }
 }
+
+#[cfg(test)]
+#[path = "queries_tests.rs"]
+mod queries_tests;

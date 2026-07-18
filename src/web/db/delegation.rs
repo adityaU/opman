@@ -142,3 +142,7 @@ mod tests {
         assert!(db.list_delegated_work().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "delegation_tests.rs"]
+mod delegation_tests;

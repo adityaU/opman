@@ -136,3 +136,7 @@ pub(crate) fn strip_jsonc_comments(input: &str) -> String {
 
     result
 }
+
+#[cfg(test)]
+#[path = "parsing_tests.rs"]
+mod parsing_tests;

@@ -110,3 +110,15 @@ pub async fn spawn_tunnel(mode: TunnelMode, local_port: u16, opts: &TunnelOption
         }
     }
 }
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod types_tests;
+
+#[cfg(test)]
+#[path = "test_env_support.rs"]
+pub(crate) mod test_env_support;
+
+#[cfg(test)]
+#[path = "types_spawn_tests.rs"]
+mod types_spawn_tests;

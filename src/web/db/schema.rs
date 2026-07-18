@@ -204,3 +204,7 @@ pub(super) fn create_indexes(conn: &Connection) -> anyhow::Result<()> {
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "schema_tests.rs"]
+mod schema_tests;

@@ -110,3 +110,7 @@ mod tests {
         assert_eq!(remaining[1].id, "sig-3");
     }
 }
+
+#[cfg(test)]
+#[path = "signals_tests.rs"]
+mod signals_tests;

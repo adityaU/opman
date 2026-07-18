@@ -41,3 +41,7 @@ impl ApiClient {
         Self { client }
     }
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
