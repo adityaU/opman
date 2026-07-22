@@ -237,3 +237,65 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ── Compaction: live banner + completed summary card ─────────────────
+   Compaction is a blocking summarization that streams nothing, so the banner is the
+   only in-flight signal. Built from plain --color-* tokens so it works in both the
+   glassy and flat themes with no per-theme override. */
+@keyframes compaction-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.compaction-banner {
+    padding: var(--space-2) var(--space-4);
+    margin: 0 auto;
+    max-width: 52rem;
+    animation: compaction-fade-in 0.2s ease;
+}
+
+.compaction-banner-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.compaction-banner-inner .tool-spin-icon {
+    flex-shrink: 0;
+    color: var(--color-accent);
+}
+
+.compaction-banner-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.compaction-banner-title {
+    color: var(--color-accent);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.compaction-banner-sub {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-top: 1px;
+}
+
+/* Completed compaction card — reuses the notification bubble shell with an accent tint. */
+.message-turn-notification .notification-bubble.notification-compact {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-element));
+    color: var(--color-text);
+    opacity: 1;
+    align-items: center;
+}
+
+.notification-compact .compaction-summary-meta {
+    color: var(--color-text-muted);
+}

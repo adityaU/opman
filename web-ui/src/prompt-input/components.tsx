@@ -7,6 +7,7 @@ import type { AgentInfo, ImageAttachment, FileSearchEntry, SessionStats } from "
 import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
 import { UsageInfoButton } from "./UsagePopover";
+import { QueuePill } from "./QueueControls";
 
 // ── SelectorChips ───────────────────────────────────────────────
 
@@ -21,11 +22,17 @@ interface SelectorChipsProps {
   onOpenMemory?: () => void;
   /** Session token/cost stats — renders an "i" info button with a breakdown when present. */
   stats?: SessionStats | null;
+  /** Count of queued follow-up prompts; a pill shows when > 0. */
+  queuedCount?: number;
+  /** Whether the queue panel is currently open (highlights the pill). */
+  queueOpen?: boolean;
+  onToggleQueue?: () => void;
 }
 
 export function SelectorChips({
   currentModel, currentAgent, agents, disabled,
   activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory, stats,
+  queuedCount = 0, queueOpen = false, onToggleQueue,
 }: SelectorChipsProps) {
   const info = agents.find((a) => a.id === currentAgent);
   const label = info?.label || currentAgent;
@@ -51,6 +58,9 @@ export function SelectorChips({
             {activeMemoryLabels.length} {activeMemoryLabels.length === 1 ? "memory" : "memories"}
           </span>
         </button>
+      )}
+      {onToggleQueue && (
+        <QueuePill count={queuedCount} active={queueOpen} onClick={onToggleQueue} />
       )}
       <UsageInfoButton stats={stats} />
     </div>

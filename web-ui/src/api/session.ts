@@ -95,6 +95,28 @@ export async function abortSession(sessionId: string): Promise<void> {
   return apiPost(`/session/${sessionId}/abort`);
 }
 
+// ── Queued follow-up prompts ──────────────────────────
+
+/** Fetch the follow-up prompts queued while the agent is busy (oldest first). */
+export async function fetchQueue(sessionId: string): Promise<string[]> {
+  const r = await apiFetch<{ pending?: string[] }>(`/session/${sessionId}/queue`);
+  return r.pending ?? [];
+}
+
+/** Remove one queued follow-up by index; returns the remaining queue. */
+export async function removeQueuedMessage(sessionId: string, index: number): Promise<string[]> {
+  const r = await apiFetch<{ pending?: string[] }>(
+    `/session/${sessionId}/queue/${index}`,
+    { method: "DELETE" }
+  );
+  return r.pending ?? [];
+}
+
+/** Drop every queued follow-up for a session. */
+export async function clearQueue(sessionId: string): Promise<void> {
+  await apiFetch<unknown>(`/session/${sessionId}/queue`, { method: "DELETE" });
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   return apiDelete(`/session/${sessionId}`);
 }

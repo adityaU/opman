@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, Loader2 } from "lucide-react";
 import type { SessionInfo } from "../api";
 import { MessageTurn } from "../MessageTurn";
 import {
@@ -60,6 +60,23 @@ export function MessageTimeline({
     prevGroupsRef.current = next;
     return next;
   }, [messages]);
+
+  // Compaction is a single blocking summarization: claude writes nothing to the
+  // transcript for 15-95s, so there are no streaming deltas to show. Detect it from the
+  // trailing `/compact` prompt while the session is busy and surface a live banner so the
+  // turn doesn't look stalled. Clears itself once the summary lands (last message changes)
+  // or the agent goes idle.
+  const isCompacting = useMemo(() => {
+    if (sessionStatus.type !== "busy") return false;
+    const last = messages[messages.length - 1];
+    if (!last || last.info.role !== "user") return false;
+    const text = (last.parts || [])
+      .filter((p) => p.type === "text")
+      .map((p) => p.text || "")
+      .join(" ")
+      .trim();
+    return text.startsWith("/compact");
+  }, [sessionStatus.type, messages]);
 
   // Find child sessions for task tool → child session matching
   const childSessions = useMemo(() => {
@@ -299,6 +316,20 @@ export function MessageTimeline({
     </button>
   );
 
+  const compactionBanner = isCompacting ? (
+    <div className="compaction-banner" role="status" aria-live="polite">
+      <div className="compaction-banner-inner">
+        <Loader2 size={15} className="tool-spin-icon" />
+        <div className="compaction-banner-text">
+          <span className="compaction-banner-title">Compacting conversation…</span>
+          <span className="compaction-banner-sub">
+            Summarizing context to free up room — this can take up to a minute.
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (useVirtual) {
     const virtualItems = virtualizer.getVirtualItems();
     return (
@@ -315,6 +346,7 @@ export function MessageTimeline({
             );
           })}
         </div>
+        {compactionBanner}
         {jumpButton}
       </div>
     );
@@ -329,6 +361,7 @@ export function MessageTimeline({
             <MessageTurn group={group} {...turnProps} />
           </div>
         ))}
+        {compactionBanner}
       </div>
       {jumpButton}
     </div>

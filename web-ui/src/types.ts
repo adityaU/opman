@@ -97,6 +97,10 @@ export interface MessageInfo {
   mode?: string;
   path?: { cwd?: string; root?: string };
   variant?: string;
+  /** compact_boundary metadata (variant === "compact") */
+  trigger?: string;
+  preTokens?: number;
+  durationMs?: number;
 }
 
 /** A single message in a session */
@@ -194,6 +198,7 @@ export type OpenCodeEventType =
   | "session.created"
   | "session.updated"
   | "session.deleted"
+  | "session.queue"
   | "permission.asked"
   | "permission.replied"
   | "question.asked"

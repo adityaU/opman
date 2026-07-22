@@ -4,6 +4,8 @@ import { SlashCommandPopover } from "../SlashCommandPopover";
 import { NO_ARG_COMMANDS } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
 import { useFileMention } from "./useFileMention";
+import { useMessageQueue } from "./useMessageQueue";
+import { QueuePanel } from "./QueueControls";
 import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
   TextareaRow, DragOverlay, HintBar, AtMentionPopover,
@@ -41,7 +43,14 @@ export function PromptInput({
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const queue = useMessageQueue(sessionId);
+
+  // Auto-close the queue panel once the queue empties (e.g. flushed on the next turn).
+  useEffect(() => {
+    if (queue.queued.length === 0) setShowQueue(false);
+  }, [queue.queued.length]);
 
   const { allAgents, agents, mentionableAgents } = useAgents(currentAgent, onAgentChange);
   const attach = useAttachments();
@@ -164,10 +173,16 @@ export function PromptInput({
           popoverRef={atMention.atPopoverRef}
           onSelectAgent={atMention.handleAtAgentSelect} onSelectFile={handleFileSelect} />
       )}
+      {showQueue && (
+        <QueuePanel queued={queue.queued} onRemove={queue.removeAt}
+          onClear={queue.clearAll} onClose={() => setShowQueue(false)} />
+      )}
       <div className="prompt-input-wrapper">
         <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
           disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
-          onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory} />
+          onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory}
+          queuedCount={queue.queued.length} queueOpen={showQueue}
+          onToggleQueue={() => setShowQueue((v) => !v)} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />
         <FileMentionPills fileMentions={fileMention.fileMentions} onRemove={fileMention.removeFileMention} />

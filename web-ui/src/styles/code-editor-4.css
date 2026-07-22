@@ -168,10 +168,20 @@ html.flat-theme .prompt-chip:hover,html.flat-theme .usage-info-btn:hover {
     border-color: color-mix(in srgb,var(--color-primary) 40%,transparent)
 }
 
-html.flat-theme .prompt-chip-dropdown,html.flat-theme .slash-popover,html.flat-theme .prompt-at-popover,html.flat-theme .usage-popover {
+html.flat-theme .prompt-chip-dropdown,html.flat-theme .slash-popover,html.flat-theme .prompt-at-popover,html.flat-theme .usage-popover,html.flat-theme .prompt-queue-panel {
     background: var(--color-bg-panel);
     border-color: var(--color-border);
     box-shadow: 0 4px 16px var(--black-15)
+}
+
+html.flat-theme .prompt-chip-queue {
+    background: color-mix(in srgb,var(--color-warning) 12%,var(--color-bg-element));
+    border-color: color-mix(in srgb,var(--color-warning) 45%,transparent);
+    color: var(--color-warning)
+}
+
+html.flat-theme .prompt-queue-item {
+    background: var(--color-bg-element)
 }
 
 html.flat-theme .modal-backdrop {

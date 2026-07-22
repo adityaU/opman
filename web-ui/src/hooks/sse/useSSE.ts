@@ -76,6 +76,10 @@ export function useSSE(): SSEState {
   const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
   const activeSessionRef = useRef<string | null>(null);
+  /** Ids of questions the user just resolved. Guards against a racing hydratePending()
+   *  or a re-delivered question.asked re-adding an already-answered question (the SSE
+   *  clear and the mirror purge may lag the user's action by a beat). */
+  const resolvedQuestionIdsRef = useRef<Set<string>>(new Set());
   /** Optimistic override — set instantly by beginSessionSwitch() so the sidebar
    *  and prompt react immediately, cleared once the server confirms via SSE. */
   const [activeSessionIdOverride, setActiveSessionIdOverride] = useState<string | null>(null);
@@ -324,6 +328,9 @@ export function useSSE(): SSEState {
           time: typeof props.time === "number" ? props.time : Date.now(),
         };
         if (!q.id) continue;
+        // Skip questions the user already resolved — the server mirror may not have
+        // purged them yet, and re-adding here is the classic "answered question reappears".
+        if (resolvedQuestionIdsRef.current.has(q.id)) continue;
         if (activeSid && q.sessionID === activeSid) {
           qs.push(q);
         } else {
@@ -414,7 +421,13 @@ export function useSSE(): SSEState {
     setPermissions((prev) => prev.filter((p) => p.id !== id));
   }, []);
   const clearQuestion = useCallback((id: string) => {
+    // Remember it as resolved (bounded) so a hydrate/re-ask can't bring it back, and clear
+    // it from BOTH lists — a question can be classified cross-session by an early event.
+    const resolved = resolvedQuestionIdsRef.current;
+    resolved.add(id);
+    if (resolved.size > 500) resolved.delete(resolved.values().next().value as string);
     setQuestions((prev) => prev.filter((q) => q.id !== id));
+    setCrossSessionQuestions((prev) => prev.filter((q) => q.id !== id));
   }, []);
   const clearMcpEditorOpen = useCallback(() => {
     setMcpEditorOpenPath(null); setMcpEditorOpenLine(null);
@@ -658,7 +671,7 @@ export function useSSE(): SSEState {
           { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
             flushMessages, flushSubagentMessages,
             refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setSessionStatuses, setPermissions, setQuestions,
-            setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount },
+            setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount, resolvedQuestionIdsRef },
           event,
         );
       });

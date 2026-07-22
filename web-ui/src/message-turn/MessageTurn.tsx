@@ -154,6 +154,36 @@ export const MessageTurn = React.memo(function MessageTurn({
   }, [isUser, plainText, onRetry]);
 
   if (role === "system") {
+    // Compaction summary card: the completed counterpart to the live "Compacting…" banner.
+    const compact = messages.find((m) => m.info.variant === "compact");
+    if (compact) {
+      const pre = compact.info.preTokens ?? 0;
+      const dur = compact.info.durationMs ?? 0;
+      const trigger = compact.info.trigger === "auto" ? "auto" : "manual";
+      const tokens =
+        pre >= 1_000_000
+          ? `${(pre / 1_000_000).toFixed(1)}M`
+          : pre >= 1000
+            ? `${Math.round(pre / 1000)}K`
+            : `${pre}`;
+      const secs = Math.round(dur / 1000);
+      const took = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
+      const bits: string[] = [];
+      if (pre > 0) bits.push(`${tokens} tokens condensed`);
+      if (secs > 0) bits.push(`${took}`);
+      bits.push(trigger);
+      return (
+        <div className="message-turn message-turn-notification message-turn-sys-compact">
+          <div className="notification-bubble notification-compact">
+            <span className="notification-icon">🗜️</span>
+            <span className="notification-text">
+              <strong>Conversation compacted</strong>
+              {bits.length ? <span className="compaction-summary-meta"> · {bits.join(" · ")}</span> : null}
+            </span>
+          </div>
+        </div>
+      );
+    }
     // System bubbles: opman-injected notifications (task-notifications, reminders) and
     // claude's own surfaced system messages (info / warning / error). Anything without a
     // recognized variant stays hidden.

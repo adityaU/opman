@@ -29,6 +29,9 @@ export interface EventHandlerContext {
   setCrossSessionPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
   setCrossSessionQuestions: React.Dispatch<React.SetStateAction<QuestionRequest[]>>;
   setFileEditCount: React.Dispatch<React.SetStateAction<number>>;
+  /** Ids of questions the user already resolved — suppresses re-adds from a re-delivered
+   *  question.asked so answered questions can't reappear. */
+  resolvedQuestionIdsRef: { current: Set<string> };
 }
 
 /** Get or create a subagent message map. */
@@ -318,7 +321,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
         questions: rawQuestions.map(transformQuestionInfo),
         time: Date.now(),
       };
-      if (q.id) {
+      if (q.id && !ctx.resolvedQuestionIdsRef.current.has(q.id)) {
         if (q.sessionID === ctx.activeSessionRef.current) {
           ctx.setQuestions((prev) => [...prev.filter((qp) => qp.id !== q.id), q]);
         } else {
@@ -332,6 +335,10 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
     case "question.rejected": {
       const requestID = (props.requestID ?? props.id ?? "") as string;
       if (requestID) {
+        // Record as resolved so a later hydrate/re-ask can't bring it back.
+        const resolved = ctx.resolvedQuestionIdsRef.current;
+        resolved.add(requestID);
+        if (resolved.size > 500) resolved.delete(resolved.values().next().value as string);
         ctx.setQuestions((prev) => prev.filter((q) => q.id !== requestID));
         ctx.setCrossSessionQuestions((prev) => prev.filter((q) => q.id !== requestID));
       }
@@ -341,6 +348,14 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
     case "todo.updated":
       window.dispatchEvent(new CustomEvent("opman:todo-updated", {
         detail: { sessionID: (props.sessionID as string) || "" },
+      }));
+      break;
+    case "session.queue":
+      window.dispatchEvent(new CustomEvent("opman:queue-updated", {
+        detail: {
+          sessionID: (props.sessionID as string) || "",
+          pending: Array.isArray(props.pending) ? (props.pending as string[]) : [],
+        },
       }));
       break;
     case "file.edited": {
