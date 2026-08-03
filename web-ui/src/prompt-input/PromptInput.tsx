@@ -8,7 +8,7 @@ import { useMessageQueue } from "./useMessageQueue";
 import { QueuePanel } from "./QueueControls";
 import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
-  TextareaRow, DragOverlay, HintBar, AtMentionPopover,
+  TextareaRow, DragOverlay, AtMentionPopover,
 } from "./components";
 
 interface Props {
@@ -24,6 +24,14 @@ interface Props {
   currentModel: string | null;
   currentAgent: string;
   onAgentChange: (agent: string) => void;
+  currentRunner?: string;
+  availableRunners?: string[];
+  onRunnerChange?: (runner: string) => void;
+  supportedEfforts?: string[];
+  effort?: string | null;
+  permission?: string;
+  onEffortChange?: (effort: string | null) => void;
+  onPermissionChange?: (permission: string) => void;
   activeMemoryLabels?: string[];
   onOpenMemory?: () => void;
   onContentChange?: (hasContent: boolean) => void;
@@ -39,7 +47,8 @@ export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
-  backend, onAttachTerminal, stats,
+  backend, onAttachTerminal, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude", "codex"], onRunnerChange,
+  supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -52,7 +61,7 @@ export function PromptInput({
     if (queue.queued.length === 0) setShowQueue(false);
   }, [queue.queued.length]);
 
-  const { allAgents, agents, mentionableAgents } = useAgents(currentAgent, onAgentChange);
+  const { allAgents, agents, mentionableAgents } = useAgents(currentAgent, onAgentChange, currentRunner);
   const attach = useAttachments();
   const atMention = useAtMention(allAgents, mentionableAgents, textareaRef, text, setText);
   const fileMention = useFileMention();
@@ -179,6 +188,9 @@ export function PromptInput({
       )}
       <div className="prompt-input-wrapper">
         <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
+           currentRunner={currentRunner} availableRunners={availableRunners} onRunnerChange={onRunnerChange}
+           supportedEfforts={supportedEfforts} effort={effort} permission={permission}
+           onEffortChange={onEffortChange} onPermissionChange={onPermissionChange}
           disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
           onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory}
           queuedCount={queue.queued.length} queueOpen={showQueue}
@@ -196,7 +208,6 @@ export function PromptInput({
           }
         />
       </div>
-      <HintBar />
     </div>
   );
 }

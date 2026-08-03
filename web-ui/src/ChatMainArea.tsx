@@ -1,11 +1,12 @@
-import React, { Suspense, lazy, useCallback, useMemo } from "react";
+import React, { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { MessageTimeline } from "./MessageTimeline";
 import { PromptInput } from "./PromptInput";
 import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
 import { SearchBar } from "./SearchBar";
-import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity } from "lucide-react";
+import { StatusBar } from "./StatusBar";
+import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity, Terminal as TerminalIcon } from "lucide-react";
 import { KanbanView } from "./kanban/KanbanView";
 
 import type { SessionStatus } from "./hooks/sse/types";
@@ -41,6 +42,11 @@ export interface ChatMainAreaProps {
   defaultModelDisplay: string | null;
   selectedModel: any;
   selectedAgent: string;
+  selectedRunner: string;
+  availableRunners: string[];
+  supportedEfforts: string[];
+  effort: string | null;
+  permission: string;
   sending: boolean;
   currentModel: string | null;
   activeMemoryItems: any[];
@@ -50,6 +56,20 @@ export interface ChatMainAreaProps {
   mcpEditorOpenLine: number | null;
   mcpAgentActivity: Map<string, any>;
   fileEditCount: number;
+  watcherStatus: any;
+  presenceClients?: any[];
+  activeWorkspaceName?: string | null;
+  autonomyMode?: any;
+  assistantPulse?: any;
+  contextLimit: number | null;
+  backend?: string;
+  onRunAssistantPulse?: () => void;
+  onOpenWatcher: () => void;
+  onOpenContextWindow: () => void;
+  onToggleSidebar: () => void;
+  toggleTerminal: () => void;
+  toggleNeovim: () => void;
+  toggleGit: () => void;
   // Panel state
   sidebarOpen: boolean;
   terminalOpen: boolean;
@@ -65,6 +85,8 @@ export interface ChatMainAreaProps {
   debugOpen: boolean;
   focusedPanel: "sidebar" | "chat" | "side";
   sidebarResize: any;
+  panelOrder: string[];
+  reorderPanels: (source: string, target: string) => void;
   sidePanelResize: any;
   terminalResize: any;
   // Search
@@ -88,6 +110,9 @@ export interface ChatMainAreaProps {
   handleNewSession: () => Promise<void>;
   handleSwitchProject: (index: number) => Promise<void>;
   handleAgentChange: (agentId: string) => Promise<void>;
+  handleRunnerChange: (runner: string) => void;
+  handleEffortChange: (effort: string | null) => void;
+  handlePermissionChange: (permission: string) => void;
   handleSearchMatchesChanged: (matchIds: Set<string>, activeId: string | null) => void;
   handleScrollDirection: (direction: "up" | "down") => void;
   handlePromptContentChange: (hasContent: boolean) => void;
@@ -123,7 +148,17 @@ export interface ChatMainAreaProps {
 }
 
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
-  const hasSidePanel = p.neovimOpen || p.gitOpen || p.debugOpen;
+  const [draggedPanel, setDraggedPanel] = useState<string | null>(null);
+  const handlePanelDragStart = useCallback((event: React.DragEvent, id: string) => {
+    setDraggedPanel(id);
+    event.dataTransfer.effectAllowed = "move";
+  }, []);
+  const handlePanelDrop = useCallback((event: React.DragEvent, id: string) => {
+    event.preventDefault();
+    if (draggedPanel) p.reorderPanels(draggedPanel, id);
+    setDraggedPanel(null);
+  }, [draggedPanel, p.reorderPanels]);
+  const hasSidePanel = p.terminalOpen || p.terminalMounted || p.neovimOpen || p.gitOpen || p.debugOpen;
 
   // Stable callback: navigate to session within active project
   const handleOpenSession = useCallback(
@@ -136,6 +171,13 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
     () => p.activeMemoryItems.map((item: any) => item.label),
     [p.activeMemoryItems],
   );
+
+  const sessionTitle = useMemo(() => {
+    if (!p.activeSessionId) return null;
+    return p.activeProject?.sessions?.find((session: any) => session.id === p.activeSessionId)?.title || null;
+  }, [p.activeProject, p.activeSessionId]);
+
+  const chatHeader = <StatusBar project={p.activeProject} stats={p.stats} connectionStatus={p.connectionStatus} sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen} neovimOpen={p.neovimOpen} gitOpen={p.gitOpen} watcherStatus={p.watcherStatus} presenceClients={p.presenceClients} activeWorkspaceName={p.activeWorkspaceName} contextLimit={p.contextLimit} sessionTitle={sessionTitle} showSidebarToggle={!p.sidebarOpen} onToggleSidebar={p.onToggleSidebar} onToggleTerminal={p.toggleTerminal} onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit} onOpenCommandPalette={p.openCommandPalette} onOpenWatcher={p.onOpenWatcher} onOpenContextWindow={p.onOpenContextWindow} />;
 
   return (
     <div className="chat-content">
@@ -162,6 +204,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               onClose={p.closeMobileSidebar}
               isKanbanView={p.isKanbanView}
               onToggleKanban={p.onToggleKanban}
+              onToggleSidebar={p.onToggleSidebar}
               sessionTaskLinks={p.sessionTaskLinks}
               onOpenKanbanTask={p.onOpenKanbanTask}
             />
@@ -177,6 +220,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
           onMouseDown={p.focusChat}
           onFocus={p.focusChat}
         >
+          {chatHeader}
           <KanbanView
             projects={p.appState.projects}
             projectIndex={p.boardProjectIndex ?? p.activeProjectIndex}
@@ -193,6 +237,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
         onMouseDown={p.focusChat}
         onFocus={p.focusChat}
       >
+        {chatHeader}
         {/* Mobile floating status pill */}
         <div className="chat-mobile-header">
           <button
@@ -277,6 +322,14 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             currentModel={p.currentModel}
             currentAgent={p.selectedAgent}
             onAgentChange={p.handleAgentChange}
+            currentRunner={p.selectedRunner}
+            availableRunners={p.availableRunners}
+            onRunnerChange={p.handleRunnerChange}
+            supportedEfforts={p.supportedEfforts}
+            effort={p.effort}
+            permission={p.permission}
+            onEffortChange={p.handleEffortChange}
+            onPermissionChange={p.handlePermissionChange}
             stats={p.stats}
             activeMemoryLabels={activeMemoryLabels}
             onOpenMemory={p.openMemory}
@@ -285,41 +338,29 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onAttachTerminal={p.onAttachTerminal}
           />
         </div>
-
-        {/* Terminal panel */}
-        {p.terminalMounted && (
-          <>
-            <div {...p.terminalResize.handleProps} style={{ ...p.terminalResize.handleProps.style, display: p.terminalOpen ? undefined : "none" }} />
-            <div style={{ height: p.terminalResize.size, flexShrink: 0, display: p.terminalOpen ? undefined : "none" }}>
-              <Suspense fallback={null}>
-                <TerminalPanel
-                  sessionId={p.activeSessionId}
-                  projectPath={p.activeProject?.path ?? null}
-                  onClose={p.closeTerminal}
-                  visible={p.terminalOpen}
-                  attachNonce={p.terminalAttachNonce}
-                  attachKind="claude-attach"
-                  mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))}
-                />
-              </Suspense>
-            </div>
-          </>
-        )}
       </div>
       )}
 
       {/* Side panel: Editor or Git */}
-      {(hasSidePanel || p.editorMounted || p.gitMounted) && (
+      {(hasSidePanel || p.editorMounted || p.gitMounted || p.terminalMounted) && (
         <>
           <div {...p.sidePanelResize.handleProps} style={{ ...p.sidePanelResize.handleProps.style, display: hasSidePanel ? undefined : "none" }} />
           <div
-            className={`side-panel${p.focusedPanel !== "side" ? " panel-dimmed" : ""}`}
+            className={`right-panel-stack${p.focusedPanel !== "side" ? " panel-dimmed" : ""}`}
             style={{ width: p.sidePanelResize.size, flexShrink: 0, display: hasSidePanel ? undefined : "none" }}
             onMouseDown={p.focusSide}
             onFocus={p.focusSide}
           >
+            {p.terminalMounted && (
+              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "terminal")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "terminal")} style={{ display: p.terminalOpen ? undefined : "none", order: p.panelOrder.indexOf("terminal") }}>
+                <div className="side-panel-header"><TerminalIcon size={14} /><span>Terminal</span><button className="side-panel-close" onClick={p.closeTerminal} aria-label="Close terminal panel"><X size={14} /></button></div>
+                <div className="side-panel-body">
+                  <Suspense fallback={null}><TerminalPanel sessionId={p.activeSessionId} projectPath={p.activeProject?.path ?? null} onClose={p.closeTerminal} visible={p.terminalOpen} attachNonce={p.terminalAttachNonce} attachKind="claude-attach" mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))} /></Suspense>
+                </div>
+              </div>
+            )}
             {p.editorMounted && (
-              <div className="side-panel-section" style={{ display: p.neovimOpen ? undefined : "none" }}>
+              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "editor")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "editor")} style={{ display: p.neovimOpen ? undefined : "none", order: p.panelOrder.indexOf("editor") }}>
                 <div className="side-panel-header">
                   <FileCode size={14} />
                   <span>Editor</span>
@@ -343,7 +384,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               </div>
             )}
             {p.gitMounted && (
-              <div className="side-panel-section" style={{ display: p.gitOpen ? undefined : "none" }}>
+              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "git")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "git")} style={{ display: p.gitOpen ? undefined : "none", order: p.panelOrder.indexOf("git") }}>
                 <div className="side-panel-header">
                   <GitBranch size={14} />
                   <span>Git</span>
@@ -357,7 +398,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               </div>
             )}
             {p.debugOpen && (
-              <div className="side-panel-section" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "debug")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "debug")} style={{ flex: 1, display: "flex", flexDirection: "column", order: p.panelOrder.indexOf("debug") }}>
                 <div className="side-panel-header">
                   <Activity size={14} />
                   <span>Debug</span>

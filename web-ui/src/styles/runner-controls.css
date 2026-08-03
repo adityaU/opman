@@ -1,0 +1,79 @@
+.prompt-runner-chip {
+  cursor: default;
+  gap: 5px;
+}
+
+.prompt-runner-selector {
+  position: relative;
+}
+
+.prompt-runner-menu {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 7px);
+  left: 0;
+  min-width: 190px;
+  padding: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-background-panel);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 32%, transparent);
+}
+
+.prompt-runner-menu-title {
+  padding: 3px 8px 6px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.prompt-runner-option,
+.prompt-runner-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.prompt-runner-option { cursor: pointer; }
+.prompt-runner-option:hover,
+.prompt-runner-option.is-selected { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.prompt-runner-setting { margin-top: 3px; border-top: 1px solid var(--color-border-subtle); }
+.prompt-runner-setting span { display: inline-flex; align-items: center; gap: 5px; color: var(--color-text-muted); }
+.prompt-runner-setting select {
+  max-width: 112px;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  text-align: right;
+}
+
+.prompt-runner-label {
+  color: var(--color-text-muted);
+  opacity: .75;
+}
+
+.sb-runner-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: 4px;
+  color: var(--color-accent);
+  font-size: 9px;
+  line-height: 13px;
+  text-transform: lowercase;
+}

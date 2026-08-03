@@ -21,7 +21,6 @@ import { buildKeyboardShortcuts } from "./chatLayoutKeyboard";
 import { ChatMainArea } from "./ChatMainArea";
 import { ModalLayer } from "./ModalLayer";
 import { MobileDock } from "./MobileDock";
-import { StatusBar } from "./StatusBar";
 import { ToastContainer } from "./ToastContainer";
 import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 import type { ThemeMode } from "./ThemeSelectorModal";
@@ -69,6 +68,7 @@ export function ChatLayout() {
   const activeProjectIndex = urlProjectIndex;
   const activeProject = appState ? appState.projects[activeProjectIndex] ?? null : null;
   const activeSessionId = urlSessionId ?? activeProject?.active_session ?? null;
+  const activeSession = activeProject?.sessions?.find((session: any) => session.id === activeSessionId);
 
   // Build the set of sub-session IDs (children of the active session)
   const subSessionIds = useMemo(() => {
@@ -103,7 +103,20 @@ export function ChatLayout() {
   // ── Modals / Toast / Providers / Bookmarks ──
   const modalState = useModalState({ onOpen: sse.blockSessionAdoption });
   const { toasts, addToast, removeToast } = useToast();
-  const providers = useProviders();
+  const [selectedRunner, setSelectedRunner] = useState<string | null>(null);
+  const [runnerSettings, setRunnerSettings] = useState<Record<string, { effort: string | null; permission: string }>>({});
+  const currentRunner = selectedRunner || activeSession?.runner || (appState?.backend === "claude-code" ? "claude" : appState?.backend) || "opencode";
+  const providers = useProviders(currentRunner);
+  const currentSettings = runnerSettings[currentRunner] || {
+    effort: null,
+    permission: currentRunner === "claude" ? "default" : currentRunner === "codex" ? "on-request" : "default",
+  };
+  const setRunnerSetting = useCallback((patch: Partial<{ effort: string | null; permission: string }>) => {
+    setRunnerSettings((current) => ({
+      ...current,
+      [currentRunner]: { ...currentSettings, ...patch },
+    }));
+  }, [currentRunner, currentSettings]);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
@@ -223,6 +236,26 @@ export function ChatLayout() {
 
   // ── Model / Agent ──
   const model = useModelState(messages, providers, activeSessionId);
+  const selectedModelId = model.currentModel || model.defaultModelDisplay;
+  const selectedModelInfo = Object.values(providers.all)
+    .flatMap((provider) => Object.values(provider.models))
+    .find((providerModel) => providerModel.id === selectedModelId) as (typeof providers.all[number]["models"][string] & { variants?: Record<string, unknown> }) | undefined;
+  const rawSupportedEfforts = selectedModelInfo?.reasoningEfforts || [];
+  const variantEfforts = Object.entries(selectedModelInfo?.variants || {}).flatMap(([name, value]) => {
+    if (!value || typeof value !== "object") return [name];
+    const effort = (value as { reasoningEffort?: unknown }).reasoningEffort;
+    return typeof effort === "string" ? [effort] : [name];
+  });
+  const supportedEfforts = [...rawSupportedEfforts, ...variantEfforts]
+    .map((value: unknown) => {
+      if (typeof value === "string") return value;
+      if (!value || typeof value !== "object") return null;
+      const entry = value as { reasoningEffort?: unknown; id?: unknown; value?: unknown };
+      const label = entry.reasoningEffort ?? entry.id ?? entry.value;
+      return typeof label === "string" ? label : null;
+    })
+    .filter((value): value is string => Boolean(value));
+  const effortOptions = supportedEfforts.length > 0 ? [...new Set(supportedEfforts)] : ["low", "medium", "high"];
 
   // ── URL restore/sync ──
   useUrlRestore({
@@ -280,12 +313,13 @@ export function ChatLayout() {
   const getMessages = useCallback(() => messagesRef.current, []);
   const handlers = useChatHandlers({
     activeSessionId, activeProjectIndex, appState,
-    selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
+    selectedModel: model.selectedModel, selectedAgent: model.selectedAgent, selectedRunner,
+    selectedEffort: currentSettings.effort, selectedPermission: currentSettings.permission,
     sending: model.sending, activeMemoryItems: assistant.activeMemoryItems,
     setSending: model.setSending, setSelectedModel: model.setSelectedModel,
-    setSelectedAgent: model.setSelectedAgent,
+    setSelectedAgent: model.setSelectedAgent, setSelectedRunner,
     setMobileInputHidden: mobile.setInputHidden,
-    addToast, addOptimisticMessage, clearOptimistic, refreshState,
+    addToast, addOptimisticMessage, clearOptimistic, refreshState, refreshMessages: sse.refreshMessages,
     clearPermission, clearQuestion,
     setMobileSidebarOpen: mobile.setSidebarOpen,
     closeMobileSidebarSilent: mobile.closeSidebarSilent,
@@ -362,14 +396,22 @@ export function ChatLayout() {
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
+        selectedRunner={currentRunner} availableRunners={appState?.runners || ["opencode", "claude", "codex"]}
+        supportedEfforts={effortOptions} effort={currentSettings.effort} permission={currentSettings.permission}
         sending={model.sending} currentModel={model.currentModel}
         allPermissions={allPermissions} allQuestions={allQuestions}
         activeMemoryItems={assistant.activeMemoryItems}
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
+         watcherStatus={watcherStatus} presenceClients={sse.presenceClients} activeWorkspaceName={assistant.activeWorkspaceName}
+         autonomyMode={assistant.autonomyMode} assistantPulse={assistant.assistantPulse} contextLimit={model.currentModelContextLimit}
+         backend={appState?.backend} onRunAssistantPulse={handleRunAssistantPulse}
+         onOpenWatcher={openWatcher} onOpenContextWindow={openCtxWindow} onToggleSidebar={panels.sidebar.toggle}
+         toggleTerminal={panels.terminal.toggle} toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
         mcpAgentActivity={mcpAgentActivity} fileEditCount={fileEditCount}
         sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
         terminalMounted={panels.terminal.mounted} neovimOpen={panels.editor.open}
         editorMounted={panels.editor.mounted} gitOpen={panels.git.open}
+         panelOrder={panels.panelOrder} reorderPanels={panels.reorderPanels}
         gitMounted={panels.git.mounted} focusedPanel={panels.focused}
         sidebarResize={panels.sidebar.resize} sidePanelResize={panels.sidePanel.resize}
         terminalResize={panels.terminal.resize} searchBarOpen={modalState.modals.searchBar}
@@ -382,6 +424,9 @@ export function ChatLayout() {
         handleQuestionDismiss={handlers.handleQuestionDismiss}
         handleSelectSession={handlers.handleSelectSession} handleNewSession={handlers.handleNewSession}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
+        handleRunnerChange={setSelectedRunner}
+        handleEffortChange={(effort) => setRunnerSetting({ effort })}
+        handlePermissionChange={(permission) => setRunnerSetting({ permission })}
         handleSearchMatchesChanged={callbacks.handleSearchMatchesChanged}
         handleScrollDirection={mobile.handleScrollDirection}
         handlePromptContentChange={mobile.handlePromptContentChange}
@@ -401,6 +446,7 @@ export function ChatLayout() {
       <ModalLayer
         modals={modalState.modals} openModal={openModal} closeModal={closeModal} closeModalSilent={closeModalSilent}
         appState={appState} activeSessionId={activeSessionId} activeProject={activeProject}
+        currentRunner={currentRunner}
         activeProjectIndex={activeProjectIndex}
         onCommand={handlers.handleCommand} onNewSession={handlers.handleNewSession}
         onSelectSession={handlers.handleSelectSession} onSend={handlers.handleSend}
@@ -436,22 +482,6 @@ export function ChatLayout() {
         setSplitViewSecondaryId={modalState.setSplitViewSecondaryId}
         clearPermission={clearPermission} clearQuestion={clearQuestion}
         onOpenSkillsUpload={() => setSkillsUploadOpen(true)}
-      />
-      <StatusBar
-        project={activeProject} stats={stats} sessionStatus={sessionStatus}
-        connectionStatus={sse.connectionStatus}
-        sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
-        neovimOpen={panels.editor.open} gitOpen={panels.git.open}
-        watcherStatus={watcherStatus} contextLimit={model.currentModelContextLimit}
-        presenceClients={sse.presenceClients} activeWorkspaceName={assistant.activeWorkspaceName}
-        activeMemoryItems={callbacks.personalMemoryForInbox}
-        autonomyMode={assistant.autonomyMode} assistantPulse={assistant.assistantPulse}
-        backend={appState?.backend}
-        onRunAssistantPulse={handleRunAssistantPulse}
-        onToggleSidebar={panels.sidebar.toggle} onToggleTerminal={panels.terminal.toggle}
-        onToggleNeovim={panels.editor.toggle} onToggleGit={panels.git.toggle}
-        onOpenCommandPalette={openCmdPalette} onOpenWatcher={openWatcher}
-        onOpenContextWindow={openCtxWindow}
       />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
       <MobileDock

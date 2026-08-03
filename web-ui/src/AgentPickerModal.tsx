@@ -16,10 +16,11 @@ function selectableAgents(agents: AgentInfo[]): AgentInfo[] {
 interface Props {
   onClose: () => void;
   currentAgent: string;
+  currentRunner?: string;
   onAgentSelected: (agentId: string) => void;
 }
 
-export function AgentPickerModal({ onClose, currentAgent, onAgentSelected }: Props) {
+export function AgentPickerModal({ onClose, currentAgent, currentRunner = "opencode", onAgentSelected }: Props) {
   const [allAgents, setAllAgents] = useState<AgentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function AgentPickerModal({ onClose, currentAgent, onAgentSelected }: Pro
   // Fetch agents on mount
   useEffect(() => {
     setLoading(true);
-    fetchAgents()
+    fetchAgents(currentRunner)
       .then((agents) => {
         setAllAgents(agents);
         setError(null);
@@ -46,12 +47,12 @@ export function AgentPickerModal({ onClose, currentAgent, onAgentSelected }: Pro
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [currentRunner]);
 
   // Focus the search input on mount
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [currentRunner]);
 
   const agents = useMemo(() => {
     const selectable = selectableAgents(allAgents);

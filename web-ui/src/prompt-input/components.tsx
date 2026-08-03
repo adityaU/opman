@@ -8,6 +8,7 @@ import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
 import { UsageInfoButton } from "./UsagePopover";
 import { QueuePill } from "./QueueControls";
+import { RunnerSelector } from "./RunnerSelector";
 
 // ── SelectorChips ───────────────────────────────────────────────
 
@@ -27,12 +28,22 @@ interface SelectorChipsProps {
   /** Whether the queue panel is currently open (highlights the pill). */
   queueOpen?: boolean;
   onToggleQueue?: () => void;
+  currentRunner?: string;
+  availableRunners?: string[];
+  onRunnerChange?: (runner: string) => void;
+  supportedEfforts?: string[];
+  effort?: string | null;
+  permission?: string;
+  onEffortChange?: (effort: string | null) => void;
+  onPermissionChange?: (permission: string) => void;
 }
 
 export function SelectorChips({
   currentModel, currentAgent, agents, disabled,
   activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory, stats,
   queuedCount = 0, queueOpen = false, onToggleQueue,
+  currentRunner = "opencode", availableRunners = ["opencode", "claude", "codex"], onRunnerChange,
+  supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: SelectorChipsProps) {
   const info = agents.find((a) => a.id === currentAgent);
   const label = info?.label || currentAgent;
@@ -45,6 +56,9 @@ export function SelectorChips({
         <span className="prompt-chip-label">{currentModel ? shortModelName(currentModel) : "Model"}</span>
         <ChevronDown size={9} />
       </button>
+       <RunnerSelector currentRunner={currentRunner} availableRunners={availableRunners}
+         supportedEfforts={supportedEfforts} effort={effort} permission={permission} disabled={disabled}
+         onRunnerChange={onRunnerChange} onEffortChange={onEffortChange} onPermissionChange={onPermissionChange} />
       <button className="prompt-chip" onClick={onOpenAgentPicker} title="Change agent" disabled={disabled}
         style={{ borderColor: `color-mix(in srgb, ${chipColor} 20%, transparent)` }}>
         <span className="prompt-agent-dot" style={{ backgroundColor: chipColor }} />

@@ -17,24 +17,25 @@ export interface ProviderCache {
  * Call `refresh()` to force a re-fetch (e.g. after provider config changes).
  */
 
-let globalCache: {
+let globalCache: Record<string, {
   all: Provider[];
   connected: string[];
   defaults: Record<string, string>;
   fetchedAt: number;
-} | null = null;
+}> = {};
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export function useProviders(): ProviderCache {
-  const [all, setAll] = useState<Provider[]>(globalCache?.all ?? []);
+export function useProviders(runner = "opencode"): ProviderCache {
+  const cached = globalCache[runner];
+  const [all, setAll] = useState<Provider[]>(cached?.all ?? []);
   const [connected, setConnected] = useState<Set<string>>(
-    new Set(globalCache?.connected ?? [])
+    new Set(cached?.connected ?? [])
   );
   const [defaults, setDefaults] = useState<Record<string, string>>(
-    globalCache?.defaults ?? {}
+    cached?.defaults ?? {}
   );
-  const [loading, setLoading] = useState(!globalCache);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -43,22 +44,22 @@ export function useProviders(): ProviderCache {
       // Use cache if fresh enough
       if (
         !force &&
-        globalCache &&
-        Date.now() - globalCache.fetchedAt < CACHE_TTL_MS
+        globalCache[runner] &&
+        Date.now() - globalCache[runner].fetchedAt < CACHE_TTL_MS
       ) {
-        setAll(globalCache.all);
-        setConnected(new Set(globalCache.connected));
-        setDefaults(globalCache.defaults);
+        setAll(globalCache[runner].all);
+        setConnected(new Set(globalCache[runner].connected));
+        setDefaults(globalCache[runner].defaults);
         setLoading(false);
         return;
       }
 
       setLoading(true);
       setError(null);
-      fetchProviders()
+      fetchProviders(runner)
         .then((resp) => {
           if (!mountedRef.current) return;
-          globalCache = {
+          globalCache[runner] = {
             all: resp.all,
             connected: resp.connected,
             defaults: resp.default,
@@ -76,7 +77,7 @@ export function useProviders(): ProviderCache {
           if (mountedRef.current) setLoading(false);
         });
     },
-    []
+    [runner]
   );
 
   useEffect(() => {
@@ -94,5 +95,5 @@ export function useProviders(): ProviderCache {
 
 /** Invalidate the global provider cache (e.g. after model change) */
 export function invalidateProviderCache() {
-  globalCache = null;
+  globalCache = {};
 }

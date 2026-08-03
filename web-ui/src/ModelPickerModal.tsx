@@ -8,6 +8,7 @@ interface Props {
   onClose: () => void;
   onCloseSilent: () => void;
   sessionId: string | null;
+  currentRunner?: string;
   onModelSelected?: (modelId: string, providerId: string) => void;
 }
 
@@ -22,8 +23,8 @@ interface FlatModel {
   isDefault: boolean;
 }
 
-export function ModelPickerModal({ onClose, onCloseSilent, sessionId, onModelSelected }: Props) {
-  const providers = useProviders();
+export function ModelPickerModal({ onClose, onCloseSilent, sessionId, currentRunner = "opencode", onModelSelected }: Props) {
+  const providers = useProviders(currentRunner);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showAll, setShowAll] = useState(false);

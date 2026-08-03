@@ -42,6 +42,7 @@
 @import './model-picker-2.css';
 @import './notifications-1.css';
 @import './notifications-2.css';
+@import './open-sessions.css';
 @import './permissions-1.css';
 @import './permissions-2.css';
 @import './prompt-input-1.css';
@@ -89,3 +90,9 @@
 @import './a2ui-3.css';
 @import './a2ui-4.css';
 @import './debug-panel.css';
+@import './codex-polish.css';
+@import './runner-controls.css';
+@import './modern-shell.css';
+@import './git-shell-polish.css';
+@import './floating-shell-polish.css';
+@import './panel-layout.css';

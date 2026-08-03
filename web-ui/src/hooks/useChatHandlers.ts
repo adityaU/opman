@@ -20,16 +20,21 @@ export interface ChatHandlerInputs {
   appState: any;
   selectedModel: any;
   selectedAgent: string;
+  selectedRunner: string | null;
+  selectedEffort: string | null;
+  selectedPermission: string;
   sending: boolean;
   activeMemoryItems: PersonalMemoryItem[];
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
+  setSelectedRunner: (r: string | null) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
   clearOptimistic: () => void;
   refreshState: () => void;
+  refreshMessages: () => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -90,16 +95,21 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     appState: inputs.appState,
     selectedModel: inputs.selectedModel,
     selectedAgent: inputs.selectedAgent,
+    selectedRunner: inputs.selectedRunner,
+    selectedEffort: inputs.selectedEffort,
+    selectedPermission: inputs.selectedPermission,
     get sending() { return sendingRef.current; },
     get activeMemoryItems() { return memoryRef.current; },
     setSending: inputs.setSending,
     setSelectedModel: inputs.setSelectedModel,
     setSelectedAgent: inputs.setSelectedAgent,
+    setSelectedRunner: inputs.setSelectedRunner,
     setMobileInputHidden: inputs.setMobileInputHidden,
     addToast: inputs.addToast,
     addOptimisticMessage: inputs.addOptimisticMessage,
     clearOptimistic: inputs.clearOptimistic,
     refreshState: inputs.refreshState,
+    refreshMessages: inputs.refreshMessages,
     clearPermission: inputs.clearPermission,
     clearQuestion: inputs.clearQuestion,
     setMobileSidebarOpen: inputs.setMobileSidebarOpen,
@@ -119,10 +129,10 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   }), [
     // activeSessionId, sending, activeMemoryItems intentionally omitted — read from refs via getters
     inputs.appState, inputs.selectedModel,
-    inputs.selectedAgent,
-    inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent,
+    inputs.selectedAgent, inputs.selectedRunner, inputs.selectedEffort, inputs.selectedPermission,
+    inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent, inputs.setSelectedRunner,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
-    inputs.clearOptimistic, inputs.refreshState, inputs.clearPermission, inputs.clearQuestion,
+    inputs.clearOptimistic, inputs.refreshState, inputs.refreshMessages, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
     inputs.openModal, inputs.expectSessionSwitch, inputs.blockSessionAdoption, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
     inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,

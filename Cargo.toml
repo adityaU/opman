@@ -4,6 +4,10 @@ version = "0.9.30"
 edition = "2021"
 description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
 
+[workspace]
+members = ["crates/backend-contracts"]
+resolver = "2"
+
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
@@ -14,6 +18,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+opman-backend-contracts = { path = "crates/backend-contracts" }
 toml = "0.8"
 dirs = "6"
 anyhow = "1"

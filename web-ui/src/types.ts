@@ -166,6 +166,7 @@ export interface ModelInfo {
   id: string;
   limit?: { context?: number; output?: number };
   features?: string[];
+  reasoningEfforts?: string[];
 }
 
 // ── Command types ───────────────────────────────────────────────────

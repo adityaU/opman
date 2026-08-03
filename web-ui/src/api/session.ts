@@ -71,7 +71,10 @@ export async function sendMessage(
   text: string,
   model?: ModelRef,
   images?: ImageAttachment[],
-  agent?: string
+  agent?: string,
+  runner?: string,
+  effort?: string,
+  permission?: string,
 ): Promise<unknown> {
   const parts: Record<string, unknown>[] = [{ type: "text", text }];
   if (images && images.length > 0) {
@@ -88,6 +91,9 @@ export async function sendMessage(
   const body: Record<string, unknown> = { parts };
   if (model) body.model = model;
   if (agent) body.agent = agent;
+  if (runner) body.runner = runner;
+  if (effort) body.effort = effort;
+  if (permission) body.permission = permission;
   return apiPost(`/session/${sessionId}/message`, body);
 }
 
@@ -154,8 +160,9 @@ interface ProvidersResponse {
   default: Record<string, string>;
 }
 
-export async function fetchProviders(): Promise<ProvidersResponse> {
-  const data = await apiFetch<unknown>("/providers");
+export async function fetchProviders(runner?: string): Promise<ProvidersResponse> {
+  const path = runner ? `/providers?runner=${encodeURIComponent(runner)}` : "/providers";
+  const data = await apiFetch<unknown>(path);
   if (data && typeof data === "object" && !Array.isArray(data)) {
     const resp = data as Record<string, unknown>;
     return {
@@ -225,6 +232,7 @@ export async function updateSessionTodos(
 // ── Agents ────────────────────────────────────────────
 
 export interface AgentInfo {
+  runner?: string;
   id: string;
   label: string;
   description: string;
@@ -234,15 +242,23 @@ export interface AgentInfo {
   color?: string;
 }
 
-export async function fetchAgents(): Promise<AgentInfo[]> {
+const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
+  opencode: [
+    { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
+    { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
+  ],
+  claude: [{ id: "default", label: "Default", description: "Claude default agent", mode: "primary", native: true }],
+  codex: [{ id: "default", label: "Default", description: "Codex default agent", mode: "primary", native: true }],
+};
+
+export async function fetchAgents(runner = "opencode"): Promise<AgentInfo[]> {
   try {
-    return await apiFetch<AgentInfo[]>("/agents");
+    const agents = await apiFetch<AgentInfo[]>("/agents?runner=" + encodeURIComponent(runner));
+    const runnerTagged = agents.filter((agent) => agent.runner);
+    if (runnerTagged.length > 0) return runnerTagged.filter((agent) => agent.runner === runner);
+    if (runner !== "opencode") return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
+    return agents;
   } catch {
-    return [
-      { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
-      { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
-    ];
+    return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
   }
 }
-
-

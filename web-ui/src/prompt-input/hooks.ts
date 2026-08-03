@@ -7,11 +7,11 @@ import {
 
 // ── useAgents ───────────────────────────────────────────────────
 
-export function useAgents(currentAgent: string, onAgentChange: (agent: string) => void) {
+export function useAgents(currentAgent: string, onAgentChange: (agent: string) => void, runner = "opencode") {
   const [allAgents, setAllAgents] = useState<AgentInfo[]>(DEFAULT_AGENTS);
 
   useEffect(() => {
-    fetchAgents().then((fetched) => {
+    fetchAgents(runner).then((fetched) => {
       if (fetched.length > 0) {
         setAllAgents(fetched);
         const selectable = selectableAgents(fetched);
@@ -20,7 +20,7 @@ export function useAgents(currentAgent: string, onAgentChange: (agent: string) =
         }
       }
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runner]);
 
   const agents = selectableAgents(allAgents);
   const mentionableAgents = allAgents.filter((a) => !a.hidden && a.mode !== "primary");

@@ -40,6 +40,7 @@ export interface ModalLayerProps {
   closeModalSilent: (name: string) => void;
   appState: any;
   activeSessionId: string | null;
+  currentRunner: string;
   activeProject: any;
   /** URL-derived active project index — sole source of truth. */
   activeProjectIndex: number;
@@ -153,10 +154,10 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       )}
 
       {m.modelPicker && (
-        <L><ModelPickerModal onClose={cl("modelPicker")} onCloseSilent={() => cs("modelPicker")} sessionId={p.activeSessionId} onModelSelected={p.onModelSelected} /></L>
+        <L><ModelPickerModal onClose={cl("modelPicker")} onCloseSilent={() => cs("modelPicker")} sessionId={p.activeSessionId} currentRunner={p.currentRunner} onModelSelected={p.onModelSelected} /></L>
       )}
       {m.agentPicker && (
-        <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} onAgentSelected={p.onAgentChange} /></L>
+        <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} currentRunner={p.currentRunner} onAgentSelected={p.onAgentChange} /></L>
       )}
       {m.themeSelector && (
         <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} appearance={p.appearance} onAppearanceChange={p.setAppearance} /></L>
