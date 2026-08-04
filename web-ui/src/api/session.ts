@@ -247,6 +247,7 @@ export const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
     { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
     { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
   ],
+  "claude-code": [{ id: "default", label: "Default", description: "Claude Code default agent", mode: "primary", native: true }],
   claude: [{ id: "default", label: "Default", description: "Claude default agent", mode: "primary", native: true }],
   codex: [{ id: "default", label: "Default", description: "Codex default agent", mode: "primary", native: true }],
 };

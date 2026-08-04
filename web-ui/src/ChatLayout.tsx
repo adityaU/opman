@@ -105,11 +105,11 @@ export function ChatLayout() {
   const { toasts, addToast, removeToast } = useToast();
   const [selectedRunner, setSelectedRunner] = useState<string | null>(null);
   const [runnerSettings, setRunnerSettings] = useState<Record<string, { effort: string | null; permission: string }>>({});
-  const currentRunner = selectedRunner || activeSession?.runner || (appState?.backend === "claude-code" ? "claude" : appState?.backend) || "opencode";
+  const currentRunner = selectedRunner || activeSession?.runner || (appState?.backend === "claude-code" ? "claude-code" : appState?.backend) || "opencode";
   const providers = useProviders(currentRunner);
   const currentSettings = runnerSettings[currentRunner] || {
     effort: null,
-    permission: currentRunner === "claude" ? "default" : currentRunner === "codex" ? "on-request" : "default",
+    permission: currentRunner === "claude" || currentRunner === "claude-code" ? "default" : currentRunner === "codex" ? "on-request" : "default",
   };
   const setRunnerSetting = useCallback((patch: Partial<{ effort: string | null; permission: string }>) => {
     setRunnerSettings((current) => ({
@@ -400,7 +400,7 @@ export function ChatLayout() {
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
-        selectedRunner={currentRunner} availableRunners={appState?.runners || ["opencode", "claude", "codex"]}
+        selectedRunner={currentRunner} availableRunners={appState?.runners || ["opencode", "claude-code", "claude", "codex"]}
         supportedEfforts={effortOptions} effort={currentSettings.effort} permission={currentSettings.permission}
         sending={model.sending} currentModel={model.currentModel}
         allPermissions={allPermissions} allQuestions={allQuestions}

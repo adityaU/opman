@@ -108,85 +108,6 @@
         font-size: var(--font-size-sm)
     }
 }
-.message-timeline { position: relative }
-.message-minimap {
-    position: absolute;
-    z-index: 4;
-    top: 12px;
-    right: 5px;
-    bottom: 12px;
-    width: 48px;
-    pointer-events: none
-}
-.message-minimap-marker {
-    position: absolute;
-    right: 0;
-    height: 3px;
-    min-width: 12px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-text-muted) 34%, transparent);
-    pointer-events: auto;
-    cursor: pointer;
-    transform: translateY(-50%);
-    transition: background var(--transition-fast), height var(--transition-fast)
-}
-.message-minimap-marker:hover {
-    height: 5px;
-    background: var(--color-primary)
-}
-html.flat-theme .message-minimap-marker {
-    background: color-mix(in srgb, var(--color-text-muted) 48%, transparent)
-}
-@media (max-width: 768px) {
-    .message-minimap { right: 3px; width: 32px }
-    .message-minimap-marker { min-width: 8px; height: 2px }
-}
-.message-minimap-tooltip {
-    position: absolute;
-    right: 20px;
-    top: 50%;
-    z-index: 5;
-    width: 240px;
-    max-height: 54px;
-    overflow: hidden;
-    padding: 7px 9px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--theme-surface-2);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--black-40) 22%, transparent);
-    color: var(--color-text);
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.35;
-    text-align: left;
-    transform: translateY(-50%);
-    white-space: normal;
-    pointer-events: none
-}
-html.flat-theme .message-minimap-tooltip { box-shadow: none }
-@media (max-width: 768px) { .message-minimap-tooltip { right: 14px; width: 190px } }
-.thinking-accordion {
-    margin: 8px 0;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--theme-surface-2) 72%, transparent);
-    color: var(--color-text-muted)
-}
-.thinking-accordion summary {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    list-style: none;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600
-}
-.thinking-accordion summary::-webkit-details-marker { display: none }
-.thinking-chevron { margin-left: auto; transition: transform var(--transition-fast) }
 .thinking-accordion[open] .thinking-chevron { transform: rotate(180deg) }
 .thinking-content {
     max-height: 260px;
@@ -198,55 +119,6 @@ html.flat-theme .message-minimap-tooltip { box-shadow: none }
     line-height: 1.5
 }
 html.flat-theme .thinking-accordion { background: var(--theme-surface-2) }
-.message-minimap {
-    display: block !important;
-    position: sticky;
-    top: 0;
-    right: auto;
-    float: right;
-    width: 52px;
-    height: calc(100% - 24px);
-    min-height: 120px;
-    margin: 12px 0 12px -52px;
-    border-left: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--theme-surface-1) 84%, transparent);
-    pointer-events: none
-}
-.message-minimap-marker {
-    right: 6px;
-    background: var(--color-text-muted);
-    opacity: .72
-}
-.message-minimap-marker:hover {
-    opacity: 1;
-    background: var(--color-primary)
-}
-@media (max-width: 768px) {
-    .message-minimap {
-        width: 34px;
-        margin-left: -34px
-    }
-    .message-minimap-marker { right: 3px }
-}
-/* Final minimap geometry: overlay the chat edge without changing transcript layout. */
-.message-minimap {
-    position: absolute;
-    top: 12px;
-    right: 6px;
-    bottom: 12px;
-    float: none;
-    width: 34px;
-    height: auto;
-    min-height: 0;
-    margin: 0;
-    border-left: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--theme-surface-1) 72%, transparent)
-}
-.message-timeline-inner { padding-right: 48px }
-@media (max-width: 768px) {
-    .message-minimap { right: 3px; width: 24px }
-    .message-timeline-inner { padding-right: 34px }
-}
 /* Pinned explorer reserves layout space instead of covering the editor. */
 .code-editor-desktop:has(.explorer-pinned) {
     display: flex;
@@ -280,4 +152,7 @@ html.flat-theme .code-editor-desktop .explorer-pinned {
     z-index: 20;
     position: absolute;
     pointer-events: auto
+}
+@media (max-width: 768px) {
+    .chat-header { display: none }
 }

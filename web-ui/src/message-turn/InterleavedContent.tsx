@@ -128,16 +128,21 @@ export function renderInterleavedContent(
       continue;
     }
 
-    if (["reasoning", "thinking", "analysis"].includes(part.type)) {
+    if (part.type === "reasoning" || part.type === "thinking" || part.type === "analysis") {
       flushText();
       const reasoning: string[] = [];
-      while (index < allParts.length && ["reasoning", "thinking", "analysis"].includes(allParts[index].part.type)) {
+      while (index < allParts.length && (allParts[index].part.type === "reasoning" || allParts[index].part.type === "thinking" || allParts[index].part.type === "analysis")) {
         const raw = allParts[index].part as MessagePart & Record<string, unknown>;
         const value = raw.text || raw.reasoning || raw.thinking || raw.analysis;
         if (typeof value === "string") reasoning.push(value);
         index++;
       }
-      elements.push(<ThinkingAccordion key={"thinking-" + index} text={reasoning.join("\n\n")} />);
+      const text = reasoning.join("\n\n");
+      if (part.type === "reasoning") {
+        elements.push(<div className="message-body" key={"reasoning-" + index}><ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>{text}</ReactMarkdown></div>);
+      } else {
+        elements.push(<ThinkingAccordion key={"thinking-" + index} text={text} />);
+      }
       continue;
     }
 

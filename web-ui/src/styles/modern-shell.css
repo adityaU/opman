@@ -289,3 +289,19 @@ html.flat-theme .terminal-panel-shell {
         border-right: 0
     }
 }
+/* A2UI/MCP blocks use the same UI typeface as the rest of the app. */
+.a2ui-container,
+.a2ui-container button,
+.a2ui-container input,
+.a2ui-container textarea,
+.a2ui-container select,
+.a2ui-container table {
+    font-family: var(--font-sans)
+}
+.a2ui-container pre,
+.a2ui-container code,
+.a2ui-code,
+.a2ui-json,
+.a2ui-terminal {
+    font-family: var(--font-mono)
+}

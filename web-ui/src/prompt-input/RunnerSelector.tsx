@@ -3,6 +3,12 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Check, Shield } from "lucide-react";
 
 const PERMISSIONS: Record<string, { value: string; label: string }[]> = {
+  "claude-code": [
+    { value: "default", label: "Ask when needed" },
+    { value: "acceptEdits", label: "Auto-accept edits" },
+    { value: "plan", label: "Plan only" },
+    { value: "bypassPermissions", label: "Bypass permissions" },
+  ],
   claude: [
     { value: "default", label: "Ask when needed" },
     { value: "acceptEdits", label: "Auto-accept edits" },
@@ -58,6 +64,7 @@ export function RunnerSelector({
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const permissions = PERMISSIONS[currentRunner] || PERMISSIONS.opencode;
+  const runnerLabel = currentRunner === "claude-code" ? "Claude Code" : currentRunner === "claude" ? "Claude" : currentRunner;
   const effortLabel = effort ? ` · ${effort}` : "";
   const open = anchor !== null;
 
@@ -100,7 +107,7 @@ export function RunnerSelector({
         title="Choose runner, effort, and permissions"
         disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
         <span className="prompt-runner-label">Runner</span>
-        <span className="prompt-chip-label">{currentRunner}{effortLabel}</span>
+        <span className="prompt-chip-label">{runnerLabel}{effortLabel}</span>
         <ChevronDown size={9} />
       </button>
       {anchor && createPortal(

@@ -47,7 +47,7 @@ export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
-  backend, onAttachTerminal, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude", "codex"], onRunnerChange,
+  backend, onAttachTerminal, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: Props) {
   const [text, setText] = useState("");

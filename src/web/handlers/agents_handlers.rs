@@ -26,7 +26,7 @@ pub async fn get_agents(
     State(state): State<ServerState>,
     _auth: AuthUser,
 ) -> WebResult<impl IntoResponse> {
-    if query.runner.as_deref() == Some("claude") {
+    if matches!(query.runner.as_deref(), Some("claude") | Some("claude-code")) {
         let dir = resolve_project_dir(&state).await?;
         let info = tokio::task::spawn_blocking(move || crate::claude_engine::claude_cli::introspect(&dir))
             .await

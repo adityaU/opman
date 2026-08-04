@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 pub enum RunnerKind {
     #[default]
     Opencode,
+    #[serde(rename = "claude-code")]
+    ClaudeCode,
     Claude,
     Codex,
 }
@@ -22,7 +24,8 @@ impl RunnerKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "opencode" | "open-code" => Some(Self::Opencode),
-            "claude" | "claude-code" => Some(Self::Claude),
+            "claude-code" | "claudecode" => Some(Self::ClaudeCode),
+            "claude" | "claude-p" | "claudep" => Some(Self::Claude),
             "codex" => Some(Self::Codex),
             _ => None,
         }
@@ -31,6 +34,7 @@ impl RunnerKind {
     pub fn display_name(&self) -> &'static str {
         match self {
             Self::Opencode => "opencode",
+            Self::ClaudeCode => "claude-code",
             Self::Claude => "claude",
             Self::Codex => "codex",
         }

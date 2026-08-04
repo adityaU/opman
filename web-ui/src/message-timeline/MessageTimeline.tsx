@@ -11,7 +11,6 @@ import {
   groupMessages,
 } from "./types";
 import { MessageShimmer, WelcomeEmpty, NewSessionEmpty } from "./components";
-import { MessageMinimap } from "./MessageMinimap";
 
 export function MessageTimeline({
   messages,
@@ -101,13 +100,6 @@ export function MessageTimeline({
     estimateSize: () => 160,
     overscan: 5,
   });
-  const selectUserMessage = useCallback((index: number) => {
-    const group = groups[index];
-    if (!group) return;
-    if (useVirtual) { virtualizer.scrollToIndex(index, { align: "center" }); return; }
-    const selector = "[data-group-key=\"" + CSS.escape(group.key) + "\"]";
-    containerRef.current?.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [groups, useVirtual, virtualizer]);
 
   // ── Scroll handling ──
   const programmaticScrollRef = useRef(false);
@@ -342,7 +334,6 @@ export function MessageTimeline({
     const virtualItems = virtualizer.getVirtualItems();
     return (
       <div className="message-timeline" ref={containerRef} role="log" aria-live="polite" aria-label="Chat messages">
-         <MessageMinimap groups={groups} onSelect={selectUserMessage} />
         {olderMessagesIndicator}
         <div className="message-timeline-inner" style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
           {virtualItems.map((virtualRow) => {
@@ -363,7 +354,6 @@ export function MessageTimeline({
 
   return (
     <div className="message-timeline" ref={containerRef} role="log" aria-live="polite" aria-label="Chat messages">
-      <MessageMinimap groups={groups} onSelect={selectUserMessage} />
       <div className="message-timeline-inner">
         {olderMessagesIndicator}
         {groups.map((group) => (

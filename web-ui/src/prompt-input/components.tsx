@@ -42,7 +42,7 @@ export function SelectorChips({
   currentModel, currentAgent, agents, disabled,
   activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory, stats,
   queuedCount = 0, queueOpen = false, onToggleQueue,
-  currentRunner = "opencode", availableRunners = ["opencode", "claude", "codex"], onRunnerChange,
+  currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: SelectorChipsProps) {
   const info = agents.find((a) => a.id === currentAgent);

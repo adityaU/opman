@@ -1801,7 +1801,7 @@ mod tests {
 
     #[test]
     fn parses_runner_names() {
-        assert_eq!(RunnerKind::parse("claude-code"), Some(RunnerKind::Claude));
+        assert_eq!(RunnerKind::parse("claude-code"), Some(RunnerKind::ClaudeCode));
         assert_eq!(RunnerKind::parse("codex"), Some(RunnerKind::Codex));
         assert_eq!(RunnerKind::parse("nope"), None);
     }
@@ -2008,27 +2008,27 @@ mod tests {
             ]),
         );
         let new = Arc::new(MockRunner {
-            kind: RunnerKind::Claude,
+            kind: RunnerKind::ClaudeCode,
             prefix: "new",
             next: AtomicUsize::new(1),
             sessions: RwLock::new(HashMap::new()),
         });
         let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
         runners.insert(RunnerKind::Opencode, old.clone());
-        runners.insert(RunnerKind::Claude, new.clone());
+        runners.insert(RunnerKind::ClaudeCode, new.clone());
         let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
         let outcome = registry
             .send_message(
                 "logical",
                 "/project",
-                Some(RunnerKind::Claude),
+                Some(RunnerKind::ClaudeCode),
                 json!({
                     "parts": [{ "type": "text", "text": "Now add a regression test" }]
                 }),
             )
             .await?;
         assert!(outcome.switched);
-        assert_eq!(outcome.runner, RunnerKind::Claude);
+        assert_eq!(outcome.runner, RunnerKind::ClaudeCode);
         assert!(outcome.session_id.starts_with("new_"));
         let handoff = outcome.response["parts"][0]["text"]
             .as_str()

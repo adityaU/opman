@@ -279,9 +279,8 @@ async fn main() -> Result<()> {
     // details into handlers or the frontend.
     let default_runner = match backend {
         crate::cli::AgentBackend::Opencode => runner::RunnerKind::Opencode,
-        crate::cli::AgentBackend::ClaudeCode | crate::cli::AgentBackend::ClaudePrint => {
-            runner::RunnerKind::Claude
-        }
+        crate::cli::AgentBackend::ClaudeCode => runner::RunnerKind::ClaudeCode,
+        crate::cli::AgentBackend::ClaudePrint => runner::RunnerKind::Claude,
     };
     let client = reqwest::Client::new();
     let mut runner_impls: HashMap<runner::RunnerKind, Arc<dyn runner::Runner>> = HashMap::new();
@@ -318,30 +317,18 @@ async fn main() -> Result<()> {
         }
     }
     let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
-    if !runner_impls.contains_key(&runner::RunnerKind::Claude)
-        && std::process::Command::new(&claude_bin)
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-    {
-        if let Ok((url, handle)) = claude_p_engine::start_embedded_server((
-            enable_terminal_mcp,
-            enable_neovim_mcp,
-            enable_time_mcp,
-            enable_ui_mcp,
-        ))
-        .await
-        {
-            runner_impls.insert(
-                runner::RunnerKind::Claude,
-                Arc::new(runner::HttpRunner::new(
-                    runner::RunnerKind::Claude,
-                    url,
-                    client.clone(),
-                )),
-            );
-            server_handles.push(handle);
+    if std::process::Command::new(&claude_bin).arg("--version").output().map(|output| output.status.success()).unwrap_or(false) {
+        if !runner_impls.contains_key(&runner::RunnerKind::ClaudeCode) {
+            if let Ok((url, handle)) = claude_engine::start_embedded_server((enable_terminal_mcp, enable_neovim_mcp, enable_time_mcp, enable_ui_mcp)).await {
+                runner_impls.insert(runner::RunnerKind::ClaudeCode, Arc::new(runner::HttpRunner::new(runner::RunnerKind::ClaudeCode, url, client.clone())));
+                server_handles.push(handle);
+            }
+        }
+        if !runner_impls.contains_key(&runner::RunnerKind::Claude) {
+            if let Ok((url, handle)) = claude_p_engine::start_embedded_server((enable_terminal_mcp, enable_neovim_mcp, enable_time_mcp, enable_ui_mcp)).await {
+                runner_impls.insert(runner::RunnerKind::Claude, Arc::new(runner::HttpRunner::new(runner::RunnerKind::Claude, url, client.clone())));
+                server_handles.push(handle);
+            }
         }
     }
     let codex_bin = std::env::var("OPMAN_CODEX_BIN").unwrap_or_else(|_| "codex".into());
