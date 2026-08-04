@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import type { ProjectInfo } from "../api";
 import {
   Layers,
+  Clock3,
   Pin,
   MessageCircle,
   X,
@@ -9,9 +10,10 @@ import {
   Pencil,
 } from "lucide-react";
 import { useSwipeReveal } from "../hooks/useSwipeReveal";
-import { formatTime } from "./formatTime";
+import { formatTime, toMs } from "./formatTime";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
 import { LaneTag } from "./LaneTag";
+import { isOpenSessionFresh } from "./openSessions";
 
 // ── Types ────────────────────────────────────────────
 
@@ -22,6 +24,12 @@ interface OpenEntry {
   projectName: string;
   projectIdx: number;
   updated: number;
+  runner?: string;
+}
+
+interface OpenGroup {
+  label: string;
+  entries: OpenEntry[];
 }
 
 export interface OpenSessionsSectionProps {
@@ -68,6 +76,7 @@ export function OpenSessionsSection({
     for (const p of projects) {
       for (const s of p.sessions) {
         if (!openSessions.has(s.id)) continue;
+        if (!isOpenSessionFresh(s.time.updated)) continue;
         if (s.parentID && s.parentID !== "") continue;
         // Sessions launched from a kanban task live under their task group in
         // the project tree — keep them out of the plain Open Sessions list.
@@ -78,6 +87,7 @@ export function OpenSessionsSection({
           projectName: p.name,
           projectIdx: p.index,
           updated: s.time.updated,
+          runner: s.runner,
         });
       }
     }
@@ -87,27 +97,44 @@ export function OpenSessionsSection({
 
   if (entries.length === 0) return null;
 
+  const groups = entries.reduce<OpenGroup[]>((result, entry) => {
+    const label = Date.now() - toMs(entry.updated) < 24 * 60 * 60 * 1000 ? "Today" : "Yesterday";
+    const group = result.find((item) => item.label === label);
+    if (group) group.entries.push(entry);
+    else result.push({ label, entries: [entry] });
+    return result;
+  }, []);
+
   return (
     <div className="sb-open-sessions">
       <div className="sb-open-header">
-        <Layers size={12} />
-        <span>Open Sessions</span>
+        <span className="sb-open-header-icon"><Layers size={12} /></span>
+        <span className="sb-open-header-copy">
+          <span>Open Sessions</span>
+          <small>Last 48 hours</small>
+        </span>
+        <span className="sb-open-count">{entries.length}</span>
       </div>
-      {entries.map((e) => (
-        <OpenSessionRow
-          key={e.sid}
-          entry={e}
-          isActive={e.sid === activeSessionId}
-          isBusy={isSessionBusy(e.sid)}
-          isPinned={pinnedSessions.has(e.sid)}
-          taskLink={sessionTaskLinks?.get(e.sid)}
-          onSelect={() => onSelectSession(e.sid, e.projectIdx)}
-          onRemove={() => onRemoveOpen(e.sid)}
-          onTogglePin={() => onTogglePin(e.sid)}
-          onStartRename={() => onStartRename(e.sid, e.title)}
-          onDeleteSession={() => onDeleteSession(e.sid, e.title)}
-          onContextMenu={onContextMenu}
-        />
+      {groups.map((group) => (
+        <div className="sb-open-group" key={group.label}>
+          <div className="sb-open-group-label"><Clock3 size={10} />{group.label}</div>
+          {group.entries.map((e) => (
+            <OpenSessionRow
+              key={e.sid}
+              entry={e}
+              isActive={e.sid === activeSessionId}
+              isBusy={isSessionBusy(e.sid)}
+              isPinned={pinnedSessions.has(e.sid)}
+              taskLink={sessionTaskLinks?.get(e.sid)}
+              onSelect={() => onSelectSession(e.sid, e.projectIdx)}
+              onRemove={() => onRemoveOpen(e.sid)}
+              onTogglePin={() => onTogglePin(e.sid)}
+              onStartRename={() => onStartRename(e.sid, e.title)}
+              onDeleteSession={() => onDeleteSession(e.sid, e.title)}
+              onContextMenu={onContextMenu}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );
@@ -196,6 +223,7 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
             <span className="sb-session-title">{entry.title}</span>
             <span className="sb-session-meta">
               <span className="sb-open-project-tag">{entry.projectName}</span>
+              {entry.runner && <span className="sb-runner-badge">{entry.runner}</span>}
               {taskLink && <LaneTag link={taskLink} />}
               {formatTime(entry.updated)}
             </span>

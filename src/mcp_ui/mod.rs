@@ -7,7 +7,6 @@
 /// the agent to modify previously rendered UI (e.g., step-by-step progress).
 ///
 /// The server speaks JSON-RPC 2.0 over stdin/stdout (standard MCP stdio transport).
-
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -241,7 +240,13 @@ fn handle_ui_render(arguments: &serde_json::Value) -> serde_json::Value {
 
     let desc = match (render_id, operation) {
         (Some(rid), Some(op)) => {
-            format!("Rendered UI: {} ({} blocks, {}:{})", title, blocks.len(), op, rid)
+            format!(
+                "Rendered UI: {} ({} blocks, {}:{})",
+                title,
+                blocks.len(),
+                op,
+                rid
+            )
         }
         _ => format!("Rendered UI: {} ({} blocks)", title, blocks.len()),
     };

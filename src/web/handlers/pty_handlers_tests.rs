@@ -6,16 +6,18 @@
 
 use super::*;
 
-use axum::extract::State;
-use axum::response::IntoResponse;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::State;
+use axum::response::IntoResponse;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn state_dir(p: &std::path::Path) -> ServerState {
@@ -84,7 +86,8 @@ async fn spawn_claude_attach_no_session_400() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     // no session_id and no active session → "No session to attach"
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req("claude-attach"))).await).await;
+    let st =
+        status(spawn_pty(State(state), auth(), axum::Json(spawn_req("claude-attach"))).await).await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -129,7 +132,15 @@ async fn spawn_default_rows_cols_clamped() {
 async fn pty_write_bad_base64_400() {
     let state = test_server_state();
     let st = status(
-        pty_write(State(state), auth(), axum::Json(PtyWriteRequest { id: "x".into(), data: "!!!not base64!!!".into() })).await,
+        pty_write(
+            State(state),
+            auth(),
+            axum::Json(PtyWriteRequest {
+                id: "x".into(),
+                data: "!!!not base64!!!".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -140,7 +151,15 @@ async fn pty_write_valid_base64_not_found_400() {
     let state = test_server_state();
     let data = BASE64.encode(b"hello");
     let st = status(
-        pty_write(State(state), auth(), axum::Json(PtyWriteRequest { id: "x".into(), data })).await,
+        pty_write(
+            State(state),
+            auth(),
+            axum::Json(PtyWriteRequest {
+                id: "x".into(),
+                data,
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -152,7 +171,16 @@ async fn pty_write_valid_base64_not_found_400() {
 async fn pty_resize_not_found_400() {
     let state = test_server_state();
     let st = status(
-        pty_resize(State(state), auth(), axum::Json(PtyResizeRequest { id: "x".into(), rows: 10, cols: 20 })).await,
+        pty_resize(
+            State(state),
+            auth(),
+            axum::Json(PtyResizeRequest {
+                id: "x".into(),
+                rows: 10,
+                cols: 20,
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -164,7 +192,12 @@ async fn pty_resize_not_found_400() {
 async fn pty_kill_not_found_400() {
     let state = test_server_state();
     let st = status(
-        pty_kill(State(state), auth(), axum::Json(PtyKillRequest { id: "x".into() })).await,
+        pty_kill(
+            State(state),
+            auth(),
+            axum::Json(PtyKillRequest { id: "x".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -175,9 +208,14 @@ async fn pty_kill_not_found_400() {
 #[tokio::test]
 async fn pty_list_empty_ok() {
     let state = test_server_state();
-    let resp = pty_list(State(state), auth()).await.unwrap().into_response();
+    let resp = pty_list(State(state), auth())
+        .await
+        .unwrap()
+        .into_response();
     assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 0);
 }

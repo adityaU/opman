@@ -14,9 +14,21 @@ use axum::http::HeaderMap;
 fn theme_colors() -> WebThemeColors {
     let c = || "#101010".to_string();
     WebThemeColors {
-        primary: c(), secondary: c(), accent: c(), background: c(), background_panel: c(),
-        background_element: c(), text: c(), text_muted: c(), border: c(), border_active: c(),
-        border_subtle: c(), error: c(), warning: c(), success: c(), info: c(),
+        primary: c(),
+        secondary: c(),
+        accent: c(),
+        background: c(),
+        background_panel: c(),
+        background_element: c(),
+        text: c(),
+        text_muted: c(),
+        border: c(),
+        border_active: c(),
+        border_subtle: c(),
+        error: c(),
+        warning: c(),
+        success: c(),
+        info: c(),
     }
 }
 
@@ -39,12 +51,22 @@ fn render_simple_string_events_are_some() {
     let cases = [
         WebEvent::StateChanged,
         WebEvent::RoutineUpdated,
-        WebEvent::SessionBusy { session_id: "s".into() },
-        WebEvent::SessionIdle { session_id: "s".into() },
+        WebEvent::SessionBusy {
+            session_id: "s".into(),
+        },
+        WebEvent::SessionIdle {
+            session_id: "s".into(),
+        },
         WebEvent::McpTerminalFocus { id: "t".into() },
-        WebEvent::SessionSeen { session_id: "s".into() },
-        WebEvent::SessionInputNeeded { session_id: "s".into() },
-        WebEvent::SessionInputCleared { session_id: "s".into() },
+        WebEvent::SessionSeen {
+            session_id: "s".into(),
+        },
+        WebEvent::SessionInputNeeded {
+            session_id: "s".into(),
+        },
+        WebEvent::SessionInputCleared {
+            session_id: "s".into(),
+        },
     ];
     for ev in cases {
         assert!(render_web_event(&ev).is_some(), "expected Some for {ev:?}");
@@ -54,16 +76,41 @@ fn render_simple_string_events_are_some() {
 #[test]
 fn render_payload_events_are_some() {
     let cases = [
-        WebEvent::McpEditorOpen { path: "/a".into(), line: Some(3) },
-        WebEvent::McpEditorOpen { path: "/a".into(), line: None },
+        WebEvent::McpEditorOpen {
+            path: "/a".into(),
+            line: Some(3),
+        },
+        WebEvent::McpEditorOpen {
+            path: "/a".into(),
+            line: None,
+        },
         WebEvent::McpEditorNavigate { line: 5 },
-        WebEvent::McpAgentActivity { tool: "read".into(), active: true },
-        WebEvent::MissionUpdated { mission: serde_json::json!({"id": "m"}) },
-        WebEvent::KanbanTaskUpdated { project_path: "/p".into(), task_id: "t".into() },
-        WebEvent::KanbanBoardUpdated { project_path: "/p".into() },
-        WebEvent::Toast { message: "hi".into(), level: "info".into() },
-        WebEvent::SessionError { session_id: "s".into(), message: "boom".into() },
-        WebEvent::SessionUnseen { session_id: "s".into(), count: 2 },
+        WebEvent::McpAgentActivity {
+            tool: "read".into(),
+            active: true,
+        },
+        WebEvent::MissionUpdated {
+            mission: serde_json::json!({"id": "m"}),
+        },
+        WebEvent::KanbanTaskUpdated {
+            project_path: "/p".into(),
+            task_id: "t".into(),
+        },
+        WebEvent::KanbanBoardUpdated {
+            project_path: "/p".into(),
+        },
+        WebEvent::Toast {
+            message: "hi".into(),
+            level: "info".into(),
+        },
+        WebEvent::SessionError {
+            session_id: "s".into(),
+            message: "boom".into(),
+        },
+        WebEvent::SessionUnseen {
+            session_id: "s".into(),
+            count: 2,
+        },
     ];
     for ev in cases {
         assert!(render_web_event(&ev).is_some(), "expected Some for {ev:?}");
@@ -78,26 +125,38 @@ fn render_serialized_events_are_some() {
         light: theme_colors(),
     }))
     .is_some());
-    assert!(render_web_event(&WebEvent::WatcherStatusChanged(WatcherStatusEvent {
-        session_id: "s".into(),
-        action: "created".into(),
-        idle_since_secs: Some(4),
-    }))
-    .is_some());
-    assert!(render_web_event(&WebEvent::ActivityEvent(ActivityEventPayload {
-        session_id: "s".into(),
-        kind: "status".into(),
-        summary: "done".into(),
-        detail: None,
-        timestamp: "2026-01-01T00:00:00Z".into(),
-    }))
-    .is_some());
-    assert!(render_web_event(&WebEvent::PresenceChanged(PresenceSnapshot { clients: vec![] })).is_some());
+    assert!(
+        render_web_event(&WebEvent::WatcherStatusChanged(WatcherStatusEvent {
+            session_id: "s".into(),
+            action: "created".into(),
+            idle_since_secs: Some(4),
+        }))
+        .is_some()
+    );
+    assert!(
+        render_web_event(&WebEvent::ActivityEvent(ActivityEventPayload {
+            session_id: "s".into(),
+            kind: "status".into(),
+            summary: "done".into(),
+            detail: None,
+            timestamp: "2026-01-01T00:00:00Z".into(),
+        }))
+        .is_some()
+    );
+    assert!(
+        render_web_event(&WebEvent::PresenceChanged(PresenceSnapshot {
+            clients: vec![]
+        }))
+        .is_some()
+    );
 }
 
 #[test]
 fn render_editor_event_is_some() {
-    let ev = EditorEvent::FileChanged { path: "a.rs".into(), source: "web_save".into() };
+    let ev = EditorEvent::FileChanged {
+        path: "a.rs".into(),
+        source: "web_save".into(),
+    };
     assert!(render_editor_event(&ev).is_some());
 }
 
@@ -147,7 +206,10 @@ async fn session_events_stream_auth_and_ok() {
     let denied = session_events_stream(
         State(test_server_state_with_auth("u", "p")),
         HeaderMap::new(),
-        Query(SessionSseQuery { token: None, project_dir: None }),
+        Query(SessionSseQuery {
+            token: None,
+            project_dir: None,
+        }),
     )
     .await;
     assert!(denied.is_err());
@@ -155,7 +217,10 @@ async fn session_events_stream_auth_and_ok() {
     let ok = session_events_stream(
         State(test_server_state()),
         HeaderMap::new(),
-        Query(SessionSseQuery { token: None, project_dir: Some("/p".into()) }),
+        Query(SessionSseQuery {
+            token: None,
+            project_dir: Some("/p".into()),
+        }),
     )
     .await;
     assert!(ok.is_ok());
@@ -171,7 +236,8 @@ async fn editor_events_stream_auth_and_ok() {
     .await;
     assert!(denied.is_err());
 
-    let ok = editor_events_stream(State(test_server_state()), HeaderMap::new(), q(None, None)).await;
+    let ok =
+        editor_events_stream(State(test_server_state()), HeaderMap::new(), q(None, None)).await;
     assert!(ok.is_ok());
 }
 

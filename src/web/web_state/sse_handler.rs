@@ -10,7 +10,7 @@ use super::super::types::*;
 /// - `session.deleted` → remove from sessions list
 /// - `session.status` → busy/idle tracking + watcher triggers
 /// - `file.edited` → file edit tracking for diff review
-pub(super) async fn handle_web_sse_event(
+pub(crate) async fn handle_web_sse_event(
     handle: &super::WebStateHandle,
     data: &str,
     project_dir: &str,
@@ -117,9 +117,7 @@ pub(super) async fn handle_web_sse_event(
                                 project.sessions.push(session.clone());
                             }
                             // Auto-activate the new session if none is active
-                            if project.active_session.is_none()
-                                && session.parent_id.is_empty()
-                            {
+                            if project.active_session.is_none() && session.parent_id.is_empty() {
                                 project.active_session = Some(session.id.clone());
                             }
                             break;
@@ -206,17 +204,21 @@ pub(super) async fn handle_web_sse_event(
                             // are not the active session for their project.
                             // Upstream opencode skips subagent sessions for notifications:
                             //   handleSessionIdle: `if (session.parentID) return`
-                            let is_subagent = state.projects.iter()
+                            let is_subagent = state
+                                .projects
+                                .iter()
                                 .flat_map(|p| p.sessions.iter())
                                 .find(|s| s.id == sid)
                                 .map(|s| !s.parent_id.is_empty())
                                 .unwrap_or(false);
                             if !is_subagent {
-                                let is_active = state.projects.iter().any(|p| {
-                                    p.active_session.as_deref() == Some(sid.as_str())
-                                });
+                                let is_active = state
+                                    .projects
+                                    .iter()
+                                    .any(|p| p.active_session.as_deref() == Some(sid.as_str()));
                                 if !is_active {
-                                    let count = state.unseen_sessions.entry(sid.clone()).or_insert(0);
+                                    let count =
+                                        state.unseen_sessions.entry(sid.clone()).or_insert(0);
                                     *count += 1;
                                     let _ = event_tx.send(WebEvent::SessionUnseen {
                                         session_id: sid.clone(),
@@ -253,13 +255,15 @@ pub(super) async fn handle_web_sse_event(
                     "retry" => "Session retrying".to_string(),
                     other => format!("Session status: {other}"),
                 };
-                handle.push_activity_event(ActivityEventPayload {
-                    session_id: sid,
-                    kind: "status".to_string(),
-                    summary,
-                    detail: Some(status_props.status.status_type.clone()),
-                    timestamp: chrono::Utc::now().to_rfc3339(),
-                }).await;
+                handle
+                    .push_activity_event(ActivityEventPayload {
+                        session_id: sid,
+                        kind: "status".to_string(),
+                        summary,
+                        detail: Some(status_props.status.status_type.clone()),
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                    })
+                    .await;
             }
         }
         "file.edited" => {
@@ -285,13 +289,15 @@ pub(super) async fn handle_web_sse_event(
                         .await;
 
                     // Activity feed: emit file edit event
-                    handle.push_activity_event(ActivityEventPayload {
-                        session_id: sid.clone(),
-                        kind: "file_edit".to_string(),
-                        summary: format!("Edited {file_path}"),
-                        detail: Some(file_path.to_string()),
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                    }).await;
+                    handle
+                        .push_activity_event(ActivityEventPayload {
+                            session_id: sid.clone(),
+                            kind: "file_edit".to_string(),
+                            summary: format!("Edited {file_path}"),
+                            detail: Some(file_path.to_string()),
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                        })
+                        .await;
 
                     // Broadcast a state change so the frontend knows a new file edit happened
                     let _ = event_tx.send(WebEvent::StateChanged);
@@ -300,47 +306,60 @@ pub(super) async fn handle_web_sse_event(
         }
         // ── Permission & question tracking (for reload recovery + input indicator) ──
         "permission.asked" => {
-            let request_id = event.properties
-                .get("id").or_else(|| event.properties.get("requestID"))
+            let request_id = event
+                .properties
+                .get("id")
+                .or_else(|| event.properties.get("requestID"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
-                let session_id = event.properties
+                let session_id = event
+                    .properties
                     .get("sessionID")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
                 let mut state = inner.write().await;
-                state.pending_permissions.insert(request_id, event.properties);
+                state
+                    .pending_permissions
+                    .insert(request_id, event.properties);
                 if !session_id.is_empty() && state.input_sessions.insert(session_id.clone()) {
                     let _ = event_tx.send(WebEvent::SessionInputNeeded { session_id });
                 }
             }
         }
         "permission.replied" => {
-            let request_id = event.properties
-                .get("requestID").or_else(|| event.properties.get("id"))
+            let request_id = event
+                .properties
+                .get("requestID")
+                .or_else(|| event.properties.get("id"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
                 let mut state = inner.write().await;
-                let removed_sid = state.pending_permissions.remove(&request_id)
-                    .and_then(|v| v.get("sessionID").and_then(|s| s.as_str()).map(|s| s.to_string()));
+                let removed_sid = state.pending_permissions.remove(&request_id).and_then(|v| {
+                    v.get("sessionID")
+                        .and_then(|s| s.as_str())
+                        .map(|s| s.to_string())
+                });
                 if let Some(sid) = removed_sid {
                     recalc_input_sessions(&mut state, &sid, event_tx);
                 }
             }
         }
         "question.asked" => {
-            let request_id = event.properties
-                .get("id").or_else(|| event.properties.get("requestID"))
+            let request_id = event
+                .properties
+                .get("id")
+                .or_else(|| event.properties.get("requestID"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
-                let session_id = event.properties
+                let session_id = event
+                    .properties
                     .get("sessionID")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
@@ -353,27 +372,34 @@ pub(super) async fn handle_web_sse_event(
             }
         }
         "question.replied" | "question.rejected" => {
-            let request_id = event.properties
-                .get("requestID").or_else(|| event.properties.get("id"))
+            let request_id = event
+                .properties
+                .get("requestID")
+                .or_else(|| event.properties.get("id"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
             if !request_id.is_empty() {
                 let mut state = inner.write().await;
-                let removed_sid = state.pending_questions.remove(&request_id)
-                    .and_then(|v| v.get("sessionID").and_then(|s| s.as_str()).map(|s| s.to_string()));
+                let removed_sid = state.pending_questions.remove(&request_id).and_then(|v| {
+                    v.get("sessionID")
+                        .and_then(|s| s.as_str())
+                        .map(|s| s.to_string())
+                });
                 if let Some(sid) = removed_sid {
                     recalc_input_sessions(&mut state, &sid, event_tx);
                 }
             }
         }
         "session.error" => {
-            let session_id = event.properties
+            let session_id = event
+                .properties
                 .get("sessionID")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let message = event.properties
+            let message = event
+                .properties
                 .get("error")
                 .or_else(|| event.properties.get("message"))
                 .and_then(|v| v.as_str())
@@ -381,20 +407,25 @@ pub(super) async fn handle_web_sse_event(
                 .to_string();
             if !session_id.is_empty() {
                 let mut state = inner.write().await;
-                state.error_sessions.insert(session_id.clone(), message.clone());
+                state
+                    .error_sessions
+                    .insert(session_id.clone(), message.clone());
                 // Track unseen only for root sessions (not subagents) that
                 // are not the active session for their project.
                 // Upstream opencode skips subagent sessions for notifications:
                 //   handleSessionError: `if (session?.parentID) return`
-                let is_subagent = state.projects.iter()
+                let is_subagent = state
+                    .projects
+                    .iter()
                     .flat_map(|p| p.sessions.iter())
                     .find(|s| s.id == session_id)
                     .map(|s| !s.parent_id.is_empty())
                     .unwrap_or(false);
                 if !is_subagent {
-                    let is_active = state.projects.iter().any(|p| {
-                        p.active_session.as_deref() == Some(session_id.as_str())
-                    });
+                    let is_active = state
+                        .projects
+                        .iter()
+                        .any(|p| p.active_session.as_deref() == Some(session_id.as_str()));
                     if !is_active {
                         let count = state.unseen_sessions.entry(session_id.clone()).or_insert(0);
                         *count += 1;
@@ -404,7 +435,10 @@ pub(super) async fn handle_web_sse_event(
                         });
                     }
                 }
-                let _ = event_tx.send(WebEvent::SessionError { session_id, message });
+                let _ = event_tx.send(WebEvent::SessionError {
+                    session_id,
+                    message,
+                });
             }
         }
         _ => {
@@ -434,7 +468,9 @@ fn recalc_input_sessions(
     session_id: &str,
     event_tx: &tokio::sync::broadcast::Sender<WebEvent>,
 ) {
-    let has_pending = state.pending_permissions.values()
+    let has_pending = state
+        .pending_permissions
+        .values()
         .chain(state.pending_questions.values())
         .any(|v| v.get("sessionID").and_then(|s| s.as_str()) == Some(session_id));
     if !has_pending && state.input_sessions.remove(session_id) {

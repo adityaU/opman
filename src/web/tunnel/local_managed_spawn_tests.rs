@@ -40,7 +40,11 @@ fn harness(list_name: &str) -> Harness {
     env.set("XDG_CONFIG_HOME", &cfg.display().to_string());
     env.prepend_path(&bin);
     let data_dir = cfg.join("opman").join("tunnel");
-    Harness { _base: base, data_dir, _env: env }
+    Harness {
+        _base: base,
+        data_dir,
+        _env: env,
+    }
 }
 
 #[tokio::test]
@@ -48,9 +52,10 @@ async fn spawn_local_managed_fresh_full_flow() {
     let _g = env_lock();
     let h = harness("opman");
     // No cert, no tunnel.json -> login + create + route + generate + run.
-    let (mut child, cfg) = spawn_local_managed("host.example.com", "opman", 8080, &TunnelOptions::default())
-        .await
-        .unwrap();
+    let (mut child, cfg) =
+        spawn_local_managed("host.example.com", "opman", 8080, &TunnelOptions::default())
+            .await
+            .unwrap();
     let cfg = cfg.expect("local-managed returns a config path");
     assert!(cfg.exists(), "config.json should be generated");
     tokio::time::sleep(std::time::Duration::from_millis(120)).await;
@@ -96,9 +101,10 @@ async fn spawn_local_managed_existing_tunnel_fails_verify_recreates() {
     )
     .unwrap();
 
-    let (mut child, cfg) = spawn_local_managed("host.example.com", "opman", 7070, &TunnelOptions::default())
-        .await
-        .unwrap();
+    let (mut child, cfg) =
+        spawn_local_managed("host.example.com", "opman", 7070, &TunnelOptions::default())
+            .await
+            .unwrap();
     assert!(cfg.unwrap().exists());
     tokio::time::sleep(std::time::Duration::from_millis(120)).await;
     let _ = child.start_kill();

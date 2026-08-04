@@ -1,10 +1,10 @@
 //! Authentication and health-check handlers.
 
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
-use axum::response::{IntoResponse, Json};
 use axum::http::HeaderMap;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Json};
 
 use super::super::auth::{self, AuthUser, JWT_EXPIRY_SECS};
 use super::super::error::{WebError, WebResult};

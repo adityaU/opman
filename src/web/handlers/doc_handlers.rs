@@ -32,12 +32,7 @@ pub async fn doc_read(
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
 
-    let ext = query
-        .path
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = query.path.rsplit('.').next().unwrap_or("").to_lowercase();
 
     let result = tokio::task::spawn_blocking(move || match ext.as_str() {
         "xlsx" | "xls" | "ods" | "xlsb" => doc_readers::read_spreadsheet(&canonical_target),
@@ -78,12 +73,7 @@ pub async fn doc_write(
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
 
-    let ext = req
-        .path
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = req.path.rsplit('.').next().unwrap_or("").to_lowercase();
     let data = req.data.clone();
     let target_path = target.clone();
 

@@ -45,7 +45,10 @@ async fn add_user_note_running_forwards_and_broadcasts_toast() {
         .unwrap();
 
     let mut rx = h.subscribe_events();
-    let note = h.kanban_add_user_note(&t.id, "please rebase onto main").await.unwrap();
+    let note = h
+        .kanban_add_user_note(&t.id, "please rebase onto main")
+        .await
+        .unwrap();
     assert_eq!(note.author, "user");
     assert_eq!(note.body, "please rebase onto main");
     assert_eq!(h.db_for_test().kanban_notes_for_task(&t.id).len(), 1);
@@ -66,7 +69,10 @@ async fn add_user_note_running_forwards_and_broadcasts_toast() {
     })
     .await
     .unwrap_or(false);
-    assert!(saw, "expected the delivery Toast from the fire-and-forget forward");
+    assert!(
+        saw,
+        "expected the delivery Toast from the fire-and-forget forward"
+    );
 }
 
 #[tokio::test]

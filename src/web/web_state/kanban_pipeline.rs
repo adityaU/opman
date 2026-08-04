@@ -11,7 +11,9 @@ use chrono::Utc;
 use serde_json::json;
 
 use super::super::types::*;
-use super::kanban_pipeline_brief::{build_stage_brief, inject_memory, pipeline_stage_lanes, truncate};
+use super::kanban_pipeline_brief::{
+    build_stage_brief, inject_memory, pipeline_stage_lanes, truncate,
+};
 use super::uuid_like_id;
 
 impl super::WebStateHandle {
@@ -24,7 +26,10 @@ impl super::WebStateHandle {
         agent: Option<String>,
     ) -> Result<String, String> {
         let mut task = self.db.kanban_task(task_id).ok_or("task not found")?;
-        let board = self.db.kanban_board(&task.board_id).ok_or("board not found")?;
+        let board = self
+            .db
+            .kanban_board(&task.board_id)
+            .ok_or("board not found")?;
 
         let stage_lanes = pipeline_stage_lanes(&board, &task.lane_id);
         if stage_lanes.is_empty() {
@@ -103,7 +108,9 @@ impl super::WebStateHandle {
         };
 
         // Capture the finished stage's output, mark it done.
-        let output = self.capture_session_output(&board.project_path, session_id).await;
+        let output = self
+            .capture_session_output(&board.project_path, session_id)
+            .await;
         let idx = run.current_index;
         run.stages[idx].status = "done".to_string();
         run.stages[idx].output = output.clone();
@@ -111,7 +118,10 @@ impl super::WebStateHandle {
         let next = idx + 1;
         if next < run.stages.len() {
             // Chain: start the next stage seeded with this stage's output.
-            match self.start_stage(&mut task, &board, &run, next, output.clone()).await {
+            match self
+                .start_stage(&mut task, &board, &run, next, output.clone())
+                .await
+            {
                 Ok(sid) => {
                     run.current_index = next;
                     run.stages[next].session_id = Some(sid.clone());
@@ -173,7 +183,12 @@ impl super::WebStateHandle {
             let note = KanbanNote {
                 id: format!("nte_{}", uuid_like_id()),
                 author: "agent".to_string(),
-                body: format!("Pipeline stage {}/{}: {}", index + 1, run.stages.len(), lane.name),
+                body: format!(
+                    "Pipeline stage {}/{}: {}",
+                    index + 1,
+                    run.stages.len(),
+                    lane.name
+                ),
                 lane_from: Some(from),
                 lane_to: Some(lane_id.clone()),
                 created_at: Utc::now().to_rfc3339(),
@@ -274,7 +289,11 @@ fn latest_assistant_output(body: &serde_json::Value) -> Option<String> {
     let latest = messages
         .iter()
         .filter(|m| m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant"))
-        .max_by_key(|m| m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0))?;
+        .max_by_key(|m| {
+            m.pointer("/info/time/created")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+        })?;
     let text = super::assistant::extract_message_text(latest);
     (!text.trim().is_empty()).then_some(text)
 }
@@ -286,4 +305,3 @@ mod kanban_pipeline_tests;
 #[cfg(test)]
 #[path = "kanban_pipeline_upstream_tests.rs"]
 mod kanban_pipeline_upstream_tests;
-

@@ -150,7 +150,10 @@ fn nvim_open_success_with_line() {
     req.line = Some(7);
     let r = handle_nvim_op_blocking(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
-    assert!(r.output.unwrap().contains("Opened /tmp/whatever.rs at line 7"));
+    assert!(r
+        .output
+        .unwrap()
+        .contains("Opened /tmp/whatever.rs at line 7"));
 }
 
 #[test]

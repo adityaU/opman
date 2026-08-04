@@ -107,10 +107,7 @@ pub(crate) async fn handle_editor_list(
     args: &serde_json::Value,
 ) -> Result<String, String> {
     let subpath = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
-    let max_depth = args
-        .get("depth")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(3) as usize;
+    let max_depth = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
 
     let base_dir = match state.web_state.get_working_dir().await {
         Some(dir) => {

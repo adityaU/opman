@@ -49,7 +49,10 @@ fn claude_uuid_lookup_and_resume() {
     assert!(e.resume_uuid(&s.id).is_none());
 
     e.set_claude_uuid(&s.id, "uuid-x");
-    assert_eq!(e.session_id_for_claude_uuid("uuid-x").as_deref(), Some(s.id.as_str()));
+    assert_eq!(
+        e.session_id_for_claude_uuid("uuid-x").as_deref(),
+        Some(s.id.as_str())
+    );
     assert_eq!(e.resume_uuid(&s.id).as_deref(), Some("uuid-x"));
 
     // Setting the same uuid again is a no-op (change guard).
@@ -123,7 +126,10 @@ fn set_model_and_agent() {
 
     // With no cached init, an arbitrary agent name passes through.
     e.set_agent(&s.id, "custom-agent");
-    assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("custom-agent"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().agent.as_deref(),
+        Some("custom-agent")
+    );
     // Empty agent clears (resolve_agent returns "" → None).
     e.set_agent(&s.id, "   ");
     assert!(e.get_session(&s.id).unwrap().agent.is_none());
@@ -135,7 +141,10 @@ fn set_permission_mode_emits_toast() {
     let s = e.create_session("d", "", "A");
     let mut rx = e.subscribe();
     e.set_permission_mode(&s.id, "plan");
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("plan")
+    );
     // A toast event was emitted.
     let ev = rx.recv().now_or_never().unwrap().unwrap();
     let v: serde_json::Value = serde_json::from_str(&ev.data).unwrap();
@@ -181,7 +190,7 @@ fn pending_resolve_dropped_receiver() {
     {
         let _rx = e.register_pending("req-2");
     } // rx dropped here
-    // send fails because the receiver is gone → false.
+      // send fails because the receiver is gone → false.
     assert!(!e.resolve_pending("req-2", PendingReply::Reject));
 }
 
@@ -189,7 +198,13 @@ fn pending_resolve_dropped_receiver() {
 fn init_cache_get_set() {
     let e = engine();
     assert!(e.cached_init("d").is_none());
-    e.set_cached_init("d", InitInfo { commands: vec!["c".into()], agents: vec!["Plan".into()] });
+    e.set_cached_init(
+        "d",
+        InitInfo {
+            commands: vec!["c".into()],
+            agents: vec!["Plan".into()],
+        },
+    );
     let got = e.cached_init("d").unwrap();
     assert_eq!(got.commands, vec!["c".to_string()]);
     assert_eq!(got.agents, vec!["Plan".to_string()]);
@@ -211,7 +226,13 @@ fn resolve_agent_branches() {
     assert_eq!(e.resolve_agent(&s.id, "whatever"), "whatever");
 
     // With cache: exact (case-insensitive) match returns the real name.
-    e.set_cached_init("d", InitInfo { commands: vec![], agents: vec!["Researcher".into()] });
+    e.set_cached_init(
+        "d",
+        InitInfo {
+            commands: vec![],
+            agents: vec!["Researcher".into()],
+        },
+    );
     assert_eq!(e.resolve_agent(&s.id, "researcher"), "Researcher");
     // Known non-empty, unknown name → "".
     assert_eq!(e.resolve_agent(&s.id, "ghost"), "");
@@ -219,7 +240,13 @@ fn resolve_agent_branches() {
     assert_eq!(e.resolve_agent(&s.id, "plan"), "");
 
     // With a Plan in cache, "plan" resolves to it.
-    e.set_cached_init("d", InitInfo { commands: vec![], agents: vec!["Plan".into()] });
+    e.set_cached_init(
+        "d",
+        InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
+    );
     assert_eq!(e.resolve_agent(&s.id, "plan"), "Plan");
 }
 

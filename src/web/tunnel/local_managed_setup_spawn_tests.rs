@@ -34,10 +34,14 @@ async fn create_tunnel_nonzero_exit_is_error() {
     let _g = env_lock();
     let (_d, _env) = setup_fake("exit 1");
     let work = tempfile::tempdir().unwrap();
-    let err = create_tunnel(&work.path().join("cert.pem"), &work.path().join("t.json"), "opman")
-        .await
-        .unwrap_err()
-        .to_string();
+    let err = create_tunnel(
+        &work.path().join("cert.pem"),
+        &work.path().join("t.json"),
+        "opman",
+    )
+    .await
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("Failed to create tunnel"), "got: {err}");
 }
 

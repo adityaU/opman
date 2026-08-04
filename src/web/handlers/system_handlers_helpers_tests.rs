@@ -74,8 +74,18 @@ fn fallback_stats_serializes_with_expected_keys() {
     let s = fallback_stats();
     let v = serde_json::to_value(&s).unwrap();
     for key in [
-        "mem_total", "mem_used", "swap_total", "swap_used", "cpu_usage", "cpu_avg",
-        "uptime_secs", "hostname", "load_avg", "processes", "process_count", "disks",
+        "mem_total",
+        "mem_used",
+        "swap_total",
+        "swap_used",
+        "cpu_usage",
+        "cpu_avg",
+        "uptime_secs",
+        "hostname",
+        "load_avg",
+        "processes",
+        "process_count",
+        "disks",
         "networks",
     ] {
         assert!(v.get(key).is_some(), "missing key {key}");

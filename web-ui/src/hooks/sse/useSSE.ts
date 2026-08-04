@@ -19,7 +19,7 @@ import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../.
 
 import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
 import { SESSION_IDLE } from "./types";
-import { type MessageMap, mapToSortedArray, getMessageTime, purgeOptimistic } from "./messageMap";
+import { type MessageMap, mapToSortedArray, getMessageTime, mergeMessage, purgeOptimistic } from "./messageMap";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
@@ -374,12 +374,7 @@ export function useSSE(): SSEState {
         if (!existing) {
           map.set(id, msg);
         } else {
-          map.set(id, {
-            ...existing,
-            info: { ...existing.info, ...msg.info },
-            metadata: msg.metadata ?? existing.metadata,
-            parts: existing.parts.length > 0 ? existing.parts : msg.parts,
-          });
+          map.set(id, mergeMessage(existing, msg));
         }
       }
       setMessages(mapToSortedArray(map));
@@ -536,12 +531,7 @@ export function useSSE(): SSEState {
                   changed = true;
                 } else {
                   // Merge updated info/parts (same logic as refreshMessages)
-                  map.set(id, {
-                    ...existing,
-                    info: { ...existing.info, ...msg.info },
-                    metadata: msg.metadata ?? existing.metadata,
-                    parts: existing.parts.length > 0 ? existing.parts : msg.parts,
-                  });
+                  map.set(id, mergeMessage(existing, msg));
                   changed = true;
                 }
               }
@@ -790,7 +780,7 @@ export function useSSE(): SSEState {
             const existing = map.get(id);
             if (!existing) { map.set(id, msg); changed = true; }
             else {
-              map.set(id, { ...existing, info: { ...existing.info, ...msg.info }, metadata: msg.metadata ?? existing.metadata, parts: existing.parts.length > 0 ? existing.parts : msg.parts });
+              map.set(id, mergeMessage(existing, msg));
               changed = true;
             }
           }

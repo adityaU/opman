@@ -133,7 +133,7 @@ fn mission_skips_empty_optionals() {
     assert!(v.get("last_verdict").is_none());
     assert!(v.get("last_eval_summary").is_none());
     assert!(v.get("eval_history").is_none()); // skip_serializing_if Vec::is_empty
-                                               // Deserialize back with those absent.
+                                              // Deserialize back with those absent.
     let back: Mission = serde_json::from_value(v).unwrap();
     assert!(back.last_verdict.is_none());
     assert!(back.eval_history.is_empty());
@@ -174,12 +174,7 @@ fn update_mission_request_defaults() {
 
 #[test]
 fn mission_action_and_request() {
-    for (name, is_variant) in [
-        ("start", 0),
-        ("pause", 1),
-        ("resume", 2),
-        ("cancel", 3),
-    ] {
+    for (name, is_variant) in [("start", 0), ("pause", 1), ("resume", 2), ("cancel", 3)] {
         let a: MissionAction = serde_json::from_value(json!(name)).unwrap();
         let matched = matches!(
             (a, is_variant),

@@ -73,16 +73,25 @@ async fn assistant_stats_counts_and_all_autonomy_modes() {
     h.update_autonomy_settings(AutonomyMode::Nudge).await;
     assert_eq!(h.build_assistant_stats(req()).await.autonomy_mode, "nudge");
     h.update_autonomy_settings(AutonomyMode::Continue).await;
-    assert_eq!(h.build_assistant_stats(req()).await.autonomy_mode, "continue");
+    assert_eq!(
+        h.build_assistant_stats(req()).await.autonomy_mode,
+        "continue"
+    );
     h.update_autonomy_settings(AutonomyMode::Autonomous).await;
-    assert_eq!(h.build_assistant_stats(req()).await.autonomy_mode, "autonomous");
+    assert_eq!(
+        h.build_assistant_stats(req()).await.autonomy_mode,
+        "autonomous"
+    );
 }
 
 #[tokio::test]
 async fn assistant_stats_empty_state() {
     let h = WebStateHandle::new_test();
     let stats = h
-        .build_assistant_stats(AssistantCenterStatsRequest { permissions: vec![], questions: vec![] })
+        .build_assistant_stats(AssistantCenterStatsRequest {
+            permissions: vec![],
+            questions: vec![],
+        })
         .await;
     assert_eq!(stats.active_missions, 0);
     assert_eq!(stats.total_missions, 0);
@@ -147,7 +156,10 @@ async fn workspace_templates_builtins() {
     let templates = WebStateHandle::workspace_templates();
     assert_eq!(templates.len(), 4);
     let ids: Vec<&str> = templates.iter().map(|t| t.id.as_str()).collect();
-    assert_eq!(ids, vec!["tpl-focus", "tpl-dev", "tpl-review", "tpl-morning"]);
+    assert_eq!(
+        ids,
+        vec!["tpl-focus", "tpl-dev", "tpl-review", "tpl-morning"]
+    );
     let focus = &templates[0];
     assert!(!focus.panels.sidebar);
     assert!(!focus.panels.terminal);
@@ -156,7 +168,12 @@ async fn workspace_templates_builtins() {
     let review = &templates[2];
     assert!(review.panels.git && !review.panels.terminal);
     let morning = &templates[3];
-    assert!(morning.panels.sidebar && morning.panels.terminal && morning.panels.editor && morning.panels.git);
+    assert!(
+        morning.panels.sidebar
+            && morning.panels.terminal
+            && morning.panels.editor
+            && morning.panels.git
+    );
 }
 
 // ── list_active_memory ───────────────────────────────────────────────

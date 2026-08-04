@@ -65,9 +65,13 @@ export async function selectSession(
 }
 
 export async function newSession(
-  projectIdx: number
+  projectIdx: number,
+  runner?: string | null,
 ): Promise<NewSessionResponse> {
-  return apiPost("/session/new", { project_idx: projectIdx });
+  return apiPost("/session/new", {
+    project_idx: projectIdx,
+    ...(runner ? { runner } : {}),
+  });
 }
 
 // ── Panel actions ─────────────────────────────────────

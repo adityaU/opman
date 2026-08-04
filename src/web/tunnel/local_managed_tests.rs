@@ -37,12 +37,7 @@ fn build_run_args_with_protocol_and_region() {
         region: Some("us".into()),
         edge_ips: vec![],
     };
-    let args = build_run_args(
-        Path::new("/c.pem"),
-        Path::new("/cfg.json"),
-        "myt",
-        &opts,
-    );
+    let args = build_run_args(Path::new("/c.pem"), Path::new("/cfg.json"), "myt", &opts);
     // protocol/region flags are injected between "tunnel" and "run".
     let tunnel_pos = args.iter().position(|a| a == "tunnel").unwrap();
     let run_pos = args.iter().position(|a| a == "run").unwrap();

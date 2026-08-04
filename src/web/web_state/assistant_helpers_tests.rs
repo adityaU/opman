@@ -198,9 +198,10 @@ fn parse_eval_body_assistant_empty_text() {
 
 #[test]
 fn parse_eval_body_valid_json_verdict() {
-    let body = serde_json::json!([
-        assistant_msg(1, r#"{"verdict":"achieved","summary":"done well"}"#)
-    ]);
+    let body = serde_json::json!([assistant_msg(
+        1,
+        r#"{"verdict":"achieved","summary":"done well"}"#
+    )]);
     let r = parse_eval_messages_body(&body);
     assert!(matches!(r.verdict, EvalVerdict::Achieved));
     assert_eq!(r.summary, "done well");

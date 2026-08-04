@@ -6,9 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::blockkit::markdown_to_blocks;
 
-use super::super::api::{
-    append_stream, chunk_for_slack, post_message, start_stream, stop_stream,
-};
+use super::super::api::{append_stream, chunk_for_slack, post_message, start_stream, stop_stream};
 use super::super::formatting::markdown_to_slack_mrkdwn;
 use super::super::state::SlackState;
 use super::post_blockkit_or_plain;
@@ -81,8 +79,7 @@ pub(crate) async fn append_to_stream(
                 // Non-mode-mismatch error: stream may have been
                 // stopped externally; fall back to post.
                 let formatted = markdown_to_slack_mrkdwn(chunk);
-                let _ =
-                    post_message(client, bot_token, channel, &formatted, Some(thread_ts)).await;
+                let _ = post_message(client, bot_token, channel, &formatted, Some(thread_ts)).await;
                 // Clear the stale stream reference.
                 let mut s = slack_state.lock().await;
                 s.streaming_messages.remove(session_id);
@@ -226,7 +223,8 @@ pub(crate) async fn start_new_stream(
                 crate::util::truncate_str(relay_text, 200)
             );
             let mut s = slack_state.lock().await;
-            s.streaming_messages.insert(session_id.to_owned(), stream_ts);
+            s.streaming_messages
+                .insert(session_id.to_owned(), stream_ts);
             *stream_started_at = Some(tokio::time::Instant::now());
             *accumulated_stream_md = relay_text.to_owned();
             *accumulated_raw_md = relay_text_raw.to_owned();

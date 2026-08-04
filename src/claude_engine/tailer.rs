@@ -250,7 +250,8 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
         // from earlier runs, which would otherwise spam an error on every opman restart).
         let mut seen_busy: std::collections::HashSet<String> = std::collections::HashSet::new();
         // uuids we've already surfaced a failure for (notify once per turn).
-        let mut notified_failed: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut notified_failed: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         loop {
             // Run the (blocking) CLI call off the async reactor.
             let agents = tokio::task::spawn_blocking(|| claude_cli::agents_json(None))
@@ -259,7 +260,13 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
                 .and_then(|r| r.ok())
                 .unwrap_or_default();
 
-            tick_status_poller(&engine, &agents, &mut absent, &mut seen_busy, &mut notified_failed);
+            tick_status_poller(
+                &engine,
+                &agents,
+                &mut absent,
+                &mut seen_busy,
+                &mut notified_failed,
+            );
 
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
@@ -314,8 +321,8 @@ pub(crate) fn tick_status_poller(
         // Just-aborted sessions: `claude stop` is graceful, so the agent (and a
         // just-killed subagent's still-fresh transcript) can read busy for a beat.
         // Force the session idle while it settles instead of bouncing it to busy.
-        let raw_busy = busy_by_uuid.get(&uuid).copied().unwrap_or(false)
-            || engine.subagent_pending(&id);
+        let raw_busy =
+            busy_by_uuid.get(&uuid).copied().unwrap_or(false) || engine.subagent_pending(&id);
         if engine.abort_settling(&id, raw_busy) {
             absent.remove(&uuid);
             engine.set_busy(&id, false);
@@ -351,7 +358,10 @@ pub(crate) fn tick_status_poller(
         // Surface a hard agent failure (process/daemon died mid-turn) to the
         // frontend — but only for a turn we actually saw running this run, and
         // only once per turn.
-        if state_by_uuid.get(&uuid).map(|s| s == "failed").unwrap_or(false)
+        if state_by_uuid
+            .get(&uuid)
+            .map(|s| s == "failed")
+            .unwrap_or(false)
             && seen_busy.contains(&uuid)
             && notified_failed.insert(uuid.clone())
         {

@@ -27,7 +27,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 
@@ -40,7 +43,10 @@ async fn create_watcher_waiting_and_running() {
     assert_eq!(resp.status, "waiting");
     assert_eq!(resp.continuation_message, "continue please");
     assert!(resp.include_original);
-    assert!(matches!(rx.try_recv(), Ok(WebEvent::WatcherStatusChanged(_))));
+    assert!(matches!(
+        rx.try_recv(),
+        Ok(WebEvent::WatcherStatusChanged(_))
+    ));
 
     // Busy session → "running"
     h.inner.write().await.busy_sessions.insert("s2".into());
@@ -57,8 +63,9 @@ async fn delete_watcher_exists_and_missing() {
     // Seed a pending timer + idle marker so their removal branches run.
     {
         let mut inner = h.inner.write().await;
-        let ah = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
-            .abort_handle();
+        let ah =
+            tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
+                .abort_handle();
         inner.watcher_pending.insert("s1".into(), ah);
         inner.watcher_idle_since.insert("s1".into(), Instant::now());
     }
@@ -85,7 +92,9 @@ async fn list_watchers_all_statuses() {
     {
         let mut inner = h.inner.write().await;
         inner.busy_sessions.insert("running".into());
-        inner.watcher_idle_since.insert("idle".into(), Instant::now());
+        inner
+            .watcher_idle_since
+            .insert("idle".into(), Instant::now());
     }
     let entries = h.list_watchers().await;
     assert_eq!(entries.len(), 3);
@@ -114,7 +123,11 @@ async fn get_watcher_status_variants_and_missing() {
     assert_eq!(w.idle_timeout_secs, 45);
 
     // idle_countdown
-    h.inner.write().await.watcher_idle_since.insert("s1".into(), Instant::now());
+    h.inner
+        .write()
+        .await
+        .watcher_idle_since
+        .insert("s1".into(), Instant::now());
     assert_eq!(h.get_watcher("s1").await.unwrap().status, "idle_countdown");
 
     // running (busy wins over idle marker)
@@ -164,7 +177,9 @@ async fn try_trigger_watcher_suppressed_by_active_children() {
         kids.insert("child".to_string());
         inner.session_children.insert("parent".into(), kids);
         inner.busy_sessions.insert("child".into());
-        inner.watcher_idle_since.insert("parent".into(), Instant::now());
+        inner
+            .watcher_idle_since
+            .insert("parent".into(), Instant::now());
     }
     h.try_trigger_watcher("parent").await;
     let inner = h.inner.read().await;
@@ -182,8 +197,9 @@ async fn try_trigger_watcher_schedules_timer() {
     // Pre-existing pending timer to exercise the abort-of-previous branch.
     {
         let mut inner = h.inner.write().await;
-        let ah = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
-            .abort_handle();
+        let ah =
+            tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
+                .abort_handle();
         inner.watcher_pending.insert("s1".into(), ah);
     }
     let mut rx = h.subscribe_events();
@@ -213,8 +229,9 @@ async fn cancel_watcher_timer_with_and_without_watcher() {
     h.create_watcher(req("s1", 0, 3600)).await;
     {
         let mut inner = h.inner.write().await;
-        let ah = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
-            .abort_handle();
+        let ah =
+            tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
+                .abort_handle();
         inner.watcher_pending.insert("s1".into(), ah);
         inner.watcher_idle_since.insert("s1".into(), Instant::now());
     }

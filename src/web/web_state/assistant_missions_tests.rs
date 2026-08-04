@@ -104,7 +104,10 @@ async fn create_mission_explicit_values() {
 #[tokio::test]
 async fn update_mission_not_found() {
     let h = WebStateHandle::new_test();
-    let req = UpdateMissionRequest { goal: Some("x".into()), max_iterations: None };
+    let req = UpdateMissionRequest {
+        goal: Some("x".into()),
+        max_iterations: None,
+    };
     assert!(h.update_mission("missing", req).await.is_none());
 }
 
@@ -112,7 +115,10 @@ async fn update_mission_not_found() {
 async fn update_mission_goal_and_iterations() {
     let h = WebStateHandle::new_test();
     insert_mission(&h, mk_mission("m1", "", MissionState::Pending, 0, 10)).await;
-    let req = UpdateMissionRequest { goal: Some("new goal".into()), max_iterations: Some(42) };
+    let req = UpdateMissionRequest {
+        goal: Some("new goal".into()),
+        max_iterations: Some(42),
+    };
     let updated = h.update_mission("m1", req).await.unwrap();
     assert_eq!(updated.goal, "new goal");
     assert_eq!(updated.max_iterations, 42);
@@ -122,7 +128,10 @@ async fn update_mission_goal_and_iterations() {
 async fn update_mission_no_fields() {
     let h = WebStateHandle::new_test();
     insert_mission(&h, mk_mission("m1", "", MissionState::Pending, 0, 10)).await;
-    let req = UpdateMissionRequest { goal: None, max_iterations: None };
+    let req = UpdateMissionRequest {
+        goal: None,
+        max_iterations: None,
+    };
     let updated = h.update_mission("m1", req).await.unwrap();
     assert_eq!(updated.goal, "reach the goal"); // unchanged
     assert_eq!(updated.max_iterations, 10);
@@ -161,7 +170,10 @@ async fn mission_action_start_from_pending() {
 async fn mission_action_start_invalid_state() {
     let h = WebStateHandle::new_test();
     insert_mission(&h, mk_mission("m1", "", MissionState::Executing, 1, 10)).await;
-    let err = h.mission_action("m1", MissionAction::Start).await.unwrap_err();
+    let err = h
+        .mission_action("m1", MissionAction::Start)
+        .await
+        .unwrap_err();
     assert!(err.contains("Cannot start"));
 }
 
@@ -171,11 +183,17 @@ async fn mission_action_pause_from_executing_and_evaluating() {
     insert_mission(&h, mk_mission("m1", "", MissionState::Executing, 1, 10)).await;
     insert_mission(&h, mk_mission("m2", "", MissionState::Evaluating, 1, 10)).await;
     assert_eq!(
-        h.mission_action("m1", MissionAction::Pause).await.unwrap().state,
+        h.mission_action("m1", MissionAction::Pause)
+            .await
+            .unwrap()
+            .state,
         MissionState::Paused
     );
     assert_eq!(
-        h.mission_action("m2", MissionAction::Pause).await.unwrap().state,
+        h.mission_action("m2", MissionAction::Pause)
+            .await
+            .unwrap()
+            .state,
         MissionState::Paused
     );
 }
@@ -184,7 +202,10 @@ async fn mission_action_pause_from_executing_and_evaluating() {
 async fn mission_action_pause_invalid() {
     let h = WebStateHandle::new_test();
     insert_mission(&h, mk_mission("m1", "", MissionState::Pending, 0, 10)).await;
-    let err = h.mission_action("m1", MissionAction::Pause).await.unwrap_err();
+    let err = h
+        .mission_action("m1", MissionAction::Pause)
+        .await
+        .unwrap_err();
     assert!(err.contains("Cannot pause"));
 }
 
@@ -201,7 +222,10 @@ async fn mission_action_resume_from_paused() {
 async fn mission_action_resume_invalid() {
     let h = WebStateHandle::new_test();
     insert_mission(&h, mk_mission("m1", "", MissionState::Executing, 1, 10)).await;
-    let err = h.mission_action("m1", MissionAction::Resume).await.unwrap_err();
+    let err = h
+        .mission_action("m1", MissionAction::Resume)
+        .await
+        .unwrap_err();
     assert!(err.contains("Cannot resume"));
 }
 
@@ -220,7 +244,10 @@ async fn mission_action_cancel_terminal_states() {
     insert_mission(&h, mk_mission("mx", "", MissionState::Cancelled, 1, 10)).await;
     insert_mission(&h, mk_mission("mf", "", MissionState::Failed, 1, 10)).await;
     for id in ["mc", "mx", "mf"] {
-        let err = h.mission_action(id, MissionAction::Cancel).await.unwrap_err();
+        let err = h
+            .mission_action(id, MissionAction::Cancel)
+            .await
+            .unwrap_err();
         assert!(err.contains("Cannot cancel"));
     }
 }
@@ -275,14 +302,18 @@ async fn send_evaluator_prompt_with_history_and_unlimited() {
 async fn send_continuation_prompt_with_and_without_next_step() {
     let h = WebStateHandle::new_test();
     let m = mk_mission("m1", "sess", MissionState::Executing, 2, 10);
-    h.send_continuation_prompt(&m, Some("do the next thing")).await;
+    h.send_continuation_prompt(&m, Some("do the next thing"))
+        .await;
     h.send_continuation_prompt(&m, None).await;
 }
 
 #[tokio::test]
 async fn send_to_session_empty_dir_errors() {
     let h = WebStateHandle::new_test();
-    let err = h.send_to_session("sess", &0, "hello", None).await.unwrap_err();
+    let err = h
+        .send_to_session("sess", &0, "hello", None)
+        .await
+        .unwrap_err();
     assert_eq!(err, "No project directory found");
 }
 
@@ -296,7 +327,10 @@ async fn send_to_session_with_project_connection_refused() {
         model_id: "claude".to_string(),
     };
     // With and without model override; both hit reqwest → connection refused.
-    let e1 = h.send_to_session("sess", &0, "hi", Some(&model)).await.unwrap_err();
+    let e1 = h
+        .send_to_session("sess", &0, "hi", Some(&model))
+        .await
+        .unwrap_err();
     assert!(e1.starts_with("Failed to send message"));
     let e2 = h.send_to_session("sess", &0, "hi", None).await.unwrap_err();
     assert!(e2.starts_with("Failed to send message"));

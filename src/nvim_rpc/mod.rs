@@ -27,9 +27,7 @@ pub use buffer::{
 };
 
 // editing
-pub use edit::{
-    nvim_buf_multi_edit_and_save, nvim_buf_set_text_and_save, ResolvedEdit,
-};
+pub use edit::{nvim_buf_multi_edit_and_save, nvim_buf_set_text_and_save, ResolvedEdit};
 
 // LSP navigation & diagnostics
 pub use lsp::{

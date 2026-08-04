@@ -35,7 +35,12 @@ fn titled(title: &str) -> String {
     format!("{{\"type\":\"ai-title\",\"aiTitle\":\"{title}\"}}\n")
 }
 
-fn agent_at(session_id: &str, cwd: &str, started_at: u64, state: Option<&str>) -> claude_cli::AgentInfo {
+fn agent_at(
+    session_id: &str,
+    cwd: &str,
+    started_at: u64,
+    state: Option<&str>,
+) -> claude_cli::AgentInfo {
     claude_cli::AgentInfo {
         id: "sh".into(),
         session_id: session_id.into(),
@@ -55,7 +60,10 @@ fn import_agents_imports_titled_session() {
     let e = engine();
     assert!(e.list_for_dir("/d").is_empty());
     with_home(home.path(), || {
-        e.import_agents("/d", vec![agent_at("uuid-imp1", "/d", 100, Some("working"))]);
+        e.import_agents(
+            "/d",
+            vec![agent_at("uuid-imp1", "/d", 100, Some("working"))],
+        );
     });
     let sessions = e.list_for_dir("/d");
     assert_eq!(sessions.len(), 1);
@@ -93,7 +101,11 @@ fn import_agents_skips_untitled_missing_and_collapses_duplicates() {
         );
     });
     let sessions = e.list_for_dir("/d");
-    assert_eq!(sessions.len(), 1, "only the newest same-titled session is imported");
+    assert_eq!(
+        sessions.len(),
+        1,
+        "only the newest same-titled session is imported"
+    );
     assert_eq!(sessions[0].title, "Same Title");
     assert_eq!(sessions[0].claude_session_id.as_deref(), Some("uuid-dupB"));
 }

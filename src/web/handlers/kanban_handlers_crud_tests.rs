@@ -249,8 +249,7 @@ async fn get_board_with_project_ok() {
     let tmp = tempfile::tempdir().unwrap();
     state.web_state =
         WebStateHandle::new_test_with_projects(vec![("demo".into(), tmp.path().to_path_buf())]);
-    let (status, body) =
-        send_json(test_router(state), "GET", "/api/kanban/board", None).await;
+    let (status, body) = send_json(test_router(state), "GET", "/api/kanban/board", None).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert!(v["board"]["lanes"].is_array());
@@ -264,8 +263,7 @@ async fn get_board_with_pi_query_ok() {
     let tmp = tempfile::tempdir().unwrap();
     state.web_state =
         WebStateHandle::new_test_with_projects(vec![("demo".into(), tmp.path().to_path_buf())]);
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/kanban/board?pi=0", None).await;
+    let (status, _) = send_json(test_router(state), "GET", "/api/kanban/board?pi=0", None).await;
     assert_eq!(status, StatusCode::OK);
     drop(tmp);
 }
@@ -346,10 +344,12 @@ async fn create_task_unknown_board_is_404() {
 async fn get_task_ok_and_missing() {
     let state = test_server_state();
     seed_board(&state, "brd_g");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_g", "brd_g", "lane_todo"));
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_g", "brd_g", "lane_todo"));
     let router = test_router(state);
-    let (status, body) =
-        send_json(router.clone(), "GET", "/api/kanban/task/tsk_g", None).await;
+    let (status, body) = send_json(router.clone(), "GET", "/api/kanban/task/tsk_g", None).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["id"], "tsk_g");
@@ -364,8 +364,12 @@ async fn get_task_ok_and_missing() {
 async fn update_task_edit_ok() {
     let state = test_server_state();
     seed_board(&state, "brd_u");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_u", "brd_u", "lane_todo"));
-    let body = json!({ "title": "renamed", "description": "d2", "priority": "low", "order_index": 3.5 });
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_u", "brd_u", "lane_todo"));
+    let body =
+        json!({ "title": "renamed", "description": "d2", "priority": "low", "order_index": 3.5 });
     let (status, resp) = send_json(
         test_router(state),
         "PATCH",
@@ -383,7 +387,10 @@ async fn update_task_edit_ok() {
 async fn update_task_valid_move_ok() {
     let state = test_server_state();
     seed_board(&state, "brd_mv");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_mv", "brd_mv", "lane_todo"));
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_mv", "brd_mv", "lane_todo"));
     let body = json!({ "lane_id": "lane_planning" });
     let (status, resp) = send_json(
         test_router(state),
@@ -401,7 +408,10 @@ async fn update_task_valid_move_ok() {
 async fn update_task_invalid_transition_is_409() {
     let state = test_server_state();
     seed_board(&state, "brd_bad");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_bad", "brd_bad", "lane_todo"));
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_bad", "brd_bad", "lane_todo"));
     let body = json!({ "lane_id": "lane_done" });
     let (status, _) = send_json(
         test_router(state),
@@ -430,7 +440,10 @@ async fn update_task_missing_is_404() {
 async fn archive_task_no_session_ok() {
     let state = test_server_state();
     seed_board(&state, "brd_ar");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_ar", "brd_ar", "lane_todo"));
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_ar", "brd_ar", "lane_todo"));
     let body = json!({ "archived": true });
     let (status, resp) = send_json(
         test_router(state),
@@ -469,10 +482,12 @@ async fn archive_task_with_session_stops_agent() {
 async fn delete_task_ok_and_missing() {
     let state = test_server_state();
     seed_board(&state, "brd_d");
-    state.web_state.db_for_test().insert_kanban_task(&mk_task("tsk_d", "brd_d", "lane_todo"));
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_task(&mk_task("tsk_d", "brd_d", "lane_todo"));
     let router = test_router(state);
-    let (status, body) =
-        send_json(router.clone(), "DELETE", "/api/kanban/task/tsk_d", None).await;
+    let (status, body) = send_json(router.clone(), "DELETE", "/api/kanban/task/tsk_d", None).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["ok"], true);
@@ -489,7 +504,12 @@ async fn delete_task_with_session_stops_agent() {
     let mut task = mk_task("tsk_ds", "brd_ds", "lane_todo");
     task.session_id = Some("sess-y".into());
     state.web_state.db_for_test().insert_kanban_task(&task);
-    let (status, _) =
-        send_json(test_router(state), "DELETE", "/api/kanban/task/tsk_ds", None).await;
+    let (status, _) = send_json(
+        test_router(state),
+        "DELETE",
+        "/api/kanban/task/tsk_ds",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 }

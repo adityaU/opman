@@ -48,7 +48,11 @@ async fn unavailable_without_internal() {
 #[tokio::test]
 async fn missing_task_id() {
     let i = internal("http://127.0.0.1:1");
-    let out = dispatch_tool(Some(&i), Some(json!({"name":"kanban_get_task","arguments":{}}))).await;
+    let out = dispatch_tool(
+        Some(&i),
+        Some(json!({"name":"kanban_get_task","arguments":{}})),
+    )
+    .await;
     assert!(out.contains("Missing required argument: task_id"));
 }
 

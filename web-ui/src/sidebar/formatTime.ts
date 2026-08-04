@@ -3,7 +3,7 @@
  * The server returns Date.now() (ms), but some paths may pass seconds.
  * Heuristic: values above 10 billion are already milliseconds.
  */
-function toMs(ts: number): number {
+export function toMs(ts: number): number {
   return ts > 10_000_000_000 ? ts : ts * 1000;
 }
 

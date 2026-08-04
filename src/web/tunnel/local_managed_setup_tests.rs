@@ -45,7 +45,15 @@ fn generate_config_includes_protocol_and_region() {
         region: Some("us".into()),
         edge_ips: vec![],
     };
-    generate_config(&cfg, "u2", Path::new("/t.json"), "h.example.com", 8080, &opts).unwrap();
+    generate_config(
+        &cfg,
+        "u2",
+        Path::new("/t.json"),
+        "h.example.com",
+        8080,
+        &opts,
+    )
+    .unwrap();
 
     let v = read_json(&cfg);
     assert_eq!(v["protocol"], "quic");

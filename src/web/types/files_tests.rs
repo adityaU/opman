@@ -115,8 +115,7 @@ fn file_search_query_default_limit() {
     let q: FileSearchQuery = serde_json::from_value(json!({"q": "foo"})).unwrap();
     assert_eq!(q.q, "foo");
     assert_eq!(q.limit, 20);
-    let q2: FileSearchQuery =
-        serde_json::from_value(json!({"q": "foo", "limit": 5})).unwrap();
+    let q2: FileSearchQuery = serde_json::from_value(json!({"q": "foo", "limit": 5})).unwrap();
     assert_eq!(q2.limit, 5);
 }
 

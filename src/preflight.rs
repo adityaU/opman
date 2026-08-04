@@ -53,7 +53,10 @@ async fn ensure_stack_running(stack: &RequiredStack) -> anyhow::Result<()> {
 
     let all_running = containers_running(stack.containers).await?;
     if all_running {
-        info!("preflight: all containers running for {}", stack.compose_file);
+        info!(
+            "preflight: all containers running for {}",
+            stack.compose_file
+        );
         return Ok(());
     }
 
@@ -107,9 +110,6 @@ async fn start_stack(compose_file: &str) -> anyhow::Result<()> {
         info!("preflight: stack started successfully: {}", compose_file);
         Ok(())
     } else {
-        anyhow::bail!(
-            "docker compose up -d exited with code {:?}",
-            status.code()
-        )
+        anyhow::bail!("docker compose up -d exited with code {:?}", status.code())
     }
 }

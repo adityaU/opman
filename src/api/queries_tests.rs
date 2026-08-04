@@ -33,7 +33,10 @@ fn json_get(path: &'static str, body: Value) -> Router {
 
 #[tokio::test]
 async fn fetch_project_info_success() {
-    let app = json_get("/info", json!({ "directory": "/srv/proj", "version": "1.2.3" }));
+    let app = json_get(
+        "/info",
+        json!({ "directory": "/srv/proj", "version": "1.2.3" }),
+    );
     let base = spawn(app).await;
     let client = ApiClient::new();
     let info = client.fetch_project_info(&base, "/tmp").await.unwrap();
@@ -63,7 +66,10 @@ async fn fetch_project_info_malformed_errors() {
 #[tokio::test]
 async fn fetch_project_info_connection_error() {
     let client = ApiClient::new();
-    let err = client.fetch_project_info(&dead_url().await, "/tmp").await.unwrap_err();
+    let err = client
+        .fetch_project_info(&dead_url().await, "/tmp")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to fetch project info"));
 }
 
@@ -203,7 +209,10 @@ async fn fetch_todos_malformed_errors() {
 #[tokio::test]
 async fn fetch_todos_connection_error() {
     let client = ApiClient::new();
-    let err = client.fetch_todos(&dead_url().await, "/tmp", "s1").await.unwrap_err();
+    let err = client
+        .fetch_todos(&dead_url().await, "/tmp", "s1")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to fetch todos"));
 }
 
@@ -231,7 +240,10 @@ async fn fetch_providers_malformed_errors() {
 #[tokio::test]
 async fn fetch_providers_connection_error() {
     let client = ApiClient::new();
-    let err = client.fetch_providers(&dead_url().await, "/tmp").await.unwrap_err();
+    let err = client
+        .fetch_providers(&dead_url().await, "/tmp")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to fetch providers"));
 }
 
@@ -259,6 +271,9 @@ async fn list_commands_malformed_errors() {
 #[tokio::test]
 async fn list_commands_connection_error() {
     let client = ApiClient::new();
-    let err = client.list_commands(&dead_url().await, "/tmp").await.unwrap_err();
+    let err = client
+        .list_commands(&dead_url().await, "/tmp")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to list commands"));
 }

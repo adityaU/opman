@@ -1,6 +1,5 @@
 //! Editor LSP proxy handlers (diagnostics, hover, definition, format).
 
-
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Json};
 
@@ -14,10 +13,12 @@ pub async fn editor_lsp_diagnostics(
     _auth: AuthUser,
     Query(query): Query<EditorLspQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let (socket, _resolved, buf) = resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
+    let (socket, _resolved, buf) =
+        resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
     let raw = crate::nvim_rpc::nvim_lsp_diagnostics(&socket, buf, true)
         .map_err(|e| WebError::Internal(format!("Failed to get diagnostics: {e}")))?;
-    let diagnostics: serde_json::Value = serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!([]));
+    let diagnostics: serde_json::Value =
+        serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!([]));
     Ok(Json(serde_json::json!({
         "available": true,
         "diagnostics": diagnostics,
@@ -29,7 +30,8 @@ pub async fn editor_lsp_hover(
     _auth: AuthUser,
     Query(query): Query<EditorLspQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let (socket, _resolved, buf) = resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
+    let (socket, _resolved, buf) =
+        resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
     let raw = crate::nvim_rpc::nvim_lsp_hover(&socket, buf, query.line, query.col)
         .map_err(|e| WebError::Internal(format!("Failed to get hover: {e}")))?;
     let hover = match serde_json::from_str::<serde_json::Value>(&raw) {
@@ -47,10 +49,12 @@ pub async fn editor_lsp_definition(
     _auth: AuthUser,
     Query(query): Query<EditorLspQuery>,
 ) -> WebResult<impl IntoResponse> {
-    let (socket, _resolved, buf) = resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
+    let (socket, _resolved, buf) =
+        resolve_editor_buffer(&state, &query.session_id, &query.path).await?;
     let raw = crate::nvim_rpc::nvim_lsp_definition(&socket, buf, query.line, query.col)
         .map_err(|e| WebError::Internal(format!("Failed to get definition: {e}")))?;
-    let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}));
+    let parsed: serde_json::Value =
+        serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}));
     let locations = parsed
         .get("locations")
         .cloned()

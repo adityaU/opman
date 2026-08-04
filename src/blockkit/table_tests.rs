@@ -7,7 +7,10 @@ use crate::blockkit::TableAlign;
 #[test]
 fn parse_row_strips_outer_pipes_and_trims() {
     let cells = parse_row("| a | b | c |");
-    assert_eq!(cells, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    assert_eq!(
+        cells,
+        vec!["a".to_string(), "b".to_string(), "c".to_string()]
+    );
 }
 
 #[test]
@@ -21,12 +24,15 @@ fn parse_row_without_outer_pipes() {
 #[test]
 fn parse_alignments_all_variants() {
     let al = parse_alignments("| :--- | :---: | ---: | --- |");
-    assert_eq!(al, vec![
-        TableAlign::Left,
-        TableAlign::Center,
-        TableAlign::Right,
-        TableAlign::Left,
-    ]);
+    assert_eq!(
+        al,
+        vec![
+            TableAlign::Left,
+            TableAlign::Center,
+            TableAlign::Right,
+            TableAlign::Left,
+        ]
+    );
 }
 
 // ── is_separator ────────────────────────────────────────────────────────

@@ -25,9 +25,7 @@ pub(crate) fn parse_inline_elements(text: &str) -> Vec<serde_json::Value> {
 
         // ── Inline code: `code`
         if chars[i] == '`' && !peek_is(&chars, i + 1, '`') {
-            if let Some((code_text, consumed)) =
-                try_parse_delimited(&chars, i, '`', '`', false)
-            {
+            if let Some((code_text, consumed)) = try_parse_delimited(&chars, i, '`', '`', false) {
                 flush_buf(&mut buf, &mut elements);
                 elements.push(text_element(&code_text, Some(InlineStyle::Code)));
                 i += consumed;
@@ -56,13 +54,8 @@ pub(crate) fn parse_inline_elements(text: &str) -> Vec<serde_json::Value> {
         }
 
         // ── Italic: *text* (single, not double)
-        if chars[i] == '*'
-            && !peek_is(&chars, i + 1, '*')
-            && !peek_is(&chars, i + 1, ' ')
-        {
-            if let Some((inner, consumed)) =
-                try_parse_delimited(&chars, i, '*', '*', true)
-            {
+        if chars[i] == '*' && !peek_is(&chars, i + 1, '*') && !peek_is(&chars, i + 1, ' ') {
+            if let Some((inner, consumed)) = try_parse_delimited(&chars, i, '*', '*', true) {
                 flush_buf(&mut buf, &mut elements);
                 elements.push(text_element(&inner, Some(InlineStyle::Italic)));
                 i += consumed;

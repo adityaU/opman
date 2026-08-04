@@ -11,7 +11,10 @@ fn login_request_deserialize() {
 
 #[test]
 fn login_response_serialize() {
-    let v = serde_json::to_value(LoginResponse { token: "tok".into() }).unwrap();
+    let v = serde_json::to_value(LoginResponse {
+        token: "tok".into(),
+    })
+    .unwrap();
     assert_eq!(v["token"], "tok");
 }
 
@@ -91,7 +94,10 @@ fn dir_entry_and_browse_dirs_response_serialize() {
 
 #[test]
 fn home_dir_response_serialize() {
-    let v = serde_json::to_value(HomeDirResponse { path: "/home/u".into() }).unwrap();
+    let v = serde_json::to_value(HomeDirResponse {
+        path: "/home/u".into(),
+    })
+    .unwrap();
     assert_eq!(v["path"], "/home/u");
 }
 
@@ -174,24 +180,37 @@ fn send_message_request_roundtrip_and_skip() {
             model_id: "m".into(),
         }),
         agent: Some("coder".into()),
+        runner: None,
+        effort: Some("high".into()),
+        permission: Some("on-request".into()),
     };
     let v = serde_json::to_value(&full).unwrap();
     assert_eq!(v["parts"][0]["text"], "hi");
     assert_eq!(v["model"]["providerID"], "p");
     assert_eq!(v["agent"], "coder");
+    assert_eq!(v["effort"], "high");
+    assert_eq!(v["permission"], "on-request");
 
     let minimal = SendMessageRequest {
         parts: vec![],
         model: None,
         agent: None,
+        runner: None,
+        effort: None,
+        permission: None,
     };
     let v2 = serde_json::to_value(&minimal).unwrap();
     assert!(v2.get("model").is_none());
     assert!(v2.get("agent").is_none());
+    assert!(v2.get("effort").is_none());
+    assert!(v2.get("permission").is_none());
     let back: SendMessageRequest = serde_json::from_value(v2).unwrap();
     assert!(back.parts.is_empty());
     assert!(back.model.is_none());
     assert!(back.agent.is_none());
+    assert!(back.effort.is_none());
+    assert!(back.permission.is_none());
+    assert!(back.runner.is_none());
 }
 
 #[test]
@@ -238,7 +257,8 @@ fn a2ui_callback_request_default_payload() {
     assert_eq!(full.callback_id, "cb");
     assert_eq!(full.payload["field"], 1);
 
-    let minimal: A2uiCallbackRequest = serde_json::from_value(json!({"callback_id": "cb"})).unwrap();
+    let minimal: A2uiCallbackRequest =
+        serde_json::from_value(json!({"callback_id": "cb"})).unwrap();
     assert!(minimal.payload.is_null()); // serde default Value == Null
 }
 

@@ -7,7 +7,6 @@
 ///
 /// The server speaks JSON-RPC 2.0 over stdin/stdout (standard MCP stdio transport).
 /// No Unix socket is needed — all operations are pure computation.
-
 mod tools;
 
 use serde::Deserialize;

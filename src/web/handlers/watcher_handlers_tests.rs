@@ -2,15 +2,17 @@
 
 use super::*;
 
-use axum::extract::{Path, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Path, State};
+use axum::response::IntoResponse;
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn state_dir(p: &std::path::Path) -> ServerState {
@@ -41,9 +43,14 @@ fn req(session_id: &str, cont: &str, idle: u64) -> WatcherConfigRequest {
 #[tokio::test]
 async fn list_watchers_empty() {
     let state = test_server_state();
-    let resp = list_watchers(State(state), auth()).await.unwrap().into_response();
+    let resp = list_watchers(State(state), auth())
+        .await
+        .unwrap()
+        .into_response();
     assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 0);
 }
@@ -51,21 +58,24 @@ async fn list_watchers_empty() {
 #[tokio::test]
 async fn create_watcher_empty_session_400() {
     let state = test_server_state();
-    let st = status(create_watcher(State(state), auth(), axum::Json(req("", "go", 10))).await).await;
+    let st =
+        status(create_watcher(State(state), auth(), axum::Json(req("", "go", 10))).await).await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn create_watcher_empty_continuation_400() {
     let state = test_server_state();
-    let st = status(create_watcher(State(state), auth(), axum::Json(req("s1", "   ", 10))).await).await;
+    let st =
+        status(create_watcher(State(state), auth(), axum::Json(req("s1", "   ", 10))).await).await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn create_watcher_zero_timeout_400() {
     let state = test_server_state();
-    let st = status(create_watcher(State(state), auth(), axum::Json(req("s1", "go", 0))).await).await;
+    let st =
+        status(create_watcher(State(state), auth(), axum::Json(req("s1", "go", 0))).await).await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -73,12 +83,25 @@ async fn create_watcher_zero_timeout_400() {
 async fn create_watcher_ok_then_get_and_delete() {
     let state = test_server_state();
     // create
-    let st = status(create_watcher(State(state.clone()), auth(), axum::Json(req("s1", "continue", 30))).await).await;
+    let st = status(
+        create_watcher(
+            State(state.clone()),
+            auth(),
+            axum::Json(req("s1", "continue", 30)),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
 
     // list contains one
-    let resp = list_watchers(State(state.clone()), auth()).await.unwrap().into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let resp = list_watchers(State(state.clone()), auth())
+        .await
+        .unwrap()
+        .into_response();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 1);
 
@@ -87,11 +110,13 @@ async fn create_watcher_ok_then_get_and_delete() {
     assert_eq!(st, axum::http::StatusCode::OK);
 
     // delete existing
-    let st = status(delete_watcher(State(state.clone()), auth(), Path("s1".to_string())).await).await;
+    let st =
+        status(delete_watcher(State(state.clone()), auth(), Path("s1".to_string())).await).await;
     assert_eq!(st, axum::http::StatusCode::OK);
 
     // delete again → 404
-    let st = status(delete_watcher(State(state.clone()), auth(), Path("s1".to_string())).await).await;
+    let st =
+        status(delete_watcher(State(state.clone()), auth(), Path("s1".to_string())).await).await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
 }
 
@@ -105,9 +130,14 @@ async fn get_watcher_missing_404() {
 #[tokio::test]
 async fn get_watcher_sessions_empty_ok() {
     let state = test_server_state();
-    let resp = get_watcher_sessions(State(state), auth()).await.unwrap().into_response();
+    let resp = get_watcher_sessions(State(state), auth())
+        .await
+        .unwrap()
+        .into_response();
     assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 0);
 }

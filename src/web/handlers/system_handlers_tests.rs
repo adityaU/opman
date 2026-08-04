@@ -2,20 +2,27 @@
 
 use super::*;
 
+use crate::web::auth::AuthUser;
+use crate::web::test_support::test_server_state;
 use axum::extract::State;
 use axum::response::IntoResponse;
 use sysinfo::{Disks, Networks, System};
-use crate::web::auth::AuthUser;
-use crate::web::test_support::test_server_state;
 
 #[tokio::test]
 async fn get_system_stats_handler_ok() {
     let state = test_server_state();
-    let resp = get_system_stats(State(state), AuthUser { subject: "t".into() })
-        .await
-        .into_response();
+    let resp = get_system_stats(
+        State(state),
+        AuthUser {
+            subject: "t".into(),
+        },
+    )
+    .await
+    .into_response();
     assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     // Shape checks — keys must be present.
     assert!(v.get("mem_total").is_some());

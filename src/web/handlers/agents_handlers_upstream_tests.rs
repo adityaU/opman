@@ -18,7 +18,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());
@@ -120,8 +122,7 @@ async fn upstream_empty_name_yields_empty_label_and_defaults() {
 async fn upstream_empty_array_falls_through_to_defaults() {
     // A successful but empty upstream list is treated as "no agents" and the
     // static-config fallback (built-in build/plan defaults) is used instead.
-    let mock = axum::Router::new()
-        .route("/agent", get(|| async { axum::Json(json!([])) }));
+    let mock = axum::Router::new().route("/agent", get(|| async { axum::Json(json!([])) }));
     let base = start_mock_upstream(mock).await;
     let (state, _tmp) = state_with_project().await;
 

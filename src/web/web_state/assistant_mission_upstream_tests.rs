@@ -147,7 +147,11 @@ async fn parse_latest_eval_response_non_json_body_is_parse_error() {
     let m = mk_mission("m1", "sess", MissionState::Evaluating, 1, 10);
     let res = scope_base_url(base, async move { h.parse_latest_eval_response(&m).await }).await;
     assert!(matches!(res.verdict, EvalVerdict::Continue));
-    assert!(res.summary.starts_with("Parse error"), "got {}", res.summary);
+    assert!(
+        res.summary.starts_with("Parse error"),
+        "got {}",
+        res.summary
+    );
 }
 
 #[tokio::test]
@@ -205,7 +209,10 @@ async fn create_session_for_routine_non_success_status_errors() {
     let err = scope_base_url(base, async move { h.create_session_for_routine(0).await })
         .await
         .unwrap_err();
-    assert!(err.starts_with("Failed to create session: HTTP 502"), "got {err}");
+    assert!(
+        err.starts_with("Failed to create session: HTTP 502"),
+        "got {err}"
+    );
 }
 
 // ── private prompt senders reach the mock (no-op on success) ─────────
@@ -230,25 +237,42 @@ async fn kick_and_prompts_hit_success_upstream() {
 async fn on_eval_complete_achieved_marks_completed() {
     let base = start_mock_upstream(eval_mock("achieved")).await;
     let h = temp_project_handle();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 2, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 2, 10),
+    )
+    .await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.on_mission_evaluation_complete("sess").await }).await;
+    scope_base_url(base, async move {
+        h2.on_mission_evaluation_complete("sess").await
+    })
+    .await;
     let m = h.get_mission("m1").await.unwrap();
     assert_eq!(m.state, MissionState::Completed);
     assert_eq!(m.iteration, 2); // unchanged
     assert!(matches!(m.last_verdict, Some(EvalVerdict::Achieved)));
     assert_eq!(m.last_eval_summary.as_deref(), Some("eval summary"));
     assert_eq!(m.eval_history.len(), 1);
-    assert_eq!(m.eval_history[0].next_step.as_deref(), Some("do the next thing"));
+    assert_eq!(
+        m.eval_history[0].next_step.as_deref(),
+        Some("do the next thing")
+    );
 }
 
 #[tokio::test]
 async fn on_eval_complete_failed_marks_failed() {
     let base = start_mock_upstream(eval_mock("failed")).await;
     let h = temp_project_handle();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 3, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 3, 10),
+    )
+    .await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.on_mission_evaluation_complete("sess").await }).await;
+    scope_base_url(base, async move {
+        h2.on_mission_evaluation_complete("sess").await
+    })
+    .await;
     let m = h.get_mission("m1").await.unwrap();
     assert_eq!(m.state, MissionState::Failed);
     assert!(matches!(m.last_verdict, Some(EvalVerdict::Failed)));
@@ -258,9 +282,16 @@ async fn on_eval_complete_failed_marks_failed() {
 async fn on_eval_complete_blocked_marks_paused() {
     let base = start_mock_upstream(eval_mock("blocked")).await;
     let h = temp_project_handle();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 1, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 1, 10),
+    )
+    .await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.on_mission_evaluation_complete("sess").await }).await;
+    scope_base_url(base, async move {
+        h2.on_mission_evaluation_complete("sess").await
+    })
+    .await;
     let m = h.get_mission("m1").await.unwrap();
     assert_eq!(m.state, MissionState::Paused);
     assert!(matches!(m.last_verdict, Some(EvalVerdict::Blocked)));
@@ -272,9 +303,16 @@ async fn on_eval_complete_continue_advances_and_sends_next() {
     // (POST hits the mock on the awaited path).
     let base = start_mock_upstream(eval_mock("continue")).await;
     let h = temp_project_handle();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 2, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 2, 10),
+    )
+    .await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.on_mission_evaluation_complete("sess").await }).await;
+    scope_base_url(base, async move {
+        h2.on_mission_evaluation_complete("sess").await
+    })
+    .await;
     let m = h.get_mission("m1").await.unwrap();
     assert_eq!(m.state, MissionState::Executing);
     assert_eq!(m.iteration, 3);
@@ -287,7 +325,10 @@ async fn on_eval_complete_continue_at_max_fails() {
     let h = temp_project_handle();
     insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 4, 4)).await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.on_mission_evaluation_complete("sess").await }).await;
+    scope_base_url(base, async move {
+        h2.on_mission_evaluation_complete("sess").await
+    })
+    .await;
     let m = h.get_mission("m1").await.unwrap();
     assert_eq!(m.state, MissionState::Failed);
     assert_eq!(m.iteration, 4);
@@ -298,8 +339,15 @@ async fn try_advance_evaluating_end_to_end_over_upstream() {
     // Full route: try_advance → on_mission_evaluation_complete → Achieved.
     let base = start_mock_upstream(eval_mock("achieved")).await;
     let h = temp_project_handle();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 1, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 1, 10),
+    )
+    .await;
     let h2 = h.clone();
     scope_base_url(base, async move { h2.try_advance_mission("sess").await }).await;
-    assert_eq!(h.get_mission("m1").await.unwrap().state, MissionState::Completed);
+    assert_eq!(
+        h.get_mission("m1").await.unwrap().state,
+        MissionState::Completed
+    );
 }

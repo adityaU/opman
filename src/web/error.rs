@@ -101,8 +101,7 @@ mod tests {
 
     #[tokio::test]
     async fn bad_request_returns_400() {
-        let (status, json) =
-            error_to_parts(WebError::BadRequest("invalid base64".into())).await;
+        let (status, json) = error_to_parts(WebError::BadRequest("invalid base64".into())).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(json["error"], "invalid base64");
     }
@@ -116,8 +115,7 @@ mod tests {
 
     #[tokio::test]
     async fn internal_returns_500_with_message() {
-        let (status, json) =
-            error_to_parts(WebError::Internal("db crashed".into())).await;
+        let (status, json) = error_to_parts(WebError::Internal("db crashed".into())).await;
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(json["error"], "db crashed");
     }
@@ -149,24 +147,29 @@ mod tests {
 
     #[tokio::test]
     async fn upstream_preserves_status_code() {
-        let (status, json) =
-            error_to_parts(WebError::Upstream(StatusCode::BAD_GATEWAY, "upstream died".into())).await;
+        let (status, json) = error_to_parts(WebError::Upstream(
+            StatusCode::BAD_GATEWAY,
+            "upstream died".into(),
+        ))
+        .await;
         assert_eq!(status, StatusCode::BAD_GATEWAY);
         assert_eq!(json["error"], "upstream died");
     }
 
     #[tokio::test]
     async fn upstream_not_found_returns_404() {
-        let (status, json) =
-            error_to_parts(WebError::Upstream(StatusCode::NOT_FOUND, "session not found".into())).await;
+        let (status, json) = error_to_parts(WebError::Upstream(
+            StatusCode::NOT_FOUND,
+            "session not found".into(),
+        ))
+        .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(json["error"], "session not found");
     }
 
     #[test]
     fn web_error_is_std_error() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(WebError::BadRequest("test".into()));
+        let err: Box<dyn std::error::Error> = Box::new(WebError::BadRequest("test".into()));
         assert!(err.to_string().contains("Bad request"));
     }
 
@@ -187,10 +190,7 @@ mod tests {
                 json.get("error").is_some(),
                 "Missing 'error' key in JSON body"
             );
-            assert!(
-                json["error"].is_string(),
-                "'error' should be a string"
-            );
+            assert!(json["error"].is_string(), "'error' should be a string");
         }
     }
 }

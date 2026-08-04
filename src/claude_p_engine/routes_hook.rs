@@ -40,7 +40,9 @@ fn permission_patterns(tool_input: &Value) -> Vec<String> {
 }
 
 fn build_questions(tool_input: &Value) -> Value {
-    let Some(qs) = tool_input.get("questions").and_then(|q| q.as_array()) else { return json!([]) };
+    let Some(qs) = tool_input.get("questions").and_then(|q| q.as_array()) else {
+        return json!([]);
+    };
     let mapped: Vec<Value> = qs
         .iter()
         .map(|q| {
@@ -71,10 +73,18 @@ fn build_questions(tool_input: &Value) -> Value {
 }
 
 fn format_answers(tool_input: &Value, answers: &[Vec<String>]) -> String {
-    let qs = tool_input.get("questions").and_then(|q| q.as_array()).cloned().unwrap_or_default();
+    let qs = tool_input
+        .get("questions")
+        .and_then(|q| q.as_array())
+        .cloned()
+        .unwrap_or_default();
     let mut lines = vec!["[USER ANSWER] The user answered your question(s):".to_string()];
     for (i, ans) in answers.iter().enumerate() {
-        let q = qs.get(i).and_then(|q| q.get("question")).and_then(|s| s.as_str()).unwrap_or("(question)");
+        let q = qs
+            .get(i)
+            .and_then(|q| q.get("question"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("(question)");
         lines.push(format!("  • {q} → {}", ans.join(", ")));
     }
     lines.push("Treat these as the answers and continue; do NOT ask again.".to_string());
@@ -83,16 +93,27 @@ fn format_answers(tool_input: &Value, answers: &[Vec<String>]) -> String {
 
 pub(super) async fn internal_ask(State(engine): State<Engine>, body: Json<Value>) -> Json<Value> {
     let input = body.0;
-    let claude_uuid = input.get("session_id").and_then(|s| s.as_str()).unwrap_or("");
+    let claude_uuid = input
+        .get("session_id")
+        .and_then(|s| s.as_str())
+        .unwrap_or("");
     let cwd = input.get("cwd").and_then(|s| s.as_str()).unwrap_or("");
-    let tool = input.get("tool_name").and_then(|s| s.as_str()).unwrap_or("");
+    let tool = input
+        .get("tool_name")
+        .and_then(|s| s.as_str())
+        .unwrap_or("");
     let tool_input = input.get("tool_input").cloned().unwrap_or(json!({}));
 
     let session_id = engine
         .session_id_for_claude_uuid(claude_uuid)
         .or_else(|| engine.list_for_dir(cwd).into_iter().next().map(|s| s.id));
-    let Some(session_id) = session_id else { return Json(hook_allow()) };
-    let dir = engine.get_session(&session_id).map(|s| s.directory).unwrap_or_else(|| cwd.to_string());
+    let Some(session_id) = session_id else {
+        return Json(hook_allow());
+    };
+    let dir = engine
+        .get_session(&session_id)
+        .map(|s| s.directory)
+        .unwrap_or_else(|| cwd.to_string());
     let mode = engine.effective_mode(&session_id);
 
     if tool == "AskUserQuestion" {
@@ -104,10 +125,14 @@ pub(super) async fn internal_ask(State(engine): State<Engine>, body: Json<Value>
         );
         let rx = engine.register_pending(&id);
         return match tokio::time::timeout(Duration::from_secs(3600), rx).await {
-            Ok(Ok(PendingReply::Question(answers))) => Json(hook_deny(&format_answers(&tool_input, &answers))),
+            Ok(Ok(PendingReply::Question(answers))) => {
+                Json(hook_deny(&format_answers(&tool_input, &answers)))
+            }
             _ => {
                 engine.resolve_pending(&id, PendingReply::Reject);
-                Json(hook_deny("[USER] The question was dismissed; pick a reasonable default and continue."))
+                Json(hook_deny(
+                    "[USER] The question was dismissed; pick a reasonable default and continue.",
+                ))
             }
         };
     }
@@ -120,7 +145,9 @@ pub(super) async fn internal_ask(State(engine): State<Engine>, body: Json<Value>
         return Json(hook_allow());
     }
     if mode == "plan" && EDIT_TOOLS.contains(&tool) {
-        return Json(hook_deny("[USER] Plan mode is active — do not modify files."));
+        return Json(hook_deny(
+            "[USER] Plan mode is active — do not modify files.",
+        ));
     }
     if engine.is_always_allowed(&session_id, tool) {
         return Json(hook_allow());
@@ -154,7 +181,11 @@ pub(super) async fn permission_reply(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    let reply = body.get("reply").and_then(|r| r.as_str()).unwrap_or("once").to_string();
+    let reply = body
+        .get("reply")
+        .and_then(|r| r.as_str())
+        .unwrap_or("once")
+        .to_string();
     engine.resolve_pending(&id, PendingReply::Permission(reply));
     Json(json!({ "ok": true }))
 }
@@ -164,13 +195,18 @@ pub(super) async fn question_reply(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    let answers: Vec<Vec<String>> =
-        body.get("answers").and_then(|a| serde_json::from_value(a.clone()).ok()).unwrap_or_default();
+    let answers: Vec<Vec<String>> = body
+        .get("answers")
+        .and_then(|a| serde_json::from_value(a.clone()).ok())
+        .unwrap_or_default();
     engine.resolve_pending(&id, PendingReply::Question(answers));
     Json(json!({ "ok": true }))
 }
 
-pub(super) async fn question_reject(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+pub(super) async fn question_reject(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+) -> Json<Value> {
     engine.resolve_pending(&id, PendingReply::Reject);
     Json(json!({ "ok": true }))
 }

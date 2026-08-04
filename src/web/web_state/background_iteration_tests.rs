@@ -124,7 +124,10 @@ async fn iter_once_idle_transition_fires_side_effects() {
             }
         }
     }
-    assert!(saw_idle, "expected a SessionIdle event for the cleared session");
+    assert!(
+        saw_idle,
+        "expected a SessionIdle event for the cleared session"
+    );
 }
 
 #[tokio::test]
@@ -149,15 +152,17 @@ async fn iter_once_busy_and_changed_via_mock() {
         }
     }
     assert!(saw_busy, "expected SessionBusy");
-    assert!(saw_changed, "expected StateChanged for the new session list");
+    assert!(
+        saw_changed,
+        "expected StateChanged for the new session list"
+    );
     srv.abort();
 }
 
 #[tokio::test]
 async fn iter_once_no_diff_does_not_emit_changed() {
     let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
-    let sess_json =
-        serde_json::json!({ "id": "s1", "title": "t", "directory": "/proj", "time": { "created": 1, "updated": 2 } });
+    let sess_json = serde_json::json!({ "id": "s1", "title": "t", "directory": "/proj", "time": { "created": 1, "updated": 2 } });
     // Pre-seed the project's session list to exactly match what the mock returns.
     {
         let si: crate::app::SessionInfo = serde_json::from_value(sess_json.clone()).unwrap();
@@ -174,7 +179,10 @@ async fn iter_once_no_diff_does_not_emit_changed() {
             saw_changed = true;
         }
     }
-    assert!(!saw_changed, "identical session list must not emit StateChanged");
+    assert!(
+        !saw_changed,
+        "identical session list must not emit StateChanged"
+    );
     srv.abort();
 }
 
@@ -205,7 +213,11 @@ async fn reconnect_once_spawns_one_task_per_project() {
 #[tokio::test]
 async fn persist_snapshot_once_writes_to_db() {
     let h = WebStateHandle::new_test();
-    h.inner.write().await.missions.insert("m1".into(), mission());
+    h.inner
+        .write()
+        .await
+        .missions
+        .insert("m1".into(), mission());
     let res = h.persist_snapshot_once().await;
     assert!(matches!(res, Ok(Ok(()))), "expected a clean persist");
     assert_eq!(h.db_for_test().list_missions().len(), 1);

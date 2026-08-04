@@ -85,8 +85,13 @@ async fn spawn_turn_resume_path_records_turn() {
     let e = engine();
     let s = e.create_session("/tmp", "", "t");
     // A prior claude uuid routes spawn_turn through the `bg_resume` arm.
-    e.reg.lock().unwrap().sessions.get_mut(&s.id).unwrap().claude_session_id =
-        Some("old-uuid".into());
+    e.reg
+        .lock()
+        .unwrap()
+        .sessions
+        .get_mut(&s.id)
+        .unwrap()
+        .claude_session_id = Some("old-uuid".into());
     e.spawn_turn(s.id.clone(), "keep going".into());
     wait_dispatch_clear(&e, &s.id).await;
 

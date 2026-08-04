@@ -7,12 +7,12 @@
 
 use super::*;
 
-use axum::extract::{Path, Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -21,7 +21,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
@@ -30,7 +32,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 
@@ -39,7 +44,9 @@ async fn body_json<T: IntoResponse>(
 ) -> (axum::http::StatusCode, serde_json::Value) {
     let resp = r.into_response();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     (status, v)
 }
@@ -64,7 +71,10 @@ async fn search_messages_with_sessions_upstream_fails_continues() {
             State(state),
             auth(),
             Path(0usize),
-            Query(SearchQuery { q: "anything".into(), limit: 50 }),
+            Query(SearchQuery {
+                q: "anything".into(),
+                limit: 50,
+            }),
         )
         .await,
     )
@@ -90,7 +100,10 @@ async fn search_messages_limit_is_capped_at_200() {
             State(state),
             auth(),
             Path(0usize),
-            Query(SearchQuery { q: "term".into(), limit: 9999 }),
+            Query(SearchQuery {
+                q: "term".into(),
+                limit: 9999,
+            }),
         )
         .await,
     )

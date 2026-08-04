@@ -19,7 +19,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());

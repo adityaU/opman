@@ -19,8 +19,7 @@ impl App {
             "Slack block action received"
         );
 
-        if let (Some(ref ss), Some(ref auth)) =
-            (self.slack_state.clone(), self.slack_auth.clone())
+        if let (Some(ref ss), Some(ref auth)) = (self.slack_state.clone(), self.slack_auth.clone())
         {
             let bot_token = auth.bot_token.clone();
             let base_url = crate::app::base_url().to_string();
@@ -131,10 +130,7 @@ impl App {
                     .await;
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "Slack: failed to reply to permission via button: {}",
-                        e
-                    );
+                    tracing::warn!("Slack: failed to reply to permission via button: {}", e);
                     let client = reqwest::Client::new();
                     let tts = thread_ts.as_deref().unwrap_or(channel);
                     let _ = crate::slack::post_message(
@@ -271,10 +267,7 @@ impl App {
                             .await;
                         }
                         Err(e) => {
-                            tracing::warn!(
-                                "Slack: failed to reply to question via button: {}",
-                                e
-                            );
+                            tracing::warn!("Slack: failed to reply to question via button: {}", e);
                             let client = reqwest::Client::new();
                             let tts = thread_ts.as_deref().unwrap_or(channel);
                             let _ = crate::slack::post_message(

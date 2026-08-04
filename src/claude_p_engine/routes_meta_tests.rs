@@ -21,7 +21,10 @@ async fn provider_lists_anthropic_models() {
     let Json(v) = provider().await;
     assert_eq!(v["all"][0]["id"], "anthropic");
     assert!(v["all"][0]["models"]["claude-opus-4-8"].is_object());
-    assert_eq!(v["all"][0]["models"]["claude-opus-4-8"]["limit"]["context"], 200_000);
+    assert_eq!(
+        v["all"][0]["models"]["claude-opus-4-8"]["limit"]["context"],
+        200_000
+    );
     assert_eq!(v["connected"][0], "anthropic");
     assert_eq!(v["default"]["anthropic"], "claude-sonnet-4-6");
 }
@@ -36,7 +39,13 @@ async fn command_list_empty_dir_is_empty() {
 #[tokio::test]
 async fn command_list_from_cached_init() {
     let e = engine();
-    e.set_cached_init("d1", InitInfo { commands: vec!["compact".into(), "clear".into()], agents: vec![] });
+    e.set_cached_init(
+        "d1",
+        InitInfo {
+            commands: vec!["compact".into(), "clear".into()],
+            agents: vec![],
+        },
+    );
     let Json(v) = command_list(State(e), headers("d1")).await;
     let arr = v.as_array().unwrap();
     assert_eq!(arr.len(), 2);
@@ -54,7 +63,13 @@ async fn agent_list_empty_dir_is_empty() {
 #[tokio::test]
 async fn agent_list_from_cached_init() {
     let e = engine();
-    e.set_cached_init("d1", InitInfo { commands: vec![], agents: vec!["Plan".into(), "Explore".into()] });
+    e.set_cached_init(
+        "d1",
+        InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into(), "Explore".into()],
+        },
+    );
     let Json(v) = agent_list(State(e), headers("d1")).await;
     let arr = v.as_array().unwrap();
     assert_eq!(arr.len(), 2);

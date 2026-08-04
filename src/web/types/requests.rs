@@ -31,6 +31,8 @@ pub struct SelectSessionRequest {
 #[derive(Deserialize)]
 pub struct NewSessionRequest {
     pub project_idx: usize,
+    #[serde(default)]
+    pub runner: Option<crate::runner::RunnerKind>,
 }
 
 /// Response from creating a new session.
@@ -178,6 +180,17 @@ pub struct SendMessageRequest {
     /// Optional agent name — sent through to the upstream opencode API per-message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
+    /// Optional runtime runner override. When it differs from the session's
+    /// current runner, the backend performs a summarized session handoff.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub runner: Option<crate::runner::RunnerKind>,
+    /// Optional reasoning effort for runners/models that support it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    /// Optional runner-specific permission mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission: Option<String>,
 }
 
 /// Request to execute a slash command on a session.

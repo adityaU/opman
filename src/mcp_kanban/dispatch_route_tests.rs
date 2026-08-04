@@ -118,7 +118,11 @@ fn load_internal_from_empty_strings_are_accepted() {
 fn load_internal_from_extra_fields_ignored() {
     let dir = tempfile::TempDir::new().unwrap();
     let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":"http://x","token":"t","pid":99,"extra":true}"#).unwrap();
+    std::fs::write(
+        &p,
+        r#"{"url":"http://x","token":"t","pid":99,"extra":true}"#,
+    )
+    .unwrap();
     let got = load_internal_from(&p).unwrap();
     assert_eq!(got.url, "http://x");
     // `Internal` derives Clone.
@@ -131,14 +135,24 @@ fn load_internal_from_extra_fields_ignored() {
 #[tokio::test]
 async fn get_task_success_body_passed_through() {
     let mock = Mock::start(200, r#"{"lane":"Doing"}"#);
-    let out = call(&mock.internal(), "kanban_get_task", json!({ "task_id": "tsk_1" })).await;
+    let out = call(
+        &mock.internal(),
+        "kanban_get_task",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
     assert!(out.contains("Doing"), "got: {out}");
 }
 
 #[tokio::test]
 async fn board_summary_success() {
     let mock = Mock::start(200, "BOARD-OK");
-    let out = call(&mock.internal(), "kanban_board_summary", json!({ "task_id": "tsk_1" })).await;
+    let out = call(
+        &mock.internal(),
+        "kanban_board_summary",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
     assert_eq!(out, "BOARD-OK");
 }
 
@@ -170,7 +184,12 @@ async fn add_note_success() {
 async fn complete_success_even_without_summary() {
     // summary is optional; missing → empty string, still posts.
     let mock = Mock::start(200, "completed");
-    let out = call(&mock.internal(), "kanban_complete", json!({ "task_id": "tsk_1" })).await;
+    let out = call(
+        &mock.internal(),
+        "kanban_complete",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
     assert_eq!(out, "completed");
 }
 
@@ -204,28 +223,55 @@ async fn read_notes_success() {
 async fn missing_task_id_short_circuits() {
     let mock = Mock::start(200, "unused");
     let out = call(&mock.internal(), "kanban_get_task", json!({})).await;
-    assert!(out.contains("Missing required argument: task_id"), "got: {out}");
+    assert!(
+        out.contains("Missing required argument: task_id"),
+        "got: {out}"
+    );
 }
 
 #[tokio::test]
 async fn set_lane_missing_lane() {
     let mock = Mock::start(200, "unused");
-    let out = call(&mock.internal(), "kanban_set_lane", json!({ "task_id": "tsk_1" })).await;
-    assert!(out.contains("Missing required argument: lane"), "got: {out}");
+    let out = call(
+        &mock.internal(),
+        "kanban_set_lane",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
+    assert!(
+        out.contains("Missing required argument: lane"),
+        "got: {out}"
+    );
 }
 
 #[tokio::test]
 async fn add_note_missing_body() {
     let mock = Mock::start(200, "unused");
-    let out = call(&mock.internal(), "kanban_add_note", json!({ "task_id": "tsk_1" })).await;
-    assert!(out.contains("Missing required argument: body"), "got: {out}");
+    let out = call(
+        &mock.internal(),
+        "kanban_add_note",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
+    assert!(
+        out.contains("Missing required argument: body"),
+        "got: {out}"
+    );
 }
 
 #[tokio::test]
 async fn unknown_tool_name_reported() {
     let mock = Mock::start(200, "unused");
-    let out = call(&mock.internal(), "kanban_frobnicate", json!({ "task_id": "tsk_1" })).await;
-    assert!(out.contains("Unknown tool: kanban_frobnicate"), "got: {out}");
+    let out = call(
+        &mock.internal(),
+        "kanban_frobnicate",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
+    assert!(
+        out.contains("Unknown tool: kanban_frobnicate"),
+        "got: {out}"
+    );
 }
 
 // ── error status mapping ─────────────────────────────────────────────────────
@@ -233,7 +279,12 @@ async fn unknown_tool_name_reported() {
 #[tokio::test]
 async fn non_success_status_wrapped() {
     let mock = Mock::start(500, "boom");
-    let out = call(&mock.internal(), "kanban_get_task", json!({ "task_id": "tsk_1" })).await;
+    let out = call(
+        &mock.internal(),
+        "kanban_get_task",
+        json!({ "task_id": "tsk_1" }),
+    )
+    .await;
     assert!(out.contains("Error 500: boom"), "got: {out}");
 }
 
@@ -243,7 +294,9 @@ async fn non_success_status_wrapped() {
 async fn no_internal_returns_unavailable_for_any_tool() {
     for name in ["kanban_get_task", "kanban_set_lane", "kanban_read_notes"] {
         let params = Some(json!({ "name": name, "arguments": { "task_id": "tsk_1" } }));
-        let v = route_request(None, "tools/call", params, json!(2)).await.unwrap();
+        let v = route_request(None, "tools/call", params, json!(2))
+            .await
+            .unwrap();
         let text = v["result"]["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("Kanban API is unavailable"), "got: {text}");
     }

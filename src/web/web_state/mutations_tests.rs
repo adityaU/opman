@@ -31,7 +31,10 @@ fn tc() -> WebThemeColors {
 }
 
 fn theme() -> WebThemePair {
-    WebThemePair { dark: tc(), light: tc() }
+    WebThemePair {
+        dark: tc(),
+        light: tc(),
+    }
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
@@ -40,7 +43,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 
@@ -61,7 +67,11 @@ impl CfgGuard {
         let prev = std::env::var_os("XDG_CONFIG_HOME");
         let tmp = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", tmp.path());
-        Self { _lock: lock, prev, _tmp: tmp }
+        Self {
+            _lock: lock,
+            prev,
+            _tmp: tmp,
+        }
     }
 }
 
@@ -193,7 +203,10 @@ async fn remove_project_invalid_index() {
         ("b".into(), PathBuf::from("/b")),
     ]);
     let _g = CfgGuard::new();
-    assert_eq!(h.remove_project(9).await.unwrap_err(), "Invalid project index");
+    assert_eq!(
+        h.remove_project(9).await.unwrap_err(),
+        "Invalid project index"
+    );
 }
 
 #[tokio::test]

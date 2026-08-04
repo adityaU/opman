@@ -19,11 +19,12 @@ fn build_named_args(token: &str, opts: &TunnelOptions) -> Vec<String> {
 }
 
 /// `cloudflared tunnel run --token <token>`
-pub(crate) async fn spawn_named(token: &str, local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
-    info!(
-        "Starting named Cloudflare tunnel (port {})",
-        local_port
-    );
+pub(crate) async fn spawn_named(
+    token: &str,
+    local_port: u16,
+    opts: &TunnelOptions,
+) -> anyhow::Result<(Child, Option<PathBuf>)> {
+    info!("Starting named Cloudflare tunnel (port {})", local_port);
 
     let args = build_named_args(token, opts);
 

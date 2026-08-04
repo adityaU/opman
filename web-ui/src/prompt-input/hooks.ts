@@ -1,16 +1,17 @@
 import { useState, useRef, useCallback, useEffect, type ClipboardEvent, type DragEvent } from "react";
-import { fetchAgents, type AgentInfo, type ImageAttachment } from "../api";
+import { fetchAgents, runnerFallbackAgents, type AgentInfo, type ImageAttachment } from "../api"
 import {
-  ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE, DEFAULT_AGENTS,
+  ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE,
   selectableAgents, fileToImageAttachment,
 } from "./helpers";
 
 // ── useAgents ───────────────────────────────────────────────────
 
 export function useAgents(currentAgent: string, onAgentChange: (agent: string) => void, runner = "opencode") {
-  const [allAgents, setAllAgents] = useState<AgentInfo[]>(DEFAULT_AGENTS);
+  const [allAgents, setAllAgents] = useState<AgentInfo[]>(() => runnerFallbackAgents(runner));
 
   useEffect(() => {
+    setAllAgents(runnerFallbackAgents(runner));
     fetchAgents(runner).then((fetched) => {
       if (fetched.length > 0) {
         setAllAgents(fetched);

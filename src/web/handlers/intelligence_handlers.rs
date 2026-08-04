@@ -39,7 +39,7 @@ pub async fn compute_session_handoff(
     Json(req): Json<SessionHandoffRequest>,
 ) -> impl IntoResponse {
     match state.web_state.build_session_handoff(req).await {
-        Some(brief) => Json(serde_json::to_value(brief).unwrap()).into_response(),
+        Some(brief) => Json(brief).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -51,7 +51,7 @@ pub async fn compute_resume_briefing(
     Json(req): Json<ResumeBriefingRequest>,
 ) -> impl IntoResponse {
     match state.web_state.build_resume_briefing(req).await {
-        Some(briefing) => Json(serde_json::to_value(briefing).unwrap()).into_response(),
+        Some(briefing) => Json(briefing).into_response(),
         None => StatusCode::NO_CONTENT.into_response(),
     }
 }
@@ -67,10 +67,7 @@ pub async fn compute_daily_summary(
 }
 
 /// GET /api/signals — list stored signals.
-pub async fn list_signals(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn list_signals(State(state): State<ServerState>, _auth: AuthUser) -> impl IntoResponse {
     let signals = state.web_state.list_signals().await;
     Json(SignalsResponse { signals })
 }

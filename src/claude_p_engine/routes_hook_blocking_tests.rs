@@ -133,7 +133,9 @@ async fn ask_user_question_answered() {
     let Json(resp) = handle.await.unwrap();
     // Answers are injected via a deny reason carrying the user's answer text.
     assert_eq!(resp["hookSpecificOutput"]["permissionDecision"], "deny");
-    let reason = resp["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+    let reason = resp["hookSpecificOutput"]["permissionDecisionReason"]
+        .as_str()
+        .unwrap();
     assert!(reason.contains("red"));
     assert!(reason.contains("[USER ANSWER]"));
 }
@@ -157,6 +159,8 @@ async fn ask_user_question_dismissed() {
     resolve_when_ready(&e, &id, || PendingReply::Reject).await;
     let Json(resp) = handle.await.unwrap();
     assert_eq!(resp["hookSpecificOutput"]["permissionDecision"], "deny");
-    let reason = resp["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap();
+    let reason = resp["hookSpecificOutput"]["permissionDecisionReason"]
+        .as_str()
+        .unwrap();
     assert!(reason.contains("dismissed"));
 }

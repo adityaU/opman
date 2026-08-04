@@ -60,7 +60,7 @@ export function ExplorerTree({
           onMouseEnter={() => setContextMenu(entry.path)}
           onMouseLeave={() => { if (contextMenu === entry.path) setContextMenu(null); }}
         >
-          <button
+          <button type="button"
             className="explorer-tree-entry explorer-tree-dir"
             style={{ paddingLeft: `${8 + depth * 14}px` }}
             onClick={() => toggleDir(entry.path)}
@@ -78,32 +78,32 @@ export function ExplorerTree({
           {showCtx && (
             <span className="explorer-entry-actions">
               {onRename && (
-                <button className="explorer-action-btn" title="Rename" onClick={(e) => { e.stopPropagation(); setInlineRename({ path: entry.path, isDir: true }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Rename" onClick={(e) => { e.stopPropagation(); setInlineRename({ path: entry.path, isDir: true }); setContextMenu(null); }}>
                   <Pencil size={12} />
                 </button>
               )}
               {onReloadDir && (
-                <button className="explorer-action-btn" title="Reload folder" onClick={(e) => { e.stopPropagation(); onReloadDir(entry.path); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Reload folder" onClick={(e) => { e.stopPropagation(); onReloadDir(entry.path); setContextMenu(null); }}>
                   <RefreshCw size={12} />
                 </button>
               )}
               {onDownloadDir && (
-                <button className="explorer-action-btn" title="Download as zip" onClick={(e) => { e.stopPropagation(); onDownloadDir(entry.path); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Download as zip" onClick={(e) => { e.stopPropagation(); onDownloadDir(entry.path); setContextMenu(null); }}>
                   <Download size={12} />
                 </button>
               )}
               {onCreateFile && (
-                <button className="explorer-action-btn" title="New file" onClick={(e) => { e.stopPropagation(); setInlineCreate({ parentDir: entry.path, type: "file" }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="New file" onClick={(e) => { e.stopPropagation(); setInlineCreate({ parentDir: entry.path, type: "file" }); setContextMenu(null); }}>
                   <FilePlus size={12} />
                 </button>
               )}
               {onCreateDir && (
-                <button className="explorer-action-btn" title="New folder" onClick={(e) => { e.stopPropagation(); setInlineCreate({ parentDir: entry.path, type: "dir" }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="New folder" onClick={(e) => { e.stopPropagation(); setInlineCreate({ parentDir: entry.path, type: "dir" }); setContextMenu(null); }}>
                   <FolderPlus size={12} />
                 </button>
               )}
               {onDeleteDir && (
-                <button className="explorer-action-btn explorer-action-danger" title="Delete folder" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: true }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn explorer-action-danger" title="Delete folder" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: true }); setContextMenu(null); }}>
                   <Trash2 size={12} />
                 </button>
               )}
@@ -157,7 +157,7 @@ export function ExplorerTree({
           onMouseEnter={() => setContextMenu(entry.path)}
           onMouseLeave={() => { if (contextMenu === entry.path) setContextMenu(null); }}
         >
-          <button
+          <button type="button"
             className={`explorer-tree-entry explorer-tree-file ${isActive ? "active" : ""}`}
             style={{ paddingLeft: `${8 + depth * 14 + 14}px` }}
             onClick={() => onFileClick(entry.path)}
@@ -168,22 +168,22 @@ export function ExplorerTree({
           {showCtx && (
             <span className="explorer-entry-actions">
               {onRename && (
-                <button className="explorer-action-btn" title="Rename" onClick={(e) => { e.stopPropagation(); setInlineRename({ path: entry.path, isDir: false }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Rename" onClick={(e) => { e.stopPropagation(); setInlineRename({ path: entry.path, isDir: false }); setContextMenu(null); }}>
                   <Pencil size={12} />
                 </button>
               )}
               {onReloadFile && (
-                <button className="explorer-action-btn" title="Reload file" onClick={(e) => { e.stopPropagation(); onReloadFile(entry.path); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Reload file" onClick={(e) => { e.stopPropagation(); onReloadFile(entry.path); setContextMenu(null); }}>
                   <RefreshCw size={12} />
                 </button>
               )}
               {onDownloadFile && (
-                <button className="explorer-action-btn" title="Download file" onClick={(e) => { e.stopPropagation(); onDownloadFile(entry.path); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn" title="Download file" onClick={(e) => { e.stopPropagation(); onDownloadFile(entry.path); setContextMenu(null); }}>
                   <Download size={12} />
                 </button>
               )}
               {onDeleteFile && (
-                <button className="explorer-action-btn explorer-action-danger" title="Delete file" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: false }); setContextMenu(null); }}>
+                <button type="button" className="explorer-action-btn explorer-action-danger" title="Delete file" onClick={(e) => { e.stopPropagation(); setConfirmDelete({ path: entry.path, isDir: false }); setContextMenu(null); }}>
                   <Trash2 size={12} />
                 </button>
               )}
@@ -289,8 +289,8 @@ function ConfirmDeleteInline({ path, isDir, onConfirm, onCancel, depth }: {
   return (
     <div className="explorer-confirm-delete" style={{ paddingLeft: `${8 + depth * 14}px` }}>
       <span className="explorer-confirm-text">Delete {isDir ? "folder" : ""} <strong>{name}</strong>?</span>
-      <button className="explorer-confirm-yes" onClick={onConfirm}>Delete</button>
-      <button className="explorer-confirm-no" onClick={onCancel}><X size={12} /></button>
+      <button type="button" className="explorer-confirm-yes" onClick={onConfirm}>Delete</button>
+      <button type="button" className="explorer-confirm-no" onClick={onCancel}><X size={12} /></button>
     </div>
   );
 }

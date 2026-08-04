@@ -61,7 +61,12 @@ pub async fn git_show(
     // Get commit metadata
     let format = "%H%x1f%an%x1f%aI%x1f%B";
     let meta_output = tokio::process::Command::new("git")
-        .args(["show", "--no-patch", &format!("--format={}", format), &query.hash])
+        .args([
+            "show",
+            "--no-patch",
+            &format!("--format={}", format),
+            &query.hash,
+        ])
         .current_dir(&dir_path)
         .output()
         .await
@@ -82,7 +87,12 @@ pub async fn git_show(
             meta_parts[3].trim().to_string(),
         )
     } else {
-        (query.hash.clone(), String::new(), String::new(), String::new())
+        (
+            query.hash.clone(),
+            String::new(),
+            String::new(),
+            String::new(),
+        )
     };
 
     // Get diff
@@ -204,7 +214,11 @@ pub async fn git_checkout(
         Ok(Json(GitCheckoutResponse {
             branch: req.branch,
             success: true,
-            message: if stderr.is_empty() { None } else { Some(stderr) },
+            message: if stderr.is_empty() {
+                None
+            } else {
+                Some(stderr)
+            },
         }))
     } else {
         Ok(Json(GitCheckoutResponse {
@@ -237,7 +251,9 @@ pub async fn git_range_diff(
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git rev-parse: {e}")))?;
-    let branch = String::from_utf8_lossy(&branch_out.stdout).trim().to_string();
+    let branch = String::from_utf8_lossy(&branch_out.stdout)
+        .trim()
+        .to_string();
 
     // Get commits in range base..HEAD
     let log_out = tokio::process::Command::new("git")
@@ -414,11 +430,7 @@ pub async fn git_stash(
                 .enumerate()
                 .map(|(i, line)| {
                     let reference = format!("stash@{{{}}}", i);
-                    let message = line
-                        .splitn(2, ": ")
-                        .nth(1)
-                        .unwrap_or(line)
-                        .to_string();
+                    let message = line.splitn(2, ": ").nth(1).unwrap_or(line).to_string();
                     GitStashEntry {
                         index: i,
                         reference,

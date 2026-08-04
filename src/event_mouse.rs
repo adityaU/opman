@@ -24,9 +24,8 @@ pub(crate) fn handle_mouse_in_loop(
     if dragging.is_none() {
         // --- Status bar click-to-copy URL ---
         if mouse_event.row == rows.saturating_sub(1) {
-            if let crossterm::event::MouseEventKind::Down(
-                crossterm::event::MouseButton::Left,
-            ) = mouse_event.kind
+            if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) =
+                mouse_event.kind
             {
                 if let Some((start_x, end_x)) = app.status_bar_url_range.get() {
                     let col = mouse_event.column;
@@ -34,18 +33,15 @@ pub(crate) fn handle_mouse_in_loop(
                         let url = crate::app::base_url();
                         use std::io::Write as _;
                         use std::process::{Command, Stdio};
-                        if let Ok(mut child) =
-                            Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn()
                         {
                             if let Some(stdin) = child.stdin.as_mut() {
                                 let _ = stdin.write_all(url.as_bytes());
                             }
                             let _ = child.wait();
                         }
-                        app.toast_message = Some((
-                            "Server URL copied!".to_string(),
-                            std::time::Instant::now(),
-                        ));
+                        app.toast_message =
+                            Some(("Server URL copied!".to_string(), std::time::Instant::now()));
                         app.needs_redraw = true;
                     }
                 }
@@ -78,9 +74,7 @@ fn handle_mouse_on_panel(
             handle_sidebar_click(app, mouse_event)?;
         }
         PanelId::TerminalPane => {
-            if let Some(project) =
-                app.projects.get_mut(app.active_project)
-            {
+            if let Some(project) = app.projects.get_mut(app.active_project) {
                 if let Some((pty, rect)) = project
                     .active_pty_mut()
                     .zip(app.layout.panel_rect(PanelId::TerminalPane))
@@ -99,10 +93,9 @@ fn handle_mouse_on_panel(
         }
         PanelId::IntegratedTerminal => {
             handle_integrated_terminal_mouse(app, mouse_event)?;
-        }        PanelId::NeovimPane => {
-            if let Some(project) =
-                app.projects.get_mut(app.active_project)
-            {
+        }
+        PanelId::NeovimPane => {
+            if let Some(project) = app.projects.get_mut(app.active_project) {
                 if let Some((pty, rect)) = project
                     .active_resources_mut()
                     .and_then(|r| r.neovim_pty.as_mut())
@@ -121,9 +114,7 @@ fn handle_mouse_on_panel(
             }
         }
         PanelId::GitPanel => {
-            if let Some(project) =
-                app.projects.get_mut(app.active_project)
-            {
+            if let Some(project) = app.projects.get_mut(app.active_project) {
                 if let Some((pty, rect)) = project
                     .gitui_pty
                     .as_mut()
@@ -146,17 +137,12 @@ fn handle_mouse_on_panel(
 }
 
 /// Handle sidebar mouse click.
-fn handle_sidebar_click(
-    app: &mut App,
-    mouse_event: crossterm::event::MouseEvent,
-) -> Result<()> {
-    if let crossterm::event::MouseEventKind::Down(
-        crossterm::event::MouseButton::Left,
-    ) = mouse_event.kind
+fn handle_sidebar_click(app: &mut App, mouse_event: crossterm::event::MouseEvent) -> Result<()> {
+    if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) =
+        mouse_event.kind
     {
         if let Some(rect) = app.layout.panel_rect(PanelId::Sidebar) {
-            let relative_y =
-                mouse_event.row.saturating_sub(rect.y) as usize;
+            let relative_y = mouse_event.row.saturating_sub(rect.y) as usize;
             let item_count = app.sidebar_item_count();
             if relative_y < item_count {
                 app.sidebar_cursor = relative_y;

@@ -136,7 +136,11 @@ async fn try_advance_executing_routes_to_idle() {
 async fn try_advance_evaluating_routes_to_eval_complete() {
     ensure_base_url();
     let h = WebStateHandle::new_test();
-    insert_mission(&h, mk_mission("m1", "sess", MissionState::Evaluating, 1, 10)).await;
+    insert_mission(
+        &h,
+        mk_mission("m1", "sess", MissionState::Evaluating, 1, 10),
+    )
+    .await;
     h.try_advance_mission("sess").await;
     // Continue verdict → Executing, iteration bumped.
     assert_eq!(get_state(&h, "m1").await, MissionState::Executing);
@@ -195,13 +199,24 @@ async fn personal_memory_crud_lifecycle() {
 async fn personal_memory_update_not_found_and_no_fields() {
     let h = WebStateHandle::new_test();
     let none_req = UpdatePersonalMemoryRequest {
-        label: None, content: None, scope: None, project_index: None, session_id: None,
+        label: None,
+        content: None,
+        scope: None,
+        project_index: None,
+        session_id: None,
     };
-    assert!(h.update_personal_memory("missing", none_req).await.is_none());
+    assert!(h
+        .update_personal_memory("missing", none_req)
+        .await
+        .is_none());
 
     let item = h.create_personal_memory(mk_create_memory("x")).await;
     let none_req2 = UpdatePersonalMemoryRequest {
-        label: None, content: None, scope: None, project_index: None, session_id: None,
+        label: None,
+        content: None,
+        scope: None,
+        project_index: None,
+        session_id: None,
     };
     let unchanged = h.update_personal_memory(&item.id, none_req2).await.unwrap();
     assert_eq!(unchanged.label, "x");
@@ -234,7 +249,11 @@ async fn autonomy_get_default_and_update() {
     assert!(matches!(got.mode, AutonomyMode::Autonomous));
 
     // Cover the other modes too.
-    for mode in [AutonomyMode::Observe, AutonomyMode::Nudge, AutonomyMode::Continue] {
+    for mode in [
+        AutonomyMode::Observe,
+        AutonomyMode::Nudge,
+        AutonomyMode::Continue,
+    ] {
         let out = h.update_autonomy_settings(mode).await;
         assert!(!out.updated_at.is_empty());
     }
@@ -242,7 +261,11 @@ async fn autonomy_get_default_and_update() {
 
 // ── Routines ────────────────────────────────────────────────────────
 
-fn mk_create_routine(name: &str, trigger: RoutineTrigger, action: RoutineAction) -> CreateRoutineRequest {
+fn mk_create_routine(
+    name: &str,
+    trigger: RoutineTrigger,
+    action: RoutineAction,
+) -> CreateRoutineRequest {
     CreateRoutineRequest {
         name: name.to_string(),
         trigger,
@@ -271,7 +294,13 @@ async fn routines_list_empty() {
 #[tokio::test]
 async fn routine_create_update_delete() {
     let h = WebStateHandle::new_test();
-    let r = h.create_routine(mk_create_routine("daily", RoutineTrigger::Manual, RoutineAction::SendMessage)).await;
+    let r = h
+        .create_routine(mk_create_routine(
+            "daily",
+            RoutineTrigger::Manual,
+            RoutineAction::SendMessage,
+        ))
+        .await;
     assert!(r.id.starts_with("routine-"));
     assert_eq!(r.name, "daily");
     assert!(r.enabled);
@@ -311,9 +340,19 @@ async fn routine_create_update_delete() {
 async fn routine_update_not_found() {
     let h = WebStateHandle::new_test();
     let upd = UpdateRoutineRequest {
-        name: None, trigger: None, action: None, enabled: None, cron_expr: None,
-        timezone: None, target_mode: None, session_id: None, project_index: None,
-        prompt: None, provider_id: None, model_id: None, mission_id: None,
+        name: None,
+        trigger: None,
+        action: None,
+        enabled: None,
+        cron_expr: None,
+        timezone: None,
+        target_mode: None,
+        session_id: None,
+        project_index: None,
+        prompt: None,
+        provider_id: None,
+        model_id: None,
+        mission_id: None,
     };
     assert!(h.update_routine("missing", upd).await.is_none());
 }
@@ -321,26 +360,61 @@ async fn routine_update_not_found() {
 #[tokio::test]
 async fn routine_update_scheduled_recomputes_next_run() {
     let h = WebStateHandle::new_test();
-    let r = h.create_routine(mk_create_routine("sched", RoutineTrigger::Scheduled, RoutineAction::SendMessage)).await;
+    let r = h
+        .create_routine(mk_create_routine(
+            "sched",
+            RoutineTrigger::Scheduled,
+            RoutineAction::SendMessage,
+        ))
+        .await;
     // enabled + Scheduled + cron_expr set → recompute_next_run_if_scheduled fires update.
     let upd = UpdateRoutineRequest {
-        name: None, trigger: None, action: None, enabled: Some(true),
-        cron_expr: Some(Some("0 0 * * *".to_string())), timezone: Some(Some("UTC".to_string())),
-        target_mode: None, session_id: None, project_index: None,
-        prompt: None, provider_id: None, model_id: None, mission_id: None,
+        name: None,
+        trigger: None,
+        action: None,
+        enabled: Some(true),
+        cron_expr: Some(Some("0 0 * * *".to_string())),
+        timezone: Some(Some("UTC".to_string())),
+        target_mode: None,
+        session_id: None,
+        project_index: None,
+        prompt: None,
+        provider_id: None,
+        model_id: None,
+        mission_id: None,
     };
     h.update_routine(&r.id, upd).await.unwrap();
     // update_routine returns a snapshot taken before recompute_next_run_if_scheduled
     // runs, so read the stored routine to observe the recomputed next_run_at.
-    let next = h.inner.read().await.routines.get(&r.id).unwrap().next_run_at.clone();
+    let next = h
+        .inner
+        .read()
+        .await
+        .routines
+        .get(&r.id)
+        .unwrap()
+        .next_run_at
+        .clone();
     assert!(next.is_some());
 }
 
 #[tokio::test]
 async fn routine_list_sorted_by_updated_desc() {
     let h = WebStateHandle::new_test();
-    let a = h.create_routine(mk_create_routine("a", RoutineTrigger::Manual, RoutineAction::SendMessage)).await;
-    let _b = h.create_routine(mk_create_routine("b", RoutineTrigger::Manual, RoutineAction::SendMessage)).await;
+    let a = h
+        .create_routine(mk_create_routine(
+            "a",
+            RoutineTrigger::Manual,
+            RoutineAction::SendMessage,
+        ))
+        .await;
+    let _b = h
+        .create_routine(mk_create_routine(
+            "b",
+            RoutineTrigger::Manual,
+            RoutineAction::SendMessage,
+        ))
+        .await;
     {
         let mut s = h.inner.write().await;
         s.routines.get_mut(&a.id).unwrap().updated_at = "2999-01-01T00:00:00Z".to_string();
@@ -354,15 +428,31 @@ async fn routine_list_sorted_by_updated_desc() {
 #[tokio::test]
 async fn record_run_completed_and_failed_updates_routine() {
     let h = WebStateHandle::new_test();
-    let r = h.create_routine(mk_create_routine("r", RoutineTrigger::Manual, RoutineAction::SendMessage)).await;
+    let r = h
+        .create_routine(mk_create_routine(
+            "r",
+            RoutineTrigger::Manual,
+            RoutineAction::SendMessage,
+        ))
+        .await;
 
-    let run = h.record_routine_run(&r.id, "ok".to_string(), Some("s".to_string()), Some(12), "completed").await;
+    let run = h
+        .record_routine_run(
+            &r.id,
+            "ok".to_string(),
+            Some("s".to_string()),
+            Some(12),
+            "completed",
+        )
+        .await;
     assert_eq!(run.status, "completed");
     let after = get_routine(&h, &r.id).await;
     assert!(after.last_run_at.is_some());
     assert!(after.last_error.is_none());
 
-    let _ = h.record_routine_run(&r.id, "boom".to_string(), None, None, "failed").await;
+    let _ = h
+        .record_routine_run(&r.id, "boom".to_string(), None, None, "failed")
+        .await;
     let after2 = get_routine(&h, &r.id).await;
     assert_eq!(after2.last_error.as_deref(), Some("boom"));
 }
@@ -370,7 +460,9 @@ async fn record_run_completed_and_failed_updates_routine() {
 #[tokio::test]
 async fn record_run_unknown_routine_still_recorded() {
     let h = WebStateHandle::new_test();
-    let run = h.record_routine_run("ghost", "s".to_string(), None, None, "completed").await;
+    let run = h
+        .record_routine_run("ghost", "s".to_string(), None, None, "completed")
+        .await;
     assert_eq!(run.routine_id, "ghost");
     let (_, runs) = h.list_routines().await;
     assert_eq!(runs.len(), 1);
@@ -394,7 +486,9 @@ async fn record_run_truncates_to_100() {
             });
         }
     }
-    let _ = h.record_routine_run("x", "newest".to_string(), None, None, "completed").await;
+    let _ = h
+        .record_routine_run("x", "newest".to_string(), None, None, "completed")
+        .await;
     let (_, runs) = h.list_routines().await;
     assert_eq!(runs.len(), 100);
     assert_eq!(runs[0].summary, "newest"); // inserted at front
@@ -412,7 +506,13 @@ async fn execute_routine_not_found() {
 #[tokio::test]
 async fn execute_routine_legacy_action_records_completed() {
     let h = WebStateHandle::new_test();
-    let r = h.create_routine(mk_create_routine("legacy", RoutineTrigger::Manual, RoutineAction::ReviewMission)).await;
+    let r = h
+        .create_routine(mk_create_routine(
+            "legacy",
+            RoutineTrigger::Manual,
+            RoutineAction::ReviewMission,
+        ))
+        .await;
     let run = h.execute_routine(&r.id).await.unwrap();
     assert_eq!(run.status, "completed");
     assert!(run.summary.contains("legacy action"));
@@ -422,7 +522,13 @@ async fn execute_routine_legacy_action_records_completed() {
 async fn execute_routine_empty_prompt_fails() {
     let h = WebStateHandle::new_test();
     // SendMessage with no prompt.
-    let r = h.create_routine(mk_create_routine("np", RoutineTrigger::Manual, RoutineAction::SendMessage)).await;
+    let r = h
+        .create_routine(mk_create_routine(
+            "np",
+            RoutineTrigger::Manual,
+            RoutineAction::SendMessage,
+        ))
+        .await;
     let err = h.execute_routine(&r.id).await.unwrap_err();
     assert!(err.contains("no prompt configured"));
 }
@@ -524,7 +630,11 @@ async fn create_session_for_routine_connection_refused() {
 async fn try_fire_idle_no_matching_routine() {
     let h = WebStateHandle::new_test();
     // A routine bound to a different session should not fire.
-    let mut req = mk_create_routine("idle", RoutineTrigger::OnSessionIdle, RoutineAction::SendMessage);
+    let mut req = mk_create_routine(
+        "idle",
+        RoutineTrigger::OnSessionIdle,
+        RoutineAction::SendMessage,
+    );
     req.prompt = Some("ping".to_string());
     req.session_id = Some("other-sess".to_string());
     let _ = h.create_routine(req).await;
@@ -536,7 +646,11 @@ async fn try_fire_idle_no_matching_routine() {
 #[tokio::test]
 async fn try_fire_idle_fires_and_respects_cooldown() {
     let h = WebStateHandle::new_test();
-    let mut req = mk_create_routine("idle", RoutineTrigger::OnSessionIdle, RoutineAction::SendMessage);
+    let mut req = mk_create_routine(
+        "idle",
+        RoutineTrigger::OnSessionIdle,
+        RoutineAction::SendMessage,
+    );
     req.prompt = Some("ping".to_string());
     req.session_id = Some("sess-idle".to_string());
     // No project → execute fails, but the run is still recorded and cooldown set.
@@ -556,7 +670,11 @@ async fn try_fire_idle_fires_and_respects_cooldown() {
 async fn try_fire_idle_skips_disabled_and_wrong_trigger() {
     let h = WebStateHandle::new_test();
     // Disabled routine.
-    let mut d = mk_create_routine("disabled", RoutineTrigger::OnSessionIdle, RoutineAction::SendMessage);
+    let mut d = mk_create_routine(
+        "disabled",
+        RoutineTrigger::OnSessionIdle,
+        RoutineAction::SendMessage,
+    );
     d.prompt = Some("x".to_string());
     d.session_id = Some("s".to_string());
     d.enabled = false;

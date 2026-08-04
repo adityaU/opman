@@ -19,11 +19,26 @@ fn item(id: &str, status: DelegationStatus, updated: &str) -> DelegatedWorkItem 
 #[test]
 fn list_sorted_desc_and_status_roundtrips() {
     let db = Db::open_memory().unwrap();
-    db.insert_delegated_work(&item("p", DelegationStatus::Planned, "2025-01-01T00:00:00Z"));
-    db.insert_delegated_work(&item("r", DelegationStatus::Running, "2025-03-01T00:00:00Z"));
-    db.insert_delegated_work(&item("c", DelegationStatus::Completed, "2025-02-01T00:00:00Z"));
+    db.insert_delegated_work(&item(
+        "p",
+        DelegationStatus::Planned,
+        "2025-01-01T00:00:00Z",
+    ));
+    db.insert_delegated_work(&item(
+        "r",
+        DelegationStatus::Running,
+        "2025-03-01T00:00:00Z",
+    ));
+    db.insert_delegated_work(&item(
+        "c",
+        DelegationStatus::Completed,
+        "2025-02-01T00:00:00Z",
+    ));
     let list = db.list_delegated_work();
-    assert_eq!(list.iter().map(|d| d.id.clone()).collect::<Vec<_>>(), vec!["r", "c", "p"]);
+    assert_eq!(
+        list.iter().map(|d| d.id.clone()).collect::<Vec<_>>(),
+        vec!["r", "c", "p"]
+    );
     assert!(matches!(list[0].status, DelegationStatus::Running));
     assert!(matches!(list[1].status, DelegationStatus::Completed));
     assert!(matches!(list[2].status, DelegationStatus::Planned));
@@ -45,7 +60,11 @@ fn update_row_found_and_not_found() {
     assert!(matches!(got.status, DelegationStatus::Completed));
     assert_eq!(got.subagent_session_id.as_deref(), Some("sub"));
 
-    assert!(!db.update_delegated_work_row(&item("ghost", DelegationStatus::Planned, "2025-01-01T00:00:00Z")));
+    assert!(!db.update_delegated_work_row(&item(
+        "ghost",
+        DelegationStatus::Planned,
+        "2025-01-01T00:00:00Z"
+    )));
 }
 
 #[test]
@@ -58,9 +77,24 @@ fn delete_missing_is_false() {
 fn status_conversions() {
     assert_eq!(delegation_status_str(&DelegationStatus::Planned), "planned");
     assert_eq!(delegation_status_str(&DelegationStatus::Running), "running");
-    assert_eq!(delegation_status_str(&DelegationStatus::Completed), "completed");
-    assert!(matches!(parse_delegation_status("running"), DelegationStatus::Running));
-    assert!(matches!(parse_delegation_status("completed"), DelegationStatus::Completed));
-    assert!(matches!(parse_delegation_status("planned"), DelegationStatus::Planned));
-    assert!(matches!(parse_delegation_status("weird"), DelegationStatus::Planned));
+    assert_eq!(
+        delegation_status_str(&DelegationStatus::Completed),
+        "completed"
+    );
+    assert!(matches!(
+        parse_delegation_status("running"),
+        DelegationStatus::Running
+    ));
+    assert!(matches!(
+        parse_delegation_status("completed"),
+        DelegationStatus::Completed
+    ));
+    assert!(matches!(
+        parse_delegation_status("planned"),
+        DelegationStatus::Planned
+    ));
+    assert!(matches!(
+        parse_delegation_status("weird"),
+        DelegationStatus::Planned
+    ));
 }

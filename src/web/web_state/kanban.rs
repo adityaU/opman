@@ -57,7 +57,11 @@ impl super::WebStateHandle {
         };
         let tasks = self.db.kanban_tasks_for_board(&board.id);
         let pipelines = self.db.kanban_pipelines_for_board(&board.id);
-        Some(BoardResponse { board, tasks, pipelines })
+        Some(BoardResponse {
+            board,
+            tasks,
+            pipelines,
+        })
     }
 
     /// Replace a board's lanes + transition graph.
@@ -110,7 +114,10 @@ impl super::WebStateHandle {
         req: UpdateTaskRequest,
     ) -> Result<Task, KanbanError> {
         let mut task = self.db.kanban_task(id).ok_or(KanbanError::NotFound)?;
-        let board = self.db.kanban_board(&task.board_id).ok_or(KanbanError::NotFound)?;
+        let board = self
+            .db
+            .kanban_board(&task.board_id)
+            .ok_or(KanbanError::NotFound)?;
 
         if let Some(ref new_lane) = req.lane_id {
             if new_lane != &task.lane_id && !board.transition_allowed(&task.lane_id, new_lane) {
@@ -246,7 +253,10 @@ impl super::WebStateHandle {
         run_state: Option<String>,
     ) -> Result<Task, KanbanError> {
         let mut task = self.db.kanban_task(id).ok_or(KanbanError::NotFound)?;
-        let board = self.db.kanban_board(&task.board_id).ok_or(KanbanError::NotFound)?;
+        let board = self
+            .db
+            .kanban_board(&task.board_id)
+            .ok_or(KanbanError::NotFound)?;
         // Accept a lane id or a (case-insensitive) lane name.
         let target = board
             .lanes
@@ -293,7 +303,10 @@ impl super::WebStateHandle {
         summary: &str,
     ) -> Result<Task, KanbanError> {
         let mut task = self.db.kanban_task(id).ok_or(KanbanError::NotFound)?;
-        let board = self.db.kanban_board(&task.board_id).ok_or(KanbanError::NotFound)?;
+        let board = self
+            .db
+            .kanban_board(&task.board_id)
+            .ok_or(KanbanError::NotFound)?;
         let from = task.lane_id.clone();
         let target = board
             .terminal_lane_id()
@@ -349,7 +362,11 @@ impl super::WebStateHandle {
     /// Append a **user**-authored note from the board UI. Records it on the
     /// timeline and, when the task has a live session, forwards it into that
     /// session so the working agent is notified mid-flight. Returns the new note.
-    pub async fn kanban_add_user_note(&self, id: &str, body: &str) -> Result<KanbanNote, KanbanError> {
+    pub async fn kanban_add_user_note(
+        &self,
+        id: &str,
+        body: &str,
+    ) -> Result<KanbanNote, KanbanError> {
         let task = self.db.kanban_task(id).ok_or(KanbanError::NotFound)?;
         let note = KanbanNote {
             id: format!("nte_{}", uuid_like_id()),

@@ -2,10 +2,10 @@
 //! git_pull, git_stash, git_gitignore, combined_output helper.
 #![allow(clippy::disallowed_names)]
 
-use super::*;
 use super::git_ext_handlers_history_tests::{
     call, commit_all, init_repo, run_git, state_for, write_file,
 };
+use super::*;
 use axum::http::StatusCode;
 use std::path::Path;
 

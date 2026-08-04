@@ -102,8 +102,7 @@ impl super::WebStateHandle {
             WorkspaceTemplate {
                 id: "tpl-dev".to_string(),
                 name: "Development".to_string(),
-                description: "Chat + editor + terminal for active coding"
-                    .to_string(),
+                description: "Chat + editor + terminal for active coding".to_string(),
                 panels: WorkspacePanels {
                     sidebar: true,
                     terminal: true,
@@ -115,8 +114,7 @@ impl super::WebStateHandle {
             WorkspaceTemplate {
                 id: "tpl-review".to_string(),
                 name: "Code Review".to_string(),
-                description: "Chat + editor + git panel for reviewing changes"
-                    .to_string(),
+                description: "Chat + editor + git panel for reviewing changes".to_string(),
                 panels: WorkspacePanels {
                     sidebar: true,
                     terminal: false,
@@ -128,8 +126,7 @@ impl super::WebStateHandle {
             WorkspaceTemplate {
                 id: "tpl-morning".to_string(),
                 name: "Morning Review".to_string(),
-                description: "Full workspace for daily standup and planning"
-                    .to_string(),
+                description: "Full workspace for daily standup and planning".to_string(),
                 panels: WorkspacePanels {
                     sidebar: true,
                     terminal: true,
@@ -151,16 +148,11 @@ impl super::WebStateHandle {
     ) -> Vec<PersonalMemoryItem> {
         let all = self.list_personal_memory().await;
         all.into_iter()
-            .filter(|m| {
-                match m.scope {
-                    MemoryScope::Global => true,
-                    MemoryScope::Project => {
-                        project_index.is_some() && m.project_index == project_index
-                    }
-                    MemoryScope::Session => {
-                        session_id.is_some()
-                            && m.session_id.as_deref() == session_id
-                    }
+            .filter(|m| match m.scope {
+                MemoryScope::Global => true,
+                MemoryScope::Project => project_index.is_some() && m.project_index == project_index,
+                MemoryScope::Session => {
+                    session_id.is_some() && m.session_id.as_deref() == session_id
                 }
             })
             .collect()

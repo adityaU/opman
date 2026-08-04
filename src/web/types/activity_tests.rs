@@ -28,7 +28,10 @@ fn activity_event_payload_omits_none_detail() {
         timestamp: "t".into(),
     };
     let v = serde_json::to_value(&ev).unwrap();
-    assert!(v.get("detail").is_none(), "detail must be skipped when None");
+    assert!(
+        v.get("detail").is_none(),
+        "detail must be skipped when None"
+    );
     // Clone/Debug coverage.
     let c = ev.clone();
     assert_eq!(c.session_id, "s1");

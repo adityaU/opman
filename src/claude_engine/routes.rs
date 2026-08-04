@@ -29,14 +29,22 @@ pub fn router(engine: Engine) -> Router {
         .route("/agent", get(agent_list))
         .route(
             "/session/{id}",
-            get(get_session).patch(rename_session).delete(delete_session),
+            get(get_session)
+                .patch(rename_session)
+                .delete(delete_session),
         )
-        .route("/session/{id}/message", get(get_messages).post(send_message))
+        .route(
+            "/session/{id}/message",
+            get(get_messages).post(send_message),
+        )
         .route("/session/{id}/prompt_async", post(prompt_async))
         .route("/session/{id}/abort", post(abort))
         .route("/session/{id}/todo", get(get_todos))
         .route("/session/{id}/queue", get(get_queue).delete(clear_queue))
-        .route("/session/{id}/queue/{index}", axum::routing::delete(remove_queue_item))
+        .route(
+            "/session/{id}/queue/{index}",
+            axum::routing::delete(remove_queue_item),
+        )
         .route("/session/{id}/command", post(session_command))
         .route("/session/{id}/revert", post(noop_ok))
         .route("/session/{id}/unrevert", post(noop_ok))
@@ -117,18 +125,26 @@ fn save_attachments(body: &Value, session_id: &str) -> Vec<String> {
             continue;
         }
         // Accept either a `url`/`source.url` data URL or raw `data`+`mime`.
-        let url = p
-            .get("url")
-            .and_then(|u| u.as_str())
-            .or_else(|| p.get("source").and_then(|s| s.get("url")).and_then(|u| u.as_str()));
-        let (mime, b64) = match url.and_then(|u| u.strip_prefix("data:")).and_then(|rest| rest.split_once(";base64,")) {
+        let url = p.get("url").and_then(|u| u.as_str()).or_else(|| {
+            p.get("source")
+                .and_then(|s| s.get("url"))
+                .and_then(|u| u.as_str())
+        });
+        let (mime, b64) = match url
+            .and_then(|u| u.strip_prefix("data:"))
+            .and_then(|rest| rest.split_once(";base64,"))
+        {
             Some((mime, b64)) => (mime.to_string(), b64.to_string()),
             None => continue,
         };
         let Ok(bytes) = BASE64.decode(b64.as_bytes()) else {
             continue;
         };
-        let ext = mime.rsplit('/').next().filter(|e| !e.is_empty()).unwrap_or("bin");
+        let ext = mime
+            .rsplit('/')
+            .next()
+            .filter(|e| !e.is_empty())
+            .unwrap_or("bin");
         let name = p
             .get("filename")
             .and_then(|n| n.as_str())
@@ -534,10 +550,30 @@ async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json
 fn default_models() -> Vec<claude_cli::ModelInfo> {
     use claude_cli::ModelInfo;
     vec![
-        ModelInfo { id: "claude-opus-4-8".into(), display_name: "Claude Opus 4.8".into(), context_window: 1_000_000, max_output: 128_000 },
-        ModelInfo { id: "claude-sonnet-5".into(), display_name: "Claude Sonnet 5".into(), context_window: 1_000_000, max_output: 128_000 },
-        ModelInfo { id: "claude-sonnet-4-6".into(), display_name: "Claude Sonnet 4.6".into(), context_window: 1_000_000, max_output: 64_000 },
-        ModelInfo { id: "claude-haiku-4-5-20251001".into(), display_name: "Claude Haiku 4.5".into(), context_window: 200_000, max_output: 32_000 },
+        ModelInfo {
+            id: "claude-opus-4-8".into(),
+            display_name: "Claude Opus 4.8".into(),
+            context_window: 1_000_000,
+            max_output: 128_000,
+        },
+        ModelInfo {
+            id: "claude-sonnet-5".into(),
+            display_name: "Claude Sonnet 5".into(),
+            context_window: 1_000_000,
+            max_output: 128_000,
+        },
+        ModelInfo {
+            id: "claude-sonnet-4-6".into(),
+            display_name: "Claude Sonnet 4.6".into(),
+            context_window: 1_000_000,
+            max_output: 64_000,
+        },
+        ModelInfo {
+            id: "claude-haiku-4-5-20251001".into(),
+            display_name: "Claude Haiku 4.5".into(),
+            context_window: 200_000,
+            max_output: 32_000,
+        },
     ]
 }
 
@@ -727,9 +763,15 @@ fn hook_deny(reason: &str) -> Value {
 /// `question.asked` to opman and blocking until the user replies when needed.
 async fn internal_ask(State(engine): State<Engine>, body: Json<Value>) -> Json<Value> {
     let input = body.0;
-    let claude_uuid = input.get("session_id").and_then(|s| s.as_str()).unwrap_or("");
+    let claude_uuid = input
+        .get("session_id")
+        .and_then(|s| s.as_str())
+        .unwrap_or("");
     let cwd = input.get("cwd").and_then(|s| s.as_str()).unwrap_or("");
-    let tool = input.get("tool_name").and_then(|s| s.as_str()).unwrap_or("");
+    let tool = input
+        .get("tool_name")
+        .and_then(|s| s.as_str())
+        .unwrap_or("");
     let tool_input = input.get("tool_input").cloned().unwrap_or(json!({}));
 
     // Resolve the opman session: by claude uuid, else newest in cwd.

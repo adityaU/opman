@@ -114,8 +114,8 @@ impl App {
             let answer = answer.to_string();
             tokio::spawn(async move {
                 let client = reqwest::Client::new();
-                let _ = crate::slack::post_message(&client, &bot_token, &ch, &answer, Some(&tts))
-                    .await;
+                let _ =
+                    crate::slack::post_message(&client, &bot_token, &ch, &answer, Some(&tts)).await;
             });
         }
     }
@@ -162,10 +162,9 @@ impl App {
                             ":hourglass_flowing_sand: Creating a new session in *{}*\u{2026}",
                             pname
                         );
-                        let _ = crate::slack::post_message(
-                            &client, &bot_token, &ch, &msg, Some(&tts),
-                        )
-                        .await;
+                        let _ =
+                            crate::slack::post_message(&client, &bot_token, &ch, &msg, Some(&tts))
+                                .await;
                     });
                 }
             } else {
@@ -194,21 +193,15 @@ impl App {
                          Available projects: {}",
                         available.join(", ")
                     );
-                    let _ =
-                        crate::slack::post_message(&client, &bot_token, &ch, &msg, Some(&tts))
-                            .await;
+                    let _ = crate::slack::post_message(&client, &bot_token, &ch, &msg, Some(&tts))
+                        .await;
                 });
             }
         }
     }
 
     /// Post "project not found" error with available projects list.
-    pub(super) fn post_project_not_found_error(
-        &self,
-        channel: &str,
-        thread_ts: &str,
-        path: &str,
-    ) {
+    pub(super) fn post_project_not_found_error(&self, channel: &str, thread_ts: &str, path: &str) {
         if let Some(ref auth) = self.slack_auth {
             let bot_token = auth.bot_token.clone();
             let ch = channel.to_string();

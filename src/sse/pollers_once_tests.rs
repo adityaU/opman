@@ -100,7 +100,8 @@ async fn poll_session_once_fetch_error_returns_none() {
     let client = crate::api::ApiClient::new();
     let (tx, _rx) = mpsc::unbounded_channel::<BackgroundEvent>();
     let known = HashSet::new();
-    let res = poll_session_status_once(&client, "http://127.0.0.1:1", "/proj", &known, &tx, 0).await;
+    let res =
+        poll_session_status_once(&client, "http://127.0.0.1:1", "/proj", &known, &tx, 0).await;
     assert!(res.is_none());
 }
 
@@ -132,7 +133,10 @@ async fn fetch_provider_once_zero_context_returns_none() {
     );
     let base = start_mock_upstream(router).await;
     let client = reqwest::Client::new();
-    assert_eq!(fetch_provider_limits_once(&client, &base, "/proj").await, None);
+    assert_eq!(
+        fetch_provider_limits_once(&client, &base, "/proj").await,
+        None
+    );
 }
 
 #[tokio::test]
@@ -143,19 +147,22 @@ async fn fetch_provider_once_non_success_status_returns_none() {
     );
     let base = start_mock_upstream(router).await;
     let client = reqwest::Client::new();
-    assert_eq!(fetch_provider_limits_once(&client, &base, "/proj").await, None);
+    assert_eq!(
+        fetch_provider_limits_once(&client, &base, "/proj").await,
+        None
+    );
 }
 
 #[tokio::test]
 async fn fetch_provider_once_malformed_body_returns_none() {
     // 200 OK but the body is not valid JSON → r.json() errors → None.
-    let router = axum::Router::new().route(
-        "/provider",
-        get(|| async { "not json{" }),
-    );
+    let router = axum::Router::new().route("/provider", get(|| async { "not json{" }));
     let base = start_mock_upstream(router).await;
     let client = reqwest::Client::new();
-    assert_eq!(fetch_provider_limits_once(&client, &base, "/proj").await, None);
+    assert_eq!(
+        fetch_provider_limits_once(&client, &base, "/proj").await,
+        None
+    );
 }
 
 #[tokio::test]

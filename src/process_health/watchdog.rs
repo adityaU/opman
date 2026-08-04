@@ -49,12 +49,8 @@ async fn run_loop(handle: HealthHandle) {
                 if limit > 0 {
                     let ratio = used as f64 / limit as f64;
                     if ratio > FD_WARN_RATIO {
-                        let msg = format!(
-                            "FD usage high: {}/{} ({:.0}%)",
-                            used,
-                            limit,
-                            ratio * 100.0
-                        );
+                        let msg =
+                            format!("FD usage high: {}/{} ({:.0}%)", used, limit, ratio * 100.0);
                         warn!("{}", msg);
                         handle
                             .push_audit(AuditEntry::now(

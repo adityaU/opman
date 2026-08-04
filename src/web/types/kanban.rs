@@ -264,9 +264,27 @@ pub fn default_board(id: String, project_path: String) -> Board {
     let lanes = vec![
         lane("lane_todo", "Todo", "#8b95a7", None, false),
         lane("lane_planning", "Planning", "#7aa2f7", Some("plan"), false),
-        lane("lane_implementing", "Implementing", "#bb9af7", Some("build"), false),
-        lane("lane_validating", "Validating", "#e0af68", Some("build"), false),
-        lane("lane_codereview", "Code Review", "#f7768e", Some("code-reviewer"), false),
+        lane(
+            "lane_implementing",
+            "Implementing",
+            "#bb9af7",
+            Some("build"),
+            false,
+        ),
+        lane(
+            "lane_validating",
+            "Validating",
+            "#e0af68",
+            Some("build"),
+            false,
+        ),
+        lane(
+            "lane_codereview",
+            "Code Review",
+            "#f7768e",
+            Some("code-reviewer"),
+            false,
+        ),
         lane("lane_inreview", "In Review", "#73daca", None, true),
         lane("lane_done", "Done", "#9ece6a", None, false),
     ];

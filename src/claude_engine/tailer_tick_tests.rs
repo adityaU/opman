@@ -114,10 +114,18 @@ fn tick_tailer_skip_path_increments_idle() {
     let s = e.create_session("/proj", "", "t");
     set_uuid(&e, &s.id, "uuid-skip");
     let home = tempfile::tempdir().unwrap();
-    let path = write_transcript(home.path(), "uuid-skip", "{\"type\":\"ai-title\",\"aiTitle\":\"x\"}\n");
+    let path = write_transcript(
+        home.path(),
+        "uuid-skip",
+        "{\"type\":\"ai-title\",\"aiTitle\":\"x\"}\n",
+    );
     let flen = std::fs::metadata(&path).unwrap().len();
     // Unchanged since last tick → skip the parse.
-    let mut st = TailerState { idle_ticks: 5, last_len: flen, ..Default::default() };
+    let mut st = TailerState {
+        idle_ticks: 5,
+        last_len: flen,
+        ..Default::default()
+    };
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(cont);
     assert_eq!(st.idle_ticks, 6);
@@ -133,7 +141,11 @@ fn tick_tailer_skip_path_removes_when_idle_expired() {
     let flen = std::fs::metadata(&path).unwrap().len();
     e.tailers.lock().unwrap().insert(s.id.clone());
     // +1 → 601 > 600 → idle-expiry removal on the skip path.
-    let mut st = TailerState { idle_ticks: 600, last_len: flen, ..Default::default() };
+    let mut st = TailerState {
+        idle_ticks: 600,
+        last_len: flen,
+        ..Default::default()
+    };
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(!cont);
     assert!(!e.tailers.lock().unwrap().contains(&s.id));
@@ -157,7 +169,10 @@ fn tick_tailer_emits_title_and_messages() {
     let home = tempfile::tempdir().unwrap();
     write_transcript(home.path(), "uuid-basic", content);
     // idle_ticks primed high; the new message resets it to 0.
-    let mut st = TailerState { idle_ticks: 50, ..Default::default() };
+    let mut st = TailerState {
+        idle_ticks: 50,
+        ..Default::default()
+    };
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(cont);
     assert_eq!(st.idle_ticks, 0);
@@ -173,10 +188,18 @@ fn tick_tailer_full_parse_removes_when_idle_expired() {
     set_uuid(&e, &s.id, "uuid-idlerm");
     let home = tempfile::tempdir().unwrap();
     // Title-only transcript → no messages → any_new stays false.
-    write_transcript(home.path(), "uuid-idlerm", "{\"type\":\"ai-title\",\"aiTitle\":\"t\"}\n");
+    write_transcript(
+        home.path(),
+        "uuid-idlerm",
+        "{\"type\":\"ai-title\",\"aiTitle\":\"t\"}\n",
+    );
     e.tailers.lock().unwrap().insert(s.id.clone());
     // last_len 0 != cur_len → full parse, then idle-expiry removal at the bottom.
-    let mut st = TailerState { idle_ticks: 600, last_len: 0, ..Default::default() };
+    let mut st = TailerState {
+        idle_ticks: 600,
+        last_len: 0,
+        ..Default::default()
+    };
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(!cont);
     assert!(!e.tailers.lock().unwrap().contains(&s.id));
@@ -189,8 +212,16 @@ fn tick_tailer_busy_primes_idle_counter() {
     set_uuid(&e, &s.id, "uuid-busy");
     set_busy_flag(&e, &s.id);
     let home = tempfile::tempdir().unwrap();
-    write_transcript(home.path(), "uuid-busy", "{\"type\":\"ai-title\",\"aiTitle\":\"t\"}\n");
-    let mut st = TailerState { idle_ticks: 42, last_len: 0, ..Default::default() };
+    write_transcript(
+        home.path(),
+        "uuid-busy",
+        "{\"type\":\"ai-title\",\"aiTitle\":\"t\"}\n",
+    );
+    let mut st = TailerState {
+        idle_ticks: 42,
+        last_len: 0,
+        ..Default::default()
+    };
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(cont);
     assert_eq!(st.idle_ticks, 1); // busy: primed but non-exiting
@@ -216,11 +247,16 @@ fn tick_tailer_subagent_running_marks_pending() {
     let cont = with_home(home.path(), || tick_tailer(&e, &s.id, &mut st));
     assert!(cont);
     assert!(st.has_pending_sub);
-    let sub = e.get_session(aid).expect("subagent child session registered");
+    let sub = e
+        .get_session(aid)
+        .expect("subagent child session registered");
     assert!(sub.is_subagent);
     assert!(sub.busy);
     assert!(e.subagent_pending(&s.id));
-    assert!(st.emitted_sub.keys().any(|k| k.starts_with(&format!("{aid}:"))));
+    assert!(st
+        .emitted_sub
+        .keys()
+        .any(|k| k.starts_with(&format!("{aid}:"))));
 }
 
 #[test]

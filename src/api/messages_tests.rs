@@ -1,5 +1,5 @@
 use super::*;
-use axum::{http::StatusCode, routing::post, routing::get, Json, Router};
+use axum::{http::StatusCode, routing::get, routing::post, Json, Router};
 use serde_json::{json, Value};
 
 async fn spawn(router: Router) -> String {

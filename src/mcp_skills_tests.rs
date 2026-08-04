@@ -1,8 +1,8 @@
 use super::*;
 use crate::web::types::ServerState;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde_json::Value;
 use tokio::sync::RwLock;
 
 fn registry_with(skills: Vec<Skill>) -> SkillsRegistry {
@@ -131,7 +131,10 @@ async fn dispatch_load_skill_missing_name() {
 async fn dispatch_unknown_tool() {
     let reg = registry_with(vec![]);
     let out = dispatch_tool(&reg, "frobnicate", &Value::Null).await;
-    assert!(out[0]["text"].as_str().unwrap().contains("Unknown tool: frobnicate"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool: frobnicate"));
 }
 
 // ── mcp_handler ──────────────────────────────────────────────────────────────
@@ -147,8 +150,11 @@ async fn call_handler(state: ServerState, body: Value) -> Value {
 #[tokio::test]
 async fn handler_initialize() {
     let state = crate::web::test_support::test_server_state();
-    let v = call_handler(state, serde_json::json!({"jsonrpc":"2.0","method":"initialize","id":1}))
-        .await;
+    let v = call_handler(
+        state,
+        serde_json::json!({"jsonrpc":"2.0","method":"initialize","id":1}),
+    )
+    .await;
     assert_eq!(v["result"]["serverInfo"]["name"], "opman-skills");
     assert_eq!(v["id"], 1);
     // result present, error omitted (skip_serializing_if).
@@ -158,8 +164,11 @@ async fn handler_initialize() {
 #[tokio::test]
 async fn handler_tools_list() {
     let state = crate::web::test_support::test_server_state();
-    let v = call_handler(state, serde_json::json!({"jsonrpc":"2.0","method":"tools/list","id":2}))
-        .await;
+    let v = call_handler(
+        state,
+        serde_json::json!({"jsonrpc":"2.0","method":"tools/list","id":2}),
+    )
+    .await;
     let tools = v["result"]["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"list_skills"));

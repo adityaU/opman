@@ -54,6 +54,11 @@ impl super::WebStateHandle {
                                 created: s.time.created,
                                 updated: s.time.updated,
                             },
+                            runner: inner
+                                .session_runners
+                                .get(&s.id)
+                                .cloned()
+                                .unwrap_or_else(|| inner.default_runner.clone()),
                         })
                         .collect(),
                     git_branch: p.git_branch.clone(),
@@ -72,6 +77,7 @@ impl super::WebStateHandle {
             focused: inner.focused.clone(),
             instance_name: None,
             backend: String::new(),
+            runners: vec![],
         }
     }
 
@@ -151,8 +157,7 @@ impl super::WebStateHandle {
         }
 
         let total = all.len();
-        let id_set: std::collections::HashSet<&str> =
-            all.iter().map(|s| s.id.as_str()).collect();
+        let id_set: std::collections::HashSet<&str> = all.iter().map(|s| s.id.as_str()).collect();
 
         // Build children lookup: parent_id -> [child indices]
         let mut children_map: std::collections::HashMap<String, Vec<usize>> =
@@ -227,7 +232,11 @@ impl super::WebStateHandle {
     /// Get all project paths (for the directory browser to mark existing projects).
     pub async fn all_project_paths(&self) -> Vec<String> {
         let inner = self.inner.read().await;
-        inner.projects.iter().map(|p| p.path.to_string_lossy().to_string()).collect()
+        inner
+            .projects
+            .iter()
+            .map(|p| p.path.to_string_lossy().to_string())
+            .collect()
     }
 
     pub async fn active_project_index(&self) -> usize {

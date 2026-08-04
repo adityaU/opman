@@ -7,10 +7,10 @@
 #![allow(clippy::disallowed_names)]
 
 use super::*;
-use axum::http::StatusCode;
 use crate::web::test_support::{send_json, test_router, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::http::StatusCode;
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
@@ -201,8 +201,7 @@ async fn diff_staged_and_file_filter() {
     assert_eq!(status, StatusCode::OK);
     assert!(body["diff"].as_str().unwrap().contains("two"));
 
-    let (status2, body2) =
-        call(&state, "GET", "/api/git/diff?staged=true&file=a.txt", None).await;
+    let (status2, body2) = call(&state, "GET", "/api/git/diff?staged=true&file=a.txt", None).await;
     assert_eq!(status2, StatusCode::OK);
     assert!(body2["diff"].as_str().unwrap().contains("a.txt"));
 }

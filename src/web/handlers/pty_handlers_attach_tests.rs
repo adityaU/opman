@@ -9,15 +9,17 @@
 
 use super::*;
 
-use axum::extract::State;
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::State;
+use axum::response::IntoResponse;
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn state_dir(p: &std::path::Path) -> ServerState {
@@ -40,7 +42,10 @@ async fn claude_attach_resolves_active_session_but_no_agent_400() {
         .web_state
         .add_and_activate_session(
             0,
-            crate::app::SessionInfo { id: "ses_active".into(), ..Default::default() },
+            crate::app::SessionInfo {
+                id: "ses_active".into(),
+                ..Default::default()
+            },
         )
         .await;
 

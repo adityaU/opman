@@ -19,7 +19,11 @@ fn to_value(resp: &JsonRpcResponse) -> serde_json::Value {
 #[tokio::test]
 async fn dispatch_initialize() {
     let state = test_server_state();
-    let r = dispatch_method(&state, &req(serde_json::json!({"jsonrpc":"2.0","id":1,"method":"initialize"}))).await;
+    let r = dispatch_method(
+        &state,
+        &req(serde_json::json!({"jsonrpc":"2.0","id":1,"method":"initialize"})),
+    )
+    .await;
     let v = to_value(&r);
     assert_eq!(v["result"]["protocolVersion"], MCP_PROTOCOL_VERSION);
     assert_eq!(v["result"]["serverInfo"]["name"], SERVER_NAME);
@@ -28,7 +32,11 @@ async fn dispatch_initialize() {
 #[tokio::test]
 async fn dispatch_initialized_notification() {
     let state = test_server_state();
-    let r = dispatch_method(&state, &req(serde_json::json!({"jsonrpc":"2.0","id":2,"method":"initialized"}))).await;
+    let r = dispatch_method(
+        &state,
+        &req(serde_json::json!({"jsonrpc":"2.0","id":2,"method":"initialized"})),
+    )
+    .await;
     let v = to_value(&r);
     assert_eq!(v["result"], serde_json::json!({}));
 }
@@ -36,7 +44,11 @@ async fn dispatch_initialized_notification() {
 #[tokio::test]
 async fn dispatch_tools_list() {
     let state = test_server_state();
-    let r = dispatch_method(&state, &req(serde_json::json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}))).await;
+    let r = dispatch_method(
+        &state,
+        &req(serde_json::json!({"jsonrpc":"2.0","id":3,"method":"tools/list"})),
+    )
+    .await;
     let v = to_value(&r);
     assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 8);
 }
@@ -44,14 +56,22 @@ async fn dispatch_tools_list() {
 #[tokio::test]
 async fn dispatch_ping() {
     let state = test_server_state();
-    let r = dispatch_method(&state, &req(serde_json::json!({"jsonrpc":"2.0","id":4,"method":"ping"}))).await;
+    let r = dispatch_method(
+        &state,
+        &req(serde_json::json!({"jsonrpc":"2.0","id":4,"method":"ping"})),
+    )
+    .await;
     assert_eq!(to_value(&r)["result"], serde_json::json!({}));
 }
 
 #[tokio::test]
 async fn dispatch_unknown_method_is_method_not_found() {
     let state = test_server_state();
-    let r = dispatch_method(&state, &req(serde_json::json!({"jsonrpc":"2.0","id":5,"method":"bogus"}))).await;
+    let r = dispatch_method(
+        &state,
+        &req(serde_json::json!({"jsonrpc":"2.0","id":5,"method":"bogus"})),
+    )
+    .await;
     let v = to_value(&r);
     assert_eq!(v["error"]["code"], METHOD_NOT_FOUND);
     assert!(v["error"]["message"].as_str().unwrap().contains("bogus"));
@@ -101,7 +121,10 @@ async fn dispatch_tools_call_unknown_tool_is_error_content() {
     .await;
     let v = to_value(&r);
     assert_eq!(v["result"]["isError"], true);
-    assert!(v["result"]["content"][0]["text"].as_str().unwrap().contains("Unknown tool"));
+    assert!(v["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool"));
 }
 
 #[tokio::test]
@@ -131,5 +154,7 @@ async fn dispatch_tools_call_defaults_arguments_when_absent() {
         })),
     )
     .await;
-    assert!(to_value(&r)["result"]["content"][0]["text"].as_str().is_some());
+    assert!(to_value(&r)["result"]["content"][0]["text"]
+        .as_str()
+        .is_some());
 }

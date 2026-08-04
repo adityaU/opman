@@ -5,12 +5,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -19,13 +19,18 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn body<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
     let resp = r.into_response();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     (status, bytes)
 }
 
@@ -55,7 +60,14 @@ async fn download_dir_zip_roundtrip_entries() {
 
     let state = state_dir(tmp.path());
     let (st, buf) = body(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: "bundle".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery {
+                path: "bundle".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -82,7 +94,14 @@ async fn download_dir_zip_file_content_preserved() {
 
     let state = state_dir(tmp.path());
     let (st, buf) = body(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: "data".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery {
+                path: "data".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);

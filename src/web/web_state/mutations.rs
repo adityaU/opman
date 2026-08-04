@@ -10,6 +10,22 @@ use super::WebProject;
 impl super::WebStateHandle {
     // ── Mutations ───────────────────────────────────────────────────
 
+    /// Set the process default runner shown for sessions without an explicit
+    /// runtime selection.
+    pub async fn set_default_runner(&self, runner: &str) {
+        let mut inner = self.inner.write().await;
+        inner.default_runner = runner.to_string();
+    }
+
+    /// Record the runner used by a logical session and refresh the sidebar.
+    pub async fn set_session_runner(&self, session_id: &str, runner: &str) {
+        let mut inner = self.inner.write().await;
+        inner
+            .session_runners
+            .insert(session_id.to_string(), runner.to_string());
+        let _ = self.event_tx.send(WebEvent::StateChanged);
+    }
+
     /// Broadcast a toast notification to all connected web clients.
     pub fn broadcast_toast(&self, message: String, level: &str) {
         let _ = self.event_tx.send(WebEvent::Toast {
@@ -43,12 +59,15 @@ impl super::WebStateHandle {
     ///
     /// Validates the path is a directory, checks for duplicates, adds to the
     /// in-memory state and persists to the config file.
-    pub async fn add_project(&self, path_str: &str, name: Option<&str>) -> Result<(usize, String), String> {
+    pub async fn add_project(
+        &self,
+        path_str: &str,
+        name: Option<&str>,
+    ) -> Result<(usize, String), String> {
         let path = std::path::PathBuf::from(path_str);
 
         // Canonicalize the path
-        let canonical = std::fs::canonicalize(&path)
-            .map_err(|e| format!("Invalid path: {e}"))?;
+        let canonical = std::fs::canonicalize(&path).map_err(|e| format!("Invalid path: {e}"))?;
 
         if !canonical.is_dir() {
             return Err("Path is not a directory".into());
@@ -272,7 +291,6 @@ impl super::WebStateHandle {
             false
         }
     }
-
 }
 
 #[cfg(test)]

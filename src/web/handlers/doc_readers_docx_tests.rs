@@ -166,7 +166,10 @@ fn read_docx_malformed_xml() {
 fn wrap_list_items_wraps_consecutive_li() {
     let input = "<p>before</p>\n<li>a</li>\n<li>b</li>\n<p>after</p>";
     let out = wrap_list_items(input);
-    assert!(out.contains("<ul>\n<li>a</li>\n<li>b</li>\n</ul>"), "got {out}");
+    assert!(
+        out.contains("<ul>\n<li>a</li>\n<li>b</li>\n</ul>"),
+        "got {out}"
+    );
     assert!(out.contains("<p>before</p>"));
     assert!(out.contains("<p>after</p>"));
 }

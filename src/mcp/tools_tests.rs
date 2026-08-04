@@ -96,7 +96,10 @@ async fn unknown_tool_returns_text() {
     let res = handle_tool_call(&bad_socket(), Some(json!({"name":"nope"})), None)
         .await
         .unwrap();
-    assert!(res[0]["text"].as_str().unwrap().contains("Unknown tool: nope"));
+    assert!(res[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool: nope"));
 }
 
 #[tokio::test]
@@ -321,7 +324,9 @@ async fn ephemeral_lock_rejected() {
     });
     let res = handle_tool_call(
         &sock,
-        Some(json!({"name":"terminal_ephemeral_run","arguments":{"command":"make","name":"build"}})),
+        Some(
+            json!({"name":"terminal_ephemeral_run","arguments":{"command":"make","name":"build"}}),
+        ),
         None,
     )
     .await
@@ -343,7 +348,10 @@ async fn ephemeral_new_fails() {
     )
     .await
     .unwrap();
-    assert!(res[0]["text"].as_str().unwrap().contains("cannot create tab"));
+    assert!(res[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("cannot create tab"));
     let _ = std::fs::remove_file(&sock);
 }
 

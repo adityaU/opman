@@ -35,7 +35,9 @@ const MIN_AGE_MS: u64 = 30_000;
 
 /// `OPMAN_CLAUDE_REAP=0` disables the reaper entirely.
 fn enabled() -> bool {
-    std::env::var("OPMAN_CLAUDE_REAP").map(|v| v != "0").unwrap_or(true)
+    std::env::var("OPMAN_CLAUDE_REAP")
+        .map(|v| v != "0")
+        .unwrap_or(true)
 }
 
 /// Idle TTL in millis, overridable via `OPMAN_CLAUDE_AGENT_TTL_SECS`.
@@ -105,7 +107,10 @@ pub async fn reap_once(engine: &Arc<ClaudeEngine>) -> usize {
     }
 
     // Clear short_ids first so the attach pane stops targeting agents we're about to kill.
-    let to_clear: Vec<String> = plan.iter().filter_map(|t| t.clear_session.clone()).collect();
+    let to_clear: Vec<String> = plan
+        .iter()
+        .filter_map(|t| t.clear_session.clone())
+        .collect();
     engine.clear_short_ids(&to_clear);
 
     // Stop the agents off the async reactor (each `claude stop` shells out).
@@ -251,7 +256,11 @@ mod tests {
     }
 
     fn target(session_id: &str, updated_ms: u64, protected: bool) -> CurrentTarget {
-        CurrentTarget { session_id: session_id.to_string(), updated_ms, protected }
+        CurrentTarget {
+            session_id: session_id.to_string(),
+            updated_ms,
+            protected,
+        }
     }
 
     const NOW: u64 = 10_000_000;

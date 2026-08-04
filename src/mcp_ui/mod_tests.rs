@@ -89,7 +89,10 @@ fn dispatch_ui_render() {
 #[test]
 fn dispatch_unknown_tool() {
     let out = dispatch_tool(Some(json!({"name":"other"})));
-    assert!(out[0]["text"].as_str().unwrap().contains("Unknown tool: other"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool: other"));
 }
 
 #[test]

@@ -49,9 +49,7 @@ pub(crate) fn handle_slack_manifest() -> Result<()> {
     eprintln!("\nTo create your Slack app:");
     eprintln!("  1. Go to https://api.slack.com/apps → Create New App → From a manifest");
     eprintln!("  2. Select your workspace and paste the manifest above");
-    eprintln!(
-        "  3. After creating, generate an App-Level Token with `connections:write` scope"
-    );
+    eprintln!("  3. After creating, generate an App-Level Token with `connections:write` scope");
     eprintln!("  4. Install the app to your workspace");
     Ok(())
 }
@@ -65,6 +63,7 @@ pub(crate) async fn setup_web_server(
     instance_name: Option<String>,
     backend: &str,
     app: &App,
+    runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
 ) -> (u16, Option<web::WebStateHandle>) {
     if enable_web {
         let (actual_port, wsh) = web::start_web_server(
@@ -76,7 +75,9 @@ pub(crate) async fn setup_web_server(
                 backend: backend.to_string(),
             },
             app.nvim_registry.clone(),
-        ).await;
+            runner_registry,
+        )
+        .await;
         info!("Web UI available at http://localhost:{}", actual_port);
         // Set the initial theme so web clients can fetch it immediately
         let initial_theme = web::WebThemePair::from_active_theme();
@@ -260,13 +261,8 @@ pub(crate) fn setup_slack(app: &mut App) {
                 let state_batch = slack_state;
                 tokio::spawn(async move {
                     let (event_tx, _event_rx) = tokio::sync::mpsc::unbounded_channel();
-                    slack::spawn_response_batcher(
-                        auth_batch,
-                        state_batch,
-                        batch_secs,
-                        event_tx,
-                    )
-                    .await;
+                    slack::spawn_response_batcher(auth_batch, state_batch, batch_secs, event_tx)
+                        .await;
                 });
             } else {
                 info!("Slack enabled but missing tokens in slack_auth.yaml (need bot_token + app_token)");

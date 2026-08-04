@@ -70,7 +70,13 @@ async fn emit_and_subscribe_roundtrip() {
 #[test]
 fn sessions_get_mut_trait_impl() {
     let mut map: StdHashMap<String, Session> = StdHashMap::new();
-    map.insert("id1".to_string(), Session { id: "id1".into(), ..Default::default() });
+    map.insert(
+        "id1".to_string(),
+        Session {
+            id: "id1".into(),
+            ..Default::default()
+        },
+    );
     assert!(map.sessions_get_mut("id1").is_some());
     assert!(map.sessions_get_mut("missing").is_none());
     map.sessions_get_mut("id1").unwrap().busy = true;
@@ -79,6 +85,8 @@ fn sessions_get_mut_trait_impl() {
 
 #[tokio::test]
 async fn start_embedded_server_binds_and_returns_url() {
-    let (url, _handle) = start_embedded_server((false, false, false, false)).await.unwrap();
+    let (url, _handle) = start_embedded_server((false, false, false, false))
+        .await
+        .unwrap();
     assert!(url.starts_with("http://127.0.0.1:"));
 }

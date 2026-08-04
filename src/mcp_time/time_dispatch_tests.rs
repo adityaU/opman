@@ -150,7 +150,10 @@ fn schema_time_now_and_zones_have_no_required() {
     for name in ["time_now", "time_zones"] {
         let t = arr.iter().find(|t| t["name"] == name).unwrap();
         // These tools take only optional properties → no "required" key.
-        assert!(t["inputSchema"].get("required").is_none(), "{name} unexpectedly required");
+        assert!(
+            t["inputSchema"].get("required").is_none(),
+            "{name} unexpectedly required"
+        );
     }
 }
 

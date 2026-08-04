@@ -135,8 +135,14 @@ fn session_lookup_by_uuid_and_lineage() {
         ent.claude_session_id = Some("uuidA".into());
         ent.lineage = vec!["uuidL".into()];
     }
-    assert_eq!(e.session_id_for_claude_uuid("uuidA").as_deref(), Some(s.id.as_str()));
-    assert_eq!(e.session_id_for_claude_uuid("uuidL").as_deref(), Some(s.id.as_str()));
+    assert_eq!(
+        e.session_id_for_claude_uuid("uuidA").as_deref(),
+        Some(s.id.as_str())
+    );
+    assert_eq!(
+        e.session_id_for_claude_uuid("uuidL").as_deref(),
+        Some(s.id.as_str())
+    );
     assert!(e.session_id_for_claude_uuid("").is_none());
     assert!(e.session_id_for_claude_uuid("missing").is_none());
 }
@@ -238,7 +244,10 @@ fn build_opts_assembles_turn_options() {
     let s = e.create_session("/d", "", "t");
     e.set_cached_init(
         "/d",
-        claude_cli::InitInfo { commands: vec![], agents: vec!["Plan".into()] },
+        claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
     );
     e.set_model(&s.id, "opus");
     e.set_agent(&s.id, "plan");

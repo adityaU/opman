@@ -79,7 +79,13 @@ fn stage_lanes_prompt_only_lane_qualifies() {
 #[test]
 fn build_stage_brief_with_prompt_and_prev_output() {
     let t = task("l1", "Fix the bug");
-    let l = lane("l1", "Implement", false, Some("build"), Some("Write the code"));
+    let l = lane(
+        "l1",
+        "Implement",
+        false,
+        Some("build"),
+        Some("Write the code"),
+    );
     let brief = build_stage_brief(&t, &l, 1, 3, Some("prior result"));
     assert!(brief.contains("STAGE 2/3: Implement"));
     assert!(brief.contains("PRIORITY: high"));

@@ -45,7 +45,9 @@ async fn message_updated_envelope_emits_stats() {
             "tokens":{"input":10,"output":5,"reasoning":2,"cache":{"read":1,"write":3}}}}}}"#;
     handle_web_sse_event(&h, data, "/proj").await;
     let evs = drain(&mut rx);
-    assert!(evs.iter().any(|e| matches!(e, WebEvent::StatsUpdated(s) if s.session_id == "s1")));
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, WebEvent::StatsUpdated(s) if s.session_id == "s1")));
 }
 
 #[tokio::test]
@@ -55,7 +57,9 @@ async fn message_updated_bare_event_also_works() {
     let data = r#"{"type":"message.updated","properties":{"info":{"sessionID":"s2","cost":0.1,
         "tokens":{"input":1,"output":1}}}}"#;
     handle_web_sse_event(&h, data, "/proj").await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StatsUpdated(_))));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StatsUpdated(_))));
 }
 
 #[tokio::test]
@@ -79,10 +83,14 @@ async fn session_created_adds_and_activates_root() {
     let data = r#"{"type":"session.created","properties":{"info":{
         "id":"root1","title":"T","parentID":"","directory":"/proj","time":{"created":1,"updated":2}}}}"#;
     handle_web_sse_event(&h, data, "/proj").await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
     // Duplicate create must not error and still emits StateChanged.
     handle_web_sse_event(&h, data, "/proj").await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -104,7 +112,9 @@ async fn session_created_child_tracks_parent() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -125,7 +135,9 @@ async fn session_updated_existing_and_missing() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
     // Update an unknown session: still emits StateChanged.
     handle_web_sse_event(
         &h,
@@ -133,7 +145,9 @@ async fn session_updated_existing_and_missing() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -153,7 +167,9 @@ async fn session_deleted_cleans_up() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -174,7 +190,9 @@ async fn session_status_busy_then_idle() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionBusy { session_id } if session_id == "b1")));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionBusy { session_id } if session_id == "b1")));
 
     handle_web_sse_event(
         &h,
@@ -182,7 +200,9 @@ async fn session_status_busy_then_idle() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionIdle { session_id } if session_id == "b1")));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionIdle { session_id } if session_id == "b1")));
 }
 
 #[tokio::test]
@@ -195,7 +215,9 @@ async fn session_status_retry_emits_busy() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionBusy { .. })));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionBusy { .. })));
 }
 
 #[tokio::test]
@@ -230,7 +252,9 @@ async fn session_status_idle_subagent_skips_unseen() {
     )
     .await;
     // No SessionUnseen for a subagent.
-    assert!(!drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
+    assert!(!drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
 }
 
 #[tokio::test]
@@ -248,6 +272,8 @@ async fn session_status_unknown_type_records_activity_only() {
     let evs = drain(&mut rx);
     assert!(!evs.iter().any(|e| matches!(
         e,
-        WebEvent::SessionBusy { .. } | WebEvent::SessionIdle { .. } | WebEvent::SessionUnseen { .. }
+        WebEvent::SessionBusy { .. }
+            | WebEvent::SessionIdle { .. }
+            | WebEvent::SessionUnseen { .. }
     )));
 }

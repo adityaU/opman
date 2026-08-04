@@ -23,6 +23,12 @@ pub struct MessagePageQuery {
     pub before: Option<u64>,
 }
 
+#[derive(serde::Deserialize, Default)]
+pub struct ProviderQuery {
+    /// Runtime runner whose model catalog should be returned.
+    pub runner: Option<String>,
+}
+
 /// GET /api/session/:id/messages — fetch messages for a session.
 ///
 /// Supports optional pagination via query parameters:
@@ -39,8 +45,25 @@ pub async fn get_session_messages(
     Query(page): Query<MessagePageQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .has_or_bind_known_session(&session_id, &dir)
+        .await
+    {
+        let body = state
+            .runner_registry
+            .messages(&session_id, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        return Ok(Json(paginate_messages(
+            body,
+            page.limit.unwrap_or(0),
+            page.before,
+        )));
+    }
     let base = base_url().to_string();
-    let resp = state.http_client
+    let resp = state
+        .http_client
         .get(format!("{}/session/{}/message", base, session_id))
         .header("x-opencode-directory", &dir)
         .header("Accept", "application/json")
@@ -78,8 +101,14 @@ pub(super) fn paginate_messages(
 
     // Sort by info.time.created to ensure chronological order.
     all_messages.sort_by(|a, b| {
-        let time_a = a.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
-        let time_b = b.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
+        let time_a = a
+            .pointer("/info/time/created")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let time_b = b
+            .pointer("/info/time/created")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         time_a.cmp(&time_b)
     });
 
@@ -90,7 +119,10 @@ pub(super) fn paginate_messages(
         // Filter by `before` — keep only messages with created < before
         if let Some(before_ts) = before {
             all_messages.retain(|m| {
-                let ts = m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0);
+                let ts = m
+                    .pointer("/info/time/created")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
                 ts < before_ts
             });
         }
@@ -127,8 +159,59 @@ pub async fn send_message(
     Json(req): Json<SendMessageRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+
+    if let Some(ref runner) = req.runner {
+        let request_body = serde_json::to_value(&req)
+            .map_err(|e| WebError::Internal(format!("Invalid message: {e}")))?;
+        let outcome = state
+            .runner_registry
+            .send_message(&session_id, &dir, Some(runner.clone()), request_body)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        state
+            .web_state
+            .set_session_runner(&outcome.session_id, outcome.runner.display_name())
+            .await;
+
+        // A handoff creates a runner-native session. Add it to the same
+        // project immediately so the sidebar can render the new runner before
+        // the normal session poller sees it.
+        if outcome.switched {
+            let project_idx = state.web_state.active_project_index().await;
+            let now = chrono::Utc::now().timestamp_millis() as u64;
+            state
+                .web_state
+                .add_and_activate_session(
+                    project_idx,
+                    crate::app::SessionInfo {
+                        id: outcome.session_id.clone(),
+                        title: "Handoff session".to_string(),
+                        directory: dir.clone(),
+                        time: crate::app::SessionTime {
+                            created: now,
+                            updated: now,
+                        },
+                        ..Default::default()
+                    },
+                )
+                .await;
+            state
+                .web_state
+                .set_session_runner(&outcome.session_id, outcome.runner.display_name())
+                .await;
+        }
+        return Ok(Json(serde_json::json!({
+            "ok": true,
+            "session_id": outcome.session_id,
+            "runner": outcome.runner,
+            "switched": outcome.switched,
+            "response": outcome.response,
+        })));
+    }
+
     let base = base_url().to_string();
-    let resp = state.http_client
+    let resp = state
+        .http_client
         .post(format!("{}/session/{}/message", base, session_id))
         .header("x-opencode-directory", &dir)
         .header("Accept", "application/json")
@@ -157,7 +240,10 @@ pub(crate) fn map_send_message_response(
             upstream_body = %body,
             "send_message: upstream rejected"
         );
-        return Err(WebError::Internal(format!("Upstream {}: {:?}", status, body)));
+        return Err(WebError::Internal(format!(
+            "Upstream {}: {:?}",
+            status, body
+        )));
     }
     Ok(Json(body))
 }
@@ -169,6 +255,18 @@ pub async fn abort_session(
     axum::extract::Path(session_id): axum::extract::Path<String>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .has_or_bind_known_session(&session_id, &dir)
+        .await
+    {
+        state
+            .runner_registry
+            .abort(&session_id, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        return Ok(StatusCode::OK);
+    }
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     client
@@ -239,7 +337,10 @@ pub(crate) fn map_proxy_json_response(
     body: serde_json::Value,
 ) -> WebResult<Json<serde_json::Value>> {
     if !status.is_success() {
-        return Err(WebError::Internal(format!("Upstream {}: {:?}", status, body)));
+        return Err(WebError::Internal(format!(
+            "Upstream {}: {:?}",
+            status, body
+        )));
     }
     Ok(Json(body))
 }
@@ -251,6 +352,18 @@ pub async fn delete_session(
     axum::extract::Path(session_id): axum::extract::Path<String>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .has_or_bind_known_session(&session_id, &dir)
+        .await
+        && state
+            .runner_registry
+            .delete(&session_id, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+    {
+        return Ok(StatusCode::OK);
+    }
     let base = base_url().to_string();
     let resp = state
         .http_client
@@ -292,6 +405,18 @@ pub async fn rename_session(
     Json(req): Json<RenameSessionRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .has_or_bind_known_session(&session_id, &dir)
+        .await
+        && state
+            .runner_registry
+            .rename(&session_id, &req.title, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+    {
+        return Ok(Json(serde_json::json!({ "ok": true, "title": req.title })));
+    }
     let base = base_url().to_string();
     let resp = state
         .http_client
@@ -350,8 +475,19 @@ pub(crate) fn map_command_error(e: &anyhow::Error) -> WebError {
 pub async fn get_providers(
     State(state): State<ServerState>,
     _auth: AuthUser,
+    Query(query): Query<ProviderQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if let Some(name) = query.runner.as_deref() {
+        let runner = crate::runner::RunnerKind::parse(name)
+            .ok_or_else(|| WebError::BadRequest(format!("Unknown runner: {name}")))?;
+        let providers = state
+            .runner_registry
+            .providers(runner, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        return Ok(Json(providers));
+    }
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     let providers = client
@@ -384,6 +520,14 @@ pub async fn reply_permission(
     Json(req): Json<PermissionReplyRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .reply_permission(&request_id, &req.reply)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+    {
+        return Ok(StatusCode::OK);
+    }
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     client
@@ -401,6 +545,14 @@ pub async fn reply_question(
     Json(req): Json<QuestionReplyRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if state
+        .runner_registry
+        .reply_question(&request_id, &req.answers)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+    {
+        return Ok(StatusCode::OK);
+    }
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     client

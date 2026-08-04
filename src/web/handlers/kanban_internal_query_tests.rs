@@ -77,9 +77,36 @@ fn seed(state: &ServerState) -> String {
     let board = default_board("brd_q".into(), "/tmp/gen-q-proj".into());
     let now = chrono::Utc::now().to_rfc3339();
     db.insert_kanban_board(&board, &now);
-    add_task(state, "tsk_anchor", &board.id, "lane_todo", &["backend", "urgent"], false, "Anchor task", "fix the parser");
-    add_task(state, "tsk_two", &board.id, "lane_planning", &["frontend"], false, "Second", "build UI");
-    add_task(state, "tsk_arch", &board.id, "lane_todo", &["backend"], true, "Archived one", "old work");
+    add_task(
+        state,
+        "tsk_anchor",
+        &board.id,
+        "lane_todo",
+        &["backend", "urgent"],
+        false,
+        "Anchor task",
+        "fix the parser",
+    );
+    add_task(
+        state,
+        "tsk_two",
+        &board.id,
+        "lane_planning",
+        &["frontend"],
+        false,
+        "Second",
+        "build UI",
+    );
+    add_task(
+        state,
+        "tsk_arch",
+        &board.id,
+        "lane_todo",
+        &["backend"],
+        true,
+        "Archived one",
+        "old work",
+    );
     "tsk_anchor".to_string()
 }
 
@@ -342,7 +369,16 @@ async fn read_notes_explicit_ids_skips_unknown_and_offboard() {
         .web_state
         .db_for_test()
         .insert_kanban_board(&other, &chrono::Utc::now().to_rfc3339());
-    add_task(&state, "tsk_offboard", &other.id, "lane_todo", &[], false, "Off", "x");
+    add_task(
+        &state,
+        "tsk_offboard",
+        &other.id,
+        "lane_todo",
+        &[],
+        false,
+        "Off",
+        "x",
+    );
 
     let (status, body) = send_tok(
         test_router(state),

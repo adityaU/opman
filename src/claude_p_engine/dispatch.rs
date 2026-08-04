@@ -7,8 +7,14 @@ use serde_json::{json, Value};
 use super::process;
 use super::routes::Engine;
 
-const PERMISSION_MODES: &[&str] =
-    &["default", "acceptEdits", "auto", "bypassPermissions", "dontAsk", "plan"];
+const PERMISSION_MODES: &[&str] = &[
+    "default",
+    "acceptEdits",
+    "auto",
+    "bypassPermissions",
+    "dontAsk",
+    "plan",
+];
 
 /// Pull the prompt text out of a send body (`parts[]` of type text, or `text`/`prompt`).
 pub(super) fn extract_text(body: &Value) -> String {
@@ -17,7 +23,9 @@ pub(super) fn extract_text(body: &Value) -> String {
             .iter()
             .filter_map(|p| {
                 let t = p.get("type").and_then(|t| t.as_str()).unwrap_or("text");
-                (t == "text").then(|| p.get("text").and_then(|t| t.as_str())).flatten()
+                (t == "text")
+                    .then(|| p.get("text").and_then(|t| t.as_str()))
+                    .flatten()
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -58,7 +66,11 @@ fn handle_control_command(engine: &Engine, session_id: &str, text: &str) -> bool
         .or_else(|| t.strip_prefix("/perm"));
     if let Some(rest) = rest {
         let mode = rest.trim();
-        match PERMISSION_MODES.iter().find(|m| m.eq_ignore_ascii_case(mode)).copied() {
+        match PERMISSION_MODES
+            .iter()
+            .find(|m| m.eq_ignore_ascii_case(mode))
+            .copied()
+        {
             Some(m) => engine.set_permission_mode(session_id, m),
             None => {
                 if let Some(s) = engine.get_session(session_id) {

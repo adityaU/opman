@@ -20,9 +20,7 @@ impl App {
 
             // ── Slash command check ──────────────────────────
             if trimmed.starts_with('@') {
-                self.handle_thread_at_command(
-                    &trimmed, &text, &channel, &thread_ts, &state,
-                );
+                self.handle_thread_at_command(&trimmed, &text, &channel, &thread_ts, &state);
                 return;
             }
 
@@ -252,11 +250,14 @@ impl App {
                 let has_active_children = self
                     .session_children
                     .get(&sid)
-                    .map(|children| children.iter().any(|cid| self.active_sessions.contains(cid)))
+                    .map(|children| {
+                        children
+                            .iter()
+                            .any(|cid| self.active_sessions.contains(cid))
+                    })
                     .unwrap_or(false);
                 self.try_trigger_watcher(&sid, has_active_children);
             }
         }
     }
-
 }

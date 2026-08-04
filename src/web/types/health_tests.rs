@@ -21,7 +21,10 @@ fn health_status_response_build_lists_all_mitigations() {
     let v = serde_json::to_value(&resp).unwrap();
     assert!(v["config"].is_object());
     assert!(v["snapshot"].is_object());
-    assert_eq!(v["mitigations"].as_array().unwrap().len(), Mitigation::ALL.len());
+    assert_eq!(
+        v["mitigations"].as_array().unwrap().len(),
+        Mitigation::ALL.len()
+    );
 }
 
 #[test]

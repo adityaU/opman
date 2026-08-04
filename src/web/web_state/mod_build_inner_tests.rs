@@ -85,7 +85,12 @@ fn build_inner_loads_all_persisted_collections() {
     db.upsert_workspace(&WorkspaceSnapshot {
         name: "ws1".into(),
         created_at: ts(),
-        panels: WorkspacePanels { sidebar: true, terminal: false, editor: true, git: false },
+        panels: WorkspacePanels {
+            sidebar: true,
+            terminal: false,
+            editor: true,
+            git: false,
+        },
         layout: WorkspaceLayout::default(),
         open_files: vec![],
         active_file: None,

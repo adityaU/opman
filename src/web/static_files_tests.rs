@@ -48,10 +48,7 @@ fn is_not_modified_mismatch() {
 
 #[test]
 fn build_ok_returns_body() {
-    let resp = build_ok(
-        Response::builder().status(StatusCode::OK),
-        Body::from("hi"),
-    );
+    let resp = build_ok(Response::builder().status(StatusCode::OK), Body::from("hi"));
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -108,7 +105,11 @@ async fn body_string(resp: Response<Body>) -> (StatusCode, HeaderMap, String) {
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
         .await
         .unwrap();
-    (status, headers, String::from_utf8_lossy(&bytes).into_owned())
+    (
+        status,
+        headers,
+        String::from_utf8_lossy(&bytes).into_owned(),
+    )
 }
 
 #[tokio::test]
@@ -124,8 +125,7 @@ async fn serves_index_fallback_for_root() {
 async fn serves_index_fallback_for_unknown_spa_route() {
     let state = test_server_state();
     // No asset named this -> SPA fallback to index.html.
-    let (status, headers, _) =
-        body_string(call(&state, "/some/deep/spa/route", None).await).await;
+    let (status, headers, _) = body_string(call(&state, "/some/deep/spa/route", None).await).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(headers.get(header::CONTENT_TYPE).unwrap(), "text/html");
 }
@@ -204,7 +204,10 @@ async fn favicon_with_theme_uses_dynamic_branch() {
     );
     // Dynamic branch does not attach an ETag.
     assert!(resp.headers().get(header::ETAG).is_none());
-    assert_eq!(resp.headers().get(header::CACHE_CONTROL).unwrap(), "no-cache");
+    assert_eq!(
+        resp.headers().get(header::CACHE_CONTROL).unwrap(),
+        "no-cache"
+    );
 }
 
 #[tokio::test]

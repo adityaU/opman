@@ -13,7 +13,9 @@ use crate::web::test_support::test_server_state;
 #[tokio::test]
 async fn read_missing_id_errors() {
     let s = test_server_state();
-    let err = handle_terminal_read(&s, &serde_json::json!({})).await.unwrap_err();
+    let err = handle_terminal_read(&s, &serde_json::json!({}))
+        .await
+        .unwrap_err();
     assert!(err.contains("Missing required 'id'"));
 }
 
@@ -30,7 +32,9 @@ async fn read_unknown_pty_errors() {
 #[tokio::test]
 async fn run_missing_id_and_command() {
     let s = test_server_state();
-    assert!(handle_terminal_run(&s, &serde_json::json!({})).await.is_err());
+    assert!(handle_terminal_run(&s, &serde_json::json!({}))
+        .await
+        .is_err());
     assert!(handle_terminal_run(&s, &serde_json::json!({"id": "x"}))
         .await
         .unwrap_err()
@@ -52,9 +56,12 @@ async fn run_ctrl_c_command_takes_no_newline_branch() {
     // Command starting with \x03 skips the appended newline; still fails at write
     // (no-op handle) but exercises that branch.
     let s = test_server_state();
-    let err = handle_terminal_run(&s, &serde_json::json!({"id": "x", "command": "\u{0003}", "wait": true, "timeout": 1}))
-        .await
-        .unwrap_err();
+    let err = handle_terminal_run(
+        &s,
+        &serde_json::json!({"id": "x", "command": "\u{0003}", "wait": true, "timeout": 1}),
+    )
+    .await
+    .unwrap_err();
     assert!(err.contains("Failed to write"));
 }
 
@@ -81,13 +88,17 @@ async fn new_spawn_failure_reports_error() {
 async fn new_uses_defaults_when_size_absent() {
     let s = test_server_state();
     // Still fails at spawn, but exercises the default rows=24/cols=80 branch.
-    assert!(handle_terminal_new(&s, &serde_json::json!({})).await.is_err());
+    assert!(handle_terminal_new(&s, &serde_json::json!({}))
+        .await
+        .is_err());
 }
 
 #[tokio::test]
 async fn close_missing_id_errors() {
     let s = test_server_state();
-    assert!(handle_terminal_close(&s, &serde_json::json!({})).await.is_err());
+    assert!(handle_terminal_close(&s, &serde_json::json!({}))
+        .await
+        .is_err());
 }
 
 #[tokio::test]

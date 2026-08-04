@@ -36,8 +36,7 @@ async fn inbox_with_inputs_ok() {
 
 #[tokio::test]
 async fn recommendations_ok() {
-    let (status, body) =
-        send_json(router(), "POST", "/api/recommendations", Some(json!({}))).await;
+    let (status, body) = send_json(router(), "POST", "/api/recommendations", Some(json!({}))).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert!(v.get("recommendations").is_some());
@@ -65,8 +64,7 @@ async fn handoff_session_empty_id_returns_404() {
 
 #[tokio::test]
 async fn resume_briefing_none_returns_204() {
-    let (status, _) =
-        send_json(router(), "POST", "/api/resume-briefing", Some(json!({}))).await;
+    let (status, _) = send_json(router(), "POST", "/api/resume-briefing", Some(json!({}))).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 }
 
@@ -104,8 +102,7 @@ async fn signals_list_ok() {
 async fn signals_add_returns_201_and_lists() {
     let router = router();
     let req = json!({ "kind": "note", "title": "hello", "body": "world" });
-    let (status, body) =
-        send_json(router.clone(), "POST", "/api/signals", Some(req)).await;
+    let (status, body) = send_json(router.clone(), "POST", "/api/signals", Some(req)).await;
     assert_eq!(status, StatusCode::CREATED);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["title"], "hello");
@@ -142,8 +139,7 @@ async fn assistant_stats_ok() {
 
 #[tokio::test]
 async fn workspace_templates_ok() {
-    let (status, body) =
-        send_json(router(), "GET", "/api/workspace-templates", None).await;
+    let (status, body) = send_json(router(), "GET", "/api/workspace-templates", None).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert!(v.get("templates").is_some());

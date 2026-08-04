@@ -54,5 +54,7 @@ async fn spawn_named_spawn_failure_is_error() {
     let dir = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.set("PATH", &dir.path().display().to_string());
-    assert!(spawn_named("t", 8000, &TunnelOptions::default()).await.is_err());
+    assert!(spawn_named("t", 8000, &TunnelOptions::default())
+        .await
+        .is_err());
 }

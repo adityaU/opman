@@ -1,6 +1,5 @@
 //! File edits and cross-session search handlers.
 
-
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
 
@@ -20,8 +19,10 @@ pub async fn get_file_edits(
     let edits = state.web_state.get_file_edits(&session_id).await;
 
     // Deduplicate: only keep the latest edit per file path
-    let mut latest_by_path: std::collections::HashMap<String, &super::super::web_state::FileEditRecord> =
-        std::collections::HashMap::new();
+    let mut latest_by_path: std::collections::HashMap<
+        String,
+        &super::super::web_state::FileEditRecord,
+    > = std::collections::HashMap::new();
     for edit in &edits {
         latest_by_path.insert(edit.path.clone(), edit);
     }

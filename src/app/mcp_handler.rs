@@ -108,7 +108,8 @@ impl App {
                 match resources.shell_ptys.get(tab_idx) {
                     Some(pty) => {
                         if let Ok(mut parser) = pty.parser.lock() {
-                            let text = super::read_full_terminal_buffer(&mut parser, request.last_n);
+                            let text =
+                                super::read_full_terminal_buffer(&mut parser, request.last_n);
                             SocketResponse::ok_text(text)
                         } else {
                             SocketResponse::err("Failed to lock terminal parser".into())

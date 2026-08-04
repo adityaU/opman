@@ -1,10 +1,5 @@
 use super::*;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    routing::post,
-    Json, Router,
-};
+use axum::{extract::Path, http::StatusCode, routing::post, Json, Router};
 use serde_json::{json, Value};
 
 // ---- mock server helpers ------------------------------------------------
@@ -134,16 +129,10 @@ async fn reply_question_connection_error() {
 
 #[tokio::test]
 async fn reject_question_success() {
-    let app = Router::new().route(
-        "/question/{id}/reject",
-        post(|| async { Json(json!({})) }),
-    );
+    let app = Router::new().route("/question/{id}/reject", post(|| async { Json(json!({})) }));
     let base = spawn(app).await;
     let client = ApiClient::new();
-    assert!(client
-        .reject_question(&base, "/tmp", "q-9")
-        .await
-        .is_ok());
+    assert!(client.reject_question(&base, "/tmp", "q-9").await.is_ok());
 }
 
 #[tokio::test]
@@ -154,7 +143,10 @@ async fn reject_question_failure_status() {
     );
     let base = spawn(app).await;
     let client = ApiClient::new();
-    let err = client.reject_question(&base, "/tmp", "q").await.unwrap_err();
+    let err = client
+        .reject_question(&base, "/tmp", "q")
+        .await
+        .unwrap_err();
     let m = format!("{}", err);
     assert!(m.contains("500") && m.contains("err"));
 }
@@ -209,7 +201,10 @@ async fn execute_command_failure_with_error_field() {
     let app = Router::new().route(
         "/session/{id}/command",
         post(|| async {
-            (StatusCode::BAD_REQUEST, Json(json!({ "error": "nope-cmd" })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "nope-cmd" })),
+            )
         }),
     );
     let base = spawn(app).await;

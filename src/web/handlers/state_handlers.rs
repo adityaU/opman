@@ -11,9 +11,7 @@ use super::super::types::*;
 
 /// GET /api/public/bootstrap — returns theme + instance_name without auth.
 /// Used by the login page so the form can render with the correct theme.
-pub async fn public_bootstrap(
-    State(state): State<ServerState>,
-) -> WebResult<impl IntoResponse> {
+pub async fn public_bootstrap(State(state): State<ServerState>) -> WebResult<impl IntoResponse> {
     let theme = state.web_state.get_theme().await;
     let instance_name = state.instance_name.clone();
     Ok(Json(serde_json::json!({
@@ -31,6 +29,12 @@ pub async fn get_state(
     let mut app_state = state.web_state.get_state().await;
     app_state.instance_name = state.instance_name.clone();
     app_state.backend = state.backend.clone();
+    app_state.runners = state
+        .runner_registry
+        .available()
+        .into_iter()
+        .map(|runner| runner.display_name().to_string())
+        .collect();
     Ok(Json(app_state))
 }
 
@@ -109,7 +113,8 @@ pub async fn switch_theme(
 
     // Read existing KV or start fresh
     let mut kv: serde_json::Value = if kv_path.exists() {
-        let content = tokio::fs::read_to_string(&kv_path).await
+        let content = tokio::fs::read_to_string(&kv_path)
+            .await
             .map_err(|e| WebError::Internal(format!("Failed to read KV store: {e}")))?;
         serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
     } else {
@@ -121,12 +126,17 @@ pub async fn switch_theme(
 
     // Ensure parent dir exists
     if let Some(parent) = kv_path.parent() {
-        tokio::fs::create_dir_all(parent).await
+        tokio::fs::create_dir_all(parent)
+            .await
             .map_err(|e| WebError::Internal(format!("Failed to create KV dir: {e}")))?;
     }
 
-    tokio::fs::write(&kv_path, serde_json::to_string_pretty(&kv).unwrap_or_default()).await
-        .map_err(|e| WebError::Internal(format!("Failed to write KV store: {e}")))?;
+    tokio::fs::write(
+        &kv_path,
+        serde_json::to_string_pretty(&kv).unwrap_or_default(),
+    )
+    .await
+    .map_err(|e| WebError::Internal(format!("Failed to write KV store: {e}")))?;
 
     // Load both dark and light variants and broadcast to all clients
     let pair = WebThemePair::from_active_theme();

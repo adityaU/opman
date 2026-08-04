@@ -18,8 +18,10 @@ fn parse_file_reads_a_real_transcript() {
     std::fs::write(
         &path,
         concat!(
-            r#"{"type":"ai-title","aiTitle":"Titled"}"#, "\n",
-            r#"{"type":"user","promptSource":"typed","message":{"role":"user","content":"hi"}}"#, "\n",
+            r#"{"type":"ai-title","aiTitle":"Titled"}"#,
+            "\n",
+            r#"{"type":"user","promptSource":"typed","message":{"role":"user","content":"hi"}}"#,
+            "\n",
         ),
     )
     .unwrap();
@@ -40,10 +42,14 @@ fn read_ai_title_variants() {
     std::fs::write(
         &p1,
         concat!(
-            r#"{"type":"ai-title","aiTitle":"First"}"#, "\n",
-            r#"{"type":"ai-title","aiTitle":"   "}"#, "\n",
-            r#"{"type":"ai-title","aiTitle":"Second"}"#, "\n",
-            r#"{"type":"user","message":{"role":"user","content":"x"}}"#, "\n",
+            r#"{"type":"ai-title","aiTitle":"First"}"#,
+            "\n",
+            r#"{"type":"ai-title","aiTitle":"   "}"#,
+            "\n",
+            r#"{"type":"ai-title","aiTitle":"Second"}"#,
+            "\n",
+            r#"{"type":"user","message":{"role":"user","content":"x"}}"#,
+            "\n",
         ),
     )
     .unwrap();
@@ -71,7 +77,10 @@ fn read_tail_returns_whole_small_file_and_tail_of_large() {
     let dir = tempfile::tempdir().unwrap();
     let small = dir.path().join("small.log");
     std::fs::write(&small, b"hello").unwrap();
-    assert_eq!(read_tail(small.to_str().unwrap(), 1024).as_deref(), Some("hello"));
+    assert_eq!(
+        read_tail(small.to_str().unwrap(), 1024).as_deref(),
+        Some("hello")
+    );
 
     let big = dir.path().join("big.log");
     std::fs::write(&big, b"0123456789").unwrap();
@@ -117,8 +126,12 @@ fn enrich_background_tasks_skips_non_bg_and_missing_file() {
         ],
     });
     enrich_background_tasks(&mut parsed);
-    assert!(parsed.messages[0].parts[1]["state"]["metadata"].get("output").is_none());
-    assert!(parsed.messages[0].parts[2]["state"]["metadata"].get("output").is_none());
+    assert!(parsed.messages[0].parts[1]["state"]["metadata"]
+        .get("output")
+        .is_none());
+    assert!(parsed.messages[0].parts[2]["state"]["metadata"]
+        .get("output")
+        .is_none());
 }
 
 // ---- has_running_background_task --------------------------------------
@@ -146,7 +159,10 @@ fn has_running_background_task_true_and_false() {
 // ---- subagent_completed ------------------------------------------------
 
 fn asst_with(parts: Vec<serde_json::Value>) -> MsgOut {
-    MsgOut { info: json!({"role":"assistant"}), parts }
+    MsgOut {
+        info: json!({"role":"assistant"}),
+        parts,
+    }
 }
 
 #[test]
@@ -156,7 +172,10 @@ fn subagent_completed_states() {
 
     // last message is a user turn → not complete
     let mut p = ParsedSession::default();
-    p.messages.push(MsgOut { info: json!({"role":"user"}), parts: vec![] });
+    p.messages.push(MsgOut {
+        info: json!({"role":"user"}),
+        parts: vec![],
+    });
     assert_eq!(subagent_completed(&p), (false, None));
 
     // last assistant but final part is a tool call → still running
@@ -166,8 +185,13 @@ fn subagent_completed_states() {
 
     // last assistant ending in text → complete with the final text
     let mut p = ParsedSession::default();
-    p.messages.push(asst_with(vec![json!({"type":"text","text":"final answer"})]));
-    assert_eq!(subagent_completed(&p), (true, Some("final answer".to_string())));
+    p.messages.push(asst_with(vec![
+        json!({"type":"text","text":"final answer"}),
+    ]));
+    assert_eq!(
+        subagent_completed(&p),
+        (true, Some("final answer".to_string()))
+    );
 
     // assistant with no parts → running
     let mut p = ParsedSession::default();
@@ -212,9 +236,15 @@ fn parse_task_notification_edge_cases() {
     // not a task-notification block
     assert!(parse_task_notification("plain text").is_none());
     // missing task-id tag
-    assert!(parse_task_notification("<task-notification><status>ok</status></task-notification>").is_none());
+    assert!(
+        parse_task_notification("<task-notification><status>ok</status></task-notification>")
+            .is_none()
+    );
     // empty task-id
-    assert!(parse_task_notification("<task-notification><task-id></task-id></task-notification>").is_none());
+    assert!(
+        parse_task_notification("<task-notification><task-id></task-id></task-notification>")
+            .is_none()
+    );
 
     // failed status, no summary → summary None
     let n = parse_task_notification(
@@ -245,12 +275,19 @@ fn parse_agent_id_empty_after_marker() {
 #[test]
 fn matched_bg_notification_without_summary_completes_part() {
     let transcript = concat!(
-        r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"x","run_in_background":true}}]}}"#, "\n",
-        r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"Command running in background with ID: jobA. Output is being written to: /tmp/jobA.output. You will be notified when it completes."}]}}"#, "\n",
-        r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>jobA</task-id>\n<status>completed</status>\n</task-notification>"}}"#, "\n",
+        r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"x","run_in_background":true}}]}}"#,
+        "\n",
+        r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"Command running in background with ID: jobA. Output is being written to: /tmp/jobA.output. You will be notified when it completes."}]}}"#,
+        "\n",
+        r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>jobA</task-id>\n<status>completed</status>\n</task-notification>"}}"#,
+        "\n",
     );
     let p = parse_str(transcript, "ses");
-    assert_eq!(p.messages.len(), 1, "notification folds into the part, no bubble");
+    assert_eq!(
+        p.messages.len(),
+        1,
+        "notification folds into the part, no bubble"
+    );
     let s = &p.messages[0].parts[0]["state"];
     assert_eq!(s["status"], "completed");
     assert!(s["metadata"].get("summary").is_none());

@@ -10,9 +10,7 @@ use super::routes::{dir_header, Engine};
 use crate::claude_engine::claude_cli;
 
 pub(super) async fn provider() -> Json<Value> {
-    let model = |id: &str, name: &str| {
-        json!({ "id": id, "providerID": "anthropic", "name": name, "limit": { "context": 200_000, "output": 64_000 } })
-    };
+    let model = |id: &str, name: &str| json!({ "id": id, "providerID": "anthropic", "name": name, "limit": { "context": 200_000, "output": 64_000 } });
     Json(json!({
         "all": [{
             "id": "anthropic", "name": "Anthropic",
@@ -34,7 +32,9 @@ async fn init_for_dir(engine: &Engine, dir: &str) -> claude_cli::InitInfo {
         return info;
     }
     let d = dir.to_string();
-    let info = tokio::task::spawn_blocking(move || claude_cli::introspect(&d)).await.unwrap_or_default();
+    let info = tokio::task::spawn_blocking(move || claude_cli::introspect(&d))
+        .await
+        .unwrap_or_default();
     engine.set_cached_init(dir, info.clone());
     info
 }
@@ -44,8 +44,12 @@ pub(super) async fn command_list(State(engine): State<Engine>, headers: HeaderMa
     if dir.is_empty() {
         return Json(Value::Array(vec![]));
     }
-    let arr: Vec<Value> =
-        init_for_dir(&engine, &dir).await.commands.iter().map(|name| json!({ "name": name })).collect();
+    let arr: Vec<Value> = init_for_dir(&engine, &dir)
+        .await
+        .commands
+        .iter()
+        .map(|name| json!({ "name": name }))
+        .collect();
     Json(Value::Array(arr))
 }
 

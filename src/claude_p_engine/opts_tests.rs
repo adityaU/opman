@@ -21,7 +21,9 @@ fn hook_settings_shape() {
     let v: serde_json::Value = serde_json::from_str(&s).unwrap();
     assert_eq!(v["hooks"]["PreToolUse"][0]["matcher"], "*");
     assert_eq!(v["worktree"]["bgIsolation"], "none");
-    let cmd = v["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap();
+    let cmd = v["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap();
     assert!(cmd.ends_with("claude-hook"));
     assert_eq!(v["hooks"]["PreToolUse"][0]["hooks"][0]["type"], "command");
 }
@@ -102,7 +104,13 @@ fn turn_opts_no_session_model_uses_default_model() {
 fn turn_opts_resolves_agent_from_cache() {
     let e = engine((false, false, false, false));
     let s = e.create_session("d3", "", "T");
-    e.set_cached_init("d3", InitInfo { commands: vec![], agents: vec!["Plan".into()] });
+    e.set_cached_init(
+        "d3",
+        InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
+    );
     e.set_agent(&s.id, "plan");
     let opts = e.turn_opts(&s.id, "d3");
     assert_eq!(opts.agent, Some("Plan".to_string()));

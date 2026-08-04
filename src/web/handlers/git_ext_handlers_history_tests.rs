@@ -3,10 +3,10 @@
 #![allow(clippy::disallowed_names)]
 
 use super::*;
-use axum::http::StatusCode;
 use crate::web::test_support::{send_json, test_router, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::http::StatusCode;
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
@@ -112,8 +112,7 @@ async fn show_valid_commit() {
     let hash = head_hash(dir);
 
     let state = state_for(dir);
-    let (status, body) =
-        call(&state, "GET", &format!("/api/git/show?hash={hash}"), None).await;
+    let (status, body) = call(&state, "GET", &format!("/api/git/show?hash={hash}"), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["message"], "add a");
     assert!(body["diff"].as_str().unwrap().contains("a.txt"));
@@ -277,8 +276,7 @@ async fn range_diff_between_base_and_head() {
     commit_all(dir, "feature commit");
 
     let state = state_for(dir);
-    let (status, body) =
-        call(&state, "GET", "/api/git/range-diff?base=main", None).await;
+    let (status, body) = call(&state, "GET", "/api/git/range-diff?base=main", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["branch"], "feature");
     assert_eq!(body["base"], "main");
@@ -308,7 +306,6 @@ async fn range_diff_invalid_base_rejected() {
     write_file(dir, "a.txt", "x\n");
     commit_all(dir, "init");
     let state = state_for(dir);
-    let (status, _) =
-        call(&state, "GET", "/api/git/range-diff?base=a..b", None).await;
+    let (status, _) = call(&state, "GET", "/api/git/range-diff?base=a..b", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }

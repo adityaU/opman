@@ -7,12 +7,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -21,7 +21,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(
@@ -30,7 +32,10 @@ async fn parts<T: IntoResponse>(
     let resp = r.into_response();
     let status = resp.status();
     let headers = resp.headers().clone();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     (status, headers, bytes)
 }
 
@@ -43,7 +48,14 @@ async fn download_file_base_canonicalize_error_500() {
     let missing = std::path::Path::new("/nonexistent-opman-download-base-xyz");
     let state = state_dir(missing);
     let (st, _, _) = parts(
-        download_file(State(state), auth(), Query(FileDownloadQuery { path: "f.txt".into() })).await,
+        download_file(
+            State(state),
+            auth(),
+            Query(FileDownloadQuery {
+                path: "f.txt".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
@@ -54,7 +66,12 @@ async fn download_dir_base_canonicalize_error_500() {
     let missing = std::path::Path::new("/nonexistent-opman-download-base-abc");
     let state = state_dir(missing);
     let (st, _, _) = parts(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: "sub".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery { path: "sub".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
@@ -68,11 +85,19 @@ async fn download_dir_dot_path_zips_root() {
     std::fs::write(tmp.path().join("a.txt"), "aaa").unwrap();
     let state = state_dir(tmp.path());
     let (st, headers, body) = parts(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: ".".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery { path: ".".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    assert_eq!(headers.get(axum::http::header::CONTENT_TYPE).unwrap(), "application/zip");
+    assert_eq!(
+        headers.get(axum::http::header::CONTENT_TYPE).unwrap(),
+        "application/zip"
+    );
     assert_eq!(&body[0..2], b"PK");
 }
 
@@ -84,7 +109,14 @@ async fn download_dir_empty_dir_zip() {
     std::fs::create_dir(tmp.path().join("empty")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _, body) = parts(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: "empty".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery {
+                path: "empty".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -103,7 +135,12 @@ async fn download_dir_only_hidden_entries_skipped() {
     std::fs::create_dir(sub.join(".git")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _, body) = parts(
-        download_dir(State(state), auth(), Query(DirDownloadQuery { path: "sub".into() })).await,
+        download_dir(
+            State(state),
+            auth(),
+            Query(DirDownloadQuery { path: "sub".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);

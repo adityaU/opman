@@ -35,12 +35,16 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
     match event {
         WebEvent::Noop => None,
         WebEvent::StateChanged => Some(SseEvent::default().event("state_changed").data("")),
-        WebEvent::SessionBusy { session_id } => {
-            Some(SseEvent::default().event("session_busy").data(session_id.clone()))
-        }
-        WebEvent::SessionIdle { session_id } => {
-            Some(SseEvent::default().event("session_idle").data(session_id.clone()))
-        }
+        WebEvent::SessionBusy { session_id } => Some(
+            SseEvent::default()
+                .event("session_busy")
+                .data(session_id.clone()),
+        ),
+        WebEvent::SessionIdle { session_id } => Some(
+            SseEvent::default()
+                .event("session_idle")
+                .data(session_id.clone()),
+        ),
         WebEvent::StatsUpdated(stats) => serde_json::to_string(stats)
             .ok()
             .map(|json| SseEvent::default().event("stats_updated").data(json)),
@@ -52,18 +56,32 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
             .map(|json| SseEvent::default().event("watcher_status").data(json)),
         WebEvent::McpEditorOpen { path, line } => {
             let payload = serde_json::json!({ "path": path, "line": line });
-            Some(SseEvent::default().event("mcp_editor_open").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("mcp_editor_open")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::McpEditorNavigate { line } => {
             let payload = serde_json::json!({ "line": line });
-            Some(SseEvent::default().event("mcp_editor_navigate").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("mcp_editor_navigate")
+                    .data(payload.to_string()),
+            )
         }
-        WebEvent::McpTerminalFocus { id } => {
-            Some(SseEvent::default().event("mcp_terminal_focus").data(id.clone()))
-        }
+        WebEvent::McpTerminalFocus { id } => Some(
+            SseEvent::default()
+                .event("mcp_terminal_focus")
+                .data(id.clone()),
+        ),
         WebEvent::McpAgentActivity { tool, active } => {
             let payload = serde_json::json!({ "tool": tool, "active": active });
-            Some(SseEvent::default().event("mcp_agent_activity").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("mcp_agent_activity")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::ActivityEvent(activity) => serde_json::to_string(activity)
             .ok()
@@ -71,17 +89,30 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
         WebEvent::PresenceChanged(snapshot) => serde_json::to_string(snapshot)
             .ok()
             .map(|json| SseEvent::default().event("presence_changed").data(json)),
-        WebEvent::MissionUpdated { mission } => {
-            Some(SseEvent::default().event("mission_updated").data(mission.to_string()))
-        }
+        WebEvent::MissionUpdated { mission } => Some(
+            SseEvent::default()
+                .event("mission_updated")
+                .data(mission.to_string()),
+        ),
         WebEvent::RoutineUpdated => Some(SseEvent::default().event("routine_updated").data("")),
-        WebEvent::KanbanTaskUpdated { project_path, task_id } => {
+        WebEvent::KanbanTaskUpdated {
+            project_path,
+            task_id,
+        } => {
             let payload = serde_json::json!({ "project_path": project_path, "task_id": task_id });
-            Some(SseEvent::default().event("kanban_task").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("kanban_task")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::KanbanBoardUpdated { project_path } => {
             let payload = serde_json::json!({ "project_path": project_path });
-            Some(SseEvent::default().event("kanban_board").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("kanban_board")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::Toast { message, level } => {
             let payload = serde_json::json!({ "message": message, "level": level });
@@ -89,23 +120,43 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
         }
         WebEvent::SessionError { session_id, .. } => {
             let payload = serde_json::json!({ "session_id": session_id });
-            Some(SseEvent::default().event("session_error").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("session_error")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::SessionInputNeeded { session_id } => {
             let payload = serde_json::json!({ "session_id": session_id });
-            Some(SseEvent::default().event("session_input_needed").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("session_input_needed")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::SessionInputCleared { session_id } => {
             let payload = serde_json::json!({ "session_id": session_id });
-            Some(SseEvent::default().event("session_input_cleared").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("session_input_cleared")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::SessionUnseen { session_id, count } => {
             let payload = serde_json::json!({ "session_id": session_id, "count": count });
-            Some(SseEvent::default().event("session_unseen").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("session_unseen")
+                    .data(payload.to_string()),
+            )
         }
         WebEvent::SessionSeen { session_id } => {
             let payload = serde_json::json!({ "session_id": session_id });
-            Some(SseEvent::default().event("session_seen").data(payload.to_string()))
+            Some(
+                SseEvent::default()
+                    .event("session_seen")
+                    .data(payload.to_string()),
+            )
         }
     }
 }
@@ -370,7 +421,7 @@ pub async fn system_stats_stream(
     // Persistent blocking thread that keeps the System alive for accurate CPU deltas.
     tokio::task::spawn_blocking(move || {
         use super::handlers::system_handlers::collect_system_stats_reuse;
-        use sysinfo::{System, Disks, Networks};
+        use sysinfo::{Disks, Networks, System};
 
         let mut sys = System::new_all();
         // First refresh to seed CPU baseline — usage will be 0 here.

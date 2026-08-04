@@ -72,7 +72,9 @@ pub fn verify_jwt(token: &str, secret: &[u8]) -> Option<String> {
     mac.update(unsigned.as_bytes());
 
     // Constant-time signature verification to prevent timing attacks.
-    let expected_sig = BASE64.decode(BASE64.encode(mac.finalize().into_bytes())).ok()?;
+    let expected_sig = BASE64
+        .decode(BASE64.encode(mac.finalize().into_bytes()))
+        .ok()?;
     let provided_sig = BASE64.decode(parts[2]).ok()?;
     if expected_sig.len() != provided_sig.len() {
         return None;
@@ -147,19 +149,15 @@ where
 
         // Fall back to ?token= query parameter (for SSE connections)
         let token = token.or_else(|| {
-            parts
-                .uri
-                .query()
-                .and_then(|q| {
-                    url::form_urlencoded::parse(q.as_bytes())
-                        .find(|(k, _)| k == "token")
-                        .map(|(_, v)| v.to_string())
-                })
+            parts.uri.query().and_then(|q| {
+                url::form_urlencoded::parse(q.as_bytes())
+                    .find(|(k, _)| k == "token")
+                    .map(|(_, v)| v.to_string())
+            })
         });
 
         let token = token.ok_or(WebError::Unauthorized)?;
-        let subject =
-            verify_jwt(&token, &server_state.jwt_secret).ok_or(WebError::Unauthorized)?;
+        let subject = verify_jwt(&token, &server_state.jwt_secret).ok_or(WebError::Unauthorized)?;
 
         Ok(AuthUser { subject })
     }
@@ -196,8 +194,7 @@ fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
         .and_then(|cookies| {
             cookies.split(';').find_map(|pair| {
                 let pair = pair.trim();
-                pair.strip_prefix("opman_token=")
-                    .map(|v| v.to_string())
+                pair.strip_prefix("opman_token=").map(|v| v.to_string())
             })
         })
 }

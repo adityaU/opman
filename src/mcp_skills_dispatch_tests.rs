@@ -45,7 +45,10 @@ fn response_with_error_omits_result_field() {
     let resp = McpResponse {
         jsonrpc: "2.0".to_string(),
         result: None,
-        error: Some(McpError { code: -32601, message: "nope".to_string() }),
+        error: Some(McpError {
+            code: -32601,
+            message: "nope".to_string(),
+        }),
         id: json!(null),
     };
     let v = serde_json::to_value(&resp).unwrap();
@@ -102,14 +105,20 @@ async fn dispatch_load_skill_found_returns_content() {
 async fn dispatch_load_skill_not_found_message() {
     let reg = registry_with(vec![skill("other")]);
     let out = dispatch_tool(&reg, "load_skill", &json!({ "name": "ghost" })).await;
-    assert!(out[0]["text"].as_str().unwrap().contains("Skill 'ghost' not found"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Skill 'ghost' not found"));
 }
 
 #[tokio::test]
 async fn dispatch_unknown_tool_message() {
     let reg = registry_with(vec![]);
     let out = dispatch_tool(&reg, "explode", &Value::Null).await;
-    assert!(out[0]["text"].as_str().unwrap().contains("Unknown tool: explode"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool: explode"));
 }
 
 // ── mcp_handler via State + Json ─────────────────────────────────────────────
@@ -173,7 +182,11 @@ async fn handler_tools_call_load_skill_not_found() {
 #[tokio::test]
 async fn handler_tools_list_schema_shapes() {
     let state = crate::web::test_support::test_server_state();
-    let v = call_handler(state, json!({ "jsonrpc": "2.0", "method": "tools/list", "id": 2 })).await;
+    let v = call_handler(
+        state,
+        json!({ "jsonrpc": "2.0", "method": "tools/list", "id": 2 }),
+    )
+    .await;
     let tools = v["result"]["tools"].as_array().unwrap();
     let load = tools.iter().find(|t| t["name"] == "load_skill").unwrap();
     let req: Vec<&str> = load["inputSchema"]["required"]

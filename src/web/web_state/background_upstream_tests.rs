@@ -64,7 +64,10 @@ async fn startup_once_keeps_existing_active_session() {
     let st = h.inner.read().await;
     // Session list refreshed, but the user's active session is untouched.
     assert_eq!(st.projects[0].sessions.len(), 1);
-    assert_eq!(st.projects[0].active_session.as_deref(), Some("preexisting"));
+    assert_eq!(
+        st.projects[0].active_session.as_deref(),
+        Some("preexisting")
+    );
     drop(st);
     srv.abort();
 }
@@ -109,8 +112,9 @@ async fn iter_once_busy_transition_cancels_watcher_timer() {
     .await;
     {
         let mut inner = h.inner.write().await;
-        let ah = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
-            .abort_handle();
+        let ah =
+            tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_secs(3600)).await })
+                .abort_handle();
         inner.watcher_pending.insert("s1".into(), ah);
         inner.watcher_idle_since.insert("s1".into(), Instant::now());
     }

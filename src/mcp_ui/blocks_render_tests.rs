@@ -7,12 +7,43 @@ use serde_json::json;
 /// The full documented block-type vocabulary (matches the schema description in
 /// `tool_definitions`). Each one is validated + echoed by `handle_ui_render`.
 const ALL_BLOCK_TYPES: &[&str] = &[
-    "card", "table", "kv", "status", "progress", "alert", "button", "form",
-    "markdown", "steps", "divider", "code", "metric", "grid", "flex", "image",
-    "pdf", "link", "accordion", "chart", "tabs", "callout", "badge",
-    "blockquote", "list", "stat-group", "diff", "timeline", "terminal",
-    "file-tree", "avatar", "tag-group", "toggle", "video", "audio",
-    "separator", "mermaid",
+    "card",
+    "table",
+    "kv",
+    "status",
+    "progress",
+    "alert",
+    "button",
+    "form",
+    "markdown",
+    "steps",
+    "divider",
+    "code",
+    "metric",
+    "grid",
+    "flex",
+    "image",
+    "pdf",
+    "link",
+    "accordion",
+    "chart",
+    "tabs",
+    "callout",
+    "badge",
+    "blockquote",
+    "list",
+    "stat-group",
+    "diff",
+    "timeline",
+    "terminal",
+    "file-tree",
+    "avatar",
+    "tag-group",
+    "toggle",
+    "video",
+    "audio",
+    "separator",
+    "mermaid",
 ];
 
 #[test]
@@ -54,7 +85,10 @@ fn delta_replace_append_update_all_reported() {
             "render_id": "rid-9",
             "operation": op
         });
-        let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+        let text = handle_ui_render(&args)[0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
         assert!(text.contains(&format!("{op}:rid-9")), "got: {text}");
     }
 }
@@ -67,7 +101,10 @@ fn render_id_without_operation_uses_plain_desc() {
         "blocks": [{ "type": "card", "data": {} }],
         "render_id": "only-rid"
     });
-    let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+    let text = handle_ui_render(&args)[0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert_eq!(text, "Rendered UI: P (1 blocks)");
     assert!(!text.contains("only-rid"));
 }
@@ -80,7 +117,10 @@ fn operation_without_render_id_uses_plain_desc() {
         "blocks": [{ "type": "card", "data": {} }],
         "operation": "append"
     });
-    let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+    let text = handle_ui_render(&args)[0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert_eq!(text, "Rendered UI: Q (1 blocks)");
 }
 
@@ -95,7 +135,10 @@ fn second_block_missing_type_reports_its_index() {
             { "data": {} }
         ]
     });
-    let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+    let text = handle_ui_render(&args)[0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert!(text.contains("Block 1 missing 'type'"), "got: {text}");
 }
 
@@ -109,7 +152,10 @@ fn third_block_missing_data_reports_its_index() {
             { "type": "alert" }
         ]
     });
-    let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+    let text = handle_ui_render(&args)[0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert!(text.contains("Block 2 missing 'data'"), "got: {text}");
 }
 
@@ -117,7 +163,10 @@ fn third_block_missing_data_reports_its_index() {
 fn type_present_but_not_string_treated_as_missing() {
     // `as_str()` on a numeric type yields None → "missing 'type'".
     let args = json!({ "title": "x", "blocks": [{ "type": 7, "data": {} }] });
-    let text = handle_ui_render(&args)[0]["text"].as_str().unwrap().to_string();
+    let text = handle_ui_render(&args)[0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert!(text.contains("missing 'type'"), "got: {text}");
 }
 
@@ -136,7 +185,10 @@ fn blocks_not_an_array_is_rejected() {
 fn dispatch_ui_render_missing_arguments_key_falls_to_empty() {
     // No "arguments" → args defaults to {} → blocks missing → validation error.
     let out = dispatch_tool(Some(json!({ "name": "ui_render" })));
-    assert!(out[0]["text"].as_str().unwrap().contains("non-empty 'blocks'"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("non-empty 'blocks'"));
 }
 
 #[test]

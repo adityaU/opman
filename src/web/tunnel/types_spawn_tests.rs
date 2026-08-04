@@ -2,8 +2,8 @@
 //! on PATH (Technique 2). Covers the success dispatch (Quick), the spawn-failure
 //! branch (binary absent), and `TunnelHandle::drop` killing a real child.
 
-use super::*;
 use super::test_env_support::{env_lock, write_fake_bin, EnvRestore};
+use super::*;
 
 #[tokio::test]
 async fn spawn_tunnel_quick_success_returns_live_handle() {
@@ -39,7 +39,9 @@ async fn spawn_tunnel_named_success_returns_live_handle() {
     env.prepend_path(dir.path());
 
     let handle = spawn_tunnel(
-        TunnelMode::Named { token: "tok".into() },
+        TunnelMode::Named {
+            token: "tok".into(),
+        },
         9000,
         &TunnelOptions::default(),
     )

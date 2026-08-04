@@ -29,10 +29,10 @@ pub fn write_opencode_json(
     let project_path_str = project_path.to_string_lossy().to_string();
 
     // Set mcp.* configs based on enabled flags
-    let mcp = config
+    let object = config
         .as_object_mut()
-        .map(|obj| obj.entry("mcp").or_insert(serde_json::json!({})))
-        .unwrap();
+        .ok_or_else(|| anyhow::anyhow!("opencode configuration must be a JSON object"))?;
+    let mcp = object.entry("mcp").or_insert(serde_json::json!({}));
 
     if let Some(mcp_obj) = mcp.as_object_mut() {
         if enable_terminal {
@@ -99,10 +99,10 @@ pub fn write_opencode_json(
 
     // Disable opencode's native bash tool so it uses the manager's terminal instead
     if enable_terminal {
-        let permission = config
+        let object = config
             .as_object_mut()
-            .map(|obj| obj.entry("permission").or_insert(serde_json::json!({})))
-            .unwrap();
+            .ok_or_else(|| anyhow::anyhow!("opencode configuration must be a JSON object"))?;
+        let permission = object.entry("permission").or_insert(serde_json::json!({}));
         if let Some(perm_obj) = permission.as_object_mut() {
             perm_obj.insert("bash".to_string(), serde_json::json!("deny"));
         }
@@ -111,10 +111,10 @@ pub fn write_opencode_json(
     // When neovim MCP is enabled, disable opencode's native edit/write tools
     // since the AI edits files through neovim directly.
     if enable_neovim {
-        let permission = config
+        let object = config
             .as_object_mut()
-            .map(|obj| obj.entry("permission").or_insert(serde_json::json!({})))
-            .unwrap();
+            .ok_or_else(|| anyhow::anyhow!("opencode configuration must be a JSON object"))?;
+        let permission = object.entry("permission").or_insert(serde_json::json!({}));
         if let Some(perm_obj) = permission.as_object_mut() {
             perm_obj.insert("edit".to_string(), serde_json::json!("deny"));
         }

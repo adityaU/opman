@@ -36,13 +36,19 @@ fn apply_args_protocol_adds_protocol_and_edge_ip_version() {
 #[test]
 fn apply_args_region_and_edges() {
     let mut args = Vec::new();
-    apply_tunnel_opts_to_args(&mut args, &opts(None, Some("us"), &["1.2.3.4:7844", "5.6.7.8:7844"]));
+    apply_tunnel_opts_to_args(
+        &mut args,
+        &opts(None, Some("us"), &["1.2.3.4:7844", "5.6.7.8:7844"]),
+    );
     assert_eq!(
         args,
         vec![
-            "--region", "us",
-            "--edge", "1.2.3.4:7844",
-            "--edge", "5.6.7.8:7844",
+            "--region",
+            "us",
+            "--edge",
+            "1.2.3.4:7844",
+            "--edge",
+            "5.6.7.8:7844",
         ]
     );
 }
@@ -50,7 +56,10 @@ fn apply_args_region_and_edges() {
 #[test]
 fn apply_args_all_options_combined() {
     let mut args = Vec::new();
-    apply_tunnel_opts_to_args(&mut args, &opts(Some("quic"), Some("eu"), &["9.9.9.9:7844"]));
+    apply_tunnel_opts_to_args(
+        &mut args,
+        &opts(Some("quic"), Some("eu"), &["9.9.9.9:7844"]),
+    );
     // protocol block first, then region, then edges.
     assert_eq!(args[0], "--protocol");
     assert!(args.contains(&"--region".to_string()));
@@ -62,7 +71,10 @@ fn apply_args_all_options_combined() {
 fn apply_env_variants_do_not_panic() {
     // apply_tunnel_opts_to_env just sets env vars on the Command; exercise every branch.
     let mut cmd = tokio::process::Command::new("true");
-    apply_tunnel_opts_to_env(&mut cmd, &opts(Some("http2"), Some("us"), &["1.1.1.1:7844", "2.2.2.2:7844"]));
+    apply_tunnel_opts_to_env(
+        &mut cmd,
+        &opts(Some("http2"), Some("us"), &["1.1.1.1:7844", "2.2.2.2:7844"]),
+    );
 
     let mut cmd2 = tokio::process::Command::new("true");
     apply_tunnel_opts_to_env(&mut cmd2, &opts(None, None, &[]));

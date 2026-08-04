@@ -5,7 +5,10 @@ fn markdown_to_blocks_plain_has_no_table_blocks() {
     let result = markdown_to_blocks("# Hello\n\nSome text.");
     assert!(!result.blocks.is_empty());
     assert!(result.table_blocks.is_empty());
-    assert!(result.blocks.iter().all(|b| b["type"] != serde_json::json!("table")));
+    assert!(result
+        .blocks
+        .iter()
+        .all(|b| b["type"] != serde_json::json!("table")));
 }
 
 #[test]
@@ -15,7 +18,10 @@ fn markdown_to_blocks_separates_table_into_table_blocks() {
     assert_eq!(result.table_blocks.len(), 1);
     assert_eq!(result.table_blocks[0]["type"], serde_json::json!("table"));
     // The regular blocks must not contain the table.
-    assert!(result.blocks.iter().all(|b| b["type"] != serde_json::json!("table")));
+    assert!(result
+        .blocks
+        .iter()
+        .all(|b| b["type"] != serde_json::json!("table")));
     // Intro and outro should be present as markdown blocks.
     assert!(!result.blocks.is_empty());
 }
@@ -43,10 +49,16 @@ fn shared_type_derives() {
     assert_eq!(a, b); // PartialEq
     assert!(format!("{:?}", a).contains("Center")); // Debug
 
-    let li = ListItem { text: "x".into(), indent: 2 };
+    let li = ListItem {
+        text: "x".into(),
+        indent: 2,
+    };
     assert!(format!("{:?}", li).contains("indent"));
 
-    let td = TodoItem { text: "y".into(), checked: true };
+    let td = TodoItem {
+        text: "y".into(),
+        checked: true,
+    };
     assert!(format!("{:?}", td).contains("checked"));
 
     let style = InlineStyle::BoldItalic; // Copy + Debug

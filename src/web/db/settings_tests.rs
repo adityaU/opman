@@ -10,9 +10,18 @@ fn autonomy_mode_conversions() {
     assert_eq!(autonomy_mode_str(&AutonomyMode::Autonomous), "autonomous");
 
     assert!(matches!(parse_autonomy_mode("nudge"), AutonomyMode::Nudge));
-    assert!(matches!(parse_autonomy_mode("continue"), AutonomyMode::Continue));
-    assert!(matches!(parse_autonomy_mode("autonomous"), AutonomyMode::Autonomous));
-    assert!(matches!(parse_autonomy_mode("observe"), AutonomyMode::Observe));
+    assert!(matches!(
+        parse_autonomy_mode("continue"),
+        AutonomyMode::Continue
+    ));
+    assert!(matches!(
+        parse_autonomy_mode("autonomous"),
+        AutonomyMode::Autonomous
+    ));
+    assert!(matches!(
+        parse_autonomy_mode("observe"),
+        AutonomyMode::Observe
+    ));
     assert!(matches!(parse_autonomy_mode("???"), AutonomyMode::Observe));
 }
 
@@ -23,7 +32,10 @@ fn save_then_overwrite_uses_conflict_update() {
         mode: AutonomyMode::Nudge,
         updated_at: "2025-01-01T00:00:00Z".into(),
     });
-    assert!(matches!(db.load_autonomy_settings().mode, AutonomyMode::Nudge));
+    assert!(matches!(
+        db.load_autonomy_settings().mode,
+        AutonomyMode::Nudge
+    ));
 
     // Second save on the same id=1 row exercises the ON CONFLICT UPDATE branch.
     db.save_autonomy_settings(&AutonomySettings {
@@ -38,5 +50,8 @@ fn save_then_overwrite_uses_conflict_update() {
 #[test]
 fn load_defaults_to_observe_when_unset() {
     let db = Db::open_memory().unwrap();
-    assert!(matches!(db.load_autonomy_settings().mode, AutonomyMode::Observe));
+    assert!(matches!(
+        db.load_autonomy_settings().mode,
+        AutonomyMode::Observe
+    ));
 }

@@ -174,10 +174,7 @@ impl ApiClient {
                 .unwrap_or("unknown error");
             return Err(CommandError {
                 status: status.as_u16(),
-                message: format!(
-                    "Session command '{}' rejected: {}",
-                    command, err_msg
-                ),
+                message: format!("Session command '{}' rejected: {}", command, err_msg),
             }
             .into());
         }

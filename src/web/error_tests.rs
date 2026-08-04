@@ -41,8 +41,11 @@ async fn into_response_server_unavailable() {
 
 #[tokio::test]
 async fn into_response_upstream_preserves_status() {
-    let (status, json) =
-        parts(WebError::Upstream(StatusCode::SERVICE_UNAVAILABLE, "down".into())).await;
+    let (status, json) = parts(WebError::Upstream(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "down".into(),
+    ))
+    .await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(json["error"], "down");
 }
@@ -58,13 +61,22 @@ async fn into_response_internal() {
 fn display_all_variants() {
     assert_eq!(WebError::Unauthorized.to_string(), "Unauthorized");
     assert_eq!(WebError::NotFound("s").to_string(), "Not found: s");
-    assert_eq!(WebError::BadRequest("b".into()).to_string(), "Bad request: b");
-    assert_eq!(WebError::ServerUnavailable.to_string(), "Server unavailable");
+    assert_eq!(
+        WebError::BadRequest("b".into()).to_string(),
+        "Bad request: b"
+    );
+    assert_eq!(
+        WebError::ServerUnavailable.to_string(),
+        "Server unavailable"
+    );
     assert_eq!(
         WebError::Upstream(StatusCode::BAD_GATEWAY, "u".into()).to_string(),
         "Upstream 502 Bad Gateway: u"
     );
-    assert_eq!(WebError::Internal("i".into()).to_string(), "Internal error: i");
+    assert_eq!(
+        WebError::Internal("i".into()).to_string(),
+        "Internal error: i"
+    );
 }
 
 #[test]

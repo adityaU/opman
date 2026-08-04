@@ -128,7 +128,9 @@ fn rand_id(prefix: &str) -> String {
 
 /// Engine-wide default model (`OPMAN_CLAUDE_MODEL`), if set.
 fn default_model() -> Option<String> {
-    std::env::var("OPMAN_CLAUDE_MODEL").ok().filter(|s| !s.is_empty())
+    std::env::var("OPMAN_CLAUDE_MODEL")
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 impl ClaudeEngine {
@@ -288,7 +290,10 @@ impl ClaudeEngine {
         if agent.is_empty() {
             return String::new();
         }
-        let dir = self.get_session(session_id).map(|s| s.directory).unwrap_or_default();
+        let dir = self
+            .get_session(session_id)
+            .map(|s| s.directory)
+            .unwrap_or_default();
         let known = self.cached_init(&dir).map(|i| i.agents).unwrap_or_default();
         let find = |name: &str| known.iter().find(|a| a.eq_ignore_ascii_case(name)).cloned();
 
@@ -300,7 +305,11 @@ impl ClaudeEngine {
         match agent.to_ascii_lowercase().as_str() {
             // opencode's planning agent → claude's `Plan`.
             "plan" => find("Plan").unwrap_or_else(|| {
-                if known.is_empty() { "Plan".to_string() } else { String::new() }
+                if known.is_empty() {
+                    "Plan".to_string()
+                } else {
+                    String::new()
+                }
             }),
             // opencode's default coding agent and the code reviewer have no claude
             // equivalent — run under claude's default agent.
@@ -567,7 +576,11 @@ impl ClaudeEngine {
             r.sessions.insert(entry.id.clone(), entry.clone());
         }
         self.save();
-        self.emit(dir, "session.created", serde_json::json!({ "info": session_info(&entry) }));
+        self.emit(
+            dir,
+            "session.created",
+            serde_json::json!({ "info": session_info(&entry) }),
+        );
         entry
     }
 
@@ -589,7 +602,11 @@ impl ClaudeEngine {
                 let now = now_ms();
                 let entry = SessionEntry {
                     id: agent_id.to_string(),
-                    title: if title.is_empty() { "Subagent".to_string() } else { title.to_string() },
+                    title: if title.is_empty() {
+                        "Subagent".to_string()
+                    } else {
+                        title.to_string()
+                    },
                     directory: dir.to_string(),
                     parent_id: parent_id.to_string(),
                     created: now,
@@ -603,7 +620,11 @@ impl ClaudeEngine {
         };
         if let Some(entry) = created {
             self.save();
-            self.emit(dir, "session.created", serde_json::json!({ "info": session_info(&entry) }));
+            self.emit(
+                dir,
+                "session.created",
+                serde_json::json!({ "info": session_info(&entry) }),
+            );
         }
     }
 
@@ -639,7 +660,11 @@ impl ClaudeEngine {
         };
         self.save();
         if let Some(entry) = self.get_session(session_id) {
-            self.emit(&dir, "session.updated", serde_json::json!({ "info": session_info(&entry) }));
+            self.emit(
+                &dir,
+                "session.updated",
+                serde_json::json!({ "info": session_info(&entry) }),
+            );
             self.emit(
                 &dir,
                 "session.status",
@@ -676,7 +701,11 @@ impl ClaudeEngine {
         };
         self.save();
         if let Some(entry) = self.get_session(session_id) {
-            self.emit(&dir, "session.updated", serde_json::json!({ "info": session_info(&entry) }));
+            self.emit(
+                &dir,
+                "session.updated",
+                serde_json::json!({ "info": session_info(&entry) }),
+            );
         }
     }
 
@@ -754,7 +783,11 @@ impl ClaudeEngine {
             serde_json::json!({ "sessionID": session_id, "status": { "type": status } }),
         );
         if !busy {
-            self.emit(&dir, "session.idle", serde_json::json!({ "sessionID": session_id }));
+            self.emit(
+                &dir,
+                "session.idle",
+                serde_json::json!({ "sessionID": session_id }),
+            );
         }
         changed && !busy
     }
@@ -770,7 +803,9 @@ impl ClaudeEngine {
         {
             return true;
         }
-        self.get_session(session_id).map(|s| s.busy).unwrap_or(false)
+        self.get_session(session_id)
+            .map(|s| s.busy)
+            .unwrap_or(false)
     }
 
     /// Record whether a session currently has an in-flight subagent (set by the tailer
@@ -818,7 +853,12 @@ impl ClaudeEngine {
     /// the session idle rather than bounce it back to busy. Resolves (returns false and
     /// clears the mark) once the agent has actually gone idle or the safety cap elapses.
     pub fn abort_settling(&self, session_id: &str, agent_busy_now: bool) -> bool {
-        let since = match self.aborting.lock().ok().and_then(|a| a.get(session_id).copied()) {
+        let since = match self
+            .aborting
+            .lock()
+            .ok()
+            .and_then(|a| a.get(session_id).copied())
+        {
             Some(s) => s,
             None => return false,
         };
@@ -899,7 +939,12 @@ impl ClaudeEngine {
     pub fn busy_map(&self) -> std::collections::HashMap<String, bool> {
         self.reg
             .lock()
-            .map(|r| r.sessions.values().map(|s| (s.id.clone(), s.busy)).collect())
+            .map(|r| {
+                r.sessions
+                    .values()
+                    .map(|s| (s.id.clone(), s.busy))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -999,7 +1044,11 @@ impl ClaudeEngine {
                 }
                 Ok(Err(e)) => {
                     tracing::warn!("claude turn failed: {e}");
-                    engine.emit_system(&sid, "error", &format!("Failed to start the claude turn: {e}"));
+                    engine.emit_system(
+                        &sid,
+                        "error",
+                        &format!("Failed to start the claude turn: {e}"),
+                    );
                     engine.set_busy(&sid, false);
                 }
                 Err(e) => {
@@ -1042,7 +1091,8 @@ pub async fn run_permission_hook() -> Result<()> {
         println!("{}", allow_decision());
         return Ok(());
     }
-    let payload: serde_json::Value = serde_json::from_str(&input).unwrap_or(serde_json::Value::Null);
+    let payload: serde_json::Value =
+        serde_json::from_str(&input).unwrap_or(serde_json::Value::Null);
     let engine_url = std::env::var("OPMAN_ENGINE_URL").ok();
     println!("{}", permission_hook_reply(payload, engine_url).await);
     Ok(())
@@ -1262,7 +1312,10 @@ mod lifecycle_tests {
         e.set_agent(&s.id, "plan");
         assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Plan"));
         e.set_agent(&s.id, "explore");
-        assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Explore"));
+        assert_eq!(
+            e.get_session(&s.id).unwrap().agent.as_deref(),
+            Some("Explore")
+        );
         // build / unknown / reviewer have no claude equivalent → default (cleared).
         e.set_agent(&s.id, "build");
         assert_eq!(e.get_session(&s.id).unwrap().agent, None);

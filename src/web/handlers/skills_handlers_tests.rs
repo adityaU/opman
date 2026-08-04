@@ -7,10 +7,10 @@
 
 use super::*;
 
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
 use crate::mcp_skills::Skill;
 use crate::web::test_support::{test_router, test_server_state};
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
 
 fn unique_absent_name() -> String {
     format!("opman_gen_test_absent_{}", rand::random::<u64>())
@@ -32,7 +32,11 @@ async fn list_skills_with_seeded() {
         let mut reg = state.skills_registry.write().await;
         reg.insert(
             "demo".into(),
-            Skill { name: "demo".into(), description: "d".into(), content: "c".into() },
+            Skill {
+                name: "demo".into(),
+                description: "d".into(),
+                content: "c".into(),
+            },
         );
     }
     let axum::Json(v) = list_skills(State(state)).await.unwrap();
@@ -48,10 +52,16 @@ async fn get_skill_present_and_absent() {
         let mut reg = state.skills_registry.write().await;
         reg.insert(
             "demo".into(),
-            Skill { name: "demo".into(), description: "d".into(), content: "c".into() },
+            Skill {
+                name: "demo".into(),
+                description: "d".into(),
+                content: "c".into(),
+            },
         );
     }
-    let axum::Json(found) = get_skill(State(state.clone()), Path("demo".into())).await.unwrap();
+    let axum::Json(found) = get_skill(State(state.clone()), Path("demo".into()))
+        .await
+        .unwrap();
     assert!(found.is_some());
     assert_eq!(found.unwrap().name, "demo");
 
@@ -66,7 +76,11 @@ async fn create_skill_empty_name_400() {
     let state = test_server_state();
     let res = create_skill(
         State(state),
-        axum::Json(CreateSkillRequest { name: String::new(), description: "d".into(), content: "c".into() }),
+        axum::Json(CreateSkillRequest {
+            name: String::new(),
+            description: "d".into(),
+            content: "c".into(),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err(), StatusCode::BAD_REQUEST);
@@ -77,7 +91,11 @@ async fn create_skill_empty_description_400() {
     let state = test_server_state();
     let res = create_skill(
         State(state),
-        axum::Json(CreateSkillRequest { name: "x".into(), description: String::new(), content: "c".into() }),
+        axum::Json(CreateSkillRequest {
+            name: "x".into(),
+            description: String::new(),
+            content: "c".into(),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err(), StatusCode::BAD_REQUEST);
@@ -91,7 +109,11 @@ async fn update_skill_missing_404() {
     let res = update_skill(
         State(state),
         Path(unique_absent_name()),
-        axum::Json(CreateSkillRequest { name: "x".into(), description: "d".into(), content: "c".into() }),
+        axum::Json(CreateSkillRequest {
+            name: "x".into(),
+            description: "d".into(),
+            content: "c".into(),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err(), StatusCode::NOT_FOUND);
@@ -128,7 +150,10 @@ async fn upload_skills_wrong_field_400() {
     b.push_str("Content-Disposition: form-data; name=\"other\"\r\n\r\n");
     b.push_str("junk");
     b.push_str("\r\n--BOUND--\r\n");
-    assert_eq!(send_multipart(router, b.into_bytes()).await, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        send_multipart(router, b.into_bytes()).await,
+        StatusCode::BAD_REQUEST
+    );
 }
 
 #[tokio::test]
@@ -140,5 +165,8 @@ async fn upload_skills_invalid_zip_400() {
     b.push_str("Content-Disposition: form-data; name=\"skills_zip\"; filename=\"s.zip\"\r\n\r\n");
     b.push_str("this-is-not-a-valid-zip-archive");
     b.push_str("\r\n--BOUND--\r\n");
-    assert_eq!(send_multipart(router, b.into_bytes()).await, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        send_multipart(router, b.into_bytes()).await,
+        StatusCode::BAD_REQUEST
+    );
 }

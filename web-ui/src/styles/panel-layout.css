@@ -1,0 +1,125 @@
+.right-panel-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: var(--right-panel-width, 500px);
+    flex-shrink: 0;
+    min-height: 0;
+    overflow: auto;
+    background: transparent
+}
+.right-panel-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--theme-surface-1);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--black-40) 12%, transparent)
+}
+.right-panel-card[draggable="true"] { cursor: grab }
+.right-panel-card[draggable="true"]:active { cursor: grabbing }
+.right-panel-card .side-panel-header {
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--theme-surface-2)
+}
+.right-panel-card .side-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden
+}
+.right-panel-card .terminal-panel {
+    border: 0;
+    height: 100%
+}
+html.flat-theme .right-panel-card { box-shadow: none }
+@media (max-width: 768px) {
+    .right-panel-stack {
+        width: 100%;
+        gap: 0;
+        overflow: visible
+    }
+    .right-panel-card {
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        box-shadow: none
+    }
+}
+.panel-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 24px;
+    margin-left: -3px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: grab;
+    opacity: .72
+}
+.panel-drag-handle:hover {
+    background: var(--theme-surface-hover);
+    color: var(--color-text)
+}
+.panel-drag-handle:active { cursor: grabbing }
+.right-panel-card:has(.panel-drag-handle:hover) {
+    border-color: var(--color-border)
+}
+@media (max-width: 768px) {
+    .panel-drag-handle { width: 28px; height: 28px }
+}
+.right-panel-tabs {
+    display: flex;
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--theme-surface-2)
+}
+.right-panel-tabs button {
+    flex: 1;
+    min-height: 28px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer
+}
+.right-panel-tabs button.active {
+    border-color: var(--color-border-subtle);
+    background: var(--theme-surface-1);
+    color: var(--color-text)
+}
+.right-panel-tabs {
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 3
+}
+.right-panel-card {
+    flex: 1 1 auto;
+    min-height: 0
+}
+/* Equal panel geometry: outer chat inset and internal tab gap use the same rhythm. */
+.right-panel-stack {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 0;
+    gap: 12px;
+    overflow: hidden
+}
+.right-panel-tabs,
+.right-panel-card {
+    margin: 0;
+    box-sizing: border-box
+}
+.right-panel-tabs { flex: 0 0 auto }
+.right-panel-card { flex: 1 1 0; min-height: 0 }
+@media (max-width: 768px) {
+    .right-panel-stack { height: auto; gap: 8px; overflow: visible }
+}

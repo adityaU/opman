@@ -33,7 +33,10 @@ async fn send(
     };
     let resp = router.oneshot(req).await.unwrap();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     (status, bytes)
 }
 
@@ -79,8 +82,14 @@ async fn list_sessions_filtered_by_dir() {
 #[tokio::test]
 async fn create_session_with_body_and_defaults() {
     let e = engine();
-    let (st, body) =
-        send(router(e.clone()), "POST", "/session", Some("/proj"), Some(json!({ "parentID": "p", "title": "T" }))).await;
+    let (st, body) = send(
+        router(e.clone()),
+        "POST",
+        "/session",
+        Some("/proj"),
+        Some(json!({ "parentID": "p", "title": "T" })),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     let v = as_json(&body);
     assert_eq!(v["title"], "T");
@@ -98,7 +107,14 @@ async fn create_session_with_body_and_defaults() {
 async fn get_session_found_and_missing() {
     let e = engine();
     let s = e.create_session("/proj", "", "T");
-    let (_st, body) = send(router(e.clone()), "GET", &format!("/session/{}", s.id), None, None).await;
+    let (_st, body) = send(
+        router(e.clone()),
+        "GET",
+        &format!("/session/{}", s.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(as_json(&body)["title"], "T");
 
     let (_st, body2) = send(router(e), "GET", "/session/missing", None, None).await;
@@ -110,18 +126,36 @@ async fn get_session_found_and_missing() {
 async fn rename_session_with_and_without_title() {
     let e = engine();
     let s = e.create_session("/proj", "", "T");
-    let (_st, body) =
-        send(router(e.clone()), "PATCH", &format!("/session/{}", s.id), None, Some(json!({ "title": "New" }))).await;
+    let (_st, body) = send(
+        router(e.clone()),
+        "PATCH",
+        &format!("/session/{}", s.id),
+        None,
+        Some(json!({ "title": "New" })),
+    )
+    .await;
     assert_eq!(as_json(&body)["title"], "New");
 
     // Body without title → unchanged, still returns the session.
-    let (_st, body2) =
-        send(router(e.clone()), "PATCH", &format!("/session/{}", s.id), None, Some(json!({}))).await;
+    let (_st, body2) = send(
+        router(e.clone()),
+        "PATCH",
+        &format!("/session/{}", s.id),
+        None,
+        Some(json!({})),
+    )
+    .await;
     assert_eq!(as_json(&body2)["title"], "New");
 
     // Missing session → bare id.
-    let (_st, body3) =
-        send(router(e), "PATCH", "/session/missing", None, Some(json!({ "title": "x" }))).await;
+    let (_st, body3) = send(
+        router(e),
+        "PATCH",
+        "/session/missing",
+        None,
+        Some(json!({ "title": "x" })),
+    )
+    .await;
     assert_eq!(as_json(&body3)["id"], "missing");
 }
 
@@ -129,7 +163,14 @@ async fn rename_session_with_and_without_title() {
 async fn delete_session_endpoint() {
     let e = engine();
     let s = e.create_session("/proj", "", "T");
-    let (st, body) = send(router(e.clone()), "DELETE", &format!("/session/{}", s.id), None, None).await;
+    let (st, body) = send(
+        router(e.clone()),
+        "DELETE",
+        &format!("/session/{}", s.id),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&body)["ok"], true);
     assert!(e.get_session(&s.id).is_none());
@@ -151,7 +192,11 @@ async fn session_status_lists_busy_only() {
 #[tokio::test]
 async fn noop_endpoints() {
     let e = engine();
-    for uri in ["/session/x/revert", "/session/x/unrevert", "/tui/select-session"] {
+    for uri in [
+        "/session/x/revert",
+        "/session/x/unrevert",
+        "/tui/select-session",
+    ] {
         let (st, body) = send(router(e.clone()), "POST", uri, None, Some(json!({}))).await;
         assert_eq!(st, StatusCode::OK);
         assert_eq!(as_json(&body)["ok"], true);

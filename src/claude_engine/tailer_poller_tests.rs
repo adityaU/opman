@@ -10,7 +10,13 @@ fn engine() -> Arc<ClaudeEngine> {
 }
 
 fn set_uuid(e: &Arc<ClaudeEngine>, sid: &str, uuid: &str) {
-    e.reg.lock().unwrap().sessions.get_mut(sid).unwrap().claude_session_id = Some(uuid.to_string());
+    e.reg
+        .lock()
+        .unwrap()
+        .sessions
+        .get_mut(sid)
+        .unwrap()
+        .claude_session_id = Some(uuid.to_string());
 }
 
 fn set_busy_flag(e: &Arc<ClaudeEngine>, sid: &str) {
@@ -40,7 +46,13 @@ async fn poller_marks_busy_and_records_seen() {
     let s = e.create_session("/d", "", "t");
     set_uuid(&e, &s.id, "u1");
     let (mut absent, mut seen, mut notified) = maps();
-    tick_status_poller(&e, &[agent("u1", Some("working"))], &mut absent, &mut seen, &mut notified);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("working"))],
+        &mut absent,
+        &mut seen,
+        &mut notified,
+    );
     assert!(e.get_session(&s.id).unwrap().busy);
     assert!(seen.contains("u1"));
     assert!(e.tailers.lock().unwrap().contains(&s.id)); // busy → ensure_tailer
@@ -78,7 +90,13 @@ async fn poller_abort_settling_forces_idle() {
     let (mut absent, mut sb, mut nf) = maps();
     absent.insert("u1".into(), 2);
     // Agent still working → raw_busy true → settling window active → forced idle.
-    tick_status_poller(&e, &[agent("u1", Some("working"))], &mut absent, &mut sb, &mut nf);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("working"))],
+        &mut absent,
+        &mut sb,
+        &mut nf,
+    );
     assert!(!e.get_session(&s.id).unwrap().busy);
     assert!(!absent.contains_key("u1")); // debounce cleared
 }
@@ -125,14 +143,26 @@ async fn poller_failed_state_notifies_once() {
     let (mut absent, mut sb, mut nf) = maps();
     sb.insert("u1".into()); // we saw this turn running earlier
     let mut rx = e.subscribe();
-    tick_status_poller(&e, &[agent("u1", Some("failed"))], &mut absent, &mut sb, &mut nf);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("failed"))],
+        &mut absent,
+        &mut sb,
+        &mut nf,
+    );
     assert!(nf.contains("u1"));
     let ev = rx.recv().await.unwrap();
     let v: serde_json::Value = serde_json::from_str(&ev.data).unwrap();
     assert_eq!(v["type"], "message.updated");
     assert_eq!(v["properties"]["info"]["level"], "error");
     // A second pass must not re-notify (idempotent) — no panic, still just tracked once.
-    tick_status_poller(&e, &[agent("u1", Some("failed"))], &mut absent, &mut sb, &mut nf);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("failed"))],
+        &mut absent,
+        &mut sb,
+        &mut nf,
+    );
     assert!(nf.contains("u1"));
 }
 
@@ -145,7 +175,13 @@ async fn poller_flushes_queue_on_idle_edge() {
     e.enqueue_prompt(&s.id, "resume me".into());
     let (mut absent, mut sb, mut nf) = maps();
     // Agent finished → busy→idle edge → the queued prompt is taken and re-dispatched.
-    tick_status_poller(&e, &[agent("u1", Some("done"))], &mut absent, &mut sb, &mut nf);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("done"))],
+        &mut absent,
+        &mut sb,
+        &mut nf,
+    );
     assert!(e.take_pending(&s.id).is_none()); // queue drained by the flush
     assert!(e.is_dispatching(&s.id)); // spawn_turn re-armed the dispatch guard
 }
@@ -155,9 +191,21 @@ async fn poller_ignores_subagent_rows() {
     let e = engine();
     let p = e.create_session("/d", "", "p");
     e.ensure_subagent_session(&p.id, "agent_x", "sub", "/d");
-    e.reg.lock().unwrap().sessions.get_mut("agent_x").unwrap().claude_session_id = Some("subu".into());
+    e.reg
+        .lock()
+        .unwrap()
+        .sessions
+        .get_mut("agent_x")
+        .unwrap()
+        .claude_session_id = Some("subu".into());
     let (mut a, mut sb, mut nf) = maps();
-    tick_status_poller(&e, &[agent("subu", Some("working"))], &mut a, &mut sb, &mut nf);
+    tick_status_poller(
+        &e,
+        &[agent("subu", Some("working"))],
+        &mut a,
+        &mut sb,
+        &mut nf,
+    );
     assert!(!e.get_session("agent_x").unwrap().busy); // filtered out of reconciliation
     assert!(!sb.contains("subu"));
 }

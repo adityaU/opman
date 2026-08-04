@@ -48,13 +48,23 @@ async fn command_list_cache_miss_introspects_and_caches() {
     assert!(e.cached_init(&dir).is_none(), "starts uncached");
 
     let Json(v) = command_list(State(e.clone()), headers(&dir)).await;
-    let names: Vec<String> =
-        v.as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<String> = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["name"].as_str().unwrap().to_string())
+        .collect();
     assert_eq!(names, vec!["compact", "clear"]);
     // The introspection result is now cached for the directory.
     let cached = e.cached_init(&dir).expect("cached after first call");
-    assert_eq!(cached.commands, vec!["compact".to_string(), "clear".to_string()]);
-    assert_eq!(cached.agents, vec!["Plan".to_string(), "Explore".to_string()]);
+    assert_eq!(
+        cached.commands,
+        vec!["compact".to_string(), "clear".to_string()]
+    );
+    assert_eq!(
+        cached.agents,
+        vec!["Plan".to_string(), "Explore".to_string()]
+    );
 
     match prev {
         Some(p) => std::env::set_var("OPMAN_CLAUDE_BIN", p),

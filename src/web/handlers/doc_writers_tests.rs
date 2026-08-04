@@ -36,7 +36,9 @@ fn write_xlsx_round_trips() {
 fn write_xlsx_wrong_variant_errors() {
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("out.xlsx");
-    let data = DocData::Document { html: "<p>x</p>".into() };
+    let data = DocData::Document {
+        html: "<p>x</p>".into(),
+    };
     let err = write_xlsx(&path, &data).unwrap_err();
     assert_eq!(err, "Expected spreadsheet data");
 }
@@ -70,7 +72,10 @@ fn write_tsv_wrong_variant_errors() {
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("out.tsv");
     let data = DocData::Document { html: "x".into() };
-    assert_eq!(write_tsv(&path, &data).unwrap_err(), "Expected spreadsheet data");
+    assert_eq!(
+        write_tsv(&path, &data).unwrap_err(),
+        "Expected spreadsheet data"
+    );
 }
 
 #[test]
@@ -96,7 +101,8 @@ fn write_tsv_bad_path_errors() {
 fn write_docx_round_trips_headings_and_runs() {
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("out.docx");
-    let html = "<h1>Title</h1><p>plain</p><p><b>bold</b> and <i>ital</i> and <u>u</u> and <s>st</s></p>";
+    let html =
+        "<h1>Title</h1><p>plain</p><p><b>bold</b> and <i>ital</i> and <u>u</u> and <s>st</s></p>";
     let data = DocData::Document { html: html.into() };
     write_docx(&path, &data).unwrap();
     assert!(path.exists());
@@ -129,14 +135,19 @@ fn write_docx_wrong_variant_errors() {
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("out.docx");
     let data = DocData::Spreadsheet { sheets: vec![] };
-    assert_eq!(write_docx(&path, &data).unwrap_err(), "Expected document data");
+    assert_eq!(
+        write_docx(&path, &data).unwrap_err(),
+        "Expected document data"
+    );
 }
 
 #[test]
 fn write_docx_bad_path_errors() {
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("nope").join("out.docx");
-    let data = DocData::Document { html: "<p>x</p>".into() };
+    let data = DocData::Document {
+        html: "<p>x</p>".into(),
+    };
     let err = write_docx(&path, &data).unwrap_err();
     assert!(err.starts_with("Save docx:"), "got {err}");
 }
@@ -146,7 +157,9 @@ fn write_docx_empty_html_produces_file() {
     // Empty/whitespace-only blocks are skipped in build_body_xml.
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("empty.docx");
-    let data = DocData::Document { html: "<p>   </p>".into() };
+    let data = DocData::Document {
+        html: "<p>   </p>".into(),
+    };
     write_docx(&path, &data).unwrap();
     assert!(path.exists());
 }

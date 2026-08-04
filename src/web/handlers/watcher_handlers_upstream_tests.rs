@@ -17,7 +17,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());
@@ -97,8 +99,8 @@ async fn get_watcher_messages_empty_when_no_user_messages() {
 #[tokio::test]
 async fn get_watcher_messages_non_json_body_is_500() {
     // Reachable upstream but a non-JSON body → the `resp.json()` parse errors.
-    let mock = axum::Router::new()
-        .route("/session/{id}/message", get(|| async { "not json at all" }));
+    let mock =
+        axum::Router::new().route("/session/{id}/message", get(|| async { "not json at all" }));
     let base = start_mock_upstream(mock).await;
     let (state, _tmp) = state_with_project().await;
 

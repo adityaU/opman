@@ -82,8 +82,14 @@ fn resolve_color_object_mode_and_dark_fallback() {
     defs.insert("l".into(), Value::String("#222222".into()));
 
     let v = json!({ "dark": "d", "light": "l" });
-    assert_eq!(resolve_color(&v, &defs, "dark"), Some("#111111".to_string()));
-    assert_eq!(resolve_color(&v, &defs, "light"), Some("#222222".to_string()));
+    assert_eq!(
+        resolve_color(&v, &defs, "dark"),
+        Some("#111111".to_string())
+    );
+    assert_eq!(
+        resolve_color(&v, &defs, "light"),
+        Some("#222222".to_string())
+    );
 
     // mode not present -> falls back to "dark"
     let v2 = json!({ "dark": "d" });
@@ -112,7 +118,10 @@ fn resolve_color_nested_object_variant() {
     let mut defs = serde_json::Map::new();
     defs.insert("deep".into(), Value::String("#0f0f0f".into()));
     let v = json!({ "dark": { "dark": "deep" } });
-    assert_eq!(resolve_color(&v, &defs, "dark"), Some("#0f0f0f".to_string()));
+    assert_eq!(
+        resolve_color(&v, &defs, "dark"),
+        Some("#0f0f0f".to_string())
+    );
 }
 
 #[test]

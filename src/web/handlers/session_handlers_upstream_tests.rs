@@ -9,13 +9,13 @@
 //! responds. This is where the bulk of previously-missed lines live.
 
 use super::*;
-use axum::http::StatusCode;
-use axum::routing::{delete, get, patch, post};
-use axum::Router;
 use crate::web::test_support::{
     scope_base_url, send_json, start_mock_upstream, test_router, test_server_state,
 };
 use crate::web::types::ServerState;
+use axum::http::StatusCode;
+use axum::routing::{delete, get, patch, post};
+use axum::Router;
 use serde_json::json;
 
 /// Redirect config/state writes to a throwaway temp dir (once per process) so
@@ -24,7 +24,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());
@@ -55,10 +57,8 @@ async fn drive(
     let (state, _tmp) = state_with_project().await;
     let base = start_mock_upstream(mock).await;
     let router = test_router(state);
-    let (status, bytes) =
-        scope_base_url(base, send_json(router, method, uri, body)).await;
-    let v: serde_json::Value =
-        serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+    let (status, bytes) = scope_base_url(base, send_json(router, method, uri, body)).await;
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     (status, v)
 }
 
@@ -157,7 +157,10 @@ async fn send_message_upstream_4xx_is_error() {
     let mock = Router::new().route(
         "/session/{id}/message",
         post(|| async {
-            (StatusCode::BAD_REQUEST, axum::Json(json!({ "error": "bad model" })))
+            (
+                StatusCode::BAD_REQUEST,
+                axum::Json(json!({ "error": "bad model" })),
+            )
         }),
     );
     let (status, _v) = drive(
@@ -174,10 +177,7 @@ async fn send_message_upstream_4xx_is_error() {
 
 #[tokio::test]
 async fn abort_session_success_returns_ok() {
-    let mock = Router::new().route(
-        "/session/{id}/abort",
-        post(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/session/{id}/abort", post(|| async { StatusCode::OK }));
     let (status, _v) = drive(mock, "POST", "/api/session/s1/abort", None).await;
     assert_eq!(status, StatusCode::OK);
 }
@@ -232,7 +232,10 @@ async fn queue_upstream_error_surfaces_5xx() {
     let mock = Router::new().route(
         "/session/{id}/queue",
         get(|| async {
-            (StatusCode::NOT_FOUND, axum::Json(json!({ "message": "no session" })))
+            (
+                StatusCode::NOT_FOUND,
+                axum::Json(json!({ "message": "no session" })),
+            )
         }),
     );
     let (status, _v) = drive(mock, "GET", "/api/session/s1/queue", None).await;
@@ -243,10 +246,7 @@ async fn queue_upstream_error_surfaces_5xx() {
 
 #[tokio::test]
 async fn delete_session_success_returns_ok() {
-    let mock = Router::new().route(
-        "/session/{id}",
-        delete(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/session/{id}", delete(|| async { StatusCode::OK }));
     let (status, _v) = drive(mock, "DELETE", "/api/session/s1", None).await;
     assert_eq!(status, StatusCode::OK);
 }
@@ -256,7 +256,10 @@ async fn delete_session_upstream_error_reads_body() {
     let mock = Router::new().route(
         "/session/{id}",
         delete(|| async {
-            (StatusCode::FORBIDDEN, axum::Json(json!({ "message": "denied" })))
+            (
+                StatusCode::FORBIDDEN,
+                axum::Json(json!({ "message": "denied" })),
+            )
         }),
     );
     let (status, _v) = drive(mock, "DELETE", "/api/session/s1", None).await;
@@ -287,7 +290,10 @@ async fn rename_session_upstream_error() {
     let mock = Router::new().route(
         "/session/{id}",
         patch(|| async {
-            (StatusCode::BAD_REQUEST, axum::Json(json!({ "message": "bad title" })))
+            (
+                StatusCode::BAD_REQUEST,
+                axum::Json(json!({ "message": "bad title" })),
+            )
         }),
     );
     let (status, _v) = drive(
@@ -325,7 +331,10 @@ async fn execute_command_upstream_error_preserves_status() {
     let mock = Router::new().route(
         "/session/{id}/command",
         post(|| async {
-            (StatusCode::NOT_FOUND, axum::Json(json!({ "error": "no such command" })))
+            (
+                StatusCode::NOT_FOUND,
+                axum::Json(json!({ "error": "no such command" })),
+            )
         }),
     );
     let (status, _v) = drive(
@@ -366,10 +375,7 @@ async fn get_commands_success() {
 
 #[tokio::test]
 async fn reply_permission_success_returns_ok() {
-    let mock = Router::new().route(
-        "/permission/{id}/reply",
-        post(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/permission/{id}/reply", post(|| async { StatusCode::OK }));
     let (status, _v) = drive(
         mock,
         "POST",
@@ -382,10 +388,7 @@ async fn reply_permission_success_returns_ok() {
 
 #[tokio::test]
 async fn reply_question_success_returns_ok() {
-    let mock = Router::new().route(
-        "/question/{id}/reply",
-        post(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/question/{id}/reply", post(|| async { StatusCode::OK }));
     let (status, _v) = drive(
         mock,
         "POST",
@@ -400,10 +403,7 @@ async fn reply_question_success_returns_ok() {
 
 #[tokio::test]
 async fn a2ui_callback_success_returns_ok_true() {
-    let mock = Router::new().route(
-        "/session/{id}/message",
-        post(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/session/{id}/message", post(|| async { StatusCode::OK }));
     let (status, v) = drive(
         mock,
         "POST",
@@ -417,10 +417,7 @@ async fn a2ui_callback_success_returns_ok_true() {
 
 #[tokio::test]
 async fn a2ui_callback_null_payload_success() {
-    let mock = Router::new().route(
-        "/session/{id}/message",
-        post(|| async { StatusCode::OK }),
-    );
+    let mock = Router::new().route("/session/{id}/message", post(|| async { StatusCode::OK }));
     let (status, v) = drive(
         mock,
         "POST",
@@ -437,7 +434,10 @@ async fn a2ui_callback_upstream_error() {
     let mock = Router::new().route(
         "/session/{id}/message",
         post(|| async {
-            (StatusCode::BAD_GATEWAY, axum::Json(json!({ "message": "down" })))
+            (
+                StatusCode::BAD_GATEWAY,
+                axum::Json(json!({ "message": "down" })),
+            )
         }),
     );
     let (status, _v) = drive(

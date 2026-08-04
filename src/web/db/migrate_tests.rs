@@ -123,7 +123,10 @@ fn run_migration_from_imports_all_records_and_renames_file() {
     run_migration_from(&db, path.clone());
 
     assert_eq!(db.list_memory().len(), 1);
-    assert!(matches!(db.load_autonomy_settings().mode, AutonomyMode::Continue));
+    assert!(matches!(
+        db.load_autonomy_settings().mode,
+        AutonomyMode::Continue
+    ));
     assert_eq!(db.list_routines().len(), 1);
     assert_eq!(db.list_routine_runs().len(), 1);
     assert_eq!(db.list_delegated_work().len(), 1);
@@ -195,7 +198,9 @@ fn schema_migrations_idempotent_on_fresh_db() {
     run_schema_migrations(&db);
     run_schema_migrations(&db);
     let conn = db.conn();
-    assert!(conn.prepare("SELECT archived FROM kanban_tasks LIMIT 0").is_ok());
+    assert!(conn
+        .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
+        .is_ok());
 }
 
 #[test]
@@ -278,7 +283,9 @@ fn migrate_adds_archived_column_to_old_kanban_tasks() {
     .unwrap();
 
     // Column is absent before migration.
-    assert!(conn.prepare("SELECT archived FROM kanban_tasks LIMIT 0").is_err());
+    assert!(conn
+        .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
+        .is_err());
 
     // Remaining tables (missions already has `state`, routines has `enabled`).
     super::super::schema::create_tables(&conn).unwrap();
@@ -287,5 +294,7 @@ fn migrate_adds_archived_column_to_old_kanban_tasks() {
     run_schema_migrations(&db);
 
     let conn = db.conn();
-    assert!(conn.prepare("SELECT archived FROM kanban_tasks LIMIT 0").is_ok());
+    assert!(conn
+        .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
+        .is_ok());
 }

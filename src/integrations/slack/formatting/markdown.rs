@@ -175,7 +175,9 @@ fn convert_inline_markdown(md: &str) -> String {
                 if next_ch == '\n' {
                     break;
                 }
-                heading.push(chars.next().unwrap());
+                if let Some(next) = chars.next() {
+                    heading.push(next);
+                }
             }
             // Render as bold in Slack.
             result.push('*');

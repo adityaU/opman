@@ -2,8 +2,8 @@
 //! programs on PATH/$SHELL, covering the `Ok(pty)` insert branches and the
 //! write/resize/get_output/kill arms against a present PTY.
 
-use super::*;
 use super::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
+use super::*;
 
 #[tokio::test]
 async fn shell_pty_full_lifecycle() {
@@ -60,8 +60,14 @@ async fn all_spawn_arms_insert_ptys() {
     let work = work_dir.path().to_path_buf();
     let h = start_web_pty_manager();
 
-    assert!(h.spawn_neovim("nv".into(), 24, 80, work.clone()).await.is_ok());
-    assert!(h.spawn_gitui("gt".into(), 24, 80, work.clone()).await.is_ok());
+    assert!(h
+        .spawn_neovim("nv".into(), 24, 80, work.clone())
+        .await
+        .is_ok());
+    assert!(h
+        .spawn_gitui("gt".into(), 24, 80, work.clone())
+        .await
+        .is_ok());
     assert!(h
         .spawn_opencode("oc".into(), 24, 80, work.clone(), Some("s1".into()))
         .await

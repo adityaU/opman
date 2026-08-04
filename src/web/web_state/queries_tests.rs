@@ -9,15 +9,20 @@ fn sess(id: &str, parent: &str, dir: &str, updated: u64) -> crate::app::SessionI
         title: format!("title-{id}"),
         parent_id: parent.into(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated,
+        },
     }
 }
 
 #[tokio::test]
 async fn get_state_reflects_indicator_sets() {
     let h = WebStateHandle::new_test_with_projects(vec![("a".into(), PathBuf::from("/a"))]);
-    h.add_and_activate_session(0, sess("s1", "", "/a", 10)).await;
-    h.add_and_activate_session(0, sess("s2", "", "/a", 20)).await;
+    h.add_and_activate_session(0, sess("s1", "", "/a", 10))
+        .await;
+    h.add_and_activate_session(0, sess("s2", "", "/a", 20))
+        .await;
     {
         let mut inner = h.inner.write().await;
         inner.busy_sessions.insert("s1".into());
@@ -48,7 +53,12 @@ async fn get_session_stats_hit_and_miss() {
         let mut inner = h.inner.write().await;
         inner.session_stats.insert(
             "s1".into(),
-            WebSessionStats { session_id: "s1".into(), cost: 1.5, input_tokens: 10, ..Default::default() },
+            WebSessionStats {
+                session_id: "s1".into(),
+                cost: 1.5,
+                input_tokens: 10,
+                ..Default::default()
+            },
         );
     }
     let s = h.get_session_stats("s1").await.unwrap();
@@ -62,8 +72,10 @@ async fn get_sessions_overview_sorts_and_counts_busy() {
         ("a".into(), PathBuf::from("/a")),
         ("b".into(), PathBuf::from("/b")),
     ]);
-    h.add_and_activate_session(0, sess("old", "", "/a", 5)).await;
-    h.add_and_activate_session(1, sess("new", "", "/b", 99)).await;
+    h.add_and_activate_session(0, sess("old", "", "/a", 5))
+        .await;
+    h.add_and_activate_session(1, sess("new", "", "/b", 99))
+        .await;
     h.inner.write().await.busy_sessions.insert("new".into());
     let ov = h.get_sessions_overview().await;
     assert_eq!(ov.total, 2);
@@ -78,8 +90,10 @@ async fn get_sessions_overview_sorts_and_counts_busy() {
 async fn get_sessions_tree_builds_parent_child_and_orphans() {
     let h = WebStateHandle::new_test_with_projects(vec![("a".into(), PathBuf::from("/a"))]);
     h.add_and_activate_session(0, sess("s1", "", "/a", 1)).await; // root
-    h.add_and_activate_session(0, sess("s2", "s1", "/a", 2)).await; // child of s1
-    h.add_and_activate_session(0, sess("s3", "ghost", "/a", 3)).await; // orphan → root
+    h.add_and_activate_session(0, sess("s2", "s1", "/a", 2))
+        .await; // child of s1
+    h.add_and_activate_session(0, sess("s3", "ghost", "/a", 3))
+        .await; // orphan → root
     h.inner.write().await.busy_sessions.insert("s2".into());
     let tree = h.get_sessions_tree().await;
     assert_eq!(tree.total, 3);

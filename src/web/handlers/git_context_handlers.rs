@@ -26,7 +26,9 @@ pub async fn git_context_summary(
         .output()
         .await
         .map_err(|e| WebError::Internal(format!("Failed to run git rev-parse: {e}")))?;
-    let branch = String::from_utf8_lossy(&branch_out.stdout).trim().to_string();
+    let branch = String::from_utf8_lossy(&branch_out.stdout)
+        .trim()
+        .to_string();
 
     // Recent commits (last 5)
     let log_out = tokio::process::Command::new("git")
@@ -258,8 +260,12 @@ async fn quick_repo_info(repo_path: &std::path::Path, rel_path: &str) -> Option<
         if idx == b'?' {
             untracked_count += 1;
         } else {
-            if idx != b' ' { staged_count += 1; }
-            if wt != b' ' { unstaged_count += 1; }
+            if idx != b' ' {
+                staged_count += 1;
+            }
+            if wt != b' ' {
+                unstaged_count += 1;
+            }
         }
     }
 
@@ -269,11 +275,7 @@ async fn quick_repo_info(repo_path: &std::path::Path, rel_path: &str) -> Option<
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "root".to_string())
     } else {
-        rel_path
-            .rsplit('/')
-            .next()
-            .unwrap_or(rel_path)
-            .to_string()
+        rel_path.rsplit('/').next().unwrap_or(rel_path).to_string()
     };
 
     Some(GitRepoEntry {

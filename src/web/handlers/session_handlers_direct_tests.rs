@@ -24,7 +24,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());
@@ -115,8 +117,13 @@ async fn clear_queue_upstream_error() {
 #[tokio::test]
 async fn remove_queue_item_upstream_error() {
     let (state, _tmp) = state_with_project().await;
-    let (status, _) =
-        send_json(test_router(state), "DELETE", "/api/session/s1/queue/3", None).await;
+    let (status, _) = send_json(
+        test_router(state),
+        "DELETE",
+        "/api/session/s1/queue/3",
+        None,
+    )
+    .await;
     assert!(status.is_server_error(), "got {status}");
 }
 
@@ -238,8 +245,13 @@ async fn get_pending_returns_empty_collections() {
 #[tokio::test]
 async fn mark_session_seen_returns_ok() {
     let state = test_server_state();
-    let (status, _) =
-        send_json(test_router(state), "POST", "/api/session/s1/mark_seen", None).await;
+    let (status, _) = send_json(
+        test_router(state),
+        "POST",
+        "/api/session/s1/mark_seen",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -250,7 +262,9 @@ fn msg(created: u64) -> serde_json::Value {
 }
 
 fn created_of(m: &serde_json::Value) -> u64 {
-    m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap()
+    m.pointer("/info/time/created")
+        .and_then(|v| v.as_u64())
+        .unwrap()
 }
 
 #[test]

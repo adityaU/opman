@@ -10,6 +10,22 @@ use super::*;
 
 use std::sync::Mutex;
 
+fn runner_registry() -> std::sync::Arc<crate::runner::RunnerRegistry> {
+    let mut runners = std::collections::HashMap::new();
+    runners.insert(
+        crate::runner::RunnerKind::Opencode,
+        std::sync::Arc::new(crate::runner::HttpRunner::new(
+            crate::runner::RunnerKind::Opencode,
+            "http://127.0.0.1:9",
+            reqwest::Client::new(),
+        )) as std::sync::Arc<dyn crate::runner::Runner>,
+    );
+    std::sync::Arc::new(crate::runner::RunnerRegistry::new(
+        crate::runner::RunnerKind::Opencode,
+        runners,
+    ))
+}
+
 /// Serializes env-mutating startup tests (env vars are process-global).
 #[allow(unused_imports)]
 use crate::claude_engine::claude_cli::ENV_LOCK as STARTUP_ENV_LOCK;
@@ -64,7 +80,7 @@ async fn start_web_server_binds_random_port() {
     };
     let registry = crate::mcp::new_nvim_socket_registry();
 
-    let (port, _handle) = start_web_server(config, registry).await;
+    let (port, _handle) = start_web_server(config, registry, runner_registry()).await;
     // Port 0 requested → the OS assigns a real, non-zero port.
     assert!(port > 0, "expected a real bound port, got {port}");
 
@@ -92,6 +108,6 @@ async fn start_web_server_explicit_port_none_defaults_to_zero() {
         backend: "opencode".to_string(),
     };
     let registry = crate::mcp::new_nvim_socket_registry();
-    let (port, _handle) = start_web_server(config, registry).await;
+    let (port, _handle) = start_web_server(config, registry, runner_registry()).await;
     assert!(port > 0);
 }

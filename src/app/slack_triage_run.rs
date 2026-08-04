@@ -85,13 +85,8 @@ impl App {
         triage_dir_str: &str,
         session_id: &str,
     ) -> Result<String, String> {
-        match crate::slack::fetch_all_session_messages(
-            client,
-            base_url,
-            triage_dir_str,
-            session_id,
-        )
-        .await
+        match crate::slack::fetch_all_session_messages(client, base_url, triage_dir_str, session_id)
+            .await
         {
             Ok(messages) => {
                 let ai_response = messages
@@ -120,8 +115,7 @@ impl App {
         let client = reqwest::Client::new();
         info!("Triage: sending prompt to detect project");
 
-        let session_id =
-            Self::fetch_triage_session_id(&client, &base_url, &triage_dir_str).await;
+        let session_id = Self::fetch_triage_session_id(&client, &base_url, &triage_dir_str).await;
 
         if session_id.is_empty() {
             let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
@@ -146,19 +140,18 @@ impl App {
         }
 
         match crate::slack::send_user_message(
-            &client, &base_url, &triage_dir_str, &session_id, &prompt,
+            &client,
+            &base_url,
+            &triage_dir_str,
+            &session_id,
+            &prompt,
         )
         .await
         {
             Ok(()) => {
                 info!("Triage prompt sent, polling for response...");
-                Self::poll_triage_idle(
-                    &base_url,
-                    &triage_dir_str,
-                    &session_id,
-                    "Triage session",
-                )
-                .await;
+                Self::poll_triage_idle(&base_url, &triage_dir_str, &session_id, "Triage session")
+                    .await;
 
                 match Self::fetch_triage_ai_response(
                     &client,

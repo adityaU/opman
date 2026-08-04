@@ -55,7 +55,10 @@ async fn get_range(
     if let Some(r) = range {
         b = b.header(header::RANGE, r);
     }
-    let resp = router.oneshot(b.body(Body::empty()).unwrap()).await.unwrap();
+    let resp = router
+        .oneshot(b.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
     let status = resp.status();
     let headers = resp.headers().clone();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
@@ -129,10 +132,11 @@ async fn launch_task_already_running_is_400() {
 async fn launch_task_board_missing_is_404() {
     let state = test_server_state();
     // Task exists but its board does not.
-    state
-        .web_state
-        .db_for_test()
-        .insert_kanban_task(&mk_task("tsk_nob", "ghost_board", "lane_todo"));
+    state.web_state.db_for_test().insert_kanban_task(&mk_task(
+        "tsk_nob",
+        "ghost_board",
+        "lane_todo",
+    ));
     let (status, _) = send_json(
         test_router(state),
         "POST",
@@ -347,10 +351,7 @@ async fn serve_asset_full_and_range() {
     let (status, headers, body) = get_range(router.clone(), &uri, Some("bytes=2-5")).await;
     assert_eq!(status, StatusCode::PARTIAL_CONTENT);
     assert_eq!(body, b"2345");
-    assert_eq!(
-        headers.get(header::CONTENT_RANGE).unwrap(),
-        "bytes 2-5/10"
-    );
+    assert_eq!(headers.get(header::CONTENT_RANGE).unwrap(), "bytes 2-5/10");
 
     // Invalid range falls through to the full 200 response.
     let (status, _, body) = get_range(router, &uri, Some("bytes=garbage")).await;

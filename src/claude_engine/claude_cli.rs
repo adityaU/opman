@@ -146,33 +146,21 @@ fn apply_opts(cmd: &mut Command, opts: &TurnOpts) {
     }
 }
 
-/// Detach a background-turn child into its own session (setsid), so the `claude`
-/// background service it starts does NOT inherit opman's process group/session and is
-/// therefore NOT torn down when opman is signalled or restarted. Without this, an opman
-/// restart kills every in-flight background agent (they flip to `state=failed` and their
-/// control socket disappears).
-fn detach_session(cmd: &mut Command) {
-    use std::os::unix::process::CommandExt;
-    // SAFETY: setsid() is async-signal-safe; we only call it in the forked child before
-    // exec. The child is never a process-group leader (fresh fork), so setsid succeeds.
-    unsafe {
-        cmd.pre_exec(|| {
-            if libc::setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
+/// Build a detached command without crossing an unsafe FFI boundary. The
+/// platform `setsid` utility creates a fresh process session before launching
+/// Claude, preserving the lifecycle isolation previously implemented with
+/// `pre_exec`.
+fn detached_command() -> Command {
+    Command::new("setsid")
 }
 
 /// Start a brand-new background agent. Returns `(short_id, session_uuid)`.
 pub fn bg_start(dir: &str, opts: &TurnOpts, prompt: &str) -> Result<(String, String)> {
-    let mut cmd = Command::new(claude_bin());
-    cmd.arg("--bg");
+    let mut cmd = detached_command();
+    cmd.arg(claude_bin()).arg("--bg");
     apply_opts(&mut cmd, opts);
     cmd.arg(prompt);
     cmd.current_dir(dir);
-    detach_session(&mut cmd);
     run_bg(cmd, dir)
 }
 
@@ -184,26 +172,33 @@ pub fn bg_resume(
     opts: &TurnOpts,
     prompt: &str,
 ) -> Result<(String, String)> {
-    let mut cmd = Command::new(claude_bin());
-    cmd.arg("--bg").arg("--resume").arg(resume_uuid);
+    let mut cmd = detached_command();
+    cmd.arg(claude_bin())
+        .arg("--bg")
+        .arg("--resume")
+        .arg(resume_uuid);
     apply_opts(&mut cmd, opts);
     cmd.arg(prompt);
     cmd.current_dir(dir);
-    detach_session(&mut cmd);
     run_bg(cmd, dir)
 }
 
 fn run_bg(mut cmd: Command, dir: &str) -> Result<(String, String)> {
-    let out = cmd
-        .output()
-        .with_context(|| format!("Failed to spawn `claude --bg` (is `{}` on PATH?)", claude_bin()))?;
+    let out = cmd.output().with_context(|| {
+        format!(
+            "Failed to spawn `claude --bg` (is `{}` on PATH?)",
+            claude_bin()
+        )
+    })?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     debug!(%stdout, %stderr, "claude --bg output");
 
     let short_id = parse_short_id(&stdout)
         .or_else(|| parse_short_id(&stderr))
-        .ok_or_else(|| anyhow!("could not parse background short id from claude output: {stdout}{stderr}"))?;
+        .ok_or_else(|| {
+            anyhow!("could not parse background short id from claude output: {stdout}{stderr}")
+        })?;
 
     // Resolve the full session UUID by matching the short id in `agents --json`.
     // The agent registers near-instantly, but retry briefly to avoid a race.
@@ -232,10 +227,11 @@ pub fn agents_json(dir: Option<&str>) -> Result<Vec<AgentInfo>> {
     if let Some(d) = dir {
         cmd.arg("--cwd").arg(d);
     }
-    let out = cmd.output().context("Failed to run `claude agents --json`")?;
+    let out = cmd
+        .output()
+        .context("Failed to run `claude agents --json`")?;
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let agents: Vec<AgentInfo> =
-        serde_json::from_str(stdout.trim()).unwrap_or_default();
+    let agents: Vec<AgentInfo> = serde_json::from_str(stdout.trim()).unwrap_or_default();
     Ok(agents)
 }
 
@@ -311,7 +307,11 @@ pub fn introspect(dir: &str) -> InitInfo {
                 let str_array = |key: &str| -> Vec<String> {
                     v.get(key)
                         .and_then(|s| s.as_array())
-                        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
                         .unwrap_or_default()
                 };
                 info.commands = str_array("slash_commands");
@@ -385,14 +385,20 @@ fn model_display_name(id: &str) -> String {
     };
     // Remove trailing date segment: "-YYYYMMDD" (8+ digits)
     let bare = match bare.rfind('-') {
-        Some(pos) if bare[pos + 1..].len() >= 8 && bare[pos + 1..].chars().all(|c| c.is_ascii_digit()) => {
+        Some(pos)
+            if bare[pos + 1..].len() >= 8
+                && bare[pos + 1..].chars().all(|c| c.is_ascii_digit()) =>
+        {
             &bare[..pos]
         }
         _ => bare,
     };
     // Split into segments: first alphabetic segment(s) = tier, rest = version numbers
     let segs: Vec<&str> = bare.split('-').collect();
-    let tier_end = segs.iter().position(|s| s.chars().all(|c| c.is_ascii_digit())).unwrap_or(segs.len());
+    let tier_end = segs
+        .iter()
+        .position(|s| s.chars().all(|c| c.is_ascii_digit()))
+        .unwrap_or(segs.len());
     let tier: String = segs[..tier_end]
         .iter()
         .map(|s| {
@@ -481,7 +487,12 @@ pub fn fetch_models_via_cli() -> Option<Vec<ModelInfo>> {
             .map(|id| {
                 let display_name = model_display_name(&id);
                 let (context_window, max_output) = model_limits(&id);
-                ModelInfo { id, display_name, context_window, max_output }
+                ModelInfo {
+                    id,
+                    display_name,
+                    context_window,
+                    max_output,
+                }
             })
             .collect(),
     )

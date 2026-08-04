@@ -58,7 +58,10 @@ fn control_command_set_agent() {
     let e = engine();
     let s = e.create_session("d", "", "A");
     assert!(handle_control_command(&e, &s.id, "/agent Researcher"));
-    assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Researcher"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().agent.as_deref(),
+        Some("Researcher")
+    );
     // "/agent " with empty name is consumed but sets nothing.
     assert!(handle_control_command(&e, &s.id, "/agent "));
 }
@@ -75,12 +78,21 @@ fn control_command_permission_modes() {
     let e = engine();
     let s = e.create_session("d", "", "A");
     assert!(handle_control_command(&e, &s.id, "/permission-mode plan"));
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("plan")
+    );
     assert!(handle_control_command(&e, &s.id, "/perm-mode acceptEdits"));
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("acceptEdits"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("acceptEdits")
+    );
     // Case-insensitive match against the canonical spelling.
     assert!(handle_control_command(&e, &s.id, "/perm BYPASSPERMISSIONS"));
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("bypassPermissions"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("bypassPermissions")
+    );
 }
 
 #[test]
@@ -123,7 +135,10 @@ async fn dispatch_turn_control_command_consumed() {
     let e = engine();
     let s = e.create_session("d", "", "A");
     dispatch_turn(e.clone(), s.id.clone(), "/permission-mode plan".to_string());
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("plan")
+    );
 }
 
 #[tokio::test]

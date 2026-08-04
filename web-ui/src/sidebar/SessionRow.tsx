@@ -123,6 +123,7 @@ export const SessionRow = React.memo(function SessionRow({
                   {session.title || session.id.slice(0, 12)}
                 </span>
                 <span className="sb-session-meta">
+                  {session.runner && <span className="sb-runner-badge">{session.runner}</span>}
                   {taskLink && <LaneTag link={taskLink} />}
                   {formatTime(session.time.updated)}
                   {subagentCount > 0 && (

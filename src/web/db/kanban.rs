@@ -40,8 +40,7 @@ impl Db {
     pub fn insert_kanban_board(&self, board: &Board, now: &str) {
         let conn = self.conn();
         let lanes = serde_json::to_string(&board.lanes).unwrap_or_else(|_| "[]".into());
-        let transitions =
-            serde_json::to_string(&board.transitions).unwrap_or_else(|_| "{}".into());
+        let transitions = serde_json::to_string(&board.transitions).unwrap_or_else(|_| "{}".into());
         let _ = conn.execute(
             "INSERT INTO kanban_boards (id, project_path, name, lanes, transitions, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
@@ -53,8 +52,7 @@ impl Db {
     pub fn update_kanban_board_config(&self, board: &Board, now: &str) -> bool {
         let conn = self.conn();
         let lanes = serde_json::to_string(&board.lanes).unwrap_or_else(|_| "[]".into());
-        let transitions =
-            serde_json::to_string(&board.transitions).unwrap_or_else(|_| "{}".into());
+        let transitions = serde_json::to_string(&board.transitions).unwrap_or_else(|_| "{}".into());
         conn.execute(
             "UPDATE kanban_boards SET name=?2, lanes=?3, transitions=?4, updated_at=?5 WHERE id=?1",
             params![board.id, board.name, lanes, transitions, now],
@@ -129,8 +127,18 @@ impl Db {
                  updated_at=?12, archived=?13
              WHERE id=?1",
             params![
-                t.id, t.lane_id, t.title, t.description, tags, t.priority, t.order_index,
-                t.session_id, t.launch_model, t.launch_agent, t.run_state, t.updated_at,
+                t.id,
+                t.lane_id,
+                t.title,
+                t.description,
+                tags,
+                t.priority,
+                t.order_index,
+                t.session_id,
+                t.launch_model,
+                t.launch_agent,
+                t.run_state,
+                t.updated_at,
                 t.archived as i64
             ],
         )
@@ -188,7 +196,15 @@ impl Db {
         let _ = conn.execute(
             "INSERT INTO kanban_notes (id, task_id, author, body, lane_from, lane_to, created_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7)",
-            params![n.id, task_id, n.author, n.body, n.lane_from, n.lane_to, n.created_at],
+            params![
+                n.id,
+                task_id,
+                n.author,
+                n.body,
+                n.lane_from,
+                n.lane_to,
+                n.created_at
+            ],
         );
     }
 

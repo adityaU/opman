@@ -37,7 +37,9 @@ impl ClaudePEngine {
             return None;
         }
         let s = self.sessions.lock().ok()?;
-        s.values().find(|x| x.claude_uuid.as_deref() == Some(uuid)).map(|x| x.id.clone())
+        s.values()
+            .find(|x| x.claude_uuid.as_deref() == Some(uuid))
+            .map(|x| x.id.clone())
     }
 
     /// The claude UUID to `--resume` for this session, if a prior turn established one.
@@ -61,7 +63,11 @@ impl ClaudePEngine {
             s.insert(entry.id.clone(), entry.clone());
         }
         self.save();
-        self.emit(dir, "session.created", json!({ "info": super::session_info(&entry) }));
+        self.emit(
+            dir,
+            "session.created",
+            json!({ "info": super::session_info(&entry) }),
+        );
         entry
     }
 
@@ -83,7 +89,11 @@ impl ClaudePEngine {
                 let now = now_ms();
                 let entry = Session {
                     id: agent_id.to_string(),
-                    title: if title.is_empty() { "Subagent".to_string() } else { title.to_string() },
+                    title: if title.is_empty() {
+                        "Subagent".to_string()
+                    } else {
+                        title.to_string()
+                    },
                     directory: dir.to_string(),
                     parent_id: parent_id.to_string(),
                     created: now,
@@ -96,7 +106,11 @@ impl ClaudePEngine {
             }
         };
         if let Some(entry) = created {
-            self.emit(dir, "session.created", json!({ "info": super::session_info(&entry) }));
+            self.emit(
+                dir,
+                "session.created",
+                json!({ "info": super::session_info(&entry) }),
+            );
         }
     }
 
@@ -106,10 +120,19 @@ impl ClaudePEngine {
 
     pub async fn delete_session(self: &Arc<Self>, id: &str) {
         super::process::abort(self.clone(), id).await;
-        let dir = self.sessions.lock().ok().and_then(|mut s| s.remove(id)).map(|e| e.directory);
+        let dir = self
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|mut s| s.remove(id))
+            .map(|e| e.directory);
         self.save();
         if let Some(dir) = dir {
-            self.emit(&dir, "session.deleted", json!({ "sessionID": id, "id": id }));
+            self.emit(
+                &dir,
+                "session.deleted",
+                json!({ "sessionID": id, "id": id }),
+            );
         }
     }
 
@@ -136,7 +159,11 @@ impl ClaudePEngine {
         }
         self.save();
         if let Some(e) = self.get_session(id) {
-            self.emit(&e.directory, "session.updated", json!({ "info": super::session_info(&e) }));
+            self.emit(
+                &e.directory,
+                "session.updated",
+                json!({ "info": super::session_info(&e) }),
+            );
         }
     }
 
@@ -169,7 +196,9 @@ impl ClaudePEngine {
 
     pub fn set_agent(&self, id: &str, agent: &str) {
         let resolved = self.resolve_agent(id, agent);
-        self.mutate(id, |e| e.agent = (!resolved.is_empty()).then(|| resolved.clone()));
+        self.mutate(id, |e| {
+            e.agent = (!resolved.is_empty()).then(|| resolved.clone())
+        });
         self.save();
     }
 
@@ -192,7 +221,9 @@ impl ClaudePEngine {
                 Ok(g) => g,
                 Err(_) => return false,
             };
-            let Some(e) = g.sessions_get_mut(id) else { return false };
+            let Some(e) = g.sessions_get_mut(id) else {
+                return false;
+            };
             let changed = e.busy != busy;
             e.busy = busy;
             (e.directory.clone(), changed)
@@ -201,7 +232,11 @@ impl ClaudePEngine {
             return false;
         }
         let status = if busy { "busy" } else { "idle" };
-        self.emit(&dir, "session.status", json!({ "sessionID": id, "status": { "type": status } }));
+        self.emit(
+            &dir,
+            "session.status",
+            json!({ "sessionID": id, "status": { "type": status } }),
+        );
         if !busy {
             self.emit(&dir, "session.idle", json!({ "sessionID": id }));
         }
@@ -259,7 +294,10 @@ impl ClaudePEngine {
         if agent.is_empty() {
             return String::new();
         }
-        let dir = self.get_session(id).map(|s| s.directory).unwrap_or_default();
+        let dir = self
+            .get_session(id)
+            .map(|s| s.directory)
+            .unwrap_or_default();
         let known = self.cached_init(&dir).map(|i| i.agents).unwrap_or_default();
         let find = |name: &str| known.iter().find(|a| a.eq_ignore_ascii_case(name)).cloned();
         if let Some(real) = find(agent) {
@@ -267,11 +305,19 @@ impl ClaudePEngine {
         }
         match agent.to_ascii_lowercase().as_str() {
             "plan" => find("Plan").unwrap_or_else(|| {
-                if known.is_empty() { "Plan".to_string() } else { String::new() }
+                if known.is_empty() {
+                    "Plan".to_string()
+                } else {
+                    String::new()
+                }
             }),
             "build" | "code-reviewer" | "reviewer" => String::new(),
             _ => {
-                if known.is_empty() { agent.to_string() } else { String::new() }
+                if known.is_empty() {
+                    agent.to_string()
+                } else {
+                    String::new()
+                }
             }
         }
     }

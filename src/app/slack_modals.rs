@@ -50,9 +50,7 @@ impl App {
         private_metadata: &str,
     ) {
         let selected_project = values
-            .pointer(
-                "/project_select_block/project_select_action/selected_option/value",
-            )
+            .pointer("/project_select_block/project_select_action/selected_option/value")
             .and_then(|v| v.as_str())
             .unwrap_or("__all__")
             .to_string();
@@ -103,9 +101,7 @@ impl App {
         trigger_id: &str,
     ) {
         let selected_project = values
-            .pointer(
-                "/project_select_block/project_select_action/selected_option/value",
-            )
+            .pointer("/project_select_block/project_select_action/selected_option/value")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -144,10 +140,7 @@ impl App {
                         &client,
                         &bot_token,
                         &ch,
-                        &format!(
-                            ":x: Failed to open session picker for *{}*: {}",
-                            proj, e
-                        ),
+                        &format!(":x: Failed to open session picker for *{}*: {}", proj, e),
                         None,
                     )
                     .await;

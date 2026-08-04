@@ -88,8 +88,11 @@ impl super::WebStateHandle {
         items.sort_by(|a, b| {
             let pa = priority_ord(&a.priority);
             let pb = priority_ord(&b.priority);
-            pa.cmp(&pb)
-                .then_with(|| b.created_at.partial_cmp(&a.created_at).unwrap_or(std::cmp::Ordering::Equal))
+            pa.cmp(&pb).then_with(|| {
+                b.created_at
+                    .partial_cmp(&a.created_at)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
         });
 
         items

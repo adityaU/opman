@@ -38,12 +38,10 @@ pub async fn update_session_todos(
 ) -> WebResult<impl IntoResponse> {
     let sid = session_id.clone();
     let todo_list = todos.clone();
-    tokio::task::spawn_blocking(move || {
-        crate::todo_db::save_todos_to_db(&sid, &todo_list)
-    })
-    .await
-    .map_err(|e| WebError::Internal(format!("join error: {e}")))?
-    .map_err(|e| WebError::Internal(format!("Failed to save todos: {e}")))?;
+    tokio::task::spawn_blocking(move || crate::todo_db::save_todos_to_db(&sid, &todo_list))
+        .await
+        .map_err(|e| WebError::Internal(format!("join error: {e}")))?
+        .map_err(|e| WebError::Internal(format!("Failed to save todos: {e}")))?;
     Ok(Json(todos))
 }
 
@@ -140,7 +138,11 @@ pub(super) fn max_context_from_providers(providers_val: &serde_json::Value) -> u
             }
         }
     }
-    if max_context > 0 { max_context } else { 200_000 }
+    if max_context > 0 {
+        max_context
+    } else {
+        200_000
+    }
 }
 
 /// Build the context-window usage breakdown from raw session stats and a
@@ -169,7 +171,11 @@ pub(super) fn build_context_window_response(
             name: "input".to_string(),
             label: "Input Tokens".to_string(),
             tokens: stats.input_tokens,
-            pct: if context_limit > 0 { (stats.input_tokens as f64 / context_limit as f64) * 100.0 } else { 0.0 },
+            pct: if context_limit > 0 {
+                (stats.input_tokens as f64 / context_limit as f64) * 100.0
+            } else {
+                0.0
+            },
             color: "blue".to_string(),
             items: vec![],
         });
@@ -180,7 +186,11 @@ pub(super) fn build_context_window_response(
             name: "output".to_string(),
             label: "Output Tokens".to_string(),
             tokens: stats.output_tokens,
-            pct: if context_limit > 0 { (stats.output_tokens as f64 / context_limit as f64) * 100.0 } else { 0.0 },
+            pct: if context_limit > 0 {
+                (stats.output_tokens as f64 / context_limit as f64) * 100.0
+            } else {
+                0.0
+            },
             color: "green".to_string(),
             items: vec![],
         });
@@ -191,7 +201,11 @@ pub(super) fn build_context_window_response(
             name: "reasoning".to_string(),
             label: "Reasoning Tokens".to_string(),
             tokens: stats.reasoning_tokens,
-            pct: if context_limit > 0 { (stats.reasoning_tokens as f64 / context_limit as f64) * 100.0 } else { 0.0 },
+            pct: if context_limit > 0 {
+                (stats.reasoning_tokens as f64 / context_limit as f64) * 100.0
+            } else {
+                0.0
+            },
             color: "purple".to_string(),
             items: vec![],
         });
@@ -216,7 +230,11 @@ pub(super) fn build_context_window_response(
             name: "cache".to_string(),
             label: "Cache".to_string(),
             tokens: cache_total,
-            pct: if context_limit > 0 { (cache_total as f64 / context_limit as f64) * 100.0 } else { 0.0 },
+            pct: if context_limit > 0 {
+                (cache_total as f64 / context_limit as f64) * 100.0
+            } else {
+                0.0
+            },
             color: "gray".to_string(),
             items,
         });

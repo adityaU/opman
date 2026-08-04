@@ -4,7 +4,9 @@ fn engine() -> Arc<ClaudePEngine> {
     Arc::new(ClaudePEngine::new(None, (false, false, false, false)))
 }
 
-fn drain(rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>) -> Vec<String> {
+fn drain(
+    rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>,
+) -> Vec<String> {
     let mut out = vec![];
     while let Ok(ev) = rx.try_recv() {
         out.push(ev.data);
@@ -28,10 +30,22 @@ async fn run_reader(engine: Arc<ClaudePEngine>, sid: &str, script: &str, attempt
 
 #[test]
 fn message_hash_stable_and_sensitive() {
-    let a = jsonl::MsgOut { info: json!({ "id": "m1" }), parts: vec![json!({ "x": 1 })] };
-    let b = jsonl::MsgOut { info: json!({ "id": "m1" }), parts: vec![json!({ "x": 1 })] };
-    let c = jsonl::MsgOut { info: json!({ "id": "m1" }), parts: vec![json!({ "x": 2 })] };
-    let d = jsonl::MsgOut { info: json!({ "id": "m2" }), parts: vec![json!({ "x": 1 })] };
+    let a = jsonl::MsgOut {
+        info: json!({ "id": "m1" }),
+        parts: vec![json!({ "x": 1 })],
+    };
+    let b = jsonl::MsgOut {
+        info: json!({ "id": "m1" }),
+        parts: vec![json!({ "x": 1 })],
+    };
+    let c = jsonl::MsgOut {
+        info: json!({ "id": "m1" }),
+        parts: vec![json!({ "x": 2 })],
+    };
+    let d = jsonl::MsgOut {
+        info: json!({ "id": "m2" }),
+        parts: vec![json!({ "x": 1 })],
+    };
     assert_eq!(message_hash(&a), message_hash(&b));
     assert_ne!(message_hash(&a), message_hash(&c));
     assert_ne!(message_hash(&a), message_hash(&d));
@@ -82,7 +96,11 @@ async fn abort_kills_live_process() {
         .spawn()
         .unwrap();
     let stdin = child.stdin.take().unwrap();
-    e.procs.0.lock().await.insert(s.id.clone(), Proc { stdin, child });
+    e.procs
+        .0
+        .lock()
+        .await
+        .insert(s.id.clone(), Proc { stdin, child });
     abort(e.clone(), &s.id).await;
     assert!(e.procs.0.lock().await.is_empty());
     assert!(!e.get_session(&s.id).unwrap().busy);
@@ -98,7 +116,10 @@ async fn reader_full_lifecycle_clean_result() {
     );
     run_reader(e.clone(), &s.id, &script, false).await;
     // init recorded the claude uuid; the turn ended cleanly (not busy).
-    assert_eq!(e.get_session(&s.id).unwrap().claude_uuid.as_deref(), Some(uuid.as_str()));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().claude_uuid.as_deref(),
+        Some(uuid.as_str())
+    );
     assert!(!e.get_session(&s.id).unwrap().busy);
     assert!(e.procs.0.lock().await.is_empty());
 }
@@ -114,7 +135,10 @@ async fn reader_result_is_error_surfaces_detail() {
     );
     run_reader(e.clone(), &s.id, &script, false).await;
     let events = drain(&mut rx);
-    assert!(events.iter().any(|d| d.contains("boom detail")), "error detail surfaced");
+    assert!(
+        events.iter().any(|d| d.contains("boom detail")),
+        "error detail surfaced"
+    );
 }
 
 #[tokio::test]
@@ -175,7 +199,9 @@ async fn emit_system_variants_and_missing_session() {
     emit_system(&e, &s.id, "info", "i");
     let ev2 = drain(&mut rx2);
     assert!(ev2.iter().any(|d| d.contains("\"variant\":\"warning\"")));
-    assert!(ev2.iter().any(|d| d.contains("\"variant\":\"notification\"")));
+    assert!(ev2
+        .iter()
+        .any(|d| d.contains("\"variant\":\"notification\"")));
 }
 
 #[tokio::test]

@@ -15,7 +15,10 @@ fn hook_allow_deny_shapes() {
     assert_eq!(a["hookSpecificOutput"]["permissionDecision"], "allow");
     let d = hook_deny("because");
     assert_eq!(d["hookSpecificOutput"]["permissionDecision"], "deny");
-    assert_eq!(d["hookSpecificOutput"]["permissionDecisionReason"], "because");
+    assert_eq!(
+        d["hookSpecificOutput"]["permissionDecisionReason"],
+        "because"
+    );
 }
 
 #[test]
@@ -28,7 +31,8 @@ fn rand_request_id_shape() {
 
 #[test]
 fn permission_patterns_collects_paths_and_command() {
-    let input = json!({ "file_path": "/a", "path": "/b", "notebook_path": "/c", "command": "ls -l" });
+    let input =
+        json!({ "file_path": "/a", "path": "/b", "notebook_path": "/c", "command": "ls -l" });
     let p = permission_patterns(&input);
     assert_eq!(p, vec!["/a", "/b", "/c", "ls -l"]);
     assert!(permission_patterns(&json!({})).is_empty());
@@ -120,7 +124,10 @@ async fn internal_ask_plan_mode_denies_edit_tool() {
     let body = json!({ "session_id": "u3", "cwd": "d", "tool_name": "Edit", "tool_input": {} });
     let Json(resp) = internal_ask(State(e), Json(body)).await;
     assert_eq!(resp["hookSpecificOutput"]["permissionDecision"], "deny");
-    assert!(resp["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap().contains("Plan mode"));
+    assert!(resp["hookSpecificOutput"]["permissionDecisionReason"]
+        .as_str()
+        .unwrap()
+        .contains("Plan mode"));
 }
 
 #[tokio::test]
@@ -141,12 +148,17 @@ async fn internal_ask_always_allowed_tool() {
 async fn permission_reply_defaults_and_resolves() {
     let e = engine();
     // Unknown id still returns ok.
-    let Json(r) = permission_reply(State(e.clone()), Path("nope".to_string()), Json(json!({}))).await;
+    let Json(r) =
+        permission_reply(State(e.clone()), Path("nope".to_string()), Json(json!({}))).await;
     assert_eq!(r["ok"], true);
     // Registered id gets resolved.
     let _rx = e.register_pending("p1");
-    let Json(r2) =
-        permission_reply(State(e.clone()), Path("p1".to_string()), Json(json!({ "reply": "always" }))).await;
+    let Json(r2) = permission_reply(
+        State(e.clone()),
+        Path("p1".to_string()),
+        Json(json!({ "reply": "always" })),
+    )
+    .await;
     assert_eq!(r2["ok"], true);
 }
 
@@ -159,8 +171,12 @@ async fn question_reply_parses_answers() {
     assert_eq!(r["ok"], true);
     // Malformed answers → default empty, still ok.
     let _rx2 = e.register_pending("q2");
-    let Json(r2) =
-        question_reply(State(e.clone()), Path("q2".to_string()), Json(json!({ "answers": "bad" }))).await;
+    let Json(r2) = question_reply(
+        State(e.clone()),
+        Path("q2".to_string()),
+        Json(json!({ "answers": "bad" })),
+    )
+    .await;
     assert_eq!(r2["ok"], true);
 }
 

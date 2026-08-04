@@ -38,13 +38,22 @@ impl ClaudePEngine {
         let env = json!({ "OPENCODE_SESSION_ID": session_id });
         let mut servers = serde_json::Map::new();
         if terminal {
-            servers.insert("terminal".into(), json!({ "command": exe, "args": ["mcp", dir], "env": env }));
+            servers.insert(
+                "terminal".into(),
+                json!({ "command": exe, "args": ["mcp", dir], "env": env }),
+            );
         }
         if neovim {
-            servers.insert("neovim".into(), json!({ "command": exe, "args": ["mcp-nvim", dir], "env": env }));
+            servers.insert(
+                "neovim".into(),
+                json!({ "command": exe, "args": ["mcp-nvim", dir], "env": env }),
+            );
         }
         if time {
-            servers.insert("time".into(), json!({ "command": exe, "args": ["mcp-time"] }));
+            servers.insert(
+                "time".into(),
+                json!({ "command": exe, "args": ["mcp-time"] }),
+            );
         }
         if ui {
             servers.insert("ui".into(), json!({ "command": exe, "args": ["mcp-ui"] }));
@@ -56,7 +65,10 @@ impl ClaudePEngine {
     pub(super) fn turn_opts(&self, session_id: &str, dir: &str) -> super::process::TurnOpts {
         let s = self.get_session(session_id);
         super::process::TurnOpts {
-            model: s.as_ref().and_then(|s| s.model.clone()).or_else(default_model),
+            model: s
+                .as_ref()
+                .and_then(|s| s.model.clone())
+                .or_else(default_model),
             agent: s
                 .as_ref()
                 .and_then(|s| s.agent.clone())

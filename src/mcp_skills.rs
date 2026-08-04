@@ -1,12 +1,12 @@
+use crate::web::types::ServerState;
+use anyhow::Result;
+use axum::{extract::State, http::StatusCode, Json};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use axum::{extract::State, http::StatusCode, Json};
-use anyhow::Result;
-use crate::web::types::ServerState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Skill {
@@ -87,10 +87,22 @@ fn parse_skill(path: &PathBuf) -> Result<Skill> {
         return Err(anyhow::anyhow!("Invalid SKILL.md format"));
     }
     let frontmatter: Value = serde_yaml::from_str(parts[1])?;
-    let name = frontmatter.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let description = frontmatter.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let name = frontmatter
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let description = frontmatter
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let content = parts[2..].join("---").trim().to_string();
-    Ok(Skill { name, description, content })
+    Ok(Skill {
+        name,
+        description,
+        content,
+    })
 }
 
 pub fn spawn_mcp_skills_server(reload_rx: broadcast::Receiver<()>, registry: SkillsRegistry) {
@@ -166,7 +178,10 @@ pub async fn mcp_handler(
         _ => McpResponse {
             jsonrpc: "2.0".to_string(),
             result: None,
-            error: Some(McpError { code: -32601, message: "Method not found".to_string() }),
+            error: Some(McpError {
+                code: -32601,
+                message: "Method not found".to_string(),
+            }),
             id: req.id,
         },
     };
@@ -177,11 +192,18 @@ async fn dispatch_tool(registry: &SkillsRegistry, tool_name: &str, args: &Value)
     match tool_name {
         "list_skills" => {
             let skills = registry.read().await;
-            let list: Vec<Value> = skills.values().map(|s| serde_json::json!({
-                "name": s.name,
-                "description": s.description
-            })).collect();
-            serde_json::json!([{ "type": "text", "text": serde_json::to_string(&list).unwrap() }])
+            let list: Vec<Value> = skills
+                .values()
+                .map(|s| {
+                    serde_json::json!({
+                        "name": s.name,
+                        "description": s.description
+                    })
+                })
+                .collect();
+            let text = serde_json::to_string(&list)
+                .unwrap_or_else(|error| format!("Failed to encode skill list: {error}"));
+            serde_json::json!([{ "type": "text", "text": text }])
         }
         "load_skill" => {
             if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
@@ -195,7 +217,9 @@ async fn dispatch_tool(registry: &SkillsRegistry, tool_name: &str, args: &Value)
                 serde_json::json!([{ "type": "text", "text": "Missing 'name' argument" }])
             }
         }
-        _ => serde_json::json!([{ "type": "text", "text": format!("Unknown tool: {}", tool_name) }]),
+        _ => {
+            serde_json::json!([{ "type": "text", "text": format!("Unknown tool: {}", tool_name) }])
+        }
     }
 }
 #[cfg(test)]

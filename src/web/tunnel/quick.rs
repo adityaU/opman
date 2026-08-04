@@ -20,10 +20,11 @@ fn build_quick_args(local_port: u16, opts: &TunnelOptions) -> Vec<String> {
 }
 
 /// `cloudflared tunnel --url http://localhost:<port>`
-pub(crate) async fn spawn_quick(local_port: u16, opts: &TunnelOptions) -> anyhow::Result<(Child, Option<PathBuf>)> {
-    info!(
-        "Starting quick Cloudflare tunnel → http://localhost:{local_port}"
-    );
+pub(crate) async fn spawn_quick(
+    local_port: u16,
+    opts: &TunnelOptions,
+) -> anyhow::Result<(Child, Option<PathBuf>)> {
+    info!("Starting quick Cloudflare tunnel → http://localhost:{local_port}");
 
     let args = build_quick_args(local_port, opts);
 

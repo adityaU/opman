@@ -166,10 +166,13 @@ fn dispatch_tool(
             ..Default::default()
         },
         // ── Dev Flow + Editing + LSP Refactoring ─────────────────
-        "neovim_eval" | "neovim_grep" | "neovim_edit_and_save" | "neovim_undo"
-        | "neovim_rename" | "neovim_format" | "neovim_signature" => {
-            dispatch_edit_devflow_refactor(tool_name, arguments)?
-        }
+        "neovim_eval"
+        | "neovim_grep"
+        | "neovim_edit_and_save"
+        | "neovim_undo"
+        | "neovim_rename"
+        | "neovim_format"
+        | "neovim_signature" => dispatch_edit_devflow_refactor(tool_name, arguments)?,
         _ => return Ok(None),
     };
     Ok(Some(req))

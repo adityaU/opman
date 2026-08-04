@@ -7,8 +7,10 @@ use std::path::PathBuf;
 
 /// Seed a default board directly in the DB and return its id.
 fn seed_board(h: &WebStateHandle, board_id: &str, project: &str) {
-    h.db_for_test()
-        .insert_kanban_board(&default_board(board_id.into(), project.into()), "2026-01-01T00:00:00Z");
+    h.db_for_test().insert_kanban_board(
+        &default_board(board_id.into(), project.into()),
+        "2026-01-01T00:00:00Z",
+    );
 }
 
 async fn make_task(h: &WebStateHandle, board_id: &str, lane: &str) -> Task {
@@ -26,7 +28,10 @@ async fn make_task(h: &WebStateHandle, board_id: &str, lane: &str) -> Task {
 
 #[tokio::test]
 async fn get_kanban_board_creates_then_reuses() {
-    let h = WebStateHandle::new_test_with_projects(vec![("P".into(), PathBuf::from("/tmp/opman_kb_proj"))]);
+    let h = WebStateHandle::new_test_with_projects(vec![(
+        "P".into(),
+        PathBuf::from("/tmp/opman_kb_proj"),
+    )]);
     let first = h.get_kanban_board(Some(0)).await.expect("board");
     assert_eq!(first.board.lanes.len(), 7);
     assert!(first.tasks.is_empty());
@@ -45,7 +50,10 @@ async fn get_kanban_board_none_without_projects() {
 
 #[tokio::test]
 async fn active_memory_scoped_to_board_project() {
-    let h = WebStateHandle::new_test_with_projects(vec![("P".into(), PathBuf::from("/tmp/opman_kb_mem"))]);
+    let h = WebStateHandle::new_test_with_projects(vec![(
+        "P".into(),
+        PathBuf::from("/tmp/opman_kb_mem"),
+    )]);
     // Resolve the canonical project path the board uses.
     let board = h.get_kanban_board(Some(0)).await.unwrap().board;
     // Global memory always applies. Seed through the state mutator so it lands
@@ -117,32 +125,56 @@ async fn update_task_not_found_and_forbidden_and_ok() {
 
     // Not found.
     assert!(matches!(
-        h.update_kanban_task("ghost", UpdateTaskRequest {
-            title: None, description: None, tags: None, priority: None,
-            lane_id: None, order_index: None, archived: None,
-        }).await,
+        h.update_kanban_task(
+            "ghost",
+            UpdateTaskRequest {
+                title: None,
+                description: None,
+                tags: None,
+                priority: None,
+                lane_id: None,
+                order_index: None,
+                archived: None,
+            }
+        )
+        .await,
         Err(KanbanError::NotFound)
     ));
 
     // Illegal transition todo → done.
     assert!(matches!(
-        h.update_kanban_task(&t.id, UpdateTaskRequest {
-            title: None, description: None, tags: None, priority: None,
-            lane_id: Some("lane_done".into()), order_index: None, archived: None,
-        }).await,
+        h.update_kanban_task(
+            &t.id,
+            UpdateTaskRequest {
+                title: None,
+                description: None,
+                tags: None,
+                priority: None,
+                lane_id: Some("lane_done".into()),
+                order_index: None,
+                archived: None,
+            }
+        )
+        .await,
         Err(KanbanError::Forbidden(_))
     ));
 
     // Legal move + full field edits.
-    let updated = h.update_kanban_task(&t.id, UpdateTaskRequest {
-        title: Some("New".into()),
-        description: Some("newdesc".into()),
-        tags: Some(vec!["a".into(), "b".into()]),
-        priority: Some("high".into()),
-        lane_id: Some("lane_planning".into()),
-        order_index: Some(42.0),
-        archived: Some(true),
-    }).await.unwrap();
+    let updated = h
+        .update_kanban_task(
+            &t.id,
+            UpdateTaskRequest {
+                title: Some("New".into()),
+                description: Some("newdesc".into()),
+                tags: Some(vec!["a".into(), "b".into()]),
+                priority: Some("high".into()),
+                lane_id: Some("lane_planning".into()),
+                order_index: Some(42.0),
+                archived: Some(true),
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(updated.title, "New");
     assert_eq!(updated.description, "newdesc");
     assert_eq!(updated.tags, vec!["a", "b"]);
@@ -158,10 +190,21 @@ async fn update_task_same_lane_move_allowed() {
     seed_board(&h, "brd", "/p");
     let t = make_task(&h, "brd", "lane_todo").await;
     // Moving to the same lane is always allowed (reorder).
-    let updated = h.update_kanban_task(&t.id, UpdateTaskRequest {
-        title: None, description: None, tags: None, priority: None,
-        lane_id: Some("lane_todo".into()), order_index: Some(9.0), archived: None,
-    }).await.unwrap();
+    let updated = h
+        .update_kanban_task(
+            &t.id,
+            UpdateTaskRequest {
+                title: None,
+                description: None,
+                tags: None,
+                priority: None,
+                lane_id: Some("lane_todo".into()),
+                order_index: Some(9.0),
+                archived: None,
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(updated.lane_id, "lane_todo");
 }
 
@@ -182,10 +225,18 @@ async fn task_detail_none_and_with_notes_attachments() {
     assert!(h.get_kanban_task_detail("ghost").await.is_none());
 
     let t = make_task(&h, "brd", "lane_todo").await;
-    h.kanban_internal_note(&t.id, "progress", None, None).await.unwrap();
-    let att = h.add_kanban_attachment(&t.id, "pic.png", "image/png", 123).await.unwrap();
+    h.kanban_internal_note(&t.id, "progress", None, None)
+        .await
+        .unwrap();
+    let att = h
+        .add_kanban_attachment(&t.id, "pic.png", "image/png", 123)
+        .await
+        .unwrap();
     assert_eq!(att.kind, "image");
-    assert_eq!(att.url, "/api/kanban/asset/".to_string() + &t.id + "/pic.png");
+    assert_eq!(
+        att.url,
+        "/api/kanban/asset/".to_string() + &t.id + "/pic.png"
+    );
 
     let detail = h.get_kanban_task_detail(&t.id).await.unwrap();
     assert_eq!(detail.notes.len(), 1);
@@ -196,23 +247,32 @@ async fn task_detail_none_and_with_notes_attachments() {
 #[tokio::test]
 async fn add_attachment_missing_task_is_none() {
     let h = WebStateHandle::new_test();
-    assert!(h.add_kanban_attachment("ghost", "f.bin", "application/octet-stream", 1).await.is_none());
+    assert!(h
+        .add_kanban_attachment("ghost", "f.bin", "application/octet-stream", 1)
+        .await
+        .is_none());
 }
 
 #[tokio::test]
 async fn set_task_launch_missing_and_ok() {
     let h = WebStateHandle::new_test();
     seed_board(&h, "brd", "/p");
-    assert!(h.set_kanban_task_launch("ghost", None, None, None, "running").await.is_none());
+    assert!(h
+        .set_kanban_task_launch("ghost", None, None, None, "running")
+        .await
+        .is_none());
 
     let t = make_task(&h, "brd", "lane_todo").await;
-    let launched = h.set_kanban_task_launch(
-        &t.id,
-        Some("sess-1".into()),
-        Some("claude".into()),
-        Some("build".into()),
-        "running",
-    ).await.unwrap();
+    let launched = h
+        .set_kanban_task_launch(
+            &t.id,
+            Some("sess-1".into()),
+            Some("claude".into()),
+            Some("build".into()),
+            "running",
+        )
+        .await
+        .unwrap();
     assert_eq!(launched.session_id.as_deref(), Some("sess-1"));
     assert_eq!(launched.launch_model.as_deref(), Some("claude"));
     assert_eq!(launched.launch_agent.as_deref(), Some("build"));

@@ -78,10 +78,20 @@ fn locate_subagent_jsonl_finds_nested_file_and_skips_non_dirs() {
     std::fs::create_dir_all(&base).unwrap();
     std::fs::write(base.join("agent-aid99.jsonl"), b"{}").unwrap();
     // A loose file directly under projects/ exercises the `!pdir.is_dir()` skip.
-    std::fs::write(home.path().join(".claude").join("projects").join("loosefile"), b"x").unwrap();
+    std::fs::write(
+        home.path()
+            .join(".claude")
+            .join("projects")
+            .join("loosefile"),
+        b"x",
+    )
+    .unwrap();
 
     let (found, missing) = with_home(home.path(), || {
-        (locate_subagent_jsonl("aid99"), locate_subagent_jsonl("aid-absent"))
+        (
+            locate_subagent_jsonl("aid99"),
+            locate_subagent_jsonl("aid-absent"),
+        )
     });
     assert!(found.as_ref().unwrap().ends_with("agent-aid99.jsonl"));
     assert!(missing.is_none());
@@ -97,7 +107,10 @@ fn introspect_parses_init_event() {
         "echo '{\"type\":\"system\",\"subtype\":\"init\",\"slash_commands\":[\"compact\",\"clear\"],\"agents\":[\"claude\",\"Plan\"]}'",
     ));
     let info = with_bin(&bin, || introspect("/tmp"));
-    assert_eq!(info.commands, vec!["compact".to_string(), "clear".to_string()]);
+    assert_eq!(
+        info.commands,
+        vec!["compact".to_string(), "clear".to_string()]
+    );
     assert_eq!(info.agents, vec!["claude".to_string(), "Plan".to_string()]);
 }
 

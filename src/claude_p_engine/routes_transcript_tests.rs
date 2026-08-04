@@ -15,7 +15,11 @@ fn engine() -> Arc<ClaudePEngine> {
 }
 
 /// Redirect HOME to a fresh temp dir; returns (guard, prev_home, tmpdir).
-fn redirect_home() -> (std::sync::MutexGuard<'static, ()>, Option<String>, tempfile::TempDir) {
+fn redirect_home() -> (
+    std::sync::MutexGuard<'static, ()>,
+    Option<String>,
+    tempfile::TempDir,
+) {
     let g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let prev = std::env::var("HOME").ok();
     let tmp = tempfile::tempdir().unwrap();

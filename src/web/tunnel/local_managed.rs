@@ -30,7 +30,10 @@ pub(crate) async fn spawn_local_managed(
     if !cert_path.exists() {
         ensure_certificate(&cert_path).await?;
     } else {
-        info!("Existing Cloudflare certificate found at {}", cert_path.display());
+        info!(
+            "Existing Cloudflare certificate found at {}",
+            cert_path.display()
+        );
     }
 
     // Step 2: Ensure tunnel exists
@@ -163,7 +166,9 @@ async fn ensure_certificate(cert_path: &Path) -> anyhow::Result<()> {
                 println!();
                 if let Err(e) = open::that(&url) {
                     debug!("Failed to auto-open browser: {e}");
-                    println!("  (Could not open browser automatically — please open the URL manually)");
+                    println!(
+                        "  (Could not open browser automatically — please open the URL manually)"
+                    );
                 }
             }
         }
@@ -193,7 +198,9 @@ async fn ensure_certificate(cert_path: &Path) -> anyhow::Result<()> {
                     // Try to open in browser
                     if let Err(e) = open::that(&url) {
                         debug!("Failed to auto-open browser: {e}");
-                        println!("  (Could not open browser automatically — please copy the URL above)");
+                        println!(
+                            "  (Could not open browser automatically — please copy the URL above)"
+                        );
                     } else {
                         println!("  (Opening in your default browser...)");
                     }
@@ -285,5 +292,3 @@ mod local_managed_spawn_tests;
 #[cfg(test)]
 #[path = "local_managed_login_url_tests.rs"]
 mod local_managed_login_url_tests;
-
-

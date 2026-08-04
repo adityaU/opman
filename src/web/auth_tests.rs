@@ -96,7 +96,10 @@ fn valid_signature_but_non_claims_payload_rejected() {
 #[test]
 fn wrong_secret_rejected_gen() {
     let token = create_jwt("frank", &secret()).unwrap();
-    assert_eq!(verify_jwt(&token, b"totally-different-secret-key-xyz"), None);
+    assert_eq!(
+        verify_jwt(&token, b"totally-different-secret-key-xyz"),
+        None
+    );
 }
 
 #[test]
@@ -156,7 +159,9 @@ fn parts_with(headers: Vec<(header::HeaderName, &str)>, uri: &str) -> axum::http
 async fn extractor_no_auth_configured_allows_anonymous() {
     let state = crate::web::test_support::test_server_state();
     let mut parts = parts_with(vec![], "/api/x");
-    let user = AuthUser::from_request_parts(&mut parts, &state).await.unwrap();
+    let user = AuthUser::from_request_parts(&mut parts, &state)
+        .await
+        .unwrap();
     assert_eq!(user.subject, "anonymous");
 }
 
@@ -176,7 +181,9 @@ async fn extractor_bearer_valid() {
         vec![(header::AUTHORIZATION, &format!("Bearer {token}"))],
         "/api/x",
     );
-    let user = AuthUser::from_request_parts(&mut parts, &state).await.unwrap();
+    let user = AuthUser::from_request_parts(&mut parts, &state)
+        .await
+        .unwrap();
     assert_eq!(user.subject, "u");
 }
 
@@ -197,7 +204,10 @@ async fn extractor_bearer_invalid_unauthorized() {
 async fn extractor_non_bearer_auth_falls_through_to_unauthorized() {
     let state = crate::web::test_support::test_server_state_with_auth("u", "p");
     // "Basic ..." has no "Bearer " prefix → strip returns None → no cookie/query → 401.
-    let mut parts = parts_with(vec![(header::AUTHORIZATION, "Basic Zm9vOmJhcg==")], "/api/x");
+    let mut parts = parts_with(
+        vec![(header::AUTHORIZATION, "Basic Zm9vOmJhcg==")],
+        "/api/x",
+    );
     assert!(matches!(
         AuthUser::from_request_parts(&mut parts, &state).await,
         Err(WebError::Unauthorized)
@@ -212,7 +222,9 @@ async fn extractor_cookie_token_valid() {
         vec![(header::COOKIE, &format!("opman_token={token}"))],
         "/api/x",
     );
-    let user = AuthUser::from_request_parts(&mut parts, &state).await.unwrap();
+    let user = AuthUser::from_request_parts(&mut parts, &state)
+        .await
+        .unwrap();
     assert_eq!(user.subject, "cookieuser");
 }
 
@@ -225,7 +237,9 @@ async fn extractor_query_token_valid() {
     let enc: String = url::form_urlencoded::byte_serialize(token.as_bytes()).collect();
     let uri = format!("/api/events?token={enc}");
     let mut parts = parts_with(vec![], &uri);
-    let user = AuthUser::from_request_parts(&mut parts, &state).await.unwrap();
+    let user = AuthUser::from_request_parts(&mut parts, &state)
+        .await
+        .unwrap();
     assert_eq!(user.subject, "queryuser");
 }
 

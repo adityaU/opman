@@ -49,7 +49,10 @@ fn save_then_load_roundtrips_sessions_and_deleted() {
     let loaded = Registry::load(&path);
     let got = loaded.sessions.get("ses_1").expect("session persisted");
     assert_eq!(got.claude_session_id.as_deref(), Some("uuid-a"));
-    assert_eq!(got.lineage, vec!["uuid-old".to_string(), "uuid-a".to_string()]);
+    assert_eq!(
+        got.lineage,
+        vec!["uuid-old".to_string(), "uuid-a".to_string()]
+    );
     assert_eq!(got.model.as_deref(), Some("opus"));
     assert!(!got.busy, "busy is skipped in serde and defaults to false");
     assert!(!got.subagent_pending, "subagent_pending is skipped");
@@ -99,9 +102,15 @@ fn by_claude_uuid_matches_latest_then_falls_back_to_lineage() {
     reg.sessions.insert(e.id.clone(), e);
 
     // Direct match on the current claude_session_id.
-    assert_eq!(reg.by_claude_uuid("current-uuid").map(|s| s.id.as_str()), Some("ses_1"));
+    assert_eq!(
+        reg.by_claude_uuid("current-uuid").map(|s| s.id.as_str()),
+        Some("ses_1")
+    );
     // Fallback: a superseded lineage uuid still resolves to the same session.
-    assert_eq!(reg.by_claude_uuid("old-uuid").map(|s| s.id.as_str()), Some("ses_1"));
+    assert_eq!(
+        reg.by_claude_uuid("old-uuid").map(|s| s.id.as_str()),
+        Some("ses_1")
+    );
     // Unknown uuid resolves to nothing.
     assert!(reg.by_claude_uuid("ghost").is_none());
 }

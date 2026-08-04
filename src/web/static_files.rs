@@ -27,12 +27,14 @@ fn is_not_modified(headers: &HeaderMap, etag: &str) -> bool {
 
 /// Build a response, falling back to 500 on builder error.
 fn build_ok(builder: axum::http::response::Builder, body: Body) -> Response<Body> {
-    builder.body(body).unwrap_or_else(|_| {
-        Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::empty())
-            .unwrap()
-    })
+    match builder.body(body) {
+        Ok(response) => response,
+        Err(_) => {
+            let mut response = Response::new(Body::empty());
+            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            response
+        }
+    }
 }
 
 #[derive(Embed)]
@@ -128,10 +130,7 @@ where
                         &format!("fill=\"{}\"", defaults.bg),
                         &format!("fill=\"{}\"", bg),
                     )
-                    .replace(
-                        "stroke=\"#fab283\"",
-                        &format!("stroke=\"{}\"", primary),
-                    );
+                    .replace("stroke=\"#fab283\"", &format!("stroke=\"{}\"", primary));
                 let r = Response::builder()
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "image/svg+xml")
@@ -215,7 +214,14 @@ pub async fn serve_react(
 ) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
     let theme = resolve_theme(&state).await;
-    serve_ui(&state, &headers, path, |p| ReactAssets::get(p), &REACT_DEFAULTS, &theme)
+    serve_ui(
+        &state,
+        &headers,
+        path,
+        |p| ReactAssets::get(p),
+        &REACT_DEFAULTS,
+        &theme,
+    )
 }
 
 #[cfg(test)]

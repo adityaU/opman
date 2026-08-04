@@ -3,10 +3,10 @@
 #![allow(clippy::disallowed_names)]
 
 use super::*;
-use axum::http::StatusCode;
 use crate::web::test_support::{send_json, test_router, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::http::StatusCode;
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
@@ -119,7 +119,10 @@ async fn context_summary_empty_repo_no_commits() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["recent_commits"].as_array().unwrap().len(), 0);
     // No commits and no files → clean.
-    assert!(body["summary"].as_str().unwrap().contains("Working tree clean"));
+    assert!(body["summary"]
+        .as_str()
+        .unwrap()
+        .contains("Working tree clean"));
 }
 
 #[tokio::test]
@@ -198,7 +201,9 @@ async fn repos_respects_max_depth() {
     assert_eq!(status, StatusCode::OK);
     let repos = body["repos"].as_array().unwrap();
     // The deeply-buried repo is beyond the depth limit → not discovered.
-    assert!(!repos.iter().any(|r| r["path"].as_str().unwrap().contains("deep")));
+    assert!(!repos
+        .iter()
+        .any(|r| r["path"].as_str().unwrap().contains("deep")));
 }
 
 #[tokio::test]

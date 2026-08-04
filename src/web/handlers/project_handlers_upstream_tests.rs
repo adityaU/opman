@@ -18,7 +18,9 @@ fn isolate_env() {
     use std::sync::OnceLock;
     static DIR: OnceLock<tempfile::TempDir> = OnceLock::new();
     DIR.get_or_init(|| {
-        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let d = tempfile::tempdir().expect("tempdir");
         std::env::set_var("XDG_CONFIG_HOME", d.path());
         std::env::set_var("XDG_STATE_HOME", d.path());
@@ -52,7 +54,12 @@ async fn new_session_success_registers_and_returns_id() {
     let router = test_router(state.clone());
     let (status, body) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/session/new", Some(json!({ "project_idx": 0 }))),
+        send_json(
+            router,
+            "POST",
+            "/api/session/new",
+            Some(json!({ "project_idx": 0 })),
+        ),
     )
     .await;
 
@@ -71,7 +78,10 @@ async fn new_session_non_success_status_is_500() {
     let mock = axum::Router::new().route(
         "/session",
         post(|| async {
-            (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(json!({ "error": "nope" })))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(json!({ "error": "nope" })),
+            )
         }),
     );
     let base = start_mock_upstream(mock).await;
@@ -80,7 +90,12 @@ async fn new_session_non_success_status_is_500() {
     let router = test_router(state);
     let (status, _) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/session/new", Some(json!({ "project_idx": 0 }))),
+        send_json(
+            router,
+            "POST",
+            "/api/session/new",
+            Some(json!({ "project_idx": 0 })),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -89,15 +104,22 @@ async fn new_session_non_success_status_is_500() {
 #[tokio::test]
 async fn new_session_unparseable_info_is_500() {
     // 200 but the body has no "id" → `from_value::<SessionInfo>` fails.
-    let mock = axum::Router::new()
-        .route("/session", post(|| async { axum::Json(json!({ "title": "x" })) }));
+    let mock = axum::Router::new().route(
+        "/session",
+        post(|| async { axum::Json(json!({ "title": "x" })) }),
+    );
     let base = start_mock_upstream(mock).await;
     let (state, _tmp) = state_with_project().await;
 
     let router = test_router(state);
     let (status, _) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/session/new", Some(json!({ "project_idx": 0 }))),
+        send_json(
+            router,
+            "POST",
+            "/api/session/new",
+            Some(json!({ "project_idx": 0 })),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -106,15 +128,19 @@ async fn new_session_unparseable_info_is_500() {
 #[tokio::test]
 async fn new_session_non_json_body_is_500() {
     // Body isn't JSON → the `resp.json()` parse fails → Internal.
-    let mock = axum::Router::new()
-        .route("/session", post(|| async { "plain text" }));
+    let mock = axum::Router::new().route("/session", post(|| async { "plain text" }));
     let base = start_mock_upstream(mock).await;
     let (state, _tmp) = state_with_project().await;
 
     let router = test_router(state);
     let (status, _) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/session/new", Some(json!({ "project_idx": 0 }))),
+        send_json(
+            router,
+            "POST",
+            "/api/session/new",
+            Some(json!({ "project_idx": 0 })),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);

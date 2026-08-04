@@ -70,7 +70,10 @@ fn save_and_load_roundtrip_filters_subagents() {
     let loaded = load_sessions(&Some(path.clone()));
 
     assert!(loaded.contains_key("real"));
-    assert!(!loaded.contains_key("sub"), "subagent rows are not persisted");
+    assert!(
+        !loaded.contains_key("sub"),
+        "subagent rows are not persisted"
+    );
     let r = &loaded["real"];
     assert_eq!(r.title, "Title");
     assert_eq!(r.claude_uuid.as_deref(), Some("uuid-1"));

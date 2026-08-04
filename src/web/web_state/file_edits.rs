@@ -49,7 +49,8 @@ impl super::WebStateHandle {
             Some(existing) => existing,
             None => {
                 // First edit: fetch git original content BEFORE acquiring write lock
-                let original = Self::get_git_original(&abs_path, project_dir).await
+                let original = Self::get_git_original(&abs_path, project_dir)
+                    .await
                     .unwrap_or_else(|| new_content.clone());
                 // Store snapshot under write lock (brief, no .await inside)
                 let mut inner = self.inner.write().await;
@@ -78,10 +79,7 @@ impl super::WebStateHandle {
         // Record the edit (brief write lock, no .await inside)
         {
             let mut inner = self.inner.write().await;
-            let edits = inner
-                .file_edits
-                .entry(session_id.to_string())
-                .or_default();
+            let edits = inner.file_edits.entry(session_id.to_string()).or_default();
             let index = edits.len();
             let timestamp = chrono::Utc::now().to_rfc3339();
 

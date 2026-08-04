@@ -146,8 +146,7 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
                 let id = req.id.clone();
                 let params = req.params;
                 tokio::spawn(async move {
-                    let result =
-                        handle_tool_call(&sock, params, sid.as_deref()).await;
+                    let result = handle_tool_call(&sock, params, sid.as_deref()).await;
                     let response = match result {
                         Ok(content) => serde_json::json!({
                             "jsonrpc": "2.0",

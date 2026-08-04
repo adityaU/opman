@@ -129,11 +129,15 @@ async fn run_sse_stream_success_dispatches_events() {
 
     let mut got_created = false;
     while let Ok(ev) = rx.try_recv() {
-        if matches!(ev, BackgroundEvent::SseSessionCreated { session, .. } if session.id == "srv1") {
+        if matches!(ev, BackgroundEvent::SseSessionCreated { session, .. } if session.id == "srv1")
+        {
             got_created = true;
         }
     }
-    assert!(got_created, "expected a SseSessionCreated from the streamed event");
+    assert!(
+        got_created,
+        "expected a SseSessionCreated from the streamed event"
+    );
     let _ = server.await;
 }
 

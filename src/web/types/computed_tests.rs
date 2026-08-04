@@ -56,9 +56,18 @@ fn recommendation_action_serializes_all() {
         (RecommendationAction::OpenDelegation, "open_delegation"),
         (RecommendationAction::OpenWorkspaces, "open_workspaces"),
         (RecommendationAction::OpenAutonomy, "open_autonomy"),
-        (RecommendationAction::SetupDailySummary, "setup_daily_summary"),
-        (RecommendationAction::UpgradeAutonomyNudge, "upgrade_autonomy_nudge"),
-        (RecommendationAction::SetupDailyCopilot, "setup_daily_copilot"),
+        (
+            RecommendationAction::SetupDailySummary,
+            "setup_daily_summary",
+        ),
+        (
+            RecommendationAction::UpgradeAutonomyNudge,
+            "upgrade_autonomy_nudge",
+        ),
+        (
+            RecommendationAction::SetupDailyCopilot,
+            "setup_daily_copilot",
+        ),
     ] {
         assert_eq!(serde_json::to_value(&a).unwrap(), json!(s));
         let _ = format!("{a:?}");
@@ -193,8 +202,7 @@ fn recommendations_request_defaults() {
 
 #[test]
 fn session_handoff_request() {
-    let r: SessionHandoffRequest =
-        serde_json::from_value(json!({"session_id": "s"})).unwrap();
+    let r: SessionHandoffRequest = serde_json::from_value(json!({"session_id": "s"})).unwrap();
     assert_eq!(r.session_id, "s");
     assert!(r.permissions.is_empty());
     assert!(r.questions.is_empty());
@@ -218,8 +226,7 @@ fn resume_briefing_request_defaults() {
 
 #[test]
 fn daily_summary_request() {
-    let r: DailySummaryRequest =
-        serde_json::from_value(json!({"routine_id": "r1"})).unwrap();
+    let r: DailySummaryRequest = serde_json::from_value(json!({"routine_id": "r1"})).unwrap();
     assert_eq!(r.routine_id, "r1");
     assert!(r.permissions.is_empty());
     assert!(r.questions.is_empty());

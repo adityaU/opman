@@ -18,14 +18,14 @@ mod db_sync;
 mod delegation;
 mod file_edits;
 mod kanban;
-mod kanban_query;
 mod kanban_pipeline;
 mod kanban_pipeline_brief;
+mod kanban_query;
 pub(crate) use kanban::KanbanError;
-mod intelligence_inbox;
-mod intelligence_recs;
 mod intelligence_handoffs;
+mod intelligence_inbox;
 mod intelligence_misc;
+mod intelligence_recs;
 mod mutations;
 mod presence;
 mod queries;
@@ -39,8 +39,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use tokio::sync::{broadcast, RwLock};
 use tokio::sync::mpsc;
+use tokio::sync::{broadcast, RwLock};
 use tokio::task::AbortHandle;
 use tracing::info;
 
@@ -134,6 +134,10 @@ pub(super) struct WebStateInner {
     // ── Idle-routine cooldown ───────────────────────────────────
     /// Last time each OnSessionIdle routine fired, to prevent self-loops.
     pub(super) routine_idle_cooldown: HashMap<String, Instant>,
+    /// Runtime runner label for each logical session.
+    pub(super) session_runners: HashMap<String, String>,
+    /// Runner used when a session has not made an explicit selection yet.
+    pub(super) default_runner: String,
 }
 
 /// Internal watcher config (stored on the server side).
@@ -181,6 +185,29 @@ pub struct WebStateHandle {
     pub(super) db: Db,
     /// Channel to trigger async DB writes (debounced).
     pub(super) persist_tx: mpsc::UnboundedSender<()>,
+    /// Native runner registry used to discover non-OpenCode sessions during
+    /// the same background refresh that hydrates the sidebar.
+    pub(super) runner_registry: Option<Arc<crate::runner::RunnerRegistry>>,
+}
+
+impl WebStateHandle {
+    /// Process an event emitted by a non-default runner. This keeps Codex
+    /// approvals, busy state, stats, and file activity on the same web-state
+    /// path as the default OpenCode SSE stream.
+    pub async fn handle_runner_event(&self, data: &str, project_dir: &str) {
+        sse_handler::handle_web_sse_event(self, data, project_dir).await;
+    }
+
+    pub async fn directory_for_session(&self, session_id: &str) -> Option<String> {
+        let inner = self.inner.read().await;
+        inner.projects.iter().find_map(|project| {
+            project
+                .sessions
+                .iter()
+                .any(|session| session.id == session_id)
+                .then(|| project.path.to_string_lossy().to_string())
+        })
+    }
 }
 
 impl WebStateHandle {
@@ -193,6 +220,7 @@ impl WebStateHandle {
         config: &Config,
         event_tx: broadcast::Sender<WebEvent>,
         raw_sse_tx: broadcast::Sender<String>,
+        runner_registry: Arc<crate::runner::RunnerRegistry>,
     ) -> Self {
         // Open SQLite database and run one-time migration from legacy JSON.
         let db = Db::open().unwrap_or_else(|e| {
@@ -216,7 +244,15 @@ impl WebStateHandle {
 
         let (persist_tx, persist_rx) = mpsc::unbounded_channel();
 
-        let handle = Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx };
+        let handle = Self {
+            inner,
+            event_tx,
+            raw_sse_tx,
+            editor_tx: None,
+            db,
+            persist_tx,
+            runner_registry: Some(runner_registry),
+        };
 
         // Spawn background tasks
         handle.spawn_persist_worker(persist_rx);
@@ -296,6 +332,8 @@ impl WebStateHandle {
             input_sessions: HashSet::new(),
             unseen_sessions: HashMap::new(),
             routine_idle_cooldown: HashMap::new(),
+            session_runners: HashMap::new(),
+            default_runner: "opencode".to_string(),
         }
     }
 
@@ -326,7 +364,15 @@ impl WebStateHandle {
             .collect();
         let inner = Arc::new(RwLock::new(Self::build_inner(&db, projects)));
         let (persist_tx, _persist_rx) = mpsc::unbounded_channel();
-        Self { inner, event_tx, raw_sse_tx, editor_tx: None, db, persist_tx }
+        Self {
+            inner,
+            event_tx,
+            raw_sse_tx,
+            editor_tx: None,
+            db,
+            persist_tx,
+            runner_registry: None,
+        }
     }
 
     /// Access the underlying DB handle (tests only).
@@ -360,11 +406,7 @@ impl WebStateHandle {
 }
 
 pub(super) fn uuid_like_id() -> String {
-    format!(
-        "{:x}{:x}",
-        rand::random::<u64>(),
-        rand::random::<u64>()
-    )
+    format!("{:x}{:x}", rand::random::<u64>(), rand::random::<u64>())
 }
 
 #[cfg(test)]

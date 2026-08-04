@@ -48,14 +48,19 @@ fn dispatch_time_convert() {
 
 #[test]
 fn dispatch_time_zones() {
-    let out = dispatch_tool(Some(json!({"name":"time_zones","arguments":{"search":"utc"}})));
+    let out = dispatch_tool(Some(
+        json!({"name":"time_zones","arguments":{"search":"utc"}}),
+    ));
     assert!(out[0]["text"].as_str().unwrap().contains("timezone"));
 }
 
 #[test]
 fn dispatch_unknown_tool() {
     let out = dispatch_tool(Some(json!({"name":"nope"})));
-    assert!(out[0]["text"].as_str().unwrap().contains("Unknown tool: nope"));
+    assert!(out[0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("Unknown tool: nope"));
 }
 
 #[test]

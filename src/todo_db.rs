@@ -4,13 +4,11 @@ use anyhow::Result;
 /// Save todos to the opencode SQLite database using full-replace semantics.
 /// Deletes all existing todos for the session, then inserts the new list.
 pub fn save_todos_to_db(session_id: &str, todos: &[TodoItem]) -> Result<()> {
-    let db_path = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".local/share/opencode/opencode.db");
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("home directory is unavailable"))?;
+    let db_path = home.join(".local/share/opencode/opencode.db");
     let conn = rusqlite::Connection::open(&db_path)?;
     let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)?
         .as_millis() as i64;
 
     let tx = conn.unchecked_transaction()?;

@@ -10,15 +10,26 @@ fn engine() -> Arc<ClaudePEngine> {
     Arc::new(ClaudePEngine::new(None, (false, false, false, false)))
 }
 
-async fn send(router: Router, method: &str, uri: &str, body: Option<Value>) -> (StatusCode, Vec<u8>) {
-    let b = Request::builder().method(method).uri(uri).header("content-type", "application/json");
+async fn send(
+    router: Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> (StatusCode, Vec<u8>) {
+    let b = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json");
     let req = match body {
         Some(v) => b.body(Body::from(serde_json::to_vec(&v).unwrap())).unwrap(),
         None => b.body(Body::empty()).unwrap(),
     };
     let resp = router.oneshot(req).await.unwrap();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     (status, bytes)
 }
 
@@ -35,8 +46,13 @@ async fn send_message_sets_model_and_agent() {
         "agent": "Plan",
         "parts": [ { "type": "text", "text": "" } ]
     });
-    let (st, out) =
-        send(router(e.clone()), "POST", &format!("/session/{}/message", s.id), Some(body)).await;
+    let (st, out) = send(
+        router(e.clone()),
+        "POST",
+        &format!("/session/{}/message", s.id),
+        Some(body),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&out)["ok"], true);
     let sess = e.get_session(&s.id).unwrap();
@@ -52,11 +68,19 @@ async fn prompt_async_route_dispatches() {
     let s = e.create_session("/proj", "", "A");
     // A control command → consumed, no child spawned.
     let body = json!({ "parts": [ { "type": "text", "text": "/permission-mode plan" } ] });
-    let (st, out) =
-        send(router(e.clone()), "POST", &format!("/session/{}/prompt_async", s.id), Some(body)).await;
+    let (st, out) = send(
+        router(e.clone()),
+        "POST",
+        &format!("/session/{}/prompt_async", s.id),
+        Some(body),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&out)["ok"], true);
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("plan")
+    );
 }
 
 #[tokio::test]
@@ -72,7 +96,10 @@ async fn session_command_endpoint_with_and_without_args() {
     .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&out)["ok"], true);
-    assert_eq!(e.get_session(&s.id).unwrap().permission_mode.as_deref(), Some("plan"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().permission_mode.as_deref(),
+        Some("plan")
+    );
 
     // No arguments → "/permission-mode" alone (unknown mode toast, still consumed).
     let (_st, out2) = send(
@@ -90,7 +117,13 @@ async fn abort_endpoint() {
     let e = engine();
     let s = e.create_session("/proj", "", "A");
     e.set_busy(&s.id, true);
-    let (st, out) = send(router(e.clone()), "POST", &format!("/session/{}/abort", s.id), Some(json!({}))).await;
+    let (st, out) = send(
+        router(e.clone()),
+        "POST",
+        &format!("/session/{}/abort", s.id),
+        Some(json!({})),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&out)["ok"], true);
     assert!(!e.get_session(&s.id).unwrap().busy);
@@ -109,7 +142,13 @@ async fn get_messages_unknown_session_empty() {
 async fn get_messages_no_uuid_empty() {
     let e = engine();
     let s = e.create_session("/proj", "", "A");
-    let (_st, out) = send(router(e), "GET", &format!("/session/{}/message", s.id), None).await;
+    let (_st, out) = send(
+        router(e),
+        "GET",
+        &format!("/session/{}/message", s.id),
+        None,
+    )
+    .await;
     assert_eq!(as_json(&out), json!([]));
 }
 
@@ -118,7 +157,13 @@ async fn get_messages_uuid_without_transcript_empty() {
     let e = engine();
     let s = e.create_session("/proj", "", "A");
     e.set_claude_uuid(&s.id, "opman-nonexistent-uuid-zzz");
-    let (_st, out) = send(router(e), "GET", &format!("/session/{}/message", s.id), None).await;
+    let (_st, out) = send(
+        router(e),
+        "GET",
+        &format!("/session/{}/message", s.id),
+        None,
+    )
+    .await;
     assert_eq!(as_json(&out), json!([]));
 }
 
@@ -136,7 +181,13 @@ async fn get_todos_empty_paths() {
     let e = engine();
     let s = e.create_session("/proj", "", "A");
     // No uuid → empty.
-    let (st, out) = send(router(e.clone()), "GET", &format!("/session/{}/todo", s.id), None).await;
+    let (st, out) = send(
+        router(e.clone()),
+        "GET",
+        &format!("/session/{}/todo", s.id),
+        None,
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(as_json(&out), json!([]));
     // Uuid set but no transcript on disk → still empty.

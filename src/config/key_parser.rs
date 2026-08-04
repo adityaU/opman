@@ -60,7 +60,9 @@ pub fn parse_key_combo(s: &str) -> Result<KeyCombo> {
         "f12" => KeyCode::F(12),
         // Single character keys
         k if k.len() == 1 => {
-            let ch = k.chars().next().unwrap();
+            let Some(ch) = k.chars().next() else {
+                anyhow::bail!("Empty key name in key string '{s}'");
+            };
             if modifiers.contains(KeyModifiers::SHIFT) && ch.is_ascii_alphabetic() {
                 // Shift+letter: crossterm sends uppercase char with SHIFT modifier
                 KeyCode::Char(ch.to_ascii_uppercase())
@@ -95,7 +97,10 @@ pub fn format_key_display(s: &str) -> String {
                 } else {
                     // F-keys, special names
                     let mut c = other.chars();
-                    let first = c.next().unwrap().to_uppercase().to_string();
+                    let Some(first) = c.next() else {
+                        continue;
+                    };
+                    let first = first.to_uppercase().to_string();
                     out.push(format!("{first}{}", c.as_str()));
                 }
             }

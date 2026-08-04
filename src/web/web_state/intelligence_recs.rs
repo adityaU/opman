@@ -20,9 +20,9 @@ impl super::WebStateHandle {
         let mut recs: Vec<AssistantRecommendation> = Vec::new();
         let mut next_id = 1u32;
 
-        let has_daily_summary_routine = routines.iter().any(|r| {
-            matches!(r.trigger, RoutineTrigger::DailySummary)
-        });
+        let has_daily_summary_routine = routines
+            .iter()
+            .any(|r| matches!(r.trigger, RoutineTrigger::DailySummary));
         let is_observe = matches!(autonomy.mode, AutonomyMode::Observe);
 
         // 1. No daily summary + observe → high: enable daily copilot

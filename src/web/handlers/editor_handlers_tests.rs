@@ -7,15 +7,17 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn state_dir(p: &std::path::Path) -> ServerState {
@@ -72,7 +74,10 @@ async fn format_no_socket_400() {
         editor_lsp_format(
             State(state),
             auth(),
-            axum::Json(EditorFormatRequest { path: "a.rs".into(), session_id: "sess".into() }),
+            axum::Json(EditorFormatRequest {
+                path: "a.rs".into(),
+                session_id: "sess".into(),
+            }),
         )
         .await,
     )
@@ -118,7 +123,10 @@ async fn format_bogus_socket_500() {
         editor_lsp_format(
             State(state),
             auth(),
-            axum::Json(EditorFormatRequest { path: "a.rs".into(), session_id: "sess".into() }),
+            axum::Json(EditorFormatRequest {
+                path: "a.rs".into(),
+                session_id: "sess".into(),
+            }),
         )
         .await,
     )

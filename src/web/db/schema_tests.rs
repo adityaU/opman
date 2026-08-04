@@ -34,7 +34,10 @@ fn create_tables_creates_every_expected_table() {
         "kanban_notes",
         "kanban_pipeline_runs",
     ] {
-        assert!(names.iter().any(|n| n == expected), "missing table {expected}");
+        assert!(
+            names.iter().any(|n| n == expected),
+            "missing table {expected}"
+        );
     }
 }
 

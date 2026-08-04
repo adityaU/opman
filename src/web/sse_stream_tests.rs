@@ -15,7 +15,10 @@ use futures::StreamExt;
 use std::time::Duration;
 
 fn q() -> Query<SseTokenQuery> {
-    Query(SseTokenQuery { token: None, id: None })
+    Query(SseTokenQuery {
+        token: None,
+        id: None,
+    })
 }
 
 /// Poll up to `max` data frames off an SSE response body, concatenating the raw
@@ -44,10 +47,16 @@ async fn events_stream_emits_heartbeat_then_rendered_event() {
         .into_response();
     // Buffered on the already-subscribed receiver; delivered once the loop runs.
     etx.send(WebEvent::StateChanged).unwrap();
-    etx.send(WebEvent::SessionBusy { session_id: "s1".into() }).unwrap();
+    etx.send(WebEvent::SessionBusy {
+        session_id: "s1".into(),
+    })
+    .unwrap();
     let s = collect_frames(resp.into_body(), 4, 300).await;
     assert!(s.contains("heartbeat"), "missing initial heartbeat: {s:?}");
-    assert!(s.contains("state_changed") || s.contains("session_busy"), "no rendered event: {s:?}");
+    assert!(
+        s.contains("state_changed") || s.contains("session_busy"),
+        "no rendered event: {s:?}"
+    );
 }
 
 #[tokio::test]
@@ -78,11 +87,17 @@ async fn editor_events_stream_emits_file_changed() {
         .await
         .unwrap()
         .into_response();
-    etx.send(EditorEvent::FileChanged { path: "a.rs".into(), source: "ai_edit".into() })
-        .unwrap();
+    etx.send(EditorEvent::FileChanged {
+        path: "a.rs".into(),
+        source: "ai_edit".into(),
+    })
+    .unwrap();
     let s = collect_frames(resp.into_body(), 3, 300).await;
     assert!(s.contains("heartbeat"));
-    assert!(s.contains("file_changed"), "expected file_changed frame: {s:?}");
+    assert!(
+        s.contains("file_changed"),
+        "expected file_changed frame: {s:?}"
+    );
 }
 
 #[tokio::test]
@@ -95,10 +110,16 @@ async fn editor_events_stream_lagged_triggers_refresh() {
         .into_response();
     // editor_tx capacity is 64 → overflow it to force a Lagged → "refresh".
     for _ in 0..200 {
-        let _ = etx.send(EditorEvent::FileChanged { path: "x".into(), source: "web_save".into() });
+        let _ = etx.send(EditorEvent::FileChanged {
+            path: "x".into(),
+            source: "web_save".into(),
+        });
     }
     let s = collect_frames(resp.into_body(), 3, 300).await;
-    assert!(s.contains("refresh"), "expected refresh frame on lag: {s:?}");
+    assert!(
+        s.contains("refresh"),
+        "expected refresh frame on lag: {s:?}"
+    );
 }
 
 // ── session_events_stream ───────────────────────────────────────────
@@ -110,12 +131,16 @@ async fn session_events_stream_forwards_opencode_event() {
     let resp = session_events_stream(
         State(state),
         HeaderMap::new(),
-        Query(SessionSseQuery { token: None, project_dir: Some("/p".into()) }),
+        Query(SessionSseQuery {
+            token: None,
+            project_dir: Some("/p".into()),
+        }),
     )
     .await
     .unwrap()
     .into_response();
-    rtx.send(r#"{"type":"session.created"}"#.to_string()).unwrap();
+    rtx.send(r#"{"type":"session.created"}"#.to_string())
+        .unwrap();
     let s = collect_frames(resp.into_body(), 3, 300).await;
     assert!(s.contains("heartbeat"));
     assert!(s.contains("opencode"), "expected opencode frame: {s:?}");
@@ -128,7 +153,10 @@ async fn session_events_stream_lagged_emits_lagged_frame() {
     let resp = session_events_stream(
         State(state),
         HeaderMap::new(),
-        Query(SessionSseQuery { token: None, project_dir: None }),
+        Query(SessionSseQuery {
+            token: None,
+            project_dir: None,
+        }),
     )
     .await
     .unwrap()
@@ -153,5 +181,8 @@ async fn system_stats_stream_yields_a_sample() {
     // The blocking thread seeds CPU for ~500ms before the first send; allow up
     // to 2s for one `system_stats` frame, then drop the stream (thread exits).
     let s = collect_frames(resp.into_body(), 1, 2000).await;
-    assert!(s.contains("system_stats"), "expected a system_stats frame: {s:?}");
+    assert!(
+        s.contains("system_stats"),
+        "expected a system_stats frame: {s:?}"
+    );
 }

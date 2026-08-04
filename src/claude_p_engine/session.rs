@@ -89,8 +89,11 @@ impl From<&Session> for PersistSession {
 /// from the parent transcript) and are not persisted.
 pub fn save_sessions(persist: &Option<PathBuf>, sessions: &HashMap<String, Session>) {
     let Some(path) = persist else { return };
-    let snapshot: Vec<PersistSession> =
-        sessions.values().filter(|s| !s.is_subagent).map(PersistSession::from).collect();
+    let snapshot: Vec<PersistSession> = sessions
+        .values()
+        .filter(|s| !s.is_subagent)
+        .map(PersistSession::from)
+        .collect();
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -100,8 +103,12 @@ pub fn save_sessions(persist: &Option<PathBuf>, sessions: &HashMap<String, Sessi
 }
 
 pub fn load_sessions(persist: &Option<PathBuf>) -> HashMap<String, Session> {
-    let Some(path) = persist else { return HashMap::new() };
-    let Ok(raw) = std::fs::read_to_string(path) else { return HashMap::new() };
+    let Some(path) = persist else {
+        return HashMap::new();
+    };
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return HashMap::new();
+    };
     let list: Vec<PersistSession> = serde_json::from_str(&raw).unwrap_or_default();
     list.into_iter()
         .map(|p| {

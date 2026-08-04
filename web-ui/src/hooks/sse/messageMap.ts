@@ -26,6 +26,23 @@ export function getMessageTime(msg: Message): number {
  */
 export type MessageMap = Map<string, Message>;
 
+/** Merge a server history message into a cached/live message without losing parts. */
+export function mergeMessage(existing: Message, incoming: Message): Message {
+  const parts = new Map<string, MessagePart>();
+  for (const part of existing.parts) {
+    parts.set(part.id || `${part.type}-${parts.size}`, part);
+  }
+  for (const part of incoming.parts) {
+    parts.set(part.id || `${part.type}-${parts.size}`, part);
+  }
+  return {
+    ...existing,
+    info: { ...existing.info, ...incoming.info },
+    metadata: incoming.metadata ?? existing.metadata,
+    parts: Array.from(parts.values()),
+  };
+}
+
 /** Convert a MessageMap to a sorted array for rendering. */
 export function mapToSortedArray(map: MessageMap): Message[] {
   return Array.from(map.values()).sort(

@@ -58,8 +58,7 @@ async fn reply_returns_upstream_body_verbatim() {
 #[tokio::test]
 async fn reply_allows_when_upstream_body_empty() {
     // An empty/whitespace body from upstream → fall back to allow.
-    let mock = axum::Router::new()
-        .route("/internal/ask", axum::routing::post(|| async { "   " }));
+    let mock = axum::Router::new().route("/internal/ask", axum::routing::post(|| async { "   " }));
     let base = start_mock_upstream(mock).await;
     let out = permission_hook_reply(serde_json::json!({}), Some(base)).await;
     assert_eq!(decision(&out).as_deref(), Some("allow"));

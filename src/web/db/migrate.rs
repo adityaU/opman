@@ -212,31 +212,28 @@ fn migrate_routines_v2(db: &Db) {
     }
 
     let old_routines: Vec<V1Routine> = {
-        let mut stmt = conn
-            .prepare(
-                "SELECT id, name, trigger, action, mission_id,
-                        session_id, created_at, updated_at
-                 FROM routines",
-            )
-            .unwrap_or_else(|_| {
-                // Table might not exist yet at all
-                return conn.prepare("SELECT 1 WHERE 0").unwrap();
-            });
-
-        stmt.query_map([], |row| {
-            Ok(V1Routine {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                trigger: row.get(2)?,
-                action: row.get(3)?,
-                mission_id: row.get(4)?,
-                session_id: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
+        match conn.prepare(
+            "SELECT id, name, trigger, action, mission_id,
+                    session_id, created_at, updated_at
+             FROM routines",
+        ) {
+            Ok(mut stmt) => match stmt.query_map([], |row| {
+                Ok(V1Routine {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    trigger: row.get(2)?,
+                    action: row.get(3)?,
+                    mission_id: row.get(4)?,
+                    session_id: row.get(5)?,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
+                })
+            }) {
+                Ok(rows) => rows.filter_map(Result::ok).collect(),
+                Err(_) => Vec::new(),
+            },
+            Err(_) => Vec::new(),
+        }
     };
 
     // Read existing v1 routine runs
@@ -249,24 +246,24 @@ fn migrate_routines_v2(db: &Db) {
     }
 
     let old_runs: Vec<V1Run> = {
-        let mut stmt = conn
-            .prepare(
-                "SELECT id, routine_id, status, summary, created_at
-                 FROM routine_runs",
-            )
-            .unwrap_or_else(|_| conn.prepare("SELECT 1 WHERE 0").unwrap());
-
-        stmt.query_map([], |row| {
-            Ok(V1Run {
-                id: row.get(0)?,
-                routine_id: row.get(1)?,
-                status: row.get(2)?,
-                summary: row.get(3)?,
-                created_at: row.get(4)?,
-            })
-        })
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
+        match conn.prepare(
+            "SELECT id, routine_id, status, summary, created_at
+             FROM routine_runs",
+        ) {
+            Ok(mut stmt) => match stmt.query_map([], |row| {
+                Ok(V1Run {
+                    id: row.get(0)?,
+                    routine_id: row.get(1)?,
+                    status: row.get(2)?,
+                    summary: row.get(3)?,
+                    created_at: row.get(4)?,
+                })
+            }) {
+                Ok(rows) => rows.filter_map(Result::ok).collect(),
+                Err(_) => Vec::new(),
+            },
+            Err(_) => Vec::new(),
+        }
     };
 
     // Drop and recreate with v2 schema

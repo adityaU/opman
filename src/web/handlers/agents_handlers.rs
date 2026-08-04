@@ -1,6 +1,7 @@
 //! Agent listing handler with upstream proxy + config fallback.
 
-use axum::extract::State;
+use axum::extract::{Query, State};
+use serde::Deserialize;
 use axum::response::{IntoResponse, Json};
 
 use super::super::auth::AuthUser;
@@ -17,15 +18,32 @@ use crate::app::base_url;
 /// Fallback: if the opencode instance is unreachable, reads the project's
 /// `opencode.json` / `.opencode/config.json` for agent definitions and injects
 /// built-in defaults.
+#[derive(Debug, Deserialize)]
+pub struct AgentQuery { runner: Option<String> }
+
 pub async fn get_agents(
+    Query(query): Query<AgentQuery>,
     State(state): State<ServerState>,
     _auth: AuthUser,
 ) -> WebResult<impl IntoResponse> {
+    if query.runner.as_deref() == Some("claude") {
+        let dir = resolve_project_dir(&state).await?;
+        let info = tokio::task::spawn_blocking(move || crate::claude_engine::claude_cli::introspect(&dir))
+            .await
+            .map_err(|error| super::super::error::WebError::Internal(format!("Claude agent discovery failed: {error}")))?;
+        let agents = info.agents.into_iter().map(|name| {
+            let mut chars = name.chars();
+            let label = chars.next().map(|first| first.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default();
+            AgentEntry { id: name.clone(), label, description: String::new(), mode: if name == "claude" { "primary" } else { "all" }.to_string(), hidden: false, native: true, color: None }
+        }).collect::<Vec<_>>();
+        return Ok(Json(agents));
+    }
     let dir = resolve_project_dir(&state).await?;
     let base = base_url().to_string();
 
     // ── Primary: query the running opencode instance ────────────────
-    if let Ok(resp) = state.http_client
+    if let Ok(resp) = state
+        .http_client
         .get(format!("{}/agent", base))
         .header("x-opencode-directory", &dir)
         .header("Accept", "application/json")
@@ -37,14 +55,13 @@ pub async fn get_agents(
                 let agents: Vec<AgentEntry> = upstream
                     .iter()
                     .map(|v| AgentEntry {
-                        id: v.get("name")
+                        id: v
+                            .get("name")
                             .and_then(|n| n.as_str())
                             .unwrap_or("")
                             .to_string(),
                         label: {
-                            let name = v.get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
+                            let name = v.get("name").and_then(|n| n.as_str()).unwrap_or("");
                             // Capitalize first letter for display
                             let mut chars = name.chars();
                             match chars.next() {
@@ -52,21 +69,20 @@ pub async fn get_agents(
                                 None => name.to_string(),
                             }
                         },
-                        description: v.get("description")
+                        description: v
+                            .get("description")
                             .and_then(|d| d.as_str())
                             .unwrap_or("")
                             .to_string(),
-                        mode: v.get("mode")
+                        mode: v
+                            .get("mode")
                             .and_then(|m| m.as_str())
                             .unwrap_or("all")
                             .to_string(),
-                        hidden: v.get("hidden")
-                            .and_then(|h| h.as_bool())
-                            .unwrap_or(false),
-                        native: v.get("native")
-                            .and_then(|n| n.as_bool())
-                            .unwrap_or(false),
-                        color: v.get("color")
+                        hidden: v.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false),
+                        native: v.get("native").and_then(|n| n.as_bool()).unwrap_or(false),
+                        color: v
+                            .get("color")
                             .and_then(|c| c.as_str())
                             .map(|s| s.to_string()),
                     })
@@ -106,7 +122,9 @@ pub async fn get_agents(
                             .unwrap_or_else(|| {
                                 let mut chars = id.chars();
                                 match chars.next() {
-                                    Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+                                    Some(c) => {
+                                        c.to_uppercase().collect::<String>() + chars.as_str()
+                                    }
                                     None => id.clone(),
                                 }
                             });
@@ -144,15 +162,18 @@ pub async fn get_agents(
     let has_plan = agents.iter().any(|a| a.id == "plan");
 
     if !has_build {
-        agents.insert(0, AgentEntry {
-            id: "build".to_string(),
-            label: "Build".to_string(),
-            description: "Default coding agent".to_string(),
-            mode: "primary".to_string(),
-            hidden: false,
-            native: true,
-            color: None,
-        });
+        agents.insert(
+            0,
+            AgentEntry {
+                id: "build".to_string(),
+                label: "Build".to_string(),
+                description: "Default coding agent".to_string(),
+                mode: "primary".to_string(),
+                hidden: false,
+                native: true,
+                color: None,
+            },
+        );
     }
     if !has_plan {
         agents.push(AgentEntry {
@@ -180,7 +201,9 @@ pub async fn get_agents(
                 _ => 2,
             }
         };
-        order(&a.id).cmp(&order(&b.id)).then_with(|| a.id.cmp(&b.id))
+        order(&a.id)
+            .cmp(&order(&b.id))
+            .then_with(|| a.id.cmp(&b.id))
     });
 
     Ok(Json(agents))

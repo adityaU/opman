@@ -21,7 +21,10 @@ fn list_sorted_desc_and_all_scopes_roundtrip() {
     db.insert_memory(&item("p", MemoryScope::Project, "2025-03-01T00:00:00Z"));
     db.insert_memory(&item("s", MemoryScope::Session, "2025-02-01T00:00:00Z"));
     let list = db.list_memory();
-    assert_eq!(list.iter().map(|m| m.id.clone()).collect::<Vec<_>>(), vec!["p", "s", "g"]);
+    assert_eq!(
+        list.iter().map(|m| m.id.clone()).collect::<Vec<_>>(),
+        vec!["p", "s", "g"]
+    );
     assert!(matches!(list[0].scope, MemoryScope::Project));
     assert!(matches!(list[1].scope, MemoryScope::Session));
     assert!(matches!(list[2].scope, MemoryScope::Global));
@@ -56,8 +59,14 @@ fn scope_conversions() {
     assert_eq!(memory_scope_str(&MemoryScope::Global), "global");
     assert_eq!(memory_scope_str(&MemoryScope::Project), "project");
     assert_eq!(memory_scope_str(&MemoryScope::Session), "session");
-    assert!(matches!(parse_memory_scope("project"), MemoryScope::Project));
-    assert!(matches!(parse_memory_scope("session"), MemoryScope::Session));
+    assert!(matches!(
+        parse_memory_scope("project"),
+        MemoryScope::Project
+    ));
+    assert!(matches!(
+        parse_memory_scope("session"),
+        MemoryScope::Session
+    ));
     assert!(matches!(parse_memory_scope("global"), MemoryScope::Global));
     assert!(matches!(parse_memory_scope("other"), MemoryScope::Global));
 }

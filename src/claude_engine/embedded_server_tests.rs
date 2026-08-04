@@ -25,7 +25,9 @@ async fn start_embedded_server_binds_and_returns_url() {
 
     // Loopback URL was bound and stashed on the (global) engine.
     assert!(url.starts_with("http://127.0.0.1:"));
-    assert!(url.trim_end_matches(|c: char| c.is_ascii_digit()).ends_with(':'));
+    assert!(url
+        .trim_end_matches(|c: char| c.is_ascii_digit())
+        .ends_with(':'));
     // The embedded adapter manages no external child process → a None-holding handle.
     assert!(handle.lock().unwrap().is_none());
     // The global accessor resolves an engine (this call sets it if unset — another

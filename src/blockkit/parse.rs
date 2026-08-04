@@ -77,7 +77,11 @@ pub(crate) fn parse_block_segments(md: &str) -> Vec<MdSegment<'_>> {
         if trimmed.starts_with("```") {
             let lang = {
                 let after = trimmed.trim_start_matches('`').trim();
-                if after.is_empty() { None } else { Some(after.to_string()) }
+                if after.is_empty() {
+                    None
+                } else {
+                    Some(after.to_string())
+                }
             };
             i += 1;
             let mut code_lines: Vec<&str> = Vec::new();
@@ -97,10 +101,7 @@ pub(crate) fn parse_block_segments(md: &str) -> Vec<MdSegment<'_>> {
         }
 
         // ── Table ───────────────────────────────────────────────────
-        if line.contains('|')
-            && i + 1 < total
-            && table::is_separator(lines[i + 1])
-        {
+        if line.contains('|') && i + 1 < total && table::is_separator(lines[i + 1]) {
             let (headers, alignments, rows, consumed) = table::parse_table(&lines, i);
             segments.push(MdSegment::Table {
                 headers,
@@ -114,16 +115,18 @@ pub(crate) fn parse_block_segments(md: &str) -> Vec<MdSegment<'_>> {
         // ── Blockquote ──────────────────────────────────────────────
         if trimmed.starts_with("> ") || trimmed == ">" {
             let start = i;
-            while i < total
-                && (lines[i].trim().starts_with("> ") || lines[i].trim() == ">")
-            {
+            while i < total && (lines[i].trim().starts_with("> ") || lines[i].trim() == ">") {
                 i += 1;
             }
             let quote_lines: Vec<&str> = lines[start..i]
                 .iter()
                 .map(|l| {
                     let t = l.trim();
-                    if t == ">" { "" } else { t.strip_prefix("> ").unwrap_or(t) }
+                    if t == ">" {
+                        ""
+                    } else {
+                        t.strip_prefix("> ").unwrap_or(t)
+                    }
                 })
                 .collect();
             segments.push(MdSegment::Blockquote(quote_lines));
@@ -161,7 +164,10 @@ pub(crate) fn parse_block_segments(md: &str) -> Vec<MdSegment<'_>> {
                     .trim_start_matches(|c: char| c == '-' || c == '*' || c == '+')
                     .trim_start()
                     .to_string();
-                items.push(ListItem { text, indent: indent / 2 });
+                items.push(ListItem {
+                    text,
+                    indent: indent / 2,
+                });
                 i += 1;
             }
             segments.push(MdSegment::BulletList(items));
@@ -179,7 +185,10 @@ pub(crate) fn parse_block_segments(md: &str) -> Vec<MdSegment<'_>> {
                     .trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ')')
                     .trim_start()
                     .to_string();
-                items.push(ListItem { text, indent: indent / 2 });
+                items.push(ListItem {
+                    text,
+                    indent: indent / 2,
+                });
                 i += 1;
             }
             segments.push(MdSegment::OrderedList(items));

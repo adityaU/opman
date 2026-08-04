@@ -51,6 +51,39 @@ pub async fn new_session(
         .map(|p| p.to_string_lossy().to_string())
         .ok_or(WebError::BadRequest("Invalid project index".into()))?;
 
+    if let Some(runner) = req.runner {
+        let runner_name = runner.display_name();
+        let session = state
+            .runner_registry
+            .create_session(runner, &dir, "")
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        let now = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        state
+            .web_state
+            .add_and_activate_session(
+                req.project_idx,
+                crate::app::SessionInfo {
+                    id: session.id.clone(),
+                    title: session.title,
+                    directory: dir,
+                    time: crate::app::SessionTime {
+                        created: now,
+                        updated: now,
+                    },
+                    ..Default::default()
+                },
+            )
+            .await;
+        state
+            .web_state
+            .set_session_runner(&session.id, runner_name)
+            .await;
+        return Ok(Json(NewSessionResponse {
+            session_id: session.id,
+        }));
+    }
+
     // Create the session synchronously via the opencode server API.
     let base = base_url().to_string();
     let resp = state
@@ -96,7 +129,11 @@ pub async fn add_project(
     _auth: AuthUser,
     Json(req): Json<AddProjectRequest>,
 ) -> WebResult<impl IntoResponse> {
-    match state.web_state.add_project(&req.path, req.name.as_deref()).await {
+    match state
+        .web_state
+        .add_project(&req.path, req.name.as_deref())
+        .await
+    {
         Ok((index, name)) => Ok(Json(AddProjectResponse { index, name })),
         Err(msg) => Err(WebError::BadRequest(msg)),
     }
@@ -115,9 +152,7 @@ pub async fn remove_project(
 }
 
 /// GET /api/dirs/home — return the user's home directory.
-pub async fn home_dir(
-    _auth: AuthUser,
-) -> WebResult<impl IntoResponse> {
+pub async fn home_dir(_auth: AuthUser) -> WebResult<impl IntoResponse> {
     let home = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("/"))
         .to_string_lossy()
@@ -127,8 +162,18 @@ pub async fn home_dir(
 
 /// Directories to skip when browsing (mirrors the TUI fuzzy picker's filter).
 const SKIP_DIRS: &[&str] = &[
-    "node_modules", "target", "__pycache__", ".git", "vendor",
-    "dist", "build", ".cache", "Library", "Pictures", "Music", "Movies",
+    "node_modules",
+    "target",
+    "__pycache__",
+    ".git",
+    "vendor",
+    "dist",
+    "build",
+    ".cache",
+    "Library",
+    "Pictures",
+    "Music",
+    "Movies",
 ];
 
 /// POST /api/dirs/browse — list subdirectories of a given path.
@@ -165,11 +210,16 @@ pub async fn browse_dirs(
     }
 
     // Collect existing project paths for marking
-    let existing_paths: std::collections::HashSet<String> =
-        state.web_state.all_project_paths().await.into_iter().collect();
+    let existing_paths: std::collections::HashSet<String> = state
+        .web_state
+        .all_project_paths()
+        .await
+        .into_iter()
+        .collect();
 
     let canonical_str = canonical.to_string_lossy().to_string();
-    let parent = canonical.parent()
+    let parent = canonical
+        .parent()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
 

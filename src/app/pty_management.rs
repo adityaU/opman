@@ -46,26 +46,32 @@ impl App {
 
     #[allow(dead_code)]
     pub fn terminal_inner_size(&self, total_rows: u16, total_cols: u16) -> (u16, u16) {
-        self.layout.panel_rect(PanelId::TerminalPane)
+        self.layout
+            .panel_rect(PanelId::TerminalPane)
             .map(|r| (r.height, r.width))
             .unwrap_or((total_rows.saturating_sub(1), total_cols))
     }
 
     #[allow(dead_code)]
     pub fn shell_terminal_inner_size(&self, _total_rows: u16, _total_cols: u16) -> (u16, u16) {
-        self.layout.panel_rect(PanelId::IntegratedTerminal)
+        self.layout
+            .panel_rect(PanelId::IntegratedTerminal)
             .map(|r| (r.height, r.width))
             .unwrap_or((0, 0))
     }
 
     #[allow(dead_code)]
     pub fn terminal_pane_offset(&self) -> u16 {
-        self.layout.panel_rect(PanelId::TerminalPane).map(|r| r.x).unwrap_or(0)
+        self.layout
+            .panel_rect(PanelId::TerminalPane)
+            .map(|r| r.x)
+            .unwrap_or(0)
     }
 
     #[allow(dead_code)]
     pub fn neovim_terminal_inner_size(&self) -> (u16, u16) {
-        self.layout.panel_rect(PanelId::NeovimPane)
+        self.layout
+            .panel_rect(PanelId::NeovimPane)
             .map(|r| (r.height, r.width))
             .unwrap_or((0, 0))
     }

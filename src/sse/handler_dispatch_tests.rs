@@ -66,9 +66,8 @@ fn session_created_emits_event() {
 
 #[test]
 fn session_updated_emits_event() {
-    let (res, evs) = run(
-        r#"{"type":"session.updated","properties":{"info":{"id":"s2","directory":"/p"}}}"#,
-    );
+    let (res, evs) =
+        run(r#"{"type":"session.updated","properties":{"info":{"id":"s2","directory":"/p"}}}"#);
     assert!(res.is_ok());
     assert!(matches!(
         evs.as_slice(),
@@ -100,9 +99,8 @@ fn session_idle_event_emits_idle() {
 
 #[test]
 fn session_status_busy_emits_busy() {
-    let (res, evs) = run(
-        r#"{"type":"session.status","properties":{"sessionID":"b","status":{"type":"busy"}}}"#,
-    );
+    let (res, evs) =
+        run(r#"{"type":"session.status","properties":{"sessionID":"b","status":{"type":"busy"}}}"#);
     assert!(res.is_ok());
     assert!(matches!(
         evs.as_slice(),
@@ -123,9 +121,8 @@ fn session_status_retry_emits_busy() {
 
 #[test]
 fn session_status_idle_emits_idle() {
-    let (_res, evs) = run(
-        r#"{"type":"session.status","properties":{"sessionID":"i","status":{"type":"idle"}}}"#,
-    );
+    let (_res, evs) =
+        run(r#"{"type":"session.status","properties":{"sessionID":"i","status":{"type":"idle"}}}"#);
     assert!(matches!(
         evs.as_slice(),
         [BackgroundEvent::SseSessionIdle { session_id, .. }] if session_id == "i"
@@ -240,7 +237,8 @@ fn permission_asked_invalid_emits_nothing() {
 
 #[test]
 fn question_asked_valid_emits_event() {
-    let data = r#"{"type":"question.asked","properties":{"id":"q1","sessionID":"s","questions":[]}}"#;
+    let data =
+        r#"{"type":"question.asked","properties":{"id":"q1","sessionID":"s","questions":[]}}"#;
     let (res, evs) = run(data);
     assert!(res.is_ok());
     assert!(matches!(

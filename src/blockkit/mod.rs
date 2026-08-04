@@ -132,13 +132,19 @@ That's it! Each program prints "Hello, World!" to the console."#;
         println!("\n=== BLOCKS ({}) ===", result.blocks.len());
         for (i, block) in result.blocks.iter().enumerate() {
             println!("--- Block {} ---", i);
-            println!("{}", serde_json::to_string_pretty(block).unwrap());
+            match serde_json::to_string_pretty(block) {
+                Ok(rendered) => println!("{rendered}"),
+                Err(error) => eprintln!("failed to render block {i}: {error}"),
+            }
         }
 
         println!("\n=== TABLE BLOCKS ({}) ===", result.table_blocks.len());
         for (i, block) in result.table_blocks.iter().enumerate() {
             println!("--- Table Block {} ---", i);
-            println!("{}", serde_json::to_string_pretty(block).unwrap());
+            match serde_json::to_string_pretty(block) {
+                Ok(rendered) => println!("{rendered}"),
+                Err(error) => eprintln!("failed to render table block {i}: {error}"),
+            }
         }
     }
 }

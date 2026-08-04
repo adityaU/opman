@@ -89,7 +89,11 @@ fn code_block_unterminated_runs_to_eof() {
 fn table_segment_detected() {
     let md = "| A | B |\n| --- | --- |\n| 1 | 2 |";
     match one(md) {
-        MdSegment::Table { headers, alignments, rows } => {
+        MdSegment::Table {
+            headers,
+            alignments,
+            rows,
+        } => {
             assert_eq!(headers.len(), 2);
             assert_eq!(alignments.len(), 2);
             assert_eq!(rows.len(), 1);
@@ -201,7 +205,9 @@ fn paragraph_breaks_before_other_blocks() {
     assert!(segs.iter().any(|s| matches!(s, MdSegment::BulletList(_))));
     assert!(segs.iter().any(|s| matches!(s, MdSegment::Blockquote(_))));
     assert!(segs.iter().any(|s| matches!(s, MdSegment::HorizontalRule)));
-    assert!(segs.iter().any(|s| matches!(s, MdSegment::CodeBlock { .. })));
+    assert!(segs
+        .iter()
+        .any(|s| matches!(s, MdSegment::CodeBlock { .. })));
     assert!(segs.iter().any(|s| matches!(s, MdSegment::Table { .. })));
 }
 
@@ -237,7 +243,10 @@ fn mdsegment_debug_impl() {
 #[test]
 fn parse_heading_line_variants() {
     assert_eq!(parse_heading_line("# Hi"), Some((1, "Hi".to_string())));
-    assert_eq!(parse_heading_line("###### Deep"), Some((6, "Deep".to_string())));
+    assert_eq!(
+        parse_heading_line("###### Deep"),
+        Some((6, "Deep".to_string()))
+    );
     assert!(parse_heading_line("####### TooDeep").is_none()); // level > 6
     assert!(parse_heading_line("#").is_none()); // empty rest
     assert!(parse_heading_line("#   ").is_none()); // whitespace-only rest

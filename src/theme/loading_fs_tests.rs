@@ -2,8 +2,7 @@ use super::*;
 use std::fs;
 use tempfile::TempDir;
 
-const REL_SERVER: &str =
-    "server-code/packages/opencode/src/cli/cmd/tui/context/theme";
+const REL_SERVER: &str = "server-code/packages/opencode/src/cli/cmd/tui/context/theme";
 const REL_PACKAGES: &str = "packages/opencode/src/cli/cmd/tui/context/theme";
 
 #[test]

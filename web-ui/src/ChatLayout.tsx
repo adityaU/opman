@@ -236,6 +236,10 @@ export function ChatLayout() {
 
   // ── Model / Agent ──
   const model = useModelState(messages, providers, activeSessionId);
+  const handleRunnerChange = useCallback((runner: string) => {
+    setSelectedRunner(runner);
+    model.setSelectedAgent("");
+  }, [model.setSelectedAgent]);
   const selectedModelId = model.currentModel || model.defaultModelDisplay;
   const selectedModelInfo = Object.values(providers.all)
     .flatMap((provider) => Object.values(provider.models))
@@ -424,7 +428,7 @@ export function ChatLayout() {
         handleQuestionDismiss={handlers.handleQuestionDismiss}
         handleSelectSession={handlers.handleSelectSession} handleNewSession={handlers.handleNewSession}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
-        handleRunnerChange={setSelectedRunner}
+        handleRunnerChange={handleRunnerChange}
         handleEffortChange={(effort) => setRunnerSetting({ effort })}
         handlePermissionChange={(permission) => setRunnerSetting({ permission })}
         handleSearchMatchesChanged={callbacks.handleSearchMatchesChanged}

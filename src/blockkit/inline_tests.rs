@@ -260,10 +260,22 @@ fn try_parse_double_no_close() {
 #[test]
 fn text_element_all_styles() {
     assert!(text_element("x", None).get("style").is_none());
-    assert_eq!(text_element("x", Some(InlineStyle::Bold))["style"]["bold"], serde_json::json!(true));
-    assert_eq!(text_element("x", Some(InlineStyle::Italic))["style"]["italic"], serde_json::json!(true));
-    assert_eq!(text_element("x", Some(InlineStyle::Code))["style"]["code"], serde_json::json!(true));
-    assert_eq!(text_element("x", Some(InlineStyle::Strike))["style"]["strike"], serde_json::json!(true));
+    assert_eq!(
+        text_element("x", Some(InlineStyle::Bold))["style"]["bold"],
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        text_element("x", Some(InlineStyle::Italic))["style"]["italic"],
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        text_element("x", Some(InlineStyle::Code))["style"]["code"],
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        text_element("x", Some(InlineStyle::Strike))["style"]["strike"],
+        serde_json::json!(true)
+    );
     let bi = text_element("x", Some(InlineStyle::BoldItalic));
     assert_eq!(bi["style"]["bold"], serde_json::json!(true));
     assert_eq!(bi["style"]["italic"], serde_json::json!(true));

@@ -137,10 +137,9 @@ impl App {
                             "connected to project: {}, session: {} — send a message in this thread to start working",
                             pname, sname
                         );
-                        let _ = crate::slack::post_message(
-                            &client, &bot_token, &ch, &ack, Some(&tts),
-                        )
-                        .await;
+                        let _ =
+                            crate::slack::post_message(&client, &bot_token, &ch, &ack, Some(&tts))
+                                .await;
                     } else {
                         match crate::slack::send_user_message(
                             &client,
@@ -153,12 +152,14 @@ impl App {
                         {
                             Ok(()) => {
                                 info!("Slack: user message sent to session {}", sid);
-                                let ack = format!(
-                                    "relayed to project: {}, session: {}",
-                                    pname, sname
-                                );
+                                let ack =
+                                    format!("relayed to project: {}, session: {}", pname, sname);
                                 let _ = crate::slack::post_message(
-                                    &client, &bot_token, &ch, &ack, Some(&tts),
+                                    &client,
+                                    &bot_token,
+                                    &ch,
+                                    &ack,
+                                    Some(&tts),
                                 )
                                 .await;
                             }
@@ -166,7 +167,11 @@ impl App {
                                 error!("Failed to send message to session: {}", e);
                                 let msg = format!("opman: Failed to send message: {}", e);
                                 let _ = crate::slack::post_message(
-                                    &client, &bot_token, &ch, &msg, Some(&tts),
+                                    &client,
+                                    &bot_token,
+                                    &ch,
+                                    &msg,
+                                    Some(&tts),
                                 )
                                 .await;
                             }
@@ -224,10 +229,9 @@ impl App {
                              \"create a new session in {}\" or \"start a fresh session for {}\".",
                             session_count, pname, pname, pname
                         );
-                        let _ = crate::slack::post_message(
-                            &client, &bot_token, &ch, &msg, Some(&tts),
-                        )
-                        .await;
+                        let _ =
+                            crate::slack::post_message(&client, &bot_token, &ch, &msg, Some(&tts))
+                                .await;
                     });
                 }
             }

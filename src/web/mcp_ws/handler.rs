@@ -13,7 +13,7 @@ use crate::web::types::{ServerState, SseTokenQuery, WebEvent};
 
 use super::editor::{handle_editor_list, handle_editor_open, handle_editor_read};
 use super::protocol::{
-    JsonRpcRequest, JsonRpcResponse, INVALID_REQUEST, METHOD_NOT_FOUND, MCP_PROTOCOL_VERSION,
+    JsonRpcRequest, JsonRpcResponse, INVALID_REQUEST, MCP_PROTOCOL_VERSION, METHOD_NOT_FOUND,
     PARSE_ERROR, SERVER_NAME, SERVER_VERSION,
 };
 use super::terminal::{
@@ -64,11 +64,8 @@ async fn handle_mcp_session(socket: WebSocket, state: ServerState) {
         let request: JsonRpcRequest = match serde_json::from_str(&msg) {
             Ok(r) => r,
             Err(e) => {
-                let resp = JsonRpcResponse::error(
-                    None,
-                    PARSE_ERROR,
-                    format!("JSON parse error: {}", e),
-                );
+                let resp =
+                    JsonRpcResponse::error(None, PARSE_ERROR, format!("JSON parse error: {}", e));
                 if let Ok(json) = serde_json::to_string(&resp) {
                     if sender.send(Message::Text(json.into())).await.is_err() {
                         break;
@@ -162,7 +159,11 @@ fn handle_tools_list(req: &JsonRpcRequest) -> JsonRpcResponse {
 // ── MCP: tools/call ─────────────────────────────────────────────────
 
 async fn handle_tools_call(state: &ServerState, req: &JsonRpcRequest) -> JsonRpcResponse {
-    let params = req.params.as_ref().cloned().unwrap_or(serde_json::json!({}));
+    let params = req
+        .params
+        .as_ref()
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let tool_name = match params.get("name").and_then(|v| v.as_str()) {
         Some(n) => n.to_string(),
         None => {

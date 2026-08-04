@@ -38,7 +38,8 @@ fn deserialize_request_missing_method_fails() {
 
 #[test]
 fn success_response_serializes_result_only() {
-    let resp = JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"ok": true}));
+    let resp =
+        JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"ok": true}));
     let v = serde_json::to_value(&resp).unwrap();
     assert_eq!(v["jsonrpc"], "2.0");
     assert_eq!(v["id"], 1);

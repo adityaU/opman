@@ -47,7 +47,11 @@ pub(crate) async fn create_tunnel(
 }
 
 /// Run `cloudflared tunnel route dns <uuid> <hostname>` to create/update CNAME.
-pub(crate) async fn route_dns(cert_path: &Path, tunnel_uuid: &str, hostname: &str) -> anyhow::Result<()> {
+pub(crate) async fn route_dns(
+    cert_path: &Path,
+    tunnel_uuid: &str,
+    hostname: &str,
+) -> anyhow::Result<()> {
     info!("Creating DNS record: {hostname} → tunnel {tunnel_uuid}");
 
     let status = Command::new("cloudflared")
@@ -103,15 +107,18 @@ pub(crate) fn generate_config(
             }
         ]
     });
+    let object = config
+        .as_object_mut()
+        .ok_or_else(|| anyhow::anyhow!("generated tunnel configuration is not an object"))?;
     // When a protocol override is requested, bake it into the config file as well
     if let Some(ref proto) = opts.protocol {
-        config.as_object_mut().unwrap().insert(
+        object.insert(
             "protocol".to_string(),
             serde_json::Value::String(proto.clone()),
         );
     }
     if let Some(ref region) = opts.region {
-        config.as_object_mut().unwrap().insert(
+        object.insert(
             "region".to_string(),
             serde_json::Value::String(region.clone()),
         );
@@ -155,7 +162,9 @@ pub(crate) async fn verify_tunnel(
     let tunnels: Vec<serde_json::Value> = serde_json::from_str(&stdout)?;
 
     if tunnels.is_empty() {
-        return Err(anyhow::anyhow!("tunnel {tunnel_uuid} not found on Cloudflare"));
+        return Err(anyhow::anyhow!(
+            "tunnel {tunnel_uuid} not found on Cloudflare"
+        ));
     }
 
     let name = tunnels[0]

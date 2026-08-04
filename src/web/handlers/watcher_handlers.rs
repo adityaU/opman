@@ -1,6 +1,5 @@
 //! Watcher CRUD and watcher session/message handlers.
 
-
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -30,7 +29,9 @@ pub async fn create_watcher(
         return Err(WebError::BadRequest("session_id is required".into()));
     }
     if req.continuation_message.trim().is_empty() {
-        return Err(WebError::BadRequest("continuation_message is required".into()));
+        return Err(WebError::BadRequest(
+            "continuation_message is required".into(),
+        ));
     }
     if req.idle_timeout_secs == 0 {
         return Err(WebError::BadRequest("idle_timeout_secs must be > 0".into()));
@@ -84,7 +85,8 @@ pub async fn get_watcher_messages(
     let base = base_url().to_string();
 
     // Fetch messages from the opencode server
-    let resp = state.http_client
+    let resp = state
+        .http_client
         .get(format!("{}/session/{}/message", base, session_id))
         .header("x-opencode-directory", &dir)
         .header("Accept", "application/json")
@@ -118,7 +120,8 @@ pub(crate) fn parse_watcher_messages(body: &serde_json::Value) -> Vec<WatcherMes
 
     let mut user_messages: Vec<WatcherMessageEntry> = Vec::new();
     for msg in &all_messages {
-        let role = msg.pointer("/info/role")
+        let role = msg
+            .pointer("/info/role")
             .and_then(|v| v.as_str())
             .unwrap_or("");
         if role != "user" {

@@ -2,12 +2,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::{send_json, test_router, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -16,7 +16,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
@@ -37,7 +39,14 @@ async fn delete_file_ok() {
     std::fs::write(tmp.path().join("gone.txt"), "x").unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_file(State(state), auth(), axum::Json(FileDeleteRequest { path: "gone.txt".into() })).await,
+        delete_file(
+            State(state),
+            auth(),
+            axum::Json(FileDeleteRequest {
+                path: "gone.txt".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -49,7 +58,14 @@ async fn delete_file_missing_404() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_file(State(state), auth(), axum::Json(FileDeleteRequest { path: "ghost".into() })).await,
+        delete_file(
+            State(state),
+            auth(),
+            axum::Json(FileDeleteRequest {
+                path: "ghost".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
@@ -61,7 +77,14 @@ async fn delete_file_on_dir_400() {
     std::fs::create_dir(tmp.path().join("adir")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_file(State(state), auth(), axum::Json(FileDeleteRequest { path: "adir".into() })).await,
+        delete_file(
+            State(state),
+            auth(),
+            axum::Json(FileDeleteRequest {
+                path: "adir".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -76,7 +99,14 @@ async fn delete_file_traversal_400() {
     std::fs::write(&outside, "x").unwrap();
     let state = state_dir(&proj);
     let (st, _) = parts(
-        delete_file(State(state), auth(), axum::Json(FileDeleteRequest { path: "../out.txt".into() })).await,
+        delete_file(
+            State(state),
+            auth(),
+            axum::Json(FileDeleteRequest {
+                path: "../out.txt".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -90,7 +120,12 @@ async fn delete_dir_ok() {
     std::fs::create_dir_all(tmp.path().join("d/inner")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_dir(State(state), auth(), axum::Json(DirDeleteRequest { path: "d".into() })).await,
+        delete_dir(
+            State(state),
+            auth(),
+            axum::Json(DirDeleteRequest { path: "d".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -102,7 +137,14 @@ async fn delete_dir_missing_404() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_dir(State(state), auth(), axum::Json(DirDeleteRequest { path: "ghostdir".into() })).await,
+        delete_dir(
+            State(state),
+            auth(),
+            axum::Json(DirDeleteRequest {
+                path: "ghostdir".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
@@ -113,7 +155,12 @@ async fn delete_dir_root_forbidden_400() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_dir(State(state), auth(), axum::Json(DirDeleteRequest { path: ".".into() })).await,
+        delete_dir(
+            State(state),
+            auth(),
+            axum::Json(DirDeleteRequest { path: ".".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -125,7 +172,14 @@ async fn delete_dir_on_file_400() {
     std::fs::write(tmp.path().join("afile.txt"), "x").unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        delete_dir(State(state), auth(), axum::Json(DirDeleteRequest { path: "afile.txt".into() })).await,
+        delete_dir(
+            State(state),
+            auth(),
+            axum::Json(DirDeleteRequest {
+                path: "afile.txt".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -139,7 +193,14 @@ async fn delete_dir_traversal_400() {
     std::fs::create_dir(root.path().join("outdir")).unwrap();
     let state = state_dir(&proj);
     let (st, _) = parts(
-        delete_dir(State(state), auth(), axum::Json(DirDeleteRequest { path: "../outdir".into() })).await,
+        delete_dir(
+            State(state),
+            auth(),
+            axum::Json(DirDeleteRequest {
+                path: "../outdir".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -155,7 +216,10 @@ async fn rename_empty_paths_400() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: String::new(), to_path: "x".into() }),
+            axum::Json(RenameRequest {
+                from_path: String::new(),
+                to_path: "x".into(),
+            }),
         )
         .await,
     )
@@ -171,7 +235,10 @@ async fn rename_same_path_ok() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "a".into(), to_path: "a".into() }),
+            axum::Json(RenameRequest {
+                from_path: "a".into(),
+                to_path: "a".into(),
+            }),
         )
         .await,
     )
@@ -188,7 +255,10 @@ async fn rename_file_ok() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "old.txt".into(), to_path: "new.txt".into() }),
+            axum::Json(RenameRequest {
+                from_path: "old.txt".into(),
+                to_path: "new.txt".into(),
+            }),
         )
         .await,
     )
@@ -206,7 +276,10 @@ async fn rename_source_missing_404() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "ghost.txt".into(), to_path: "new.txt".into() }),
+            axum::Json(RenameRequest {
+                from_path: "ghost.txt".into(),
+                to_path: "new.txt".into(),
+            }),
         )
         .await,
     )
@@ -224,7 +297,10 @@ async fn rename_dest_exists_400() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "src.txt".into(), to_path: "dst.txt".into() }),
+            axum::Json(RenameRequest {
+                from_path: "src.txt".into(),
+                to_path: "dst.txt".into(),
+            }),
         )
         .await,
     )
@@ -240,7 +316,10 @@ async fn rename_project_root_forbidden_400() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: ".".into(), to_path: "renamed".into() }),
+            axum::Json(RenameRequest {
+                from_path: ".".into(),
+                to_path: "renamed".into(),
+            }),
         )
         .await,
     )
@@ -259,7 +338,10 @@ async fn rename_source_traversal_400() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "../outside.txt".into(), to_path: "here.txt".into() }),
+            axum::Json(RenameRequest {
+                from_path: "../outside.txt".into(),
+                to_path: "here.txt".into(),
+            }),
         )
         .await,
     )
@@ -276,7 +358,10 @@ async fn rename_dest_parent_missing_404() {
         rename_entry(
             State(state),
             auth(),
-            axum::Json(RenameRequest { from_path: "s.txt".into(), to_path: "nodir/d.txt".into() }),
+            axum::Json(RenameRequest {
+                from_path: "s.txt".into(),
+                to_path: "nodir/d.txt".into(),
+            }),
         )
         .await,
     )
@@ -290,11 +375,20 @@ async fn rename_dest_parent_missing_404() {
 async fn search_files_empty_query_returns_empty() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
-    let resp = search_files(State(state), auth(), Query(FileSearchQuery { q: "   ".into(), limit: 10 }))
+    let resp = search_files(
+        State(state),
+        auth(),
+        Query(FileSearchQuery {
+            q: "   ".into(),
+            limit: 10,
+        }),
+    )
+    .await
+    .unwrap()
+    .into_response();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
         .await
-        .unwrap()
-        .into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["entries"].as_array().unwrap().len(), 0);
 }
@@ -304,14 +398,27 @@ async fn search_files_with_matches() {
     let tmp = tempfile::TempDir::new().unwrap();
     std::fs::write(tmp.path().join("findme.txt"), "").unwrap();
     let state = state_dir(tmp.path());
-    let resp = search_files(State(state), auth(), Query(FileSearchQuery { q: "findme".into(), limit: 100 }))
+    let resp = search_files(
+        State(state),
+        auth(),
+        Query(FileSearchQuery {
+            q: "findme".into(),
+            limit: 100,
+        }),
+    )
+    .await
+    .unwrap()
+    .into_response();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
         .await
-        .unwrap()
-        .into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["query"], "findme");
-    assert!(v["entries"].as_array().unwrap().iter().any(|e| e["name"] == "findme.txt"));
+    assert!(v["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["name"] == "findme.txt"));
 }
 
 // ── upload_files (via router / multipart) ──────────────────────────
@@ -332,7 +439,10 @@ async fn send_multipart(
         .unwrap();
     let resp = router.oneshot(req).await.unwrap();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     (status, bytes)
 }
 
@@ -349,7 +459,9 @@ fn multipart_file(dir: Option<&str>, field: &str, filename: Option<&str>, data: 
         Some(fname) => b.push_str(&format!(
             "Content-Disposition: form-data; name=\"{field}\"; filename=\"{fname}\"\r\n\r\n"
         )),
-        None => b.push_str(&format!("Content-Disposition: form-data; name=\"{field}\"\r\n\r\n")),
+        None => b.push_str(&format!(
+            "Content-Disposition: form-data; name=\"{field}\"\r\n\r\n"
+        )),
     }
     b.push_str(data);
     b.push_str("\r\n--BOUND--\r\n");
@@ -366,7 +478,10 @@ async fn upload_single_file_ok() {
     assert_eq!(st, axum::http::StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
     assert_eq!(v["files"][0], "up.txt");
-    assert_eq!(std::fs::read_to_string(tmp.path().join("up.txt")).unwrap(), "content-here");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("up.txt")).unwrap(),
+        "content-here"
+    );
 }
 
 #[tokio::test]

@@ -46,14 +46,20 @@ fn board_default_shape() {
     assert_eq!(b.project_path, "/proj");
     assert_eq!(b.lanes.len(), 7);
     // first lane has no backward edge, only forward.
-    assert_eq!(b.transitions["lane_todo"], vec!["lane_planning".to_string()]);
+    assert_eq!(
+        b.transitions["lane_todo"],
+        vec!["lane_planning".to_string()]
+    );
     // middle lane has forward + backward.
     assert_eq!(
         b.transitions["lane_planning"],
         vec!["lane_implementing".to_string(), "lane_todo".to_string()]
     );
     // last lane has only backward edge.
-    assert_eq!(b.transitions["lane_done"], vec!["lane_inreview".to_string()]);
+    assert_eq!(
+        b.transitions["lane_done"],
+        vec!["lane_inreview".to_string()]
+    );
     let _ = format!("{b:?}");
     let _ = b.clone();
 }

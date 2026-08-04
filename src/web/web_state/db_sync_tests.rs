@@ -93,11 +93,19 @@ fn workspace() -> WorkspaceSnapshot {
     WorkspaceSnapshot {
         name: "ws1".into(),
         created_at: "t".into(),
-        panels: WorkspacePanels { sidebar: true, terminal: false, editor: true, git: false },
+        panels: WorkspacePanels {
+            sidebar: true,
+            terminal: false,
+            editor: true,
+            git: false,
+        },
         layout: WorkspaceLayout::default(),
         open_files: vec!["a.rs".into()],
         active_file: Some("a.rs".into()),
-        terminal_tabs: vec![WorkspaceTerminalTab { label: "sh".into(), kind: "shell".into() }],
+        terminal_tabs: vec![WorkspaceTerminalTab {
+            label: "sh".into(),
+            kind: "shell".into(),
+        }],
         session_id: Some("s1".into()),
         git_branch: Some("main".into()),
         is_template: false,
@@ -119,7 +127,10 @@ fn signal() -> SignalInput {
 }
 
 fn autonomy() -> AutonomySettings {
-    AutonomySettings { mode: AutonomyMode::Nudge, updated_at: "t".into() }
+    AutonomySettings {
+        mode: AutonomyMode::Nudge,
+        updated_at: "t".into(),
+    }
 }
 
 #[test]
@@ -134,8 +145,10 @@ fn sync_all_round_trip() {
     let ws = vec![workspace()];
     let signals = vec![signal()];
 
-    super::sync_all(&db, &missions, &memory, &auto, &routines, &runs, &deleg, &ws, &signals)
-        .expect("sync ok");
+    super::sync_all(
+        &db, &missions, &memory, &auto, &routines, &runs, &deleg, &ws, &signals,
+    )
+    .expect("sync ok");
 
     assert_eq!(db.list_missions().len(), 1);
     assert_eq!(db.list_missions()[0].goal, "ship it");
@@ -145,7 +158,10 @@ fn sync_all_round_trip() {
     assert_eq!(db.list_delegated_work().len(), 1);
     assert_eq!(db.list_workspaces().len(), 1);
     assert_eq!(db.list_signals(100).len(), 1);
-    assert!(matches!(db.load_autonomy_settings().mode, AutonomyMode::Nudge));
+    assert!(matches!(
+        db.load_autonomy_settings().mode,
+        AutonomyMode::Nudge
+    ));
 }
 
 #[test]
@@ -213,7 +229,10 @@ fn trigger_str_all_variants() {
     use super::trigger_str;
     assert_eq!(trigger_str(&RoutineTrigger::Manual), "manual");
     assert_eq!(trigger_str(&RoutineTrigger::Scheduled), "scheduled");
-    assert_eq!(trigger_str(&RoutineTrigger::OnSessionIdle), "on_session_idle");
+    assert_eq!(
+        trigger_str(&RoutineTrigger::OnSessionIdle),
+        "on_session_idle"
+    );
     assert_eq!(trigger_str(&RoutineTrigger::DailySummary), "daily_summary");
 }
 
@@ -223,14 +242,23 @@ fn action_str_all_variants() {
     assert_eq!(action_str(&RoutineAction::SendMessage), "send_message");
     assert_eq!(action_str(&RoutineAction::ReviewMission), "review_mission");
     assert_eq!(action_str(&RoutineAction::OpenInbox), "open_inbox");
-    assert_eq!(action_str(&RoutineAction::OpenActivityFeed), "open_activity_feed");
+    assert_eq!(
+        action_str(&RoutineAction::OpenActivityFeed),
+        "open_activity_feed"
+    );
 }
 
 #[test]
 fn target_mode_str_all_variants() {
     use super::target_mode_str;
-    assert_eq!(target_mode_str(&RoutineTargetMode::ExistingSession), "existing_session");
-    assert_eq!(target_mode_str(&RoutineTargetMode::NewSession), "new_session");
+    assert_eq!(
+        target_mode_str(&RoutineTargetMode::ExistingSession),
+        "existing_session"
+    );
+    assert_eq!(
+        target_mode_str(&RoutineTargetMode::NewSession),
+        "new_session"
+    );
 }
 
 #[test]

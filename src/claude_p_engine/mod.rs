@@ -48,7 +48,9 @@ fn rand_id(prefix: &str) -> String {
 
 /// Engine-wide default model (`OPMAN_CLAUDE_MODEL`), if set.
 fn default_model() -> Option<String> {
-    std::env::var("OPMAN_CLAUDE_MODEL").ok().filter(|s| !s.is_empty())
+    std::env::var("OPMAN_CLAUDE_MODEL")
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 pub struct ClaudePEngine {
@@ -57,7 +59,8 @@ pub struct ClaudePEngine {
     /// Live `claude -p` processes, keyed by opman session id.
     procs: ProcMap,
     /// In-flight permission/question requests awaiting an opman reply.
-    pending: Mutex<HashMap<String, tokio::sync::oneshot::Sender<crate::claude_engine::PendingReply>>>,
+    pending:
+        Mutex<HashMap<String, tokio::sync::oneshot::Sender<crate::claude_engine::PendingReply>>>,
     /// Per-(session,message) content hash, so the stream reader emits a message only
     /// when its rendered content actually changed.
     emitted: Mutex<HashMap<String, u64>>,

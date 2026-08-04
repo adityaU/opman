@@ -193,7 +193,10 @@ pub(super) async fn do_redo_command(
     let client = reqwest::Client::new();
     let api = crate::api::ApiClient::new();
 
-    let msg = match api.unrevert_session(base_url, project_dir, session_id).await {
+    let msg = match api
+        .unrevert_session(base_url, project_dir, session_id)
+        .await
+    {
         Ok(()) => {
             tracing::info!(
                 "Slack @redo: unreverted session {}",

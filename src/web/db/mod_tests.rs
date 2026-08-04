@@ -19,13 +19,20 @@ fn open_at_creates_parent_and_schema() {
         mode: AutonomyMode::Nudge,
         updated_at: "2025-01-01T00:00:00Z".into(),
     });
-    assert!(matches!(db.load_autonomy_settings().mode, AutonomyMode::Nudge));
+    assert!(matches!(
+        db.load_autonomy_settings().mode,
+        AutonomyMode::Nudge
+    ));
 
     // conn() hands out a live connection guard.
     {
         let conn = db.conn();
         let n: i64 = conn
-            .query_row("SELECT count(*) FROM sqlite_master WHERE type='table'", [], |r| r.get(0))
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert!(n >= 7);
     }

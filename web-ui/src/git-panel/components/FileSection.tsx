@@ -29,7 +29,7 @@ export function FileSection({
 
   return (
     <div className="git-section">
-      <button className="git-section-header" onClick={onToggle}>
+      <div className="git-section-header" role="button" tabIndex={0} onClick={onToggle} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onToggle(); } }}>
         {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         <span className="git-section-title">{title} ({files.length})</span>
         <button
@@ -40,7 +40,7 @@ export function FileSection({
         >
           {isStaged ? <Minus size={11} /> : <Plus size={11} />}
         </button>
-      </button>
+      </div>
 
       {isOpen && files.map((file) => (
         <div

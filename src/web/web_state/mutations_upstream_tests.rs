@@ -13,7 +13,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 

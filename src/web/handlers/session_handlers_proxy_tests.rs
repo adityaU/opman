@@ -50,9 +50,13 @@ fn send_message_error_status_surfaces_internal() {
 
 #[test]
 fn send_message_error_500_with_null_body() {
-    let err = map_send_message_response("s", StatusCode::INTERNAL_SERVER_ERROR, serde_json::Value::Null)
-        .err()
-        .expect("err");
+    let err = map_send_message_response(
+        "s",
+        StatusCode::INTERNAL_SERVER_ERROR,
+        serde_json::Value::Null,
+    )
+    .err()
+    .expect("err");
     match err {
         WebError::Internal(msg) => assert!(msg.contains("500")),
         other => panic!("expected Internal, got {other:?}"),
@@ -101,7 +105,9 @@ fn proxy_json_error_502_null_body() {
     let err = map_proxy_json_response(StatusCode::BAD_GATEWAY, serde_json::Value::Null)
         .err()
         .expect("err");
-    matches!(err, WebError::Internal(_)).then_some(()).expect("internal");
+    matches!(err, WebError::Internal(_))
+        .then_some(())
+        .expect("internal");
 }
 
 // ── map_status_only_response (delete) ───────────────────────────────
@@ -115,7 +121,8 @@ fn status_only_success_returns_ok_code() {
 #[test]
 fn status_only_success_204_still_maps_to_200() {
     // Any 2xx upstream status collapses to a plain 200 OK for the client.
-    let code = map_status_only_response(StatusCode::NO_CONTENT, serde_json::Value::Null).expect("ok");
+    let code =
+        map_status_only_response(StatusCode::NO_CONTENT, serde_json::Value::Null).expect("ok");
     assert_eq!(code, StatusCode::OK);
 }
 
@@ -138,5 +145,7 @@ fn status_only_error_with_null_body() {
     let err = map_status_only_response(StatusCode::INTERNAL_SERVER_ERROR, serde_json::Value::Null)
         .err()
         .expect("err");
-    matches!(err, WebError::Internal(_)).then_some(()).expect("internal");
+    matches!(err, WebError::Internal(_))
+        .then_some(())
+        .expect("internal");
 }

@@ -1,11 +1,11 @@
 //! Git status, diff, log, stage, unstage, commit, discard handlers.
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
 use super::common::{resolve_project_dir, resolve_repo_dir};
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Json};
 
 /// Helper: resolve the git working directory, honouring `repo` scope query param.
 async fn git_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBuf> {
@@ -250,7 +250,9 @@ pub async fn git_commit(
     let dir_path = git_dir(&state, &req.repo).await?;
 
     if req.message.trim().is_empty() {
-        return Err(WebError::BadRequest("Commit message cannot be empty".into()));
+        return Err(WebError::BadRequest(
+            "Commit message cannot be empty".into(),
+        ));
     }
 
     // Validate message doesn't start with `-` to prevent argument injection
@@ -297,9 +299,7 @@ pub async fn git_discard(
     let dir_path = git_dir(&state, &req.repo).await?;
 
     if req.files.is_empty() {
-        return Err(WebError::BadRequest(
-            "Must specify files to discard".into(),
-        ));
+        return Err(WebError::BadRequest("Must specify files to discard".into()));
     }
 
     // Validate filenames to prevent argument injection
@@ -321,9 +321,7 @@ pub async fn git_discard(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(WebError::Internal(format!(
-            "git checkout failed: {stderr}"
-        )));
+        return Err(WebError::Internal(format!("git checkout failed: {stderr}")));
     }
 
     Ok(StatusCode::OK)

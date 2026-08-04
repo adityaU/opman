@@ -199,7 +199,10 @@ fn editor_event_serializes() {
         source: "web_save".into(),
     })
     .unwrap();
-    assert_eq!(v, json!({"type": "FileChanged", "path": "rel/a.rs", "source": "web_save"}));
+    assert_eq!(
+        v,
+        json!({"type": "FileChanged", "path": "rel/a.rs", "source": "web_save"})
+    );
     let e = EditorEvent::FileChanged {
         path: "p".into(),
         source: "ai_edit".into(),

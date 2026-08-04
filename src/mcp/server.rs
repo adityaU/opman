@@ -10,9 +10,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use super::nvim_handler::handle_nvim_op_blocking;
-use super::types::{
-    NvimSocketRegistry, PendingSocketRequest, SocketRequest, SocketResponse,
-};
+use super::types::{NvimSocketRegistry, PendingSocketRequest, SocketRequest, SocketResponse};
 
 /// Update MCP activity timestamp.
 fn update_activity(ts: &AtomicU64) {
@@ -21,6 +19,15 @@ fn update_activity(ts: &AtomicU64) {
         .unwrap_or_default()
         .as_millis() as u64;
     ts.store(now, Ordering::Release);
+}
+
+async fn write_response(
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+    response: &SocketResponse,
+) -> std::io::Result<()> {
+    let payload = serde_json::to_vec(response).map_err(std::io::Error::other)?;
+    writer.write_all(&payload).await?;
+    writer.write_all(b"\n").await
 }
 
 /// Spawn the Unix domain socket server for a single project.
@@ -116,10 +123,7 @@ async fn handle_connection(
         Ok(r) => r,
         Err(e) => {
             let resp = SocketResponse::err(format!("Invalid JSON: {}", e));
-            let _ = writer
-                .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                .await;
-            let _ = writer.write_all(b"\n").await;
+            let _ = write_response(&mut writer, &resp).await;
             return;
         }
     };
@@ -134,14 +138,15 @@ async fn handle_connection(
                 Some(n) => n.clone(),
                 None => {
                     let resp = SocketResponse::err("Missing 'name' for ephemeral_lock".into());
-                    let _ = writer
-                        .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                        .await;
-                    let _ = writer.write_all(b"\n").await;
+                    let _ = write_response(&mut writer, &resp).await;
                     return;
                 }
             };
-            let acquired = { eph.lock().unwrap().insert(name.clone()) };
+            let acquired = {
+                eph.lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .insert(name.clone())
+            };
             let resp = if acquired {
                 SocketResponse::ok_empty()
             } else {
@@ -151,21 +156,17 @@ async fn handle_connection(
                     name
                 ))
             };
-            let _ = writer
-                .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                .await;
-            let _ = writer.write_all(b"\n").await;
+            let _ = write_response(&mut writer, &resp).await;
             return;
         }
         "ephemeral_unlock" => {
             if let Some(name) = &request.name {
-                eph.lock().unwrap().remove(name);
+                eph.lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .remove(name);
             }
             let resp = SocketResponse::ok_empty();
-            let _ = writer
-                .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                .await;
-            let _ = writer.write_all(b"\n").await;
+            let _ = write_response(&mut writer, &resp).await;
             return;
         }
         _ => {}
@@ -199,7 +200,7 @@ async fn handle_connection(
         if nvim_lock_keys.is_empty() {
             vec![]
         } else {
-            let mut locks_map = nvim.lock().unwrap();
+            let mut locks_map = nvim.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             nvim_lock_keys
                 .iter()
                 .map(|key| {
@@ -224,7 +225,7 @@ async fn handle_connection(
             .map(|t| t.to_string())
             .unwrap_or_else(|| "__active__".to_string());
         let lock = {
-            let mut locks = term.lock().unwrap();
+            let mut locks = term.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             locks
                 .entry(key)
                 .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
@@ -256,9 +257,7 @@ async fn handle_connection(
                     .unwrap_or_else(|e| SocketResponse::err(format!("Task join error: {}", e)))
             };
 
-            let json = serde_json::to_string(&response).unwrap();
-            let _ = writer.write_all(json.as_bytes()).await;
-            let _ = writer.write_all(b"\n").await;
+            let _ = write_response(&mut writer, &response).await;
             update_activity(&activity_ms);
 
             drop(_nvim_guards);
@@ -277,18 +276,10 @@ async fn handle_connection(
     });
 
     let write_result = match reply_rx.await {
-        Ok(response) => {
-            let json = serde_json::to_string(&response).unwrap();
-            let r1 = writer.write_all(json.as_bytes()).await;
-            let r2 = writer.write_all(b"\n").await;
-            r1.and(r2)
-        }
+        Ok(response) => write_response(&mut writer, &response).await,
         Err(_) => {
             let resp = SocketResponse::err("Internal error: no response".into());
-            let _ = writer
-                .write_all(serde_json::to_string(&resp).unwrap().as_bytes())
-                .await;
-            let _ = writer.write_all(b"\n").await;
+            let _ = write_response(&mut writer, &resp).await;
             Ok(())
         }
     };

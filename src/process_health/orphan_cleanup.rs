@@ -132,9 +132,7 @@ fn argv_is_own_child(argv: &[String]) -> bool {
     let sub = argv.get(1).map(|s| s.as_str()).unwrap_or("");
     // Our own orphaned processes: any `opman …`, the `opencode-serve` wrapper, or
     // `opencode serve …`.
-    base == "opman"
-        || base == "opencode-serve"
-        || (base == "opencode" && sub == "serve")
+    base == "opman" || base == "opencode-serve" || (base == "opencode" && sub == "serve")
 }
 
 #[cfg(test)]
@@ -164,7 +162,10 @@ mod tests {
 
     #[test]
     fn own_processes_are_matched() {
-        assert!(argv_is_own_child(&argv(&["/home/ubuntu/workspace/opman/target/release/opman", "mcp-ui"])));
+        assert!(argv_is_own_child(&argv(&[
+            "/home/ubuntu/workspace/opman/target/release/opman",
+            "mcp-ui"
+        ])));
         assert!(argv_is_own_child(&argv(&["opman", "--web-only"])));
         assert!(argv_is_own_child(&argv(&["/usr/bin/opencode", "serve"])));
         assert!(argv_is_own_child(&argv(&["opencode-serve"])));
@@ -173,13 +174,19 @@ mod tests {
     #[test]
     fn unrelated_processes_are_not_matched() {
         assert!(!argv_is_own_child(&argv(&["/usr/bin/opencode", "tui"]))); // not `serve`
-        assert!(!argv_is_own_child(&argv(&["node", "/some/opman/script.js"])));
+        assert!(!argv_is_own_child(&argv(&[
+            "node",
+            "/some/opman/script.js"
+        ])));
         assert!(!argv_is_own_child(&[]));
     }
 }
 
 /// Send SIGTERM to a process. Returns true on success.
 fn send_sigterm(pid: u32) -> bool {
-    // SAFETY: kill(2) is safe with a valid signal number.
-    unsafe { libc::kill(pid as i32, libc::SIGTERM) == 0 }
+    std::process::Command::new("kill")
+        .args(["-TERM", &pid.to_string()])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }

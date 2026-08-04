@@ -55,7 +55,12 @@ fn recipe_workspace() -> WorkspaceSnapshot {
     WorkspaceSnapshot {
         name: "recipe-ws".to_string(),
         created_at: "2024-01-01T00:00:00Z".to_string(),
-        panels: WorkspacePanels { sidebar: true, terminal: true, editor: true, git: true },
+        panels: WorkspacePanels {
+            sidebar: true,
+            terminal: true,
+            editor: true,
+            git: true,
+        },
         layout: WorkspaceLayout::default(),
         open_files: vec![],
         active_file: None,
@@ -75,7 +80,8 @@ async fn recommendations_all_branches_fire_and_truncate_to_four() {
     // Default: observe mode, no routine, no memory, no recipe workspace.
     // Add >2 incomplete delegations to trigger the overload branch.
     for i in 0..3 {
-        h.create_delegated_work(delegation_req(&format!("d{i}"))).await;
+        h.create_delegated_work(delegation_req(&format!("d{i}")))
+            .await;
     }
     let recs = h
         .build_recommendations(RecommendationsRequest {
@@ -87,7 +93,10 @@ async fn recommendations_all_branches_fire_and_truncate_to_four() {
     assert_eq!(recs.len(), 4);
     // First is the daily copilot recommendation (observe + no daily summary).
     assert_eq!(recs[0].title, "Enable Daily Copilot");
-    assert!(matches!(recs[0].action, RecommendationAction::SetupDailyCopilot));
+    assert!(matches!(
+        recs[0].action,
+        RecommendationAction::SetupDailyCopilot
+    ));
     // IDs are sequential.
     assert_eq!(recs[0].id, "rec-1");
     assert_eq!(recs[1].id, "rec-2");

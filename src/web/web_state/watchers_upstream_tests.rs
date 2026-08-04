@@ -55,7 +55,10 @@ async fn continuation_fires_to_upstream_with_original() {
     let mut rx = h.subscribe_events();
     let h2 = h.clone();
     scope_base_url(base, async move { h2.try_trigger_watcher("s1").await }).await;
-    assert!(await_triggered(&mut rx).await, "expected a 'triggered' watcher event");
+    assert!(
+        await_triggered(&mut rx).await,
+        "expected a 'triggered' watcher event"
+    );
 }
 
 #[tokio::test]
@@ -67,5 +70,8 @@ async fn continuation_fires_without_original() {
     let mut rx = h.subscribe_events();
     let h2 = h.clone();
     scope_base_url(base, async move { h2.try_trigger_watcher("s2").await }).await;
-    assert!(await_triggered(&mut rx).await, "expected a 'triggered' watcher event");
+    assert!(
+        await_triggered(&mut rx).await,
+        "expected a 'triggered' watcher event"
+    );
 }

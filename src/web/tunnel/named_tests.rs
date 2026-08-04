@@ -7,10 +7,7 @@ use super::*;
 #[test]
 fn build_named_args_default() {
     let args = build_named_args("my-token", &TunnelOptions::default());
-    assert_eq!(
-        args,
-        vec!["tunnel", "run", "--token", "my-token"]
-    );
+    assert_eq!(args, vec!["tunnel", "run", "--token", "my-token"]);
 }
 
 #[test]

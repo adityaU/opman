@@ -27,8 +27,7 @@ fn build_xlsx(path: &std::path::Path) {
 async fn doc_read_no_project_bad_request() {
     let st = test_server_state();
     let router = test_router(st);
-    let (status, _) =
-        send_json(router, "GET", "/api/file/doc-read?path=book.xlsx", None).await;
+    let (status, _) = send_json(router, "GET", "/api/file/doc-read?path=book.xlsx", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -37,8 +36,7 @@ async fn doc_read_xlsx_success() {
     let dir = tempfile::TempDir::new().unwrap();
     build_xlsx(&dir.path().join("book.xlsx"));
     let router = test_router(state_with_dir(dir.path()));
-    let (status, body) =
-        send_json(router, "GET", "/api/file/doc-read?path=book.xlsx", None).await;
+    let (status, body) = send_json(router, "GET", "/api/file/doc-read?path=book.xlsx", None).await;
     assert_eq!(status, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["path"], "book.xlsx");
@@ -93,8 +91,7 @@ async fn doc_read_unsupported_extension() {
 async fn doc_read_missing_file_not_found() {
     let dir = tempfile::TempDir::new().unwrap();
     let router = test_router(state_with_dir(dir.path()));
-    let (status, _) =
-        send_json(router, "GET", "/api/file/doc-read?path=missing.xlsx", None).await;
+    let (status, _) = send_json(router, "GET", "/api/file/doc-read?path=missing.xlsx", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 

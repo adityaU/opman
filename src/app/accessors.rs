@@ -23,7 +23,10 @@ impl App {
             .get(session_id)
             .and_then(|&pidx| self.projects.get(pidx))
             .and_then(|p| p.ptys.get(session_id))
-            .map(|pty| pty.last_output_at.load(std::sync::atomic::Ordering::Acquire))
+            .map(|pty| {
+                pty.last_output_at
+                    .load(std::sync::atomic::Ordering::Acquire)
+            })
             .unwrap_or(0);
         let msg_ms = self
             .last_message_event_at

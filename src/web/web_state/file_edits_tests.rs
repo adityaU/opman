@@ -30,13 +30,15 @@ fn git_commit(dir: &Path, file: &str, contents: &str) {
     let tree_id = index.write_tree().unwrap();
     let tree = repo.find_tree(tree_id).unwrap();
     let sig = git2::Signature::now("Test", "test@example.com").unwrap();
-    repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[]).unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
+        .unwrap();
 }
 
 #[tokio::test]
 async fn record_missing_file_is_noop() {
     let h = WebStateHandle::new_test();
-    h.record_file_edit("sess", "/nonexistent/path/does-not-exist.txt", None).await;
+    h.record_file_edit("sess", "/nonexistent/path/does-not-exist.txt", None)
+        .await;
     assert!(edits_for(&h, "sess").await.is_empty());
 }
 
@@ -58,7 +60,10 @@ async fn record_absolute_path_no_git_uses_current_as_original() {
     assert_eq!(edits[0].original_content, "hello");
     assert_eq!(edits[0].index, 0);
     // Snapshot stored under the (absolute) file_path key.
-    assert_eq!(snapshot_for(&h, "sess", &abs).await.as_deref(), Some("hello"));
+    assert_eq!(
+        snapshot_for(&h, "sess", &abs).await.as_deref(),
+        Some("hello")
+    );
 }
 
 #[tokio::test]
@@ -67,7 +72,8 @@ async fn record_relative_path_with_project_dir_non_git() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(dir.path().join("rel.txt"), "content").unwrap();
 
-    h.record_file_edit("sess", "rel.txt", Some(dir.path())).await;
+    h.record_file_edit("sess", "rel.txt", Some(dir.path()))
+        .await;
 
     let edits = edits_for(&h, "sess").await;
     assert_eq!(edits.len(), 1);
@@ -83,7 +89,8 @@ async fn record_relative_path_without_project_dir() {
     let file = dir.path().join("plain.txt");
     std::fs::write(&file, "body").unwrap();
     // Absolute path but no project dir; get_git_original returns None (dir?).
-    h.record_file_edit("sess", &file.to_string_lossy(), None).await;
+    h.record_file_edit("sess", &file.to_string_lossy(), None)
+        .await;
     let edits = edits_for(&h, "sess").await;
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].original_content, "body");
@@ -97,7 +104,8 @@ async fn record_abs_path_project_dir_strip_prefix_fails() {
     let file = file_dir.path().join("x.txt");
     std::fs::write(&file, "data").unwrap();
     // project_dir does not contain the absolute file → strip_prefix fails → None.
-    h.record_file_edit("sess", &file.to_string_lossy(), Some(other_dir.path())).await;
+    h.record_file_edit("sess", &file.to_string_lossy(), Some(other_dir.path()))
+        .await;
     let edits = edits_for(&h, "sess").await;
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].original_content, "data");
@@ -111,7 +119,8 @@ async fn record_with_git_original_from_head() {
     // Modify the working copy after the commit.
     std::fs::write(dir.path().join("tracked.txt"), "working version\n").unwrap();
 
-    h.record_file_edit("sess", "tracked.txt", Some(dir.path())).await;
+    h.record_file_edit("sess", "tracked.txt", Some(dir.path()))
+        .await;
 
     let edits = edits_for(&h, "sess").await;
     assert_eq!(edits.len(), 1);

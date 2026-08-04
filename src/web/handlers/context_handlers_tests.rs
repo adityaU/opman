@@ -49,16 +49,14 @@ use crate::claude_engine::claude_cli::ENV_LOCK as HOME_LOCK;
 #[tokio::test]
 async fn get_todos_no_project_bad_request() {
     let state = test_server_state();
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/session/s1/todos", None).await;
+    let (status, _) = send_json(test_router(state), "GET", "/api/session/s1/todos", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn get_todos_upstream_error() {
     let (state, _tmp) = state_with_project().await;
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/session/s1/todos", None).await;
+    let (status, _) = send_json(test_router(state), "GET", "/api/session/s1/todos", None).await;
     assert!(status.is_server_error(), "got {status}");
 }
 
@@ -67,8 +65,13 @@ async fn get_todos_upstream_error() {
 #[tokio::test]
 async fn context_window_no_project_bad_request() {
     let state = test_server_state();
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/context-window?session_id=s1", None).await;
+    let (status, _) = send_json(
+        test_router(state),
+        "GET",
+        "/api/context-window?session_id=s1",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -94,8 +97,7 @@ async fn context_window_with_session_id_falls_back_to_default_limit() {
 async fn context_window_no_active_session_bad_request() {
     // Project present but no active session and no session_id query param.
     let (state, _tmp) = state_with_project().await;
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/context-window", None).await;
+    let (status, _) = send_json(test_router(state), "GET", "/api/context-window", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -230,7 +232,10 @@ fn build_ctx_zero_stats() {
 
 #[test]
 fn build_ctx_zero_limit() {
-    let stats = WebSessionStats { input_tokens: 100, ..Default::default() };
+    let stats = WebSessionStats {
+        input_tokens: 100,
+        ..Default::default()
+    };
     let r = build_context_window_response(&stats, 0);
     assert_eq!(r.total_used, 100);
     assert_eq!(r.usage_pct, 0.0);
@@ -243,7 +248,10 @@ fn build_ctx_zero_limit() {
 
 #[test]
 fn build_ctx_cache_read_only() {
-    let stats = WebSessionStats { cache_read: 20, ..Default::default() };
+    let stats = WebSessionStats {
+        cache_read: 20,
+        ..Default::default()
+    };
     let r = build_context_window_response(&stats, 1000);
     let cache = r.categories.iter().find(|c| c.name == "cache").unwrap();
     assert_eq!(cache.items.len(), 1);
@@ -252,7 +260,10 @@ fn build_ctx_cache_read_only() {
 
 #[test]
 fn build_ctx_cache_write_only() {
-    let stats = WebSessionStats { cache_write: 20, ..Default::default() };
+    let stats = WebSessionStats {
+        cache_write: 20,
+        ..Default::default()
+    };
     let r = build_context_window_response(&stats, 1000);
     let cache = r.categories.iter().find(|c| c.name == "cache").unwrap();
     assert_eq!(cache.items.len(), 1);
@@ -262,7 +273,10 @@ fn build_ctx_cache_write_only() {
 #[test]
 fn build_ctx_estimate_uses_default_when_no_input() {
     // No input tokens but output present → avg falls back to 10_000.
-    let stats = WebSessionStats { output_tokens: 100, ..Default::default() };
+    let stats = WebSessionStats {
+        output_tokens: 100,
+        ..Default::default()
+    };
     let r = build_context_window_response(&stats, 1000);
     // remaining = 900, avg = 10_000 → 0
     assert_eq!(r.estimated_messages_remaining, Some(0));

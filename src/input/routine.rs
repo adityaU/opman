@@ -279,20 +279,18 @@ fn handle_editing_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 _ => {}
             }
         }
-        KeyCode::Backspace => {
-            match edit.focused_field {
-                0 => {
-                    edit.name.pop();
-                }
-                2 => {
-                    edit.prompt.pop();
-                }
-                4 => {
-                    edit.cron_expr.pop();
-                }
-                _ => {}
+        KeyCode::Backspace => match edit.focused_field {
+            0 => {
+                edit.name.pop();
             }
-        }
+            2 => {
+                edit.prompt.pop();
+            }
+            4 => {
+                edit.cron_expr.pop();
+            }
+            _ => {}
+        },
         KeyCode::Left => {
             // For toggle fields, cycle backward
             match edit.focused_field {

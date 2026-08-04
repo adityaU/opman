@@ -1,0 +1,291 @@
+/* Focused shell polish layered after the existing theme and Codex pass. */
+.sb-brand-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1
+}
+.sb-eyebrow {
+    color: var(--color-text-muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    line-height: 1;
+    text-transform: uppercase;
+    opacity: .68
+}
+@media (min-width: 769px) {
+    .chat-content {
+        gap: 12px;
+        padding: 12px 14px
+    }
+    .chat-content > div:first-child:has(.chat-sidebar) {
+        overflow: hidden;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 16px;
+        background: var(--theme-surface-1);
+        box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 18%, transparent)
+    }
+    .chat-sidebar {
+        border-right: 0;
+        background: var(--theme-surface-1)
+    }
+    .chat-main {
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 16px;
+        background: var(--color-bg);
+        box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
+    }
+    .side-panel {
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 16px;
+        background: var(--theme-surface-1);
+        box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
+    }
+    .chat-content > .resize-handle {
+        margin: 0 -5px;
+        z-index: 2
+    }
+    .chat-status-bar {
+        margin: 0 14px;
+        padding-left: 14px;
+        padding-right: 14px;
+        border: 1px solid var(--color-border-subtle);
+        border-bottom: 0;
+        border-radius: 12px;
+        background: var(--theme-surface-1)
+    }
+    .sb-header {
+        min-height: 64px;
+        padding: 14px 14px 12px 16px
+    }
+    .sb-session {
+        min-height: 42px;
+        border: 1px solid transparent
+    }
+    .sb-session.active {
+        border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border-subtle));
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 8%, transparent)
+    }
+}
+html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),
+html.flat-theme .chat-main,
+html.flat-theme .side-panel,
+html.flat-theme .chat-status-bar {
+    box-shadow: none
+}
+@media (max-width: 768px) {
+    .sb-brand-wrap { gap: 3px }
+    .sb-eyebrow { font-size: 8px }
+}
+.consecutive-tool-group {
+    margin: 2px 0;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--theme-surface-1) 72%, transparent);
+    overflow: hidden
+}
+.consecutive-tool-group-main > * {
+    margin: 0;
+    border: 0;
+    border-radius: 0
+}
+.consecutive-tool-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-top: 1px solid var(--color-border-subtle);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast)
+}
+.consecutive-tool-group-toggle:hover {
+    background: color-mix(in srgb, var(--color-primary) 11%, transparent);
+    color: var(--color-text)
+}
+.consecutive-tool-group-chevron {
+    margin-left: auto;
+    transition: transform var(--transition-fast)
+}
+.consecutive-tool-group.is-expanded .consecutive-tool-group-chevron {
+    transform: rotate(180deg)
+}
+.consecutive-tool-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 6px 6px;
+    border-top: 1px solid var(--color-border-subtle)
+}
+.consecutive-tool-group-items > * {
+    margin: 0
+}
+html.flat-theme .consecutive-tool-group {
+    background: var(--theme-surface-1)
+}
+/* One compact radius scale keeps cards and controls visually related. */
+.codex-radius-normalized,
+.sb-icon-btn,
+.sidebar-close-btn,
+.sb-search,
+.sb-project-header,
+.sb-session,
+.sb-add-project-btn,
+.message-turn,
+.message-action-btn,
+.prompt-input-wrapper,
+.prompt-chip,
+.usage-info-btn,
+.prompt-btn,
+.prompt-attach-btn,
+.chat-status-bar,
+.side-panel,
+.theme-selector,
+.theme-card,
+.theme-mode-option,
+.consecutive-tool-group {
+    border-radius: var(--radius-md)
+}
+.chat-content > div:first-child:has(.chat-sidebar),
+.chat-main {
+    border-radius: var(--radius-lg)
+}
+html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),
+html.flat-theme .chat-main,
+html.flat-theme .side-panel,
+html.flat-theme .chat-status-bar {
+    border-radius: var(--radius-lg)
+}
+@media (max-width: 768px) {
+    .chat-content > div:first-child:has(.chat-sidebar),
+    .chat-main,
+    .side-panel,
+    .chat-status-bar {
+        border-radius: 0
+    }
+}
+/* UI copy uses Poppins; technical content stays legible in IBM Plex Mono. */
+body,
+button,
+input,
+textarea,
+select {
+    font-family: var(--font-sans)
+}
+pre,
+code,
+.tool-call-pre,
+.tool-call-output,
+.tool-output,
+.read-card-path,
+.read-card-content,
+.tc-card-path,
+.tc-card-cmd-preview,
+.edit-card-code,
+.diff-review-code,
+.diff-review-panel pre,
+.terminal-panel,
+.xterm,
+.code-editor,
+.code-editor-body,
+.a2ui-code,
+.gmc-json,
+.gmc-jsonl,
+.gmc-pre,
+.tool-output-file-path,
+.diff-file-path,
+.diff-line-content,
+.background-task-output,
+.kanban-card-pre {
+    font-family: var(--font-mono)
+}
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 48px;
+    padding: 8px 14px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--theme-surface-1);
+    color: var(--color-text-muted)
+}
+.chat-header .status-bar-left,
+.chat-header .status-bar-right {
+    min-width: 0;
+    gap: var(--space-2)
+}
+.chat-header .status-bar-left {
+    overflow: hidden
+}
+.chat-header-title {
+    min-width: 0;
+    max-width: min(42vw, 420px);
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+.chat-header .status-bar-project {
+    display: none
+}
+@media (max-width: 768px) {
+    .chat-header {
+        min-height: 44px;
+        padding: 6px 10px
+    }
+    .chat-header .status-bar-left > :not(.chat-header-title):not(.status-bar-btn),
+    .chat-header .status-bar-cost,
+    .chat-header .status-bar-tokens {
+        display: none
+    }
+    .chat-header-title {
+        max-width: 52vw
+    }
+}
+/* Let upward-opening runner menus escape the composer surface. */
+.prompt-input-wrapper {
+    overflow: visible
+}
+.prompt-selectors,
+.prompt-runner-selector {
+    position: relative;
+    z-index: 4
+}
+.prompt-runner-menu {
+    z-index: var(--z-overlay)
+}
+.terminal-panel-shell {
+    margin: 0 14px 12px;
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--theme-surface-1);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--black-40) 12%, transparent)
+}
+.terminal-panel-shell .terminal-panel {
+    border-top: 0;
+    background: transparent
+}
+html.flat-theme .terminal-panel-shell {
+    box-shadow: none
+}
+@media (max-width: 768px) {
+    .terminal-panel-shell {
+        margin: 0;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0
+    }
+}

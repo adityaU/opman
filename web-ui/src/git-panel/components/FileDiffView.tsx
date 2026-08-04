@@ -1,5 +1,5 @@
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
-import { FileText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { GitView } from "../types";
 
 interface Props {
@@ -13,11 +13,6 @@ interface Props {
 export function FileDiffView({ currentView, diffOld, diffNew, diffLoading, diffStyles }: Props) {
   return (
     <div className="git-diff-fullview">
-      <div className="git-diff-header">
-        <FileText size={12} />
-        <span>{currentView.file}</span>
-        <span className="git-diff-type">{currentView.staged ? "staged" : "unstaged"}</span>
-      </div>
       <div className="git-diff-body">
         {diffLoading ? (
           <div className="git-loading"><Loader2 size={18} className="spin" /></div>

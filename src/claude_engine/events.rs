@@ -24,7 +24,13 @@ pub fn message_hash(msg: &MsgOut) -> u64 {
 }
 
 /// Emit `message.updated` + a `message.part.updated` per part, opencode-style.
-pub fn emit_message(engine: &ClaudeEngine, directory: &str, session_id: &str, msg: &MsgOut, ts: u64) {
+pub fn emit_message(
+    engine: &ClaudeEngine,
+    directory: &str,
+    session_id: &str,
+    msg: &MsgOut,
+    ts: u64,
+) {
     engine.emit(directory, "message.updated", json!({ "info": msg.info }));
     for part in &msg.parts {
         engine.emit(

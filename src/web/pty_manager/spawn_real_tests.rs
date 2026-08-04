@@ -139,7 +139,8 @@ fn spawn_claude_attach_pty_success_via_path_default() {
     env.prepend_path(dir.path());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = spawn_claude_attach_pty(24, 80, work.path(), "short-def").expect("claude pty default");
+    let pty =
+        spawn_claude_attach_pty(24, 80, work.path(), "short-def").expect("claude pty default");
     drain_and_kill(pty);
 }
 

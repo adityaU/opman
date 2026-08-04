@@ -33,7 +33,12 @@ fn stage(lane: &str, session: Option<&str>, status: &str) -> PipelineStage {
     }
 }
 
-fn run_with(task_id: &str, current: usize, status: &str, stages: Vec<PipelineStage>) -> PipelineRun {
+fn run_with(
+    task_id: &str,
+    current: usize,
+    status: &str,
+    stages: Vec<PipelineStage>,
+) -> PipelineRun {
     PipelineRun {
         task_id: task_id.into(),
         stages,
@@ -57,7 +62,10 @@ fn upsert_insert_then_update_and_get() {
         "tsk",
         0,
         "running",
-        vec![stage("lane_planning", Some("s0"), "running"), stage("lane_implementing", None, "pending")],
+        vec![
+            stage("lane_planning", Some("s0"), "running"),
+            stage("lane_implementing", None, "pending"),
+        ],
     );
     db.kanban_pipeline_upsert(&run);
     let got = db.kanban_pipeline_get("tsk").unwrap();
@@ -81,8 +89,18 @@ fn pipelines_for_board_joins_tasks() {
     let db = Db::open_memory().unwrap();
     seed_task(&db, "brdA", "t1", "/a");
     seed_task(&db, "brdB", "t2", "/b");
-    db.kanban_pipeline_upsert(&run_with("t1", 0, "running", vec![stage("lane_planning", Some("x"), "running")]));
-    db.kanban_pipeline_upsert(&run_with("t2", 0, "done", vec![stage("lane_planning", Some("y"), "done")]));
+    db.kanban_pipeline_upsert(&run_with(
+        "t1",
+        0,
+        "running",
+        vec![stage("lane_planning", Some("x"), "running")],
+    ));
+    db.kanban_pipeline_upsert(&run_with(
+        "t2",
+        0,
+        "done",
+        vec![stage("lane_planning", Some("y"), "done")],
+    ));
 
     let for_a = db.kanban_pipelines_for_board("brdA");
     assert_eq!(for_a.len(), 1);
@@ -99,7 +117,10 @@ fn by_session_matches_only_current_stage_of_running_run() {
         "tsk",
         1,
         "running",
-        vec![stage("lane_planning", Some("old"), "done"), stage("lane_implementing", Some("live"), "running")],
+        vec![
+            stage("lane_planning", Some("old"), "done"),
+            stage("lane_implementing", Some("live"), "running"),
+        ],
     ));
 
     // Matches the current stage's session.

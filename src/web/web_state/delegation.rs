@@ -15,7 +15,10 @@ impl super::WebStateHandle {
     }
 
     /// Create delegated work item.
-    pub async fn create_delegated_work(&self, req: CreateDelegatedWorkRequest) -> DelegatedWorkItem {
+    pub async fn create_delegated_work(
+        &self,
+        req: CreateDelegatedWorkRequest,
+    ) -> DelegatedWorkItem {
         let now = Utc::now().to_rfc3339();
         let item = DelegatedWorkItem {
             id: format!("delegation-{}", uuid_like_id()),
@@ -37,7 +40,11 @@ impl super::WebStateHandle {
     }
 
     /// Update delegated work item.
-    pub async fn update_delegated_work(&self, item_id: &str, req: UpdateDelegatedWorkRequest) -> Option<DelegatedWorkItem> {
+    pub async fn update_delegated_work(
+        &self,
+        item_id: &str,
+        req: UpdateDelegatedWorkRequest,
+    ) -> Option<DelegatedWorkItem> {
         let mut state = self.inner.write().await;
         let item = state.delegated_work.get_mut(item_id)?;
         if let Some(status) = req.status {
@@ -75,9 +82,7 @@ impl super::WebStateHandle {
     /// Save (upsert) a workspace snapshot.
     pub async fn save_workspace(&self, snapshot: WorkspaceSnapshot) {
         let mut state = self.inner.write().await;
-        state
-            .workspaces
-            .insert(snapshot.name.clone(), snapshot);
+        state.workspaces.insert(snapshot.name.clone(), snapshot);
         drop(state);
         self.schedule_persist();
     }

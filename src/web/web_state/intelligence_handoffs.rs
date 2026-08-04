@@ -9,10 +9,7 @@ impl super::WebStateHandle {
     // ── Session Handoff ─────────────────────────────────────────────
 
     /// Build a handoff brief for a session.
-    pub async fn build_session_handoff(
-        &self,
-        req: SessionHandoffRequest,
-    ) -> Option<HandoffBrief> {
+    pub async fn build_session_handoff(&self, req: SessionHandoffRequest) -> Option<HandoffBrief> {
         if req.session_id.is_empty() {
             return None;
         }
@@ -30,8 +27,7 @@ impl super::WebStateHandle {
             .collect();
 
         let activity = self.get_activity_feed(sid).await;
-        let recent: Vec<&ActivityEventPayload> =
-            activity.iter().rev().take(3).collect();
+        let recent: Vec<&ActivityEventPayload> = activity.iter().rev().take(3).collect();
 
         let short_id = &sid[..sid.len().min(8)];
 
@@ -123,7 +119,11 @@ impl super::WebStateHandle {
             format!(
                 "Mission ({state_str}, iteration {}/{}): {}",
                 m.iteration,
-                if m.max_iterations == 0 { "∞".to_string() } else { m.max_iterations.to_string() },
+                if m.max_iterations == 0 {
+                    "∞".to_string()
+                } else {
+                    m.max_iterations.to_string()
+                },
                 m.goal
             )
         });
@@ -173,17 +173,12 @@ impl super::WebStateHandle {
     // ── Daily Summary ───────────────────────────────────────────────
 
     /// Build a daily summary string for a routine.
-    pub async fn build_daily_summary(
-        &self,
-        req: DailySummaryRequest,
-    ) -> String {
+    pub async fn build_daily_summary(&self, req: DailySummaryRequest) -> String {
         let missions = self.list_missions().await;
         let (routines, _) = self.list_routines().await;
 
         let routine = routines.iter().find(|r| r.id == req.routine_id);
-        let routine_name = routine
-            .map(|r| r.name.as_str())
-            .unwrap_or("Daily Summary");
+        let routine_name = routine.map(|r| r.name.as_str()).unwrap_or("Daily Summary");
 
         let active_count = missions
             .iter()

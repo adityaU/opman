@@ -9,11 +9,7 @@ use crate::app::{App, SessionInfo};
 
 impl App {
     /// Handle `BackgroundEvent::SseSessionCreated`.
-    pub(crate) fn handle_sse_session_created(
-        &mut self,
-        project_idx: usize,
-        session: SessionInfo,
-    ) {
+    pub(crate) fn handle_sse_session_created(&mut self, project_idx: usize, session: SessionInfo) {
         let awaiting = self.awaiting_new_session == Some(project_idx);
 
         if !awaiting {
@@ -63,9 +59,17 @@ impl App {
 
                         tokio::spawn(async move {
                             Self::setup_subagent_slack_thread(
-                                project_idx, child_sid, child_title, parent_sid,
-                                bot_token, base_url, project_dir, buffer_secs,
-                                parent_channel, parent_thread_ts, st,
+                                project_idx,
+                                child_sid,
+                                child_title,
+                                parent_sid,
+                                bot_token,
+                                base_url,
+                                project_dir,
+                                buffer_secs,
+                                parent_channel,
+                                parent_thread_ts,
+                                st,
                             )
                             .await;
                         });
@@ -102,11 +106,7 @@ impl App {
     }
 
     /// Handle `BackgroundEvent::SseSessionDeleted`.
-    pub(crate) fn handle_sse_session_deleted(
-        &mut self,
-        project_idx: usize,
-        session_id: String,
-    ) {
+    pub(crate) fn handle_sse_session_deleted(&mut self, project_idx: usize, session_id: String) {
         self.active_sessions.remove(&session_id);
         self.error_sessions.remove(&session_id);
         self.input_sessions.remove(&session_id);
@@ -149,16 +149,14 @@ impl App {
     }
 
     /// Handle `BackgroundEvent::SseSessionIdle`.
-    pub(crate) fn handle_sse_session_idle(
-        &mut self,
-        session_id: String,
-        project_idx: usize,
-    ) {
+    pub(crate) fn handle_sse_session_idle(&mut self, session_id: String, project_idx: usize) {
         let has_active_children = self
             .session_children
             .get(&session_id)
             .map(|children| {
-                children.iter().any(|cid| self.active_sessions.contains(cid))
+                children
+                    .iter()
+                    .any(|cid| self.active_sessions.contains(cid))
             })
             .unwrap_or(false);
 
@@ -208,7 +206,9 @@ impl App {
                 .session_children
                 .get(&parent_id)
                 .map(|children| {
-                    children.iter().any(|cid| self.active_sessions.contains(cid))
+                    children
+                        .iter()
+                        .any(|cid| self.active_sessions.contains(cid))
                 })
                 .unwrap_or(false);
             if !parent_has_active_children {
@@ -239,7 +239,8 @@ impl App {
     /// Handle `BackgroundEvent::SseFileEdited`.
     pub(crate) fn handle_sse_file_edited(&mut self, project_idx: usize, file_path: String) {
         debug!(
-            project_idx, file_path,
+            project_idx,
+            file_path,
             follow_enabled = self.config.settings.follow_edits_in_neovim,
             neovim_mcp = self.neovim_mcp_enabled,
             active_project = self.active_project,
@@ -262,13 +263,22 @@ impl App {
                 let project_path = project.path.clone();
                 if let Some(resources) = project.active_resources_mut() {
                     let has_nvim = resources.neovim_pty.is_some();
-                    debug!(has_nvim, "SseFileEdited: project found, checking neovim_pty");
+                    debug!(
+                        has_nvim,
+                        "SseFileEdited: project found, checking neovim_pty"
+                    );
                     if resources.neovim_pty.is_some() {
                         let cmds = Self::build_neovim_edit_cmds(
-                            &file_path, &project_path, resources, &self.theme,
+                            &file_path,
+                            &project_path,
+                            resources,
+                            &self.theme,
                         );
                         let batch = cmds.concat();
-                        debug!(cmd_count = cmds.len(), "SseFileEdited: writing batched vim cmds");
+                        debug!(
+                            cmd_count = cmds.len(),
+                            "SseFileEdited: writing batched vim cmds"
+                        );
                         if let Some(ref mut nvim) = resources.neovim_pty {
                             let _ = nvim.write(batch.as_bytes());
                         }

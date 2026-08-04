@@ -33,9 +33,14 @@ pub fn router(engine: Engine) -> Router {
         .route("/agent", get(agent_list))
         .route(
             "/session/{id}",
-            get(get_session).patch(rename_session).delete(delete_session),
+            get(get_session)
+                .patch(rename_session)
+                .delete(delete_session),
         )
-        .route("/session/{id}/message", get(get_messages).post(send_message))
+        .route(
+            "/session/{id}/message",
+            get(get_messages).post(send_message),
+        )
         .route("/session/{id}/prompt_async", post(send_message))
         .route("/session/{id}/abort", post(abort))
         .route("/session/{id}/todo", get(get_todos))
@@ -92,8 +97,16 @@ async fn create_session(
 ) -> Json<Value> {
     let dir = dir_header(&headers);
     let body = body.map(|b| b.0).unwrap_or(Value::Null);
-    let parent = body.get("parentID").and_then(|p| p.as_str()).unwrap_or("").to_string();
-    let title = body.get("title").and_then(|t| t.as_str()).unwrap_or("New session").to_string();
+    let parent = body
+        .get("parentID")
+        .and_then(|p| p.as_str())
+        .unwrap_or("")
+        .to_string();
+    let title = body
+        .get("title")
+        .and_then(|t| t.as_str())
+        .unwrap_or("New session")
+        .to_string();
     Json(session_info(&engine.create_session(&dir, &parent, &title)))
 }
 
@@ -138,11 +151,18 @@ async fn send_message(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    if let Some(model_id) = body.get("model").and_then(|m| m.get("modelID")).and_then(|s| s.as_str()) {
+    if let Some(model_id) = body
+        .get("model")
+        .and_then(|m| m.get("modelID"))
+        .and_then(|s| s.as_str())
+    {
         engine.set_model(&id, model_id);
     }
     if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
         engine.set_agent(&id, agent);
+    }
+    if let Some(permission) = body.get("permission").and_then(|p| p.as_str()) {
+        engine.set_permission_mode(&id, permission);
     }
     dispatch_turn(engine, id, extract_text(&body.0));
     Json(json!({ "ok": true }))
@@ -155,7 +175,11 @@ async fn session_command(
 ) -> Json<Value> {
     let command = body.get("command").and_then(|c| c.as_str()).unwrap_or("");
     let args = body.get("arguments").and_then(|a| a.as_str()).unwrap_or("");
-    let text = if args.is_empty() { format!("/{command}") } else { format!("/{command} {args}") };
+    let text = if args.is_empty() {
+        format!("/{command}")
+    } else {
+        format!("/{command} {args}")
+    };
     dispatch_turn(engine, id, text);
     Json(json!({ "ok": true }))
 }
@@ -172,23 +196,33 @@ async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> J
         // A subagent child id the web UI backfills on reload.
         if let Some(path) = claude_cli::locate_subagent_jsonl(&id) {
             let parsed = jsonl::parse_file(&path, &id);
-            return Json(Value::Array(parsed.messages.iter().map(|m| m.to_value()).collect()));
+            return Json(Value::Array(
+                parsed.messages.iter().map(|m| m.to_value()).collect(),
+            ));
         }
         return Json(Value::Array(vec![]));
     };
     if entry.is_subagent {
         if let Some(path) = claude_cli::locate_subagent_jsonl(&entry.id) {
             let parsed = jsonl::parse_file(&path, &entry.id);
-            return Json(Value::Array(parsed.messages.iter().map(|m| m.to_value()).collect()));
+            return Json(Value::Array(
+                parsed.messages.iter().map(|m| m.to_value()).collect(),
+            ));
         }
         return Json(Value::Array(vec![]));
     }
-    let Some(uuid) = entry.claude_uuid else { return Json(Value::Array(vec![])) };
-    let Some(path) = claude_cli::locate_jsonl(&uuid) else { return Json(Value::Array(vec![])) };
+    let Some(uuid) = entry.claude_uuid else {
+        return Json(Value::Array(vec![]));
+    };
+    let Some(path) = claude_cli::locate_jsonl(&uuid) else {
+        return Json(Value::Array(vec![]));
+    };
     let mut parsed = jsonl::parse_file(&path, &id);
     jsonl::enrich_subagents(&mut parsed);
     jsonl::enrich_background_tasks(&mut parsed);
-    Json(Value::Array(parsed.messages.iter().map(|m| m.to_value()).collect()))
+    Json(Value::Array(
+        parsed.messages.iter().map(|m| m.to_value()).collect(),
+    ))
 }
 
 async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {

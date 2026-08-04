@@ -1,6 +1,5 @@
 //! Web PTY spawn/write/resize/kill/list handlers.
 
-
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};

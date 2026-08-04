@@ -78,7 +78,10 @@ fn nvim_read_explicit_end_read_error() {
 #[test]
 fn nvim_command_missing() {
     let r = run(op("nvim_command"));
-    assert!(r.error.unwrap().contains("Missing 'command' for nvim_command"));
+    assert!(r
+        .error
+        .unwrap()
+        .contains("Missing 'command' for nvim_command"));
 }
 
 #[test]

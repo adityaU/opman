@@ -17,7 +17,12 @@ fn workspace(name: &str, created_at: &str) -> WorkspaceSnapshot {
     WorkspaceSnapshot {
         name: name.to_string(),
         created_at: created_at.to_string(),
-        panels: WorkspacePanels { sidebar: true, terminal: false, editor: true, git: false },
+        panels: WorkspacePanels {
+            sidebar: true,
+            terminal: false,
+            editor: true,
+            git: false,
+        },
         layout: WorkspaceLayout::default(),
         open_files: vec!["a.rs".to_string()],
         active_file: Some("a.rs".to_string()),
@@ -64,7 +69,12 @@ async fn delegated_work_list_sorted_by_updated_desc() {
     let b = h.create_delegated_work(create_req("b")).await;
     // Bump b's updated_at explicitly via update.
     let b_updated = h
-        .update_delegated_work(&b.id, UpdateDelegatedWorkRequest { status: Some(DelegationStatus::Running) })
+        .update_delegated_work(
+            &b.id,
+            UpdateDelegatedWorkRequest {
+                status: Some(DelegationStatus::Running),
+            },
+        )
         .await
         .unwrap();
     let list = h.list_delegated_work().await;
@@ -83,7 +93,12 @@ async fn delegated_work_update_status_and_no_status() {
 
     // Update with a status.
     let updated = h
-        .update_delegated_work(&item.id, UpdateDelegatedWorkRequest { status: Some(DelegationStatus::Completed) })
+        .update_delegated_work(
+            &item.id,
+            UpdateDelegatedWorkRequest {
+                status: Some(DelegationStatus::Completed),
+            },
+        )
         .await
         .unwrap();
     assert!(matches!(updated.status, DelegationStatus::Completed));
@@ -100,7 +115,12 @@ async fn delegated_work_update_status_and_no_status() {
 async fn delegated_work_update_missing_returns_none() {
     let h = WebStateHandle::new_test();
     let out = h
-        .update_delegated_work("nope", UpdateDelegatedWorkRequest { status: Some(DelegationStatus::Running) })
+        .update_delegated_work(
+            "nope",
+            UpdateDelegatedWorkRequest {
+                status: Some(DelegationStatus::Running),
+            },
+        )
         .await;
     assert!(out.is_none());
 }
@@ -126,8 +146,10 @@ async fn workspaces_empty() {
 #[tokio::test]
 async fn workspaces_save_list_sorted_and_upsert() {
     let h = WebStateHandle::new_test();
-    h.save_workspace(workspace("old", "2024-01-01T00:00:00Z")).await;
-    h.save_workspace(workspace("new", "2024-06-01T00:00:00Z")).await;
+    h.save_workspace(workspace("old", "2024-01-01T00:00:00Z"))
+        .await;
+    h.save_workspace(workspace("new", "2024-06-01T00:00:00Z"))
+        .await;
     let list = h.list_workspaces().await;
     assert_eq!(list.len(), 2);
     // Newest created_at first.
@@ -148,7 +170,8 @@ async fn workspaces_save_list_sorted_and_upsert() {
 #[tokio::test]
 async fn workspaces_delete() {
     let h = WebStateHandle::new_test();
-    h.save_workspace(workspace("ws", "2024-01-01T00:00:00Z")).await;
+    h.save_workspace(workspace("ws", "2024-01-01T00:00:00Z"))
+        .await;
     assert!(h.delete_workspace("ws").await);
     assert!(!h.delete_workspace("ws").await);
     assert!(h.list_workspaces().await.is_empty());

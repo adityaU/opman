@@ -13,7 +13,9 @@ impl super::WebStateHandle {
     /// Register or update a client's presence.
     pub async fn register_presence(&self, req: &ClientPresence) {
         let mut state = self.inner.write().await;
-        state.connected_clients.insert(req.client_id.clone(), req.clone());
+        state
+            .connected_clients
+            .insert(req.client_id.clone(), req.clone());
         let snapshot = PresenceSnapshot {
             clients: state.connected_clients.values().cloned().collect(),
         };

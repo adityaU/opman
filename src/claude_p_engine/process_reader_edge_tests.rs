@@ -9,7 +9,9 @@ fn engine() -> Arc<ClaudePEngine> {
     Arc::new(ClaudePEngine::new(None, (false, false, false, false)))
 }
 
-fn drain(rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>) -> Vec<String> {
+fn drain(
+    rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>,
+) -> Vec<String> {
     let mut out = vec![];
     while let Ok(ev) = rx.try_recv() {
         out.push(ev.data);
@@ -68,5 +70,8 @@ async fn reader_no_init_not_attempted_keeps_uuid() {
     let s = e.create_session("d", "", "A");
     e.set_claude_uuid(&s.id, "keep-me");
     run_reader(e.clone(), &s.id, "true", false).await;
-    assert_eq!(e.get_session(&s.id).unwrap().claude_uuid.as_deref(), Some("keep-me"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().claude_uuid.as_deref(),
+        Some("keep-me")
+    );
 }

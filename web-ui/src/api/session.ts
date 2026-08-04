@@ -242,7 +242,7 @@ export interface AgentInfo {
   color?: string;
 }
 
-const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
+export const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
   opencode: [
     { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
     { id: "plan", label: "Plan", description: "Planning and design agent", mode: "all", native: true },
@@ -251,11 +251,16 @@ const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
   codex: [{ id: "default", label: "Default", description: "Codex default agent", mode: "primary", native: true }],
 };
 
+export function runnerFallbackAgents(runner = "opencode"): AgentInfo[] {
+  return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
+}
+
 export async function fetchAgents(runner = "opencode"): Promise<AgentInfo[]> {
   try {
     const agents = await apiFetch<AgentInfo[]>("/agents?runner=" + encodeURIComponent(runner));
     const runnerTagged = agents.filter((agent) => agent.runner);
     if (runnerTagged.length > 0) return runnerTagged.filter((agent) => agent.runner === runner);
+    if (agents.length > 0) return agents;
     if (runner !== "opencode") return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
     return agents;
   } catch {

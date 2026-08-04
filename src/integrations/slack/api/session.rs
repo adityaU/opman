@@ -54,9 +54,7 @@ pub async fn fetch_all_session_messages(
                             .get("text")
                             .and_then(|t| t.as_str())
                             .map(|s| s.to_string()),
-                        "tool" => {
-                            Some(crate::integrations::slack::tools::format_tool_part_v2(p))
-                        }
+                        "tool" => Some(crate::integrations::slack::tools::format_tool_part_v2(p)),
                         "tool-invocation" => {
                             Some(crate::integrations::slack::tools::format_tool_part_v1(p))
                         }

@@ -1,6 +1,5 @@
 //! File browsing, reading, writing, and helper utilities.
 
-
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -70,7 +69,10 @@ pub async fn browse_files(
             };
             if let Ok(canonical_link) = resolved.canonicalize() {
                 if !canonical_link.starts_with(&canonical_base) {
-                    tracing::warn!("[browse] skipping symlink escaping project: {}", entry.path().display());
+                    tracing::warn!(
+                        "[browse] skipping symlink escaping project: {}",
+                        entry.path().display()
+                    );
                     continue;
                 }
             } else {
@@ -99,10 +101,7 @@ pub async fn browse_files(
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
 
-    Ok(Json(FileBrowseResponse {
-        path: rel,
-        entries,
-    }))
+    Ok(Json(FileBrowseResponse { path: rel, entries }))
 }
 
 /// GET /api/file/read?path=... — read file content.
@@ -145,10 +144,7 @@ pub async fn read_file_raw(
 
     let content_type = mime_from_extension(&query.path);
 
-    Ok((
-        [(axum::http::header::CONTENT_TYPE, content_type)],
-        bytes,
-    ))
+    Ok(([(axum::http::header::CONTENT_TYPE, content_type)], bytes))
 }
 
 /// POST /api/file/write — write file content.
@@ -166,9 +162,9 @@ pub async fn write_file(
     let canonical_base = base
         .canonicalize()
         .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
-    let parent = target.parent().ok_or(WebError::BadRequest(
-        "Invalid file path".into(),
-    ))?;
+    let parent = target
+        .parent()
+        .ok_or(WebError::BadRequest("Invalid file path".into()))?;
     let canonical_parent = parent
         .canonicalize()
         .map_err(|_| WebError::NotFound("Parent directory not found"))?;
@@ -205,9 +201,9 @@ pub async fn create_file(
     let canonical_base = base
         .canonicalize()
         .map_err(|e| WebError::Internal(format!("Failed to resolve base: {e}")))?;
-    let parent = target.parent().ok_or(WebError::BadRequest(
-        "Invalid file path".into(),
-    ))?;
+    let parent = target
+        .parent()
+        .ok_or(WebError::BadRequest("Invalid file path".into()))?;
     let canonical_parent = parent
         .canonicalize()
         .map_err(|_| WebError::NotFound("Parent directory not found"))?;
@@ -329,7 +325,9 @@ pub async fn delete_dir(
 
     // Don't allow deleting the project root itself
     if canonical_target == canonical_base {
-        return Err(WebError::BadRequest("Cannot delete the project root".into()));
+        return Err(WebError::BadRequest(
+            "Cannot delete the project root".into(),
+        ));
     }
 
     if !canonical_target.is_dir() {
@@ -371,14 +369,16 @@ pub async fn rename_entry(
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
     if canonical_src == canonical_base {
-        return Err(WebError::BadRequest("Cannot rename the project root".into()));
+        return Err(WebError::BadRequest(
+            "Cannot rename the project root".into(),
+        ));
     }
 
     // Validate destination parent exists and is within project
     let dst = base.join(&req.to_path);
-    let dst_parent = dst.parent().ok_or(WebError::BadRequest(
-        "Invalid destination path".into(),
-    ))?;
+    let dst_parent = dst
+        .parent()
+        .ok_or(WebError::BadRequest("Invalid destination path".into()))?;
     let canonical_dst_parent = dst_parent
         .canonicalize()
         .map_err(|_| WebError::NotFound("Destination parent directory not found"))?;
@@ -427,10 +427,9 @@ pub async fn upload_files(
                 let field_name = field.name().unwrap_or("").to_string();
 
                 if field_name == "directory" {
-                    let text = field
-                        .text()
-                        .await
-                        .map_err(|e| WebError::Internal(format!("Failed to read directory field: {e}")))?;
+                    let text = field.text().await.map_err(|e| {
+                        WebError::Internal(format!("Failed to read directory field: {e}"))
+                    })?;
                     upload_dir = text;
                     tracing::info!("[upload] directory = {upload_dir:?}");
                     continue;
@@ -493,7 +492,10 @@ pub async fn upload_files(
             .canonicalize()
             .or_else(|_| {
                 // File doesn't exist yet — canonicalize the parent instead
-                target.parent().map(|p| p.canonicalize()).unwrap_or(Ok(target.clone()))
+                target
+                    .parent()
+                    .map(|p| p.canonicalize())
+                    .unwrap_or(Ok(target.clone()))
             })
             .map_err(|_| WebError::BadRequest("Invalid upload path".into()))?;
         if !canonical_target.starts_with(&canonical_base) {
@@ -518,7 +520,11 @@ pub async fn upload_files(
         return Err(WebError::BadRequest("No files in upload".into()));
     }
 
-    tracing::info!("[upload] success — saved {} files: {:?}", saved_files.len(), saved_files);
+    tracing::info!(
+        "[upload] success — saved {} files: {:?}",
+        saved_files.len(),
+        saved_files
+    );
     Ok(Json(FileUploadResponse { files: saved_files }))
 }
 
@@ -544,11 +550,9 @@ pub async fn search_files(
     let limit = query.limit.min(50);
 
     // Run the blocking recursive walk on a spawn_blocking thread
-    let results = tokio::task::spawn_blocking(move || {
-        search_files_sync(&dir, &q, limit)
-    })
-    .await
-    .map_err(|e| WebError::Internal(format!("Search task failed: {e}")))?;
+    let results = tokio::task::spawn_blocking(move || search_files_sync(&dir, &q, limit))
+        .await
+        .map_err(|e| WebError::Internal(format!("Search task failed: {e}")))?;
 
     Ok(Json(FileSearchResponse {
         query: query.q,
@@ -558,15 +562,17 @@ pub async fn search_files(
 
 /// Synchronous recursive file search with fuzzy matching.
 fn search_files_sync(root: &str, query: &str, limit: usize) -> Vec<FileSearchEntry> {
-    use std::collections::BinaryHeap;
     use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
     use std::fs;
     use std::path::Path;
 
     let root_path = Path::new(root);
 
     // Parse query into lowercase segments for multi-term matching
-    let terms: Vec<String> = query.to_lowercase().split_whitespace()
+    let terms: Vec<String> = query
+        .to_lowercase()
+        .split_whitespace()
         .map(|s| s.to_string())
         .collect();
     if terms.is_empty() {
@@ -586,7 +592,9 @@ fn search_files_sync(root: &str, query: &str, limit: usize) -> Vec<FileSearchEnt
     let mut stack: Vec<std::path::PathBuf> = vec![root_path.to_path_buf()];
 
     while let Some(dir) = stack.pop() {
-        if count >= max_visit { break; }
+        if count >= max_visit {
+            break;
+        }
 
         let entries = match fs::read_dir(&dir) {
             Ok(e) => e,
@@ -595,11 +603,15 @@ fn search_files_sync(root: &str, query: &str, limit: usize) -> Vec<FileSearchEnt
 
         for entry in entries.flatten() {
             count += 1;
-            if count >= max_visit { break; }
+            if count >= max_visit {
+                break;
+            }
 
             let name = entry.file_name().to_string_lossy().to_string();
             // Skip hidden files/dirs
-            if name.starts_with('.') { continue; }
+            if name.starts_with('.') {
+                continue;
+            }
 
             let full_path = entry.path();
             let rel_path = match full_path.strip_prefix(root_path) {
@@ -622,7 +634,9 @@ fn search_files_sync(root: &str, query: &str, limit: usize) -> Vec<FileSearchEnt
             // Match: all query terms must appear in the lowercased path
             let lower = rel_path.to_lowercase();
             let matches = terms.iter().all(|t| lower.contains(t));
-            if !matches { continue; }
+            if !matches {
+                continue;
+            }
 
             heap.push(Reverse((rel_path.len(), name.clone(), rel_path, is_dir)));
 
@@ -639,7 +653,8 @@ fn search_files_sync(root: &str, query: &str, limit: usize) -> Vec<FileSearchEnt
     let mut results: Vec<_> = heap.into_sorted_vec();
     results.truncate(limit);
 
-    results.into_iter()
+    results
+        .into_iter()
         .map(|Reverse((_, name, path, is_dir))| FileSearchEntry { name, path, is_dir })
         .collect()
 }
@@ -661,10 +676,20 @@ fn load_gitignore(root: &std::path::Path) -> Vec<String> {
 fn is_gitignored(rel_path: &str, name: &str, is_dir: bool, patterns: &[String]) -> bool {
     // Common dirs to always skip (performance)
     const ALWAYS_SKIP: &[&str] = &[
-        "node_modules", "target", ".git", "__pycache__", ".next",
-        "dist", "build", ".cache", ".turbo", "vendor",
+        "node_modules",
+        "target",
+        ".git",
+        "__pycache__",
+        ".next",
+        "dist",
+        "build",
+        ".cache",
+        ".turbo",
+        "vendor",
     ];
-    if is_dir && ALWAYS_SKIP.contains(&name) { return true; }
+    if is_dir && ALWAYS_SKIP.contains(&name) {
+        return true;
+    }
 
     for pattern in patterns {
         let pat = pattern.trim_end_matches('/');
@@ -672,16 +697,24 @@ fn is_gitignored(rel_path: &str, name: &str, is_dir: bool, patterns: &[String]) 
         if pat.contains('*') {
             // Glob-style: *.ext
             if let Some(ext) = pat.strip_prefix("*.") {
-                if name.ends_with(&format!(".{ext}")) { return true; }
+                if name.ends_with(&format!(".{ext}")) {
+                    return true;
+                }
             }
         } else if pat.contains('/') {
             // Path-prefix match (e.g. "dist/", "build/output")
-            if rel_path.starts_with(pat) || rel_path == pat { return true; }
+            if rel_path.starts_with(pat) || rel_path == pat {
+                return true;
+            }
         } else {
             // Plain name match
-            if name == pat { return true; }
+            if name == pat {
+                return true;
+            }
             // Also check if any path segment matches
-            if rel_path.split('/').any(|seg| seg == pat) { return true; }
+            if rel_path.split('/').any(|seg| seg == pat) {
+                return true;
+            }
         }
     }
     false
@@ -689,11 +722,7 @@ fn is_gitignored(rel_path: &str, name: &str, is_dir: bool, patterns: &[String]) 
 
 /// Map file extension to MIME type for binary file serving.
 pub(crate) fn mime_from_extension(path: &str) -> String {
-    let ext = path
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = path.rsplit('.').next().unwrap_or("").to_lowercase();
     match ext.as_str() {
         // Images
         "png" => "image/png",
@@ -723,7 +752,9 @@ pub(crate) fn mime_from_extension(path: &str) -> String {
         "pdf" => "application/pdf",
         "csv" => "text/csv",
         "xlsx" | "xls" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "pptx" | "ppt" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "pptx" | "ppt" => {
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        }
         "docx" | "doc" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         // Fallback
         _ => "application/octet-stream",
@@ -733,11 +764,7 @@ pub(crate) fn mime_from_extension(path: &str) -> String {
 
 /// Detect language from file extension for CodeMirror syntax highlighting.
 pub(crate) fn detect_language(path: &str) -> String {
-    let ext = path
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = path.rsplit('.').next().unwrap_or("").to_lowercase();
     match ext.as_str() {
         "rs" => "rust",
         "js" | "jsx" | "mjs" | "cjs" => "javascript",
@@ -777,14 +804,11 @@ pub(crate) fn detect_language(path: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "files_handlers_helpers_tests.rs"]
-mod files_handlers_helpers_tests;
+#[path = "files_handlers_browse_error_tests.rs"]
+mod files_handlers_browse_error_tests;
 #[cfg(test)]
 #[path = "files_handlers_browse_tests.rs"]
 mod files_handlers_browse_tests;
-#[cfg(test)]
-#[path = "files_handlers_mutate_tests.rs"]
-mod files_handlers_mutate_tests;
 #[cfg(test)]
 #[path = "files_handlers_edge_tests.rs"]
 mod files_handlers_edge_tests;
@@ -792,5 +816,8 @@ mod files_handlers_edge_tests;
 #[path = "files_handlers_extra_tests.rs"]
 mod files_handlers_extra_tests;
 #[cfg(test)]
-#[path = "files_handlers_browse_error_tests.rs"]
-mod files_handlers_browse_error_tests;
+#[path = "files_handlers_helpers_tests.rs"]
+mod files_handlers_helpers_tests;
+#[cfg(test)]
+#[path = "files_handlers_mutate_tests.rs"]
+mod files_handlers_mutate_tests;

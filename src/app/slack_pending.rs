@@ -3,11 +3,7 @@ use tracing::{error, info};
 
 impl App {
     /// Drain queued Slack messages for a project once a session becomes available.
-    pub(super) fn drain_pending_slack_messages(
-        &mut self,
-        project_idx: usize,
-        session_id: &str,
-    ) {
+    pub(super) fn drain_pending_slack_messages(&mut self, project_idx: usize, session_id: &str) {
         // Extract messages for this project.
         let (to_send, remaining): (Vec<_>, Vec<_>) = self
             .pending_slack_messages
@@ -107,15 +103,12 @@ impl App {
                 }
 
                 // Send the user message.
-                match crate::slack::send_user_message(
-                    &client, &base_url, &project_dir, &sid, &text,
-                )
-                .await
+                match crate::slack::send_user_message(&client, &base_url, &project_dir, &sid, &text)
+                    .await
                 {
                     Ok(()) => {
                         info!("Slack: queued message sent to session {}", sid);
-                        let ack =
-                            format!("relayed to project: {}, session: {}", pname, sname);
+                        let ack = format!("relayed to project: {}, session: {}", pname, sname);
                         let _ = crate::slack::post_message(
                             &client,
                             &bot_token,
@@ -165,10 +158,7 @@ impl App {
                             msg_offsets: s.session_msg_offset.clone(),
                         };
                         if let Err(e) = map.save() {
-                            tracing::warn!(
-                                "Slack: failed to persist session map: {}",
-                                e
-                            );
+                            tracing::warn!("Slack: failed to persist session map: {}", e);
                         }
                     }
                 }

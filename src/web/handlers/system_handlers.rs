@@ -1,9 +1,8 @@
 //! System monitor handler — returns a snapshot of system metrics.
 
-
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
-use sysinfo::{System, Disks, Networks};
+use sysinfo::{Disks, Networks, System};
 
 use super::super::auth::AuthUser;
 use super::super::types::*;

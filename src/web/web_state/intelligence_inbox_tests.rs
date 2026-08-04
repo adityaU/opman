@@ -157,7 +157,13 @@ async fn build_inbox_signals_priority_by_kind() {
             questions: vec![],
             watcher_status: None,
             signals: vec![
-                signal("s1", "watcher_trigger", "Watcher medium", 10.0, Some("sess")),
+                signal(
+                    "s1",
+                    "watcher_trigger",
+                    "Watcher medium",
+                    10.0,
+                    Some("sess"),
+                ),
                 signal("s2", "completion", "Done low", 20.0, None),
             ],
         })

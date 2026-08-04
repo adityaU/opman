@@ -203,7 +203,7 @@ impl Runner for HttpRunner {
                     }
                     object.remove("permission");
                     object.remove("runner");
-                    if object.get("agent").and_then(Value::as_str) == Some("default") {
+                    if matches!(object.get("agent").and_then(Value::as_str), Some("default") | Some("claude") | Some("codex")) {
                         object.remove("agent");
                     }
                 }
@@ -612,6 +612,7 @@ impl CodexRuntime {
             }
             "item/started" => self.emit_item_event(&params, false).await,
             "item/completed" => self.emit_item_event(&params, true).await,
+            "item/reasoning/summaryTextDelta" | "item/reasoning/textDelta" => self.emit_reasoning_delta(&params).await,
             "item/agentMessage/delta" => {
                 self.emit(json!({
                     "type": "message.part.delta",
@@ -722,6 +723,13 @@ impl CodexRuntime {
                     .await;
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": format!("{item_id}_text"), "sessionID": session_id, "messageID": item_id, "type": "text", "text": text } } })).await;
             }
+            "reasoning" | "analysis" | "thinking" => {
+                let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
+                let message_id = format!("turn_{}", string_at(params, "turnId"));
+                let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "time": { "created": timestamp } });
+                self.emit(json!({ "type": "message.updated", "properties": { "info": info } })).await;
+                self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": message_id, "type": "reasoning", "text": text } } })).await;
+            }
             "agentMessage" => {
                 let text = item.get("text").and_then(Value::as_str).unwrap_or("");
                 let info = json!({ "id": item_id, "messageID": item_id, "sessionID": session_id, "role": "assistant", "time": { "created": timestamp }, "modelID": self.sessions.read().await.get(&session_id).and_then(|s| s.model.clone()) });
@@ -746,6 +754,16 @@ impl CodexRuntime {
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": message_id, "type": "tool", "tool": tool_part.tool, "callID": item_id, "state": state } } })).await;
             }
         }
+    }
+
+    async fn emit_reasoning_delta(&self, params: &Value) {
+        let Some(delta) = params.get("delta").and_then(Value::as_str).or_else(|| params.get("text").and_then(Value::as_str)) else { return; };
+        if delta.is_empty() { return; }
+        let session_id = string_at(params, "threadId");
+        let message_id = format!("turn_{}", string_at(params, "turnId"));
+        let part_id = string_at(params, "itemId");
+        self.emit(json!({ "type": "message.updated", "properties": { "info": { "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant" } } })).await;
+        self.emit(json!({ "type": "message.part.delta", "properties": { "sessionID": session_id, "messageID": message_id, "partID": part_id, "field": "text", "type": "reasoning", "delta": delta } })).await;
     }
 
     async fn emit_tool_delta(&self, params: &Value, tool: &str) {
@@ -1012,6 +1030,10 @@ fn codex_messages(thread: &Value) -> Value {
                         .unwrap_or("");
                     messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "user", "time": { "created": created } }, "parts": [{ "id": format!("{item_id}_text"), "sessionID": thread_id, "messageID": item_id, "type": "text", "text": text }] }));
                 }
+                "reasoning" | "analysis" | "thinking" => {
+                    let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
+                    messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "reasoning", "text": text }] }));
+                }
                 "agentMessage" => {
                     let status = if turn.get("status").and_then(Value::as_str) == Some("failed") {
                         "error"
@@ -1220,7 +1242,15 @@ impl Runner for CodexRunner {
                 params["effort"] = Value::String(effort.to_string());
             }
             if let Some(permission) = body.get("permission").and_then(Value::as_str) {
-                params["approvalPolicy"] = Value::String(permission.to_string());
+                match permission {
+                    "never" | "on-request" | "on-failure" | "untrusted" => {
+                        params["approvalPolicy"] = Value::String(permission.to_string());
+                        if permission == "never" {
+                            params["sandboxPolicy"] = json!({ "type": "dangerFullAccess" });
+                        }
+                    }
+                    _ => {}
+                }
             }
             let response = connection.request("turn/start", params).await?;
             let turn_id = response

@@ -10,9 +10,7 @@ impl App {
         private_metadata: &str,
     ) {
         let selected_session_id = values
-            .pointer(
-                "/session_select_block/session_select_action/selected_option/value",
-            )
+            .pointer("/session_select_block/session_select_action/selected_option/value")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -84,8 +82,7 @@ impl App {
                 }
             };
 
-            let prompt =
-                crate::slack::build_triage_prompt(&projects, &sessions, &triage_text);
+            let prompt = crate::slack::build_triage_prompt(&projects, &sessions, &triage_text);
 
             if let Ok(triage_dir) = crate::slack::triage_project_dir() {
                 let triage_dir_str = triage_dir.to_string_lossy().to_string();
@@ -100,21 +97,16 @@ impl App {
 
                 let session_id = match sessions_resp {
                     Ok(resp) => {
-                        let body: serde_json::Value =
-                            resp.json().await.unwrap_or_default();
-                        let items: Vec<&serde_json::Value> =
-                            if let Some(arr) = body.as_array() {
-                                arr.iter().collect()
-                            } else if let Some(obj) = body.as_object() {
-                                obj.values().collect()
-                            } else {
-                                vec![]
-                            };
+                        let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                        let items: Vec<&serde_json::Value> = if let Some(arr) = body.as_array() {
+                            arr.iter().collect()
+                        } else if let Some(obj) = body.as_object() {
+                            obj.values().collect()
+                        } else {
+                            vec![]
+                        };
                         let triage_session = items.iter().find(|s| {
-                            let dir = s
-                                .get("directory")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
+                            let dir = s.get("directory").and_then(|v| v.as_str()).unwrap_or("");
                             dir == triage_dir_str
                         });
                         triage_session
@@ -123,10 +115,7 @@ impl App {
                             .to_string()
                     }
                     Err(e) => {
-                        warn!(
-                            "Connect modal triage: failed to fetch sessions: {}",
-                            e
-                        );
+                        warn!("Connect modal triage: failed to fetch sessions: {}", e);
                         String::new()
                     }
                 };
@@ -165,10 +154,7 @@ impl App {
                         let max_polls = 30;
                         for poll in 0..max_polls {
                             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                            match api
-                                .fetch_session_status(&base_url, &triage_dir_str)
-                                .await
-                            {
+                            match api.fetch_session_status(&base_url, &triage_dir_str).await {
                                 Ok(status_map) => {
                                     let is_busy = status_map
                                         .get(&session_id)
@@ -221,44 +207,40 @@ impl App {
                                     rewritten_query
                                 };
 
-                                let _ = bg_tx.send(
-                                    crate::app::BackgroundEvent::SlackEvent(
-                                        SlackBackgroundEvent::TriageResult {
-                                            thread_ts: ts,
-                                            channel,
-                                            original_text: triage_text,
-                                            rewritten_query: final_query,
-                                            project_path,
-                                            model,
-                                            direct_answer,
-                                            create_session,
-                                            connect_only: true,
-                                            error: error_val,
-                                        },
-                                    ),
-                                );
+                                let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                    SlackBackgroundEvent::TriageResult {
+                                        thread_ts: ts,
+                                        channel,
+                                        original_text: triage_text,
+                                        rewritten_query: final_query,
+                                        project_path,
+                                        model,
+                                        direct_answer,
+                                        create_session,
+                                        connect_only: true,
+                                        error: error_val,
+                                    },
+                                ));
                             }
                             Err(e) => {
                                 error!("Connect modal triage fetch err: {}", e);
-                                let _ = bg_tx.send(
-                                    crate::app::BackgroundEvent::SlackEvent(
-                                        SlackBackgroundEvent::TriageResult {
-                                            thread_ts: ts,
-                                            channel,
-                                            original_text: triage_text,
-                                            rewritten_query: None,
-                                            project_path: None,
-                                            model: None,
-                                            direct_answer: None,
-                                            create_session: false,
-                                            connect_only: true,
-                                            error: Some(format!(
-                                                "Failed to fetch triage response: {}",
-                                                e
-                                            )),
-                                        },
-                                    ),
-                                );
+                                let _ = bg_tx.send(crate::app::BackgroundEvent::SlackEvent(
+                                    SlackBackgroundEvent::TriageResult {
+                                        thread_ts: ts,
+                                        channel,
+                                        original_text: triage_text,
+                                        rewritten_query: None,
+                                        project_path: None,
+                                        model: None,
+                                        direct_answer: None,
+                                        create_session: false,
+                                        connect_only: true,
+                                        error: Some(format!(
+                                            "Failed to fetch triage response: {}",
+                                            e
+                                        )),
+                                    },
+                                ));
                             }
                         }
                     }

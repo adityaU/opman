@@ -15,7 +15,9 @@ fn transcript_is_fresh_true_for_just_written_file() {
 
 #[test]
 fn transcript_is_fresh_false_for_missing_file() {
-    assert!(!transcript_is_fresh(std::path::Path::new("/no/such/transcript.jsonl")));
+    assert!(!transcript_is_fresh(std::path::Path::new(
+        "/no/such/transcript.jsonl"
+    )));
 }
 
 #[test]
@@ -24,11 +26,14 @@ fn transcript_is_fresh_false_for_backdated_file() {
     let path = dir.path().join("stale.jsonl");
     std::fs::write(&path, b"{}").unwrap();
     // Backdate mtime/atime to ~1970+1000s, well beyond SUBAGENT_STALE (180s).
-    let c = std::ffi::CString::new(path.to_string_lossy().as_bytes()).unwrap();
-    let old = libc::timeval { tv_sec: 1000, tv_usec: 0 };
-    let times = [old, old];
-    let rc = unsafe { libc::utimes(c.as_ptr(), times.as_ptr()) };
-    assert_eq!(rc, 0, "utimes should succeed");
+    let touched = std::process::Command::new("touch")
+        .args(["-d", "@1000"])
+        .arg(&path)
+        .status();
+    assert!(
+        matches!(touched, Ok(status) if status.success()),
+        "touch should succeed"
+    );
     assert!(!transcript_is_fresh(&path));
 }
 

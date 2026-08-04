@@ -7,13 +7,13 @@
 
 use super::*;
 
-use axum::extract::{Path, Query, State};
-use axum::response::IntoResponse;
-use axum::routing::get;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::{scope_base_url, start_mock_upstream, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
+use axum::routing::get;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -22,7 +22,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
@@ -31,7 +33,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 
@@ -40,7 +45,9 @@ async fn body_json<T: IntoResponse>(
 ) -> (axum::http::StatusCode, serde_json::Value) {
     let resp = r.into_response();
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     (status, v)
 }
@@ -79,7 +86,10 @@ async fn search_messages_success_returns_matches() {
                 State(state),
                 auth(),
                 Path(0usize),
-                Query(SearchQuery { q: "needle".into(), limit: 50 }),
+                Query(SearchQuery {
+                    q: "needle".into(),
+                    limit: 50,
+                }),
             )
             .await,
         )
@@ -96,7 +106,11 @@ async fn search_messages_success_returns_matches() {
     assert_eq!(hit["session_id"], "s1");
     assert_eq!(hit["project_name"], "proj");
     assert_eq!(hit["timestamp"], 99);
-    assert!(hit["snippet"].as_str().unwrap().to_lowercase().contains("needle"));
+    assert!(hit["snippet"]
+        .as_str()
+        .unwrap()
+        .to_lowercase()
+        .contains("needle"));
 }
 
 // ── upstream returns non-JSON body → resp.json() Err → continue ──────
@@ -122,7 +136,10 @@ async fn search_messages_upstream_invalid_json_continues() {
                 State(state),
                 auth(),
                 Path(0usize),
-                Query(SearchQuery { q: "needle".into(), limit: 50 }),
+                Query(SearchQuery {
+                    q: "needle".into(),
+                    limit: 50,
+                }),
             )
             .await,
         )
@@ -169,7 +186,10 @@ async fn search_messages_cross_session_limit_break() {
                 State(state),
                 auth(),
                 Path(0usize),
-                Query(SearchQuery { q: "needle".into(), limit: 1 }),
+                Query(SearchQuery {
+                    q: "needle".into(),
+                    limit: 1,
+                }),
             )
             .await,
         )

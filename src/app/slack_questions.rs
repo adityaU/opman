@@ -148,11 +148,7 @@ impl App {
                                 .await;
                             }
                             Err(e) => {
-                                tracing::warn!(
-                                    "Slack: failed to reject question {}: {}",
-                                    rid,
-                                    e
-                                );
+                                tracing::warn!("Slack: failed to reject question {}: {}", rid, e);
                             }
                         }
                     });
@@ -231,11 +227,7 @@ impl App {
                             .await;
                         }
                         Err(e) => {
-                            tracing::warn!(
-                                "Slack: failed to reply to question {}: {}",
-                                rid,
-                                e
-                            );
+                            tracing::warn!("Slack: failed to reply to question {}: {}", rid, e);
                             let client = reqwest::Client::new();
                             let _ = crate::slack::post_message(
                                 &client,

@@ -41,9 +41,13 @@ async fn busy_after_error_clears_error_and_emits_state_change() {
     )
     .await;
     let evs = drain(&mut rx);
-    assert!(evs.iter().any(|e| matches!(e, WebEvent::StateChanged)),
-        "error-clear should emit StateChanged");
-    assert!(evs.iter().any(|e| matches!(e, WebEvent::SessionBusy { session_id } if session_id == "eb1")));
+    assert!(
+        evs.iter().any(|e| matches!(e, WebEvent::StateChanged)),
+        "error-clear should emit StateChanged"
+    );
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionBusy { session_id } if session_id == "eb1")));
 }
 
 #[tokio::test]
@@ -65,7 +69,9 @@ async fn busy_when_already_busy_emits_no_duplicate() {
         "/proj",
     )
     .await;
-    assert!(!drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionBusy { .. })));
+    assert!(!drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionBusy { .. })));
 }
 
 #[tokio::test]

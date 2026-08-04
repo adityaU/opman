@@ -18,7 +18,13 @@ fn constructs_and_matches_spawn_variants() {
         reply: tx,
     };
     match cmd {
-        PtyCmd::SpawnShell { id, rows, cols, working_dir, .. } => {
+        PtyCmd::SpawnShell {
+            id,
+            rows,
+            cols,
+            working_dir,
+            ..
+        } => {
             assert_eq!(id, "id-1");
             assert_eq!(rows, 24);
             assert_eq!(cols, 80);
@@ -59,15 +65,31 @@ fn constructs_and_matches_spawn_variants() {
 
     // SpawnNeovim + SpawnGitui share the shape.
     let (tx, _rx) = oneshot::channel();
-    let _ = PtyCmd::SpawnNeovim { id: "n".into(), rows: 5, cols: 5, working_dir: PathBuf::from("."), reply: tx };
+    let _ = PtyCmd::SpawnNeovim {
+        id: "n".into(),
+        rows: 5,
+        cols: 5,
+        working_dir: PathBuf::from("."),
+        reply: tx,
+    };
     let (tx, _rx) = oneshot::channel();
-    let _ = PtyCmd::SpawnGitui { id: "g".into(), rows: 5, cols: 5, working_dir: PathBuf::from("."), reply: tx };
+    let _ = PtyCmd::SpawnGitui {
+        id: "g".into(),
+        rows: 5,
+        cols: 5,
+        working_dir: PathBuf::from("."),
+        reply: tx,
+    };
 }
 
 #[test]
 fn constructs_and_matches_control_variants() {
     let (tx, _rx) = oneshot::channel::<bool>();
-    if let PtyCmd::Write { id, data, .. } = (PtyCmd::Write { id: "w".into(), data: vec![1, 2, 3], reply: tx }) {
+    if let PtyCmd::Write { id, data, .. } = (PtyCmd::Write {
+        id: "w".into(),
+        data: vec![1, 2, 3],
+        reply: tx,
+    }) {
         assert_eq!(id, "w");
         assert_eq!(data, vec![1, 2, 3]);
     } else {
@@ -75,17 +97,28 @@ fn constructs_and_matches_control_variants() {
     }
 
     let (tx, _rx) = oneshot::channel::<bool>();
-    if let PtyCmd::Resize { rows, cols, .. } = (PtyCmd::Resize { id: "r".into(), rows: 40, cols: 100, reply: tx }) {
+    if let PtyCmd::Resize { rows, cols, .. } = (PtyCmd::Resize {
+        id: "r".into(),
+        rows: 40,
+        cols: 100,
+        reply: tx,
+    }) {
         assert_eq!((rows, cols), (40, 100));
     } else {
         panic!();
     }
 
     let (tx, _rx) = oneshot::channel::<Option<RawOutputBuffer>>();
-    let _ = PtyCmd::GetOutput { id: "o".into(), reply: tx };
+    let _ = PtyCmd::GetOutput {
+        id: "o".into(),
+        reply: tx,
+    };
 
     let (tx, _rx) = oneshot::channel::<bool>();
-    let _ = PtyCmd::Kill { id: "k".into(), reply: tx };
+    let _ = PtyCmd::Kill {
+        id: "k".into(),
+        reply: tx,
+    };
 
     let (tx, _rx) = oneshot::channel::<Vec<String>>();
     let _ = PtyCmd::List { reply: tx };
@@ -95,7 +128,10 @@ fn constructs_and_matches_control_variants() {
 fn get_output_reply_carries_buffer() {
     // Confirms RawOutputBuffer flows through the GetOutput reply channel type.
     let (tx, mut rx) = oneshot::channel::<Option<RawOutputBuffer>>();
-    let cmd = PtyCmd::GetOutput { id: "x".into(), reply: tx };
+    let cmd = PtyCmd::GetOutput {
+        id: "x".into(),
+        reply: tx,
+    };
     if let PtyCmd::GetOutput { reply, .. } = cmd {
         reply.send(Some(RawOutputBuffer::new())).unwrap();
     }

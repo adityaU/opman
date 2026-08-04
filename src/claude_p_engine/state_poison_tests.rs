@@ -49,7 +49,7 @@ fn poisoned_sessions_mutators_are_noops() {
     e.set_permission_mode("x", "plan"); // mutate None → dir None → no toast
     e.add_allowed_tool("x", "Bash"); // mutate None
     e.rename_session("x", "t"); // → set_title early return
-    // resolve_agent with poisoned session read still resolves against no cache.
+                                // resolve_agent with poisoned session read still resolves against no cache.
     assert_eq!(e.resolve_agent("x", "plan"), "Plan");
 }
 
@@ -73,7 +73,13 @@ fn poisoned_command_cache_init_accessors() {
     .join();
     assert!(e.command_cache.is_poisoned());
     assert!(e.cached_init("d").is_none()); // .ok()? → None
-    e.set_cached_init("d", crate::claude_engine::claude_cli::InitInfo { commands: vec![], agents: vec![] }); // if let Ok skip
+    e.set_cached_init(
+        "d",
+        crate::claude_engine::claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec![],
+        },
+    ); // if let Ok skip
     assert!(e.cached_init("d").is_none());
 }
 

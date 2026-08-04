@@ -21,7 +21,9 @@ impl super::WebStateHandle {
         };
 
         let mut inner = self.inner.write().await;
-        inner.session_watchers.insert(req.session_id.clone(), config);
+        inner
+            .session_watchers
+            .insert(req.session_id.clone(), config);
 
         // Determine current status
         let is_busy = inner.busy_sessions.contains(&req.session_id);
@@ -29,11 +31,13 @@ impl super::WebStateHandle {
 
         drop(inner);
 
-        let _ = self.event_tx.send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
-            session_id: req.session_id.clone(),
-            action: "created".to_string(),
-            idle_since_secs: None,
-        }));
+        let _ = self
+            .event_tx
+            .send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
+                session_id: req.session_id.clone(),
+                action: "created".to_string(),
+                idle_since_secs: None,
+            }));
 
         info!(session_id = %req.session_id, "Watcher created");
 
@@ -64,11 +68,13 @@ impl super::WebStateHandle {
 
             drop(inner);
 
-            let _ = self.event_tx.send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
-                session_id: session_id.to_string(),
-                action: "deleted".to_string(),
-                idle_since_secs: None,
-            }));
+            let _ = self
+                .event_tx
+                .send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
+                    session_id: session_id.to_string(),
+                    action: "deleted".to_string(),
+                    idle_since_secs: None,
+                }));
 
             info!(session_id = %session_id, "Watcher deleted");
         }
@@ -208,14 +214,18 @@ impl super::WebStateHandle {
                 prev_handle.abort();
             }
             // Record when idle countdown started
-            inner.watcher_idle_since.insert(session_id.to_string(), Instant::now());
+            inner
+                .watcher_idle_since
+                .insert(session_id.to_string(), Instant::now());
         }
 
-        let _ = self.event_tx.send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
-            session_id: session_id.to_string(),
-            action: "countdown".to_string(),
-            idle_since_secs: Some(0),
-        }));
+        let _ = self
+            .event_tx
+            .send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
+                session_id: session_id.to_string(),
+                action: "countdown".to_string(),
+                idle_since_secs: Some(0),
+            }));
 
         let timeout = watcher.idle_timeout_secs;
         let msg = watcher.continuation_message.clone();
@@ -267,7 +277,9 @@ impl super::WebStateHandle {
         });
 
         let mut inner = self.inner.write().await;
-        inner.watcher_pending.insert(session_id.to_string(), handle.abort_handle());
+        inner
+            .watcher_pending
+            .insert(session_id.to_string(), handle.abort_handle());
     }
 
     /// Cancel a pending watcher timer (called when session goes busy).
@@ -281,11 +293,13 @@ impl super::WebStateHandle {
 
             drop(inner);
 
-            let _ = self.event_tx.send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
-                session_id: session_id.to_string(),
-                action: "cancelled".to_string(),
-                idle_since_secs: None,
-            }));
+            let _ = self
+                .event_tx
+                .send(WebEvent::WatcherStatusChanged(WatcherStatusEvent {
+                    session_id: session_id.to_string(),
+                    action: "cancelled".to_string(),
+                    idle_since_secs: None,
+                }));
         }
     }
 }

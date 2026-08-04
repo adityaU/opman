@@ -66,8 +66,14 @@ async fn run_bridge_over_tools_call_spawns_and_writes() {
         }
         tokio::task::yield_now().await;
     }
-    assert!(!s.is_empty(), "expected a response from the spawned tool call");
-    assert!(s.contains("\"id\":9"), "response should carry the request id: {s}");
+    assert!(
+        !s.is_empty(),
+        "expected a response from the spawned tool call"
+    );
+    assert!(
+        s.contains("\"id\":9"),
+        "response should carry the request id: {s}"
+    );
 }
 
 #[tokio::test]

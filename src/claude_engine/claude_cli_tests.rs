@@ -20,14 +20,19 @@ fn with_bin<T>(bin: &str, f: impl FnOnce() -> T) -> T {
 }
 
 fn args_of(cmd: &std::process::Command) -> Vec<String> {
-    cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect()
+    cmd.get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect()
 }
 
 // ---- parse_short_id ----------------------------------------------------
 
 #[test]
 fn parse_short_id_variants() {
-    assert_eq!(parse_short_id("backgrounded · ae842e84"), Some("ae842e84".into()));
+    assert_eq!(
+        parse_short_id("backgrounded · ae842e84"),
+        Some("ae842e84".into())
+    );
     assert_eq!(
         parse_short_id("noise\nbackgrounded · deadbeef\nmore"),
         Some("deadbeef".into())
@@ -53,7 +58,10 @@ fn turn_opts_default_is_empty() {
 fn apply_opts_minimal_only_sets_permission_mode() {
     let mut cmd = std::process::Command::new("claude");
     apply_opts(&mut cmd, &TurnOpts::default());
-    assert_eq!(args_of(&cmd), vec!["--permission-mode", "bypassPermissions"]);
+    assert_eq!(
+        args_of(&cmd),
+        vec!["--permission-mode", "bypassPermissions"]
+    );
     // No env vars applied.
     assert!(cmd.get_envs().next().is_none());
 }
@@ -74,24 +82,40 @@ fn apply_opts_full_ordering_and_env() {
     assert_eq!(
         args_of(&cmd),
         vec![
-            "--mcp-config", "{\"mcpServers\":{}}",
-            "--permission-mode", "acceptEdits",
-            "--settings", "{\"s\":1}",
-            "--model", "opus",
-            "--agent", "Plan",
+            "--mcp-config",
+            "{\"mcpServers\":{}}",
+            "--permission-mode",
+            "acceptEdits",
+            "--settings",
+            "{\"s\":1}",
+            "--model",
+            "opus",
+            "--agent",
+            "Plan",
         ]
     );
     let envs: std::collections::HashMap<String, Option<String>> = cmd
         .get_envs()
-        .map(|(k, v)| (k.to_string_lossy().into_owned(), v.map(|v| v.to_string_lossy().into_owned())))
+        .map(|(k, v)| {
+            (
+                k.to_string_lossy().into_owned(),
+                v.map(|v| v.to_string_lossy().into_owned()),
+            )
+        })
         .collect();
-    assert_eq!(envs.get("OPMAN_ENGINE_URL"), Some(&Some("http://127.0.0.1:9".into())));
+    assert_eq!(
+        envs.get("OPMAN_ENGINE_URL"),
+        Some(&Some("http://127.0.0.1:9".into()))
+    );
     assert_eq!(envs.get("OPENCODE_SESSION_ID"), Some(&Some("ses_1".into())));
 }
 
 #[test]
 fn apply_opts_empty_agent_string_is_omitted() {
-    let opts = TurnOpts { agent: Some(String::new()), ..Default::default() };
+    let opts = TurnOpts {
+        agent: Some(String::new()),
+        ..Default::default()
+    };
     let mut cmd = std::process::Command::new("claude");
     apply_opts(&mut cmd, &opts);
     assert!(!args_of(&cmd).iter().any(|a| a == "--agent"));
@@ -102,8 +126,14 @@ fn apply_opts_empty_agent_string_is_omitted() {
 #[test]
 fn model_display_name_cases() {
     assert_eq!(model_display_name("claude-opus-4-8"), "Claude Opus 4.8");
-    assert_eq!(model_display_name("claude-sonnet-4-5-20250101"), "Claude Sonnet 4.5");
-    assert_eq!(model_display_name("claude-haiku-4-5[1m]"), "Claude Haiku 4.5 (1m)");
+    assert_eq!(
+        model_display_name("claude-sonnet-4-5-20250101"),
+        "Claude Sonnet 4.5"
+    );
+    assert_eq!(
+        model_display_name("claude-haiku-4-5[1m]"),
+        "Claude Haiku 4.5 (1m)"
+    );
     // tier-only (no version segments)
     assert_eq!(model_display_name("claude-opus"), "Claude Opus");
     // no claude- prefix still normalizes
@@ -259,6 +289,8 @@ fn bg_start_errors_when_short_id_unparseable() {
 #[test]
 fn bg_resume_errors_when_short_id_unparseable() {
     let opts = TurnOpts::default();
-    let r = with_bin("echo", || bg_resume("/tmp", "uuid-x", &opts, "resume prompt"));
+    let r = with_bin("echo", || {
+        bg_resume("/tmp", "uuid-x", &opts, "resume prompt")
+    });
     assert!(r.is_err());
 }

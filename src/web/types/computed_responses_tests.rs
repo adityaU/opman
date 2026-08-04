@@ -158,7 +158,13 @@ fn signals_response_serializes() {
             session_id: None,
         }],
     };
-    assert_eq!(serde_json::to_value(&r).unwrap()["signals"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        serde_json::to_value(&r).unwrap()["signals"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     let _ = format!("{r:?}");
     let _ = r.clone();
 }
@@ -215,10 +221,7 @@ fn workspace_template_serializes() {
 #[test]
 fn workspace_templates_response_serializes() {
     let resp = WorkspaceTemplatesResponse { templates: vec![] };
-    assert_eq!(
-        serde_json::to_value(&resp).unwrap()["templates"],
-        json!([])
-    );
+    assert_eq!(serde_json::to_value(&resp).unwrap()["templates"], json!([]));
     let _ = format!("{resp:?}");
     let _ = resp.clone();
 }

@@ -24,6 +24,7 @@ fn web_session_info_serialize_with_rename() {
             created: 1,
             updated: 2,
         },
+        runner: "opencode".into(),
     };
     let v = serde_json::to_value(&info).unwrap();
     assert_eq!(v["id"], "s");
@@ -67,6 +68,7 @@ fn web_project_info_serialize() {
                 created: 0,
                 updated: 0,
             },
+            runner: "claude".into(),
         }],
         git_branch: "main".into(),
         busy_sessions: vec!["s".into()],
@@ -119,6 +121,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
         focused: "editor".into(),
         instance_name: Some("box1".into()),
         backend: "claude-code".into(),
+        runners: vec!["claude".into(), "codex".into()],
     };
     let v = serde_json::to_value(&with).unwrap();
     assert_eq!(v["active_project"], 1);
@@ -134,6 +137,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
         focused: "".into(),
         instance_name: None,
         backend: "opencode".into(),
+        runners: vec!["opencode".into()],
     };
     let v2 = serde_json::to_value(&without).unwrap();
     assert!(v2.get("instance_name").is_none()); // skip_serializing_if None

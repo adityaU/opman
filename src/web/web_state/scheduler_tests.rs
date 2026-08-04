@@ -38,7 +38,12 @@ async fn insert(h: &WebStateHandle, r: RoutineDefinition) {
 }
 
 async fn next_run_of(h: &WebStateHandle, id: &str) -> Option<String> {
-    h.inner.read().await.routines.get(id).and_then(|r| r.next_run_at.clone())
+    h.inner
+        .read()
+        .await
+        .routines
+        .get(id)
+        .and_then(|r| r.next_run_at.clone())
 }
 
 // ── compute_next_run ────────────────────────────────────────────────
@@ -71,7 +76,18 @@ async fn update_next_run_missing_routine_noop() {
 #[tokio::test]
 async fn update_next_run_no_cron_sets_none() {
     let h = WebStateHandle::new_test();
-    insert(&h, routine("r1", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, None, true, Some("x"))).await;
+    insert(
+        &h,
+        routine(
+            "r1",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            None,
+            true,
+            Some("x"),
+        ),
+    )
+    .await;
     h.update_next_run("r1").await;
     assert!(next_run_of(&h, "r1").await.is_none());
 }
@@ -79,7 +95,18 @@ async fn update_next_run_no_cron_sets_none() {
 #[tokio::test]
 async fn update_next_run_valid_cron_sets_some() {
     let h = WebStateHandle::new_test();
-    insert(&h, routine("r1", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), true, None)).await;
+    insert(
+        &h,
+        routine(
+            "r1",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
     h.update_next_run("r1").await;
     assert!(next_run_of(&h, "r1").await.is_some());
 }
@@ -87,7 +114,18 @@ async fn update_next_run_valid_cron_sets_some() {
 #[tokio::test]
 async fn update_next_run_invalid_cron_sets_none() {
     let h = WebStateHandle::new_test();
-    insert(&h, routine("r1", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("nonsense"), true, Some("x"))).await;
+    insert(
+        &h,
+        routine(
+            "r1",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("nonsense"),
+            true,
+            Some("x"),
+        ),
+    )
+    .await;
     h.update_next_run("r1").await;
     assert!(next_run_of(&h, "r1").await.is_none());
 }
@@ -97,8 +135,30 @@ async fn update_next_run_invalid_cron_sets_none() {
 #[tokio::test]
 async fn recompute_all_next_runs_updates_scheduled() {
     let h = WebStateHandle::new_test();
-    insert(&h, routine("sched", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), true, None)).await;
-    insert(&h, routine("manual", RoutineTrigger::Manual, RoutineAction::OpenInbox, None, true, None)).await;
+    insert(
+        &h,
+        routine(
+            "sched",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
+    insert(
+        &h,
+        routine(
+            "manual",
+            RoutineTrigger::Manual,
+            RoutineAction::OpenInbox,
+            None,
+            true,
+            None,
+        ),
+    )
+    .await;
     h.recompute_all_next_runs().await;
     assert!(next_run_of(&h, "sched").await.is_some());
     assert!(next_run_of(&h, "manual").await.is_none());
@@ -108,13 +168,35 @@ async fn recompute_all_next_runs_updates_scheduled() {
 async fn recompute_next_run_if_scheduled_variants() {
     let h = WebStateHandle::new_test();
     // Not scheduled → no-op.
-    insert(&h, routine("manual", RoutineTrigger::Manual, RoutineAction::OpenInbox, Some("0 9 * * *"), true, None)).await;
+    insert(
+        &h,
+        routine(
+            "manual",
+            RoutineTrigger::Manual,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
     h.recompute_next_run_if_scheduled("manual").await;
     assert!(next_run_of(&h, "manual").await.is_none());
     // Missing routine → no-op.
     h.recompute_next_run_if_scheduled("ghost").await;
     // Scheduled + enabled + cron → updates.
-    insert(&h, routine("sched", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), true, None)).await;
+    insert(
+        &h,
+        routine(
+            "sched",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
     h.recompute_next_run_if_scheduled("sched").await;
     assert!(next_run_of(&h, "sched").await.is_some());
 }
@@ -131,11 +213,44 @@ async fn tick_scheduler_no_routines_is_noop() {
 async fn tick_scheduler_fires_due_legacy_routine() {
     let h = WebStateHandle::new_test();
     // Due: scheduled, enabled, cron set, next_run_at None. Legacy action → no network.
-    insert(&h, routine("due", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), true, None)).await;
+    insert(
+        &h,
+        routine(
+            "due",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
     // Not due: next_run far in the future.
-    insert(&h, routine("future", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), true, Some("2999-01-01T00:00:00Z"))).await;
+    insert(
+        &h,
+        routine(
+            "future",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            true,
+            Some("2999-01-01T00:00:00Z"),
+        ),
+    )
+    .await;
     // Disabled scheduled routine is filtered out.
-    insert(&h, routine("off", RoutineTrigger::Scheduled, RoutineAction::OpenInbox, Some("0 9 * * *"), false, None)).await;
+    insert(
+        &h,
+        routine(
+            "off",
+            RoutineTrigger::Scheduled,
+            RoutineAction::OpenInbox,
+            Some("0 9 * * *"),
+            false,
+            None,
+        ),
+    )
+    .await;
 
     h.tick_scheduler().await;
 
@@ -149,7 +264,18 @@ async fn tick_scheduler_fires_due_legacy_routine() {
 async fn tick_scheduler_handles_execute_error() {
     let h = WebStateHandle::new_test();
     // Due SendMessage routine with no prompt → execute_routine returns Err (warn path).
-    insert(&h, routine("bad", RoutineTrigger::Scheduled, RoutineAction::SendMessage, Some("0 9 * * *"), true, None)).await;
+    insert(
+        &h,
+        routine(
+            "bad",
+            RoutineTrigger::Scheduled,
+            RoutineAction::SendMessage,
+            Some("0 9 * * *"),
+            true,
+            None,
+        ),
+    )
+    .await;
     h.tick_scheduler().await;
     // Even on failure, next_run is recomputed.
     assert!(next_run_of(&h, "bad").await.is_some());

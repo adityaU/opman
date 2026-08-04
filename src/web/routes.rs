@@ -276,7 +276,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/health/config", post(handlers::set_health_config))
         // ── Kanban board ─────────────────────────────────────────────
         .route("/kanban/board", get(handlers::get_board))
-        .route("/kanban/board/{board_id}/config", axum::routing::put(handlers::update_board_config))
+        .route(
+            "/kanban/board/{board_id}/config",
+            axum::routing::put(handlers::update_board_config),
+        )
         .route("/kanban/task", post(handlers::create_task))
         .route(
             "/kanban/task/{task_id}",
@@ -287,7 +290,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/kanban/task/{task_id}/launch", post(handlers::launch_task))
         .route("/kanban/task/{task_id}/abort", post(handlers::abort_task))
         .route("/kanban/task/{task_id}/note", post(handlers::add_user_note))
-        .route("/kanban/asset/{task_id}/{filename}", get(handlers::serve_asset));
+        .route(
+            "/kanban/asset/{task_id}/{filename}",
+            get(handlers::serve_asset),
+        );
 
     // Attachment upload gets a larger body limit (videos up to ~200 MB).
     let kanban_upload = Router::new()
@@ -302,12 +308,30 @@ pub(super) fn build_router(state: ServerState) -> Router {
     // Internal Kanban API (loopback + shared token; no JWT auth extractor).
     let internal_routes = Router::new()
         .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
-        .route("/kanban/task/{task_id}/status", post(handlers::internal_set_status))
-        .route("/kanban/task/{task_id}/note", post(handlers::internal_add_note))
-        .route("/kanban/task/{task_id}/complete", post(handlers::internal_complete))
-        .route("/kanban/task/{task_id}/query", post(handlers::internal_query_tasks))
-        .route("/kanban/task/{task_id}/board", get(handlers::internal_board_overview))
-        .route("/kanban/task/{task_id}/notes", post(handlers::internal_read_notes));
+        .route(
+            "/kanban/task/{task_id}/status",
+            post(handlers::internal_set_status),
+        )
+        .route(
+            "/kanban/task/{task_id}/note",
+            post(handlers::internal_add_note),
+        )
+        .route(
+            "/kanban/task/{task_id}/complete",
+            post(handlers::internal_complete),
+        )
+        .route(
+            "/kanban/task/{task_id}/query",
+            post(handlers::internal_query_tasks),
+        )
+        .route(
+            "/kanban/task/{task_id}/board",
+            get(handlers::internal_board_overview),
+        )
+        .route(
+            "/kanban/task/{task_id}/notes",
+            post(handlers::internal_read_notes),
+        );
 
     // Public (unauthenticated) API routes — outside the main api_routes
     // so they don't go through the auth extractor.

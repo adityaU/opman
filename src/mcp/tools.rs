@@ -252,15 +252,18 @@ async fn handle_ephemeral_run_inner(
     )
     .await;
 
-    if let Err(e) = &run_resp {
-        let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
-        return Err(anyhow::anyhow!("Failed to run command: {}", e));
-    }
-    if !run_resp.as_ref().unwrap().ok {
-        let msg = run_resp
-            .unwrap()
-            .error
-            .unwrap_or_else(|| "Run failed".into());
+    let run_resp = match run_resp {
+        Ok(response) => response,
+        Err(error) => {
+            let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
+            return Err(anyhow::anyhow!("Failed to run command: {error}"));
+        }
+    };
+    if !run_resp.ok {
+        let msg = match run_resp.error {
+            Some(error) => error,
+            None => "Run failed".into(),
+        };
         let _ = close_tab(sock_path, tab_idx, sid.as_deref()).await;
         return Ok(serde_json::json!([{ "type": "text", "text": msg }]));
     }

@@ -1,7 +1,7 @@
 //! Generated coverage tests for `routes.rs` — internal_ask, replies, SSE.
 use super::*;
-use axum::extract::State;
 use crate::claude_engine::PendingReply;
+use axum::extract::State;
 
 fn engine() -> Engine {
     Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
@@ -55,7 +55,7 @@ async fn internal_ask_unknown_session_fails_open() {
 async fn internal_ask_bypass_and_non_gated_allow() {
     let e = engine();
     let s = e.create_session("/d", "", "t"); // engine default mode = bypassPermissions
-    // Gated tool but bypass mode → allow (resolved via newest-in-cwd fallback).
+                                             // Gated tool but bypass mode → allow (resolved via newest-in-cwd fallback).
     let out = call_ask(
         &e,
         json!({ "session_id": "", "cwd": "/d", "tool_name": "Bash", "tool_input": {} }),
@@ -79,11 +79,19 @@ async fn internal_ask_accept_edits_and_plan_and_always_allowed() {
     let s = e.create_session("/d", "", "t");
 
     e.set_permission_mode(&s.id, "acceptEdits");
-    let out = call_ask(&e, json!({ "cwd": "/d", "tool_name": "Edit", "tool_input": {} })).await;
+    let out = call_ask(
+        &e,
+        json!({ "cwd": "/d", "tool_name": "Edit", "tool_input": {} }),
+    )
+    .await;
     assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "allow");
 
     e.set_permission_mode(&s.id, "plan");
-    let out = call_ask(&e, json!({ "cwd": "/d", "tool_name": "Write", "tool_input": {} })).await;
+    let out = call_ask(
+        &e,
+        json!({ "cwd": "/d", "tool_name": "Write", "tool_input": {} }),
+    )
+    .await;
     assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "deny");
     assert!(out["hookSpecificOutput"]["permissionDecisionReason"]
         .as_str()
@@ -93,7 +101,11 @@ async fn internal_ask_accept_edits_and_plan_and_always_allowed() {
     // Always-allowed tool short-circuits even in a prompting mode.
     e.set_permission_mode(&s.id, "default");
     e.add_allowed_tool(&s.id, "Bash");
-    let out = call_ask(&e, json!({ "cwd": "/d", "tool_name": "Bash", "tool_input": {} })).await;
+    let out = call_ask(
+        &e,
+        json!({ "cwd": "/d", "tool_name": "Bash", "tool_input": {} }),
+    )
+    .await;
     assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "allow");
 }
 
@@ -113,7 +125,10 @@ async fn internal_ask_question_answered() {
     let _ = sid;
     let h = tokio::spawn(async move { call_ask(&e2, input).await });
     let id = wait_for_id(&mut rx, "question.asked").await;
-    resolve_retry(&e, &id, || PendingReply::Question(vec![vec!["A".to_string()]])).await;
+    resolve_retry(&e, &id, || {
+        PendingReply::Question(vec![vec!["A".to_string()]])
+    })
+    .await;
     let out = h.await.unwrap();
     assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "deny");
     assert!(out["hookSpecificOutput"]["permissionDecisionReason"]
@@ -157,7 +172,11 @@ async fn internal_ask_permission_always_reject_once() {
     resolve_retry(&e, &id, || PendingReply::Permission("always".to_string())).await;
     let out = h.await.unwrap();
     assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "allow");
-    assert!(e.get_session(&s.id).unwrap().allowed_tools.contains(&"Bash".to_string()));
+    assert!(e
+        .get_session(&s.id)
+        .unwrap()
+        .allowed_tools
+        .contains(&"Bash".to_string()));
 
     // "reject" → deny.
     let e2 = e.clone();
@@ -230,22 +249,49 @@ async fn send(router: Router, method: &str, uri: &str, body: Option<Value>) -> V
         })
         .unwrap();
     let resp = router.oneshot(req).await.unwrap();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
     serde_json::from_slice(&bytes).unwrap()
 }
 
 #[tokio::test]
 async fn reply_endpoints_are_idempotent_on_unknown_ids() {
     let r = router(engine());
-    let v = send(r.clone(), "POST", "/permission/nope/reply", Some(json!({ "reply": "always" }))).await;
+    let v = send(
+        r.clone(),
+        "POST",
+        "/permission/nope/reply",
+        Some(json!({ "reply": "always" })),
+    )
+    .await;
     assert_eq!(v["ok"], true);
     // Missing reply defaults to "once".
-    let v = send(r.clone(), "POST", "/permission/nope2/reply", Some(json!({}))).await;
+    let v = send(
+        r.clone(),
+        "POST",
+        "/permission/nope2/reply",
+        Some(json!({})),
+    )
+    .await;
     assert_eq!(v["ok"], true);
-    let v = send(r.clone(), "POST", "/question/nope/reply", Some(json!({ "answers": [["A"]] }))).await;
+    let v = send(
+        r.clone(),
+        "POST",
+        "/question/nope/reply",
+        Some(json!({ "answers": [["A"]] })),
+    )
+    .await;
     assert_eq!(v["ok"], true);
     // Invalid answers shape → default empty, still ok.
-    let v = send(r.clone(), "POST", "/question/nope/reply", Some(json!({ "answers": "bad" }))).await;
+    let v = send(
+        r.clone(),
+        "POST",
+        "/question/nope/reply",
+        Some(json!({ "answers": "bad" })),
+    )
+    .await;
     assert_eq!(v["ok"], true);
     let v = send(r, "POST", "/question/nope/reject", None).await;
     assert_eq!(v["ok"], true);
@@ -256,7 +302,13 @@ async fn permission_reply_resolves_pending() {
     let e = engine();
     let r = router(e.clone());
     let rx = e.register_pending("perm_known");
-    let v = send(r, "POST", "/permission/perm_known/reply", Some(json!({ "reply": "always" }))).await;
+    let v = send(
+        r,
+        "POST",
+        "/permission/perm_known/reply",
+        Some(json!({ "reply": "always" })),
+    )
+    .await;
     assert_eq!(v["ok"], true);
     let got = rx.await.unwrap();
     assert!(matches!(got, PendingReply::Permission(s) if s == "always"));
@@ -278,7 +330,13 @@ async fn question_reply_resolves_pending_with_answers() {
     let got = rx.await.unwrap();
     match got {
         PendingReply::Question(a) => {
-            assert_eq!(a, vec![vec!["Yes".to_string()], vec!["No".to_string(), "Maybe".to_string()]]);
+            assert_eq!(
+                a,
+                vec![
+                    vec!["Yes".to_string()],
+                    vec!["No".to_string(), "Maybe".to_string()]
+                ]
+            );
         }
         _ => panic!("expected Question"),
     }
@@ -344,8 +402,12 @@ async fn event_stream_body_unscoped_subscriber_gets_everything() {
     let e = engine();
     let stream = event_stream_body(e.clone(), String::new());
     tokio::pin!(stream);
-    let _connected = tokio::time::timeout(Duration::from_millis(500), stream.next()).await.unwrap();
+    let _connected = tokio::time::timeout(Duration::from_millis(500), stream.next())
+        .await
+        .unwrap();
     e.emit("/some/other/dir", "x", json!({}));
-    let ev = tokio::time::timeout(Duration::from_millis(500), stream.next()).await.unwrap();
+    let ev = tokio::time::timeout(Duration::from_millis(500), stream.next())
+        .await
+        .unwrap();
     assert!(ev.is_some());
 }

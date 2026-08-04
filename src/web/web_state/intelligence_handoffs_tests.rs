@@ -100,8 +100,10 @@ async fn session_handoff_no_activity_no_blockers() {
 async fn session_handoff_with_activity_and_blockers() {
     let h = WebStateHandle::new_test();
     let sid = "sess1234";
-    h.push_activity_event(activity(sid, "old event", "2024-01-01T00:00:01Z")).await;
-    h.push_activity_event(activity(sid, "newest event", "2024-01-01T00:00:02Z")).await;
+    h.push_activity_event(activity(sid, "old event", "2024-01-01T00:00:01Z"))
+        .await;
+    h.push_activity_event(activity(sid, "newest event", "2024-01-01T00:00:02Z"))
+        .await;
 
     let out = h
         .build_session_handoff(SessionHandoffRequest {
@@ -152,7 +154,8 @@ async fn resume_briefing_none_when_nothing() {
 async fn resume_briefing_with_session_mission_and_signals() {
     let h = WebStateHandle::new_test();
     let sid = "session-abc";
-    h.push_activity_event(activity(sid, "did work", "2024-01-01T00:00:01Z")).await;
+    h.push_activity_event(activity(sid, "did work", "2024-01-01T00:00:01Z"))
+        .await;
     seed_mission(&h, "m1", sid, MissionState::Executing).await;
 
     let out = h
@@ -160,7 +163,11 @@ async fn resume_briefing_with_session_mission_and_signals() {
             active_session_id: Some(sid.to_string()),
             permissions: vec![],
             questions: vec![],
-            signals: vec![signal("s1", "sig one"), signal("s2", "sig two"), signal("s3", "ignored")],
+            signals: vec![
+                signal("s1", "sig one"),
+                signal("s2", "sig two"),
+                signal("s3", "ignored"),
+            ],
         })
         .await
         .unwrap();
@@ -177,7 +184,8 @@ async fn resume_briefing_with_session_mission_and_signals() {
 async fn resume_briefing_session_only_no_signals_unlimited_iterations() {
     let h = WebStateHandle::new_test();
     let sid = "sxyz";
-    h.push_activity_event(activity(sid, "progress", "2024-01-01T00:00:01Z")).await;
+    h.push_activity_event(activity(sid, "progress", "2024-01-01T00:00:01Z"))
+        .await;
     // Mission with max_iterations 0 → "∞", state Evaluating.
     let m = Mission {
         id: "m2".to_string(),
@@ -290,7 +298,11 @@ async fn daily_summary_named_routine_with_attention_and_signals() {
             routine_id: routine.id.clone(),
             permissions: vec![perm("p", "s", "bash")],
             questions: vec![question("q", "s", "t")],
-            signals: vec![signal("s1", "one"), signal("s2", "two"), signal("s3", "three")],
+            signals: vec![
+                signal("s1", "one"),
+                signal("s2", "two"),
+                signal("s3", "three"),
+            ],
         })
         .await;
     assert!(out.starts_with("Morning: 2 active missions"));

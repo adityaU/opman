@@ -130,16 +130,19 @@ async fn get_task_ok_full_payload() {
     let state = test_server_state();
     let id = seed(&state, "lane_todo");
     // Attach an asset so the attachments-mapping closure is exercised.
-    state.web_state.db_for_test().insert_kanban_attachment(&Attachment {
-        id: "att_1".into(),
-        task_id: id.clone(),
-        filename: "shot.png".into(),
-        mime: "image/png".into(),
-        kind: "image".into(),
-        size_bytes: 10,
-        created_at: chrono::Utc::now().to_rfc3339(),
-        url: String::new(),
-    });
+    state
+        .web_state
+        .db_for_test()
+        .insert_kanban_attachment(&Attachment {
+            id: "att_1".into(),
+            task_id: id.clone(),
+            filename: "shot.png".into(),
+            mime: "image/png".into(),
+            kind: "image".into(),
+            size_bytes: 10,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            url: String::new(),
+        });
     let (status, body) = send_tok(
         test_router(state),
         "GET",

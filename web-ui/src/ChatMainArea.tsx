@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { MessageTimeline } from "./MessageTimeline";
 import { PromptInput } from "./PromptInput";
@@ -148,16 +148,12 @@ export interface ChatMainAreaProps {
 }
 
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
-  const [draggedPanel, setDraggedPanel] = useState<string | null>(null);
-  const handlePanelDragStart = useCallback((event: React.DragEvent, id: string) => {
-    setDraggedPanel(id);
-    event.dataTransfer.effectAllowed = "move";
-  }, []);
-  const handlePanelDrop = useCallback((event: React.DragEvent, id: string) => {
-    event.preventDefault();
-    if (draggedPanel) p.reorderPanels(draggedPanel, id);
-    setDraggedPanel(null);
-  }, [draggedPanel, p.reorderPanels]);
+  const [activeRightPanel, setActiveRightPanel] = useState("editor");
+  const visibleRightPanels = [p.terminalOpen ? "terminal" : null, p.neovimOpen ? "editor" : null, p.gitOpen ? "git" : null, p.debugOpen ? "debug" : null].filter((id): id is string => Boolean(id));
+  useEffect(() => {
+    if (p.mcpEditorOpenPath && p.neovimOpen) { setActiveRightPanel("editor"); return; }
+    if (!visibleRightPanels.includes(activeRightPanel)) setActiveRightPanel(visibleRightPanels[0] || "editor");
+  }, [p.mcpEditorOpenPath, p.neovimOpen, activeRightPanel, visibleRightPanels.join("|")]);
   const hasSidePanel = p.terminalOpen || p.terminalMounted || p.neovimOpen || p.gitOpen || p.debugOpen;
 
   // Stable callback: navigate to session within active project
@@ -351,8 +347,15 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onMouseDown={p.focusSide}
             onFocus={p.focusSide}
           >
+             <div className="right-panel-tabs" role="tablist">
+               {visibleRightPanels.map((id) => (
+                 <button key={id} type="button" role="tab" aria-selected={activeRightPanel === id} className={activeRightPanel === id ? "active" : ""} onClick={() => setActiveRightPanel(id)}>
+                   {id === "editor" ? "Files" : id.charAt(0).toUpperCase() + id.slice(1)}
+                 </button>
+               ))}
+             </div>
             {p.terminalMounted && (
-              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "terminal")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "terminal")} style={{ display: p.terminalOpen ? undefined : "none", order: p.panelOrder.indexOf("terminal") }}>
+              <div className="side-panel-section right-panel-card" style={{ display: p.terminalOpen && activeRightPanel === "terminal" ? undefined : "none" }}>
                 <div className="side-panel-header"><TerminalIcon size={14} /><span>Terminal</span><button className="side-panel-close" onClick={p.closeTerminal} aria-label="Close terminal panel"><X size={14} /></button></div>
                 <div className="side-panel-body">
                   <Suspense fallback={null}><TerminalPanel sessionId={p.activeSessionId} projectPath={p.activeProject?.path ?? null} onClose={p.closeTerminal} visible={p.terminalOpen} attachNonce={p.terminalAttachNonce} attachKind="claude-attach" mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))} /></Suspense>
@@ -360,7 +363,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               </div>
             )}
             {p.editorMounted && (
-              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "editor")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "editor")} style={{ display: p.neovimOpen ? undefined : "none", order: p.panelOrder.indexOf("editor") }}>
+              <div className="side-panel-section right-panel-card" style={{ display: p.neovimOpen && activeRightPanel === "editor" ? undefined : "none" }}>
                 <div className="side-panel-header">
                   <FileCode size={14} />
                   <span>Editor</span>
@@ -384,7 +387,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               </div>
             )}
             {p.gitMounted && (
-              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "git")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "git")} style={{ display: p.gitOpen ? undefined : "none", order: p.panelOrder.indexOf("git") }}>
+              <div className="side-panel-section right-panel-card" style={{ display: p.gitOpen && activeRightPanel === "git" ? undefined : "none" }}>
                 <div className="side-panel-header">
                   <GitBranch size={14} />
                   <span>Git</span>
@@ -398,7 +401,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
               </div>
             )}
             {p.debugOpen && (
-              <div className="side-panel-section right-panel-card" draggable onDragStart={(event) => handlePanelDragStart(event, "debug")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handlePanelDrop(event, "debug")} style={{ flex: 1, display: "flex", flexDirection: "column", order: p.panelOrder.indexOf("debug") }}>
+              <div className="side-panel-section right-panel-card" style={{ flex: 1, display: activeRightPanel === "debug" ? "flex" : "none", flexDirection: "column" }}>
                 <div className="side-panel-header">
                   <Activity size={14} />
                   <span>Debug</span>

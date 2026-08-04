@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use tokio::process::Child;
-use tracing::{error, info, debug};
+use tracing::{debug, error, info};
 
 use super::local_managed::spawn_local_managed;
 use super::named::spawn_named;

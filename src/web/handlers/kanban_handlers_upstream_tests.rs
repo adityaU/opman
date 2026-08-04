@@ -72,10 +72,11 @@ async fn launch_task_single_mode_success_records_running() {
     let base = start_mock_upstream(create_and_dispatch_mock("sess-new")).await;
     let state = test_server_state();
     seed_board(&state, "brd_up1");
-    state
-        .web_state
-        .db_for_test()
-        .insert_kanban_task(&mk_task("tsk_up1", "brd_up1", "lane_planning"));
+    state.web_state.db_for_test().insert_kanban_task(&mk_task(
+        "tsk_up1",
+        "brd_up1",
+        "lane_planning",
+    ));
 
     let router = test_router(state.clone());
     let (status, body) = scope_base_url(
@@ -116,7 +117,12 @@ async fn launch_task_success_without_model_or_agent() {
     let router = test_router(state.clone());
     let (status, body) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/kanban/task/tsk_up2/launch", Some(json!({}))),
+        send_json(
+            router,
+            "POST",
+            "/api/kanban/task/tsk_up2/launch",
+            Some(json!({})),
+        ),
     )
     .await;
 
@@ -128,8 +134,10 @@ async fn launch_task_success_without_model_or_agent() {
 #[tokio::test]
 async fn launch_task_session_id_missing_is_500() {
     // Create returns an object with no "id" → "session id missing" internal error.
-    let mock = axum::Router::new()
-        .route("/session", post(|| async { axum::Json(json!({ "no": "id" })) }));
+    let mock = axum::Router::new().route(
+        "/session",
+        post(|| async { axum::Json(json!({ "no": "id" })) }),
+    );
     let base = start_mock_upstream(mock).await;
     let state = test_server_state();
     seed_board(&state, "brd_up3");
@@ -141,7 +149,12 @@ async fn launch_task_session_id_missing_is_500() {
     let router = test_router(state);
     let (status, _) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/kanban/task/tsk_up3/launch", Some(json!({}))),
+        send_json(
+            router,
+            "POST",
+            "/api/kanban/task/tsk_up3/launch",
+            Some(json!({})),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -150,8 +163,7 @@ async fn launch_task_session_id_missing_is_500() {
 #[tokio::test]
 async fn launch_task_bad_create_response_is_500() {
     // Non-JSON body from create → `.json()` parse error → internal error.
-    let mock = axum::Router::new()
-        .route("/session", post(|| async { "not json" }));
+    let mock = axum::Router::new().route("/session", post(|| async { "not json" }));
     let base = start_mock_upstream(mock).await;
     let state = test_server_state();
     seed_board(&state, "brd_up4");
@@ -163,7 +175,12 @@ async fn launch_task_bad_create_response_is_500() {
     let router = test_router(state);
     let (status, _) = scope_base_url(
         base,
-        send_json(router, "POST", "/api/kanban/task/tsk_up4/launch", Some(json!({}))),
+        send_json(
+            router,
+            "POST",
+            "/api/kanban/task/tsk_up4/launch",
+            Some(json!({})),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);

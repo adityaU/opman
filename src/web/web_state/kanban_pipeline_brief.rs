@@ -8,7 +8,11 @@ use super::super::types::*;
 /// forward, excluding the terminal review lane. A lane is a stage only if it has
 /// an agent or a prompt configured (plain holding columns are skipped).
 pub(super) fn pipeline_stage_lanes(board: &Board, current_lane: &str) -> Vec<String> {
-    let start = board.lanes.iter().position(|l| l.id == current_lane).unwrap_or(0);
+    let start = board
+        .lanes
+        .iter()
+        .position(|l| l.id == current_lane)
+        .unwrap_or(0);
     board.lanes[start..]
         .iter()
         .filter(|l| !l.terminal && (l.agent.is_some() || l.prompt.is_some()))
@@ -33,12 +37,18 @@ pub(super) fn build_stage_brief(
         total = total,
         lane = lane.name,
         prio = task.priority,
-        desc = if task.description.is_empty() { "(no description)" } else { &task.description },
+        desc = if task.description.is_empty() {
+            "(no description)"
+        } else {
+            &task.description
+        },
         prompt = lane
             .prompt
             .as_deref()
             .filter(|p| !p.trim().is_empty())
-            .unwrap_or("Advance the task for this stage and produce a clear handoff for the next stage."),
+            .unwrap_or(
+                "Advance the task for this stage and produce a clear handoff for the next stage."
+            ),
     );
     if let Some(prev) = prev_output {
         s.push_str(&format!(

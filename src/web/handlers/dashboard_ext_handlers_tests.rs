@@ -82,8 +82,7 @@ async fn routine_delete_ok_and_not_found() {
     )
     .await;
     assert_eq!(s1, StatusCode::OK);
-    let (s2, _) =
-        send_json(test_router(state), "DELETE", "/api/routines/missing", None).await;
+    let (s2, _) = send_json(test_router(state), "DELETE", "/api/routines/missing", None).await;
     assert_eq!(s2, StatusCode::NOT_FOUND);
 }
 
@@ -224,19 +223,34 @@ async fn workspace_save_list_and_delete() {
     assert_eq!(ws["workspaces"].as_array().unwrap().len(), 1);
     assert_eq!(ws["workspaces"][0]["name"], "w1");
 
-    let (s3, _) =
-        send_json(test_router(state.clone()), "DELETE", "/api/workspaces?name=w1", None).await;
+    let (s3, _) = send_json(
+        test_router(state.clone()),
+        "DELETE",
+        "/api/workspaces?name=w1",
+        None,
+    )
+    .await;
     assert_eq!(s3, StatusCode::OK);
 
-    let (s4, _) =
-        send_json(test_router(state), "DELETE", "/api/workspaces?name=w1", None).await;
+    let (s4, _) = send_json(
+        test_router(state),
+        "DELETE",
+        "/api/workspaces?name=w1",
+        None,
+    )
+    .await;
     assert_eq!(s4, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
 async fn workspace_delete_missing_not_found() {
     let state = test_server_state();
-    let (status, _) =
-        send_json(test_router(state), "DELETE", "/api/workspaces?name=ghost", None).await;
+    let (status, _) = send_json(
+        test_router(state),
+        "DELETE",
+        "/api/workspaces?name=ghost",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

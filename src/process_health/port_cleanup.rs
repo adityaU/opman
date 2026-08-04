@@ -42,12 +42,7 @@ pub async fn scan_ports() -> (Vec<PortRecord>, Vec<AuditEntry>) {
     if close_wait_count > 0 {
         let msg = format!("{} CLOSE_WAIT sockets in process tree", close_wait_count);
         debug!("{}", msg);
-        entries.push(AuditEntry::now(
-            Mitigation::PortCleanup,
-            "scan",
-            &msg,
-            true,
-        ));
+        entries.push(AuditEntry::now(Mitigation::PortCleanup, "scan", &msg, true));
     }
 
     (records, entries)

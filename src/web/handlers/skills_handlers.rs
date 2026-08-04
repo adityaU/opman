@@ -1,12 +1,11 @@
-
-use axum::extract::{Multipart, State, Path};
+use axum::extract::{Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::web::types::ServerState;
 use crate::mcp_skills::Skill;
+use crate::web::types::ServerState;
 
 #[derive(Serialize)]
 pub struct SkillSummary {
@@ -25,10 +24,13 @@ pub async fn list_skills(
     State(state): State<ServerState>,
 ) -> Result<Json<Vec<SkillSummary>>, StatusCode> {
     let registry = state.skills_registry.read().await;
-    let skills: Vec<SkillSummary> = registry.values().map(|s| SkillSummary {
-        name: s.name.clone(),
-        description: s.description.clone(),
-    }).collect();
+    let skills: Vec<SkillSummary> = registry
+        .values()
+        .map(|s| SkillSummary {
+            name: s.name.clone(),
+            description: s.description.clone(),
+        })
+        .collect();
     Ok(Json(skills))
 }
 
@@ -50,7 +52,10 @@ pub async fn create_skill(
     let skill_dir = crate::mcp_skills::get_skills_dir().join(&req.name);
     std::fs::create_dir_all(&skill_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let skill_md = skill_dir.join("SKILL.md");
-    let content = format!("---\nname: {}\ndescription: {}\n---\n{}", req.name, req.description, req.content);
+    let content = format!(
+        "---\nname: {}\ndescription: {}\n---\n{}",
+        req.name, req.description, req.content
+    );
     std::fs::write(&skill_md, content).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let _ = state.reload_tx.send(());
     Ok(Json(json!({"status": "created"})))
@@ -66,7 +71,10 @@ pub async fn update_skill(
         return Err(StatusCode::NOT_FOUND);
     }
     let skill_md = skill_dir.join("SKILL.md");
-    let content = format!("---\nname: {}\ndescription: {}\n---\n{}", req.name, req.description, req.content);
+    let content = format!(
+        "---\nname: {}\ndescription: {}\n---\n{}",
+        req.name, req.description, req.content
+    );
     std::fs::write(&skill_md, content).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let _ = state.reload_tx.send(());
     Ok(Json(json!({"status": "updated"})))
@@ -89,7 +97,11 @@ pub async fn upload_skills(
     State(state): State<ServerState>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    while let Some(field) = multipart.next_field().await.map_err(|_| StatusCode::BAD_REQUEST)? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+    {
         if field.name() == Some("skills_zip") {
             let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
             let skills_dir = crate::mcp_skills::get_skills_dir();
@@ -99,7 +111,9 @@ pub async fn upload_skills(
             let mut archive = zip::ZipArchive::new(cursor).map_err(|_| StatusCode::BAD_REQUEST)?;
 
             for i in 0..archive.len() {
-                let mut file = archive.by_index(i).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                let mut file = archive
+                    .by_index(i)
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 let outpath = skills_dir.join(file.name());
 
                 if file.name().ends_with('/') {
@@ -108,8 +122,10 @@ pub async fn upload_skills(
                     if let Some(p) = outpath.parent() {
                         std::fs::create_dir_all(p).ok();
                     }
-                    let mut outfile = std::fs::File::create(&outpath).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                    std::io::copy(&mut file, &mut outfile).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    let mut outfile = std::fs::File::create(&outpath)
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    std::io::copy(&mut file, &mut outfile)
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 }
             }
 

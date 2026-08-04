@@ -33,10 +33,7 @@ fn login_env(xdg_exit: i32) -> (tempfile::TempDir, EnvRestore, std::path::PathBu
     let mut env = EnvRestore::new();
     env.set("HOME", &home.display().to_string());
     // PATH: our fakes first, then standard dirs so `mkdir`/`printf` resolve.
-    env.set(
-        "PATH",
-        &format!("{}:/usr/bin:/bin", bin.display()),
-    );
+    env.set("PATH", &format!("{}:/usr/bin:/bin", bin.display()));
     let cert = base.path().join("data").join("cert.pem");
     (base, env, cert)
 }

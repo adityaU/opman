@@ -17,10 +17,17 @@ fn handle() -> (WebPtyHandle, mpsc::UnboundedReceiver<PtyCmd>) {
 async fn spawn_shell_sends_command_and_returns_buffer() {
     let (h, mut rx) = handle();
     let task = tokio::spawn(async move {
-        h.spawn_shell("id".into(), 24, 80, PathBuf::from("/w")).await
+        h.spawn_shell("id".into(), 24, 80, PathBuf::from("/w"))
+            .await
     });
     match rx.recv().await.unwrap() {
-        PtyCmd::SpawnShell { id, rows, cols, working_dir, reply } => {
+        PtyCmd::SpawnShell {
+            id,
+            rows,
+            cols,
+            working_dir,
+            reply,
+        } => {
             assert_eq!(id, "id");
             assert_eq!((rows, cols), (24, 80));
             assert_eq!(working_dir, PathBuf::from("/w"));
@@ -34,7 +41,8 @@ async fn spawn_shell_sends_command_and_returns_buffer() {
 #[tokio::test]
 async fn spawn_neovim_sends_command() {
     let (h, mut rx) = handle();
-    let task = tokio::spawn(async move { h.spawn_neovim("n".into(), 1, 2, PathBuf::from(".")).await });
+    let task =
+        tokio::spawn(async move { h.spawn_neovim("n".into(), 1, 2, PathBuf::from(".")).await });
     match rx.recv().await.unwrap() {
         PtyCmd::SpawnNeovim { id, reply, .. } => {
             assert_eq!(id, "n");
@@ -48,7 +56,8 @@ async fn spawn_neovim_sends_command() {
 #[tokio::test]
 async fn spawn_gitui_sends_command() {
     let (h, mut rx) = handle();
-    let task = tokio::spawn(async move { h.spawn_gitui("g".into(), 1, 2, PathBuf::from(".")).await });
+    let task =
+        tokio::spawn(async move { h.spawn_gitui("g".into(), 1, 2, PathBuf::from(".")).await });
     match rx.recv().await.unwrap() {
         PtyCmd::SpawnGitui { reply, .. } => reply.send(Ok(RawOutputBuffer::new())).unwrap(),
         _ => panic!(),
@@ -60,10 +69,13 @@ async fn spawn_gitui_sends_command() {
 async fn spawn_opencode_passes_session_id() {
     let (h, mut rx) = handle();
     let task = tokio::spawn(async move {
-        h.spawn_opencode("o".into(), 3, 4, PathBuf::from("/d"), Some("sid".into())).await
+        h.spawn_opencode("o".into(), 3, 4, PathBuf::from("/d"), Some("sid".into()))
+            .await
     });
     match rx.recv().await.unwrap() {
-        PtyCmd::SpawnOpencode { session_id, reply, .. } => {
+        PtyCmd::SpawnOpencode {
+            session_id, reply, ..
+        } => {
             assert_eq!(session_id.as_deref(), Some("sid"));
             reply.send(Ok(RawOutputBuffer::new())).unwrap();
         }
@@ -76,10 +88,13 @@ async fn spawn_opencode_passes_session_id() {
 async fn spawn_claude_attach_passes_short_id() {
     let (h, mut rx) = handle();
     let task = tokio::spawn(async move {
-        h.spawn_claude_attach("c".into(), 3, 4, PathBuf::from("/d"), "short".into()).await
+        h.spawn_claude_attach("c".into(), 3, 4, PathBuf::from("/d"), "short".into())
+            .await
     });
     match rx.recv().await.unwrap() {
-        PtyCmd::SpawnClaudeAttach { short_id, reply, .. } => {
+        PtyCmd::SpawnClaudeAttach {
+            short_id, reply, ..
+        } => {
             assert_eq!(short_id, "short");
             reply.send(Err("boom".into())).unwrap();
         }
@@ -93,14 +108,18 @@ async fn spawn_claude_attach_passes_short_id() {
 async fn spawn_returns_error_when_manager_gone() {
     let (h, rx) = handle();
     drop(rx); // channel closed -> send fails
-    let err = h.spawn_shell("id".into(), 1, 1, PathBuf::from(".")).await.unwrap_err();
+    let err = h
+        .spawn_shell("id".into(), 1, 1, PathBuf::from("."))
+        .await
+        .unwrap_err();
     assert_eq!(err, "PTY manager not running");
 }
 
 #[tokio::test]
 async fn spawn_returns_error_when_reply_dropped() {
     let (h, mut rx) = handle();
-    let task = tokio::spawn(async move { h.spawn_shell("id".into(), 1, 1, PathBuf::from(".")).await });
+    let task =
+        tokio::spawn(async move { h.spawn_shell("id".into(), 1, 1, PathBuf::from(".")).await });
     // Receive and drop the reply sender without answering.
     match rx.recv().await.unwrap() {
         PtyCmd::SpawnShell { reply, .. } => drop(reply),
@@ -145,7 +164,9 @@ async fn resize_success_and_failure() {
     let (h, mut rx) = handle();
     let task = tokio::spawn(async move { h.resize("id", 30, 90).await });
     match rx.recv().await.unwrap() {
-        PtyCmd::Resize { rows, cols, reply, .. } => {
+        PtyCmd::Resize {
+            rows, cols, reply, ..
+        } => {
             assert_eq!((rows, cols), (30, 90));
             reply.send(true).unwrap();
         }

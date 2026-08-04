@@ -95,5 +95,8 @@ fn emit_message_with_no_parts_emits_only_the_message() {
     let e0 = rx.try_recv().expect("message.updated");
     let v0: serde_json::Value = serde_json::from_str(&e0.data).unwrap();
     assert_eq!(v0["type"], "message.updated");
-    assert!(rx.try_recv().is_err(), "no part events for a partless message");
+    assert!(
+        rx.try_recv().is_err(),
+        "no part events for a partless message"
+    );
 }

@@ -17,7 +17,10 @@ async fn new_test_with_projects_loads_projects() {
         ("a".into(), PathBuf::from("/a")),
         ("b".into(), PathBuf::from("/b")),
     ]);
-    assert_eq!(h.all_project_paths().await, vec!["/a".to_string(), "/b".to_string()]);
+    assert_eq!(
+        h.all_project_paths().await,
+        vec!["/a".to_string(), "/b".to_string()]
+    );
     // build_inner defaults: active project 0, all panels visible, TerminalPane focused.
     let state = h.get_state().await;
     assert_eq!(state.active_project, 0);

@@ -246,7 +246,13 @@ async fn relay_table_segment(
 
     if !bk.blocks.is_empty() || tbl_att.is_some() {
         match post_message_with_blocks(
-            client, bot_token, channel, &fallback, &bk.blocks, att_ref, Some(thread_ts),
+            client,
+            bot_token,
+            channel,
+            &fallback,
+            &bk.blocks,
+            att_ref,
+            Some(thread_ts),
         )
         .await
         {
@@ -258,8 +264,7 @@ async fn relay_table_segment(
             }
             Err(e) => {
                 tracing::warn!("Slack relay: failed to post table block: {}", e);
-                let _ =
-                    post_message(client, bot_token, channel, &fallback, Some(thread_ts)).await;
+                let _ = post_message(client, bot_token, channel, &fallback, Some(thread_ts)).await;
             }
         }
     } else {

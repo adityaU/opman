@@ -29,8 +29,7 @@ async fn create_mission(state: &ServerState) -> String {
 #[tokio::test]
 async fn sessions_overview_ok() {
     let state = test_server_state();
-    let (status, body) =
-        send_json(test_router(state), "GET", "/api/sessions/overview", None).await;
+    let (status, body) = send_json(test_router(state), "GET", "/api/sessions/overview", None).await;
     assert_eq!(status, StatusCode::OK);
     let v = body_json(&body);
     assert_eq!(v["total"], 0);
@@ -94,8 +93,13 @@ async fn presence_register_then_list_then_deregister() {
 #[tokio::test]
 async fn activity_feed_ok() {
     let state = test_server_state();
-    let (status, body) =
-        send_json(test_router(state), "GET", "/api/activity?session_id=s1", None).await;
+    let (status, body) = send_json(
+        test_router(state),
+        "GET",
+        "/api/activity?session_id=s1",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let v = body_json(&body);
     assert_eq!(v["session_id"], "s1");
@@ -130,8 +134,7 @@ async fn mission_create_and_get() {
 #[tokio::test]
 async fn mission_get_not_found() {
     let state = test_server_state();
-    let (status, _) =
-        send_json(test_router(state), "GET", "/api/missions/nope", None).await;
+    let (status, _) = send_json(test_router(state), "GET", "/api/missions/nope", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -171,8 +174,7 @@ async fn mission_delete_ok_and_not_found() {
     )
     .await;
     assert_eq!(s1, StatusCode::OK);
-    let (s2, _) =
-        send_json(test_router(state), "DELETE", "/api/missions/missing", None).await;
+    let (s2, _) = send_json(test_router(state), "DELETE", "/api/missions/missing", None).await;
     assert_eq!(s2, StatusCode::NOT_FOUND);
 }
 

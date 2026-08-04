@@ -59,8 +59,15 @@ async fn execute_routine_new_session_success_records_completed() {
         .unwrap();
 
     assert_eq!(run.status, "completed");
-    assert!(run.summary.starts_with("Sent message to session"), "got {}", run.summary);
-    assert_eq!(run.target_session_id.as_deref(), Some("sess-new-0123456789ab"));
+    assert!(
+        run.summary.starts_with("Sent message to session"),
+        "got {}",
+        run.summary
+    );
+    assert_eq!(
+        run.target_session_id.as_deref(),
+        Some("sess-new-0123456789ab")
+    );
     assert!(run.duration_ms.is_some());
     // Persisted + last_error cleared on the routine.
     let (_, runs) = h.list_routines().await;
@@ -83,7 +90,10 @@ async fn execute_routine_existing_session_success() {
         .unwrap();
 
     assert_eq!(run.status, "completed");
-    assert_eq!(run.target_session_id.as_deref(), Some("sess-existing-abcdef"));
+    assert_eq!(
+        run.target_session_id.as_deref(),
+        Some("sess-existing-abcdef")
+    );
 }
 
 #[tokio::test]

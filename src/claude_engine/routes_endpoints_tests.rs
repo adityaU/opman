@@ -175,11 +175,23 @@ fn default_models_and_pick_default() {
 
 #[test]
 fn command_and_agent_descriptions() {
-    assert_eq!(command_description("compact"), "Compact the conversation to save context");
-    assert_eq!(command_description("verify"), "Verify a change by running the app");
+    assert_eq!(
+        command_description("compact"),
+        "Compact the conversation to save context"
+    );
+    assert_eq!(
+        command_description("verify"),
+        "Verify a change by running the app"
+    );
     assert_eq!(command_description("totally-unknown"), "");
-    assert_eq!(agent_description("claude"), "Default agent for general tasks");
-    assert_eq!(agent_description("Explore"), "Fast read-only codebase search and exploration");
+    assert_eq!(
+        agent_description("claude"),
+        "Default agent for general tasks"
+    );
+    assert_eq!(
+        agent_description("Explore"),
+        "Fast read-only codebase search and exploration"
+    );
     assert_eq!(agent_description("nope"), "");
 }
 
@@ -189,7 +201,10 @@ fn hook_allow_and_deny_shapes() {
     assert_eq!(a["hookSpecificOutput"]["permissionDecision"], "allow");
     let d = hook_deny("because");
     assert_eq!(d["hookSpecificOutput"]["permissionDecision"], "deny");
-    assert_eq!(d["hookSpecificOutput"]["permissionDecisionReason"], "because");
+    assert_eq!(
+        d["hookSpecificOutput"]["permissionDecisionReason"],
+        "because"
+    );
 }
 
 #[test]
@@ -235,7 +250,10 @@ fn build_questions_maps_and_empty() {
 #[test]
 fn format_answers_builds_lines() {
     let inp = json!({ "questions": [ { "question": "Fruit?" }, { "question": "Color?" } ] });
-    let ans = vec![vec!["Apple".to_string()], vec!["Red".to_string(), "Blue".to_string()]];
+    let ans = vec![
+        vec!["Apple".to_string()],
+        vec!["Red".to_string(), "Blue".to_string()],
+    ];
     let out = format_answers(&inp, &ans);
     assert!(out.starts_with("[USER ANSWER]"));
     assert!(out.contains("Fruit? → Apple"));
@@ -249,7 +267,11 @@ fn format_answers_builds_lines() {
 fn handle_control_command_permission_modes() {
     let e = engine();
     let s = e.create_session("/d", "", "t");
-    assert!(handle_control_command(&e, &s.id, "/permission-mode acceptEdits"));
+    assert!(handle_control_command(
+        &e,
+        &s.id,
+        "/permission-mode acceptEdits"
+    ));
     assert_eq!(e.effective_mode(&s.id), "acceptEdits");
     assert!(handle_control_command(&e, &s.id, "/perm-mode plan"));
     assert_eq!(e.effective_mode(&s.id), "plan");
@@ -271,10 +293,16 @@ fn handle_control_command_agent_toast_path() {
     // Seed a real agent list so "explore" resolves and emits a toast.
     e.set_cached_init(
         "/d",
-        claude_cli::InitInfo { commands: vec![], agents: vec!["Explore".into()] },
+        claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec!["Explore".into()],
+        },
     );
     assert!(handle_control_command(&e, &s.id, "/agent explore"));
-    assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Explore"));
+    assert_eq!(
+        e.get_session(&s.id).unwrap().agent.as_deref(),
+        Some("Explore")
+    );
     // Whitespace-only name after /agent → no-op but consumed.
     assert!(handle_control_command(&e, &s.id, "/agent    "));
 }
@@ -317,7 +345,10 @@ async fn provider_returns_default_models() {
     let v = json_of(&body);
     assert_eq!(v["all"][0]["id"], "anthropic");
     assert_eq!(v["connected"][0], "anthropic");
-    assert!(v["default"]["anthropic"].as_str().unwrap().contains("sonnet"));
+    assert!(v["default"]["anthropic"]
+        .as_str()
+        .unwrap()
+        .contains("sonnet"));
     assert!(v["all"][0]["models"].is_object());
 }
 
@@ -355,7 +386,13 @@ async fn session_crud_lifecycle() {
     let e = engine();
     let r = router(e.clone());
     // Create (empty dir header so list_sessions skips the claude subprocess).
-    let (st, body) = send(r.clone(), "POST", "/session", Some(json!({ "title": "My session" }))).await;
+    let (st, body) = send(
+        r.clone(),
+        "POST",
+        "/session",
+        Some(json!({ "title": "My session" })),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     let created = json_of(&body);
     let id = created["id"].as_str().unwrap().to_string();
@@ -378,16 +415,32 @@ async fn session_crud_lifecycle() {
     .await;
     assert_eq!(json_of(&body)["title"], "Renamed");
     // Rename with no title in body → returns current entry.
-    let (_, body) = send(r.clone(), "PATCH", &format!("/session/{id}"), Some(json!({}))).await;
+    let (_, body) = send(
+        r.clone(),
+        "PATCH",
+        &format!("/session/{id}"),
+        Some(json!({})),
+    )
+    .await;
     assert_eq!(json_of(&body)["title"], "Renamed");
     // Rename a missing session → `{ id }`.
-    let (_, body) = send(r.clone(), "PATCH", "/session/ses_x", Some(json!({ "title": "z" }))).await;
+    let (_, body) = send(
+        r.clone(),
+        "PATCH",
+        "/session/ses_x",
+        Some(json!({ "title": "z" })),
+    )
+    .await;
     assert_eq!(json_of(&body)["id"], "ses_x");
 
     // List for empty dir.
     let (st, body) = send(r.clone(), "GET", "/session", None).await;
     assert_eq!(st, StatusCode::OK);
-    assert!(json_of(&body).as_array().unwrap().iter().any(|s| s["id"] == id.as_str()));
+    assert!(json_of(&body)
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["id"] == id.as_str()));
 
     // Delete (no short_id → no stop subprocess).
     let (_, body) = send(r.clone(), "DELETE", &format!("/session/{id}"), None).await;
@@ -414,7 +467,13 @@ async fn messages_and_todos_empty_without_transcript() {
     let e = engine();
     let r = router(e.clone());
     let s = e.create_session("", "", "t");
-    let (st, body) = send(r.clone(), "GET", &format!("/session/{}/message", s.id), None).await;
+    let (st, body) = send(
+        r.clone(),
+        "GET",
+        &format!("/session/{}/message", s.id),
+        None,
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert!(json_of(&body).as_array().unwrap().is_empty());
     // Unknown session id (not a subagent transcript) → empty array.
@@ -440,13 +499,25 @@ async fn queue_endpoints() {
     assert_eq!(json_of(&body)["pending"].as_array().unwrap().len(), 3);
 
     // Remove middle item by index.
-    let (_, body) = send(r.clone(), "DELETE", &format!("/session/{}/queue/1", s.id), None).await;
+    let (_, body) = send(
+        r.clone(),
+        "DELETE",
+        &format!("/session/{}/queue/1", s.id),
+        None,
+    )
+    .await;
     let v = json_of(&body);
     assert_eq!(v["ok"], true);
     assert_eq!(v["pending"], json!(["one", "three"]));
 
     // Out-of-range index → ok false.
-    let (_, body) = send(r.clone(), "DELETE", &format!("/session/{}/queue/9", s.id), None).await;
+    let (_, body) = send(
+        r.clone(),
+        "DELETE",
+        &format!("/session/{}/queue/9", s.id),
+        None,
+    )
+    .await;
     assert_eq!(json_of(&body)["ok"], false);
 
     // Clear all.
@@ -462,7 +533,10 @@ async fn send_message_sets_model_agent_and_queues_when_busy() {
     let s = e.create_session("/d", "", "t");
     e.set_cached_init(
         "/d",
-        claude_cli::InitInfo { commands: vec![], agents: vec!["Plan".into()] },
+        claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
     );
     e.set_busy(&s.id, true); // occupied → the turn queues instead of spawning claude.
     let body = json!({
@@ -502,7 +576,10 @@ async fn prompt_async_and_session_command_queue_when_busy() {
     )
     .await;
     assert_eq!(st, StatusCode::OK);
-    assert_eq!(e.pending_list(&s.id), vec!["async hi".to_string(), "/compact now".to_string()]);
+    assert_eq!(
+        e.pending_list(&s.id),
+        vec!["async hi".to_string(), "/compact now".to_string()]
+    );
 }
 
 #[tokio::test]
@@ -511,7 +588,13 @@ async fn session_command_without_args() {
     let r = router(e.clone());
     let s = e.create_session("/d", "", "t");
     e.set_busy(&s.id, true);
-    send(r, "POST", &format!("/session/{}/command", s.id), Some(json!({ "command": "usage" }))).await;
+    send(
+        r,
+        "POST",
+        &format!("/session/{}/command", s.id),
+        Some(json!({ "command": "usage" })),
+    )
+    .await;
     assert_eq!(e.pending_list(&s.id), vec!["/usage".to_string()]);
 }
 
@@ -545,7 +628,13 @@ async fn noop_and_select_endpoints() {
         assert_eq!(st, StatusCode::OK);
         assert_eq!(json_of(&body)["ok"], true);
     }
-    let (_, body) = send(r.clone(), "POST", &format!("/session/{}/share", s.id), Some(json!({}))).await;
+    let (_, body) = send(
+        r.clone(),
+        "POST",
+        &format!("/session/{}/share", s.id),
+        Some(json!({})),
+    )
+    .await;
     assert_eq!(json_of(&body), json!({}));
     let (st, body) = send(r, "POST", "/tui/select-session", Some(json!({ "x": 1 }))).await;
     assert_eq!(st, StatusCode::OK);
@@ -584,7 +673,10 @@ async fn command_and_agent_lists() {
                 .body(Body::empty())
                 .unwrap();
             let resp = router.oneshot(req).await.unwrap();
-            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap().to_vec();
+            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec();
             serde_json::from_slice::<Value>(&bytes).unwrap()
         }
     };
@@ -592,13 +684,21 @@ async fn command_and_agent_lists() {
     let cmds = req("/command").await;
     let arr = cmds.as_array().unwrap();
     assert_eq!(arr.len(), 2);
-    assert!(arr.iter().any(|c| c["name"] == "compact" && c["description"] != ""));
+    assert!(arr
+        .iter()
+        .any(|c| c["name"] == "compact" && c["description"] != ""));
     // Unknown command has no description field.
-    assert!(arr.iter().any(|c| c["name"] == "my-custom" && c.get("description").is_none()));
+    assert!(arr
+        .iter()
+        .any(|c| c["name"] == "my-custom" && c.get("description").is_none()));
 
     let agents = req("/agent").await;
     let arr = agents.as_array().unwrap();
     assert_eq!(arr.len(), 2);
-    assert!(arr.iter().any(|a| a["name"] == "claude" && a["mode"] == "primary" && a["native"] == true));
-    assert!(arr.iter().any(|a| a["name"] == "Explore" && a["mode"] == "all"));
+    assert!(arr
+        .iter()
+        .any(|a| a["name"] == "claude" && a["mode"] == "primary" && a["native"] == true));
+    assert!(arr
+        .iter()
+        .any(|a| a["name"] == "Explore" && a["mode"] == "all"));
 }

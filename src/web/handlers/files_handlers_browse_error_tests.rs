@@ -6,12 +6,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -20,7 +20,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
@@ -47,7 +49,14 @@ async fn browse_on_file_path_500() {
     // The path canonicalizes fine and is inside the project, but it's a file,
     // so `tokio::fs::read_dir` errors → Internal 500.
     let (st, _) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: "plain.txt".into() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: "plain.txt".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
@@ -59,7 +68,15 @@ async fn browse_on_file_path_500() {
 async fn search_files_no_project_400() {
     let state = test_server_state();
     let (st, _) = parts(
-        search_files(State(state), auth(), Query(FileSearchQuery { q: "x".into(), limit: 10 })).await,
+        search_files(
+            State(state),
+            auth(),
+            Query(FileSearchQuery {
+                q: "x".into(),
+                limit: 10,
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -77,7 +94,10 @@ async fn search_files_handler_returns_dir_entry() {
         search_files(
             State(state),
             auth(),
-            Query(FileSearchQuery { q: "uniquedirname".into(), limit: 20 }),
+            Query(FileSearchQuery {
+                q: "uniquedirname".into(),
+                limit: 20,
+            }),
         )
         .await,
     )

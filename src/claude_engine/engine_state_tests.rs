@@ -1,6 +1,6 @@
 //! Generated coverage tests for `mod.rs` — pure fns + engine state methods.
-use super::*;
 use super::registry::SessionEntry;
+use super::*;
 
 fn engine() -> Arc<ClaudeEngine> {
     Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
@@ -137,7 +137,7 @@ fn resolve_agent_all_branches() {
     let e = engine();
     let s = e.create_session("/proj", "", "t");
     assert_eq!(e.resolve_agent(&s.id, ""), ""); // empty
-    // No cached init yet (known empty): plan → "Plan", unknown → passthrough.
+                                                // No cached init yet (known empty): plan → "Plan", unknown → passthrough.
     assert_eq!(e.resolve_agent(&s.id, "plan"), "Plan");
     assert_eq!(e.resolve_agent(&s.id, "myproj-agent"), "myproj-agent");
     assert_eq!(e.resolve_agent(&s.id, "build"), ""); // alias → default
@@ -165,7 +165,10 @@ fn set_agent_no_change_is_noop() {
     assert_eq!(e.get_session(&s.id).unwrap().agent, None);
     e.set_cached_init(
         "/proj",
-        claude_cli::InitInfo { commands: vec![], agents: vec!["Plan".into()] },
+        claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
     );
     e.set_agent(&s.id, "plan");
     assert_eq!(e.get_session(&s.id).unwrap().agent.as_deref(), Some("Plan"));
@@ -181,7 +184,10 @@ fn init_cache_roundtrip() {
     assert!(e.cached_init("/d").is_none());
     e.set_cached_init(
         "/d",
-        claude_cli::InitInfo { commands: vec!["compact".into()], agents: vec!["claude".into()] },
+        claude_cli::InitInfo {
+            commands: vec!["compact".into()],
+            agents: vec!["claude".into()],
+        },
     );
     let got = e.cached_init("/d").unwrap();
     assert_eq!(got.commands, vec!["compact".to_string()]);
@@ -213,7 +219,10 @@ fn allowed_tools_dedup() {
     e.add_allowed_tool(&s.id, "Bash");
     e.add_allowed_tool(&s.id, "Bash"); // dedup
     assert!(e.is_always_allowed(&s.id, "Bash"));
-    assert_eq!(e.get_session(&s.id).unwrap().allowed_tools, vec!["Bash".to_string()]);
+    assert_eq!(
+        e.get_session(&s.id).unwrap().allowed_tools,
+        vec!["Bash".to_string()]
+    );
     assert!(!e.is_always_allowed("missing", "Bash"));
 }
 
@@ -245,7 +254,11 @@ async fn emit_delivers_to_subscriber() {
 async fn emit_system_levels_and_missing_session() {
     let e = engine();
     let s = e.create_session("/d", "", "t");
-    for (level, variant) in [("error", "error"), ("warn", "warning"), ("info", "notification")] {
+    for (level, variant) in [
+        ("error", "error"),
+        ("warn", "warning"),
+        ("info", "notification"),
+    ] {
         let mut rx = e.subscribe();
         e.emit_system(&s.id, level, "boom");
         let ev1 = rx.recv().await.unwrap();
@@ -265,7 +278,10 @@ async fn emit_system_levels_and_missing_session() {
 fn save_and_load_roundtrip_with_persist() {
     let dir = std::env::temp_dir().join(format!("opman-reg-{}", rand::random::<u64>()));
     let path = dir.join("sessions.json");
-    let e = Arc::new(ClaudeEngine::new(Some(path.clone()), (false, false, false, false)));
+    let e = Arc::new(ClaudeEngine::new(
+        Some(path.clone()),
+        (false, false, false, false),
+    ));
     let s = e.create_session("/proj", "", "persisted"); // triggers save()
     assert!(path.exists());
     let reg = super::registry::Registry::load(&path);

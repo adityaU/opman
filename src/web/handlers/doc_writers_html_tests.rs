@@ -59,8 +59,7 @@ fn parse_blocks_block_tags_and_headings() {
 
 #[test]
 fn parse_blocks_all_heading_levels() {
-    let blocks =
-        parse_blocks("<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>");
+    let blocks = parse_blocks("<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>");
     let levels: Vec<_> = blocks.iter().map(|b| b.heading_level).collect();
     assert_eq!(
         levels,
@@ -95,7 +94,11 @@ fn parse_blocks_unclosed_block_tag_falls_through() {
     // No matching close tag -> block branch skipped, advances past the tag.
     let blocks = parse_blocks("<p>never closed");
     // "never closed" becomes trailing text block.
-    assert!(blocks.iter().any(|b| b.text.contains("never closed")), "{:?}", blocks.iter().map(|b| &b.text).collect::<Vec<_>>());
+    assert!(
+        blocks.iter().any(|b| b.text.contains("never closed")),
+        "{:?}",
+        blocks.iter().map(|b| &b.text).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -154,7 +157,10 @@ fn parse_runs_unterminated_tag_kept_literal() {
     // text is flushed as its own run, so the literal `<` lands in a later run.
     let runs = parse_runs("text<");
     assert!(runs.iter().any(|r| r.text.contains('<')));
-    assert_eq!(runs.iter().map(|r| r.text.as_str()).collect::<String>(), "text<");
+    assert_eq!(
+        runs.iter().map(|r| r.text.as_str()).collect::<String>(),
+        "text<"
+    );
 }
 
 #[test]
@@ -184,7 +190,10 @@ fn is_allowed_tag_via_sanitize_covers_many() {
     let input = "<h6>x</h6><ol><li>i</li></ol><table><thead><tr><th>t</th></tr></thead>\
                  <tbody><tr><td>d</td></tr></tbody></table><em>e</em><strong>s</strong><del>x</del>";
     let out = sanitize_html(input);
-    for t in ["<h6>", "<ol>", "<li>", "<table>", "<thead>", "<tr>", "<th>", "<tbody>", "<td>", "<em>", "<strong>", "<del>"] {
+    for t in [
+        "<h6>", "<ol>", "<li>", "<table>", "<thead>", "<tr>", "<th>", "<tbody>", "<td>", "<em>",
+        "<strong>", "<del>",
+    ] {
         assert!(out.contains(t), "missing {t} in {out}");
     }
 }

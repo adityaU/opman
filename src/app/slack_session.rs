@@ -4,10 +4,7 @@ use tracing::info;
 
 impl App {
     /// Handle `SlackBackgroundEvent::ConnectionStatus`.
-    pub(super) fn handle_connection_status(
-        &mut self,
-        status: crate::slack::SlackConnectionStatus,
-    ) {
+    pub(super) fn handle_connection_status(&mut self, status: crate::slack::SlackConnectionStatus) {
         info!("Slack connection status: {:?}", status);
 
         // On first successful connection, ensure the triage project
@@ -29,8 +26,7 @@ impl App {
                 }
 
                 // Ensure SSE listener + session poller are running for the triage project.
-                if let Some(triage_idx) =
-                    self.projects.iter().position(|p| p.path == triage_canon)
+                if let Some(triage_idx) = self.projects.iter().position(|p| p.path == triage_canon)
                 {
                     let dir_str = triage_canon.to_string_lossy().to_string();
 
@@ -42,11 +38,7 @@ impl App {
                             triage_idx
                         );
                         crate::sse::spawn_sse_listener(&self.bg_tx, triage_idx, dir_str.clone());
-                        crate::sse::spawn_session_poller(
-                            &self.bg_tx,
-                            triage_idx,
-                            dir_str.clone(),
-                        );
+                        crate::sse::spawn_session_poller(&self.bg_tx, triage_idx, dir_str.clone());
                         crate::sse::spawn_provider_fetcher(&self.bg_tx, triage_idx, dir_str);
                     }
 

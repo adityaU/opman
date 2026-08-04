@@ -10,6 +10,31 @@ use crate::app::base_url;
 use super::super::types::*;
 use super::sse::run_opencode_sse;
 
+/// The default runner's session list does not contain sessions created by a
+/// different runner during a handoff. Keep those logical sessions in the web
+/// state while refreshing the default runner's list.
+fn merge_runner_sessions(
+    project: &super::WebProject,
+    default_runner: &str,
+    mut fetched: Vec<crate::app::SessionInfo>,
+    session_runners: &std::collections::HashMap<String, String>,
+) -> Vec<crate::app::SessionInfo> {
+    let fetched_ids: HashSet<String> = fetched.iter().map(|session| session.id.clone()).collect();
+    fetched.extend(
+        project
+            .sessions
+            .iter()
+            .filter(|session| {
+                !fetched_ids.contains(&session.id)
+                    && session_runners
+                        .get(&session.id)
+                        .is_some_and(|runner| runner != default_runner)
+            })
+            .cloned(),
+    );
+    fetched
+}
+
 impl super::WebStateHandle {
     pub(super) fn schedule_persist(&self) {
         let _ = self.persist_tx.send(());
@@ -61,8 +86,15 @@ impl super::WebStateHandle {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             super::db_sync::sync_all(
-                &db, &missions, &memory, &autonomy, &routines,
-                &routine_runs, &delegated, &workspaces, &signals,
+                &db,
+                &missions,
+                &memory,
+                &autonomy,
+                &routines,
+                &routine_runs,
+                &delegated,
+                &workspaces,
+                &signals,
             )
         })
         .await
@@ -123,12 +155,29 @@ impl super::WebStateHandle {
         for (idx, dir) in &project_paths {
             if let Ok(sessions) = client.fetch_sessions(base, dir).await {
                 any_ok = true;
-                let filtered: Vec<_> = sessions
+                let native_sessions = if let Some(registry) = &self.runner_registry {
+                    registry.sessions(dir).await.unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                let native_labels: Vec<_> = native_sessions
+                    .iter()
+                    .map(|(kind, session)| (session.id.clone(), kind.display_name().to_string()))
+                    .collect();
+                let mut fetched: Vec<_> = sessions
                     .into_iter()
                     .filter(|s| s.directory == *dir)
                     .collect();
+                fetched.extend(native_sessions.into_iter().map(|(_, session)| session));
                 let mut state = self.inner.write().await;
+                let default_runner = state.default_runner.clone();
+                let session_runners = state.session_runners.clone();
+                for (session_id, runner) in native_labels {
+                    state.session_runners.insert(session_id, runner);
+                }
                 if let Some(project) = state.projects.get_mut(*idx) {
+                    let filtered =
+                        merge_runner_sessions(project, &default_runner, fetched, &session_runners);
                     if project.active_session.is_none() {
                         if let Some(first) = filtered.first() {
                             project.active_session = Some(first.id.clone());
@@ -159,17 +208,24 @@ impl super::WebStateHandle {
 
         let mut changed = false;
 
+        let runner_registry = self.runner_registry.clone();
         let fetches = project_paths.iter().map(|(idx, dir)| {
             let base = base.to_string();
             let dir = dir.clone();
             let idx = *idx;
+            let runner_registry = runner_registry.clone();
             async move {
                 // Run both fetches concurrently within each project
                 let (sessions, status_map) = tokio::join!(
                     client.fetch_sessions(&base, &dir),
                     client.fetch_session_status(&base, &dir)
                 );
-                (idx, dir, sessions.ok(), status_map.ok())
+                let native_sessions = if let Some(registry) = runner_registry {
+                    registry.sessions(&dir).await.ok()
+                } else {
+                    None
+                };
+                (idx, dir, sessions.ok(), status_map.ok(), native_sessions)
             }
         });
 
@@ -177,14 +233,30 @@ impl super::WebStateHandle {
 
         let mut aggregated_busy = HashSet::new();
 
-        for (idx, dir, sessions, status_map) in results {
+        for (idx, dir, sessions, status_map, native_sessions) in results {
             if let Some(sessions) = sessions {
                 let mut state = self.inner.write().await;
+                let default_runner = state.default_runner.clone();
+                let session_runners = state.session_runners.clone();
+                let native_labels = native_sessions
+                    .as_ref()
+                    .into_iter()
+                    .flatten()
+                    .map(|(kind, session)| (session.id.clone(), kind.display_name().to_string()))
+                    .collect::<Vec<_>>();
+                let mut fetched: Vec<_> = sessions
+                    .into_iter()
+                    .filter(|s| s.directory == dir)
+                    .collect();
+                if let Some(native_sessions) = native_sessions {
+                    fetched.extend(native_sessions.into_iter().map(|(_, session)| session));
+                }
+                for (session_id, runner) in native_labels {
+                    state.session_runners.insert(session_id, runner);
+                }
                 if let Some(project) = state.projects.get_mut(idx) {
-                    let filtered: Vec<_> = sessions
-                        .into_iter()
-                        .filter(|s| s.directory == dir)
-                        .collect();
+                    let filtered =
+                        merge_runner_sessions(project, &default_runner, fetched, &session_runners);
                     // NOTE: Do NOT auto-assign active_session here.
                     // The recurring poller should never change the
                     // user's active session; only the startup hydration
@@ -195,7 +267,9 @@ impl super::WebStateHandle {
                             true
                         } else {
                             project.sessions.iter().zip(filtered.iter()).any(|(a, b)| {
-                                a.id != b.id || a.title != b.title || a.time.updated != b.time.updated
+                                a.id != b.id
+                                    || a.title != b.title
+                                    || a.time.updated != b.time.updated
                             })
                         }
                     };
@@ -315,9 +389,7 @@ impl super::WebStateHandle {
             let base_clone = base.to_string();
 
             let h = tokio::spawn(async move {
-                if let Err(e) =
-                    run_opencode_sse(&handle_clone, &base_clone, &dir_clone).await
-                {
+                if let Err(e) = run_opencode_sse(&handle_clone, &base_clone, &dir_clone).await {
                     debug!("OpenCode SSE stream error for {}: {}", dir_clone, e);
                 }
             });

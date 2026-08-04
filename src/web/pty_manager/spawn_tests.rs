@@ -49,7 +49,10 @@ fn reads_all_chunks_into_buffer_until_eof() {
 #[test]
 fn empty_reader_produces_no_output() {
     let output = RawOutputBuffer::new();
-    let reader = ChunkReader { chunks: vec![], idx: 0 };
+    let reader = ChunkReader {
+        chunks: vec![],
+        idx: 0,
+    };
     read_raw_pty_output(Box::new(reader), output.clone());
     assert!(output.drain_new().is_empty());
 }

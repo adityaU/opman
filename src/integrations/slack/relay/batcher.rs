@@ -9,10 +9,10 @@ use tracing::{debug, error};
 use crate::blockkit::markdown_to_blocks;
 
 use super::super::api::{chunk_for_slack, post_message, post_message_with_blocks};
+use super::super::auth::SlackAuth;
 use super::super::formatting::markdown_to_slack_mrkdwn;
 use super::super::state::SlackState;
 use super::super::types::SlackLogLevel;
-use super::super::auth::SlackAuth;
 use super::table_attachments;
 
 /// Spawn a background task that periodically checks for pending response batches

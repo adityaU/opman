@@ -6,12 +6,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::{test_router, test_server_state};
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -20,7 +20,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
@@ -79,12 +81,17 @@ async fn search_files_handler_caps_limit_at_50() {
     let resp = search_files(
         State(state),
         auth(),
-        Query(FileSearchQuery { q: "hit".into(), limit: 1000 }),
+        Query(FileSearchQuery {
+            q: "hit".into(),
+            limit: 1000,
+        }),
     )
     .await
     .unwrap()
     .into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["entries"].as_array().unwrap().len(), 50);
 }
@@ -104,7 +111,9 @@ async fn read_file_absolute_path_traversal_400() {
         read_file(
             State(state),
             auth(),
-            Query(FileReadQuery { path: outside.to_string_lossy().to_string() }),
+            Query(FileReadQuery {
+                path: outside.to_string_lossy().to_string(),
+            }),
         )
         .await,
     )
@@ -124,7 +133,9 @@ async fn read_file_raw_absolute_path_traversal_400() {
         read_file_raw(
             State(state),
             auth(),
-            Query(FileReadQuery { path: outside.to_string_lossy().to_string() }),
+            Query(FileReadQuery {
+                path: outside.to_string_lossy().to_string(),
+            }),
         )
         .await,
     )
@@ -163,6 +174,12 @@ async fn upload_multiple_files_ok() {
     b.push_str("--BOUND--\r\n");
     let st = send_multipart(router, "/api/file/upload", b.into_bytes()).await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    assert_eq!(std::fs::read_to_string(tmp.path().join("one.txt")).unwrap(), "1");
-    assert_eq!(std::fs::read_to_string(tmp.path().join("two.txt")).unwrap(), "2");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("one.txt")).unwrap(),
+        "1"
+    );
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("two.txt")).unwrap(),
+        "2"
+    );
 }

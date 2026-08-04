@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 /// Serialize env-mutating tests in this module (env vars are process-global).
 #[allow(unused_imports)]
-use crate::claude_engine::claude_cli::ENV_LOCK as ENV_LOCK;
+use crate::claude_engine::claude_cli::ENV_LOCK;
 
 #[test]
 fn web_config_construction() {

@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 mod api;
 mod app;
 mod background_tasks;
@@ -13,16 +15,17 @@ mod event_mouse;
 mod input;
 mod integrations;
 mod mcp;
+mod mcp_kanban;
 mod mcp_neovim;
 mod mcp_skills;
-mod mcp_kanban;
 mod mcp_time;
 mod mcp_ui;
-mod preflight;
 mod mouse_handler;
-mod process_health;
 mod nvim_rpc;
+mod preflight;
+mod process_health;
 mod pty;
+mod runner;
 mod server;
 use integrations::slack;
 mod setup;
@@ -31,12 +34,14 @@ mod theme;
 mod theme_gen;
 mod todo_db;
 mod ui;
-mod vim_mode;
 mod util;
+mod vim_mode;
 mod web;
 mod which_key;
 
+use std::collections::HashMap;
 use std::io;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -64,21 +69,35 @@ async fn handle_skills(subcommand: SkillsCommands) -> anyhow::Result<()> {
                 println!("{}: {}", name, skill.description);
             }
         }
-        SkillsCommands::Create { name, description, content } => {
+        SkillsCommands::Create {
+            name,
+            description,
+            content,
+        } => {
             let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
             std::fs::create_dir_all(&skill_dir)?;
             let skill_md = skill_dir.join("SKILL.md");
-            let content_str = format!("---\nname: {}\ndescription: {}\n---\n{}", name, description, content);
+            let content_str = format!(
+                "---\nname: {}\ndescription: {}\n---\n{}",
+                name, description, content
+            );
             std::fs::write(&skill_md, content_str)?;
             println!("Skill '{}' created.", name);
         }
-        SkillsCommands::Update { name, description, content } => {
+        SkillsCommands::Update {
+            name,
+            description,
+            content,
+        } => {
             let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
             if !skill_dir.exists() {
                 anyhow::bail!("Skill '{}' not found", name);
             }
             let skill_md = skill_dir.join("SKILL.md");
-            let content_str = format!("---\nname: {}\ndescription: {}\n---\n{}", name, description, content);
+            let content_str = format!(
+                "---\nname: {}\ndescription: {}\n---\n{}",
+                name, description, content
+            );
             std::fs::write(&skill_md, content_str)?;
             println!("Skill '{}' updated.", name);
         }
@@ -142,10 +161,14 @@ async fn main() -> Result<()> {
             return mcp_ui::run_mcp_ui_bridge().await.map_err(Into::into);
         }
         Some(Commands::McpKanban) => {
-            return mcp_kanban::run_mcp_kanban_bridge().await.map_err(Into::into);
+            return mcp_kanban::run_mcp_kanban_bridge()
+                .await
+                .map_err(Into::into);
         }
         Some(Commands::ClaudeHook) => {
-            return claude_engine::run_permission_hook().await.map_err(Into::into);
+            return claude_engine::run_permission_hook()
+                .await
+                .map_err(Into::into);
         }
         Some(Commands::McpNvim { project_path }) => {
             return mcp_neovim::run_mcp_neovim_bridge(project_path)
@@ -196,7 +219,7 @@ async fn main() -> Result<()> {
         let parts: Vec<&str> = h.split('.').collect();
         let raw = match parts.len() {
             0 => return None,
-            1 => parts[0].to_string(),              // bare name, no dots
+            1 => parts[0].to_string(),               // bare name, no dots
             2 => parts[0].to_string(),               // "example.com" → "example"
             _ => parts[..parts.len() - 2].join("."), // "myapp.example.com" → "myapp"
         };
@@ -250,11 +273,107 @@ async fn main() -> Result<()> {
     };
     crate::app::init_base_url(base_url);
 
+    // Keep the selected CLI as the TUI's default, but expose all available
+    // runners through one registry for web sessions.  The adapters speak the
+    // same REST-shaped contract, so switching runners does not leak protocol
+    // details into handlers or the frontend.
+    let default_runner = match backend {
+        crate::cli::AgentBackend::Opencode => runner::RunnerKind::Opencode,
+        crate::cli::AgentBackend::ClaudeCode | crate::cli::AgentBackend::ClaudePrint => {
+            runner::RunnerKind::Claude
+        }
+    };
+    let client = reqwest::Client::new();
+    let mut runner_impls: HashMap<runner::RunnerKind, Arc<dyn runner::Runner>> = HashMap::new();
+    runner_impls.insert(
+        default_runner.clone(),
+        Arc::new(runner::HttpRunner::new(
+            default_runner.clone(),
+            crate::app::base_url(),
+            client.clone(),
+        )),
+    );
+    let mut server_handles = vec![server_handle];
+
+    // Start the other HTTP-backed runner when its executable/adapter is
+    // available. Missing optional binaries simply make that runner unavailable
+    // in the picker instead of preventing opman from starting.
+    if !runner_impls.contains_key(&runner::RunnerKind::Opencode)
+        && std::process::Command::new("opencode")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    {
+        if let Ok((url, handle)) = server::spawn_agent_server(crate::cli::AgentBackend::Opencode) {
+            runner_impls.insert(
+                runner::RunnerKind::Opencode,
+                Arc::new(runner::HttpRunner::new(
+                    runner::RunnerKind::Opencode,
+                    url,
+                    client.clone(),
+                )),
+            );
+            server_handles.push(handle);
+        }
+    }
+    let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
+    if !runner_impls.contains_key(&runner::RunnerKind::Claude)
+        && std::process::Command::new(&claude_bin)
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    {
+        if let Ok((url, handle)) = claude_p_engine::start_embedded_server((
+            enable_terminal_mcp,
+            enable_neovim_mcp,
+            enable_time_mcp,
+            enable_ui_mcp,
+        ))
+        .await
+        {
+            runner_impls.insert(
+                runner::RunnerKind::Claude,
+                Arc::new(runner::HttpRunner::new(
+                    runner::RunnerKind::Claude,
+                    url,
+                    client.clone(),
+                )),
+            );
+            server_handles.push(handle);
+        }
+    }
+    let codex_bin = std::env::var("OPMAN_CODEX_BIN").unwrap_or_else(|_| "codex".into());
+    if std::process::Command::new(&codex_bin)
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+    {
+        let codex_mcp = runner::CodexMcpConfig {
+            terminal: enable_terminal_mcp,
+            neovim: enable_neovim_mcp,
+            time: enable_time_mcp,
+            ui: enable_ui_mcp,
+            kanban: dirs::config_dir()
+                .map(|path| path.join("opman").join("internal.json").exists())
+                .unwrap_or(false),
+        };
+        runner_impls.insert(
+            runner::RunnerKind::Codex,
+            Arc::new(runner::CodexRunner::new(client.clone(), codex_mcp)),
+        );
+    }
+    let runner_registry = Arc::new(runner::RunnerRegistry::new(default_runner, runner_impls));
+
     // Kill the server on Ctrl+C (even if the TUI hasn't reached cleanup)
     {
-        let handle = server_handle.clone();
+        let handles = server_handles.clone();
         ctrlc::set_handler(move || {
-            server::kill_server(&handle);
+            for handle in &handles {
+                server::kill_server(handle);
+            }
             std::process::exit(0);
         })
         .ok();
@@ -277,8 +396,17 @@ async fn main() -> Result<()> {
     }
 
     // Start web UI server (if enabled)
-    let (web_actual_port, web_state_handle) =
-        setup::setup_web_server(enable_web, web_port, &web_user, &web_pass, instance_name, backend.display_name(), &app).await;
+    let (web_actual_port, web_state_handle) = setup::setup_web_server(
+        enable_web,
+        web_port,
+        &web_user,
+        &web_pass,
+        instance_name,
+        backend.display_name(),
+        &app,
+        runner_registry.clone(),
+    )
+    .await;
 
     // Make the web state handle available to the TUI (e.g. for routine panel)
     if let Some(ref wsh) = web_state_handle {
@@ -294,9 +422,12 @@ async fn main() -> Result<()> {
                 match rx.recv().await {
                     Ok(crate::web::types::WebEvent::RoutineUpdated) => {
                         let (defs, _) = wsh2.list_routines().await;
-                        let routines: Vec<crate::app::RoutineItem> =
-                            defs.iter().map(crate::app::RoutineItem::from_definition).collect();
-                        let _ = bg_tx2.send(crate::app::BackgroundEvent::RoutinesFetched { routines });
+                        let routines: Vec<crate::app::RoutineItem> = defs
+                            .iter()
+                            .map(crate::app::RoutineItem::from_definition)
+                            .collect();
+                        let _ =
+                            bg_tx2.send(crate::app::BackgroundEvent::RoutinesFetched { routines });
                     }
                     Ok(_) => {} // Ignore other web events for now
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -356,7 +487,9 @@ async fn main() -> Result<()> {
             }
         }
 
-        server::kill_server(&server_handle);
+        for handle in &server_handles {
+            server::kill_server(handle);
+        }
         info!("opman shut down (web-only)");
         return Ok(());
     }
@@ -406,7 +539,9 @@ async fn main() -> Result<()> {
     terminal.show_cursor().ok();
 
     server::shutdown_all_ptys(&mut app.projects);
-    server::kill_server(&server_handle);
+    for handle in &server_handles {
+        server::kill_server(handle);
+    }
 
     for child in app.popout_windows.drain(..) {
         let mut child = child;

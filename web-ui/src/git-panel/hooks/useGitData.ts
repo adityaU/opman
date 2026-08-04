@@ -67,7 +67,7 @@ export function useGitData(
   // Repos
   const [repos, setRepos] = useState<GitRepoEntry[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
-  const [selectedRepo, setSelectedRepo] = useState<string | undefined>(undefined);
+  const [selectedRepo, setSelectedRepo] = useState<string | undefined>(projectPath ? "." : undefined);
 
   // Status
   const [branch, setBranch]       = useState("");
@@ -171,7 +171,8 @@ export function useGitData(
   }, [onError]);
 
   // ── Initial load ──────────────────────────────────────
-  useEffect(() => { refreshRepos(); }, [refreshRepos]);
+  // The current project repo loads directly; nested repo discovery is intentionally lazy.
+
 
   // When selectedRepo changes, refetch status (and log if visible)
   useEffect(() => {
@@ -189,13 +190,12 @@ export function useGitData(
   useEffect(() => {
     if (projectPath === prevProjectPath.current) return;
     prevProjectPath.current = projectPath;
-    setRepos([]); setSelectedRepo(undefined);
+    setRepos([]); setSelectedRepo(projectPath ? "." : undefined);
     setBranch(""); setStaged([]); setUnstaged([]); setUntracked([]);
     setCommits([]); setCommitDetail(null);
     setDiffOld(""); setDiffNew("");
     setExpandedFiles(new Set());
-    refreshRepos();
-  }, [projectPath, refreshRepos]);
+  }, [projectPath]);
 
   // ── Auto-load log on tab switch ───────────────────────
   useEffect(() => {

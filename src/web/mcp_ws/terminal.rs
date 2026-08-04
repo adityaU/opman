@@ -52,10 +52,7 @@ pub(crate) async fn handle_terminal_run(
         .and_then(|v| v.as_str())
         .ok_or("Missing required 'command' argument")?;
     let wait = args.get("wait").and_then(|v| v.as_bool()).unwrap_or(false);
-    let timeout_secs = args
-        .get("timeout")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(30);
+    let timeout_secs = args.get("timeout").and_then(|v| v.as_u64()).unwrap_or(30);
 
     // Write the command (with newline to execute)
     let mut data = command.as_bytes().to_vec();
@@ -66,21 +63,23 @@ pub(crate) async fn handle_terminal_run(
 
     let ok = state.pty_mgr.write(id, data).await;
     if !ok {
-        return Err(format!("Failed to write to PTY '{}' (not found or dead)", id));
+        return Err(format!(
+            "Failed to write to PTY '{}' (not found or dead)",
+            id
+        ));
     }
 
     // Emit terminal focus event
-    let _ = state.event_tx.send(WebEvent::McpTerminalFocus {
-        id: id.to_string(),
-    });
+    let _ = state
+        .event_tx
+        .send(WebEvent::McpTerminalFocus { id: id.to_string() });
 
     if !wait {
         return Ok("Command sent".to_string());
     }
 
     // Wait for output to settle (poll until no new output for 500ms)
-    let deadline =
-        tokio::time::Instant::now() + tokio::time::Duration::from_secs(timeout_secs);
+    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(timeout_secs);
     let settle_duration = tokio::time::Duration::from_millis(500);
     let poll_interval = tokio::time::Duration::from_millis(100);
     let mut last_output_time = tokio::time::Instant::now();
@@ -133,14 +132,8 @@ pub(crate) async fn handle_terminal_new(
     state: &ServerState,
     args: &serde_json::Value,
 ) -> Result<String, String> {
-    let rows = args
-        .get("rows")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(24) as u16;
-    let cols = args
-        .get("cols")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(80) as u16;
+    let rows = args.get("rows").and_then(|v| v.as_u64()).unwrap_or(24) as u16;
+    let cols = args.get("cols").and_then(|v| v.as_u64()).unwrap_or(80) as u16;
 
     // Generate a UUID for the new PTY
     let id = format!(

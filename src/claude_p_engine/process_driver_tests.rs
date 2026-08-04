@@ -11,7 +11,9 @@ fn engine() -> Arc<ClaudePEngine> {
     Arc::new(ClaudePEngine::new(None, (false, false, false, false)))
 }
 
-fn drain(rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>) -> Vec<String> {
+fn drain(
+    rx: &mut tokio::sync::broadcast::Receiver<crate::claude_engine::EngineEvent>,
+) -> Vec<String> {
     let mut out = vec![];
     while let Ok(ev) = rx.try_recv() {
         out.push(ev.data);
@@ -74,7 +76,9 @@ async fn reparse_from_path_registers_subagents() {
         r#"{"type":"user","timestamp":"2026-06-28T08:22:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: a1834b2decb148144 (internal ID - do not mention)"}]}]}}"#,
     ]);
     reparse_emit_from_path(&e, &s.id, "dir-x", path).await;
-    let child = e.get_session(aid).expect("subagent child session registered");
+    let child = e
+        .get_session(aid)
+        .expect("subagent child session registered");
     assert!(child.is_subagent);
     assert_eq!(child.parent_id, s.id);
     assert_eq!(child.directory, "dir-x");
@@ -85,7 +89,13 @@ async fn reparse_from_path_missing_file_is_noop() {
     let e = engine();
     let s = e.create_session("d", "", "A");
     let mut rx = e.subscribe();
-    reparse_emit_from_path(&e, &s.id, "d", std::path::PathBuf::from("/nonexistent/x.jsonl")).await;
+    reparse_emit_from_path(
+        &e,
+        &s.id,
+        "d",
+        std::path::PathBuf::from("/nonexistent/x.jsonl"),
+    )
+    .await;
     assert!(drain(&mut rx).is_empty());
 }
 
@@ -112,7 +122,10 @@ async fn reparse_emit_locates_via_home_redirect() {
     let mut rx = e.subscribe();
     reparse_emit(&e, &s.id).await;
     let events = drain(&mut rx);
-    assert!(events.iter().any(|d| d.contains("hi there")), "located + emitted transcript");
+    assert!(
+        events.iter().any(|d| d.contains("hi there")),
+        "located + emitted transcript"
+    );
 
     match prev {
         Some(v) => std::env::set_var("HOME", v),
@@ -140,10 +153,20 @@ async fn send_write_success_sets_busy() {
     let e = engine();
     let s = e.create_session("d", "", "A");
     // Pre-seed a live `cat` process so send() takes the write-success branch.
-    e.procs.0.lock().await.insert(s.id.clone(), spawn_cat().await);
+    e.procs
+        .0
+        .lock()
+        .await
+        .insert(s.id.clone(), spawn_cat().await);
     send(e.clone(), s.id.clone(), "steer me".to_string()).await;
-    assert!(e.get_session(&s.id).unwrap().busy, "successful stdin write marks busy");
-    assert!(e.procs.0.lock().await.contains_key(&s.id), "process retained");
+    assert!(
+        e.get_session(&s.id).unwrap().busy,
+        "successful stdin write marks busy"
+    );
+    assert!(
+        e.procs.0.lock().await.contains_key(&s.id),
+        "process retained"
+    );
     // Clean up the live child.
     abort(e.clone(), &s.id).await;
 }
@@ -163,7 +186,11 @@ async fn send_write_failure_drops_process() {
         .unwrap();
     let stdin = child.stdin.take().unwrap();
     let _ = child.wait().await;
-    e.procs.0.lock().await.insert(s.id.clone(), Proc { stdin, child });
+    e.procs
+        .0
+        .lock()
+        .await
+        .insert(s.id.clone(), Proc { stdin, child });
     e.set_busy(&s.id, true);
     send(e.clone(), s.id.clone(), "will fail".to_string()).await;
     // Broken pipe → process removed and busy cleared.
@@ -203,7 +230,10 @@ async fn send_spawns_via_fake_claude_binary() {
 
     send(e.clone(), s.id.clone(), "hello".to_string()).await;
     // Spawn succeeded → a process is registered and the session is busy.
-    assert!(e.procs.0.lock().await.contains_key(&s.id), "fake claude spawned");
+    assert!(
+        e.procs.0.lock().await.contains_key(&s.id),
+        "fake claude spawned"
+    );
     assert!(e.get_session(&s.id).unwrap().busy);
 
     // Give the reader a beat to record the init uuid, then tear down.

@@ -18,10 +18,7 @@ pub async fn sessions_overview(
 }
 
 /// GET /api/sessions/tree — hierarchical parent/child session tree.
-pub async fn sessions_tree(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn sessions_tree(State(state): State<ServerState>, _auth: AuthUser) -> impl IntoResponse {
     let tree = state.web_state.get_sessions_tree().await;
     Json(tree)
 }
@@ -29,10 +26,7 @@ pub async fn sessions_tree(
 // ── Session Continuity: Presence + Activity ─────────────────────────
 
 /// GET /api/presence — get current connected clients.
-pub async fn get_presence(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_presence(State(state): State<ServerState>, _auth: AuthUser) -> impl IntoResponse {
     let snapshot = state.web_state.get_presence().await;
     Json(super::super::types::PresenceResponse {
         clients: snapshot.clients,
@@ -88,10 +82,7 @@ pub async fn get_activity_feed(
 // ── Missions (v2: goal-driven loop) ─────────────────────────────────
 
 /// GET /api/missions — list all missions.
-pub async fn list_missions(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn list_missions(State(state): State<ServerState>, _auth: AuthUser) -> impl IntoResponse {
     let missions = state.web_state.list_missions().await;
     Json(MissionsListResponse { missions })
 }
@@ -103,7 +94,7 @@ pub async fn get_mission(
     axum::extract::Path(mission_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match state.web_state.get_mission(&mission_id).await {
-        Some(mission) => Json(serde_json::to_value(mission).unwrap()).into_response(),
+        Some(mission) => Json(mission).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -151,7 +142,11 @@ pub async fn mission_action(
     axum::extract::Path(mission_id): axum::extract::Path<String>,
     Json(req): Json<MissionActionRequest>,
 ) -> impl IntoResponse {
-    match state.web_state.mission_action(&mission_id, req.action).await {
+    match state
+        .web_state
+        .mission_action(&mission_id, req.action)
+        .await
+    {
         Ok(mission) => (StatusCode::OK, Json(mission)).into_response(),
         Err(msg) => (
             StatusCode::BAD_REQUEST,
@@ -189,7 +184,11 @@ pub async fn update_personal_memory(
     axum::extract::Path(memory_id): axum::extract::Path<String>,
     Json(req): Json<super::super::types::UpdatePersonalMemoryRequest>,
 ) -> impl IntoResponse {
-    match state.web_state.update_personal_memory(&memory_id, req).await {
+    match state
+        .web_state
+        .update_personal_memory(&memory_id, req)
+        .await
+    {
         Some(item) => (StatusCode::OK, Json(item)).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }

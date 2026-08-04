@@ -61,7 +61,10 @@ async fn fetch_sessions_malformed_errors() {
 #[tokio::test]
 async fn fetch_sessions_connection_error() {
     let client = ApiClient::new();
-    let err = client.fetch_sessions(&dead_url().await, "/tmp").await.unwrap_err();
+    let err = client
+        .fetch_sessions(&dead_url().await, "/tmp")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to fetch sessions"));
 }
 
@@ -95,7 +98,10 @@ async fn fetch_session_status_non_object_yields_empty() {
 async fn fetch_session_status_malformed_errors() {
     let base = spawn(Router::new().route("/session/status", get(|| async { "x" }))).await;
     let client = ApiClient::new();
-    let err = client.fetch_session_status(&base, "/tmp").await.unwrap_err();
+    let err = client
+        .fetch_session_status(&base, "/tmp")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to parse session status response"));
 }
 
@@ -324,7 +330,10 @@ async fn revert_session_no_message_bails() {
     let messages_body = json!([]);
     let base = spawn(revert_router(session_body, messages_body, StatusCode::OK)).await;
     let client = ApiClient::new();
-    let err = client.revert_session(&base, "/tmp", "s1").await.unwrap_err();
+    let err = client
+        .revert_session(&base, "/tmp", "s1")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("No message found to revert"));
 }
 
@@ -339,7 +348,10 @@ async fn revert_session_revert_post_fails() {
     ))
     .await;
     let client = ApiClient::new();
-    let err = client.revert_session(&base, "/tmp", "s1").await.unwrap_err();
+    let err = client
+        .revert_session(&base, "/tmp", "s1")
+        .await
+        .unwrap_err();
     let m = format!("{}", err);
     assert!(m.contains("Session revert rejected") && m.contains("500"));
 }
@@ -370,7 +382,10 @@ async fn revert_session_session_parse_error() {
     let app = Router::new().route("/session/{id}", get(|| async { "not json" }));
     let base = spawn(app).await;
     let client = ApiClient::new();
-    let err = client.revert_session(&base, "/tmp", "s1").await.unwrap_err();
+    let err = client
+        .revert_session(&base, "/tmp", "s1")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to parse session response"));
 }
 
@@ -382,6 +397,9 @@ async fn revert_session_messages_parse_error() {
         .route("/session/{id}/message", get(|| async { "not json" }));
     let base = spawn(app).await;
     let client = ApiClient::new();
-    let err = client.revert_session(&base, "/tmp", "s1").await.unwrap_err();
+    let err = client
+        .revert_session(&base, "/tmp", "s1")
+        .await
+        .unwrap_err();
     assert!(format!("{}", err).contains("Failed to parse messages response"));
 }

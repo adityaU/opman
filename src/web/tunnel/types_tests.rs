@@ -23,13 +23,19 @@ fn tunnel_mode_variants_debug_and_clone() {
         hostname: "opman.example.com".into(),
         tunnel_name: "opman".into(),
     };
-    let named = TunnelMode::Named { token: "tok".into() };
+    let named = TunnelMode::Named {
+        token: "tok".into(),
+    };
     let quick = TunnelMode::Quick;
     for m in [lm.clone(), named.clone(), quick.clone()] {
         // Debug formatting works for every variant.
         let _ = format!("{m:?}");
     }
-    if let TunnelMode::LocalManaged { hostname, tunnel_name } = lm {
+    if let TunnelMode::LocalManaged {
+        hostname,
+        tunnel_name,
+    } = lm
+    {
         assert_eq!(hostname, "opman.example.com");
         assert_eq!(tunnel_name, "opman");
     } else {
@@ -44,7 +50,10 @@ fn tunnel_mode_variants_debug_and_clone() {
 #[test]
 fn drop_without_config_file_is_noop() {
     // child None + no config file -> Drop does nothing and must not panic.
-    let h = TunnelHandle { child: None, _config_file: None };
+    let h = TunnelHandle {
+        child: None,
+        _config_file: None,
+    };
     drop(h);
 }
 
@@ -69,7 +78,9 @@ fn drop_with_missing_config_file_does_not_panic() {
     // Points at a path that doesn't exist — remove_file errors are ignored.
     let h = TunnelHandle {
         child: None,
-        _config_file: Some(std::path::PathBuf::from("/nonexistent/opman-tunnel-xyz.json")),
+        _config_file: Some(std::path::PathBuf::from(
+            "/nonexistent/opman-tunnel-xyz.json",
+        )),
     };
     drop(h);
 }

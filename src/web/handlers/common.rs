@@ -1,6 +1,5 @@
 //! Shared helper functions used across handler modules.
 
-
 use std::path::PathBuf;
 
 use super::super::error::{WebError, WebResult};
@@ -27,7 +26,12 @@ pub(super) async fn resolve_editor_nvim_socket(
     registry
         .get(&(project_idx, session_id.to_string()))
         .cloned()
-        .ok_or_else(|| WebError::BadRequest("No Neovim/LSP backend active for this session. Open a Neovim session first.".into()))
+        .ok_or_else(|| {
+            WebError::BadRequest(
+                "No Neovim/LSP backend active for this session. Open a Neovim session first."
+                    .into(),
+            )
+        })
 }
 
 pub(super) async fn resolve_editor_buffer(
@@ -60,10 +64,7 @@ pub(super) async fn resolve_editor_buffer(
 /// project session logs, memory) that tool-call links in the UI point at.
 /// Write/create handlers must NOT use this — they keep the stricter
 /// project-only sandbox.
-pub(super) fn resolve_readable_path(
-    base: &std::path::Path,
-    path: &str,
-) -> WebResult<PathBuf> {
+pub(super) fn resolve_readable_path(base: &std::path::Path, path: &str) -> WebResult<PathBuf> {
     let target = if std::path::Path::new(path).is_absolute() {
         PathBuf::from(path)
     } else {
@@ -107,7 +108,10 @@ pub(super) async fn resolve_project_dir(state: &ServerState) -> WebResult<String
 /// When `repo` is empty or ".", returns the project root.
 /// Otherwise, resolves `repo` relative to the project root and ensures
 /// the target is within the project tree and is actually a git repo.
-pub(super) async fn resolve_repo_dir(state: &ServerState, repo: &str) -> WebResult<std::path::PathBuf> {
+pub(super) async fn resolve_repo_dir(
+    state: &ServerState,
+    repo: &str,
+) -> WebResult<std::path::PathBuf> {
     let dir = resolve_project_dir(state).await?;
     let base = std::path::Path::new(&dir);
 

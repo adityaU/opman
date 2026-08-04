@@ -15,16 +15,22 @@ export interface HandlerDeps {
   appState: any;
   selectedModel: any;
   selectedAgent: string;
+  selectedRunner: string | null;
+  selectedEffort: string | null;
+  selectedPermission: string;
   sending: boolean;
   activeMemoryItems: PersonalMemoryItem[];
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
+  setSelectedRunner: (r: string | null) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
   clearOptimistic: () => void;
   refreshState: () => void;
+  /** Refresh the active transcript after runner adapters complete synchronously. */
+  refreshMessages: () => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -99,12 +105,25 @@ export function createHandleSend(deps: HandlerDeps) {
     // Show optimistic message with the full enriched text so memory pill renders immediately
     deps.addOptimisticMessage(enrichedText, images);
     try {
-      await sendMessage(
+      const result = await sendMessage(
         sid,
         enrichedText,
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
+        deps.selectedRunner || sessionRunner(deps),
+        deps.selectedEffort || undefined,
+        deps.selectedPermission || undefined,
       );
+      const handoff = result as { session_id?: string; switched?: boolean; runner?: string } | undefined;
+      // HTTP runners normally update the transcript through SSE. The Codex
+      // adapter completes synchronously, so refresh here also covers that
+      // runner and makes a handoff immediately visible.
+      await deps.refreshMessages();
+      if (handoff?.switched && handoff.session_id) {
+        deps.setUrlSession(handoff.session_id, deps.activeProjectIndex);
+        deps.setSelectedRunner(handoff.runner || deps.selectedRunner);
+        deps.addToast(`Session handed off to ${handoff.runner || "new runner"}`, "success");
+      }
       return true;
     } catch {
       deps.clearOptimistic();
@@ -155,11 +174,12 @@ export function createHandleCommand(deps: HandlerDeps) {
       if (!deps.appState) return;
       try {
       const projectIdx = deps.activeProjectIndex;
-        const resp = await newSession(projectIdx);
+        const resp = await newSession(projectIdx, deps.selectedRunner || sessionRunner(deps));
         // URL is the single source of truth — triggers beginSessionSwitch + API calls
         deps.setUrlSession(resp.session_id, projectIdx);
         deps.setSelectedModel(null);
         deps.setSelectedAgent("");
+        deps.setSelectedRunner(null);
         deps.addToast("New session created", "success");
       } catch {
         deps.addToast("Failed to create session", "error");
@@ -258,6 +278,7 @@ export function createHandleSelectSession(deps: HandlerDeps) {
     deps.setUrlSession(sessionId, projectIdx);
     deps.setSelectedModel(null);
     deps.setSelectedAgent("");
+    deps.setSelectedRunner(null);
   };
 }
 
@@ -266,11 +287,12 @@ export function createHandleNewSession(deps: HandlerDeps) {
     if (!deps.appState) return;
     try {
       const projectIdx = deps.activeProjectIndex;
-      const resp = await newSession(projectIdx);
+      const resp = await newSession(projectIdx, deps.selectedRunner || sessionRunner(deps));
       // URL is the single source of truth — triggers beginSessionSwitch + API calls
       deps.setUrlSession(resp.session_id, projectIdx);
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
+      deps.setSelectedRunner(null);
       deps.addToast("New session created", "success");
     } catch {
       deps.addToast("Failed to create session", "error");
@@ -292,6 +314,7 @@ export function createHandleSwitchProject(deps: HandlerDeps) {
       }
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
+      deps.setSelectedRunner(null);
     } catch {
       deps.addToast("Failed to switch project", "error");
     }
@@ -304,4 +327,12 @@ export function createHandleModelSelected(deps: HandlerDeps) {
     deps.setSelectedModel({ providerID: providerId, modelID: modelId });
     deps.addToast(`Model switched to ${modelId}`, "success");
   };
+}
+
+function sessionRunner(deps: HandlerDeps): string {
+  const project = deps.appState?.projects?.[deps.activeProjectIndex];
+  const session = project?.sessions?.find((item: any) => item.id === deps.activeSessionId);
+  if (session?.runner) return session.runner;
+  if (deps.appState?.backend === "claude-code") return "claude";
+  return deps.appState?.backend || "opencode";
 }

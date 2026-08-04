@@ -5,8 +5,10 @@ use crate::web::types::default_board;
 use crate::web::web_state::WebStateHandle;
 
 fn seed_board(h: &WebStateHandle, board_id: &str, project: &str) {
-    h.db_for_test()
-        .insert_kanban_board(&default_board(board_id.into(), project.into()), "2026-01-01T00:00:00Z");
+    h.db_for_test().insert_kanban_board(
+        &default_board(board_id.into(), project.into()),
+        "2026-01-01T00:00:00Z",
+    );
 }
 
 async fn make_task(h: &WebStateHandle, board_id: &str, lane: &str) -> Task {
@@ -26,7 +28,8 @@ async fn make_task(h: &WebStateHandle, board_id: &str, lane: &str) -> Task {
 async fn internal_set_lane_not_found() {
     let h = WebStateHandle::new_test();
     assert!(matches!(
-        h.kanban_internal_set_lane("ghost", "lane_planning", None).await,
+        h.kanban_internal_set_lane("ghost", "lane_planning", None)
+            .await,
         Err(KanbanError::NotFound)
     ));
 }
@@ -76,7 +79,10 @@ async fn internal_set_lane_same_lane_no_note() {
     let h = WebStateHandle::new_test();
     seed_board(&h, "brd", "/p");
     let t = make_task(&h, "brd", "lane_todo").await;
-    let moved = h.kanban_internal_set_lane(&t.id, "lane_todo", None).await.unwrap();
+    let moved = h
+        .kanban_internal_set_lane(&t.id, "lane_todo", None)
+        .await
+        .unwrap();
     assert_eq!(moved.lane_id, "lane_todo");
     // from == target → no transition note.
     assert!(h.db_for_test().kanban_notes_for_task(&t.id).is_empty());
@@ -100,7 +106,10 @@ async fn internal_complete_custom_summary_and_not_found() {
     let h = WebStateHandle::new_test();
     seed_board(&h, "brd", "/p");
     let t = make_task(&h, "brd", "lane_todo").await;
-    let done = h.kanban_internal_complete(&t.id, "all shipped").await.unwrap();
+    let done = h
+        .kanban_internal_complete(&t.id, "all shipped")
+        .await
+        .unwrap();
     let notes = h.db_for_test().kanban_notes_for_task(&t.id);
     assert_eq!(notes[0].body, "all shipped");
     assert_eq!(done.lane_id, "lane_inreview");
@@ -131,7 +140,8 @@ async fn internal_complete_no_terminal_lane_stays_put() {
         }],
         transitions: Default::default(),
     };
-    h.db_for_test().insert_kanban_board(&board, "2026-01-01T00:00:00Z");
+    h.db_for_test()
+        .insert_kanban_board(&board, "2026-01-01T00:00:00Z");
     let t = make_task(&h, "b2", "only").await;
     let done = h.kanban_internal_complete(&t.id, "").await.unwrap();
     assert_eq!(done.lane_id, "only"); // no terminal → unchanged
@@ -147,7 +157,9 @@ async fn internal_note_not_found_and_appends() {
         Err(KanbanError::NotFound)
     ));
     let t = make_task(&h, "brd", "lane_todo").await;
-    h.kanban_internal_note(&t.id, "note body", Some("a".into()), Some("b".into())).await.unwrap();
+    h.kanban_internal_note(&t.id, "note body", Some("a".into()), Some("b".into()))
+        .await
+        .unwrap();
     let notes = h.db_for_test().kanban_notes_for_task(&t.id);
     assert_eq!(notes.len(), 1);
     assert_eq!(notes[0].author, "agent");
@@ -179,7 +191,10 @@ async fn add_user_note_live_task_takes_forward_branch() {
     h.set_kanban_task_launch(&t.id, Some("sess-live".into()), None, None, "running")
         .await
         .unwrap();
-    let note = h.kanban_add_user_note(&t.id, "mid-flight note").await.unwrap();
+    let note = h
+        .kanban_add_user_note(&t.id, "mid-flight note")
+        .await
+        .unwrap();
     assert_eq!(note.author, "user");
     // The note is still persisted regardless of the fire-and-forget forward.
     assert_eq!(h.db_for_test().kanban_notes_for_task(&t.id).len(), 1);

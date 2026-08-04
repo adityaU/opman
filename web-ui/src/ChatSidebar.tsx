@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import type { ProjectInfo } from "./api";
 import {
   Plus,
@@ -6,6 +6,7 @@ import {
   X,
   FolderPlus,
   LayoutGrid,
+  PanelLeft,
 } from "lucide-react";
 import { ProjectNode } from "./sidebar/ProjectNode";
 import { OpenSessionsSection } from "./sidebar/OpenSessionsSection";
@@ -18,7 +19,7 @@ import {
   RemoveProjectModal,
 } from "./sidebar/ConfirmModals";
 import { loadPinnedSessions, savePinnedSessions } from "./sidebar/pinnedSessions";
-import { loadOpenSessions, saveOpenSessions } from "./sidebar/openSessions";
+import { loadOpenSessions, pruneOpenSessions, saveOpenSessions } from "./sidebar/openSessions";
 import type { SessionTaskLink } from "./sidebar/useSessionTaskLinks";
 
 interface Props {
@@ -40,6 +41,7 @@ interface Props {
   isKanbanView?: boolean;
   /** Toggle the Kanban board view for the active project. */
   onToggleKanban?: () => void;
+  onToggleSidebar: () => void;
   /** session_id → originating kanban task/lane, for the active project's board. */
   sessionTaskLinks?: Map<string, SessionTaskLink>;
   /** Open the originating kanban task's editor (back-link from a session). */
@@ -60,6 +62,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   onClose,
   isKanbanView,
   onToggleKanban,
+  onToggleSidebar,
   sessionTaskLinks,
   onOpenKanbanTask,
 }: Props) {
@@ -101,6 +104,15 @@ export const ChatSidebar = React.memo(function ChatSidebar({
 
   // ── Open sessions ─────────────────────────────────
   const [openSessions, setOpenSessions] = useState<Set<string>>(loadOpenSessions);
+
+  useEffect(() => {
+    setOpenSessions((current) => {
+      const fresh = pruneOpenSessions(current, projects);
+      if (fresh.size === current.size && [...fresh].every((id) => current.has(id))) return current;
+      saveOpenSessions(fresh);
+      return fresh;
+    });
+  }, [projects]);
 
   const removeOpenSession = useCallback((sessionId: string) => {
     setOpenSessions((prev) => {
@@ -157,8 +169,19 @@ export const ChatSidebar = React.memo(function ChatSidebar({
     <aside className={`chat-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
       {/* Header */}
       <div className="sb-header">
-        <span className="sb-brand">Sessions</span>
+        <div className="sb-brand-wrap">
+          <span className="sb-eyebrow">Workspace</span>
+          <span className="sb-brand">{projects[activeProject]?.name || "Sessions"}</span>
+        </div>
         <div className="sb-header-actions">
+          <button
+            className="sb-icon-btn"
+            onClick={onToggleSidebar}
+            title="Hide sidebar (Cmd+B)"
+            aria-label="Hide sidebar"
+          >
+            <PanelLeft size={14} />
+          </button>
           {onToggleKanban && (
             <button
               className={`sb-icon-btn${isKanbanView ? " sb-icon-btn-active" : ""}`}

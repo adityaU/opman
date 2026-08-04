@@ -2,12 +2,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -16,7 +16,9 @@ fn state_dir(p: &std::path::Path) -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
@@ -45,7 +47,14 @@ async fn browse_root_lists_sorted_skips_hidden() {
     let state = state_dir(tmp.path());
 
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -54,7 +63,10 @@ async fn browse_root_lists_sorted_skips_hidden() {
     // dir first, hidden excluded
     assert_eq!(entries[0]["name"], "dir1");
     assert!(entries[0]["is_dir"].as_bool().unwrap());
-    let names: Vec<_> = entries.iter().map(|e| e["name"].as_str().unwrap()).collect();
+    let names: Vec<_> = entries
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
     assert!(!names.contains(&".hidden"));
     assert!(names.contains(&"apple.txt"));
 }
@@ -66,7 +78,12 @@ async fn browse_subdir_path() {
     std::fs::write(tmp.path().join("sub/inner.txt"), "x").unwrap();
     let state = state_dir(tmp.path());
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: "sub".into() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery { path: "sub".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -80,7 +97,14 @@ async fn browse_missing_dir_404() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: "ghost".into() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: "ghost".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
@@ -93,7 +117,12 @@ async fn browse_traversal_400() {
     std::fs::create_dir(&proj).unwrap();
     let state = state_dir(&proj);
     let (st, _) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: "..".into() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery { path: "..".into() }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -103,7 +132,14 @@ async fn browse_traversal_400() {
 async fn browse_no_project_400() {
     let state = test_server_state();
     let (st, _) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -122,12 +158,24 @@ async fn browse_skips_symlink_escaping_project() {
     std::fs::write(proj.join("normal.txt"), "ok").unwrap();
     let state = state_dir(&proj);
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
     let v = json(&body);
-    let names: Vec<_> = v["entries"].as_array().unwrap().iter().map(|e| e["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<_> = v["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect();
     assert!(names.contains(&"normal.txt".to_string()));
     assert!(!names.contains(&"escape".to_string()));
 }
@@ -140,12 +188,24 @@ async fn browse_keeps_symlink_inside_project() {
     std::os::unix::fs::symlink(tmp.path().join("target.txt"), tmp.path().join("link.txt")).unwrap();
     let state = state_dir(tmp.path());
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
     let v = json(&body);
-    let names: Vec<_> = v["entries"].as_array().unwrap().iter().map(|e| e["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<_> = v["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect();
     assert!(names.contains(&"link.txt".to_string()));
 }
 
@@ -157,7 +217,14 @@ async fn read_file_ok() {
     std::fs::write(tmp.path().join("main.rs"), "fn main() {}").unwrap();
     let state = state_dir(tmp.path());
     let (st, body) = parts(
-        read_file(State(state), auth(), Query(FileReadQuery { path: "main.rs".into() })).await,
+        read_file(
+            State(state),
+            auth(),
+            Query(FileReadQuery {
+                path: "main.rs".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
@@ -171,7 +238,14 @@ async fn read_file_missing_404() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        read_file(State(state), auth(), Query(FileReadQuery { path: "ghost.rs".into() })).await,
+        read_file(
+            State(state),
+            auth(),
+            Query(FileReadQuery {
+                path: "ghost.rs".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
@@ -182,13 +256,21 @@ async fn read_file_raw_ok_content_type() {
     let tmp = tempfile::TempDir::new().unwrap();
     std::fs::write(tmp.path().join("img.png"), [1u8, 2, 3]).unwrap();
     let state = state_dir(tmp.path());
-    let resp = read_file_raw(State(state), auth(), Query(FileReadQuery { path: "img.png".into() }))
-        .await
-        .unwrap()
-        .into_response();
+    let resp = read_file_raw(
+        State(state),
+        auth(),
+        Query(FileReadQuery {
+            path: "img.png".into(),
+        }),
+    )
+    .await
+    .unwrap()
+    .into_response();
     assert_eq!(resp.status(), axum::http::StatusCode::OK);
     assert_eq!(
-        resp.headers().get(axum::http::header::CONTENT_TYPE).unwrap(),
+        resp.headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .unwrap(),
         "image/png"
     );
 }
@@ -198,7 +280,14 @@ async fn read_file_raw_missing_404() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        read_file_raw(State(state), auth(), Query(FileReadQuery { path: "no.png".into() })).await,
+        read_file_raw(
+            State(state),
+            auth(),
+            Query(FileReadQuery {
+                path: "no.png".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
@@ -214,13 +303,19 @@ async fn write_file_ok() {
         write_file(
             State(state),
             auth(),
-            axum::Json(FileWriteRequest { path: "new.txt".into(), content: "hello".into() }),
+            axum::Json(FileWriteRequest {
+                path: "new.txt".into(),
+                content: "hello".into(),
+            }),
         )
         .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    assert_eq!(std::fs::read_to_string(tmp.path().join("new.txt")).unwrap(), "hello");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("new.txt")).unwrap(),
+        "hello"
+    );
 }
 
 #[tokio::test]
@@ -231,7 +326,10 @@ async fn write_file_missing_parent_404() {
         write_file(
             State(state),
             auth(),
-            axum::Json(FileWriteRequest { path: "no/such/dir/f.txt".into(), content: "x".into() }),
+            axum::Json(FileWriteRequest {
+                path: "no/such/dir/f.txt".into(),
+                content: "x".into(),
+            }),
         )
         .await,
     )
@@ -249,7 +347,10 @@ async fn write_file_traversal_400() {
         write_file(
             State(state),
             auth(),
-            axum::Json(FileWriteRequest { path: "../evil.txt".into(), content: "x".into() }),
+            axum::Json(FileWriteRequest {
+                path: "../evil.txt".into(),
+                content: "x".into(),
+            }),
         )
         .await,
     )
@@ -267,7 +368,10 @@ async fn create_file_ok_201() {
         create_file(
             State(state),
             auth(),
-            axum::Json(FileCreateRequest { path: "fresh.txt".into(), content: "c".into() }),
+            axum::Json(FileCreateRequest {
+                path: "fresh.txt".into(),
+                content: "c".into(),
+            }),
         )
         .await,
     )
@@ -285,7 +389,10 @@ async fn create_file_already_exists_400() {
         create_file(
             State(state),
             auth(),
-            axum::Json(FileCreateRequest { path: "dup.txt".into(), content: "new".into() }),
+            axum::Json(FileCreateRequest {
+                path: "dup.txt".into(),
+                content: "new".into(),
+            }),
         )
         .await,
     )
@@ -301,7 +408,10 @@ async fn create_file_missing_parent_404() {
         create_file(
             State(state),
             auth(),
-            axum::Json(FileCreateRequest { path: "ghostdir/f.txt".into(), content: "x".into() }),
+            axum::Json(FileCreateRequest {
+                path: "ghostdir/f.txt".into(),
+                content: "x".into(),
+            }),
         )
         .await,
     )
@@ -316,7 +426,14 @@ async fn create_dir_ok_nested_201() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        create_dir(State(state), auth(), axum::Json(DirCreateRequest { path: "a/b/c".into() })).await,
+        create_dir(
+            State(state),
+            auth(),
+            axum::Json(DirCreateRequest {
+                path: "a/b/c".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::CREATED);
@@ -329,7 +446,14 @@ async fn create_dir_already_exists_400() {
     std::fs::create_dir(tmp.path().join("exists")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        create_dir(State(state), auth(), axum::Json(DirCreateRequest { path: "exists".into() })).await,
+        create_dir(
+            State(state),
+            auth(),
+            axum::Json(DirCreateRequest {
+                path: "exists".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
@@ -342,7 +466,14 @@ async fn create_dir_traversal_400() {
     std::fs::create_dir(&proj).unwrap();
     let state = state_dir(&proj);
     let (st, _) = parts(
-        create_dir(State(state), auth(), axum::Json(DirCreateRequest { path: "../sneaky".into() })).await,
+        create_dir(
+            State(state),
+            auth(),
+            axum::Json(DirCreateRequest {
+                path: "../sneaky".into(),
+            }),
+        )
+        .await,
     )
     .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);

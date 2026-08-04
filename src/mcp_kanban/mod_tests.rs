@@ -60,9 +60,11 @@ async fn route_initialize() {
 
 #[tokio::test]
 async fn route_notifications_none() {
-    assert!(route_request(None, "notifications/initialized", None, json!(0))
-        .await
-        .is_none());
+    assert!(
+        route_request(None, "notifications/initialized", None, json!(0))
+            .await
+            .is_none()
+    );
 }
 
 #[tokio::test]

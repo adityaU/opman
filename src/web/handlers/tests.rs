@@ -230,27 +230,26 @@ mod tests {
 #[cfg(test)]
 mod handler_tests {
     use super::*;
-    use axum::response::{IntoResponse, Json};
-    use axum::http::{HeaderMap, StatusCode};
     use axum::extract::State;
+    use axum::http::{HeaderMap, StatusCode};
+    use axum::response::{IntoResponse, Json};
+    use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
     use tokio::sync::broadcast;
-    use reqwest::Client;
 
     use crate::mcp::NvimSocketRegistry;
     use crate::mcp_skills::SkillsRegistry;
     use crate::web::auth::AuthUser;
-    use crate::web::pty_manager::WebPtyHandle;
-    use crate::web::web_state::WebStateHandle;
-    use crate::web::types::*;
     use crate::web::error::WebError;
+    use crate::web::pty_manager::WebPtyHandle;
+    use crate::web::types::*;
+    use crate::web::web_state::WebStateHandle;
 
     // Import the handler functions
     use crate::web::handlers::{
-        health, login, verify, get_state, list_themes, public_bootstrap,
-        switch_project, add_project, home_dir, browse_files, read_file,
-        pty_list, get_system_stats,
+        add_project, browse_files, get_state, get_system_stats, health, home_dir, list_themes,
+        login, pty_list, public_bootstrap, read_file, switch_project, verify,
     };
 
     // ── Test utilities ──────────────────────────────────────────

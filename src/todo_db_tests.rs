@@ -102,7 +102,10 @@ fn save_todos_inserts_rows_in_order() {
 
     let rows = fetch_rows(&db, "sess1");
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0], ("first".into(), "pending".into(), "high".into(), 0));
+    assert_eq!(
+        rows[0],
+        ("first".into(), "pending".into(), "high".into(), 0)
+    );
     assert_eq!(
         rows[1],
         ("second".into(), "completed".into(), "low".into(), 1)
@@ -117,7 +120,11 @@ fn save_todos_full_replace_semantics() {
     create_todo_table(&db);
     let _h = HomeGuard::set(tmp.path());
 
-    save_todos_to_db("s", &[item("a", "pending", "high"), item("b", "pending", "low")]).unwrap();
+    save_todos_to_db(
+        "s",
+        &[item("a", "pending", "high"), item("b", "pending", "low")],
+    )
+    .unwrap();
     // Second save replaces the first entirely.
     save_todos_to_db("s", &[item("only", "completed", "medium")]).unwrap();
 

@@ -41,9 +41,7 @@ tokio::task_local! {
 pub fn base_url() -> &'static str {
     #[cfg(test)]
     {
-        if let Ok(leaked) =
-            TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str()))
-        {
+        if let Ok(leaked) = TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str())) {
             return leaked;
         }
     }

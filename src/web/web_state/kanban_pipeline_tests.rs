@@ -5,8 +5,10 @@ use crate::web::web_state::WebStateHandle;
 use serde_json::json;
 
 fn seed_board(h: &WebStateHandle, board_id: &str, project: &str) {
-    h.db_for_test()
-        .insert_kanban_board(&default_board(board_id.into(), project.into()), "2026-01-01T00:00:00Z");
+    h.db_for_test().insert_kanban_board(
+        &default_board(board_id.into(), project.into()),
+        "2026-01-01T00:00:00Z",
+    );
 }
 
 fn seed_task(h: &WebStateHandle, board_id: &str, task_id: &str, lane: &str) {
@@ -44,7 +46,9 @@ fn stage(lane: &str, session: Option<&str>, status: &str) -> PipelineStage {
 async fn launch_task_not_found() {
     let h = WebStateHandle::new_test();
     assert_eq!(
-        h.launch_kanban_pipeline("ghost", None, None).await.unwrap_err(),
+        h.launch_kanban_pipeline("ghost", None, None)
+            .await
+            .unwrap_err(),
         "task not found"
     );
 }
@@ -55,7 +59,10 @@ async fn launch_no_stages_errors() {
     seed_board(&h, "brd", "/p");
     // lane_done has no agent/prompt and nothing after it qualifies.
     seed_task(&h, "brd", "tsk", "lane_done");
-    let err = h.launch_kanban_pipeline("tsk", None, None).await.unwrap_err();
+    let err = h
+        .launch_kanban_pipeline("tsk", None, None)
+        .await
+        .unwrap_err();
     assert!(err.contains("No pipeline stages"));
 }
 
@@ -66,8 +73,14 @@ async fn launch_start_stage_http_failure_errors() {
     seed_task(&h, "brd", "tsk", "lane_todo");
     // Stages exist; start_stage attempts an HTTP call to the (absent) upstream
     // and fails fast → launch returns the propagated error.
-    let err = h.launch_kanban_pipeline("tsk", Some("m".into()), Some("build".into())).await.unwrap_err();
-    assert!(err.contains("create session failed") || err.contains("failed"), "got: {err}");
+    let err = h
+        .launch_kanban_pipeline("tsk", Some("m".into()), Some("build".into()))
+        .await
+        .unwrap_err();
+    assert!(
+        err.contains("create session failed") || err.contains("failed"),
+        "got: {err}"
+    );
     // A stage-transition note was recorded before the HTTP attempt.
     assert!(!h.db_for_test().kanban_notes_for_task("tsk").is_empty());
 }
@@ -96,7 +109,10 @@ async fn stop_non_running_run_is_noop() {
         updated_at: "2026-01-01T00:00:00Z".into(),
     });
     h.stop_kanban_pipeline("tsk").await;
-    assert_eq!(h.db_for_test().kanban_pipeline_get("tsk").unwrap().status, "done");
+    assert_eq!(
+        h.db_for_test().kanban_pipeline_get("tsk").unwrap().status,
+        "done"
+    );
 }
 
 #[tokio::test]

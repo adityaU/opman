@@ -250,9 +250,8 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                     let status = if notif.failed { "error" } else { "completed" };
                                     state.insert("status".into(), json!(status));
                                     if let Some(summary) = &notif.summary {
-                                        let meta = state
-                                            .entry("metadata")
-                                            .or_insert_with(|| json!({}));
+                                        let meta =
+                                            state.entry("metadata").or_insert_with(|| json!({}));
                                         if let Some(m) = meta.as_object_mut() {
                                             m.insert("summary".into(), json!(summary));
                                         }
@@ -315,9 +314,7 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                         // Tool results: attach to the matching assistant tool part.
                         for b in blocks {
                             if b.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
-                                if let Some(tid) =
-                                    b.get("tool_use_id").and_then(|t| t.as_str())
-                                {
+                                if let Some(tid) = b.get("tool_use_id").and_then(|t| t.as_str()) {
                                     if let Some(&(mi, pi)) = tool_loc.get(tid) {
                                         let is_err = b
                                             .get("is_error")
@@ -327,12 +324,12 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                             .get("content")
                                             .map(stringify_content)
                                             .unwrap_or_default();
-                                        if let Some(part) =
-                                            out.messages.get_mut(mi).and_then(|m| m.parts.get_mut(pi))
+                                        if let Some(part) = out
+                                            .messages
+                                            .get_mut(mi)
+                                            .and_then(|m| m.parts.get_mut(pi))
                                         {
-                                            let is_task = part
-                                                .get("tool")
-                                                .and_then(|t| t.as_str())
+                                            let is_task = part.get("tool").and_then(|t| t.as_str())
                                                 == Some("task");
                                             let is_background = part
                                                 .get("state")
@@ -340,8 +337,9 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                 .and_then(|m| m.get("background"))
                                                 .and_then(|b| b.as_bool())
                                                 .unwrap_or(false);
-                                            if let Some(state) =
-                                                part.get_mut("state").and_then(|s| s.as_object_mut())
+                                            if let Some(state) = part
+                                                .get_mut("state")
+                                                .and_then(|s| s.as_object_mut())
                                             {
                                                 if is_task {
                                                     // Async launch ack carries the child
@@ -354,7 +352,10 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                             .entry("metadata")
                                                             .or_insert_with(|| json!({}));
                                                         if let Some(m) = meta.as_object_mut() {
-                                                            m.insert("sessionId".into(), json!(aid));
+                                                            m.insert(
+                                                                "sessionId".into(),
+                                                                json!(aid),
+                                                            );
                                                         }
                                                     }
                                                 } else if is_background {
@@ -372,7 +373,10 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                             .entry("metadata")
                                                             .or_insert_with(|| json!({}));
                                                         if let Some(m) = meta.as_object_mut() {
-                                                            m.insert("taskId".into(), json!(task_id));
+                                                            m.insert(
+                                                                "taskId".into(),
+                                                                json!(task_id),
+                                                            );
                                                             m.insert(
                                                                 "outputFile".into(),
                                                                 json!(out_file),
@@ -380,8 +384,12 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                         }
                                                         bg_loc.insert(task_id, (mi, pi));
                                                     } else if is_err {
-                                                        state.insert("output".into(), json!(output));
-                                                        state.insert("status".into(), json!("error"));
+                                                        state
+                                                            .insert("output".into(), json!(output));
+                                                        state.insert(
+                                                            "status".into(),
+                                                            json!("error"),
+                                                        );
                                                         state.insert("error".into(), json!(output));
                                                         if let Some(time) = state
                                                             .get_mut("time")
@@ -394,7 +402,11 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                                     state.insert("output".into(), json!(output));
                                                     state.insert(
                                                         "status".into(),
-                                                        json!(if is_err { "error" } else { "completed" }),
+                                                        json!(if is_err {
+                                                            "error"
+                                                        } else {
+                                                            "completed"
+                                                        }),
                                                     );
                                                     if is_err {
                                                         state.insert("error".into(), json!(output));
@@ -455,7 +467,10 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                             "tokens": msg.get("usage").map(tokens_from_usage).unwrap_or(json!({})),
                             "time": { "created": ts },
                         });
-                        out.messages.push(MsgOut { info, parts: vec![] });
+                        out.messages.push(MsgOut {
+                            info,
+                            parts: vec![],
+                        });
                         let i = out.messages.len() - 1;
                         assistant_idx.insert(mid.clone(), i);
                         i
@@ -487,10 +502,7 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                 }
                             }
                             "thinking" => {
-                                let text = b
-                                    .get("thinking")
-                                    .and_then(|t| t.as_str())
-                                    .unwrap_or("");
+                                let text = b.get("thinking").and_then(|t| t.as_str()).unwrap_or("");
                                 out.messages[idx].parts.push(json!({
                                     "type": "reasoning",
                                     "id": format!("{mid}:{part_index}"),
@@ -505,10 +517,8 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                     .and_then(|i| i.as_str())
                                     .unwrap_or("")
                                     .to_string();
-                                let raw_name = b
-                                    .get("name")
-                                    .and_then(|n| n.as_str())
-                                    .unwrap_or("tool");
+                                let raw_name =
+                                    b.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
                                 // claude's subagent launchers (`Agent`/`Task`) map to
                                 // opencode's `task` tool so the web UI renders them as
                                 // an inline collapsible subagent session.
@@ -529,7 +539,9 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                                     input
                                         .get("description")
                                         .and_then(|d| d.as_str())
-                                        .or_else(|| input.get("subagent_type").and_then(|s| s.as_str()))
+                                        .or_else(|| {
+                                            input.get("subagent_type").and_then(|s| s.as_str())
+                                        })
                                         .unwrap_or("Task")
                                         .to_string()
                                 } else if is_background {
@@ -579,7 +591,10 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                 // Surface API/refusal errors: claude marks the assistant line
                 // `isApiErrorMessage` (e.g. overloaded, rate-limited, refusal). Set
                 // `info.error` so the web UI renders its red error banner.
-                if v.get("isApiErrorMessage").and_then(|b| b.as_bool()).unwrap_or(false) {
+                if v.get("isApiErrorMessage")
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false)
+                {
                     let errtext: String = out.messages[idx]
                         .parts
                         .iter()
@@ -611,7 +626,9 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                     // state is informative instead of a bare "Conversation compacted".
                     let cm = v.get("compactMetadata");
                     let num = |k: &str| {
-                        cm.and_then(|m| m.get(k)).and_then(|x| x.as_u64()).unwrap_or(0)
+                        cm.and_then(|m| m.get(k))
+                            .and_then(|x| x.as_u64())
+                            .unwrap_or(0)
                     };
                     let trigger = cm
                         .and_then(|m| m.get("trigger"))
@@ -832,8 +849,7 @@ pub fn has_running_background_task(out: &ParsedSession) -> bool {
             .and_then(|m| m.get("background"))
             .and_then(|b| b.as_bool())
             .unwrap_or(false);
-        is_bg
-            && s.and_then(|s| s.get("status")).and_then(|s| s.as_str()) == Some("running")
+        is_bg && s.and_then(|s| s.get("status")).and_then(|s| s.as_str()) == Some("running")
     })
 }
 
@@ -859,7 +875,11 @@ pub fn subagent_completed(sub: &ParsedSession) -> (bool, Option<String>) {
     }
     match last.parts.last() {
         Some(p) if p.get("type").and_then(|t| t.as_str()) == Some("text") => {
-            let txt = p.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string();
+            let txt = p
+                .get("text")
+                .and_then(|t| t.as_str())
+                .unwrap_or("")
+                .to_string();
             (true, Some(txt))
         }
         _ => (false, None),
@@ -917,8 +937,10 @@ mod tests {
     #[test]
     fn agent_tool_maps_to_task_with_child_id() {
         let transcript = concat!(
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:22:00.000Z","message":{"id":"msg_1","model":"claude-haiku","content":[{"type":"tool_use","id":"toolu_1","name":"Agent","input":{"description":"Count files","prompt":"count"}}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:22:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: a1834b2decb148144 (internal ID - do not mention)"}]}]}}"#, "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:22:00.000Z","message":{"id":"msg_1","model":"claude-haiku","content":[{"type":"tool_use","id":"toolu_1","name":"Agent","input":{"description":"Count files","prompt":"count"}}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:22:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: a1834b2decb148144 (internal ID - do not mention)"}]}]}}"#,
+            "\n",
         );
         let parsed = parse_str(transcript, "ses_test");
         let part = &parsed.messages[0].parts[0];
@@ -937,8 +959,10 @@ mod tests {
     #[test]
     fn background_bash_tracked_and_completed_by_notification() {
         let transcript = concat!(
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"cargo build","description":"Release build","run_in_background":true}}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bp3a2llyj. Output is being written to: /tmp/tasks/bp3a2llyj.output. You will be notified when it completes. To check interim output, use Read on that file path."}]}}"#, "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"cargo build","description":"Release build","run_in_background":true}}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bp3a2llyj. Output is being written to: /tmp/tasks/bp3a2llyj.output. You will be notified when it completes. To check interim output, use Read on that file path."}]}}"#,
+            "\n",
         );
         let mut parsed = parse_str(transcript, "ses");
         let part = &parsed.messages[0].parts[0];
@@ -946,7 +970,10 @@ mod tests {
         assert_eq!(part["state"]["metadata"]["background"], true);
         assert_eq!(part["state"]["title"], "Release build");
         assert_eq!(part["state"]["metadata"]["taskId"], "bp3a2llyj");
-        assert_eq!(part["state"]["metadata"]["outputFile"], "/tmp/tasks/bp3a2llyj.output");
+        assert_eq!(
+            part["state"]["metadata"]["outputFile"],
+            "/tmp/tasks/bp3a2llyj.output"
+        );
         // Still running — the launch ack must NOT complete it.
         assert_eq!(part["state"]["status"], "running");
         assert!(has_running_background_task(&parsed));
@@ -961,7 +988,10 @@ mod tests {
         assert_eq!(parsed.messages.len(), 1);
         let part = &parsed.messages[0].parts[0];
         assert_eq!(part["state"]["status"], "completed");
-        assert_eq!(part["state"]["metadata"]["summary"], "Release build finished");
+        assert_eq!(
+            part["state"]["metadata"]["summary"],
+            "Release build finished"
+        );
         assert!(part["state"]["time"]["end"].is_u64());
         assert!(!has_running_background_task(&parsed));
     }
@@ -971,9 +1001,12 @@ mod tests {
     #[test]
     fn background_failure_and_unmatched_notification() {
         let failed = concat!(
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"server","run_in_background":true}}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bxx. Output is being written to: /tmp/tasks/bxx.output. You will be notified when it completes."}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>bxx</task-id>\n<status>failed</status>\n<summary>boom</summary>\n</task-notification>"}}"#, "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_bg","name":"Bash","input":{"command":"server","run_in_background":true}}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_bg","content":"Command running in background with ID: bxx. Output is being written to: /tmp/tasks/bxx.output. You will be notified when it completes."}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>bxx</task-id>\n<status>failed</status>\n<summary>boom</summary>\n</task-notification>"}}"#,
+            "\n",
         );
         let parsed = parse_str(failed, "ses");
         assert_eq!(parsed.messages.len(), 1);
@@ -983,11 +1016,16 @@ mod tests {
 
         // An unmatched (subagent) notification keeps its bubble.
         let unmatched = concat!(
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"text","text":"hi"}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>a0ba02d900f3240a6</task-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n</task-notification>"}}"#, "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:00.000Z","message":{"id":"msg_1","content":[{"type":"text","text":"hi"}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:05:00.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>a0ba02d900f3240a6</task-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n</task-notification>"}}"#,
+            "\n",
         );
         let parsed = parse_str(unmatched, "ses");
-        assert!(parsed.messages.iter().any(|m| m.info["variant"] == "notification"));
+        assert!(parsed
+            .messages
+            .iter()
+            .any(|m| m.info["variant"] == "notification"));
     }
 
     #[test]
@@ -1004,8 +1042,10 @@ mod tests {
     #[test]
     fn ordinary_tool_result_still_completes() {
         let transcript = concat!(
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:22:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"ls"}}]}}"#, "\n",
-            r#"{"type":"user","timestamp":"2026-06-28T08:22:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_2","content":[{"type":"text","text":"file.txt"}]}]}}"#, "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:22:00.000Z","message":{"id":"msg_1","content":[{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"ls"}}]}}"#,
+            "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:22:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_2","content":[{"type":"text","text":"file.txt"}]}]}}"#,
+            "\n",
         );
         let parsed = parse_str(transcript, "ses_test");
         let part = &parsed.messages[0].parts[0];
@@ -1021,27 +1061,48 @@ mod tests {
     #[test]
     fn assistant_completed_on_turn_end_but_not_while_streaming() {
         let finished = concat!(
-            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","promptSource":"typed","message":{"role":"user","content":"hi"}}"#, "\n",
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_01","content":[{"type":"text","text":"hello"}]}}"#, "\n",
-            r#"{"type":"system","subtype":"turn_duration","timestamp":"2026-06-28T08:00:02.000Z"}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","promptSource":"typed","message":{"role":"user","content":"hi"}}"#,
+            "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_01","content":[{"type":"text","text":"hello"}]}}"#,
+            "\n",
+            r#"{"type":"system","subtype":"turn_duration","timestamp":"2026-06-28T08:00:02.000Z"}"#,
+            "\n",
         );
         let p = parse_str(finished, "ses");
-        let asst = p.messages.iter().find(|m| m.info["role"] == "assistant").unwrap();
-        assert!(asst.info["time"].get("completed").is_some(), "finished turn should be completed");
+        let asst = p
+            .messages
+            .iter()
+            .find(|m| m.info["role"] == "assistant")
+            .unwrap();
+        assert!(
+            asst.info["time"].get("completed").is_some(),
+            "finished turn should be completed"
+        );
 
         let streaming = concat!(
-            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","promptSource":"typed","message":{"role":"user","content":"hi"}}"#, "\n",
-            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_01","content":[{"type":"text","text":"thinking..."}]}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","promptSource":"typed","message":{"role":"user","content":"hi"}}"#,
+            "\n",
+            r#"{"type":"assistant","timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_01","content":[{"type":"text","text":"thinking..."}]}}"#,
+            "\n",
         );
         let p = parse_str(streaming, "ses");
-        let asst = p.messages.iter().find(|m| m.info["role"] == "assistant").unwrap();
-        assert!(asst.info["time"].get("completed").is_none(), "streaming turn stays in-flight");
+        let asst = p
+            .messages
+            .iter()
+            .find(|m| m.info["role"] == "assistant")
+            .unwrap();
+        assert!(
+            asst.info["time"].get("completed").is_none(),
+            "streaming turn stays in-flight"
+        );
     }
 
     #[test]
     fn parses_agent_id_token() {
         assert_eq!(
-            parse_agent_id("Async agent launched successfully.\nagentId: a1834b2decb148144 (internal)"),
+            parse_agent_id(
+                "Async agent launched successfully.\nagentId: a1834b2decb148144 (internal)"
+            ),
             Some("a1834b2decb148144".to_string())
         );
         assert_eq!(parse_agent_id("no id here"), None);
@@ -1052,15 +1113,29 @@ mod tests {
     #[test]
     fn system_lines_surface_as_bubbles_by_level() {
         let transcript = concat!(
-            r#"{"type":"system","subtype":"informational","level":"warning","content":"Unknown command: /agent. Did you mean /agents?","timestamp":"2026-06-28T08:00:00.000Z"}"#, "\n",
-            r#"{"type":"system","subtype":"informational","level":"error","content":"Tool execution failed","timestamp":"2026-06-28T08:00:01.000Z"}"#, "\n",
-            r#"{"type":"system","subtype":"turn_duration","timestamp":"2026-06-28T08:00:02.000Z"}"#, "\n",
+            r#"{"type":"system","subtype":"informational","level":"warning","content":"Unknown command: /agent. Did you mean /agents?","timestamp":"2026-06-28T08:00:00.000Z"}"#,
+            "\n",
+            r#"{"type":"system","subtype":"informational","level":"error","content":"Tool execution failed","timestamp":"2026-06-28T08:00:01.000Z"}"#,
+            "\n",
+            r#"{"type":"system","subtype":"turn_duration","timestamp":"2026-06-28T08:00:02.000Z"}"#,
+            "\n",
         );
         let p = parse_str(transcript, "ses");
-        let sys: Vec<_> = p.messages.iter().filter(|m| m.info["role"] == "system").collect();
-        assert_eq!(sys.len(), 2, "two content system lines surface; turn_duration does not");
+        let sys: Vec<_> = p
+            .messages
+            .iter()
+            .filter(|m| m.info["role"] == "system")
+            .collect();
+        assert_eq!(
+            sys.len(),
+            2,
+            "two content system lines surface; turn_duration does not"
+        );
         assert_eq!(sys[0].info["variant"], "warning");
-        assert_eq!(sys[0].parts[0]["text"], "Unknown command: /agent. Did you mean /agents?");
+        assert_eq!(
+            sys[0].parts[0]["text"],
+            "Unknown command: /agent. Did you mean /agents?"
+        );
         assert_eq!(sys[1].info["variant"], "error");
     }
 
@@ -1068,10 +1143,15 @@ mod tests {
     #[test]
     fn api_error_message_sets_error_field() {
         let transcript = concat!(
-            r#"{"type":"assistant","isApiErrorMessage":true,"timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_e","content":[{"type":"text","text":"Overloaded. Please try again."}]}}"#, "\n",
+            r#"{"type":"assistant","isApiErrorMessage":true,"timestamp":"2026-06-28T08:00:01.000Z","message":{"id":"msg_e","content":[{"type":"text","text":"Overloaded. Please try again."}]}}"#,
+            "\n",
         );
         let p = parse_str(transcript, "ses");
-        let asst = p.messages.iter().find(|m| m.info["role"] == "assistant").unwrap();
+        let asst = p
+            .messages
+            .iter()
+            .find(|m| m.info["role"] == "assistant")
+            .unwrap();
         assert_eq!(asst.info["error"], "Overloaded. Please try again.");
     }
 
@@ -1081,13 +1161,20 @@ mod tests {
     #[test]
     fn compaction_hides_summary_and_surfaces_metadata_card() {
         let transcript = concat!(
-            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","message":{"role":"user","content":"/compact"}}"#, "\n",
-            r#"{"type":"user","isCompactSummary":true,"isVisibleInTranscriptOnly":true,"timestamp":"2026-06-28T08:01:19.000Z","message":{"role":"user","content":"This session is being continued from a previous conversation…"}}"#, "\n",
-            r#"{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","level":"info","timestamp":"2026-06-28T08:01:20.000Z","compactMetadata":{"trigger":"manual","preTokens":167917,"durationMs":95722}}"#, "\n",
+            r#"{"type":"user","timestamp":"2026-06-28T08:00:00.000Z","message":{"role":"user","content":"/compact"}}"#,
+            "\n",
+            r#"{"type":"user","isCompactSummary":true,"isVisibleInTranscriptOnly":true,"timestamp":"2026-06-28T08:01:19.000Z","message":{"role":"user","content":"This session is being continued from a previous conversation…"}}"#,
+            "\n",
+            r#"{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","level":"info","timestamp":"2026-06-28T08:01:20.000Z","compactMetadata":{"trigger":"manual","preTokens":167917,"durationMs":95722}}"#,
+            "\n",
         );
         let p = parse_str(transcript, "ses");
 
-        let users: Vec<_> = p.messages.iter().filter(|m| m.info["role"] == "user").collect();
+        let users: Vec<_> = p
+            .messages
+            .iter()
+            .filter(|m| m.info["role"] == "user")
+            .collect();
         assert_eq!(users.len(), 1, "only the /compact prompt is a user bubble");
         assert_eq!(users[0].parts[0]["text"], "/compact");
 

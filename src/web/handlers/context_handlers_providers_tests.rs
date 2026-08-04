@@ -20,7 +20,10 @@ fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
         title: format!("title-{id}"),
         parent_id: String::new(),
         directory: dir.into(),
-        time: crate::app::SessionTime { created: 1, updated: 2 },
+        time: crate::app::SessionTime {
+            created: 1,
+            updated: 2,
+        },
     }
 }
 
@@ -142,8 +145,7 @@ async fn context_window_uses_active_session_when_no_query() {
 
     // No session_id query param → resolves the active session, then the
     // provider fetch to the dead base_url fails → 200_000 fallback.
-    let (status, body) =
-        send_json(test_router(state), "GET", "/api/context-window", None).await;
+    let (status, body) = send_json(test_router(state), "GET", "/api/context-window", None).await;
     assert_eq!(status, axum::http::StatusCode::OK);
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["context_limit"], 200_000);

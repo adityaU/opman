@@ -65,7 +65,7 @@ pub(crate) async fn post_blockkit_or_plain(
         )
         .await;
     } else {
-        let _ = super::api::post_message(client, bot_token, channel, &fallback, Some(thread_ts))
-            .await;
+        let _ =
+            super::api::post_message(client, bot_token, channel, &fallback, Some(thread_ts)).await;
     }
 }

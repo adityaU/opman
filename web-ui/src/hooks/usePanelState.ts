@@ -1,6 +1,20 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useResizable } from "./useResizable";
 
+const PANEL_ORDER_KEY = "opman_panel_order";
+const DEFAULT_PANEL_ORDER = ["editor", "git", "terminal", "debug"];
+
+function loadPanelOrder(): string[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PANEL_ORDER_KEY) || "null");
+    if (!Array.isArray(stored)) return DEFAULT_PANEL_ORDER;
+    const valid = stored.filter((id): id is string => DEFAULT_PANEL_ORDER.includes(id));
+    return [...valid, ...DEFAULT_PANEL_ORDER.filter((id) => !valid.includes(id))];
+  } catch {
+    return DEFAULT_PANEL_ORDER;
+  }
+}
+
 interface UsePanelStateOptions {
   initialPanels: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean; debug?: boolean };
   mcpEditorOpenPath: string | null;
@@ -21,6 +35,11 @@ export function usePanelState({
   const [terminalOpen, setTerminalOpen] = useState(initialPanels.terminal);
   const [neovimOpen, setNeovimOpen] = useState(initialPanels.editor);
   const [gitOpen, setGitOpen] = useState(initialPanels.git);
+  const [panelOrder, setPanelOrder] = useState(loadPanelOrder);
+
+  useEffect(() => {
+    try { localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(panelOrder)); } catch { /* storage unavailable */ }
+  }, [panelOrder]);
   const [debugOpen, setDebugOpen] = useState(initialPanels.debug ?? false);
 
   // ── Mounted tracking (stay mounted once first opened) ──
@@ -62,6 +81,15 @@ export function usePanelState({
   const toggleNeovim = useCallback(() => setNeovimOpen((v) => !v), []);
   const toggleGit = useCallback(() => setGitOpen((v) => !v), []);
   const toggleDebug = useCallback(() => setDebugOpen((v) => !v), []);
+  const reorderPanels = useCallback((source: string, target: string) => {
+    setPanelOrder((current) => {
+      if (source === target) return current;
+      const next = current.filter((id) => id !== source);
+      const index = next.indexOf(target);
+      next.splice(index < 0 ? next.length : index, 0, source);
+      return next;
+    });
+  }, []);
 
   const closeTerminal = useCallback(() => setTerminalOpen(false), []);
   const closeNeovim = useCallback(() => setNeovimOpen(false), []);
@@ -95,6 +123,8 @@ export function usePanelState({
       toggle: toggleDebug, close: closeDebug,
     },
     sidePanel: { hasPanel: hasSidePanel, resize: sidePanelResize },
+    panelOrder,
+    reorderPanels,
     focused: focusedPanel,
     focusSidebar,
     focusChat,
@@ -105,7 +135,7 @@ export function usePanelState({
     neovimOpen, editorMounted, toggleNeovim, closeNeovim,
     gitOpen, gitMounted, toggleGit, closeGit,
     debugOpen, toggleDebug, closeDebug,
-    hasSidePanel, sidePanelResize,
+    hasSidePanel, sidePanelResize, panelOrder, reorderPanels,
     focusedPanel, focusSidebar, focusChat, focusSide,
   ]);
 }

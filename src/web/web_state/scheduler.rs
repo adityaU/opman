@@ -45,18 +45,14 @@ impl super::WebStateHandle {
                 .routines
                 .values()
                 .filter(|r| {
-                    r.enabled
-                        && r.trigger == RoutineTrigger::Scheduled
-                        && r.cron_expr.is_some()
+                    r.enabled && r.trigger == RoutineTrigger::Scheduled && r.cron_expr.is_some()
                 })
                 .filter(|r| {
                     // Check if next_run_at is in the past (or not set)
                     match r.next_run_at.as_deref() {
-                        Some(ts) => {
-                            DateTime::parse_from_rfc3339(ts)
-                                .map(|dt| dt <= now)
-                                .unwrap_or(true)
-                        }
+                        Some(ts) => DateTime::parse_from_rfc3339(ts)
+                            .map(|dt| dt <= now)
+                            .unwrap_or(true),
                         None => true, // Never computed — treat as due
                     }
                 })
@@ -97,9 +93,7 @@ impl super::WebStateHandle {
                 .routines
                 .values()
                 .filter(|r| {
-                    r.enabled
-                        && r.trigger == RoutineTrigger::Scheduled
-                        && r.cron_expr.is_some()
+                    r.enabled && r.trigger == RoutineTrigger::Scheduled && r.cron_expr.is_some()
                 })
                 .map(|r| r.id.clone())
                 .collect()
@@ -160,18 +154,15 @@ impl super::WebStateHandle {
 /// The `cron` crate uses 7-field expressions (sec min hour dom month dow year).
 /// We accept 5-field user input (min hour dom month dow) and prepend "0 " and
 /// append " *" to get the 7-field format.
-fn compute_next_run(
-    cron_expr: &str,
-    timezone: Option<&str>,
-) -> Option<DateTime<Utc>> {
+fn compute_next_run(cron_expr: &str, timezone: Option<&str>) -> Option<DateTime<Utc>> {
     // Normalize to the 7-field cron format: sec min hour dom month dow year
     // The frontend sends 6-field expressions: sec min hour dom month dow
     // Standard 5-field (min hour dom month dow) gets sec=0 prepended + year=* appended
     let parts: Vec<&str> = cron_expr.split_whitespace().collect();
     let full_expr = match parts.len() {
-        5 => format!("0 {} *", cron_expr),   // prepend sec=0, append year=*
-        6 => format!("{} *", cron_expr),      // append year=*
-        7 => cron_expr.to_string(),           // already 7-field
+        5 => format!("0 {} *", cron_expr), // prepend sec=0, append year=*
+        6 => format!("{} *", cron_expr),   // append year=*
+        7 => cron_expr.to_string(),        // already 7-field
         _ => return None,
     };
 
@@ -181,12 +172,18 @@ fn compute_next_run(
     if let Some(tz_name) = timezone {
         if let Ok(tz) = tz_name.parse::<chrono_tz::Tz>() {
             let now_in_tz = Utc::now().with_timezone(&tz);
-            return schedule.after(&now_in_tz).next().map(|dt| dt.with_timezone(&Utc));
+            return schedule
+                .after(&now_in_tz)
+                .next()
+                .map(|dt| dt.with_timezone(&Utc));
         }
     }
 
     // Default: compute in UTC
-    schedule.after(&Utc::now()).next().map(|dt| dt.with_timezone(&Utc))
+    schedule
+        .after(&Utc::now())
+        .next()
+        .map(|dt| dt.with_timezone(&Utc))
 }
 
 #[cfg(test)]

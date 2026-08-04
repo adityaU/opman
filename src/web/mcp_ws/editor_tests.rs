@@ -17,7 +17,9 @@ fn state_with_dir(dir: PathBuf) -> ServerState {
 #[tokio::test]
 async fn open_missing_path_errors() {
     let s = test_server_state();
-    let err = handle_editor_open(&s, &serde_json::json!({})).await.unwrap_err();
+    let err = handle_editor_open(&s, &serde_json::json!({}))
+        .await
+        .unwrap_err();
     assert!(err.contains("Missing required 'path'"));
 }
 
@@ -40,9 +42,12 @@ async fn open_absolute_with_line() {
     let f = dir.path().join("a.txt");
     std::fs::write(&f, "hi").unwrap();
     let s = test_server_state();
-    let msg = handle_editor_open(&s, &serde_json::json!({"path": f.to_string_lossy(), "line": 12}))
-        .await
-        .unwrap();
+    let msg = handle_editor_open(
+        &s,
+        &serde_json::json!({"path": f.to_string_lossy(), "line": 12}),
+    )
+    .await
+    .unwrap();
     assert!(msg.contains("at line 12"));
 }
 
@@ -87,7 +92,9 @@ fn write_lines(dir: &std::path::Path, name: &str) -> PathBuf {
 #[tokio::test]
 async fn read_missing_path_errors() {
     let s = test_server_state();
-    assert!(handle_editor_read(&s, &serde_json::json!({})).await.is_err());
+    assert!(handle_editor_read(&s, &serde_json::json!({}))
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -120,9 +127,12 @@ async fn read_start_only() {
     let dir = tempfile::tempdir().unwrap();
     let f = write_lines(dir.path(), "r.txt");
     let s = test_server_state();
-    let out = handle_editor_read(&s, &serde_json::json!({"path": f.to_string_lossy(), "start_line": 4}))
-        .await
-        .unwrap();
+    let out = handle_editor_read(
+        &s,
+        &serde_json::json!({"path": f.to_string_lossy(), "start_line": 4}),
+    )
+    .await
+    .unwrap();
     assert_eq!(out, "l4\nl5");
 }
 
@@ -131,9 +141,12 @@ async fn read_end_only() {
     let dir = tempfile::tempdir().unwrap();
     let f = write_lines(dir.path(), "r.txt");
     let s = test_server_state();
-    let out = handle_editor_read(&s, &serde_json::json!({"path": f.to_string_lossy(), "end_line": 2}))
-        .await
-        .unwrap();
+    let out = handle_editor_read(
+        &s,
+        &serde_json::json!({"path": f.to_string_lossy(), "end_line": 2}),
+    )
+    .await
+    .unwrap();
     assert_eq!(out, "l1\nl2");
 }
 
@@ -142,9 +155,12 @@ async fn read_end_beyond_eof_clamps() {
     let dir = tempfile::tempdir().unwrap();
     let f = write_lines(dir.path(), "r.txt");
     let s = test_server_state();
-    let out = handle_editor_read(&s, &serde_json::json!({"path": f.to_string_lossy(), "end_line": 999}))
-        .await
-        .unwrap();
+    let out = handle_editor_read(
+        &s,
+        &serde_json::json!({"path": f.to_string_lossy(), "end_line": 999}),
+    )
+    .await
+    .unwrap();
     assert_eq!(out, "l1\nl2\nl3\nl4\nl5");
 }
 
@@ -162,9 +178,12 @@ async fn read_start_past_eof_errors_both_variants() {
     .unwrap_err();
     assert!(e1.contains("past end of file"));
     // start only
-    let e2 = handle_editor_read(&s, &serde_json::json!({"path": f.to_string_lossy(), "start_line": 100}))
-        .await
-        .unwrap_err();
+    let e2 = handle_editor_read(
+        &s,
+        &serde_json::json!({"path": f.to_string_lossy(), "start_line": 100}),
+    )
+    .await
+    .unwrap_err();
     assert!(e2.contains("past end of file"));
 }
 
@@ -182,9 +201,12 @@ async fn read_relative_with_working_dir() {
     let dir = tempfile::tempdir().unwrap();
     write_lines(dir.path(), "rel.txt");
     let s = state_with_dir(dir.path().to_path_buf());
-    let out = handle_editor_read(&s, &serde_json::json!({"path": "rel.txt", "start_line": 1, "end_line": 1}))
-        .await
-        .unwrap();
+    let out = handle_editor_read(
+        &s,
+        &serde_json::json!({"path": "rel.txt", "start_line": 1, "end_line": 1}),
+    )
+    .await
+    .unwrap();
     assert_eq!(out, "l1");
 }
 
@@ -193,7 +215,9 @@ async fn read_relative_with_working_dir() {
 #[tokio::test]
 async fn list_no_working_dir_errors() {
     let s = test_server_state();
-    let err = handle_editor_list(&s, &serde_json::json!({})).await.unwrap_err();
+    let err = handle_editor_list(&s, &serde_json::json!({}))
+        .await
+        .unwrap_err();
     assert!(err.contains("No active project directory"));
 }
 
@@ -211,7 +235,9 @@ async fn list_walks_tree_and_skips_ignored() {
     std::fs::write(root.join(".hidden"), "").unwrap();
 
     let s = state_with_dir(root.to_path_buf());
-    let out = handle_editor_list(&s, &serde_json::json!({})).await.unwrap();
+    let out = handle_editor_list(&s, &serde_json::json!({}))
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
     let files: Vec<String> = v["files"]
         .as_array()
@@ -235,9 +261,16 @@ async fn list_depth_zero_does_not_descend() {
     std::fs::create_dir(root.join("sub")).unwrap();
     std::fs::write(root.join("sub").join("deep.rs"), "").unwrap();
     let s = state_with_dir(root.to_path_buf());
-    let out = handle_editor_list(&s, &serde_json::json!({"depth": 0})).await.unwrap();
+    let out = handle_editor_list(&s, &serde_json::json!({"depth": 0}))
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
-    let files: Vec<String> = v["files"].as_array().unwrap().iter().map(|f| f.as_str().unwrap().to_string()).collect();
+    let files: Vec<String> = v["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f.as_str().unwrap().to_string())
+        .collect();
     // The directory itself is listed, but its contents (depth 1) are not.
     assert!(files.iter().any(|f| f == "sub/"));
     assert!(!files.iter().any(|f| f.contains("deep.rs")));
@@ -259,7 +292,9 @@ async fn list_subpath_pointing_at_file_yields_empty() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("f.txt"), "x").unwrap();
     let s = state_with_dir(dir.path().to_path_buf());
-    let out = handle_editor_list(&s, &serde_json::json!({"path": "f.txt"})).await.unwrap();
+    let out = handle_editor_list(&s, &serde_json::json!({"path": "f.txt"}))
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert_eq!(v["count"], 0);
 }

@@ -95,7 +95,8 @@ where
             }
         };
 
-        if let Some(resp) = route_request(internal.as_ref(), &req.method, req.params, req.id).await {
+        if let Some(resp) = route_request(internal.as_ref(), &req.method, req.params, req.id).await
+        {
             write_response(&mut writer, &resp).await;
         }
     }

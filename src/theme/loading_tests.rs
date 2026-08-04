@@ -7,7 +7,7 @@ use tempfile::TempDir;
 // Serialize all tests that mutate process environment variables. Survives
 // poisoning so one failing test does not cascade into the rest.
 #[allow(unused_imports)]
-use crate::claude_engine::claude_cli::ENV_LOCK as ENV_LOCK;
+use crate::claude_engine::claude_cli::ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
@@ -66,7 +66,11 @@ fn kv_present_returns_theme_and_mode() {
     let tmp = TempDir::new().unwrap();
     let oc = tmp.path().join("opencode");
     fs::create_dir_all(&oc).unwrap();
-    fs::write(oc.join("kv.json"), r#"{"theme":"mytheme","theme_mode":"light"}"#).unwrap();
+    fs::write(
+        oc.join("kv.json"),
+        r#"{"theme":"mytheme","theme_mode":"light"}"#,
+    )
+    .unwrap();
     let _e = EnvGuard::new(&[("XDG_STATE_HOME", Some(tmp.path()))]);
     assert_eq!(
         read_theme_from_kv(),
@@ -138,7 +142,11 @@ fn active_theme_from_kv_short_circuits() {
     let tmp = TempDir::new().unwrap();
     let oc = tmp.path().join("opencode");
     fs::create_dir_all(&oc).unwrap();
-    fs::write(oc.join("kv.json"), r#"{"theme":"kvtheme","theme_mode":"light"}"#).unwrap();
+    fs::write(
+        oc.join("kv.json"),
+        r#"{"theme":"kvtheme","theme_mode":"light"}"#,
+    )
+    .unwrap();
     let _e = EnvGuard::new(&[("XDG_STATE_HOME", Some(tmp.path()))]);
     assert_eq!(
         read_active_theme_name().unwrap(),

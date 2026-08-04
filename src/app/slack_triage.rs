@@ -46,7 +46,13 @@ impl App {
             let triage_dir_str = triage_dir.to_string_lossy().to_string();
             tokio::spawn(async move {
                 Self::run_triage(
-                    bg_tx, base_url, triage_dir_str, prompt, ts, channel, original_text,
+                    bg_tx,
+                    base_url,
+                    triage_dir_str,
+                    prompt,
+                    ts,
+                    channel,
+                    original_text,
                 )
                 .await;
             });

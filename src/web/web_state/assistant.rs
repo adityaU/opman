@@ -106,10 +106,7 @@ impl super::WebStateHandle {
         match action {
             MissionAction::Start => {
                 if mission.state != MissionState::Pending {
-                    return Err(format!(
-                        "Cannot start mission in state {:?}",
-                        mission.state
-                    ));
+                    return Err(format!("Cannot start mission in state {:?}", mission.state));
                 }
                 mission.state = MissionState::Executing;
                 mission.iteration = 1;
@@ -120,10 +117,7 @@ impl super::WebStateHandle {
                     mission.state,
                     MissionState::Executing | MissionState::Evaluating
                 ) {
-                    return Err(format!(
-                        "Cannot pause mission in state {:?}",
-                        mission.state
-                    ));
+                    return Err(format!("Cannot pause mission in state {:?}", mission.state));
                 }
                 mission.state = MissionState::Paused;
                 mission.updated_at = Utc::now().to_rfc3339();
@@ -177,10 +171,11 @@ impl super::WebStateHandle {
         // Find an active mission for this session
         let mission = {
             let state = self.inner.read().await;
-            state.missions.values().find(|m| {
-                m.session_id == session_id
-                    && matches!(m.state, MissionState::Executing)
-            }).cloned()
+            state
+                .missions
+                .values()
+                .find(|m| m.session_id == session_id && matches!(m.state, MissionState::Executing))
+                .cloned()
         };
 
         let Some(mission) = mission else { return };
@@ -205,10 +200,11 @@ impl super::WebStateHandle {
     pub(super) async fn on_mission_evaluation_complete(&self, session_id: &str) {
         let mission = {
             let state = self.inner.read().await;
-            state.missions.values().find(|m| {
-                m.session_id == session_id
-                    && matches!(m.state, MissionState::Evaluating)
-            }).cloned()
+            state
+                .missions
+                .values()
+                .find(|m| m.session_id == session_id && matches!(m.state, MissionState::Evaluating))
+                .cloned()
         };
 
         let Some(mission) = mission else { return };
@@ -226,8 +222,11 @@ impl super::WebStateHandle {
         };
 
         // Update mission state based on verdict
-        let (new_state, new_iteration) =
-            apply_verdict(&eval_result.verdict, mission.iteration, mission.max_iterations);
+        let (new_state, new_iteration) = apply_verdict(
+            &eval_result.verdict,
+            mission.iteration,
+            mission.max_iterations,
+        );
 
         let should_continue = new_state == MissionState::Executing;
 
@@ -250,7 +249,8 @@ impl super::WebStateHandle {
 
         // If continuing, send the next execution prompt
         if should_continue {
-            self.send_continuation_prompt(&updated, eval_result.next_step.as_deref()).await;
+            self.send_continuation_prompt(&updated, eval_result.next_step.as_deref())
+                .await;
         }
     }
 
@@ -271,11 +271,12 @@ impl super::WebStateHandle {
              Work toward achieving this goal. When you believe you have made \
              meaningful progress or completed the goal, stop and let me know \
              what you accomplished.",
-            mission.goal,
-            mission.iteration,
+            mission.goal, mission.iteration,
         );
 
-        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
+        let _ = self
+            .send_to_session(&mission.session_id, &mission.project_index, &prompt, None)
+            .await;
     }
 
     /// Send the evaluator prompt into the session.
@@ -283,14 +284,16 @@ impl super::WebStateHandle {
         let history_context = if mission.eval_history.is_empty() {
             String::new()
         } else {
-            let entries: Vec<String> = mission.eval_history.iter().map(|r| {
-                format!(
-                    "- Iteration {}: {:?} — {}",
-                    r.iteration,
-                    r.verdict,
-                    r.summary,
-                )
-            }).collect();
+            let entries: Vec<String> = mission
+                .eval_history
+                .iter()
+                .map(|r| {
+                    format!(
+                        "- Iteration {}: {:?} — {}",
+                        r.iteration, r.verdict, r.summary,
+                    )
+                })
+                .collect();
             format!("\n\nPrevious evaluation history:\n{}", entries.join("\n"))
         };
 
@@ -319,7 +322,9 @@ impl super::WebStateHandle {
             history_context,
         );
 
-        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
+        let _ = self
+            .send_to_session(&mission.session_id, &mission.project_index, &prompt, None)
+            .await;
     }
 
     /// Send a continuation prompt after evaluation says "continue".
@@ -334,12 +339,12 @@ impl super::WebStateHandle {
              {}\
              This is iteration {} of the mission. \
              Continue making progress toward the goal.",
-            mission.goal,
-            step_instruction,
-            mission.iteration,
+            mission.goal, step_instruction, mission.iteration,
         );
 
-        let _ = self.send_to_session(&mission.session_id, &mission.project_index, &prompt, None).await;
+        let _ = self
+            .send_to_session(&mission.session_id, &mission.project_index, &prompt, None)
+            .await;
     }
 
     /// Send a message to a session via the opencode proxy.
@@ -355,7 +360,9 @@ impl super::WebStateHandle {
     ) -> Result<(), String> {
         let dir = {
             let state = self.inner.read().await;
-            state.projects.get(*project_index)
+            state
+                .projects
+                .get(*project_index)
                 .map(|p| p.path.to_string_lossy().to_string())
                 .unwrap_or_default()
         };
@@ -415,7 +422,9 @@ impl super::WebStateHandle {
     async fn parse_latest_eval_response(&self, mission: &Mission) -> EvalResult {
         let dir = {
             let state = self.inner.read().await;
-            state.projects.get(mission.project_index)
+            state
+                .projects
+                .get(mission.project_index)
                 .map(|p| p.path.to_string_lossy().to_string())
                 .unwrap_or_default()
         };
@@ -454,7 +463,9 @@ impl super::WebStateHandle {
     /// Broadcast a mission update event via SSE.
     fn broadcast_mission_update(&self, mission: &Mission) {
         let payload = serde_json::to_value(mission).unwrap_or_default();
-        let _ = self.event_tx.send(WebEvent::MissionUpdated { mission: payload });
+        let _ = self
+            .event_tx
+            .send(WebEvent::MissionUpdated { mission: payload });
     }
 
     /// Called from the SSE handler when a session becomes idle.
@@ -463,9 +474,13 @@ impl super::WebStateHandle {
         // Check if any mission is bound to this session and in an active state
         let mission_state = {
             let state = self.inner.read().await;
-            state.missions.values()
-                .find(|m| m.session_id == session_id
-                    && matches!(m.state, MissionState::Executing | MissionState::Evaluating))
+            state
+                .missions
+                .values()
+                .find(|m| {
+                    m.session_id == session_id
+                        && matches!(m.state, MissionState::Executing | MissionState::Evaluating)
+                })
                 .map(|m| m.state.clone())
         };
 
@@ -491,7 +506,10 @@ impl super::WebStateHandle {
     }
 
     /// Create a personal memory item.
-    pub async fn create_personal_memory(&self, req: CreatePersonalMemoryRequest) -> PersonalMemoryItem {
+    pub async fn create_personal_memory(
+        &self,
+        req: CreatePersonalMemoryRequest,
+    ) -> PersonalMemoryItem {
         let now = Utc::now().to_rfc3339();
         let item = PersonalMemoryItem {
             id: format!("memory-{}", uuid_like_id()),
@@ -618,7 +636,11 @@ impl super::WebStateHandle {
     }
 
     /// Update a routine.
-    pub async fn update_routine(&self, routine_id: &str, req: UpdateRoutineRequest) -> Option<RoutineDefinition> {
+    pub async fn update_routine(
+        &self,
+        routine_id: &str,
+        req: UpdateRoutineRequest,
+    ) -> Option<RoutineDefinition> {
         let mut state = self.inner.write().await;
         let routine = state.routines.get_mut(routine_id)?;
 
@@ -729,27 +751,42 @@ impl super::WebStateHandle {
     pub async fn execute_routine(&self, routine_id: &str) -> Result<RoutineRunRecord, String> {
         let routine = {
             let state = self.inner.read().await;
-            state.routines.get(routine_id).cloned()
+            state
+                .routines
+                .get(routine_id)
+                .cloned()
                 .ok_or_else(|| "Routine not found".to_string())?
         };
 
         if routine.action != RoutineAction::SendMessage {
             // Legacy actions don't have backend execution — just record the run
-            let run = self.record_routine_run(
-                routine_id,
-                format!("Executed legacy action: {:?}", routine.action),
-                None, None, "completed",
-            ).await;
+            let run = self
+                .record_routine_run(
+                    routine_id,
+                    format!("Executed legacy action: {:?}", routine.action),
+                    None,
+                    None,
+                    "completed",
+                )
+                .await;
             return Ok(run);
         }
 
         let prompt = routine.prompt.as_deref().unwrap_or("").trim();
         if prompt.is_empty() {
-            let _run = self.record_routine_run(
-                routine_id, "No prompt configured".to_string(),
-                None, None, "failed",
-            ).await;
-            return Err(format!("Routine '{}' has no prompt configured", routine.name));
+            let _run = self
+                .record_routine_run(
+                    routine_id,
+                    "No prompt configured".to_string(),
+                    None,
+                    None,
+                    "failed",
+                )
+                .await;
+            return Err(format!(
+                "Routine '{}' has no prompt configured",
+                routine.name
+            ));
         }
 
         let start = std::time::Instant::now();
@@ -762,10 +799,15 @@ impl super::WebStateHandle {
                 match self.create_session_for_routine(project_index).await {
                     Ok(id) => id,
                     Err(e) => {
-                        let _run = self.record_routine_run(
-                            routine_id, format!("Failed to create session: {e}"),
-                            None, None, "failed",
-                        ).await;
+                        let _run = self
+                            .record_routine_run(
+                                routine_id,
+                                format!("Failed to create session: {e}"),
+                                None,
+                                None,
+                                "failed",
+                            )
+                            .await;
                         return Err(e);
                     }
                 }
@@ -775,10 +817,15 @@ impl super::WebStateHandle {
                 match routine.session_id.as_deref() {
                     Some(id) if !id.is_empty() => id.to_string(),
                     _ => {
-                        let _run = self.record_routine_run(
-                            routine_id, "No target session configured".to_string(),
-                            None, None, "failed",
-                        ).await;
+                        let _run = self
+                            .record_routine_run(
+                                routine_id,
+                                "No target session configured".to_string(),
+                                None,
+                                None,
+                                "failed",
+                            )
+                            .await;
                         return Err("No target session configured".to_string());
                     }
                 }
@@ -799,27 +846,37 @@ impl super::WebStateHandle {
         };
 
         // Send the message
-        if let Err(e) = self.send_to_session(&session_id, &project_index, prompt, model_ref.as_ref()).await {
+        if let Err(e) = self
+            .send_to_session(&session_id, &project_index, prompt, model_ref.as_ref())
+            .await
+        {
             let elapsed = start.elapsed().as_millis() as u64;
-            let _run = self.record_routine_run(
-                routine_id,
-                format!("Failed to send message: {e}"),
-                Some(session_id),
-                Some(elapsed),
-                "failed",
-            ).await;
+            let _run = self
+                .record_routine_run(
+                    routine_id,
+                    format!("Failed to send message: {e}"),
+                    Some(session_id),
+                    Some(elapsed),
+                    "failed",
+                )
+                .await;
             return Err(e);
         }
 
         let elapsed = start.elapsed().as_millis() as u64;
 
-        let run = self.record_routine_run(
-            routine_id,
-            format!("Sent message to session {}", &session_id[..session_id.len().min(12)]),
-            Some(session_id),
-            Some(elapsed),
-            "completed",
-        ).await;
+        let run = self
+            .record_routine_run(
+                routine_id,
+                format!(
+                    "Sent message to session {}",
+                    &session_id[..session_id.len().min(12)]
+                ),
+                Some(session_id),
+                Some(elapsed),
+                "completed",
+            )
+            .await;
 
         Ok(run)
     }
@@ -873,7 +930,9 @@ impl super::WebStateHandle {
     async fn create_session_for_routine(&self, project_index: usize) -> Result<String, String> {
         let dir = {
             let state = self.inner.read().await;
-            state.projects.get(project_index)
+            state
+                .projects
+                .get(project_index)
                 .map(|p| p.path.to_string_lossy().to_string())
                 .unwrap_or_default()
         };
@@ -895,7 +954,9 @@ impl super::WebStateHandle {
             .await
         {
             Ok(resp) if resp.status().is_success() => {
-                let body: serde_json::Value = resp.json().await
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
                     .map_err(|e| format!("Failed to parse session response: {e}"))?;
                 parse_session_id_from_body(&body)
             }
@@ -908,7 +969,6 @@ impl super::WebStateHandle {
     fn broadcast_routine_update(&self) {
         let _ = self.event_tx.send(WebEvent::RoutineUpdated);
     }
-
 }
 
 #[cfg(test)]
@@ -950,9 +1010,7 @@ pub(crate) fn map_send_status(status: reqwest::StatusCode) -> Result<(), String>
 }
 
 /// Extract a session ID from a `POST /session` response body.
-pub(crate) fn parse_session_id_from_body(
-    body: &serde_json::Value,
-) -> Result<String, String> {
+pub(crate) fn parse_session_id_from_body(body: &serde_json::Value) -> Result<String, String> {
     body.get("id")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
@@ -977,11 +1035,11 @@ pub(crate) fn parse_eval_messages_body(body: &serde_json::Value) -> EvalResult {
     // Find the latest assistant message by time
     let latest_assistant = messages
         .iter()
-        .filter(|m| {
-            m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant")
-        })
+        .filter(|m| m.pointer("/info/role").and_then(|v| v.as_str()) == Some("assistant"))
         .max_by_key(|m| {
-            m.pointer("/info/time/created").and_then(|v| v.as_u64()).unwrap_or(0)
+            m.pointer("/info/time/created")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
         });
 
     let Some(msg) = latest_assistant else {
@@ -1119,7 +1177,10 @@ fn parse_eval_json(text: &str) -> EvalResult {
         Err(_) => {
             // Could not parse JSON — try heuristic detection
             let lower = text.to_lowercase();
-            if lower.contains("achieved") || lower.contains("goal has been met") || lower.contains("completed successfully") {
+            if lower.contains("achieved")
+                || lower.contains("goal has been met")
+                || lower.contains("completed successfully")
+            {
                 EvalResult {
                     verdict: EvalVerdict::Achieved,
                     summary: text.chars().take(200).collect(),

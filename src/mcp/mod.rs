@@ -12,6 +12,6 @@ pub use bridge::run_mcp_bridge;
 pub use opencode_json::write_opencode_json;
 pub use server::spawn_socket_server;
 pub use types::{
-    EditOp, NvimSocketRegistry, PendingSocketRequest, SocketRequest, SocketResponse, TabInfo,
-    cleanup_socket, new_nvim_socket_registry, socket_path_for_project,
+    cleanup_socket, new_nvim_socket_registry, socket_path_for_project, EditOp, NvimSocketRegistry,
+    PendingSocketRequest, SocketRequest, SocketResponse, TabInfo,
 };

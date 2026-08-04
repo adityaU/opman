@@ -10,7 +10,13 @@ fn engine() -> Arc<ClaudeEngine> {
 }
 
 fn set_uuid(e: &Arc<ClaudeEngine>, sid: &str, uuid: &str) {
-    e.reg.lock().unwrap().sessions.get_mut(sid).unwrap().claude_session_id = Some(uuid.to_string());
+    e.reg
+        .lock()
+        .unwrap()
+        .sessions
+        .get_mut(sid)
+        .unwrap()
+        .claude_session_id = Some(uuid.to_string());
 }
 
 fn set_busy_flag(e: &Arc<ClaudeEngine>, sid: &str) {
@@ -43,7 +49,13 @@ async fn poller_failed_state_not_seen_does_not_notify() {
     // `seen_busy` is empty — we never observed this turn running (e.g. a pre-existing
     // failed agent from an earlier opman run), so no error bubble is surfaced.
     let mut rx = e.subscribe();
-    tick_status_poller(&e, &[agent("u1", Some("failed"))], &mut absent, &mut seen, &mut notified);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("failed"))],
+        &mut absent,
+        &mut seen,
+        &mut notified,
+    );
     assert!(!notified.contains("u1"));
     // No error bubble is surfaced: if any event is emitted it is at most the
     // (idle) session.status flip, never a message.updated error.
@@ -61,7 +73,13 @@ async fn poller_busy_to_idle_edge_without_queue() {
     set_busy_flag(&e, &s.id);
     let (mut absent, mut seen, mut notified) = maps();
     // Agent reports done and there is no queued follow-up → flips idle, no re-dispatch.
-    tick_status_poller(&e, &[agent("u1", Some("done"))], &mut absent, &mut seen, &mut notified);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("done"))],
+        &mut absent,
+        &mut seen,
+        &mut notified,
+    );
     assert!(!e.get_session(&s.id).unwrap().busy);
     assert!(!e.is_dispatching(&s.id)); // nothing queued → no spawn_turn
 }
@@ -77,7 +95,13 @@ async fn poller_reappears_busy_clears_absence() {
     tick_status_poller(&e, &[], &mut absent, &mut seen, &mut notified);
     assert_eq!(absent.get("u1"), Some(&1));
     // The agent reappears working → the absence counter is cleared and it stays busy.
-    tick_status_poller(&e, &[agent("u1", Some("working"))], &mut absent, &mut seen, &mut notified);
+    tick_status_poller(
+        &e,
+        &[agent("u1", Some("working"))],
+        &mut absent,
+        &mut seen,
+        &mut notified,
+    );
     assert!(!absent.contains_key("u1"));
     assert!(e.get_session(&s.id).unwrap().busy);
     assert!(seen.contains("u1"));

@@ -51,12 +51,17 @@ async fn new_spawns_and_returns_id_rows_cols() {
 #[tokio::test]
 async fn run_no_wait_sends_command_and_emits_focus() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
     let mut rx = state.event_tx.subscribe();
-    let msg = handle_terminal_run(&state, &serde_json::json!({"id": id, "command": "echo hello"}))
-        .await
-        .unwrap();
+    let msg = handle_terminal_run(
+        &state,
+        &serde_json::json!({"id": id, "command": "echo hello"}),
+    )
+    .await
+    .unwrap();
     assert_eq!(msg, "Command sent");
 
     // The focus event must have been broadcast for this id.
@@ -76,10 +81,13 @@ async fn run_no_wait_sends_command_and_emits_focus() {
 #[tokio::test]
 async fn run_wait_collects_output_or_fallback() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
     // wait=true with a small timeout drives the settle/poll loop.
-    let args = serde_json::json!({"id": id, "command": "echo settle-marker", "wait": true, "timeout": 2});
+    let args =
+        serde_json::json!({"id": id, "command": "echo settle-marker", "wait": true, "timeout": 2});
     let fut = handle_terminal_run(&state, &args);
     let out = tokio::time::timeout(std::time::Duration::from_secs(6), fut)
         .await
@@ -97,18 +105,30 @@ async fn run_wait_collects_output_or_fallback() {
 #[tokio::test]
 async fn read_returns_output_then_drains_empty() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
     // Produce some output and let it flush.
-    let _ = handle_terminal_run(&state, &serde_json::json!({"id": id, "command": "echo read-marker"}))
-        .await;
+    let _ = handle_terminal_run(
+        &state,
+        &serde_json::json!({"id": id, "command": "echo read-marker"}),
+    )
+    .await;
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-    let first = handle_terminal_read(&state, &serde_json::json!({"id": id})).await.unwrap();
-    assert_ne!(first, "[no new output]", "expected real output on first read");
+    let first = handle_terminal_read(&state, &serde_json::json!({"id": id}))
+        .await
+        .unwrap();
+    assert_ne!(
+        first, "[no new output]",
+        "expected real output on first read"
+    );
 
     // A second immediate read has nothing new to drain.
-    let second = handle_terminal_read(&state, &serde_json::json!({"id": id})).await.unwrap();
+    let second = handle_terminal_read(&state, &serde_json::json!({"id": id}))
+        .await
+        .unwrap();
     assert_eq!(second, "[no new output]");
 
     let _ = handle_terminal_close(&state, &serde_json::json!({"id": id})).await;
@@ -117,7 +137,9 @@ async fn read_returns_output_then_drains_empty() {
 #[tokio::test]
 async fn read_last_n_slices_to_single_line() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
     // Drain the shell's startup/prompt output first.
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
@@ -130,10 +152,15 @@ async fn read_last_n_slices_to_single_line() {
     .await;
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-    let out = handle_terminal_read(&state, &serde_json::json!({"id": id, "last_n": 1})).await.unwrap();
+    let out = handle_terminal_read(&state, &serde_json::json!({"id": id, "last_n": 1}))
+        .await
+        .unwrap();
     if out != "[no new output]" {
         // last_n=1 joins exactly one line → no embedded newline.
-        assert!(!out.contains('\n'), "last_n=1 should yield a single line, got {out:?}");
+        assert!(
+            !out.contains('\n'),
+            "last_n=1 should yield a single line, got {out:?}"
+        );
     }
 
     let _ = handle_terminal_close(&state, &serde_json::json!({"id": id})).await;
@@ -142,12 +169,19 @@ async fn read_last_n_slices_to_single_line() {
 #[tokio::test]
 async fn list_includes_live_terminal() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
     let out = handle_terminal_list(&state).await.unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert!(v["count"].as_u64().unwrap() >= 1);
-    let ids: Vec<&str> = v["terminals"].as_array().unwrap().iter().filter_map(|x| x.as_str()).collect();
+    let ids: Vec<&str> = v["terminals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|x| x.as_str())
+        .collect();
     assert!(ids.contains(&id.as_str()));
 
     let _ = handle_terminal_close(&state, &serde_json::json!({"id": id})).await;
@@ -156,12 +190,18 @@ async fn list_includes_live_terminal() {
 #[tokio::test]
 async fn close_live_then_missing() {
     let state = live_state();
-    let Some(id) = spawn_terminal(&state).await else { return };
+    let Some(id) = spawn_terminal(&state).await else {
+        return;
+    };
 
-    let ok = handle_terminal_close(&state, &serde_json::json!({"id": id})).await.unwrap();
+    let ok = handle_terminal_close(&state, &serde_json::json!({"id": id}))
+        .await
+        .unwrap();
     assert!(ok.contains("closed"));
 
     // Closing again → not found.
-    let err = handle_terminal_close(&state, &serde_json::json!({"id": id})).await.unwrap_err();
+    let err = handle_terminal_close(&state, &serde_json::json!({"id": id}))
+        .await
+        .unwrap_err();
     assert!(err.contains("not found"));
 }

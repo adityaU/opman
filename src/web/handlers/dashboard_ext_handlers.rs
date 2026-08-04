@@ -8,10 +8,7 @@ use super::super::auth::AuthUser;
 use super::super::types::*;
 
 /// GET /api/routines — list routines and run history.
-pub async fn list_routines(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn list_routines(State(state): State<ServerState>, _auth: AuthUser) -> impl IntoResponse {
     let (routines, runs) = state.web_state.list_routines().await;
     Json(super::super::types::RoutinesListResponse { routines, runs })
 }
@@ -65,12 +62,12 @@ pub async fn run_routine(
             .web_state
             .record_routine_run(&routine_id, summary, None, None, "completed")
             .await;
-        return (StatusCode::OK, Json(serde_json::to_value(run).unwrap())).into_response();
+        return (StatusCode::OK, Json(run)).into_response();
     }
 
     // Otherwise, execute the routine server-side
     match state.web_state.execute_routine(&routine_id).await {
-        Ok(run) => (StatusCode::OK, Json(serde_json::to_value(run).unwrap())).into_response(),
+        Ok(run) => (StatusCode::OK, Json(run)).into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": e })),

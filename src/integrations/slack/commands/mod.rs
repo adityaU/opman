@@ -2,8 +2,8 @@
 
 mod command_api;
 mod info;
-mod model;
 mod modals;
+mod model;
 mod session_control;
 mod session_route;
 mod slash;
@@ -25,7 +25,10 @@ use super::state::SlackState;
 use command_api::do_passthrough_command;
 use info::{do_help_command, do_messages_command, do_status_command, do_todos_command};
 use model::do_model_command;
-use session_control::{do_compact_command, do_detach_command, do_export_command, do_redo_command, do_stop_command, do_undo_command, do_watcher_command};
+use session_control::{
+    do_compact_command, do_detach_command, do_export_command, do_redo_command, do_stop_command,
+    do_undo_command, do_watcher_command,
+};
 use test_blockkit::do_test_blockkit_command;
 
 // ── Slack Thread Slash Commands ─────────────────────────────────────────

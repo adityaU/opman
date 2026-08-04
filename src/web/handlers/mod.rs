@@ -6,36 +6,36 @@
 //! State queries use the independent `WebStateHandle` (no TUI dependency).
 //! Terminal I/O goes directly to the `WebPtyManager` (independent web PTYs).
 
-mod common;
-mod auth_handlers;
-mod state_handlers;
-mod project_handlers;
-mod pty_handlers;
-mod session_handlers;
-mod git_handlers;
-mod git_ext_handlers;
-mod git_context_handlers;
 mod agents_handlers;
-mod files_handlers;
-mod download_handlers;
+mod auth_handlers;
+mod common;
+mod context_handlers;
+mod dashboard_ext_handlers;
+mod dashboard_handlers;
+mod doc_handlers;
 mod doc_readers;
 mod doc_readers_docx;
 mod doc_writers;
 mod doc_writers_html;
-mod doc_handlers;
+mod download_handlers;
 mod editor_handlers;
-mod context_handlers;
-mod search_handlers;
-mod watcher_handlers;
-mod dashboard_handlers;
-mod dashboard_ext_handlers;
-mod intelligence_handlers;
-pub(crate) mod system_handlers;
-mod skills_handlers;
+mod files_handlers;
+mod git_context_handlers;
+mod git_ext_handlers;
+mod git_handlers;
 mod health_handlers;
+mod intelligence_handlers;
 mod kanban_handlers;
 mod kanban_internal;
 mod kanban_internal_query;
+mod project_handlers;
+mod pty_handlers;
+mod search_handlers;
+mod session_handlers;
+mod skills_handlers;
+mod state_handlers;
+pub(crate) mod system_handlers;
+mod watcher_handlers;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -47,87 +47,96 @@ mod handler_tests;
 
 pub use auth_handlers::{health, login, verify};
 
-pub use state_handlers::{get_state, get_session_stats, get_theme, list_themes, switch_theme, public_bootstrap};
-
-pub use project_handlers::{
-    switch_project, select_session, new_session, add_project, remove_project,
-    home_dir, browse_dirs, toggle_panel, focus_panel,
+pub use state_handlers::{
+    get_session_stats, get_state, get_theme, list_themes, public_bootstrap, switch_theme,
 };
 
-pub use pty_handlers::{spawn_pty, pty_write, pty_resize, pty_kill, pty_list};
+pub use project_handlers::{
+    add_project, browse_dirs, focus_panel, home_dir, new_session, remove_project, select_session,
+    switch_project, toggle_panel,
+};
+
+pub use pty_handlers::{pty_kill, pty_list, pty_resize, pty_write, spawn_pty};
 
 pub use session_handlers::{
-    get_session_messages, send_message, abort_session, delete_session, rename_session,
-    execute_command, get_providers, get_commands, reply_permission, reply_question,
-    get_pending, mark_session_seen, a2ui_callback,
-    get_session_queue, clear_session_queue, remove_session_queue_item,
+    a2ui_callback, abort_session, clear_session_queue, delete_session, execute_command,
+    get_commands, get_pending, get_providers, get_session_messages, get_session_queue,
+    mark_session_seen, remove_session_queue_item, rename_session, reply_permission, reply_question,
+    send_message,
 };
 
 pub use git_handlers::{
-    git_status, git_diff, git_log, git_stage, git_unstage, git_commit, git_discard,
+    git_commit, git_diff, git_discard, git_log, git_stage, git_status, git_unstage,
 };
 
-pub use git_ext_handlers::{git_show, git_branches, git_checkout, git_range_diff, git_pull, git_stash, git_gitignore};
+pub use git_ext_handlers::{
+    git_branches, git_checkout, git_gitignore, git_pull, git_range_diff, git_show, git_stash,
+};
 
 pub use git_context_handlers::{git_context_summary, git_repos};
 
 pub use agents_handlers::get_agents;
 
-pub use files_handlers::{browse_files, read_file, read_file_raw, write_file, create_file, create_dir, delete_file, delete_dir, upload_files, rename_entry, search_files};
+pub use files_handlers::{
+    browse_files, create_dir, create_file, delete_dir, delete_file, read_file, read_file_raw,
+    rename_entry, search_files, upload_files, write_file,
+};
 
 pub use doc_handlers::{doc_read, doc_write};
 
-pub use download_handlers::{download_file, download_dir};
+pub use download_handlers::{download_dir, download_file};
 
 pub use editor_handlers::{
-    editor_lsp_diagnostics, editor_lsp_hover, editor_lsp_definition, editor_lsp_format,
+    editor_lsp_definition, editor_lsp_diagnostics, editor_lsp_format, editor_lsp_hover,
 };
 
-pub use context_handlers::{get_session_todos, update_session_todos, get_context_window};
+pub use context_handlers::{get_context_window, get_session_todos, update_session_todos};
 
 pub use search_handlers::{get_file_edits, search_messages};
 
 pub use watcher_handlers::{
-    list_watchers, create_watcher, delete_watcher, get_watcher,
-    get_watcher_sessions, get_watcher_messages,
+    create_watcher, delete_watcher, get_watcher, get_watcher_messages, get_watcher_sessions,
+    list_watchers,
 };
 
 pub use dashboard_handlers::{
-    sessions_overview, sessions_tree, get_presence, register_presence, deregister_presence,
-    get_activity_feed, list_missions, get_mission, create_mission, update_mission,
-    delete_mission, mission_action,
-    list_personal_memory, create_personal_memory, update_personal_memory, delete_personal_memory,
-    get_autonomy_settings, update_autonomy_settings,
+    create_mission, create_personal_memory, delete_mission, delete_personal_memory,
+    deregister_presence, get_activity_feed, get_autonomy_settings, get_mission, get_presence,
+    list_missions, list_personal_memory, mission_action, register_presence, sessions_overview,
+    sessions_tree, update_autonomy_settings, update_mission, update_personal_memory,
 };
 
 pub use dashboard_ext_handlers::{
-    list_routines, create_routine, update_routine, delete_routine, run_routine,
-    list_delegated_work, create_delegated_work, update_delegated_work, delete_delegated_work,
-    list_workspaces, save_workspace, delete_workspace,
+    create_delegated_work, create_routine, delete_delegated_work, delete_routine, delete_workspace,
+    list_delegated_work, list_routines, list_workspaces, run_routine, save_workspace,
+    update_delegated_work, update_routine,
 };
 
 pub use system_handlers::get_system_stats;
 
 pub use intelligence_handlers::{
-    compute_inbox, compute_recommendations,
-    compute_session_handoff, compute_resume_briefing, compute_daily_summary,
-    list_signals, add_signal, compute_assistant_stats, list_workspace_templates,
-    list_active_memory,
+    add_signal, compute_assistant_stats, compute_daily_summary, compute_inbox,
+    compute_recommendations, compute_resume_briefing, compute_session_handoff, list_active_memory,
+    list_signals, list_workspace_templates,
 };
 
-pub use skills_handlers::{list_skills, get_skill, create_skill, update_skill, delete_skill, upload_skills};
+pub use skills_handlers::{
+    create_skill, delete_skill, get_skill, list_skills, update_skill, upload_skills,
+};
 
-pub use health_handlers::{get_health_status, get_health_audit, toggle_health_mitigation, set_health_config};
+pub use health_handlers::{
+    get_health_audit, get_health_status, set_health_config, toggle_health_mitigation,
+};
 
 pub use kanban_handlers::{
-    get_board, update_board_config, create_task, update_task, get_task, delete_task,
-    upload_attachment, serve_asset, launch_task, abort_task, add_user_note,
+    abort_task, add_user_note, create_task, delete_task, get_board, get_task, launch_task,
+    serve_asset, update_board_config, update_task, upload_attachment,
 };
 
 pub use kanban_internal::{
-    internal_get_task, internal_set_status, internal_add_note, internal_complete,
+    internal_add_note, internal_complete, internal_get_task, internal_set_status,
 };
 
 pub use kanban_internal_query::{
-    internal_query_tasks, internal_board_overview, internal_read_notes,
+    internal_board_overview, internal_query_tasks, internal_read_notes,
 };

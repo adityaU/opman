@@ -12,7 +12,9 @@ fn buf() -> Arc<tokio::sync::Mutex<Vec<u8>>> {
 }
 
 fn dead_sock() -> Arc<PathBuf> {
-    Arc::new(PathBuf::from("/nonexistent/opman-bridge-response-test.sock"))
+    Arc::new(PathBuf::from(
+        "/nonexistent/opman-bridge-response-test.sock",
+    ))
 }
 
 // ── response builders across id variants ─────────────────────────────────────
@@ -57,7 +59,10 @@ fn method_not_found_interpolates_method_and_id() {
 fn parse_error_always_null_id() {
     let v = parse_error_response("unexpected token");
     assert_eq!(v["error"]["code"], -32700);
-    assert!(v["error"]["message"].as_str().unwrap().contains("unexpected token"));
+    assert!(v["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("unexpected token"));
     assert_eq!(v["id"], json!(null));
 }
 
@@ -144,9 +149,14 @@ async fn run_bridge_over_two_tool_calls_both_get_ids_back() {
 async fn run_bridge_over_initialize_then_eof() {
     let input = "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":\"init\"}\n";
     let out = buf();
-    run_bridge_over(input.as_bytes(), Arc::clone(&out), dead_sock(), Arc::new(None))
-        .await
-        .unwrap();
+    run_bridge_over(
+        input.as_bytes(),
+        Arc::clone(&out),
+        dead_sock(),
+        Arc::new(None),
+    )
+    .await
+    .unwrap();
     let s = String::from_utf8(out.lock().await.clone()).unwrap();
     assert!(s.contains("opman-terminal"));
     assert!(s.contains("\"id\":\"init\""));

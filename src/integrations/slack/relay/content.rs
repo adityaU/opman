@@ -50,10 +50,11 @@ pub(crate) async fn build_relay_content(
                         .map(|t| t.starts_with("`task`:"))
                         .unwrap_or(false);
                     if is_task {
-                        let link = if link_idx < subagent_links.len() {
-                            &subagent_links[link_idx]
-                        } else {
-                            subagent_links.last().unwrap()
+                        let Some(link) = subagent_links
+                            .get(link_idx)
+                            .or_else(|| subagent_links.last())
+                        else {
+                            continue;
                         };
                         chunk["output"] = serde_json::Value::String(format!(
                             ":thread: Subagent thread: {}",
@@ -114,10 +115,7 @@ pub(crate) async fn build_relay_content(
 }
 
 /// Format role-grouped messages into markdown relay text.
-fn format_groups(
-    groups: &[(String, Vec<String>)],
-    last_streamed_role: &Option<String>,
-) -> String {
+fn format_groups(groups: &[(String, Vec<String>)], last_streamed_role: &Option<String>) -> String {
     let mut parts: Vec<String> = Vec::new();
     for (i, (role, texts)) in groups.iter().enumerate() {
         let body = texts.join("\n");

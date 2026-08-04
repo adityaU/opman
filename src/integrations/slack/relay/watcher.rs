@@ -109,8 +109,7 @@ pub fn spawn_session_relay_watcher_labeled(
                             &session_id[..8.min(session_id.len())]
                         );
                         if let Err(e) =
-                            super::super::api::stop_stream(&client, &bot_token, &channel, &ts)
-                                .await
+                            super::super::api::stop_stream(&client, &bot_token, &channel, &ts).await
                         {
                             tracing::warn!(
                                 "Slack relay: stopStream (external request) failed: {}",
@@ -193,16 +192,15 @@ pub fn spawn_session_relay_watcher_labeled(
             );
 
             // Build relay text and task chunks from new messages.
-            let (mut relay_text, relay_text_raw, all_task_chunks, groups) =
-                build_relay_content(
-                    &new_messages,
-                    &session_id,
-                    &last_streamed_role,
-                    &label,
-                    label_emitted,
-                    &slack_state,
-                )
-                .await;
+            let (mut relay_text, relay_text_raw, all_task_chunks, groups) = build_relay_content(
+                &new_messages,
+                &session_id,
+                &last_streamed_role,
+                &label,
+                label_emitted,
+                &slack_state,
+            )
+            .await;
 
             // Prepend optional label on first relay.
             if !label_emitted {
@@ -278,5 +276,3 @@ pub fn spawn_session_relay_watcher_labeled(
         }
     })
 }
-
-

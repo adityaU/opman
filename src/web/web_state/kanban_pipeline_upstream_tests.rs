@@ -156,7 +156,11 @@ async fn advance_middle_stage_success_chains_next() {
     });
     let base = start_mock_upstream(mock_upstream("sess-next", "planning summary")).await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.try_advance_kanban_pipeline("cur").await }).await;
+    scope_base_url(
+        base,
+        async move { h2.try_advance_kanban_pipeline("cur").await },
+    )
+    .await;
 
     let run = h.db_for_test().kanban_pipeline_get("tsk").unwrap();
     assert_eq!(run.status, "running");
@@ -194,18 +198,27 @@ async fn advance_final_stage_success_uses_captured_output_as_summary() {
     let mut rx = h.subscribe_events();
     let base = start_mock_upstream(mock_upstream("unused", "final review verdict")).await;
     let h2 = h.clone();
-    scope_base_url(base, async move { h2.try_advance_kanban_pipeline("cur").await }).await;
+    scope_base_url(
+        base,
+        async move { h2.try_advance_kanban_pipeline("cur").await },
+    )
+    .await;
 
     let run = h.db_for_test().kanban_pipeline_get("tsk").unwrap();
     assert_eq!(run.status, "done");
-    assert_eq!(run.stages[0].output.as_deref(), Some("final review verdict"));
+    assert_eq!(
+        run.stages[0].output.as_deref(),
+        Some("final review verdict")
+    );
 
     let task = h.db_for_test().kanban_task("tsk").unwrap();
     assert_eq!(task.run_state, "done");
     assert_eq!(task.lane_id, "lane_inreview"); // terminal lane
-    // The captured output (not the default) became the summary note.
+                                               // The captured output (not the default) became the summary note.
     let notes = h.db_for_test().kanban_notes_for_task("tsk");
-    assert!(notes.iter().any(|n| n.body.contains("final review verdict")));
+    assert!(notes
+        .iter()
+        .any(|n| n.body.contains("final review verdict")));
 
     // A success Toast was broadcast.
     let mut saw_toast = false;

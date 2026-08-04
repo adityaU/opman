@@ -8,8 +8,10 @@ use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 
 fn seed_board(h: &WebStateHandle, board_id: &str, project: &str) {
-    h.db_for_test()
-        .insert_kanban_board(&default_board(board_id.into(), project.into()), "2026-01-01T00:00:00Z");
+    h.db_for_test().insert_kanban_board(
+        &default_board(board_id.into(), project.into()),
+        "2026-01-01T00:00:00Z",
+    );
 }
 
 async fn make_task(h: &WebStateHandle, board_id: &str, lane: &str) -> Task {
@@ -104,10 +106,19 @@ async fn add_user_note_launching_state_is_live() {
     seed_board(&h, "brd", "/p");
     let t = make_task(&h, "brd", "lane_todo").await;
     // run_state == "launching" is the other half of the live check.
-    h.set_kanban_task_launch(&t.id, Some("sess-launching".into()), None, None, "launching")
+    h.set_kanban_task_launch(
+        &t.id,
+        Some("sess-launching".into()),
+        None,
+        None,
+        "launching",
+    )
+    .await
+    .unwrap();
+    let note = h
+        .kanban_add_user_note(&t.id, "starting up note")
         .await
         .unwrap();
-    let note = h.kanban_add_user_note(&t.id, "starting up note").await.unwrap();
     assert_eq!(note.author, "user");
     assert_eq!(h.db_for_test().kanban_notes_for_task(&t.id).len(), 1);
 }

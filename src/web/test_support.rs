@@ -30,6 +30,15 @@ pub(crate) fn test_server_state() -> ServerState {
     let (raw_sse_tx, _) = broadcast::channel::<String>(256);
     let (reload_tx, _) = broadcast::channel::<()>(4);
     let (editor_tx, _) = broadcast::channel::<EditorEvent>(64);
+    let mut runners = std::collections::HashMap::new();
+    runners.insert(
+        crate::runner::RunnerKind::Opencode,
+        std::sync::Arc::new(crate::runner::HttpRunner::new(
+            crate::runner::RunnerKind::Opencode,
+            "http://127.0.0.1:9",
+            reqwest::Client::new(),
+        )) as std::sync::Arc<dyn crate::runner::Runner>,
+    );
 
     let mut web_state = WebStateHandle::new_test();
     web_state.set_editor_tx(editor_tx.clone());
@@ -51,6 +60,10 @@ pub(crate) fn test_server_state() -> ServerState {
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
         internal_token: "test-internal-token".to_string(),
+        runner_registry: std::sync::Arc::new(crate::runner::RunnerRegistry::new(
+            crate::runner::RunnerKind::Opencode,
+            runners,
+        )),
     }
 }
 

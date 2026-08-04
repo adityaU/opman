@@ -49,7 +49,10 @@ async fn tools_call_emits_agent_activity_on_and_off() {
             }
         }
     }
-    assert!(on && off, "expected both active=true and active=false activity events");
+    assert!(
+        on && off,
+        "expected both active=true and active=false activity events"
+    );
 }
 
 #[tokio::test]
@@ -83,7 +86,10 @@ async fn tools_call_editor_read_and_list_return_content() {
         .await;
         let v = to_value(&r);
         // Whether ok or error, dispatch always produces a text content block.
-        assert!(v["result"]["content"][0]["text"].as_str().is_some(), "{name} produced no content");
+        assert!(
+            v["result"]["content"][0]["text"].as_str().is_some(),
+            "{name} produced no content"
+        );
     }
 }
 
@@ -92,7 +98,12 @@ async fn tools_call_terminal_run_and_close_error_arms() {
     // Against the no-op pty handle these arms take their error branch, but they
     // still route through the tool-name match in `handle_tools_call`.
     let state = test_server_state();
-    for name in ["web_terminal_run", "web_terminal_new", "web_terminal_close", "web_terminal_read"] {
+    for name in [
+        "web_terminal_run",
+        "web_terminal_new",
+        "web_terminal_close",
+        "web_terminal_read",
+    ] {
         let r = dispatch_method(
             &state,
             &req(serde_json::json!({
@@ -102,7 +113,10 @@ async fn tools_call_terminal_run_and_close_error_arms() {
         )
         .await;
         let v = to_value(&r);
-        assert_eq!(v["result"]["isError"], true, "{name} should have errored on no-op pty");
+        assert_eq!(
+            v["result"]["isError"], true,
+            "{name} should have errored on no-op pty"
+        );
     }
 }
 
@@ -140,5 +154,8 @@ async fn tools_call_terminal_new_success_via_dispatch() {
     )
     .await;
     let vc = to_value(&rc);
-    assert!(vc["result"]["content"][0]["text"].as_str().unwrap().contains("closed"));
+    assert!(vc["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("closed"));
 }

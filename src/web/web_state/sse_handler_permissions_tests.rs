@@ -38,7 +38,9 @@ async fn file_edited_with_active_session_emits_state_change() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -52,7 +54,9 @@ async fn file_edited_without_active_session_no_state_change() {
         "/proj",
     )
     .await;
-    assert!(!drain(&mut rx).iter().any(|e| matches!(e, WebEvent::StateChanged)));
+    assert!(!drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::StateChanged)));
 }
 
 #[tokio::test]
@@ -65,7 +69,9 @@ async fn permission_asked_then_replied() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputNeeded { session_id } if session_id == "s1")));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputNeeded { session_id } if session_id == "s1")));
 
     handle_web_sse_event(
         &h,
@@ -73,7 +79,9 @@ async fn permission_asked_then_replied() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputCleared { session_id } if session_id == "s1")));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputCleared { session_id } if session_id == "s1")));
 }
 
 #[tokio::test]
@@ -99,7 +107,9 @@ async fn question_asked_replied_and_rejected() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputNeeded { .. })));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputNeeded { .. })));
 
     handle_web_sse_event(
         &h,
@@ -107,7 +117,9 @@ async fn question_asked_replied_and_rejected() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
 
     // question.rejected path (re-ask then reject).
     handle_web_sse_event(
@@ -123,7 +135,9 @@ async fn question_asked_replied_and_rejected() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
 }
 
 #[tokio::test]
@@ -151,7 +165,9 @@ async fn recalc_keeps_input_when_other_pending_remains() {
         "/proj",
     )
     .await;
-    assert!(!drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
+    assert!(!drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionInputCleared { .. })));
 }
 
 #[tokio::test]
@@ -166,7 +182,9 @@ async fn session_error_root_not_active_emits_error_and_unseen() {
     .await;
     let evs = drain(&mut rx);
     assert!(evs.iter().any(|e| matches!(e, WebEvent::SessionError { session_id, message } if session_id == "e1" && message == "kaboom")));
-    assert!(evs.iter().any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
 }
 
 #[tokio::test]
@@ -180,7 +198,9 @@ async fn session_error_message_fallback_field() {
         "/proj",
     )
     .await;
-    assert!(drain(&mut rx).iter().any(|e| matches!(e, WebEvent::SessionError { message, .. } if message == "oops")));
+    assert!(drain(&mut rx)
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionError { message, .. } if message == "oops")));
 }
 
 #[tokio::test]
@@ -213,6 +233,10 @@ async fn session_error_subagent_skips_unseen() {
     )
     .await;
     let evs = drain(&mut rx);
-    assert!(evs.iter().any(|e| matches!(e, WebEvent::SessionError { .. })));
-    assert!(!evs.iter().any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionError { .. })));
+    assert!(!evs
+        .iter()
+        .any(|e| matches!(e, WebEvent::SessionUnseen { .. })));
 }

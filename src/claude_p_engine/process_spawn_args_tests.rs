@@ -46,7 +46,10 @@ async fn spawn_builds_all_optional_args() {
 
     send(e.clone(), s.id.clone(), "hi".to_string()).await;
     // Spawn succeeded with every optional arg populated.
-    assert!(e.procs.0.lock().await.contains_key(&s.id), "fake claude spawned");
+    assert!(
+        e.procs.0.lock().await.contains_key(&s.id),
+        "fake claude spawned"
+    );
     assert!(e.get_session(&s.id).unwrap().busy);
 
     abort(e.clone(), &s.id).await;

@@ -1,7 +1,9 @@
+use super::watcher_keys;
+use crate::app::{
+    App, BackgroundEvent, WatcherConfig, WatcherField, WatcherModalState, WatcherSessionEntry,
+};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use crate::app::{App, BackgroundEvent, WatcherConfig, WatcherField, WatcherModalState, WatcherSessionEntry};
-use super::watcher_keys;
 
 /// Build the session list and open the watcher modal.
 pub(super) fn open_watcher_modal(app: &mut App) {

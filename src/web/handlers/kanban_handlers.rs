@@ -260,7 +260,9 @@ pub async fn serve_asset(
                 )
                 .header(header::CONTENT_LENGTH, slice.len())
                 .body(Body::from(slice))
-                .unwrap());
+                .map_err(|_| {
+                    WebError::Internal("failed to build partial asset response".into())
+                })?);
         }
     }
 
@@ -270,7 +272,7 @@ pub async fn serve_asset(
         .header(header::ACCEPT_RANGES, "bytes")
         .header(header::CONTENT_LENGTH, total)
         .body(Body::from(bytes))
-        .unwrap())
+        .map_err(|_| WebError::Internal("failed to build asset response".into()))?)
 }
 
 // ── Launch / abort ──────────────────────────────────────────────────
@@ -483,7 +485,11 @@ Begin now.",
         title = task.title,
         priority = task.priority,
         lanes = lanes.join(" → "),
-        allowed = if allowed.is_empty() { "(none)".to_string() } else { allowed.join(", ") },
+        allowed = if allowed.is_empty() {
+            "(none)".to_string()
+        } else {
+            allowed.join(", ")
+        },
         desc = task.description,
     )
 }

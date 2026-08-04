@@ -93,7 +93,7 @@ export function DesktopLayout(p: Props) {
 
   useEffect(() => () => clearHideTimer(), [clearHideTimer]);
 
-  const showExplorer = pinned || hoverOpen;
+  const showExplorer = !p.explorerCollapsed;
 
   // ── Resize drag ──────────────────────────────────────
   const onResizeStart = useCallback((e: React.PointerEvent) => {
@@ -138,39 +138,39 @@ export function DesktopLayout(p: Props) {
     <div className="code-editor-panel code-editor-desktop" ref={p.editorRef}>
       {/* Floating file explorer */}
       <div
-        className={`code-editor-explorer explorer-floating${showExplorer ? " explorer-floating-open" : ""}`}
+        className={`code-editor-explorer explorer-floating`}
         style={{ width: explorerWidth }}
-        onMouseEnter={clearHideTimer}
-        onMouseLeave={() => { if (!pinned && !resizing.current) scheduleHide(); }}
+        onPointerDown={() => { clearHideTimer(); }}
       >
         <div className="explorer-header">
           <span className="explorer-title">Explorer</span>
           <span className="explorer-header-actions">
             {p.onCreateFile && (
-              <button className="explorer-hdr-btn" title="New file" onClick={() => { setInlineCreate("file"); setInlineValue(""); }}>
+              <button type="button" className="explorer-hdr-btn" title="New file" onClick={() => { setInlineCreate("file"); setInlineValue(""); }}>
                 <FilePlus size={13} />
               </button>
             )}
             {p.onCreateDir && (
-              <button className="explorer-hdr-btn" title="New folder" onClick={() => { setInlineCreate("dir"); setInlineValue(""); }}>
+              <button type="button" className="explorer-hdr-btn" title="New folder" onClick={() => { setInlineCreate("dir"); setInlineValue(""); }}>
                 <FolderPlus size={13} />
               </button>
             )}
             {p.onUploadFiles && (
-              <button className="explorer-hdr-btn" title="Upload files" onClick={handleUploadClick}>
+              <button type="button" className="explorer-hdr-btn" title="Upload files" onClick={handleUploadClick}>
                 <Upload size={13} />
               </button>
             )}
             {p.onReloadRoot && (
-              <button className="explorer-hdr-btn" title="Reload explorer" onClick={p.onReloadRoot}>
+              <button type="button" className="explorer-hdr-btn" title="Reload explorer" onClick={p.onReloadRoot}>
                 <RefreshCw size={13} />
               </button>
             )}
             <button
+              type="button"
               className="explorer-hdr-btn"
-              onClick={() => setPinned((v) => !v)}
-              title={pinned ? "Unpin explorer" : "Pin explorer open"}
-              aria-label={pinned ? "Unpin explorer" : "Pin explorer open"}
+              onClick={() => p.setExplorerCollapsed(!p.explorerCollapsed)}
+              title={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
+              aria-label={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
             >
               {pinned ? <PinOff size={13} /> : <Pin size={13} />}
             </button>
@@ -205,6 +205,7 @@ export function DesktopLayout(p: Props) {
                   <span className="file-name">{name}</span>
                   {f.editedContent !== null && <span className="open-file-modified-dot" />}
                   <button
+                    type="button"
                     className="open-file-close"
                     onClick={(e) => { e.stopPropagation(); p.closeFile(f.path); }}
                     aria-label={`Close ${name}`}
@@ -274,10 +275,9 @@ export function DesktopLayout(p: Props) {
       {/* Editor area */}
       <div className="code-editor-main">
         <button
+          type="button"
           className="explorer-expand-btn"
-          onMouseEnter={() => { clearHideTimer(); setHoverOpen(true); }}
-          onMouseLeave={() => { if (!pinned) scheduleHide(); }}
-          onClick={() => setPinned((v) => !v)}
+          onClick={() => p.setExplorerCollapsed(!p.explorerCollapsed)}
           title={pinned ? "Unpin explorer" : "Show explorer"}
           aria-label="Toggle explorer"
         >

@@ -40,8 +40,7 @@ async fn fallback_serves_react_index() {
 #[tokio::test]
 async fn internal_route_resolves() {
     let router = test_router(test_server_state());
-    let (status, _body) =
-        send_json(router, "GET", "/internal/kanban/task/tsk_missing", None).await;
+    let (status, _body) = send_json(router, "GET", "/internal/kanban/task/tsk_missing", None).await;
     // Route exists; handler runs against an empty in-memory DB.
     assert!(
         status.is_success() || status.is_client_error() || status.is_server_error(),

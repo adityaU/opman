@@ -2,25 +2,31 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn json_of(resp: axum::response::Response) -> (axum::http::StatusCode, serde_json::Value) {
     let status = resp.status();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     (status, serde_json::from_slice(&bytes).unwrap())
 }
 
 #[tokio::test]
 async fn health_status_ok() {
     let state = test_server_state();
-    let resp = get_health_status(State(state), auth()).await.into_response();
+    let resp = get_health_status(State(state), auth())
+        .await
+        .into_response();
     let (st, v) = json_of(resp).await;
     assert_eq!(st, axum::http::StatusCode::OK);
     assert!(v.get("config").is_some());
@@ -32,9 +38,13 @@ async fn health_status_ok() {
 #[tokio::test]
 async fn health_audit_with_limit() {
     let state = test_server_state();
-    let resp = get_health_audit(State(state), auth(), Query(AuditQueryParams { limit: Some(5) }))
-        .await
-        .into_response();
+    let resp = get_health_audit(
+        State(state),
+        auth(),
+        Query(AuditQueryParams { limit: Some(5) }),
+    )
+    .await
+    .into_response();
     let (st, v) = json_of(resp).await;
     assert_eq!(st, axum::http::StatusCode::OK);
     assert!(v.get("entries").is_some());
@@ -43,9 +53,13 @@ async fn health_audit_with_limit() {
 #[tokio::test]
 async fn health_audit_default_limit() {
     let state = test_server_state();
-    let resp = get_health_audit(State(state), auth(), Query(AuditQueryParams { limit: None }))
-        .await
-        .into_response();
+    let resp = get_health_audit(
+        State(state),
+        auth(),
+        Query(AuditQueryParams { limit: None }),
+    )
+    .await
+    .into_response();
     let (st, _) = json_of(resp).await;
     assert_eq!(st, axum::http::StatusCode::OK);
 }

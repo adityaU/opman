@@ -6,7 +6,6 @@
 //! - POST /api/health/toggle — enable/disable a single mitigation
 //! - POST /api/health/config — replace entire mitigation config
 
-
 use axum::extract::State;
 use axum::response::{IntoResponse, Json};
 

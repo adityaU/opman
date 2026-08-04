@@ -12,7 +12,15 @@ use serde_json::json;
 
 fn run(body: serde_json::Value, needle: &str, limit: usize) -> Vec<SearchResultEntry> {
     let mut results = Vec::new();
-    collect_session_matches(&body, "sid", "My Session", "Proj", needle, limit, &mut results);
+    collect_session_matches(
+        &body,
+        "sid",
+        "My Session",
+        "Proj",
+        needle,
+        limit,
+        &mut results,
+    );
     results
 }
 

@@ -27,13 +27,19 @@ fn reconstruct_paragraph_multiline() {
 
 #[test]
 fn reconstruct_codeblock_with_lang() {
-    let seg = bk::MdSegment::CodeBlock { lang: Some("rs".into()), code: "x".into() };
+    let seg = bk::MdSegment::CodeBlock {
+        lang: Some("rs".into()),
+        code: "x".into(),
+    };
     assert_eq!(md(seg), "```rs\nx\n```");
 }
 
 #[test]
 fn reconstruct_codeblock_without_lang() {
-    let seg = bk::MdSegment::CodeBlock { lang: None, code: "x".into() };
+    let seg = bk::MdSegment::CodeBlock {
+        lang: None,
+        code: "x".into(),
+    };
     assert_eq!(md(seg), "```\nx\n```");
 }
 
@@ -45,8 +51,14 @@ fn reconstruct_blockquote() {
 #[test]
 fn reconstruct_bullet_list_with_indent() {
     let seg = bk::MdSegment::BulletList(vec![
-        bk::ListItem { text: "top".into(), indent: 0 },
-        bk::ListItem { text: "child".into(), indent: 1 },
+        bk::ListItem {
+            text: "top".into(),
+            indent: 0,
+        },
+        bk::ListItem {
+            text: "child".into(),
+            indent: 1,
+        },
     ]);
     assert_eq!(md(seg), "- top\n  - child");
 }
@@ -54,8 +66,14 @@ fn reconstruct_bullet_list_with_indent() {
 #[test]
 fn reconstruct_ordered_list_numbers() {
     let seg = bk::MdSegment::OrderedList(vec![
-        bk::ListItem { text: "one".into(), indent: 0 },
-        bk::ListItem { text: "two".into(), indent: 0 },
+        bk::ListItem {
+            text: "one".into(),
+            indent: 0,
+        },
+        bk::ListItem {
+            text: "two".into(),
+            indent: 0,
+        },
     ]);
     assert_eq!(md(seg), "1. one\n2. two");
 }
@@ -63,8 +81,14 @@ fn reconstruct_ordered_list_numbers() {
 #[test]
 fn reconstruct_todo_list() {
     let seg = bk::MdSegment::TodoList(vec![
-        bk::TodoItem { text: "done".into(), checked: true },
-        bk::TodoItem { text: "todo".into(), checked: false },
+        bk::TodoItem {
+            text: "done".into(),
+            checked: true,
+        },
+        bk::TodoItem {
+            text: "todo".into(),
+            checked: false,
+        },
     ]);
     assert_eq!(md(seg), "- [x] done\n- [ ] todo");
 }
@@ -128,12 +152,11 @@ fn build_table_block_basic() {
 
 #[test]
 fn build_table_block_center_alignment() {
-    let block = build_table_block(
-        &["H".to_string()],
-        &[bk::TableAlign::Center],
-        &[],
+    let block = build_table_block(&["H".to_string()], &[bk::TableAlign::Center], &[]);
+    assert_eq!(
+        block["column_settings"][0]["align"],
+        serde_json::json!("center")
     );
-    assert_eq!(block["column_settings"][0]["align"], serde_json::json!("center"));
 }
 
 #[test]

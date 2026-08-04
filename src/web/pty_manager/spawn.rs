@@ -339,7 +339,13 @@ pub(crate) fn spawn_claude_attach_pty(
         })
         .context("Failed to spawn web PTY reader thread")?;
 
-    debug!(rows, cols, ?working_dir, short_id, "Web claude attach PTY spawned");
+    debug!(
+        rows,
+        cols,
+        ?working_dir,
+        short_id,
+        "Web claude attach PTY spawned"
+    );
 
     Ok(WebPty {
         writer,

@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
-import type { ProjectInfo, SessionStats, ClientPresence, PersonalMemoryItem, AutonomyMode } from "./api";
+import React from "react";
+import type { ProjectInfo, SessionStats, ClientPresence } from "./api";
 import type { WatcherStatus, SSEConnectionStatus } from "./hooks/useSSE";
-import type { SessionStatus } from "./hooks/sse/types";
-import type { AssistantRecommendation } from "./api";
 import { WatcherStatusIndicator } from "./WatcherStatusBar";
 import {
   PanelLeft,
@@ -14,8 +12,6 @@ import {
   DollarSign,
   Users,
   Layers,
-  Brain,
-  Bot,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -23,7 +19,6 @@ import {
 interface Props {
   project: ProjectInfo | null;
   stats: SessionStats | null;
-  sessionStatus: SessionStatus;
   connectionStatus?: SSEConnectionStatus;
   sidebarOpen: boolean;
   terminalOpen: boolean;
@@ -34,20 +29,16 @@ interface Props {
   presenceClients?: ClientPresence[];
   /** Name of the currently active workspace (if any). */
   activeWorkspaceName?: string | null;
-  activeMemoryItems?: PersonalMemoryItem[];
-  autonomyMode?: AutonomyMode;
-  assistantPulse?: AssistantRecommendation | null;
   contextLimit: number | null;
-  /** Active agent backend ("opencode" or "claude-code"). */
-  backend?: string;
   onToggleSidebar: () => void;
+  sessionTitle?: string | null;
+  showSidebarToggle?: boolean;
   onToggleTerminal: () => void;
   onToggleNeovim: () => void;
   onToggleGit: () => void;
   onOpenCommandPalette: () => void;
   onOpenWatcher: () => void;
   onOpenContextWindow: () => void;
-  onRunAssistantPulse?: () => void;
 }
 
 function formatTokens(n: number): string {
@@ -56,40 +47,9 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-/** Compact status dot + label — handles idle, busy, and retry (with countdown). */
-function StatusDotLabel({ sessionStatus }: { sessionStatus: SessionStatus }) {
-  const [seconds, setSeconds] = useState(0);
-
-  useEffect(() => {
-    if (sessionStatus.type !== "retry") return;
-    const update = () => setSeconds(Math.max(0, Math.round((sessionStatus.next - Date.now()) / 1000)));
-    update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
-  }, [sessionStatus]);
-
-  const isBusy = sessionStatus.type !== "idle";
-  const label =
-    sessionStatus.type === "retry"
-      ? `retry #${sessionStatus.attempt}${seconds > 0 ? ` (${seconds}s)` : ""}`
-      : isBusy ? "busy" : "ready";
-
-  return (
-    <>
-      <span
-        className={`status-bar-dot ${isBusy ? (sessionStatus.type === "retry" ? "retry" : "busy") : "idle"}`}
-        role="status"
-        aria-label={isBusy ? "Session is busy" : "Session is ready"}
-      />
-      <span className="status-bar-status">{label}</span>
-    </>
-  );
-}
-
 export const StatusBar = React.memo(function StatusBar({
   project,
   stats,
-  sessionStatus,
   connectionStatus,
   sidebarOpen,
   terminalOpen,
@@ -98,19 +58,16 @@ export const StatusBar = React.memo(function StatusBar({
   watcherStatus,
   presenceClients,
   activeWorkspaceName,
-  activeMemoryItems,
-  autonomyMode,
-  assistantPulse,
   contextLimit,
-  backend,
   onToggleSidebar,
+  sessionTitle,
+  showSidebarToggle = false,
   onToggleTerminal,
   onToggleNeovim,
   onToggleGit,
   onOpenCommandPalette,
   onOpenWatcher,
   onOpenContextWindow,
-  onRunAssistantPulse,
 }: Props) {
   const totalTokens = stats
     ? stats.input_tokens +
@@ -129,27 +86,20 @@ export const StatusBar = React.memo(function StatusBar({
     : "";
 
   return (
-    <div className="chat-status-bar">
+    <div className="chat-header">
       {/* Left section */}
       <div className="status-bar-left">
-        <button
-          className={`status-bar-btn ${sidebarOpen ? "active" : ""}`}
-          onClick={onToggleSidebar}
-          title="Toggle Sidebar (Cmd+B)"
-          aria-label="Toggle sidebar"
-        >
-          <PanelLeft size={13} />
-        </button>
-
-        {backend && (
-          <span
-            className={`status-bar-backend status-bar-backend-${backend === "claude-code" ? "claude" : "opencode"}`}
-            title={`Agent backend: ${backend}`}
+        {showSidebarToggle && (
+          <button
+            className="status-bar-btn"
+            onClick={onToggleSidebar}
+            title="Show sidebar (Cmd+B)"
+            aria-label="Show sidebar"
           >
-            <Bot size={11} />
-            <span>{backend === "claude-code" ? "claude" : "opencode"}</span>
-          </span>
+            <PanelLeft size={13} />
+          </button>
         )}
+        {sessionTitle && <span className="chat-header-title" title={sessionTitle}>{sessionTitle}</span>}
 
         {project && (
           <span className="status-bar-project">{project.name}</span>
@@ -161,8 +111,6 @@ export const StatusBar = React.memo(function StatusBar({
             {project.git_branch}
           </span>
         )}
-
-        <StatusDotLabel sessionStatus={sessionStatus} />
 
         {connectionStatus && connectionStatus !== "connected" && (
           <span
@@ -200,33 +148,6 @@ export const StatusBar = React.memo(function StatusBar({
           </span>
         )}
 
-        {activeMemoryItems && activeMemoryItems.length > 0 && (
-          <span
-            className="status-bar-memory"
-            title={activeMemoryItems.map((item) => item.label).join(", ")}
-          >
-            <Brain size={11} />
-            <span>{activeMemoryItems.length}</span>
-          </span>
-        )}
-
-        {autonomyMode && (
-          <span className={`status-bar-autonomy status-bar-autonomy-${autonomyMode}`}>
-            <Bot size={11} />
-            <span>{formatAutonomyMode(autonomyMode)}</span>
-          </span>
-        )}
-
-        {assistantPulse && onRunAssistantPulse && (
-          <button
-            className={`status-bar-pulse status-bar-pulse-${assistantPulse.priority}`}
-            onClick={onRunAssistantPulse}
-            title={assistantPulse.rationale}
-          >
-            <Bot size={11} />
-            <span>{assistantPulse.title}</span>
-          </button>
-        )}
       </div>
 
       {/* Right section */}
@@ -295,16 +216,3 @@ export const StatusBar = React.memo(function StatusBar({
     </div>
   );
 });
-
-function formatAutonomyMode(mode: AutonomyMode): string {
-  switch (mode) {
-    case "observe":
-      return "Observe";
-    case "nudge":
-      return "Nudge";
-    case "continue":
-      return "Continue";
-    case "autonomous":
-      return "Auto";
-  }
-}

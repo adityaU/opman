@@ -158,7 +158,10 @@ async fn resolve_editor_nvim_socket_present() {
     let state = test_server_state();
     {
         let mut reg = state.nvim_registry.write().await;
-        reg.insert((0, "sess".to_string()), std::path::PathBuf::from("/tmp/nonexistent.sock"));
+        reg.insert(
+            (0, "sess".to_string()),
+            std::path::PathBuf::from("/tmp/nonexistent.sock"),
+        );
     }
     let out = resolve_editor_nvim_socket(&state, "sess").await.unwrap();
     assert_eq!(out, std::path::PathBuf::from("/tmp/nonexistent.sock"));
@@ -178,7 +181,10 @@ async fn resolve_editor_buffer_no_working_dir() {
     let state = test_server_state();
     {
         let mut reg = state.nvim_registry.write().await;
-        reg.insert((0, "sess".to_string()), std::path::PathBuf::from("/tmp/nonexistent.sock"));
+        reg.insert(
+            (0, "sess".to_string()),
+            std::path::PathBuf::from("/tmp/nonexistent.sock"),
+        );
     }
     let res = resolve_editor_buffer(&state, "sess", "a.rs").await;
     assert!(matches!(res, Err(WebError::BadRequest(_))));
@@ -190,10 +196,7 @@ async fn resolve_editor_buffer_bogus_socket_errors() {
     let state = state_dir(tmp.path());
     {
         let mut reg = state.nvim_registry.write().await;
-        reg.insert(
-            (0, "sess".to_string()),
-            tmp.path().join("no-such.sock"),
-        );
+        reg.insert((0, "sess".to_string()), tmp.path().join("no-such.sock"));
     }
     // Connecting to a non-existent unix socket fails → Internal error.
     let res = resolve_editor_buffer(&state, "sess", "a.rs").await;

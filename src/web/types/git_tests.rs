@@ -27,7 +27,9 @@ fn git_file_entry_and_status_response() {
 
 #[test]
 fn git_diff_response_and_query() {
-    let resp = GitDiffResponse { diff: "@@ -1 +1 @@".into() };
+    let resp = GitDiffResponse {
+        diff: "@@ -1 +1 @@".into(),
+    };
     assert_eq!(serde_json::to_value(&resp).unwrap()["diff"], "@@ -1 +1 @@");
 
     let q: GitDiffQuery = serde_json::from_value(json!({})).unwrap();
@@ -56,10 +58,14 @@ fn git_log_entry_and_response_and_query() {
     let v = serde_json::to_value(&c).unwrap();
     assert_eq!(v["short_hash"], "abc");
 
-    let resp = GitLogResponse {
-        commits: vec![c],
-    };
-    assert_eq!(serde_json::to_value(&resp).unwrap()["commits"].as_array().unwrap().len(), 1);
+    let resp = GitLogResponse { commits: vec![c] };
+    assert_eq!(
+        serde_json::to_value(&resp).unwrap()["commits"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 
     let q: GitLogQuery = serde_json::from_value(json!({})).unwrap();
     assert!(q.limit.is_none());
@@ -71,12 +77,10 @@ fn git_log_entry_and_response_and_query() {
 
 #[test]
 fn git_stage_unstage_requests() {
-    let s: GitStageRequest =
-        serde_json::from_value(json!({"files": ["a", "b"]})).unwrap();
+    let s: GitStageRequest = serde_json::from_value(json!({"files": ["a", "b"]})).unwrap();
     assert_eq!(s.files.len(), 2);
     assert_eq!(s.repo, "");
-    let s2: GitStageRequest =
-        serde_json::from_value(json!({"files": [], "repo": "r"})).unwrap();
+    let s2: GitStageRequest = serde_json::from_value(json!({"files": [], "repo": "r"})).unwrap();
     assert_eq!(s2.repo, "r");
 
     let u: GitUnstageRequest = serde_json::from_value(json!({"files": ["a"]})).unwrap();
@@ -236,8 +240,7 @@ fn git_pull_request_and_response() {
     assert_eq!(r.branch, "");
     assert_eq!(r.repo, "");
     let r2: GitPullRequest =
-        serde_json::from_value(json!({"remote": "origin", "branch": "main", "repo": "r"}))
-            .unwrap();
+        serde_json::from_value(json!({"remote": "origin", "branch": "main", "repo": "r"})).unwrap();
     assert_eq!(r2.remote, "origin");
 
     let resp = GitPullResponse {

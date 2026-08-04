@@ -1,6 +1,5 @@
 //! File and directory download handlers.
 
-
 use axum::extract::State;
 use axum::response::IntoResponse;
 
@@ -47,10 +46,7 @@ pub async fn download_file(
     Ok((
         [
             (axum::http::header::CONTENT_TYPE, content_type),
-            (
-                axum::http::header::CONTENT_DISPOSITION,
-                disposition,
-            ),
+            (axum::http::header::CONTENT_DISPOSITION, disposition),
         ],
         bytes,
     ))
@@ -84,9 +80,9 @@ pub async fn download_dir(
         return Err(WebError::BadRequest("Path is not a directory".into()));
     }
 
-    let zip_bytes = build_zip(&canonical_target).await.map_err(|e| {
-        WebError::Internal(format!("Failed to create zip: {e}"))
-    })?;
+    let zip_bytes = build_zip(&canonical_target)
+        .await
+        .map_err(|e| WebError::Internal(format!("Failed to create zip: {e}")))?;
 
     let dir_name = canonical_target
         .file_name()
@@ -101,10 +97,7 @@ pub async fn download_dir(
                 axum::http::header::CONTENT_TYPE,
                 "application/zip".to_string(),
             ),
-            (
-                axum::http::header::CONTENT_DISPOSITION,
-                disposition,
-            ),
+            (axum::http::header::CONTENT_DISPOSITION, disposition),
         ],
         zip_bytes,
     ))
@@ -138,9 +131,7 @@ fn add_dir_recursive(
 ) -> std::io::Result<()> {
     use std::io::Write;
 
-    let mut entries: Vec<_> = std::fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .collect();
+    let mut entries: Vec<_> = std::fs::read_dir(dir)?.filter_map(|e| e.ok()).collect();
     entries.sort_by_key(|e| e.file_name());
 
     for entry in entries {

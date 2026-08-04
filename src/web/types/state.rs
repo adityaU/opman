@@ -24,6 +24,8 @@ pub struct WebAppState {
     pub instance_name: Option<String>,
     /// Active agent backend ("opencode" or "claude-code").
     pub backend: String,
+    /// Runners available for runtime selection in the prompt input.
+    pub runners: Vec<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -51,6 +53,9 @@ pub struct WebSessionInfo {
     pub parent_id: String,
     pub directory: String,
     pub time: WebSessionTime,
+    /// Runner used for the most recent turn in this session.
+    #[serde(default)]
+    pub runner: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -112,6 +117,8 @@ pub struct ServerState {
     /// Shared secret guarding the loopback-only `/internal/*` API used by the
     /// Kanban MCP server. Written to `~/.config/opman/internal.json` at startup.
     pub internal_token: String,
+    /// Common runtime runner registry used by session handlers.
+    pub runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
 }
 
 #[cfg(test)]

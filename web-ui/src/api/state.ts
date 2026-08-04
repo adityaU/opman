@@ -8,6 +8,7 @@ export interface SessionInfo {
   parentID: string;
   directory: string;
   time: { created: number; updated: number };
+  runner?: string;
 }
 
 export interface ProjectInfo {
@@ -29,6 +30,7 @@ export interface AppState {
   instance_name?: string;
   /** Active agent backend: "opencode" or "claude-code". */
   backend?: string;
+  runners?: string[];
 }
 
 export interface PanelVisibility {

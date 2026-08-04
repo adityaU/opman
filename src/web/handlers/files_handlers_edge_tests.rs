@@ -5,12 +5,12 @@
 
 use super::*;
 
-use axum::extract::{Query, State};
-use axum::response::IntoResponse;
 use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
+use axum::extract::{Query, State};
+use axum::response::IntoResponse;
 
 fn state_dir(p: &std::path::Path) -> ServerState {
     let mut s = test_server_state();
@@ -28,7 +28,9 @@ fn state_bad_base() -> ServerState {
 }
 
 fn auth() -> AuthUser {
-    AuthUser { subject: "t".into() }
+    AuthUser {
+        subject: "t".into(),
+    }
 }
 
 async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCode, Vec<u8>) {
@@ -52,62 +54,109 @@ const ISE: axum::http::StatusCode = axum::http::StatusCode::INTERNAL_SERVER_ERRO
 #[tokio::test]
 async fn browse_bad_base_500() {
     let (st, _) = parts(
-        browse_files(State(state_bad_base()), auth(), Query(FileBrowseQuery { path: String::new() })).await,
-    ).await;
+        browse_files(
+            State(state_bad_base()),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn write_bad_base_500() {
     let (st, _) = parts(
-        write_file(State(state_bad_base()), auth(),
-            axum::Json(FileWriteRequest { path: "f.txt".into(), content: "x".into() })).await,
-    ).await;
+        write_file(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(FileWriteRequest {
+                path: "f.txt".into(),
+                content: "x".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn create_file_bad_base_500() {
     let (st, _) = parts(
-        create_file(State(state_bad_base()), auth(),
-            axum::Json(FileCreateRequest { path: "f.txt".into(), content: "x".into() })).await,
-    ).await;
+        create_file(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(FileCreateRequest {
+                path: "f.txt".into(),
+                content: "x".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn create_dir_bad_base_500() {
     let (st, _) = parts(
-        create_dir(State(state_bad_base()), auth(),
-            axum::Json(DirCreateRequest { path: "d".into() })).await,
-    ).await;
+        create_dir(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(DirCreateRequest { path: "d".into() }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn delete_file_bad_base_500() {
     let (st, _) = parts(
-        delete_file(State(state_bad_base()), auth(),
-            axum::Json(FileDeleteRequest { path: "f".into() })).await,
-    ).await;
+        delete_file(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(FileDeleteRequest { path: "f".into() }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn delete_dir_bad_base_500() {
     let (st, _) = parts(
-        delete_dir(State(state_bad_base()), auth(),
-            axum::Json(DirDeleteRequest { path: "d".into() })).await,
-    ).await;
+        delete_dir(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(DirDeleteRequest { path: "d".into() }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
 #[tokio::test]
 async fn rename_bad_base_500() {
     let (st, _) = parts(
-        rename_entry(State(state_bad_base()), auth(),
-            axum::Json(RenameRequest { from_path: "a".into(), to_path: "b".into() })).await,
-    ).await;
+        rename_entry(
+            State(state_bad_base()),
+            auth(),
+            axum::Json(RenameRequest {
+                from_path: "a".into(),
+                to_path: "b".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
@@ -122,11 +171,23 @@ async fn browse_relative_symlink_inside_kept() {
     std::os::unix::fs::symlink("target.txt", tmp.path().join("rel_link")).unwrap();
     let state = state_dir(tmp.path());
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
-    ).await;
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    let names: Vec<_> = json(&body)["entries"].as_array().unwrap().iter()
-        .map(|e| e["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<_> = json(&body)["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect();
     assert!(names.contains(&"rel_link".to_string()));
 }
 
@@ -139,11 +200,23 @@ async fn browse_dangling_symlink_skipped() {
     std::fs::write(tmp.path().join("real.txt"), "r").unwrap();
     let state = state_dir(tmp.path());
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
-    ).await;
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    let names: Vec<_> = json(&body)["entries"].as_array().unwrap().iter()
-        .map(|e| e["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<_> = json(&body)["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect();
     assert!(names.contains(&"real.txt".to_string()));
     assert!(!names.contains(&"dangling".to_string()));
 }
@@ -160,11 +233,23 @@ async fn browse_relative_symlink_escaping_skipped() {
     std::fs::write(proj.join("keep.txt"), "k").unwrap();
     let state = state_dir(&proj);
     let (st, body) = parts(
-        browse_files(State(state), auth(), Query(FileBrowseQuery { path: String::new() })).await,
-    ).await;
+        browse_files(
+            State(state),
+            auth(),
+            Query(FileBrowseQuery {
+                path: String::new(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    let names: Vec<_> = json(&body)["entries"].as_array().unwrap().iter()
-        .map(|e| e["name"].as_str().unwrap().to_string()).collect();
+    let names: Vec<_> = json(&body)["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect();
     assert!(names.contains(&"keep.txt".to_string()));
     assert!(!names.contains(&"escape_rel".to_string()));
 }
@@ -177,8 +262,16 @@ async fn read_file_on_directory_500() {
     std::fs::create_dir(tmp.path().join("adir")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        read_file(State(state), auth(), Query(FileReadQuery { path: "adir".into() })).await,
-    ).await;
+        read_file(
+            State(state),
+            auth(),
+            Query(FileReadQuery {
+                path: "adir".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
@@ -188,8 +281,16 @@ async fn read_file_raw_on_directory_500() {
     std::fs::create_dir(tmp.path().join("adir")).unwrap();
     let state = state_dir(tmp.path());
     let (st, _) = parts(
-        read_file_raw(State(state), auth(), Query(FileReadQuery { path: "adir".into() })).await,
-    ).await;
+        read_file_raw(
+            State(state),
+            auth(),
+            Query(FileReadQuery {
+                path: "adir".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
@@ -205,12 +306,17 @@ async fn rename_dest_parent_traversal_400() {
     std::fs::write(proj.join("src.txt"), "x").unwrap();
     let state = state_dir(&proj);
     let (st, _) = parts(
-        rename_entry(State(state), auth(),
+        rename_entry(
+            State(state),
+            auth(),
             axum::Json(RenameRequest {
                 from_path: "src.txt".into(),
                 to_path: "../sibling/moved.txt".into(),
-            })).await,
-    ).await;
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -224,9 +330,17 @@ async fn rename_into_own_subpath_500() {
     // dst parent "d" exists & is inside project, dst "d/sub" does not exist,
     // but renaming "d" into "d/sub" is EINVAL → Internal 500.
     let (st, _) = parts(
-        rename_entry(State(state), auth(),
-            axum::Json(RenameRequest { from_path: "d".into(), to_path: "d/sub".into() })).await,
-    ).await;
+        rename_entry(
+            State(state),
+            auth(),
+            axum::Json(RenameRequest {
+                from_path: "d".into(),
+                to_path: "d/sub".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, ISE);
 }
 
@@ -237,9 +351,11 @@ async fn send_multipart(router: axum::Router, uri: &str, body: Vec<u8>) -> axum:
     use axum::http::Request;
     use tower::ServiceExt;
     let req = Request::builder()
-        .method("POST").uri(uri)
+        .method("POST")
+        .uri(uri)
         .header("content-type", "multipart/form-data; boundary=BOUND")
-        .body(Body::from(body)).unwrap();
+        .body(Body::from(body))
+        .unwrap();
     router.oneshot(req).await.unwrap().status()
 }
 
@@ -266,9 +382,17 @@ async fn upload_overwrite_existing_file_ok() {
     // Pre-existing file → target.canonicalize() succeeds (the Ok arm of or_else).
     std::fs::write(tmp.path().join("dup.txt"), "old").unwrap();
     let router = test_router(state_dir(tmp.path()));
-    let st = send_multipart(router, "/api/file/upload", multipart_file(None, "dup.txt", "new")).await;
+    let st = send_multipart(
+        router,
+        "/api/file/upload",
+        multipart_file(None, "dup.txt", "new"),
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
-    assert_eq!(std::fs::read_to_string(tmp.path().join("dup.txt")).unwrap(), "new");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("dup.txt")).unwrap(),
+        "new"
+    );
 }
 
 #[tokio::test]
@@ -277,7 +401,12 @@ async fn upload_directory_dot_treated_as_root() {
     let tmp = tempfile::TempDir::new().unwrap();
     let router = test_router(state_dir(tmp.path()));
     // directory="." → the `upload_dir == "."` branch → written at root
-    let st = send_multipart(router, "/api/file/upload", multipart_file(Some("."), "dot.txt", "x")).await;
+    let st = send_multipart(
+        router,
+        "/api/file/upload",
+        multipart_file(Some("."), "dot.txt", "x"),
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::OK);
     assert!(tmp.path().join("dot.txt").exists());
 }
