@@ -204,6 +204,12 @@ pub(crate) enum Commands {
     /// Run the Kanban MCP bridge (task lane/notes updates for launched tasks)
     McpKanban,
 
+    /// Run the agent-manager MCP bridge for a project
+    McpAgentManager {
+        /// Path to the project directory
+        project_path: PathBuf,
+    },
+
     /// Internal: PreToolUse permission/question hook relay for the Claude engine.
     /// Reads the hook payload on stdin, asks the running opman (via
     /// `OPMAN_ENGINE_URL`), and prints the permission decision. Not for direct use.

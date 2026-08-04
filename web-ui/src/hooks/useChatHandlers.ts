@@ -40,7 +40,7 @@ export interface ChatHandlerInputs {
   setMobileSidebarOpen: (v: boolean) => void;
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
-  setUrlSession: (sessionId: string, projectIdx: number) => void;
+  setUrlSession: (sessionId: string | null, projectIdx: number) => void;
   openModal: (name: string) => void;
   /** Signal that the next SSE session change is expected (for real session switches). */
   expectSessionSwitch: () => void;

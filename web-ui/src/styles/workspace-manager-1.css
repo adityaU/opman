@@ -190,7 +190,7 @@
 
 .workspace-mgr-item.active {
     background: #388bfd14;
-    border-left: 2px solid #388bfd
+    border-top: 2px solid #388bfd
 }
 
 .workspace-mgr-item.template {

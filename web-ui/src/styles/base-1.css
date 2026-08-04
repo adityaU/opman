@@ -202,7 +202,7 @@
     font-size: var(--font-size-sm);
     color: var(--color-text);
     pointer-events: auto;
-    animation: toast-slide-in .3s cubic-bezier(.34,1.56,.64,1);
+    animation: toast-slide-in .3s var(--ease-out-expo);
     max-width: 420px
 }
 

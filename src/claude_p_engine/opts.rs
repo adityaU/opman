@@ -31,7 +31,8 @@ impl ClaudePEngine {
 
     fn mcp_config_json(&self, dir: &str, session_id: &str) -> Option<String> {
         let (terminal, neovim, time, ui) = self.mcp_flags;
-        if !(terminal || neovim || time || ui) {
+        let manager_socket = std::env::var("OPMAN_AGENT_MANAGER_SOCKET").ok();
+        if !(terminal || neovim || time || ui || manager_socket.is_some()) {
             return None;
         }
         let exe = self.exe.to_string_lossy().to_string();
@@ -57,6 +58,16 @@ impl ClaudePEngine {
         }
         if ui {
             servers.insert("ui".into(), json!({ "command": exe, "args": ["mcp-ui"] }));
+        }
+        if let Some(socket) = manager_socket {
+            servers.insert(
+                "agent-manager".into(),
+                json!({
+                    "command": exe,
+                    "args": ["mcp-agent-manager", dir],
+                    "env": { "OPENCODE_SESSION_ID": session_id, "OPMAN_AGENT_MANAGER_SOCKET": socket }
+                }),
+            );
         }
         Some(json!({ "mcpServers": servers }).to_string())
     }

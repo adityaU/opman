@@ -103,7 +103,7 @@
 }
 
 .session-selector-item.current {
-    border-left: 2px solid var(--color-primary)
+    border-top: 2px solid var(--color-primary)
 }
 
 .session-selector-item-left {
@@ -260,7 +260,7 @@
 
 .session-graph-node.active {
     background: #7c3aed26;
-    border-left: 3px solid var(--color-accent, #7c3aed)
+    border-top: 3px solid var(--color-accent, #7c3aed)
 }
 
 .session-graph-node-toggle {

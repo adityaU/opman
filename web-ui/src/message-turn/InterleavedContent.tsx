@@ -19,7 +19,17 @@ function isToolPart(part: MessagePart): boolean {
 function toolType(part: MessagePart): string {
   const raw = part as MessagePart & Record<string, unknown>;
   const name = raw.tool || raw.toolName || raw.tool_name || raw.name || (raw.call as Record<string, unknown> | undefined)?.name;
-  return typeof name === "string" && name.trim() ? name.trim().toLowerCase() : "unknown:" + (part.id || part.callID || part.toolCallId || "part");
+  if (typeof name !== "string" || !name.trim()) {
+    return "unknown:" + (part.id || part.callID || part.toolCallId || "part");
+  }
+
+  const normalized = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  const bashAliases = new Set(["bash", "shell", "sh", "zsh", "exec", "exec_command", "run_command", "command_execution", "terminal"]);
+  const leaf = normalized.split("_").filter(Boolean).pop() || normalized;
+  if (bashAliases.has(normalized) || bashAliases.has(leaf)) {
+    return "bash";
+  }
+  return normalized;
 }
 
 function isTransparentPart(part: MessagePart): boolean {
@@ -92,8 +102,7 @@ function ConsecutiveToolGroup({
 }
 
 /**
- * Render parts in order, grouping consecutive text parts together and collapsing
- * adjacent calls of the same tool type without changing their transcript order.
+ * Render parts in order while preserving text, reasoning, and tool boundaries.
  * Task calls still consume child sessions while the group is being built.
  */
 export function renderInterleavedContent(

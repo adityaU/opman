@@ -111,7 +111,6 @@ export function OpenSessionsSection({
         <span className="sb-open-header-icon"><Layers size={12} /></span>
         <span className="sb-open-header-copy">
           <span>Open Sessions</span>
-          <small>Last 48 hours</small>
         </span>
         <span className="sb-open-count">{entries.length}</span>
       </div>

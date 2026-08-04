@@ -194,7 +194,7 @@
 .tool-call-live-output {
     max-height: 400px;
     overflow-y: auto;
-    border-left: 2px solid var(--color-success);
+    border-top: 2px solid var(--color-success);
     animation: live-border-pulse 2s ease-in-out infinite
 }
 
@@ -212,7 +212,7 @@
     background: linear-gradient(180deg,
         color-mix(in srgb, var(--color-surface) 60%, transparent) 0%,
         var(--color-bg) 100%);
-    border-left: 3px solid var(--color-accent)
+    border-top: 3px solid var(--color-accent)
 }
 
 /* Remove header bottom border when collapsed (header is only child) */
@@ -221,12 +221,12 @@
 }
 
 .subagent-running {
-    border-left-color: var(--color-success);
+    border-top-color: var(--color-success);
     animation: subagent-glow 3s ease-in-out infinite
 }
 
 .subagent-error-state {
-    border-left-color: var(--color-error)
+    border-top-color: var(--color-error)
 }
 
 @keyframes subagent-glow {
@@ -366,7 +366,7 @@
     background: linear-gradient(180deg,
         color-mix(in srgb, var(--color-surface) 60%, transparent) 0%,
         var(--color-bg) 100%);
-    border-left: 3px solid var(--bg-task-accent);
+    border-top: 3px solid var(--bg-task-accent);
 }
 
 .background-running {
@@ -375,7 +375,7 @@
 
 .background-error-state {
     --bg-task-accent: var(--color-error);
-    border-left-color: var(--color-error);
+    border-top-color: var(--color-error);
 }
 
 .background-task-header {
@@ -522,11 +522,11 @@
 .background-task-summary {
     font-size: var(--font-size-2xs);
     color: var(--color-text-secondary);
-    border-left: 2px solid color-mix(in srgb, var(--bg-task-accent) 40%, transparent);
-    padding-left: var(--space-2);
+    border-top: 2px solid color-mix(in srgb, var(--bg-task-accent) 40%, transparent);
+    padding-top: var(--space-2);
 }
 
 .background-task-summary.is-error {
     color: var(--color-error);
-    border-left-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    border-top-color: color-mix(in srgb, var(--color-error) 50%, transparent);
 }

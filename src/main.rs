@@ -15,6 +15,7 @@ mod event_mouse;
 mod input;
 mod integrations;
 mod mcp;
+mod mcp_agent_manager;
 mod mcp_kanban;
 mod mcp_neovim;
 mod mcp_skills;
@@ -165,6 +166,11 @@ async fn main() -> Result<()> {
                 .await
                 .map_err(Into::into);
         }
+        Some(Commands::McpAgentManager { project_path }) => {
+            return mcp_agent_manager::run_bridge(project_path)
+                .await
+                .map_err(Into::into);
+        }
         Some(Commands::ClaudeHook) => {
             return claude_engine::run_permission_hook()
                 .await
@@ -202,6 +208,14 @@ async fn main() -> Result<()> {
     let enable_ui_mcp = all_mcp || cli.ui_mcp;
     let enable_any_mcp =
         enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp || enable_ui_mcp;
+
+    // Publish the path before starting any external runner process; OpenCode
+    // serve inherits its environment and later launches the MCP child.
+    let agent_manager_socket = mcp_agent_manager::socket_path();
+    std::env::set_var(
+        "OPMAN_AGENT_MANAGER_SOCKET",
+        agent_manager_socket.to_string_lossy().as_ref(),
+    );
 
     let web_port = cli.web_port;
     let web_user = cli.web_user.unwrap_or_default();
@@ -353,6 +367,17 @@ async fn main() -> Result<()> {
         );
     }
     let runner_registry = Arc::new(runner::RunnerRegistry::new(default_runner, runner_impls));
+
+    // The agent-manager MCP is attached to every runner.  MCP child processes
+    // inherit this per-opman socket path and use it to reach the shared
+    // registry, so cross-runner sends do not depend on which runner spawned
+    // the child.
+    let agent_manager_socket = mcp_agent_manager::spawn(runner_registry.clone())
+        .context("Failed to start agent manager MCP")?;
+    std::env::set_var(
+        "OPMAN_AGENT_MANAGER_SOCKET",
+        agent_manager_socket.to_string_lossy().as_ref(),
+    );
 
     // Kill the server on Ctrl+C (even if the TUI hasn't reached cleanup)
     {

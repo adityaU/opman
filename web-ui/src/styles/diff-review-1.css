@@ -252,7 +252,7 @@
 
 .diff-review-file-item.selected {
     background: var(--color-bg-selected, #1c1610);
-    border-left: 2px solid var(--color-primary, #fab283)
+    border-top: 2px solid var(--color-primary, #fab283)
 }
 
 .diff-review-file-item.file-accepted {

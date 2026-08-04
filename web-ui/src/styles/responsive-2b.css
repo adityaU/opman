@@ -58,7 +58,7 @@
         max-width: 100%;
         border-radius: 20px 20px 0 0;
         padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom,0px));
-        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards
+        animation: modal-sheet-up .35s var(--ease-out-expo) forwards
     }
 
     .sb-modal:before {
@@ -93,7 +93,7 @@
         max-width: 100%;
         border-radius: 20px 20px 0 0;
         max-height: calc(85vh - env(safe-area-inset-top,0px));
-        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards;
+        animation: modal-sheet-up .35s var(--ease-out-expo) forwards;
         padding-bottom: env(safe-area-inset-bottom,0px)
     }
 

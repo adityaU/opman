@@ -16,20 +16,7 @@
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: linear-gradient(var(--white-2) 1px,transparent 1px),linear-gradient(90deg,var(--white-2) 1px,transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    animation: login-grid-drift 20s linear infinite
-}
-
-@keyframes login-grid-drift {
-    0% {
-        transform: translate(0)
-    }
-
-    to {
-        transform: translate(40px,40px)
-    }
+    pointer-events: none
 }
 
 .login-bg-glow {

@@ -41,7 +41,7 @@
     margin: var(--space-1) 0;
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
-    border-left: 2px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 55%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--lane-color, var(--color-accent)) 55%, transparent);
     background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 4%, transparent);
     overflow: hidden
 }
@@ -166,7 +166,7 @@
     max-width: 400px;
     margin-bottom: env(safe-area-inset-bottom, var(--space-2));
     padding: var(--space-2);
-    animation: sb-ctx-sheet-in .25s cubic-bezier(.32,1.2,.54,1)
+    animation: sb-ctx-sheet-in .25s var(--ease-out-expo)
 }
 
 @keyframes sb-ctx-sheet-in {
@@ -269,7 +269,7 @@ html.flat-theme .chat-sidebar .swipe-row-content {
 html.flat-theme .sb-task-group {
     background: var(--color-bg-panel);
     border-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 30%, var(--color-bg-panel));
-    border-left-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 65%, var(--color-bg-panel))
+    border-top-color: color-mix(in srgb, var(--lane-color, var(--color-accent)) 65%, var(--color-bg-panel))
 }
 
 html.flat-theme .sb-task-group-toggle:hover {

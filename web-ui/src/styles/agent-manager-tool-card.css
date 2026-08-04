@@ -1,0 +1,149 @@
+/* ── Agent-manager MCP cards ────────────────────────────────────── */
+
+.am-card {
+    margin: var(--space-2) 0;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    background: var(--white-2);
+    overflow: hidden
+}
+
+.am-card-start .am-card-icon { color: var(--color-secondary) }
+.am-card-send .am-card-icon { color: var(--color-accent) }
+.am-card-progress .am-card-icon { color: var(--color-info) }
+.am-card-error .am-card-icon { color: var(--color-error) }
+
+.am-card-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    background: var(--white-3);
+    color: inherit;
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left
+}
+
+.am-card-head-btn { cursor: pointer; transition: background var(--transition-fast) }
+.am-card-head-btn:hover { background: var(--white-6) }
+.am-card-chevron { display: flex; color: var(--color-text-muted); flex-shrink: 0 }
+.am-card-icon { display: flex; color: var(--color-accent); flex-shrink: 0 }
+.am-card-start .am-card-icon { color: var(--color-secondary) }
+.am-card-progress .am-card-icon { color: var(--color-info) }
+.am-card-label { font-weight: 600; color: var(--color-text); letter-spacing: .01em; flex-shrink: 0 }
+.am-card-summary { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.am-card-model { color: var(--color-secondary); font-family: var(--font-mono); font-size: var(--font-size-2xs); overflow: hidden; text-overflow: ellipsis }
+.am-card-status { margin-left: auto; display: flex; flex-shrink: 0 }
+
+.am-delivery {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent)
+}
+.am-delivery-next-turn { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, transparent) }
+.am-delivery-created { color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, transparent) }
+
+.am-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-top: .5px solid var(--white-4)
+}
+
+.am-start-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600
+}
+
+.am-section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-bottom: var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px
+}
+.am-message {
+    padding: var(--space-2) var(--space-3);
+    border: .5px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--white-2));
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word
+}
+
+.am-meta-row,
+.am-id-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) }
+.am-id-row { padding-top: var(--space-1); border-top: .5px solid var(--white-4) }
+.am-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    padding: 2px var(--space-2);
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-full);
+    background: var(--white-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+.am-meta-chip svg { flex-shrink: 0; color: var(--color-accent) }
+.am-meta-label { color: var(--color-text-muted); opacity: .75 }
+.am-meta-chip > span:last-child { color: var(--color-text); font-family: var(--font-mono) }
+
+.am-transcript {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 230px;
+    overflow: auto;
+    padding: var(--space-1);
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-sm);
+    background: var(--white-3)
+}
+.am-transcript-row { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-1) var(--space-2); font-size: var(--font-size-2xs); line-height: 1.45 }
+.am-transcript-role { flex: 0 0 52px; color: var(--color-text-muted); font-weight: 600; text-transform: capitalize }
+.am-transcript-assistant .am-transcript-role { color: var(--color-info) }
+.am-transcript-user .am-transcript-role { color: var(--color-secondary) }
+.am-transcript-text { min-width: 0; color: var(--color-text); white-space: pre-wrap; word-break: break-word }
+
+.am-card-pre {
+    margin: 0;
+    max-height: 220px;
+    overflow: auto;
+    color: var(--color-text-muted);
+    font: var(--font-size-2xs) var(--font-mono);
+    white-space: pre-wrap;
+    word-break: break-word
+}
+.am-card-muted { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-xs); font-style: italic }
+.am-card-error-message { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--color-error); font-size: var(--font-size-xs); line-height: 1.45 }
+
+@media (max-width: 560px) {
+    .am-card-summary { display: none }
+    .am-card-body { padding: var(--space-2) }
+    .am-transcript-role { flex-basis: 44px }
+}

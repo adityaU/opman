@@ -20,7 +20,7 @@
         max-width: 100%;
         border-radius: 20px 20px 0 0;
         max-height: calc(85vh - env(safe-area-inset-top,0px));
-        animation: modal-sheet-up .35s cubic-bezier(.34,1.56,.64,1) forwards;
+        animation: modal-sheet-up .35s var(--ease-out-expo) forwards;
         padding-bottom: env(safe-area-inset-bottom,0px)
     }
 
@@ -77,7 +77,7 @@
         max-height: 50vh;
         opacity: 1;
         overflow: visible;
-        transition: max-height .2s ease-out, opacity .15s ease-out;
+        transition: opacity .15s ease-out;
         margin-bottom: 0
     }
 
@@ -108,14 +108,14 @@
         overflow: hidden;
         transform: translateY(100%);
         opacity: 0;
-        transition: transform .35s cubic-bezier(.34,1.56,.64,1),opacity .25s ease
+        transition: transform .35s var(--ease-out-expo), opacity .25s ease
     }
 
     .mobile-panel-sheet.mobile-panel-active {
         display: flex;
         transform: translateY(0);
         opacity: 1;
-        animation: sheet-slide-up .35s cubic-bezier(.34,1.56,.64,1) forwards
+        animation: sheet-slide-up .35s var(--ease-out-expo) forwards
     }
 }
 

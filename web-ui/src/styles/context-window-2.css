@@ -1,7 +1,6 @@
 
 .ctx-stacked-segment {
-    min-width: 2px;
-    transition: width .3s ease
+    min-width: 2px
 }
 
 .ctx-stacked-remaining {
@@ -76,8 +75,7 @@
 
 .ctx-category-bar-fill {
     height: 100%;
-    border-radius: 2px;
-    transition: width .3s ease
+    border-radius: 2px
 }
 
 .ctx-category-items {

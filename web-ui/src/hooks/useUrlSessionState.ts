@@ -13,7 +13,8 @@ export interface UrlSessionState {
    * Navigate to a different session. This is the ONLY way to change the active session.
    * Updates the URL immediately (pushState), then fires beginSessionSwitch + API calls.
    */
-  setUrlSession: (sessionId: string, projectIdx: number) => void;
+  newSessionMode: boolean;
+  setUrlSession: (sessionId: string | null, projectIdx: number) => void;
 }
 
 export interface UrlSessionStateOptions {
@@ -40,6 +41,7 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
   // Read initial URL values
   const [initial] = useState(readSessionFromUrl);
   const [urlSessionId, setUrlSessionId] = useState<string | null>(initial.sessionId);
+  const [newSessionMode, setNewSessionMode] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
   const [urlProjectIndex, setUrlProjectIndex] = useState<number>(initial.projectIdx);
 
   // Track what we've already synced to avoid duplicate API calls.
@@ -51,7 +53,7 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
 
   // ── setUrlSession: update URL → state updates reactively ──
 
-  const setUrlSession = useCallback((sessionId: string, projectIdx: number) => {
+  const setUrlSession = useCallback((sessionId: string | null, projectIdx: number) => {
     // Push a new history entry with the updated session+project params so the
     // browser URL stays current.  Without this, any history.back() (modal close,
     // browser back button) fires popstate, reads the stale URL, and reverts to
@@ -63,10 +65,11 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
     const params = new URLSearchParams(window.location.search);
     params.delete("task");
     params.delete("view");
-    params.set("session", sessionId);
+    if (sessionId) { params.set("session", sessionId); params.delete("new"); } else { params.delete("session"); params.set("new", "1"); }
     params.set("project", String(projectIdx));
     appNavigate(`/?${params}`);
     setUrlSessionId(sessionId);
+    setNewSessionMode(!sessionId);
     setUrlProjectIndex(projectIdx);
   }, []);
 
@@ -156,5 +159,5 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
     return () => window.removeEventListener("popstate", handler);
   }, []);
 
-  return { urlSessionId, urlProjectIndex, setUrlSession };
+  return { urlSessionId, urlProjectIndex, newSessionMode, setUrlSession };
 }

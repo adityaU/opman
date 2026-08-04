@@ -37,7 +37,7 @@ export interface HandlerDeps {
   /** Close mobile sidebar without history.back() — prevents undoing the session URL pushState. */
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
-  setUrlSession: (sessionId: string, projectIdx: number) => void;
+  setUrlSession: (sessionId: string | null, projectIdx: number) => void;
   openModal: (name: string) => void;
   /** Signal that the next SSE session change is expected (for real session switches). */
   expectSessionSwitch: () => void;
@@ -58,7 +58,7 @@ export interface HandlerDeps {
 /* ── Pure helper ────────────────────────────────────────── */
 
 export function injectMemoryGuidance(text: string, memoryItems: PersonalMemoryItem[]): string {
-  if (memoryItems.length === 0) return text;
+  if (memoryItems.length === 0 || text.includes("[Assistant memory in effect]")) return text;
   const guidance = memoryItems
     .map((item) => `- ${item.label}: ${item.content}`)
     .join("\n");
@@ -94,8 +94,17 @@ export const LOCAL_COMMANDS = new Set([
 
 export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
-    const sid = deps.activeSessionId;
-    if (!sid) return false;
+    let sid = deps.activeSessionId;
+    if (!sid) {
+      try {
+        const created = await newSession(deps.activeProjectIndex, deps.selectedRunner || sessionRunner(deps));
+        sid = created.session_id;
+        deps.setUrlSession(sid, deps.activeProjectIndex);
+      } catch {
+        deps.addToast("Failed to create session", "error");
+        return false;
+      }
+    }
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
     }
@@ -174,12 +183,12 @@ export function createHandleCommand(deps: HandlerDeps) {
       if (!deps.appState) return;
       try {
       const projectIdx = deps.activeProjectIndex;
-        const resp = await newSession(projectIdx, deps.selectedRunner || sessionRunner(deps));
+        deps.setUrlSession(null, projectIdx);
         // URL is the single source of truth — triggers beginSessionSwitch + API calls
-        deps.setUrlSession(resp.session_id, projectIdx);
         deps.setSelectedModel(null);
+        
         deps.setSelectedAgent("");
-        deps.setSelectedRunner(null);
+
         deps.addToast("New session created", "success");
       } catch {
         deps.addToast("Failed to create session", "error");
@@ -287,12 +296,11 @@ export function createHandleNewSession(deps: HandlerDeps) {
     if (!deps.appState) return;
     try {
       const projectIdx = deps.activeProjectIndex;
-      const resp = await newSession(projectIdx, deps.selectedRunner || sessionRunner(deps));
-      // URL is the single source of truth — triggers beginSessionSwitch + API calls
-      deps.setUrlSession(resp.session_id, projectIdx);
+      deps.setUrlSession(null, projectIdx);
+      deps.setSelectedModel(null);
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
-      deps.setSelectedRunner(null);
+
       deps.addToast("New session created", "success");
     } catch {
       deps.addToast("Failed to create session", "error");
@@ -314,7 +322,7 @@ export function createHandleSwitchProject(deps: HandlerDeps) {
       }
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");
-      deps.setSelectedRunner(null);
+
     } catch {
       deps.addToast("Failed to switch project", "error");
     }

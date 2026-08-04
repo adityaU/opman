@@ -141,7 +141,7 @@ where
                 "info": {
                     "id": format!("codex_bash_{}", call.id),
                     "messageID": format!("codex_bash_{}", call.id),
-                    "role": "assistant",
+                    "role": "assistant", "agent": "codex",
                     "time": { "created": created }
                 },
                 "parts": [{

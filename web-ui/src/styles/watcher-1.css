@@ -97,7 +97,7 @@
 
 .watcher-session-item.selected {
     background: color-mix(in srgb,var(--color-primary) 15%,transparent);
-    border-left: 2px solid var(--color-primary)
+    border-top: 2px solid var(--color-primary)
 }
 
 .watcher-session-title {

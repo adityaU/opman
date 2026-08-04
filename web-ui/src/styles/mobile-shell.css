@@ -156,3 +156,170 @@ html.flat-theme .code-editor-desktop .explorer-pinned {
 @media (max-width: 768px) {
     .chat-header { display: none }
 }
+@media (max-width: 768px) {
+    .chat-sidebar {
+        width: min(86vw, 340px);
+        max-width: 340px
+    }
+    .chat-sidebar .sb-header {
+        min-height: 58px;
+        padding: 10px 12px;
+        gap: 8px
+    }
+    .chat-sidebar .sb-eyebrow {
+        font-size: 8px;
+        letter-spacing: .14em
+    }
+    .chat-sidebar .sb-brand { font-size: 18px }
+    .chat-sidebar .sb-header-actions { gap: 2px }
+    .chat-sidebar .sb-icon-btn,
+    .chat-sidebar .sidebar-close-btn {
+        width: 30px;
+        height: 30px
+    }
+    .chat-sidebar .sb-search {
+        margin: 8px 10px;
+        min-height: 32px
+    }
+    .chat-sidebar .sb-list {
+        padding: 4px 8px 12px
+    }
+    .chat-sidebar .sb-open-sessions {
+        margin: 4px 0 10px;
+        padding: 0 2px 8px;
+        border-bottom: 1px solid var(--color-border-subtle)
+    }
+    .chat-sidebar .sb-open-header {
+        min-height: 40px;
+        padding: 6px 8px
+    }
+    .chat-sidebar .sb-open-header-copy { gap: 0 }
+    .chat-sidebar .sb-open-header-copy small,
+    .chat-sidebar .sb-open-group-label {
+        font-size: 10px
+    }
+    .chat-sidebar .sb-open-group-label { padding: 4px 8px }
+    .chat-sidebar .sb-open-row,
+    .chat-sidebar .sb-session {
+        min-height: 38px;
+        margin: 2px 0;
+        padding: 6px 8px;
+        border-radius: var(--radius-md);
+        background: transparent
+    }
+    .chat-sidebar .sb-open-row.active,
+    .chat-sidebar .sb-session.active {
+        background: var(--theme-primary-soft);
+        border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border-subtle))
+    }
+    .chat-sidebar .sb-session-icon {
+        width: 26px;
+        height: 26px
+    }
+    .chat-sidebar .sb-session-title {
+        overflow: hidden;
+        font-size: 12px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+    .chat-sidebar .sb-session-meta,
+    .chat-sidebar .sb-runner-badge,
+    .chat-sidebar .sb-open-project-tag,
+    .chat-sidebar .sb-subagent-badge {
+        font-size: 9px
+    }
+    .chat-sidebar .sb-project-header {
+        min-height: 36px;
+        margin: 6px 0 3px;
+        padding: 6px 8px
+    }
+    .chat-sidebar .sb-new-session-row {
+        min-height: 38px;
+        margin: 4px 0 8px;
+        border: 1px dashed var(--color-border-subtle);
+        color: var(--color-primary)
+    }
+    .chat-sidebar .sb-add-project {
+        padding: 10px 12px;
+        border-top: 1px solid var(--color-border-subtle)
+    }
+}
+@media (max-width: 768px) {
+    .kanban-view {
+        min-width: 0;
+        background: var(--color-bg)
+    }
+    .kanban-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--color-border-subtle)
+    }
+    .kanban-header-left {
+        min-width: 0;
+        flex: 1 1 100%;
+        gap: 6px
+    }
+    .kanban-board-name,
+    .kanban-project-select {
+        max-width: 70vw;
+        overflow: hidden;
+        font-size: 14px;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+    .kanban-header-actions {
+        width: 100%;
+        justify-content: flex-end;
+        gap: 6px
+    }
+    .kanban-header-actions .kanban-btn {
+        min-height: 32px;
+        padding: 6px 9px
+    }
+    .kanban-board-scroll {
+        gap: 10px;
+        padding: 10px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch
+    }
+    .kanban-lane {
+        flex: 0 0 min(86vw, 330px);
+        max-height: none;
+        height: 100%;
+        scroll-snap-align: start;
+        border-radius: var(--radius-md)
+    }
+    .kanban-lane-header {
+        min-height: 42px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md) var(--radius-md) 0 0
+    }
+    .kanban-lane-name { font-size: 13px }
+    .kanban-lane-body {
+        gap: 8px;
+        padding: 8px;
+        overscroll-behavior-y: contain
+    }
+    .kanban-card {
+        gap: 6px;
+        min-height: 68px;
+        padding: 9px 10px;
+        border-radius: var(--radius-md)
+    }
+    .kanban-card-title {
+        font-size: 13px;
+        line-height: 1.35
+    }
+    .kanban-card-meta,
+    .kanban-tag-chip,
+    .kanban-priority-chip {
+        font-size: 10px
+    }
+    html.flat-theme .kanban-lane {
+        background: var(--color-bg-panel)
+    }
+}

@@ -53,12 +53,16 @@ export const EXAMPLE_PROMPTS = [
 
 // ── Helpers ────────────────────────────────────────────
 
+function isToolOnlyMessage(message: Message): boolean {
+  return message.parts.length > 0 && message.parts.every((part) =>
+    part.type === "tool" || part.type === "tool-call" || part.type === "tool_call" ||
+    ["step-start", "step-finish", "snapshot", "patch"].includes(part.type),
+  );
+}
+
 /**
- * Group consecutive same-role messages together.
- *
- * Accepts `prevGroups` so that groups whose identity hasn't changed can keep
- * the same object reference, allowing React.memo on MessageTurn to skip
- * re-rendering unchanged groups during streaming.
+ * Keep prose and reasoning as separate visual turns. Consecutive tool-only
+ * messages may share a turn so the tool renderer can collapse their calls.
  */
 export function groupMessages(
   messages: Message[],
@@ -67,32 +71,30 @@ export function groupMessages(
   const groups: MessageGroup[] = [];
   for (const msg of messages) {
     const last = groups[groups.length - 1];
-    if (last && last.role === msg.info.role) {
+    const canJoinToolTurn = last && last.role === "assistant" &&
+      isToolOnlyMessage(msg) && isToolOnlyMessage(last.messages[last.messages.length - 1]);
+    if (canJoinToolTurn) {
       last.messages.push(msg);
     } else {
       groups.push({
         role: msg.info.role,
         messages: [msg],
-        key: msg.info.messageID || `grp-${groups.length}`,
+        key: msg.info.messageID || msg.info.id || `grp-${groups.length}`,
       });
     }
   }
 
-  // If we have previous groups, reuse unchanged group objects so shallow
-  // comparison in React.memo will skip re-renders for groups that didn't change.
+  // Reuse unchanged groups so streaming updates still avoid rerendering the
+  // completed transcript above the active message.
   if (prevGroups && prevGroups.length > 0) {
     for (let i = 0; i < groups.length && i < prevGroups.length; i++) {
       const prev = prevGroups[i];
       const curr = groups[i];
       if (prev.key !== curr.key) break;
       if (prev.messages.length !== curr.messages.length) continue;
-      // Check if the last message in the group is the same reference
-      // (earlier messages in a finished group won't change)
-      const pLast = prev.messages[prev.messages.length - 1];
-      const cLast = curr.messages[curr.messages.length - 1];
-      if (pLast === cLast) {
-        groups[i] = prev; // reuse previous object reference
-      }
+      const previousLast = prev.messages[prev.messages.length - 1];
+      const currentLast = curr.messages[curr.messages.length - 1];
+      if (previousLast === currentLast) groups[i] = prev;
     }
   }
 

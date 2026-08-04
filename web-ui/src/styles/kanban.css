@@ -596,11 +596,11 @@ html.flat-theme .kanban-lane {
   padding: var(--space-2);
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--color-border-subtle);
-  border-left: 2px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
   background: var(--color-bg-element, color-mix(in srgb, var(--color-text) 5%, transparent));
 }
 .kanban-note-user {
-  border-left-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  border-top-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
   background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-element));
 }
 .kanban-note-icon {

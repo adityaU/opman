@@ -138,7 +138,7 @@ export function DesktopLayout(p: Props) {
     <div className="code-editor-panel code-editor-desktop" ref={p.editorRef}>
       {/* Floating file explorer */}
       <div
-        className={`code-editor-explorer explorer-floating`}
+        className={`code-editor-explorer explorer-floating${showExplorer ? " explorer-floating-open" : ""}${pinned ? " explorer-pinned" : ""}`}
         style={{ width: explorerWidth }}
         onPointerDown={() => { clearHideTimer(); }}
       >
@@ -168,7 +168,7 @@ export function DesktopLayout(p: Props) {
             <button
               type="button"
               className="explorer-hdr-btn"
-              onClick={() => p.setExplorerCollapsed(!p.explorerCollapsed)}
+              onClick={() => setPinned((value) => !value)}
               title={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
               aria-label={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
             >

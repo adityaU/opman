@@ -3,17 +3,16 @@
 .kanban-card {
     margin: var(--space-2) 0;
     border: .5px solid var(--white-6);
-    border-left: 3px solid var(--color-accent);
     border-radius: var(--radius-lg);
     background: var(--white-2);
     overflow: hidden
 }
 
-.kanban-card-info { border-left-color: var(--color-info) }
-.kanban-card-note { border-left-color: var(--color-warning) }
-.kanban-card-move { border-left-color: var(--color-accent) }
-.kanban-card-done { border-left-color: var(--color-success) }
-.kanban-card-error { border-left-color: var(--color-error) }
+.kanban-card-info .kanban-card-icon { color: var(--color-info) }
+.kanban-card-note .kanban-card-icon { color: var(--color-warning) }
+.kanban-card-move .kanban-card-icon { color: var(--color-accent) }
+.kanban-card-done .kanban-card-icon { color: var(--color-success) }
+.kanban-card-error .kanban-card-icon { color: var(--color-error) }
 
 .kanban-card-head {
     display: flex;
@@ -232,12 +231,12 @@
     padding: var(--space-2);
     border-radius: var(--radius-sm);
     border: .5px solid var(--white-6);
-    border-left: 2px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
     background: var(--white-2)
 }
 
 .kqb-note-user {
-    border-left-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    border-top-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
     background: color-mix(in srgb, var(--color-primary) 6%, var(--white-2))
 }
 

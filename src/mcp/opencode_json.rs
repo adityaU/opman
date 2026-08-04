@@ -95,6 +95,15 @@ pub fn write_opencode_json(
         } else {
             mcp_obj.remove("kanban");
         }
+        // Agent orchestration is available to every OpenCode session.  The
+        // socket path and session id are inherited from opman/attach.
+        mcp_obj.insert(
+            "agent-manager".to_string(),
+            serde_json::json!({
+                "type": "local",
+                "command": [&exe_str, "mcp-agent-manager", &project_path_str]
+            }),
+        );
     }
 
     // Disable opencode's native bash tool so it uses the manager's terminal instead

@@ -57,7 +57,7 @@ export function ChatLayout() {
   }, [busySessions]);
 
   // ── URL-driven session state (single source of truth) ──
-  const { urlSessionId, urlProjectIndex, setUrlSession } = useUrlSessionState({
+  const { urlSessionId, urlProjectIndex, newSessionMode, setUrlSession } = useUrlSessionState({
     appState, beginSessionSwitch,
   });
 
@@ -67,7 +67,7 @@ export function ChatLayout() {
   // URL is the sole source of truth for the active project — never fall back to server state.
   const activeProjectIndex = urlProjectIndex;
   const activeProject = appState ? appState.projects[activeProjectIndex] ?? null : null;
-  const activeSessionId = urlSessionId ?? activeProject?.active_session ?? null;
+  const activeSessionId = newSessionMode ? null : (urlSessionId ?? activeProject?.active_session ?? null);
   const activeSession = activeProject?.sessions?.find((session: any) => session.id === activeSessionId);
 
   // Build the set of sub-session IDs (children of the active session)
@@ -263,7 +263,7 @@ export function ChatLayout() {
 
   // ── URL restore/sync ──
   useUrlRestore({
-    appState, activeSessionId, activeProjectIndex,
+    appState, activeSessionId, activeProjectIndex, newSessionMode,
     panels: {
       sidebarOpen: panels.sidebar.open, terminalOpen: panels.terminal.open,
       neovimOpen: panels.editor.open, gitOpen: panels.git.open,

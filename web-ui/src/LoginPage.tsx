@@ -29,7 +29,6 @@ export function LoginPage({ onLogin, appName = "opman" }: Props) {
   return (
     <div className="login-container">
       {/* Animated background grid */}
-      <div className="login-bg-grid" />
       <div className="login-bg-glow" />
 
       <form className="login-box" onSubmit={handleSubmit}>

@@ -8,6 +8,7 @@ export interface UseUrlRestoreOptions {
   activeSessionId: string | null;
   /** Active project index (from URL session state). */
   activeProjectIndex: number;
+  newSessionMode?: boolean;
   panels: {
     sidebarOpen: boolean;
     terminalOpen: boolean;
@@ -27,7 +28,7 @@ export interface UseUrlRestoreOptions {
  * 4. Panel restoration on popstate (session popstate handled by useUrlSessionState)
  */
 export function useUrlRestore(opts: UseUrlRestoreOptions) {
-  const { appState, activeSessionId, activeProjectIndex, panels, setPanels, setUrlSession } = opts;
+  const { appState, activeSessionId, activeProjectIndex, newSessionMode, panels, setPanels, setUrlSession } = opts;
 
   const [initialUrlState] = useState(() => readUrlState());
   const urlRestoredRef = useRef(false);
@@ -45,7 +46,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     }
 
     // Only run when URL has no session to restore
-    if (initialUrlState.sessionId) {
+    if (initialUrlState.sessionId || newSessionMode) {
       urlRestoredRef.current = true;
       return;
     }
@@ -71,7 +72,7 @@ export function useUrlRestore(opts: UseUrlRestoreOptions) {
     } else {
       urlRestoredRef.current = true;
     }
-  }, [appState, initialUrlState.sessionId, setUrlSession]);
+  }, [appState, initialUrlState.sessionId, newSessionMode, setUrlSession]);
 
   // ── Persist last active session to localStorage for cross-restart restore ──
   useEffect(() => {

@@ -5,7 +5,7 @@
 //! new runner-native session, sends a handoff context to it, and returns the
 //! new session id to the client.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -46,6 +46,12 @@ pub trait Runner: Send + Sync {
         Box::pin(async { Ok(Vec::new()) })
     }
     fn messages<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, Value>;
+    /// Return the runner's current session status map.  Implementations use
+    /// the same shape as OpenCode's `/session/status`: `{ session_id: { type:
+    /// "busy" } }`; idle sessions may be omitted.
+    fn status<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async { Ok(json!({})) })
+    }
     fn providers<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
         Box::pin(async { Ok(json!({ "all": [], "connected": [], "default": {} })) })
     }
@@ -187,6 +193,17 @@ impl Runner for HttpRunner {
         })
     }
 
+    fn status<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async move {
+            self.json_request(
+                self.client
+                    .get(format!("{}/session/status", self.base_url))
+                    .header("x-opencode-directory", directory),
+            )
+            .await
+        })
+    }
+
     fn send_message<'a>(
         &'a self,
         session_id: &'a str,
@@ -264,7 +281,7 @@ pub struct CodexMcpConfig {
 }
 
 impl CodexMcpConfig {
-    fn for_directory(&self, directory: &str) -> Value {
+    fn for_directory(&self, directory: &str, session_id: Option<&str>) -> Value {
         let executable = std::env::current_exe()
             .map(|path| path.to_string_lossy().into_owned())
             .unwrap_or_else(|_| "opman".to_string());
@@ -298,6 +315,17 @@ impl CodexMcpConfig {
             servers.insert(
                 "kanban".to_string(),
                 json!({ "command": executable, "args": ["mcp-kanban"] }),
+            );
+        }
+        if let Ok(socket) = std::env::var("OPMAN_AGENT_MANAGER_SOCKET") {
+            let mut env = serde_json::Map::new();
+            env.insert("OPMAN_AGENT_MANAGER_SOCKET".into(), Value::String(socket));
+            if let Some(session_id) = session_id {
+                env.insert("OPENCODE_SESSION_ID".into(), Value::String(session_id.to_string()));
+            }
+            servers.insert(
+                "agent-manager".to_string(),
+                json!({ "command": executable, "args": ["mcp-agent-manager", directory], "env": env }),
             );
         }
 
@@ -502,7 +530,7 @@ impl CodexRunner {
                 json!({
                     "threadId": session_id,
                     "cwd": directory,
-                    "config": self.runtime.mcp.for_directory(directory),
+                    "config": self.runtime.mcp.for_directory(directory, Some(session_id)),
                 }),
             )
             .await?;
@@ -726,13 +754,13 @@ impl CodexRuntime {
             "reasoning" | "analysis" | "thinking" => {
                 let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
                 let message_id = format!("turn_{}", string_at(params, "turnId"));
-                let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "time": { "created": timestamp } });
+                let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "agent": "codex", "time": { "created": timestamp } });
                 self.emit(json!({ "type": "message.updated", "properties": { "info": info } })).await;
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": message_id, "type": "reasoning", "text": text } } })).await;
             }
             "agentMessage" => {
                 let text = item.get("text").and_then(Value::as_str).unwrap_or("");
-                let info = json!({ "id": item_id, "messageID": item_id, "sessionID": session_id, "role": "assistant", "time": { "created": timestamp }, "modelID": self.sessions.read().await.get(&session_id).and_then(|s| s.model.clone()) });
+                let info = json!({ "id": item_id, "messageID": item_id, "sessionID": session_id, "role": "assistant", "agent": "codex", "time": { "created": timestamp }, "modelID": self.sessions.read().await.get(&session_id).and_then(|s| s.model.clone()) });
                 self.emit(json!({ "type": "message.updated", "properties": { "info": info } }))
                     .await;
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": item_id, "type": "text", "text": text } } })).await;
@@ -748,7 +776,7 @@ impl CodexRuntime {
                     "output": tool_part.output.map(Value::String).unwrap_or(Value::Null),
                     "error": tool_part.error.map(Value::String).unwrap_or(Value::Null)
                 });
-                let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "time": { "created": timestamp } });
+                let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "agent": "codex", "time": { "created": timestamp } });
                 self.emit(json!({ "type": "message.updated", "properties": { "info": info } }))
                     .await;
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": message_id, "type": "tool", "tool": tool_part.tool, "callID": item_id, "state": state } } })).await;
@@ -810,7 +838,7 @@ impl CodexRuntime {
             .cloned()
             .unwrap_or(Value::Null);
         let session_id = string_at(params, "threadId");
-        self.emit(json!({ "type": "message.updated", "properties": { "info": { "id": format!("usage_{}", string_at(params, "turnId")), "messageID": format!("usage_{}", string_at(params, "turnId")), "sessionID": session_id, "role": "assistant", "tokens": { "input": usage.get("inputTokens").cloned().unwrap_or(json!(0)), "output": usage.get("outputTokens").cloned().unwrap_or(json!(0)), "reasoning": usage.get("reasoningOutputTokens").cloned().unwrap_or(json!(0)), "cache": { "read": usage.get("cachedInputTokens").cloned().unwrap_or(json!(0)) } } } } })).await;
+        self.emit(json!({ "type": "message.updated", "properties": { "info": { "id": format!("usage_{}", string_at(params, "turnId")), "messageID": format!("usage_{}", string_at(params, "turnId")), "sessionID": session_id, "role": "assistant", "agent": "codex", "tokens": { "input": usage.get("inputTokens").cloned().unwrap_or(json!(0)), "output": usage.get("outputTokens").cloned().unwrap_or(json!(0)), "reasoning": usage.get("reasoningOutputTokens").cloned().unwrap_or(json!(0)), "cache": { "read": usage.get("cachedInputTokens").cloned().unwrap_or(json!(0)) } } } } })).await;
     }
 
     async fn emit(&self, event: Value) {
@@ -1003,6 +1031,36 @@ fn codex_input(body: &Value) -> Vec<Value> {
     }).collect()
 }
 
+fn dedupe_codex_messages(messages: Vec<Value>) -> Vec<Value> {
+    let mut seen = HashSet::new();
+    messages
+        .into_iter()
+        .filter(|message| {
+            let role = message.pointer("/info/role").and_then(Value::as_str).unwrap_or("");
+            let created = message.pointer("/info/time/created").and_then(Value::as_u64).unwrap_or(0);
+            let parts = message
+                .get("parts")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|part| {
+                    json!({
+                        "type": part.get("type"),
+                        "text": part.get("text"),
+                        "tool": part.get("tool"),
+                        "callID": part.get("callID"),
+                        "state": part.get("state"),
+                    })
+                })
+                .collect::<Vec<_>>();
+            let key = serde_json::to_string(&(role, created, parts))
+                .unwrap_or_else(|_| message.to_string());
+            seen.insert(key)
+        })
+        .collect()
+}
+
 fn codex_messages(thread: &Value) -> Value {
     let thread_id = thread.get("id").and_then(Value::as_str).unwrap_or("");
     let turns = thread
@@ -1032,7 +1090,7 @@ fn codex_messages(thread: &Value) -> Value {
                 }
                 "reasoning" | "analysis" | "thinking" => {
                     let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
-                    messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "reasoning", "text": text }] }));
+                    messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "agent": "codex", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "reasoning", "text": text }] }));
                 }
                 "agentMessage" => {
                     let status = if turn.get("status").and_then(Value::as_str) == Some("failed") {
@@ -1040,7 +1098,7 @@ fn codex_messages(thread: &Value) -> Value {
                     } else {
                         "completed"
                     };
-                    messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "time": { "created": created, "completed": turn.get("completedAt").and_then(Value::as_i64).unwrap_or(0) * 1000 } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "text", "text": item.get("text").and_then(Value::as_str).unwrap_or(""), "state": { "status": status } }] }));
+                    messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "agent": "codex", "time": { "created": created, "completed": turn.get("completedAt").and_then(Value::as_i64).unwrap_or(0) * 1000 } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "text", "text": item.get("text").and_then(Value::as_str).unwrap_or(""), "state": { "status": status } }] }));
                 }
                 _ => {
                     let Some(tool_part) = codex_tool_part(item_type, item) else {
@@ -1051,7 +1109,7 @@ fn codex_messages(thread: &Value) -> Value {
                     } else {
                         "completed"
                     };
-                    messages.push(json!({ "info": { "id": format!("turn_{turn_id}_{item_id}"), "messageID": format!("turn_{turn_id}_{item_id}"), "sessionID": thread_id, "role": "assistant", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": format!("turn_{turn_id}_{item_id}"), "type": "tool", "tool": tool_part.tool, "callID": item_id, "state": { "status": status, "input": tool_part.input, "output": tool_part.output.map(Value::String).unwrap_or(Value::Null), "error": tool_part.error.map(Value::String).unwrap_or(Value::Null) } }] }));
+                    messages.push(json!({ "info": { "id": format!("turn_{turn_id}_{item_id}"), "messageID": format!("turn_{turn_id}_{item_id}"), "sessionID": thread_id, "role": "assistant", "agent": "codex", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": format!("turn_{turn_id}_{item_id}"), "type": "tool", "tool": tool_part.tool, "callID": item_id, "state": { "status": status, "input": tool_part.input, "output": tool_part.output.map(Value::String).unwrap_or(Value::Null), "error": tool_part.error.map(Value::String).unwrap_or(Value::Null) } }] }));
                 }
             }
         }
@@ -1065,6 +1123,19 @@ impl Runner for CodexRunner {
     }
     fn event_receiver(&self) -> Option<broadcast::Receiver<String>> {
         Some(self.runtime.events.subscribe())
+    }
+
+    fn status<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async move {
+            let sessions = self.runtime.sessions.read().await;
+            let mut result = serde_json::Map::new();
+            for (id, session) in sessions.iter() {
+                if session.active_turn.is_some() {
+                    result.insert(id.clone(), json!({ "type": "busy" }));
+                }
+            }
+            Ok(Value::Object(result))
+        })
     }
 
     fn create_session<'a>(
@@ -1081,7 +1152,7 @@ impl Runner for CodexRunner {
                         "cwd": directory,
                         "approvalPolicy": "on-request",
                         "sandbox": "workspace-write",
-                        "config": self.runtime.mcp.for_directory(directory),
+                        "config": self.runtime.mcp.for_directory(directory, None),
                     }),
                 )
                 .await?;
@@ -1093,6 +1164,21 @@ impl Runner for CodexRunner {
                 .and_then(Value::as_str)
                 .context("codex did not return a thread id")?
                 .to_string();
+            // `thread/start` necessarily precedes the id allocation.  Refresh
+            // the thread-scoped MCP config once the id exists so the manager
+            // bridge can resolve `parent` for Codex-created sessions too.
+            if std::env::var("OPMAN_AGENT_MANAGER_SOCKET").is_ok() {
+                let _ = connection
+                    .request(
+                        "thread/resume",
+                        json!({
+                            "threadId": id.clone(),
+                            "cwd": directory,
+                            "config": self.runtime.mcp.for_directory(directory, Some(&id)),
+                        }),
+                    )
+                    .await;
+            }
             if !title.is_empty() {
                 let _ = connection
                     .request(
@@ -1164,6 +1250,7 @@ impl Runner for CodexRunner {
             .context("Codex rollout history task failed")?;
             codex_history::annotate_native_messages(&mut messages, rollout_history.message_times);
             messages.extend(rollout_history.bash_messages);
+            messages = dedupe_codex_messages(messages);
             messages.sort_by_key(|message| {
                 message
                     .pointer("/info/time/created")
@@ -1530,6 +1617,38 @@ impl RunnerRegistry {
             .await
     }
 
+    /// Return a runner-neutral snapshot used by the agent-manager MCP.
+    pub async fn progress(&self, session_id: &str, directory: &str) -> Result<Value> {
+        let (session_id, directory) = validate_location(session_id, directory)?;
+        let session_id = session_id.to_string();
+        let directory = directory
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
+        let binding = self.binding(&session_id, directory).await;
+        let runner = self
+            .runners
+            .get(&binding.runner)
+            .context("runner is not available")?;
+        let status = runner.status(&binding.directory).await.unwrap_or_else(|_| json!({}));
+        let busy = status
+            .get(&binding.physical_id)
+            .and_then(|entry| entry.get("type"))
+            .and_then(Value::as_str)
+            .is_some_and(|kind| matches!(kind, "busy" | "working" | "active"));
+        let transcript = runner
+            .messages(&binding.physical_id, &binding.directory)
+            .await
+            .unwrap_or_else(|_| json!([]));
+        Ok(json!({
+            "session_id": session_id,
+            "physical_session_id": binding.physical_id,
+            "directory": binding.directory,
+            "runner": binding.runner,
+            "busy": busy,
+            "messages": recent_progress_messages(&transcript, 8),
+        }))
+    }
+
     pub async fn sessions(
         &self,
         directory: &str,
@@ -1753,6 +1872,23 @@ fn extract_text(body: &Value) -> String {
         .join("\n")
 }
 
+fn recent_progress_messages(body: &Value, limit: usize) -> Vec<Value> {
+    let mut messages: Vec<Value> = if let Some(array) = body.as_array() {
+        array.clone()
+    } else if let Some(object) = body.as_object() {
+        object.values().cloned().collect()
+    } else {
+        Vec::new()
+    };
+    messages.sort_by_key(|message| {
+        message
+            .pointer("/info/time/created")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    });
+    messages.into_iter().rev().take(limit).collect()
+}
+
 /// Produce a bounded, deterministic handoff summary. It deliberately does not
 /// call an LLM, so switching runners works even when the old runner is offline.
 pub fn summarize_transcript(body: &Value) -> String {
@@ -1827,7 +1963,7 @@ mod tests {
             ui: true,
             kanban: true,
         };
-        let payload = config.for_directory("/workspace/project");
+        let payload = config.for_directory("/workspace/project", Some("session"));
         let servers = payload
             .get("mcp_servers")
             .and_then(Value::as_object)

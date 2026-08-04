@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
-import { mergeMessage } from "../hooks/sse/messageMap";
+import { mapToSortedArray, mergeMessage } from "../hooks/sse/messageMap";
 
 const message = (id: string, parts: Message["parts"]): Message => ({
   info: { role: "assistant", messageID: id },
@@ -22,5 +22,22 @@ describe("mergeMessage", () => {
     expect(merged.parts).toHaveLength(2);
     expect(merged.parts.map((part) => part.id)).toEqual(["tool-1", "tool-2"]);
     expect(merged.parts[0]?.state?.status).toBe("completed");
+  });
+
+  it("filters identical same-timestamp history records", () => {
+    const first = {
+      ...message("assistant-1", [{ id: "text-1", type: "text", text: "done" }]),
+      info: { role: "assistant" as const, messageID: "assistant-1", time: { created: 42 } },
+    };
+    const duplicate = {
+      ...first,
+      info: { ...first.info, messageID: "assistant-duplicate" },
+    };
+    const map = new Map([
+      [first.info.messageID!, first],
+      [duplicate.info.messageID!, duplicate],
+    ]);
+
+    expect(mapToSortedArray(map)).toHaveLength(1);
   });
 });

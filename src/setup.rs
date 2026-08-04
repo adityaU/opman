@@ -139,7 +139,7 @@ pub(crate) fn setup_kv_watcher() -> Result<(std::sync::mpsc::Receiver<notify::Ev
 /// Kick off initial data loading for all projects.
 pub(crate) fn setup_initial_projects(
     app: &mut App,
-    enable_any_mcp: bool,
+    _enable_any_mcp: bool,
     enable_terminal_mcp: bool,
     enable_neovim_mcp: bool,
     enable_time_mcp: bool,
@@ -161,32 +161,32 @@ pub(crate) fn setup_initial_projects(
         sse::spawn_provider_fetcher(&app.bg_tx, i, dir);
     }
 
-    // Spawn MCP socket servers and write opencode.json for each project
-    if enable_any_mcp {
-        for i in 0..app.projects.len() {
-            let project_path = app.projects[i].path.clone();
-            if enable_terminal_mcp || enable_neovim_mcp {
-                mcp::spawn_socket_server(
-                    &project_path,
-                    app.bg_tx.clone(),
-                    i,
-                    app.nvim_registry.clone(),
-                    app.last_mcp_activity_ms.clone(),
-                );
-            }
-            if let Err(e) = mcp::write_opencode_json(
+    // Spawn terminal/neovim socket servers and write the runner MCP config for
+    // every project.  The agent-manager MCP is always written, even when the
+    // optional terminal MCPs are disabled.
+    for i in 0..app.projects.len() {
+        let project_path = app.projects[i].path.clone();
+        if enable_terminal_mcp || enable_neovim_mcp {
+            mcp::spawn_socket_server(
                 &project_path,
-                enable_terminal_mcp,
-                enable_neovim_mcp,
-                enable_time_mcp,
-                enable_ui_mcp,
-            ) {
-                tracing::warn!(
-                    "Failed to write opencode.json for {}: {}",
-                    project_path.display(),
-                    e
-                );
-            }
+                app.bg_tx.clone(),
+                i,
+                app.nvim_registry.clone(),
+                app.last_mcp_activity_ms.clone(),
+            );
+        }
+        if let Err(e) = mcp::write_opencode_json(
+            &project_path,
+            enable_terminal_mcp,
+            enable_neovim_mcp,
+            enable_time_mcp,
+            enable_ui_mcp,
+        ) {
+            tracing::warn!(
+                "Failed to write opencode.json for {}: {}",
+                project_path.display(),
+                e
+            );
         }
     }
 

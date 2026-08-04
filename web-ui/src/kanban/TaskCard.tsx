@@ -52,7 +52,7 @@ export const TaskCard: React.FC<Props> = React.memo(function TaskCard(p) {
       onDragStart={handleDragStart}
       onDragEnd={p.onDragEnd}
       onClick={() => p.onOpenDetail(task)}
-      style={{ borderLeft: `3px solid ${accent}` }}
+      style={{ borderTop: `2px solid ${accent}` }}
     >
       <div className="kanban-card-title">{task.title || "Untitled"}</div>
 

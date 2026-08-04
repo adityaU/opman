@@ -180,8 +180,8 @@
 }
 
 .markdown-viewer blockquote {
-    border-left: 3px solid var(--color-accent);
-    padding-left: var(--space-3);
+    border-top: 2px solid var(--color-accent);
+    padding-top: var(--space-2);
     color: var(--color-text-muted);
     margin: .5em 0
 }

@@ -75,7 +75,7 @@
         transform: translate(-100%);
         max-width: 85vw;
         width: 20rem;
-        transition: transform .35s cubic-bezier(.32,1.2,.54,1);
+        transition: transform .35s var(--ease-out-expo);
         background: linear-gradient(180deg,var(--white-6) 0%,var(--white-2) 50%,var(--white-3) 100%);
         backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5) brightness(1.04);
         -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5) brightness(1.04);

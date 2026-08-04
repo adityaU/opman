@@ -18,7 +18,7 @@
     border-radius: var(--radius-full);
     color: var(--color-text);
     cursor: pointer;
-    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+    transition: background-color .2s var(--ease-out-expo), box-shadow .2s var(--ease-out-expo), transform .2s var(--ease-out-expo);
     box-shadow: 0 2px 12px var(--black-10),0 1px 3px var(--black-4),inset 0 .5px 0 0 var(--white-8);
     pointer-events: auto;
     -webkit-tap-highlight-color: transparent;
@@ -155,7 +155,7 @@
                 0 4px 16px var(--black-6),
                 0 1px 4px var(--black-3);
     padding: 6px 8px;
-    transition: transform .5s cubic-bezier(.34,1.56,.64,1),
+    transition: transform .5s var(--ease-out-expo),
                 opacity .35s ease;
     opacity: 1
 }
@@ -202,7 +202,7 @@
     border-radius: var(--radius-lg);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+    transition: background-color .2s var(--ease-out-expo), color .2s var(--ease-out-expo), transform .2s var(--ease-out-expo);
     position: relative;
     -webkit-tap-highlight-color: transparent
 }
@@ -260,9 +260,8 @@
     margin: 0;
     pointer-events: none;
     color: var(--color-primary);
-    transition: width .4s cubic-bezier(.34,1.56,.64,1),
-                opacity .3s ease,
-                transform .2s cubic-bezier(.34,1.56,.64,1)
+    transition: opacity .3s ease,
+                transform .2s var(--ease-out-expo)
 }
 
 .dock-compose-btn.dock-compose-visible {
@@ -298,7 +297,7 @@
     justify-content: center;
     transform: scale(0);
     opacity: 0;
-    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+    transition: transform .45s var(--ease-out-expo),
                 opacity .3s ease;
     -webkit-tap-highlight-color: transparent
 }
@@ -369,7 +368,7 @@
     transform: scale(0);
     opacity: 0;
     pointer-events: none;
-    transition: transform .45s cubic-bezier(.34,1.56,.64,1),
+    transition: transform .45s var(--ease-out-expo),
                 opacity .3s ease,
                 left .45s cubic-bezier(.4,0,.2,1)
 }

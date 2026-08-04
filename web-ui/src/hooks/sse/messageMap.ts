@@ -43,11 +43,32 @@ export function mergeMessage(existing: Message, incoming: Message): Message {
   };
 }
 
+/** Build a conservative fingerprint for duplicate records returned by a runner. */
+function duplicateFingerprint(msg: Message): string | null {
+  const time = getMessageTime(msg);
+  if (!time || msg.parts.length === 0) return null;
+  const parts = msg.parts.map((part) => ({
+    type: part.type,
+    text: part.text ?? null,
+    tool: part.tool ?? null,
+    callID: part.callID ?? part.toolCallId ?? null,
+    state: part.state ?? null,
+  }));
+  return JSON.stringify([msg.info.role, time, parts]);
+}
+
 /** Convert a MessageMap to a sorted array for rendering. */
 export function mapToSortedArray(map: MessageMap): Message[] {
-  return Array.from(map.values()).sort(
-    (a, b) => getMessageTime(a) - getMessageTime(b),
-  );
+  const seen = new Set<string>();
+  return Array.from(map.values())
+    .sort((a, b) => getMessageTime(a) - getMessageTime(b))
+    .filter((message) => {
+      const fingerprint = duplicateFingerprint(message);
+      if (!fingerprint) return true;
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
 }
 
 /** Remove all optimistic (not-yet-confirmed) messages from the map. */

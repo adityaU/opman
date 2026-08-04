@@ -220,7 +220,7 @@ export const MessageTurn = React.memo(function MessageTurn({
             {isUser ? <User size={16} /> : isAssistant ? <Bot size={16} /> : <Wrench size={16} />}
           </div>
           <span className="message-role">
-            {isUser ? "You" : isAssistant ? "Assistant" : role}
+            {isUser ? "You" : isAssistant ? (headerAgent ? headerAgent + " agent" : "Assistant") : role}
           </span>
           {isOptimistic && !isQueued && (
             <span className="message-sending-badge">Sending...</span>

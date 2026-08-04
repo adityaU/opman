@@ -175,7 +175,8 @@ impl ClaudeEngine {
         // The kanban MCP is attached whenever the web server is up (its
         // internal descriptor exists), so launched tasks can self-update.
         let kanban = kanban_internal_available();
-        if !(terminal || neovim || time || ui || kanban) {
+        let manager_socket = std::env::var("OPMAN_AGENT_MANAGER_SOCKET").ok();
+        if !(terminal || neovim || time || ui || kanban || manager_socket.is_some()) {
             return None;
         }
         let exe = self.exe.to_string_lossy().to_string();
@@ -209,6 +210,16 @@ impl ClaudeEngine {
             servers.insert(
                 "kanban".into(),
                 serde_json::json!({ "command": exe, "args": ["mcp-kanban"] }),
+            );
+        }
+        if let Some(socket) = manager_socket {
+            servers.insert(
+                "agent-manager".into(),
+                serde_json::json!({
+                    "command": exe,
+                    "args": ["mcp-agent-manager", dir],
+                    "env": { "OPENCODE_SESSION_ID": session_id, "OPMAN_AGENT_MANAGER_SOCKET": socket }
+                }),
             );
         }
         Some(serde_json::json!({ "mcpServers": servers }).to_string())
