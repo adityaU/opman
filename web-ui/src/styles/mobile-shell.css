@@ -272,3 +272,12 @@ html.flat-theme .thinking-accordion { background: var(--theme-surface-2) }
 html.flat-theme .code-editor-desktop .explorer-pinned {
     background: var(--color-bg-panel)
 }
+.code-editor-main {
+    position: relative;
+    min-width: 0
+}
+.code-editor-main .explorer-expand-btn {
+    z-index: 20;
+    position: absolute;
+    pointer-events: auto
+}

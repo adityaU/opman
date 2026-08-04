@@ -551,8 +551,14 @@ fn default_models() -> Vec<claude_cli::ModelInfo> {
     use claude_cli::ModelInfo;
     vec![
         ModelInfo {
-            id: "claude-opus-4-8".into(),
-            display_name: "Claude Opus 4.8".into(),
+            id: "claude-fable-5".into(),
+            display_name: "Claude Fable 5".into(),
+            context_window: 1_000_000,
+            max_output: 128_000,
+        },
+        ModelInfo {
+            id: "claude-opus-5".into(),
+            display_name: "Claude Opus 5".into(),
             context_window: 1_000_000,
             max_output: 128_000,
         },
@@ -593,7 +599,14 @@ fn pick_default(models: &[claude_cli::ModelInfo]) -> &str {
 async fn provider(State(engine): State<Engine>) -> Json<Value> {
     // Use the startup-cached list; fall back to hardcoded defaults if the
     // background fetch hasn't completed yet or failed.
-    let models = engine.cached_models_any().unwrap_or_else(default_models);
+    let models = if let Some(models) = engine.cached_models_any() {
+        models
+    } else if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli).await.ok().flatten() {
+        engine.set_cached_models(models.clone());
+        models
+    } else {
+        default_models()
+    };
 
     let default_id = pick_default(&models).to_string();
 
