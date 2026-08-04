@@ -43,21 +43,7 @@ else
 fi
 
 # Extract download URL for the matching asset
-DOWNLOAD_URL="$(printf '%s' "$RELEASE_JSON" \
-  | grep -o "\"browser_download_url\": *\"[^\"]*${ASSET_NAME}\"" \
-  | head -1 \
-  | sed 's/.*"browser_download_url": *"//' \
-  | sed 's/"$//')"
-
-if [ -z "$DOWNLOAD_URL" ]; then
-  red "No release asset found matching $ASSET_NAME"
-  dim "Available assets:"
-  printf '%s' "$RELEASE_JSON" \
-    | grep '"browser_download_url"' \
-    | sed 's/.*"browser_download_url": *"/  /' \
-    | sed 's/"$//'
-  exit 1
-fi
+DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET_NAME}"
 
 VERSION="$(printf '%s' "$RELEASE_JSON" \
   | grep '"tag_name"' \
