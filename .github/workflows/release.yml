@@ -46,9 +46,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-latest
+          - runner: macos-14
             target: aarch64-apple-darwin
-          - runner: macos-latest
+          - runner: macos-13
             target: x86_64-apple-darwin
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-musl
@@ -95,11 +95,17 @@ jobs:
           version: 0.13.0
 
       - name: Build release binary
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: 1
         run: |
+          set -euxo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            cargo zigbuild --release --target ${{ matrix.target }}
+            cargo zigbuild --release --target "${{ matrix.target }}" -vv
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --release --target "${{ matrix.target }}" -vv
           fi
 
       - name: Package binary
@@ -118,7 +124,7 @@ jobs:
             opman-${{ matrix.target }}.tar.gz.sha256
           retention-days: 1
 
-  # ── Create release & update Homebrew ───────────────────────────
+  # ── Create release artifacts ───────────────────────────
   publish:
     needs: build-backend
     runs-on: ubuntu-latest
@@ -140,25 +146,3 @@ jobs:
           files: |
             opman-*.tar.gz
             opman-*.tar.gz.sha256
-
-      - name: Update Homebrew formula
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          SHA=$(awk '{print $1}' opman-aarch64-apple-darwin.tar.gz.sha256)
-          URL="https://github.com/adityaU/opman/releases/download/v${VERSION}/opman-aarch64-apple-darwin.tar.gz"
-
-          git clone -b main "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/adityaU/homebrew-opman.git" tap
-          cd tap
-
-          sed -i "s|url \".*\"|url \"${URL}\"|" Formula/opman.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/opman.rb
-          sed -i "s|version \".*\"|version \"${VERSION}\"|" Formula/opman.rb
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/opman.rb
-          git commit -m "opman ${VERSION}"
-          git push origin main
