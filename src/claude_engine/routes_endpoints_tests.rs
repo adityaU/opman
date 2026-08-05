@@ -146,34 +146,6 @@ fn save_attachments_no_parts_is_empty() {
 }
 
 #[test]
-fn default_models_and_pick_default() {
-    let m = default_models();
-    assert_eq!(m.len(), 4);
-    assert!(m.iter().any(|x| x.id == "claude-opus-4-8"));
-    // Prefers sonnet.
-    assert!(pick_default(&m).contains("sonnet"));
-
-    use claude_cli::ModelInfo;
-    let opus_only = vec![ModelInfo {
-        id: "claude-opus-x".into(),
-        display_name: "O".into(),
-        context_window: 1,
-        max_output: 1,
-    }];
-    assert_eq!(pick_default(&opus_only), "claude-opus-x");
-
-    let haiku_only = vec![ModelInfo {
-        id: "claude-haiku-z".into(),
-        display_name: "H".into(),
-        context_window: 1,
-        max_output: 1,
-    }];
-    assert_eq!(pick_default(&haiku_only), "claude-haiku-z");
-
-    assert_eq!(pick_default(&[]), "claude-sonnet-4-6");
-}
-
-#[test]
 fn command_and_agent_descriptions() {
     assert_eq!(
         command_description("compact"),
@@ -345,11 +317,10 @@ async fn provider_returns_default_models() {
     let v = json_of(&body);
     assert_eq!(v["all"][0]["id"], "anthropic");
     assert_eq!(v["connected"][0], "anthropic");
-    assert!(v["default"]["anthropic"]
-        .as_str()
-        .unwrap()
-        .contains("sonnet"));
-    assert!(v["all"][0]["models"].is_object());
+    // Both engines share `models::pick_default`: the first sonnet-or-fable in the
+    // catalog wins, which for the fallback list is Fable 5.
+    assert_eq!(v["default"]["anthropic"], "claude-fable-5");
+    assert!(v["all"][0]["models"]["claude-opus-5"].is_object());
 }
 
 #[tokio::test]
@@ -545,6 +516,43 @@ async fn send_message_sets_model_agent_and_queues_when_busy() {
         "parts": [ { "type": "text", "text": "do it" } ],
     });
     let (st, resp) = send(r, "POST", &format!("/session/{}/message", s.id), Some(body)).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(json_of(&resp)["ok"], true);
+    let entry = e.get_session(&s.id).unwrap();
+    assert_eq!(entry.model.as_deref(), Some("claude-opus-4-8"));
+    assert_eq!(entry.agent.as_deref(), Some("Plan"));
+    assert_eq!(e.pending_list(&s.id), vec!["do it".to_string()]);
+}
+
+/// `prompt_async` is the route the runner actually sends to, so it has to honour
+/// the same model/agent/effort controls as `/message` — otherwise a selected
+/// model is silently dropped on every send.
+#[tokio::test]
+async fn prompt_async_applies_model_agent_and_effort() {
+    let e = engine();
+    let r = router(e.clone());
+    let s = e.create_session("/d", "", "t");
+    e.set_cached_init(
+        "/d",
+        claude_cli::InitInfo {
+            commands: vec![],
+            agents: vec!["Plan".into()],
+        },
+    );
+    e.set_busy(&s.id, true); // occupied → the turn queues instead of spawning claude.
+    let body = json!({
+        "model": { "providerID": "anthropic", "modelID": "claude-opus-4-8" },
+        "agent": "plan",
+        "effort": "high",
+        "parts": [ { "type": "text", "text": "do it" } ],
+    });
+    let (st, resp) = send(
+        r,
+        "POST",
+        &format!("/session/{}/prompt_async", s.id),
+        Some(body),
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(json_of(&resp)["ok"], true);
     let entry = e.get_session(&s.id).unwrap();

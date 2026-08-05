@@ -124,7 +124,7 @@ fn inject_memory_prepends_items() {
         updated_at: "2026-01-01T00:00:00Z".into(),
     }];
     let out = inject_memory("BRIEF", &mem);
-    assert!(out.starts_with("[Assistant memory in effect]"));
+    assert!(out.starts_with("[Session instructions]"));
     assert!(out.contains("- Rule: Be terse"));
     assert!(out.contains("[User request]\nBRIEF"));
 }

@@ -66,21 +66,10 @@ pub(super) fn build_stage_brief(
     s
 }
 
-/// Prepend active memory in the chat UI's format so the agent honours it (matches
-/// the single-session launch path's `inject_memory_guidance`).
+/// Open a pipeline stage with the standing session instructions in place, using
+/// the one formatter every session-opening path shares.
 pub(super) fn inject_memory(brief: &str, memory: &[PersonalMemoryItem]) -> String {
-    if memory.is_empty() {
-        return brief.to_string();
-    }
-    let mut guidance = String::new();
-    for item in memory {
-        guidance.push_str("- ");
-        guidance.push_str(&item.label);
-        guidance.push_str(": ");
-        guidance.push_str(&item.content);
-        guidance.push('\n');
-    }
-    format!("[Assistant memory in effect]\n{guidance}\n[User request]\n{brief}")
+    crate::web::session_instructions::wrap(brief, memory)
 }
 
 pub(super) fn truncate(s: &str, max: usize) -> String {

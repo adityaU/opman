@@ -25,7 +25,14 @@ pub struct WebAppState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance_name: Option<String>,
     /// Active agent backend ("opencode" or "claude-code").
+    ///
+    /// This is the *CLI* opman was launched with, not a runner name: both claude
+    /// engines report "claude-code" here, so it cannot identify a runner. Use
+    /// `default_runner` for that.
     pub backend: String,
+    /// Runner that owns sessions with no explicit runner of their own. This is
+    /// the only correct default for a new session.
+    pub default_runner: String,
     /// Runners available for runtime selection in the prompt input.
     pub runners: Vec<String>,
 }

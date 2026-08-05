@@ -17,6 +17,8 @@ mod routes_hook;
 mod routes_meta;
 mod session;
 mod state;
+mod stream;
+mod stream_delta;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -69,6 +71,8 @@ pub struct ClaudePEngine {
     default_mode: String,
     exe: PathBuf,
     command_cache: Mutex<HashMap<String, claude_cli::InitInfo>>,
+    /// Models discovered from the CLI at startup; `None` until that probe lands.
+    model_cache: Mutex<Option<Vec<claude_cli::ModelInfo>>>,
     mcp_flags: (bool, bool, bool, bool),
 }
 
@@ -91,7 +95,20 @@ impl ClaudePEngine {
             default_mode,
             exe,
             command_cache: Mutex::new(HashMap::new()),
+            model_cache: Mutex::new(None),
             mcp_flags,
+        }
+    }
+
+    /// Model list discovered at startup, if the probe has landed.
+    pub fn cached_models_any(&self) -> Option<Vec<claude_cli::ModelInfo>> {
+        self.model_cache.lock().ok()?.clone()
+    }
+
+    /// Store the model list fetched from the CLI.
+    pub fn set_cached_models(&self, models: Vec<claude_cli::ModelInfo>) {
+        if let Ok(mut g) = self.model_cache.lock() {
+            *g = Some(models);
         }
     }
 
@@ -126,6 +143,21 @@ pub async fn start_embedded_server(
 ) -> Result<(String, ServerHandle)> {
     let persist = dirs::config_dir().map(|d| d.join("opman").join("claude_p_sessions.json"));
     let engine = Arc::new(ClaudePEngine::new(persist, mcp_flags));
+
+    // Discover available models once at startup, off the startup path, so /provider
+    // serves the live catalog instead of the fallback list.
+    {
+        let eng = engine.clone();
+        tokio::task::spawn(async move {
+            if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli)
+                .await
+                .ok()
+                .flatten()
+            {
+                eng.set_cached_models(models);
+            }
+        });
+    }
 
     let app = routes::router(engine.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")

@@ -122,6 +122,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
         focused: "editor".into(),
         instance_name: Some("box1".into()),
         backend: "claude-code".into(),
+        default_runner: "claude".into(),
         runners: vec!["claude".into(), "codex".into()],
     };
     let v = serde_json::to_value(&with).unwrap();
@@ -129,6 +130,9 @@ fn web_app_state_serialize_with_and_without_instance_name() {
     assert_eq!(v["focused"], "editor");
     assert_eq!(v["instance_name"], "box1");
     assert_eq!(v["backend"], "claude-code");
+    // `backend` is the CLI, `default_runner` the runner: a claude-code install
+    // can still default to the `claude` runner, so both must be on the wire.
+    assert_eq!(v["default_runner"], "claude");
     let _ = with.clone();
 
     let without = WebAppState {
@@ -139,6 +143,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
         focused: "".into(),
         instance_name: None,
         backend: "opencode".into(),
+        default_runner: "opencode".into(),
         runners: vec!["opencode".into()],
     };
     let v2 = serde_json::to_value(&without).unwrap();

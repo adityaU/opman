@@ -11,6 +11,8 @@ use super::common::resolve_project_dir;
 use crate::api::interactions::CommandError;
 use crate::api::ApiClient;
 use crate::app::base_url;
+use crate::runner::RunnerKind;
+use crate::web::session_instructions;
 
 /// Query parameters for paginated message fetching.
 #[derive(serde::Deserialize)]
@@ -151,21 +153,101 @@ pub(super) fn paginate_messages(
     }
 }
 
+/// Whether this send is the session's opening turn.
+///
+/// The in-memory latch answers instantly for every session this process has
+/// already served. It cannot answer for a session that predates the process, so
+/// that case asks the runner once whether the session holds any messages and
+/// records the answer — one round-trip per old session, never per turn. An
+/// engine that cannot answer is treated as a fresh session: a missed opening
+/// block costs the user their standing instructions for a whole session, while
+/// a duplicate costs one paragraph.
+async fn first_turn(state: &ServerState, session_id: &str, dir: &str) -> bool {
+    if state.web_state.instructions_delivered(session_id).await {
+        return false;
+    }
+    let existing = state.runner_registry.messages(session_id, dir).await;
+    let has_history = existing
+        .ok()
+        .and_then(|messages| messages.as_array().map(|list| !list.is_empty()))
+        .unwrap_or(false);
+    if has_history {
+        state
+            .web_state
+            .mark_instructions_delivered(session_id)
+            .await;
+        return false;
+    }
+    true
+}
+
 /// POST /api/session/:id/message — send a message to a session.
 pub async fn send_message(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Path(session_id): axum::extract::Path<String>,
-    Json(req): Json<SendMessageRequest>,
+    Json(mut req): Json<SendMessageRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
 
-    if let Some(ref runner) = req.runner {
+    // The session's own runner, when we know it. Recording the binding before
+    // routing keeps an unnamed runner from being read as "switch to the default
+    // runner", which would fork the session into a handoff.
+    let owner = state
+        .web_state
+        .session_runner(&session_id)
+        .await
+        .and_then(|label| RunnerKind::parse(&label));
+    if let Some(ref kind) = owner {
+        state
+            .runner_registry
+            .ensure_binding(&session_id, kind.clone(), &dir)
+            .await;
+    }
+    // `runner` is present only when the caller wants that runner specifically —
+    // a new session's first turn, or a deliberate switch. A session with a known
+    // owner goes through the registry regardless, so an omitted runner still
+    // reaches the engine holding the transcript and gets that engine's own
+    // effort/permission mapping. Only sessions opman knows nothing about fall
+    // through to the raw upstream call.
+    let route_through_registry = req.runner.is_some() || owner.is_some();
+
+    // Session instructions open a session, they do not accompany every turn.
+    // A requested runner that differs from the session's owner is about to mint
+    // a handoff session, and that handoff message is the new session's first
+    // turn — so it carries the block even when the session being left already
+    // had it.
+    let opens_handoff = req
+        .runner
+        .as_ref()
+        .zip(owner.as_ref())
+        .is_some_and(|(requested, current)| requested != current);
+    let instructions_delivered = if first_turn(&state, &session_id, &dir).await || opens_handoff {
+        let instructions = state
+            .web_state
+            .list_active_memory(
+                Some(state.web_state.active_project_index().await),
+                Some(&session_id),
+            )
+            .await;
+        session_instructions::apply_to_parts(&mut req.parts, &instructions)
+    } else {
+        false
+    };
+    if instructions_delivered {
+        state
+            .web_state
+            .mark_instructions_delivered(&session_id)
+            .await;
+    }
+
+    if route_through_registry {
+        let requested = req.runner.clone();
         let request_body = serde_json::to_value(&req)
             .map_err(|e| WebError::Internal(format!("Invalid message: {e}")))?;
         let outcome = state
             .runner_registry
-            .send_message(&session_id, &dir, Some(runner.clone()), request_body)
+            .send_message(&session_id, &dir, requested, request_body)
             .await
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         state
@@ -198,6 +280,11 @@ pub async fn send_message(
             state
                 .web_state
                 .set_session_runner(&outcome.session_id, outcome.runner.display_name())
+                .await;
+            // The handoff prompt was this session's opening turn.
+            state
+                .web_state
+                .mark_instructions_delivered(&outcome.session_id)
                 .await;
         }
         return Ok(Json(serde_json::json!({

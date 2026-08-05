@@ -176,6 +176,21 @@ pub(super) async fn internal_ask(State(engine): State<Engine>, body: Json<Value>
     }
 }
 
+/// Broadcast that a request was resolved so the web mirror drops its pending card.
+/// Directory is unknown at the reply endpoint, so broadcast (empty dir) like the
+/// background engine does.
+fn emit_resolved(engine: &Engine, id: &str, event: &str) {
+    engine.emit(
+        "",
+        event,
+        json!({ "id": id, "requestID": id, "sessionID": "" }),
+    );
+}
+
+// The reply endpoints report `{"ok": <owned>}`: true only if this engine had a
+// waiter registered for the id. The runner registry fans a reply out across every
+// engine, so an unconditional `ok: true` here would stop the fan-out at the first
+// engine that answered — usually not the one the request came from.
 pub(super) async fn permission_reply(
     State(engine): State<Engine>,
     Path(id): Path<String>,
@@ -186,8 +201,11 @@ pub(super) async fn permission_reply(
         .and_then(|r| r.as_str())
         .unwrap_or("once")
         .to_string();
-    engine.resolve_pending(&id, PendingReply::Permission(reply));
-    Json(json!({ "ok": true }))
+    let ok = engine.resolve_pending(&id, PendingReply::Permission(reply));
+    if ok {
+        emit_resolved(&engine, &id, "permission.replied");
+    }
+    Json(json!({ "ok": ok }))
 }
 
 pub(super) async fn question_reply(
@@ -199,16 +217,22 @@ pub(super) async fn question_reply(
         .get("answers")
         .and_then(|a| serde_json::from_value(a.clone()).ok())
         .unwrap_or_default();
-    engine.resolve_pending(&id, PendingReply::Question(answers));
-    Json(json!({ "ok": true }))
+    let ok = engine.resolve_pending(&id, PendingReply::Question(answers));
+    if ok {
+        emit_resolved(&engine, &id, "question.replied");
+    }
+    Json(json!({ "ok": ok }))
 }
 
 pub(super) async fn question_reject(
     State(engine): State<Engine>,
     Path(id): Path<String>,
 ) -> Json<Value> {
-    engine.resolve_pending(&id, PendingReply::Reject);
-    Json(json!({ "ok": true }))
+    let ok = engine.resolve_pending(&id, PendingReply::Reject);
+    if ok {
+        emit_resolved(&engine, &id, "question.rejected");
+    }
+    Json(json!({ "ok": ok }))
 }
 
 #[cfg(test)]

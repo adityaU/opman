@@ -13,7 +13,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tracing::debug;
 
-use super::{claude_cli, jsonl, ClaudeEngine};
+use super::{claude_cli, jsonl, models, ClaudeEngine};
 
 type Engine = Arc<ClaudeEngine>;
 
@@ -418,11 +418,13 @@ async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> J
     Json(Value::Array(vec![]))
 }
 
-async fn send_message(
-    State(engine): State<Engine>,
-    Path(id): Path<String>,
-    body: Json<Value>,
-) -> Json<Value> {
+/// Apply the runner controls a send may carry, then dispatch the turn.
+///
+/// `send_message` and `prompt_async` are the same operation — both hand the
+/// prompt to `dispatch_turn` and return without waiting for the turn — so they
+/// must honour the same controls. Keeping the body here means a selected model
+/// or agent can't silently apply on one route and be dropped on the other.
+fn apply_controls_and_dispatch(engine: Engine, id: String, body: &Value) {
     // The web UI may include a selected model `{ providerID, modelID }`.
     if let Some(model_id) = body
         .get("model")
@@ -438,10 +440,18 @@ async fn send_message(
     if let Some(effort) = body.get("effort").and_then(|e| e.as_str()) {
         engine.set_effort(&id, effort);
     }
-    let attachments = save_attachments(&body.0, &id);
-    let text = with_attachments(extract_text(&body.0), &attachments);
-    debug!(session = %id, "claude engine: send_message");
+    let attachments = save_attachments(body, &id);
+    let text = with_attachments(extract_text(body), &attachments);
     dispatch_turn(engine, id, text);
+}
+
+async fn send_message(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+    body: Json<Value>,
+) -> Json<Value> {
+    debug!(session = %id, "claude engine: send_message");
+    apply_controls_and_dispatch(engine, id, &body.0);
     Json(json!({ "ok": true }))
 }
 
@@ -450,9 +460,8 @@ async fn prompt_async(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    let attachments = save_attachments(&body.0, &id);
-    let text = with_attachments(extract_text(&body.0), &attachments);
-    dispatch_turn(engine, id, text);
+    debug!(session = %id, "claude engine: prompt_async");
+    apply_controls_and_dispatch(engine, id, &body.0);
     Json(json!({ "ok": true }))
 }
 
@@ -549,92 +558,25 @@ async fn get_todos(State(engine): State<Engine>, Path(id): Path<String>) -> Json
     Json(Value::Array(todos))
 }
 
-/// Fallback model list used when dynamic fetching is unavailable.
-fn default_models() -> Vec<claude_cli::ModelInfo> {
-    use claude_cli::ModelInfo;
-    vec![
-        ModelInfo {
-            id: "claude-fable-5".into(),
-            display_name: "Claude Fable 5".into(),
-            context_window: 1_000_000,
-            max_output: 128_000,
-        },
-        ModelInfo {
-            id: "claude-opus-5".into(),
-            display_name: "Claude Opus 5".into(),
-            context_window: 1_000_000,
-            max_output: 128_000,
-        },
-        ModelInfo {
-            id: "claude-sonnet-5".into(),
-            display_name: "Claude Sonnet 5".into(),
-            context_window: 1_000_000,
-            max_output: 128_000,
-        },
-        ModelInfo {
-            id: "claude-sonnet-4-6".into(),
-            display_name: "Claude Sonnet 4.6".into(),
-            context_window: 1_000_000,
-            max_output: 64_000,
-        },
-        ModelInfo {
-            id: "claude-haiku-4-5-20251001".into(),
-            display_name: "Claude Haiku 4.5".into(),
-            context_window: 200_000,
-            max_output: 32_000,
-        },
-    ]
-}
-
-/// Pick the best default model from a list: prefer a sonnet or fable, then opus, then first.
-fn pick_default(models: &[claude_cli::ModelInfo]) -> &str {
-    models
-        .iter()
-        .find(|m| m.id.contains("sonnet") || m.id.contains("fable"))
-        .or_else(|| models.iter().find(|m| m.id.contains("opus")))
-        .or_else(|| models.first())
-        .map(|m| m.id.as_str())
-        .unwrap_or("claude-sonnet-4-6")
-}
-
 /// Provider list — models are fetched once at engine startup and cached for the
 /// lifetime of the process. Returns the opencode `{ all, connected, default }` shape.
 async fn provider(State(engine): State<Engine>) -> Json<Value> {
-    // Use the startup-cached list; fall back to hardcoded defaults if the
+    // Use the startup-cached list; fall back to the shared catalog if the
     // background fetch hasn't completed yet or failed.
     let models = if let Some(models) = engine.cached_models_any() {
         models
-    } else if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli).await.ok().flatten() {
+    } else if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli)
+        .await
+        .ok()
+        .flatten()
+    {
         engine.set_cached_models(models.clone());
         models
     } else {
-        default_models()
+        models::default_models()
     };
 
-    let default_id = pick_default(&models).to_string();
-
-    let models_map: serde_json::Map<String, Value> = models
-        .iter()
-        .map(|m| {
-            let v = json!({
-                "id": m.id,
-                "providerID": "anthropic",
-                "name": m.display_name,
-                "limit": { "context": m.context_window, "output": m.max_output },
-            });
-            (m.id.clone(), v)
-        })
-        .collect();
-
-    Json(json!({
-        "all": [{
-            "id": "anthropic",
-            "name": "Anthropic",
-            "models": models_map,
-        }],
-        "connected": ["anthropic"],
-        "default": { "anthropic": default_id },
-    }))
+    Json(models::provider_payload(&models))
 }
 
 /// Friendly descriptions for well-known claude built-in slash commands. Skills and
@@ -982,12 +924,14 @@ async fn permission_reply(
         .and_then(|r| r.as_str())
         .unwrap_or("once")
         .to_string();
-    engine.resolve_pending(&id, super::PendingReply::Permission(reply));
+    let ok = engine.resolve_pending(&id, super::PendingReply::Permission(reply));
     // Also clear on the user action itself: if the hook already gave up (its 600s→3600s
     // window elapsed, or the agent moved on), no waiter emits on resolution, so the card
     // would otherwise be stuck in the mirror. Broadcast (empty dir) since we lack it here.
     emit_resolved(&engine, "", &id, "", "permission.replied");
-    Json(json!({ "ok": true }))
+    // `ok` = a waiter actually resolved. The runner registry uses it to decide
+    // whether this engine owned the request or the reply should keep fanning out.
+    Json(json!({ "ok": ok }))
 }
 
 async fn question_reply(
@@ -999,15 +943,15 @@ async fn question_reply(
         .get("answers")
         .and_then(|a| serde_json::from_value(a.clone()).ok())
         .unwrap_or_default();
-    engine.resolve_pending(&id, super::PendingReply::Question(answers));
+    let ok = engine.resolve_pending(&id, super::PendingReply::Question(answers));
     emit_resolved(&engine, "", &id, "", "question.replied");
-    Json(json!({ "ok": true }))
+    Json(json!({ "ok": ok }))
 }
 
 async fn question_reject(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
-    engine.resolve_pending(&id, super::PendingReply::Reject);
+    let ok = engine.resolve_pending(&id, super::PendingReply::Reject);
     emit_resolved(&engine, "", &id, "", "question.rejected");
-    Json(json!({ "ok": true }))
+    Json(json!({ "ok": ok }))
 }
 
 async fn noop_obj() -> Json<Value> {

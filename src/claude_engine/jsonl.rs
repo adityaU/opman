@@ -124,7 +124,8 @@ fn stringify_content(v: &Value) -> String {
 }
 
 /// Map claude usage → opencode `tokens` object.
-fn tokens_from_usage(usage: &Value) -> Value {
+/// Anthropic `usage` → the opencode token block carried on an assistant message.
+pub fn tokens_from_usage(usage: &Value) -> Value {
     let g = |k: &str| usage.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
     json!({
         "input": g("input_tokens"),

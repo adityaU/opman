@@ -141,6 +141,13 @@ pub(super) struct WebStateInner {
     pub(super) session_runners: HashMap<String, String>,
     /// Runner used when a session has not made an explicit selection yet.
     pub(super) default_runner: String,
+    /// Sessions that have already been given their session instructions.
+    ///
+    /// Instructions open a session; re-sending them on every turn is what this
+    /// replaced. In-memory is enough: on a cold start the send path falls back
+    /// to asking the engine whether the session already has turns, which is the
+    /// authoritative answer anyway.
+    pub(super) instructions_sent: HashSet<String>,
 }
 
 /// Internal watcher config (stored on the server side).
@@ -337,6 +344,7 @@ impl WebStateHandle {
             unseen_sessions: HashMap::new(),
             routine_idle_cooldown: HashMap::new(),
             session_runners: HashMap::new(),
+            instructions_sent: HashSet::new(),
             default_runner: "opencode".to_string(),
         }
     }

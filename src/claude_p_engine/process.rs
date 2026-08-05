@@ -8,10 +8,9 @@
 //! - **continuity**: a respawn (after abort/restart) passes `--resume <uuid>` so the
 //!   conversation continues with full history.
 //!
-//! Message rendering reuses the shared transcript parser: on each stream event we
-//! re-parse the on-disk `<uuid>.jsonl` (which `claude -p` writes in the same format the
-//! background engine uses) and emit only the messages whose content changed. Subagents
-//! referenced by the transcript are registered as nested child sessions.
+//! Stdout handling lives in [`super::stream`]: content-block deltas render live, and
+//! each completed block re-parses the on-disk `<uuid>.jsonl` (which `claude -p` writes
+//! in the same format the background engine uses) as the authoritative rendering.
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -19,14 +18,18 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use serde_json::json;
+use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
-use super::{now_ms, ClaudePEngine};
-use crate::claude_engine::{claude_cli, jsonl};
+use super::stream::reader;
+use super::ClaudePEngine;
+use crate::claude_engine::jsonl;
+
+#[cfg(test)]
+pub(super) use super::stream::{emit_system, reparse_emit, reparse_emit_from_path};
 
 /// Resolved arguments for a session's `claude -p` process.
 pub(super) struct TurnOpts {
@@ -52,12 +55,20 @@ struct Proc {
 #[derive(Default)]
 pub struct ProcMap(Mutex<HashMap<String, Proc>>);
 
+impl ProcMap {
+    /// Drop a session's child handle, if one is still registered. Used by the stdout
+    /// reader once the stream ends, so the next prompt spawns a fresh `--resume` child.
+    pub(super) async fn forget(&self, session_id: &str) {
+        self.0.lock().await.remove(session_id);
+    }
+}
+
 fn claude_bin() -> String {
     std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string())
 }
 
 /// Stable hash of a rendered message's content (info + parts).
-fn message_hash(msg: &jsonl::MsgOut) -> u64 {
+pub(super) fn message_hash(msg: &jsonl::MsgOut) -> u64 {
     let mut h = DefaultHasher::new();
     msg.info.to_string().hash(&mut h);
     for p in &msg.parts {
@@ -85,7 +96,9 @@ async fn send_ready(
     text: String,
     allow_retry: bool,
 ) {
-    let Some(sess) = engine.get_session(&session_id) else { return };
+    let Some(sess) = engine.get_session(&session_id) else {
+        return;
+    };
     let dir = sess.directory;
     let resume_turn = sess.claude_uuid.is_some();
 
@@ -103,8 +116,11 @@ async fn send_ready(
             }
             Err(e) => {
                 warn!(session = %session_id, "claude -p spawn failed: {e}");
-                if allow_retry { schedule_resume_retry(&engine, &session_id, text); }
-                else { engine.set_busy(&session_id, false); }
+                if allow_retry {
+                    schedule_resume_retry(&engine, &session_id, text);
+                } else {
+                    engine.set_busy(&session_id, false);
+                }
                 return;
             }
         }
@@ -126,8 +142,11 @@ async fn send_ready(
     } else {
         debug!(session = %session_id, "claude -p stdin closed; retrying with resume");
         procs.remove(&session_id);
-        if allow_retry { schedule_resume_retry(&engine, &session_id, text); }
-        else { engine.set_busy(&session_id, false); }
+        if allow_retry {
+            schedule_resume_retry(&engine, &session_id, text);
+        } else {
+            engine.set_busy(&session_id, false);
+        }
     }
 }
 
@@ -189,6 +208,9 @@ async fn spawn(engine: &Arc<ClaudePEngine>, session_id: &str, dir: &str) -> Resu
         "--output-format",
         "stream-json",
         "--verbose",
+        // Emit Anthropic content-block deltas, so text and reasoning render as the
+        // model generates them instead of landing whole when a block completes.
+        "--include-partial-messages",
     ]);
     // `--mcp-config` is variadic, so emit it before the always-present `--permission-mode`.
     if !opts.mcp_config.is_empty() {
@@ -243,186 +265,6 @@ async fn spawn(engine: &Arc<ClaudePEngine>, session_id: &str, dir: &str) -> Resu
         opts.resume_uuid.is_some(),
     ));
     Ok(Proc { stdin, child })
-}
-
-/// Read the child's stream-json stdout, driving busy state + message emission.
-async fn reader(
-    engine: Arc<ClaudePEngine>,
-    session_id: String,
-    stdout: tokio::process::ChildStdout,
-    attempted_resume: bool,
-) {
-    let mut lines = BufReader::new(stdout).lines();
-    let mut saw_init = false;
-    let mut clean_result = false;
-    while let Ok(Some(line)) = lines.next_line().await {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        match v.get("type").and_then(|t| t.as_str()).unwrap_or("") {
-            "system" => {
-                if v.get("subtype").and_then(|s| s.as_str()) == Some("init") {
-                    saw_init = true;
-                    if let Some(uuid) = v.get("session_id").and_then(|s| s.as_str()) {
-                        engine.set_claude_uuid(&session_id, uuid);
-                    }
-                }
-            }
-            "assistant" => {
-                engine.set_busy(&session_id, true);
-                reparse_emit(&engine, &session_id).await;
-            }
-            "user" => reparse_emit(&engine, &session_id).await,
-            "result" => {
-                reparse_emit(&engine, &session_id).await;
-                // Surface a turn-level error (the transcript may not record it).
-                let is_err = v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false)
-                    || v.get("subtype")
-                        .and_then(|s| s.as_str())
-                        .is_some_and(|s| s != "success");
-                if is_err {
-                    let detail = v
-                        .get("result")
-                        .or_else(|| v.get("error"))
-                        .and_then(|r| r.as_str())
-                        .map(str::to_string)
-                        .unwrap_or_else(|| {
-                            format!(
-                                "claude turn ended with an error ({})",
-                                v.get("subtype").and_then(|s| s.as_str()).unwrap_or("error")
-                            )
-                        });
-                    emit_system(&engine, &session_id, "error", &detail);
-                }
-                clean_result = true;
-                engine.set_busy(&session_id, false);
-                // Claude's stream-json process may stay alive after a result while
-                // no longer accepting another user frame. Treat each result as the
-                // turn boundary; the next prompt respawns with --resume, which is
-                // reliable for both one-shot and persistent CLI versions.
-                break;
-            }
-            _ => {}
-        }
-    }
-    // EOF: the child exited or was killed. If it died mid-turn (no clean result event),
-    // surface that to the frontend — this is the crash/kill case users were hitting.
-    if !clean_result && saw_init {
-        emit_system(
-            &engine,
-            &session_id,
-            "error",
-            "The claude process exited unexpectedly — the turn was interrupted. Send a message to resume.",
-        );
-    }
-    engine.set_busy(&session_id, false);
-    engine.procs.0.lock().await.remove(&session_id);
-    // If a resume attempt died before any init event, the stored UUID is likely stale;
-    // forget it so the next message starts a fresh conversation instead of looping.
-    if attempted_resume && !saw_init {
-        engine.forget_claude_uuid(&session_id);
-    }
-}
-
-/// Emit a one-off system bubble (info/warning/error) to the session's frontend. Used for
-/// process/turn-level signals that never land in the transcript (crashes, result errors).
-fn emit_system(engine: &Arc<ClaudePEngine>, session_id: &str, level: &str, text: &str) {
-    let Some(sess) = engine.get_session(session_id) else {
-        return;
-    };
-    let variant = match level {
-        "error" => "error",
-        "warning" | "warn" => "warning",
-        _ => "notification",
-    };
-    let ts = now_ms();
-    let mid = format!("msg_sys_{session_id}_{ts}");
-    engine.emit(
-        &sess.directory,
-        "message.updated",
-        json!({ "info": {
-            "role": "system", "variant": variant, "level": level,
-            "id": mid, "sessionID": session_id,
-            "time": { "created": ts, "completed": ts },
-        }}),
-    );
-    engine.emit(
-        &sess.directory,
-        "message.part.updated",
-        json!({ "sessionID": session_id, "time": ts, "part": {
-            "type": "text", "id": format!("{mid}:0"),
-            "messageID": mid, "sessionID": session_id, "text": text,
-        }}),
-    );
-}
-
-/// Re-parse the session's on-disk transcript: register any subagents as child sessions
-/// and emit changed messages.
-async fn reparse_emit(engine: &Arc<ClaudePEngine>, session_id: &str) {
-    let Some(sess) = engine.get_session(session_id) else {
-        return;
-    };
-    let Some(uuid) = sess.claude_uuid.clone() else {
-        return;
-    };
-    let Some(path) = claude_cli::locate_jsonl(&uuid) else {
-        return;
-    };
-    reparse_emit_from_path(engine, session_id, &sess.directory, path).await;
-}
-
-/// Parse an already-located transcript `path`, register any subagents as child
-/// sessions, and emit changed messages for `directory`. Split out of
-/// [`reparse_emit`] (which locates the path from the session's claude UUID) so it
-/// can be driven directly from a crafted temp transcript in tests.
-pub(super) async fn reparse_emit_from_path(
-    engine: &Arc<ClaudePEngine>,
-    session_id: &str,
-    directory: &str,
-    path: std::path::PathBuf,
-) {
-    let sid = session_id.to_string();
-    let parsed = tokio::task::spawn_blocking(move || {
-        let mut p = jsonl::parse_file(&path, &sid);
-        jsonl::enrich_subagents(&mut p);
-        jsonl::enrich_background_tasks(&mut p);
-        p
-    })
-    .await;
-    let Ok(parsed) = parsed else { return };
-
-    if let Some(title) = &parsed.title {
-        engine.set_title(session_id, title, false);
-    }
-    // Nest any subagents under this session so they appear as child rows.
-    for agent_id in &parsed.subagent_ids {
-        engine.ensure_subagent_session(session_id, agent_id, "", directory);
-    }
-    let ts = now_ms();
-    for m in &parsed.messages {
-        let msg_id = m
-            .info
-            .get("id")
-            .and_then(|x| x.as_str())
-            .unwrap_or("")
-            .to_string();
-        let h = message_hash(m);
-        if !engine.should_emit(session_id, &msg_id, h) {
-            continue;
-        }
-        engine.emit(directory, "message.updated", json!({ "info": m.info }));
-        for part in &m.parts {
-            engine.emit(
-                directory,
-                "message.part.updated",
-                json!({ "sessionID": session_id, "part": part, "time": ts }),
-            );
-        }
-    }
 }
 
 #[cfg(test)]

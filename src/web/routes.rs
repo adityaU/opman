@@ -5,6 +5,7 @@ use tower_http::compression::CompressionLayer;
 
 use super::handlers;
 use super::mcp_ws;
+use super::request_log;
 use super::sse;
 use super::static_files;
 use super::types::ServerState;
@@ -344,6 +345,9 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .fallback(static_files::serve_react)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .layer(CompressionLayer::new().gzip(true))
+        // Outermost, so it also logs body-limit/auth rejections and sees the
+        // request future get dropped when a client disconnects mid-request.
+        .layer(axum::middleware::from_fn(request_log::log_requests))
         .with_state(state)
 }
 

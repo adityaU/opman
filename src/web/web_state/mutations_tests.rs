@@ -364,3 +364,50 @@ async fn focus_panel_normalizes_and_rejects() {
     // Invalid name rejected.
     assert!(!h.focus_panel("Nope").await);
 }
+
+/// A session's runner label must survive later events.
+///
+/// A runner engine announces `session.created` while the creating request is
+/// still in flight, so the announcement can arrive after the explicit label.
+/// Overwriting it would report the wrong owner and make the session's next turn
+/// look like a runner switch.
+#[tokio::test]
+async fn session_runner_label_is_set_once_and_never_downgraded() {
+    let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
+    h.add_and_activate_session(0, sess("s1", "/proj")).await;
+
+    h.set_session_runner_if_absent("s1", "claude").await;
+    let runner_of = |state: &WebAppState| {
+        state.projects[0]
+            .sessions
+            .iter()
+            .find(|session| session.id == "s1")
+            .map(|session| session.runner.clone())
+    };
+    assert_eq!(runner_of(&h.get_state().await).as_deref(), Some("claude"));
+
+    // A late announcement from another stream must not steal ownership.
+    h.set_session_runner_if_absent("s1", "claude-code").await;
+    assert_eq!(runner_of(&h.get_state().await).as_deref(), Some("claude"));
+
+    // An explicit label (creation, handoff) still wins.
+    h.set_session_runner("s1", "claude-code").await;
+    assert_eq!(
+        runner_of(&h.get_state().await).as_deref(),
+        Some("claude-code")
+    );
+}
+
+/// `session_runner` reports only what is known: callers must be able to tell
+/// "owned by the default runner" from "owner unknown", which the `/api/state`
+/// projection cannot express because it falls back to the default.
+#[tokio::test]
+async fn session_runner_query_does_not_invent_a_default() {
+    let h = WebStateHandle::new_test();
+    assert_eq!(h.session_runner("unknown").await, None);
+    h.set_session_runner("s1", "codex").await;
+    assert_eq!(h.session_runner("s1").await.as_deref(), Some("codex"));
+    // The snapshot still labels unknown sessions with the process default.
+    h.set_default_runner("claude-code").await;
+    assert_eq!(h.get_state().await.default_runner, "claude-code");
+}

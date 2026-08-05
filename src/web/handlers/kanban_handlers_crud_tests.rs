@@ -167,7 +167,7 @@ fn inject_memory_empty_returns_unchanged() {
 fn inject_memory_prepends_guidance() {
     let mem = vec![mem_item("Style", "be terse"), mem_item("Lang", "rust")];
     let out = inject_memory_guidance("do the thing", &mem);
-    assert!(out.starts_with("[Assistant memory in effect]"));
+    assert!(out.starts_with("[Session instructions]"));
     assert!(out.contains("- Style: be terse"));
     assert!(out.contains("- Lang: rust"));
     assert!(out.contains("[User request]"));

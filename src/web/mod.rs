@@ -38,7 +38,9 @@ mod error;
 mod handlers;
 mod mcp_ws;
 pub mod pty_manager;
+mod request_log;
 mod routes;
+pub mod session_instructions;
 mod sse;
 mod static_files;
 #[cfg(test)]
@@ -134,13 +136,19 @@ pub async fn start_web_server(
             spawn_runner_event_forwarder(
                 endpoint.clone(),
                 directory.clone(),
+                kind.display_name().to_string(),
                 raw_sse_tx.clone(),
                 web_state.clone(),
             );
         }
     }
-    for (_kind, receiver) in runner_registry.event_receivers() {
-        spawn_runner_event_receiver(receiver, raw_sse_tx.clone(), web_state.clone());
+    for (kind, receiver) in runner_registry.event_receivers() {
+        spawn_runner_event_receiver(
+            receiver,
+            kind.display_name().to_string(),
+            raw_sse_tx.clone(),
+            web_state.clone(),
+        );
     }
     let (editor_tx, _) = broadcast::channel::<types::EditorEvent>(64);
     web_state.set_editor_tx(editor_tx.clone());
@@ -203,9 +211,34 @@ pub async fn start_web_server(
     (actual_port, web_state_ret)
 }
 
+/// Label a session the moment its own runner announces it.
+///
+/// `session.created` from a runner engine reaches web state before the creating
+/// handler can record the runner, so without this the session is briefly
+/// reported as belonging to the default runner. Insert-if-absent keeps explicit
+/// labels (creation, handoff) authoritative.
+async fn label_created_session(web_state: &WebStateHandle, data: &str, runner: &str) {
+    let Ok(event) = serde_json::from_str::<serde_json::Value>(data) else {
+        return;
+    };
+    if event.get("type").and_then(serde_json::Value::as_str) != Some("session.created") {
+        return;
+    }
+    let Some(session_id) = event
+        .pointer("/properties/info/id")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return;
+    };
+    web_state
+        .set_session_runner_if_absent(session_id, runner)
+        .await;
+}
+
 fn spawn_runner_event_forwarder(
     endpoint: String,
     directory: String,
+    runner: String,
     tx: broadcast::Sender<String>,
     web_state: WebStateHandle,
 ) {
@@ -244,6 +277,7 @@ fn spawn_runner_event_forwarder(
                     .join("\n");
                 if !data.is_empty() {
                     let _ = tx.send(data.clone());
+                    label_created_session(&web_state, &data, &runner).await;
                     web_state.handle_runner_event(&data, &directory).await;
                 }
             }
@@ -253,12 +287,14 @@ fn spawn_runner_event_forwarder(
 
 fn spawn_runner_event_receiver(
     mut receiver: broadcast::Receiver<String>,
+    runner: String,
     tx: broadcast::Sender<String>,
     web_state: WebStateHandle,
 ) {
     tokio::spawn(async move {
         while let Ok(data) = receiver.recv().await {
             let _ = tx.send(data.clone());
+            label_created_session(&web_state, &data, &runner).await;
             let session_id = serde_json::from_str::<serde_json::Value>(&data)
                 .ok()
                 .and_then(|event| {

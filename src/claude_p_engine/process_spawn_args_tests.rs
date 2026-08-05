@@ -62,6 +62,54 @@ async fn spawn_builds_all_optional_args() {
 }
 
 #[tokio::test]
+async fn spawn_requests_partial_messages() {
+    // Without `--include-partial-messages` the CLI only emits whole content blocks,
+    // so replies land all at once instead of streaming. Pin the flag onto the
+    // command line by having the fake claude record the args it was given.
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let prev = std::env::var("OPMAN_CLAUDE_BIN").ok();
+
+    let bindir = tempfile::tempdir().unwrap();
+    let argfile = bindir.path().join("args.txt");
+    let script = bindir.path().join("fake-claude");
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\n\
+             printf '%s\\n' \"$@\" > {}\n\
+             printf '%s\\n' '{{\"type\":\"result\",\"subtype\":\"success\"}}'\n\
+             sleep 0.3\n",
+            argfile.display()
+        ),
+    )
+    .unwrap();
+    let mut perm = std::fs::metadata(&script).unwrap().permissions();
+    perm.set_mode(0o755);
+    std::fs::set_permissions(&script, perm).unwrap();
+    std::env::set_var("OPMAN_CLAUDE_BIN", &script);
+
+    let cwd = tempfile::tempdir().unwrap();
+    let e = Arc::new(ClaudePEngine::new(None, (false, false, false, false)));
+    let s = e.create_session(&cwd.path().to_string_lossy(), "", "A");
+    send(e.clone(), s.id.clone(), "hi".to_string()).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+    let args = std::fs::read_to_string(&argfile).unwrap_or_default();
+    let args: Vec<&str> = args.lines().collect();
+    assert!(
+        args.contains(&"--include-partial-messages"),
+        "streaming flag missing from spawn args: {args:?}"
+    );
+    assert!(args.contains(&"stream-json"));
+
+    abort(e.clone(), &s.id).await;
+    match prev {
+        Some(v) => std::env::set_var("OPMAN_CLAUDE_BIN", v),
+        None => std::env::remove_var("OPMAN_CLAUDE_BIN"),
+    }
+}
+
+#[tokio::test]
 async fn spawn_minimal_args_default_mode() {
     // The complementary shape: no model/agent/resume/url and mcp disabled, with a
     // non-empty (default) permission mode — exercises the "skip optional args"

@@ -64,6 +64,51 @@ async fn reader_system_non_init_subtype_ignored() {
 }
 
 #[tokio::test]
+async fn reader_streams_partial_message_deltas() {
+    let e = engine();
+    let s = e.create_session("d", "", "A");
+    let mut rx = e.subscribe();
+    let script = concat!(
+        "printf '%s\\n' ",
+        r#"'{"type":"system","subtype":"init","session_id":"u1"}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":null,"event":{"type":"message_start","message":{"id":"msg_1","model":"claude-opus-5"}}}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":null,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text"}}}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":null,"event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"par"}}}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":null,"event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"tial"}}}'"#,
+    );
+    run_reader(e.clone(), &s.id, script, false).await;
+
+    let events = drain(&mut rx);
+    let texts: Vec<&String> = events
+        .iter()
+        .filter(|d| d.contains("message.part.updated") && d.contains("msg_1:0"))
+        .collect();
+    assert_eq!(texts.len(), 2, "one part update per delta");
+    assert!(texts[0].contains(r#""text":"par""#));
+    assert!(texts[1].contains(r#""text":"partial""#));
+}
+
+#[tokio::test]
+async fn reader_skips_subagent_partial_deltas() {
+    let e = engine();
+    let s = e.create_session("d", "", "A");
+    let mut rx = e.subscribe();
+    // Frames carrying a parent_tool_use_id belong to a nested subagent; streaming
+    // them here would attribute the subagent's text to the parent session.
+    let script = concat!(
+        "printf '%s\\n' ",
+        r#"'{"type":"system","subtype":"init","session_id":"u1"}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":"toolu_9","event":{"type":"message_start","message":{"id":"msg_sub","model":"m"}}}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":"toolu_9","event":{"type":"content_block_start","index":0,"content_block":{"type":"text"}}}' "#,
+        r#"'{"type":"stream_event","parent_tool_use_id":"toolu_9","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"nested"}}}'"#,
+    );
+    run_reader(e.clone(), &s.id, script, false).await;
+
+    let events = drain(&mut rx);
+    assert!(events.iter().all(|d| !d.contains("msg_sub")));
+}
+
+#[tokio::test]
 async fn reader_no_init_not_attempted_keeps_uuid() {
     // attempted_resume=false and no init → the stale-uuid forget branch is skipped.
     let e = engine();

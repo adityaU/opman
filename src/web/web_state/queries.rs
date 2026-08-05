@@ -78,8 +78,32 @@ impl super::WebStateHandle {
             focused: inner.focused.clone(),
             instance_name: None,
             backend: String::new(),
+            default_runner: inner.default_runner.clone(),
             runners: vec![],
         }
+    }
+
+    /// Whether this session has already been given its session instructions.
+    pub async fn instructions_delivered(&self, session_id: &str) -> bool {
+        self.inner
+            .read()
+            .await
+            .instructions_sent
+            .contains(session_id)
+    }
+
+    /// The runner label recorded for a logical session, if one is known.
+    ///
+    /// Unlike the `/api/state` projection this does not fall back to the default
+    /// runner: callers need to tell "owned by the default runner" apart from
+    /// "ownership unknown".
+    pub async fn session_runner(&self, session_id: &str) -> Option<String> {
+        self.inner
+            .read()
+            .await
+            .session_runners
+            .get(session_id)
+            .cloned()
     }
 
     /// Get session stats for a given session ID.

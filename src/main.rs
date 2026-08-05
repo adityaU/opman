@@ -296,7 +296,14 @@ async fn main() -> Result<()> {
         crate::cli::AgentBackend::ClaudeCode => runner::RunnerKind::ClaudeCode,
         crate::cli::AgentBackend::ClaudePrint => runner::RunnerKind::Claude,
     };
-    let client = reqwest::Client::new();
+    // Every runner call is now short — sends go to `prompt_async`, so nothing
+    // here waits on an agent turn. A timeout means a wedged engine surfaces as
+    // an error the UI can show instead of a request that hangs until the
+    // browser or tunnel gives up.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     let mut runner_impls: HashMap<runner::RunnerKind, Arc<dyn runner::Runner>> = HashMap::new();
     runner_impls.insert(
         default_runner.clone(),
@@ -331,16 +338,49 @@ async fn main() -> Result<()> {
         }
     }
     let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
-    if std::process::Command::new(&claude_bin).arg("--version").output().map(|output| output.status.success()).unwrap_or(false) {
+    if std::process::Command::new(&claude_bin)
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+    {
         if !runner_impls.contains_key(&runner::RunnerKind::ClaudeCode) {
-            if let Ok((url, handle)) = claude_engine::start_embedded_server((enable_terminal_mcp, enable_neovim_mcp, enable_time_mcp, enable_ui_mcp)).await {
-                runner_impls.insert(runner::RunnerKind::ClaudeCode, Arc::new(runner::HttpRunner::new(runner::RunnerKind::ClaudeCode, url, client.clone())));
+            if let Ok((url, handle)) = claude_engine::start_embedded_server((
+                enable_terminal_mcp,
+                enable_neovim_mcp,
+                enable_time_mcp,
+                enable_ui_mcp,
+            ))
+            .await
+            {
+                runner_impls.insert(
+                    runner::RunnerKind::ClaudeCode,
+                    Arc::new(runner::HttpRunner::new(
+                        runner::RunnerKind::ClaudeCode,
+                        url,
+                        client.clone(),
+                    )),
+                );
                 server_handles.push(handle);
             }
         }
         if !runner_impls.contains_key(&runner::RunnerKind::Claude) {
-            if let Ok((url, handle)) = claude_p_engine::start_embedded_server((enable_terminal_mcp, enable_neovim_mcp, enable_time_mcp, enable_ui_mcp)).await {
-                runner_impls.insert(runner::RunnerKind::Claude, Arc::new(runner::HttpRunner::new(runner::RunnerKind::Claude, url, client.clone())));
+            if let Ok((url, handle)) = claude_p_engine::start_embedded_server((
+                enable_terminal_mcp,
+                enable_neovim_mcp,
+                enable_time_mcp,
+                enable_ui_mcp,
+            ))
+            .await
+            {
+                runner_impls.insert(
+                    runner::RunnerKind::Claude,
+                    Arc::new(runner::HttpRunner::new(
+                        runner::RunnerKind::Claude,
+                        url,
+                        client.clone(),
+                    )),
+                );
                 server_handles.push(handle);
             }
         }

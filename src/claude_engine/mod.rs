@@ -12,6 +12,7 @@
 pub(crate) mod claude_cli;
 mod events;
 pub(crate) mod jsonl;
+pub(crate) mod models;
 mod reaper;
 mod registry;
 mod routes;
@@ -1102,7 +1103,9 @@ impl ClaudeEngine {
         tokio::spawn(async move {
             let sid = session_id.clone();
             let result = tokio::task::spawn_blocking(move || match resume {
-                Some(uuid) if !uuid.is_empty() => claude_cli::bg_resume(&dir, &uuid, &opts, &turn_text),
+                Some(uuid) if !uuid.is_empty() => {
+                    claude_cli::bg_resume(&dir, &uuid, &opts, &turn_text)
+                }
                 _ => claude_cli::bg_start(&dir, &opts, &turn_text),
             })
             .await;

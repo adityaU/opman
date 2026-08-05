@@ -103,7 +103,32 @@ impl AgentInfo {
 
 /// The configured claude binary (override with `OPMAN_CLAUDE_BIN`).
 fn claude_bin() -> String {
-    std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string())
+    if let Ok(configured) = std::env::var("OPMAN_CLAUDE_BIN") {
+        if !configured.trim().is_empty() {
+            return configured;
+        }
+    }
+
+    if let Some(path) = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|dir| dir.join("claude"))
+            .find(|candidate| candidate.is_file())
+    }) {
+        return path.to_string_lossy().into_owned();
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        for candidate in [
+            std::path::PathBuf::from(&home).join(".local/bin/claude"),
+            std::path::PathBuf::from(&home).join(".claude/local/claude"),
+        ] {
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    "claude".to_string()
 }
 
 /// `claude --version` → version string (best-effort).
@@ -119,6 +144,7 @@ pub fn version() -> String {
 
 /// Parse the `backgrounded · <shortid>` line from `claude --bg` output.
 fn parse_short_id(output: &str) -> Option<String> {
+    let output = strip_ansi(output);
     for line in output.lines() {
         if line.contains("backgrounded") {
             // e.g. "backgrounded · ae842e84"
@@ -131,6 +157,26 @@ fn parse_short_id(output: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn strip_ansi(value: &str) -> String {
+    let mut clean = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\u{1b}' {
+            clean.push(ch);
+            continue;
+        }
+        if chars.next() != Some('[') {
+            continue;
+        }
+        for code in chars.by_ref() {
+            if code.is_ascii_alphabetic() {
+                break;
+            }
+        }
+    }
+    clean
 }
 
 /// Options applied to every background turn so permissions/questions route back
@@ -231,8 +277,9 @@ pub fn bg_resume(
 fn run_bg(cmd: Command, dir: &str) -> Result<(String, String)> {
     let out = command_output(cmd, "claude --bg").with_context(|| {
         format!(
-            "Failed to spawn `claude --bg` (is `{}` on PATH?)",
-            claude_bin()
+            "Failed to spawn `claude --bg` (binary: {}; PATH: {})",
+            claude_bin(),
+            std::env::var("PATH").unwrap_or_else(|_| "<unset>".to_string())
         )
     })?;
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -248,7 +295,7 @@ fn run_bg(cmd: Command, dir: &str) -> Result<(String, String)> {
     // Resolve the full session UUID by matching the short id in `agents --json`.
     // The agent registers near-instantly, but retry briefly to avoid a race.
     let mut uuid = String::new();
-    for _ in 0..10 {
+    for _ in 0..40 {
         if let Ok(agents) = agents_json(Some(dir)) {
             if let Some(a) = agents.iter().find(|a| a.id == short_id) {
                 if !a.session_id.is_empty() {
@@ -257,7 +304,7 @@ fn run_bg(cmd: Command, dir: &str) -> Result<(String, String)> {
                 }
             }
         }
-        std::thread::sleep(std::time::Duration::from_millis(150));
+        std::thread::sleep(std::time::Duration::from_millis(250));
     }
     if uuid.is_empty() {
         anyhow::bail!("could not resolve full session UUID for background agent {short_id}");

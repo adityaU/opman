@@ -141,10 +141,35 @@ impl ProjectDirectory {
 mod tests {
     use super::*;
 
+    /// `claude` and `claude-code` are different runners with different engines.
+    /// Collapsing them routes a session's turns to the wrong process — or, worse,
+    /// reads as a runner switch and forks the session.
     #[test]
     fn runner_names_are_explicit() {
-        assert_eq!(RunnerKind::parse("claude-code"), Some(RunnerKind::Claude));
+        assert_eq!(RunnerKind::parse("claude"), Some(RunnerKind::Claude));
+        assert_eq!(
+            RunnerKind::parse("claude-code"),
+            Some(RunnerKind::ClaudeCode)
+        );
+        assert_eq!(
+            RunnerKind::parse("CLAUDE-CODE "),
+            Some(RunnerKind::ClaudeCode)
+        );
+        assert_eq!(RunnerKind::parse("nope"), None);
         assert_eq!(RunnerKind::Codex.display_name(), "codex");
+        // Every name must round-trip through the label the web UI sends back.
+        for kind in [
+            RunnerKind::Opencode,
+            RunnerKind::ClaudeCode,
+            RunnerKind::Claude,
+            RunnerKind::Codex,
+        ] {
+            assert_eq!(RunnerKind::parse(kind.display_name()), Some(kind.clone()));
+            assert_eq!(
+                serde_json::from_str::<RunnerKind>(&format!("\"{}\"", kind.display_name())).ok(),
+                Some(kind),
+            );
+        }
     }
 
     #[test]

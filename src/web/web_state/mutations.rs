@@ -26,6 +26,45 @@ impl super::WebStateHandle {
         let _ = self.event_tx.send(WebEvent::StateChanged);
     }
 
+    /// Record that a session has been given its session instructions.
+    ///
+    /// Returns `true` the first time it is called for a session, so the caller
+    /// can claim delivery and inject in the same step without a second lookup.
+    pub async fn claim_instructions_delivery(&self, session_id: &str) -> bool {
+        let mut inner = self.inner.write().await;
+        inner.instructions_sent.insert(session_id.to_string())
+    }
+
+    /// Mark a session as already instructed without claiming a delivery.
+    ///
+    /// Used for a session discovered mid-conversation, and for the session a
+    /// handoff produced (its opening message already carried the block).
+    pub async fn mark_instructions_delivered(&self, session_id: &str) {
+        let mut inner = self.inner.write().await;
+        inner.instructions_sent.insert(session_id.to_string());
+    }
+
+    /// Label a session with the runner that announced it, unless it already has
+    /// a label.
+    ///
+    /// A runner engine emits `session.created` while `create_session` is still
+    /// in flight, so the session row can reach web state before the creating
+    /// handler records its runner. Without this, `/api/state` reports the
+    /// process default for a session that belongs to another runner, and a
+    /// client that trusts that label asks the wrong runner for the next turn.
+    /// Never overwrite: an explicit label (creation or handoff) is stronger than
+    /// an event.
+    pub async fn set_session_runner_if_absent(&self, session_id: &str, runner: &str) {
+        let mut inner = self.inner.write().await;
+        if inner.session_runners.contains_key(session_id) {
+            return;
+        }
+        inner
+            .session_runners
+            .insert(session_id.to_string(), runner.to_string());
+        let _ = self.event_tx.send(WebEvent::StateChanged);
+    }
+
     /// Broadcast a toast notification to all connected web clients.
     pub fn broadcast_toast(&self, message: String, level: &str) {
         let _ = self.event_tx.send(WebEvent::Toast {

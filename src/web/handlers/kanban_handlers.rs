@@ -419,26 +419,10 @@ pub async fn add_user_note(
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-/// Wrap a brief with active memory guidance, matching the chat UI's format
-/// (`[Assistant memory in effect] … [User request] …`) so the frontend can
-/// collapse it into the existing "Applied memories" accordion. Returns the
-/// brief unchanged when there is no active memory.
+/// Open a task session with the standing session instructions in place, using
+/// the one formatter every session-opening path shares.
 fn inject_memory_guidance(brief: &str, memory: &[PersonalMemoryItem]) -> String {
-    if memory.is_empty() {
-        return brief.to_string();
-    }
-    let mut guidance = String::new();
-    for item in memory {
-        guidance.push_str("- ");
-        guidance.push_str(&item.label);
-        guidance.push_str(": ");
-        guidance.push_str(&item.content);
-        guidance.push('\n');
-    }
-    format!(
-        "[Assistant memory in effect]\n{}\n[User request]\n{}",
-        guidance, brief
-    )
+    crate::web::session_instructions::wrap(brief, memory)
 }
 
 fn build_brief(task: &Task, board: &Board) -> String {

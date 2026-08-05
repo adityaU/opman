@@ -311,7 +311,21 @@ pub(crate) fn tick_status_poller(
         .unwrap_or_default();
 
     for (id, uuid) in sessions {
-        let Some(uuid) = uuid else { continue };
+        let Some(uuid) = uuid else {
+            // A failed/legacy launch can leave busy=true before a Claude UUID is
+            // recorded. There is no agent we can reconcile in that state, so once
+            // dispatching has ended, recover the session and release its queue.
+            if engine.is_dispatching(&id) {
+                continue;
+            }
+            if engine.set_busy(&id, false) {
+                if let Some(text) = engine.take_pending(&id) {
+                    engine.emit_queue_changed(&id);
+                    engine.clone().spawn_queued_turn(id.clone(), text);
+                }
+            }
+            continue;
+        };
         // A turn being spawned isn't in `claude agents` yet; don't race it to
         // "idle" (which would flush the queue into a second, competing turn).
         if engine.is_dispatching(&id) {

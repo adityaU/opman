@@ -41,6 +41,10 @@ fn parse_short_id_variants() {
     assert_eq!(parse_short_id("nothing to see"), None);
     // The word alone (no id token) → None.
     assert_eq!(parse_short_id("backgrounded"), None);
+    assert_eq!(
+        parse_short_id("backgrounded · \u{1b}[36mdeadbeef\u{1b}[39m"),
+        Some("deadbeef".into())
+    );
 }
 
 // ---- apply_opts / TurnOpts --------------------------------------------

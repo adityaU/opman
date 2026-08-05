@@ -259,6 +259,8 @@ async fn send(router: Router, method: &str, uri: &str, body: Option<Value>) -> V
 #[tokio::test]
 async fn reply_endpoints_are_idempotent_on_unknown_ids() {
     let r = router(engine());
+    // Unknown ids stay 200 (idempotent) but report ok:false, so the runner
+    // registry's fan-out knows this engine did not own the request.
     let v = send(
         r.clone(),
         "POST",
@@ -266,7 +268,7 @@ async fn reply_endpoints_are_idempotent_on_unknown_ids() {
         Some(json!({ "reply": "always" })),
     )
     .await;
-    assert_eq!(v["ok"], true);
+    assert_eq!(v["ok"], false);
     // Missing reply defaults to "once".
     let v = send(
         r.clone(),
@@ -275,7 +277,7 @@ async fn reply_endpoints_are_idempotent_on_unknown_ids() {
         Some(json!({})),
     )
     .await;
-    assert_eq!(v["ok"], true);
+    assert_eq!(v["ok"], false);
     let v = send(
         r.clone(),
         "POST",
@@ -283,8 +285,8 @@ async fn reply_endpoints_are_idempotent_on_unknown_ids() {
         Some(json!({ "answers": [["A"]] })),
     )
     .await;
-    assert_eq!(v["ok"], true);
-    // Invalid answers shape → default empty, still ok.
+    assert_eq!(v["ok"], false);
+    // Invalid answers shape → default empty, still a clean 200.
     let v = send(
         r.clone(),
         "POST",
@@ -292,9 +294,9 @@ async fn reply_endpoints_are_idempotent_on_unknown_ids() {
         Some(json!({ "answers": "bad" })),
     )
     .await;
-    assert_eq!(v["ok"], true);
+    assert_eq!(v["ok"], false);
     let v = send(r, "POST", "/question/nope/reject", None).await;
-    assert_eq!(v["ok"], true);
+    assert_eq!(v["ok"], false);
 }
 
 #[tokio::test]

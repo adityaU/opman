@@ -17,16 +17,34 @@ fn headers(dir: &str) -> HeaderMap {
 }
 
 #[tokio::test]
-async fn provider_lists_anthropic_models() {
-    let Json(v) = provider().await;
+async fn provider_serves_discovered_models() {
+    let e = engine();
+    // Seed the startup cache so the route never shells out to the CLI here.
+    e.set_cached_models(crate::claude_engine::models::default_models());
+
+    let Json(v) = provider(State(e)).await;
     assert_eq!(v["all"][0]["id"], "anthropic");
-    assert!(v["all"][0]["models"]["claude-opus-4-8"].is_object());
+    assert!(v["all"][0]["models"]["claude-opus-5"].is_object());
     assert_eq!(
-        v["all"][0]["models"]["claude-opus-4-8"]["limit"]["context"],
-        200_000
+        v["all"][0]["models"]["claude-opus-5"]["limit"]["context"],
+        1_000_000
     );
     assert_eq!(v["connected"][0], "anthropic");
-    assert_eq!(v["default"]["anthropic"], "claude-sonnet-4-6");
+    assert_eq!(v["default"]["anthropic"], "claude-fable-5");
+}
+
+#[tokio::test]
+async fn provider_prefers_cached_models_over_fallback() {
+    let e = engine();
+    e.set_cached_models(vec![crate::claude_engine::claude_cli::ModelInfo {
+        id: "claude-opus-9".into(),
+        display_name: "Opus 9".into(),
+        context_window: 42,
+        max_output: 7,
+    }]);
+    let Json(v) = provider(State(e)).await;
+    assert_eq!(v["all"][0]["models"]["claude-opus-9"]["limit"]["output"], 7);
+    assert_eq!(v["default"]["anthropic"], "claude-opus-9");
 }
 
 #[tokio::test]

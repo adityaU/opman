@@ -147,10 +147,11 @@ async fn internal_ask_always_allowed_tool() {
 #[tokio::test]
 async fn permission_reply_defaults_and_resolves() {
     let e = engine();
-    // Unknown id still returns ok.
+    // Unknown id → ok:false, so the runner registry keeps fanning the reply out
+    // to the other engines instead of stopping here.
     let Json(r) =
         permission_reply(State(e.clone()), Path("nope".to_string()), Json(json!({}))).await;
-    assert_eq!(r["ok"], true);
+    assert_eq!(r["ok"], false);
     // Registered id gets resolved.
     let _rx = e.register_pending("p1");
     let Json(r2) = permission_reply(

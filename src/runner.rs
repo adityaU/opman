@@ -108,6 +108,26 @@ impl HttpRunner {
         }
     }
 
+    /// POST a permission/question reply and report whether this engine owned the
+    /// request. Transport errors, non-2xx statuses, and bodies without `"ok": true`
+    /// all read as "not ours" — never as a hard failure — so the registry can try
+    /// the other runners and the caller can still fall back to the default backend.
+    async fn try_reply(&self, url: &str, body: Value) -> Result<bool> {
+        let resp = self
+            .client
+            .post(url)
+            .header("Accept", "application/json")
+            .json(&body)
+            .send()
+            .await;
+        let Ok(resp) = resp else { return Ok(false) };
+        if !resp.status().is_success() {
+            return Ok(false);
+        }
+        let body = resp.json::<Value>().await.unwrap_or(Value::Null);
+        Ok(body.get("ok").and_then(Value::as_bool).unwrap_or(false))
+    }
+
     async fn json_request(&self, request: reqwest::RequestBuilder) -> Result<Value> {
         let response = request
             .header("Accept", "application/json")
@@ -220,14 +240,30 @@ impl Runner for HttpRunner {
                     }
                     object.remove("permission");
                     object.remove("runner");
-                    if matches!(object.get("agent").and_then(Value::as_str), Some("default") | Some("claude") | Some("codex")) {
+                    if matches!(
+                        object.get("agent").and_then(Value::as_str),
+                        Some("default") | Some("claude") | Some("codex")
+                    ) {
                         object.remove("agent");
                     }
                 }
             }
+            // `prompt_async`, never `/message`. Every HTTP runner exposes both,
+            // but `POST /session/{id}/message` streams the turn and only
+            // responds once the assistant is finished — OpenCode documents it
+            // as "streaming the AI response" and returns the completed
+            // AssistantMessage. Awaiting that holds the browser's POST open for
+            // the whole turn, so any turn outliving the client or tunnel
+            // timeout (~100s through Cloudflare) looks like a hang and fails,
+            // even though the turn is running fine. `prompt_async` starts the
+            // turn and returns immediately; the transcript arrives over SSE,
+            // which is how the UI renders replies anyway.
             self.json_request(
                 self.client
-                    .post(format!("{}/session/{}/message", self.base_url, session_id))
+                    .post(format!(
+                        "{}/session/{}/prompt_async",
+                        self.base_url, session_id
+                    ))
                     .header("x-opencode-directory", directory)
                     .json(&body),
             )
@@ -257,6 +293,39 @@ impl Runner for HttpRunner {
             )
             .await
             .map(|_| ())
+        })
+    }
+
+    // Permission/question replies are routed by request id, and only the engine
+    // that raised the request knows the id. Each engine's reply endpoint reports
+    // whether it actually resolved a pending waiter (`{"ok": bool}`), so an engine
+    // that doesn't own the id — or doesn't implement the route — reads as "not
+    // ours" and the registry keeps looking instead of stopping at the first 200.
+    fn reply_permission<'a>(
+        &'a self,
+        request_id: &'a str,
+        reply: &'a str,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.try_reply(
+                &format!("{}/permission/{}/reply", self.base_url, request_id),
+                json!({ "reply": reply }),
+            )
+            .await
+        })
+    }
+
+    fn reply_question<'a>(
+        &'a self,
+        request_id: &'a str,
+        answers: &'a [Vec<String>],
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.try_reply(
+                &format!("{}/question/{}/reply", self.base_url, request_id),
+                json!({ "answers": answers }),
+            )
+            .await
         })
     }
 }
@@ -321,7 +390,10 @@ impl CodexMcpConfig {
             let mut env = serde_json::Map::new();
             env.insert("OPMAN_AGENT_MANAGER_SOCKET".into(), Value::String(socket));
             if let Some(session_id) = session_id {
-                env.insert("OPENCODE_SESSION_ID".into(), Value::String(session_id.to_string()));
+                env.insert(
+                    "OPENCODE_SESSION_ID".into(),
+                    Value::String(session_id.to_string()),
+                );
             }
             servers.insert(
                 "agent-manager".to_string(),
@@ -640,7 +712,9 @@ impl CodexRuntime {
             }
             "item/started" => self.emit_item_event(&params, false).await,
             "item/completed" => self.emit_item_event(&params, true).await,
-            "item/reasoning/summaryTextDelta" | "item/reasoning/textDelta" => self.emit_reasoning_delta(&params).await,
+            "item/reasoning/summaryTextDelta" | "item/reasoning/textDelta" => {
+                self.emit_reasoning_delta(&params).await
+            }
             "item/agentMessage/delta" => {
                 self.emit(json!({
                     "type": "message.part.delta",
@@ -752,10 +826,15 @@ impl CodexRuntime {
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": format!("{item_id}_text"), "sessionID": session_id, "messageID": item_id, "type": "text", "text": text } } })).await;
             }
             "reasoning" | "analysis" | "thinking" => {
-                let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
+                let text = item
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .or_else(|| item.get("summary").and_then(Value::as_str))
+                    .unwrap_or("");
                 let message_id = format!("turn_{}", string_at(params, "turnId"));
                 let info = json!({ "id": message_id, "messageID": message_id, "sessionID": session_id, "role": "assistant", "agent": "codex", "time": { "created": timestamp } });
-                self.emit(json!({ "type": "message.updated", "properties": { "info": info } })).await;
+                self.emit(json!({ "type": "message.updated", "properties": { "info": info } }))
+                    .await;
                 self.emit(json!({ "type": "message.part.updated", "properties": { "part": { "id": item_id, "sessionID": session_id, "messageID": message_id, "type": "reasoning", "text": text } } })).await;
             }
             "agentMessage" => {
@@ -785,8 +864,16 @@ impl CodexRuntime {
     }
 
     async fn emit_reasoning_delta(&self, params: &Value) {
-        let Some(delta) = params.get("delta").and_then(Value::as_str).or_else(|| params.get("text").and_then(Value::as_str)) else { return; };
-        if delta.is_empty() { return; }
+        let Some(delta) = params
+            .get("delta")
+            .and_then(Value::as_str)
+            .or_else(|| params.get("text").and_then(Value::as_str))
+        else {
+            return;
+        };
+        if delta.is_empty() {
+            return;
+        }
         let session_id = string_at(params, "threadId");
         let message_id = format!("turn_{}", string_at(params, "turnId"));
         let part_id = string_at(params, "itemId");
@@ -1036,8 +1123,14 @@ fn dedupe_codex_messages(messages: Vec<Value>) -> Vec<Value> {
     messages
         .into_iter()
         .filter(|message| {
-            let role = message.pointer("/info/role").and_then(Value::as_str).unwrap_or("");
-            let created = message.pointer("/info/time/created").and_then(Value::as_u64).unwrap_or(0);
+            let role = message
+                .pointer("/info/role")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let created = message
+                .pointer("/info/time/created")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
             let parts = message
                 .get("parts")
                 .and_then(Value::as_array)
@@ -1089,7 +1182,11 @@ fn codex_messages(thread: &Value) -> Value {
                     messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "user", "time": { "created": created } }, "parts": [{ "id": format!("{item_id}_text"), "sessionID": thread_id, "messageID": item_id, "type": "text", "text": text }] }));
                 }
                 "reasoning" | "analysis" | "thinking" => {
-                    let text = item.get("text").and_then(Value::as_str).or_else(|| item.get("summary").and_then(Value::as_str)).unwrap_or("");
+                    let text = item
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| item.get("summary").and_then(Value::as_str))
+                        .unwrap_or("");
                     messages.push(json!({ "info": { "id": item_id, "messageID": item_id, "sessionID": thread_id, "role": "assistant", "agent": "codex", "time": { "created": created } }, "parts": [{ "id": item_id, "sessionID": thread_id, "messageID": item_id, "type": "reasoning", "text": text }] }));
                 }
                 "agentMessage" => {
@@ -1629,7 +1726,10 @@ impl RunnerRegistry {
             .runners
             .get(&binding.runner)
             .context("runner is not available")?;
-        let status = runner.status(&binding.directory).await.unwrap_or_else(|_| json!({}));
+        let status = runner
+            .status(&binding.directory)
+            .await
+            .unwrap_or_else(|_| json!({}));
         let busy = status
             .get(&binding.physical_id)
             .and_then(|entry| entry.get("type"))
@@ -1703,6 +1803,33 @@ impl RunnerRegistry {
             },
         );
         Ok(session)
+    }
+
+    /// Bind a session to the runner that owns it, without creating anything.
+    ///
+    /// Bindings live in memory, so a session created before this process started
+    /// (or before it learned the session exists) has none, and `binding` would
+    /// fall back to the default runner — turning the session's next send into a
+    /// handoff it never asked for. Callers that know the owner from elsewhere
+    /// (the web state's runner label, say) record it here first. Existing
+    /// bindings win: they were established by a real create or handoff.
+    pub async fn ensure_binding(&self, session_id: &str, kind: RunnerKind, directory: &str) {
+        let Ok((session_id, directory)) = validate_location(session_id, directory) else {
+            return;
+        };
+        let Some(directory) = directory.as_str() else {
+            return;
+        };
+        let session_id = session_id.into_inner();
+        self.bindings
+            .write()
+            .await
+            .entry(session_id.clone())
+            .or_insert(Binding {
+                runner: kind,
+                physical_id: session_id,
+                directory: directory.to_string(),
+            });
     }
 
     pub async fn providers(&self, kind: RunnerKind, directory: &str) -> Result<Value> {
@@ -1935,9 +2062,68 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    async fn serve(app: axum::Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        url
+    }
+
+    /// A reply is owned by exactly one engine. `ok:false`, transport errors, and
+    /// missing routes must all read as "not ours" so the registry fan-out reaches
+    /// the engine that actually raised the request.
+    #[tokio::test]
+    async fn http_runner_reply_routes_by_ownership() {
+        use axum::routing::post;
+        let owner = axum::Router::new().route(
+            "/permission/{id}/reply",
+            post(|| async { axum::Json(json!({ "ok": true })) }),
+        );
+        let stranger = axum::Router::new().route(
+            "/permission/{id}/reply",
+            post(|| async { axum::Json(json!({ "ok": false })) }),
+        );
+        let client = reqwest::Client::new();
+        let owning = HttpRunner::new(RunnerKind::Claude, serve(owner).await, client.clone());
+        let other = HttpRunner::new(RunnerKind::ClaudeCode, serve(stranger).await, client.clone());
+        // No such route at all (native opencode shape) → not ours, not an error.
+        let no_route = HttpRunner::new(
+            RunnerKind::Opencode,
+            serve(axum::Router::new()).await,
+            client.clone(),
+        );
+        // Dead port → transport error also reads as not-ours.
+        let dead = HttpRunner::new(RunnerKind::Opencode, "http://127.0.0.1:9", client);
+
+        assert!(owning.reply_permission("p1", "once").await.unwrap());
+        assert!(!other.reply_permission("p1", "once").await.unwrap());
+        assert!(!no_route.reply_permission("p1", "once").await.unwrap());
+        assert!(!dead.reply_permission("p1", "once").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn http_runner_question_reply_posts_answers() {
+        use axum::routing::post;
+        let app = axum::Router::new().route(
+            "/question/{id}/reply",
+            post(|axum::Json(b): axum::Json<Value>| async move {
+                let good = b["answers"][0][0] == "A" && b["answers"][1][0] == "B";
+                axum::Json(json!({ "ok": good }))
+            }),
+        );
+        let runner = HttpRunner::new(RunnerKind::Claude, serve(app).await, reqwest::Client::new());
+        let answers = vec![vec!["A".to_string()], vec!["B".to_string()]];
+        assert!(runner.reply_question("q1", &answers).await.unwrap());
+    }
+
     #[test]
     fn parses_runner_names() {
-        assert_eq!(RunnerKind::parse("claude-code"), Some(RunnerKind::ClaudeCode));
+        assert_eq!(
+            RunnerKind::parse("claude-code"),
+            Some(RunnerKind::ClaudeCode)
+        );
         assert_eq!(RunnerKind::parse("codex"), Some(RunnerKind::Codex));
         assert_eq!(RunnerKind::parse("nope"), None);
     }
@@ -1946,6 +2132,113 @@ mod tests {
     fn transcript_summary_is_bounded_and_readable() {
         let body = json!([{ "info": { "role": "user" }, "parts": [{ "text": "hello" }] }]);
         assert_eq!(summarize_transcript(&body), "user: hello");
+    }
+
+    /// Sends must go to `prompt_async`, not `/message`.
+    ///
+    /// `POST /session/{id}/message` only responds once the assistant has
+    /// finished, so awaiting it holds the caller's request open for the whole
+    /// turn — a long turn then reads as a hang and dies on the client or tunnel
+    /// timeout. This test stands up a server that would block forever on
+    /// `/message`: if the endpoint ever regresses, it hangs instead of passing.
+    #[tokio::test]
+    async fn send_message_uses_the_non_blocking_prompt_endpoint() {
+        use std::sync::Arc as StdArc;
+        use tokio::sync::Mutex as AsyncMutex;
+
+        let hits: StdArc<AsyncMutex<Vec<String>>> = StdArc::new(AsyncMutex::new(vec![]));
+        let seen = hits.clone();
+        let app = axum::Router::new()
+            .route(
+                "/session/{id}/prompt_async",
+                axum::routing::post(
+                    move |axum::extract::Path(id): axum::extract::Path<String>| {
+                        let seen = seen.clone();
+                        async move {
+                            seen.lock().await.push(format!("prompt_async:{id}"));
+                            axum::Json(json!({ "ok": true }))
+                        }
+                    },
+                ),
+            )
+            .route(
+                "/session/{id}/message",
+                axum::routing::post(|| async {
+                    // Stand in for the streaming endpoint: never responds.
+                    std::future::pending::<()>().await;
+                    axum::Json(json!({}))
+                }),
+            );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let runner = HttpRunner::new(RunnerKind::Opencode, base, reqwest::Client::new());
+        let body = json!({ "parts": [{ "type": "text", "text": "hi" }] });
+        let out = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            runner.send_message("s1", "/project", body),
+        )
+        .await
+        .expect("send_message hit the blocking /message endpoint")
+        .expect("send should succeed");
+
+        assert_eq!(out["ok"], true);
+        assert_eq!(hits.lock().await.as_slice(), ["prompt_async:s1"]);
+    }
+
+    /// The OpenCode body rewrite must survive the endpoint change: runner-only
+    /// controls are stripped and `effort` becomes `variant`.
+    #[tokio::test]
+    async fn opencode_send_strips_runner_controls_and_maps_effort() {
+        use std::sync::Arc as StdArc;
+        use tokio::sync::Mutex as AsyncMutex;
+
+        let seen: StdArc<AsyncMutex<Option<Value>>> = StdArc::new(AsyncMutex::new(None));
+        let sink = seen.clone();
+        let app = axum::Router::new().route(
+            "/session/{id}/prompt_async",
+            axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
+                let sink = sink.clone();
+                async move {
+                    *sink.lock().await = Some(body);
+                    axum::Json(json!({ "ok": true }))
+                }
+            }),
+        );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let runner = HttpRunner::new(RunnerKind::Opencode, base, reqwest::Client::new());
+        runner
+            .send_message(
+                "s1",
+                "/project",
+                json!({
+                    "parts": [{ "type": "text", "text": "hi" }],
+                    "effort": "high",
+                    "permission": "default",
+                    "runner": "opencode",
+                    "agent": "claude",
+                }),
+            )
+            .await
+            .expect("send should succeed");
+
+        let body = seen.lock().await.clone().expect("body was forwarded");
+        assert_eq!(body["variant"], "high");
+        assert!(body.get("effort").is_none());
+        assert!(body.get("permission").is_none());
+        assert!(body.get("runner").is_none());
+        // "claude" is an opman-side label, not an OpenCode agent.
+        assert!(body.get("agent").is_none());
     }
 
     #[test]
@@ -1968,7 +2261,10 @@ mod tests {
             .get("mcp_servers")
             .and_then(Value::as_object)
             .expect("MCP server map should be present");
-        assert_eq!(servers.len(), 5);
+        // terminal, neovim, time, ui, kanban, and the always-attached
+        // agent-manager bridge.
+        assert_eq!(servers.len(), 6);
+        assert!(servers.contains_key("agent-manager"));
         assert_eq!(servers["terminal"]["args"][0], "mcp");
         assert_eq!(servers["terminal"]["args"][1], "/workspace/project");
         assert_eq!(servers["neovim"]["args"][1], "/workspace/project");
@@ -2170,6 +2466,137 @@ mod tests {
             .as_str()
             .ok_or("handoff response did not contain text")?;
         assert!(handoff.contains("Fix the parser"));
+        Ok(())
+    }
+
+    fn two_runner_registry() -> (Arc<MockRunner>, Arc<MockRunner>, RunnerRegistry) {
+        let default = Arc::new(MockRunner {
+            kind: RunnerKind::ClaudeCode,
+            prefix: "cc",
+            next: AtomicUsize::new(1),
+            sessions: RwLock::new(HashMap::new()),
+        });
+        let other = Arc::new(MockRunner {
+            kind: RunnerKind::Claude,
+            prefix: "cp",
+            next: AtomicUsize::new(1),
+            sessions: RwLock::new(HashMap::new()),
+        });
+        let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
+        runners.insert(RunnerKind::ClaudeCode, default.clone());
+        runners.insert(RunnerKind::Claude, other.clone());
+        let registry = RunnerRegistry::new(RunnerKind::ClaudeCode, runners);
+        (default, other, registry)
+    }
+
+    /// The follow-up turn of an ordinary conversation must land in the same
+    /// session. A send that names no runner is not a switch request, so it stays
+    /// on whatever runner the session is bound to.
+    #[tokio::test]
+    async fn sends_without_a_requested_runner_stay_on_the_bound_runner(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_default, other, registry) = two_runner_registry();
+        let created = registry
+            .create_session(RunnerKind::Claude, "/project", "chat")
+            .await?;
+
+        for turn in ["first", "second"] {
+            let outcome = registry
+                .send_message(
+                    &created.id,
+                    "/project",
+                    None,
+                    json!({ "parts": [{ "type": "text", "text": turn }] }),
+                )
+                .await?;
+            assert!(!outcome.switched, "turn {turn} forked the session");
+            assert_eq!(outcome.session_id, created.id);
+            assert_eq!(outcome.runner, RunnerKind::Claude);
+        }
+        // The default runner never saw the conversation.
+        assert!(other.sessions.read().await.contains_key(&created.id));
+        Ok(())
+    }
+
+    /// Naming the runner the session already uses is not a switch either — the
+    /// UI may legitimately restate it on a new session's first turn.
+    #[tokio::test]
+    async fn restating_the_bound_runner_is_not_a_switch() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let (_default, _other, registry) = two_runner_registry();
+        let created = registry
+            .create_session(RunnerKind::Claude, "/project", "chat")
+            .await?;
+        let outcome = registry
+            .send_message(
+                &created.id,
+                "/project",
+                Some(RunnerKind::Claude),
+                json!({ "parts": [{ "type": "text", "text": "hi" }] }),
+            )
+            .await?;
+        assert!(!outcome.switched);
+        assert_eq!(outcome.session_id, created.id);
+        Ok(())
+    }
+
+    /// Bindings are in-memory, so a session opman learned about from somewhere
+    /// else (its runner label, the session poller) has none. Without adopting
+    /// it, the blind default-runner fallback turns its next turn into a handoff.
+    #[tokio::test]
+    async fn ensure_binding_adopts_a_session_without_handing_it_off(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_default, other, registry) = two_runner_registry();
+        other
+            .sessions
+            .write()
+            .await
+            .insert("orphan".into(), json!([]));
+
+        registry
+            .ensure_binding("orphan", RunnerKind::Claude, "/project")
+            .await;
+        let outcome = registry
+            .send_message(
+                "orphan",
+                "/project",
+                None,
+                json!({ "parts": [{ "type": "text", "text": "resume" }] }),
+            )
+            .await?;
+        assert!(!outcome.switched);
+        assert_eq!(outcome.runner, RunnerKind::Claude);
+        assert_eq!(outcome.session_id, "orphan");
+
+        // Adoption never overrides an established binding.
+        registry
+            .ensure_binding("orphan", RunnerKind::ClaudeCode, "/project")
+            .await;
+        assert_eq!(registry.runner_for("orphan").await, RunnerKind::Claude);
+        Ok(())
+    }
+
+    /// Without adoption the same send is read as "switch to the default runner"
+    /// and forks the conversation — the regression this pair of tests guards.
+    #[tokio::test]
+    async fn an_unadopted_session_still_hands_off_when_a_runner_is_named(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (_default, other, registry) = two_runner_registry();
+        other
+            .sessions
+            .write()
+            .await
+            .insert("orphan".into(), json!([]));
+        let outcome = registry
+            .send_message(
+                "orphan",
+                "/project",
+                Some(RunnerKind::Claude),
+                json!({ "parts": [{ "type": "text", "text": "resume" }] }),
+            )
+            .await?;
+        assert!(outcome.switched);
+        assert_ne!(outcome.session_id, "orphan");
         Ok(())
     }
 }
