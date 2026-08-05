@@ -386,7 +386,7 @@ pub(crate) fn tick_status_poller(
         if went_idle {
             if let Some(text) = engine.take_pending(&id) {
                 engine.emit_queue_changed(&id);
-                engine.clone().spawn_turn(id.clone(), text);
+                engine.clone().spawn_queued_turn(id.clone(), text);
             }
         }
     }

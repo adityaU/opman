@@ -260,7 +260,7 @@ fn run_bg(cmd: Command, dir: &str) -> Result<(String, String)> {
         std::thread::sleep(std::time::Duration::from_millis(150));
     }
     if uuid.is_empty() {
-        warn!(%short_id, "could not resolve full session UUID for background agent");
+        anyhow::bail!("could not resolve full session UUID for background agent {short_id}");
     }
     Ok((short_id, uuid))
 }

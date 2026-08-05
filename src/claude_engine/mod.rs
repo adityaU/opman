@@ -1060,6 +1060,21 @@ impl ClaudeEngine {
     /// "dispatching" up front so a concurrent send queues instead of racing a second
     /// agent onto the same conversation.
     pub fn spawn_turn(self: &Arc<Self>, session_id: String, text: String) {
+        self.spawn_turn_internal(session_id, text, None);
+    }
+
+    /// Spawn a queued follow-up. Resume failures are retried a small number of times so
+    /// a transient Claude CLI handoff cannot silently strand the user's prompt.
+    pub fn spawn_queued_turn(self: &Arc<Self>, session_id: String, text: String) {
+        self.spawn_turn_internal(session_id, text, Some(0));
+    }
+
+    fn spawn_turn_internal(
+        self: &Arc<Self>,
+        session_id: String,
+        text: String,
+        queued_attempt: Option<u8>,
+    ) {
         if text.trim().is_empty() {
             return;
         }
@@ -1069,6 +1084,7 @@ impl ClaudeEngine {
         let dir = entry.directory.clone();
         let resume = entry.claude_session_id.clone();
         let opts = self.build_opts(&session_id, &dir);
+        let turn_text = text.clone();
 
         // A fresh turn supersedes any pending abort-settling for this session.
         self.clear_aborting(&session_id);
@@ -1086,8 +1102,8 @@ impl ClaudeEngine {
         tokio::spawn(async move {
             let sid = session_id.clone();
             let result = tokio::task::spawn_blocking(move || match resume {
-                Some(uuid) if !uuid.is_empty() => claude_cli::bg_resume(&dir, &uuid, &opts, &text),
-                _ => claude_cli::bg_start(&dir, &opts, &text),
+                Some(uuid) if !uuid.is_empty() => claude_cli::bg_resume(&dir, &uuid, &opts, &turn_text),
+                _ => claude_cli::bg_start(&dir, &opts, &turn_text),
             })
             .await;
             match result {
@@ -1102,17 +1118,48 @@ impl ClaudeEngine {
                         "error",
                         &format!("Failed to start the claude turn: {e}"),
                     );
-                    engine.set_busy(&sid, false);
+                    engine.finish_turn_failure(&sid, text, queued_attempt);
                 }
                 Err(e) => {
                     tracing::warn!("claude turn join error: {e}");
                     engine.emit_system(&sid, "error", &format!("claude turn crashed: {e}"));
-                    engine.set_busy(&sid, false);
+                    engine.finish_turn_failure(&sid, text, queued_attempt);
                 }
             }
             if let Ok(mut d) = engine.dispatching.lock() {
                 d.remove(&sid);
             }
+        });
+    }
+
+    fn finish_turn_failure(self: &Arc<Self>, session_id: &str, text: String, attempt: Option<u8>) {
+        if let Ok(mut dispatching) = self.dispatching.lock() {
+            dispatching.remove(session_id);
+        }
+        self.set_busy(session_id, false);
+
+        let Some(attempt) = attempt else { return };
+        if attempt >= 2 {
+            return;
+        }
+
+        self.enqueue_prompt(session_id, text);
+        self.emit_queue_changed(session_id);
+        let engine = self.clone();
+        let sid = session_id.to_string();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if !engine.try_reserve_dispatch(&sid) {
+                return;
+            }
+            let Some(next) = engine.take_pending(&sid) else {
+                if let Ok(mut dispatching) = engine.dispatching.lock() {
+                    dispatching.remove(&sid);
+                }
+                return;
+            };
+            engine.emit_queue_changed(&sid);
+            engine.spawn_turn_internal(sid, next, Some(attempt + 1));
         });
     }
 

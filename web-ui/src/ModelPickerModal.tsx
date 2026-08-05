@@ -98,9 +98,9 @@ export function ModelPickerModal({ onClose, onCloseSilent, sessionId, currentRun
   }, [selectedIndex]);
 
   const handleSelect = (model: FlatModel) => {
-    if (!sessionId) return;
     // Don't call the broken command endpoint — just set the model locally.
-    // The model will be sent with each message via the `model` field.
+    // This also runs before a lazy new session has an ID; the model is sent
+    // when the first message creates that session.
     onModelSelected?.(model.modelId, model.providerId);
     onCloseSilent();
   };

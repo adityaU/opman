@@ -69,12 +69,33 @@ fn message_hash(msg: &jsonl::MsgOut) -> u64 {
 /// Send a user message to the session's process, spawning it on first use. The message
 /// is pushed to the running child's stdin — true steering, never queued.
 pub async fn send(engine: Arc<ClaudePEngine>, session_id: String, text: String) {
-    let Some(sess) = engine.get_session(&session_id) else {
+    let Some(session) = engine.get_session(&session_id) else {
         return;
     };
+    if session.busy {
+        schedule_idle_retry(engine, session_id, text);
+        return;
+    }
+    send_ready(engine, session_id, text, true).await;
+}
+
+async fn send_ready(
+    engine: Arc<ClaudePEngine>,
+    session_id: String,
+    text: String,
+    allow_retry: bool,
+) {
+    let Some(sess) = engine.get_session(&session_id) else { return };
     let dir = sess.directory;
+    let resume_turn = sess.claude_uuid.is_some();
 
     let mut procs = engine.procs.0.lock().await;
+    if resume_turn {
+        // A completed stream may remain in the map briefly after its result.
+        // Never write a follow-up into that stale child; resume the conversation
+        // through a fresh process instead.
+        procs.remove(&session_id);
+    }
     if !procs.contains_key(&session_id) {
         match spawn(&engine, &session_id, &dir).await {
             Ok(proc) => {
@@ -82,7 +103,8 @@ pub async fn send(engine: Arc<ClaudePEngine>, session_id: String, text: String) 
             }
             Err(e) => {
                 warn!(session = %session_id, "claude -p spawn failed: {e}");
-                engine.set_busy(&session_id, false);
+                if allow_retry { schedule_resume_retry(&engine, &session_id, text); }
+                else { engine.set_busy(&session_id, false); }
                 return;
             }
         }
@@ -102,10 +124,45 @@ pub async fn send(engine: Arc<ClaudePEngine>, session_id: String, text: String) 
     if ok {
         engine.set_busy(&session_id, true);
     } else {
-        debug!(session = %session_id, "claude -p stdin closed; dropping process");
+        debug!(session = %session_id, "claude -p stdin closed; retrying with resume");
         procs.remove(&session_id);
-        engine.set_busy(&session_id, false);
+        if allow_retry { schedule_resume_retry(&engine, &session_id, text); }
+        else { engine.set_busy(&session_id, false); }
     }
+}
+
+fn schedule_idle_retry(engine: Arc<ClaudePEngine>, session_id: String, text: String) {
+    tokio::spawn(async move {
+        for _ in 0..240 {
+            let idle = engine
+                .get_session(&session_id)
+                .map(|session| !session.busy)
+                .unwrap_or(true);
+            if idle {
+                send(engine, session_id, text).await;
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    });
+}
+
+fn schedule_resume_retry(engine: &Arc<ClaudePEngine>, session_id: &str, text: String) {
+    let can_resume = engine
+        .get_session(session_id)
+        .and_then(|session| session.claude_uuid)
+        .is_some();
+    if !can_resume {
+        engine.set_busy(session_id, false);
+        return;
+    }
+
+    let engine = engine.clone();
+    let session_id = session_id.to_string();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        send_ready(engine, session_id, text, false).await;
+    });
 }
 
 /// Hard-abort: kill the session's process immediately. The conversation transcript is
@@ -243,6 +300,11 @@ async fn reader(
                 }
                 clean_result = true;
                 engine.set_busy(&session_id, false);
+                // Claude's stream-json process may stay alive after a result while
+                // no longer accepting another user frame. Treat each result as the
+                // turn boundary; the next prompt respawns with --resume, which is
+                // reliable for both one-shot and persistent CLI versions.
+                break;
             }
             _ => {}
         }

@@ -72,7 +72,7 @@ const RICH_PROVIDERS = {
 
 // Helper: override the /api/providers route with the rich shape
 async function setupRichProviders(page: Page) {
-  await page.route("**/api/providers", (route) =>
+  await page.route("**/api/providers*", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -82,14 +82,14 @@ async function setupRichProviders(page: Page) {
 }
 
 // Helper: navigate with rich providers mock
-async function navigateWithPicker(page: Page) {
+async function navigateWithPicker(page: Page, newSession = false) {
   // Register shared mocks first, then override /api/providers with rich shape.
   // Playwright matches routes in REVERSE registration order (last = highest
   // priority), so the rich-providers route must come AFTER setupMockAPI.
   await setupMockAPI(page);
   await setupRichProviders(page);
 
-  await page.goto("/");
+  await page.goto(newSession ? "/?new=1" : "/");
   await page.evaluate(() => {
     sessionStorage.setItem("opman_token", "mock-jwt-token");
   });
@@ -531,6 +531,18 @@ test.describe("Model Picker Modal", () => {
 
       // Modal should close
       await expect(modal).not.toBeVisible({ timeout: 3_000 });
+    });
+
+    test("clicking a model item works before a lazy new session has an ID", async ({ page }) => {
+      await navigateWithPicker(page, true);
+      await page.keyboard.press("Meta+'");
+      const modal = page.locator(".model-picker");
+      await expect(modal).toBeVisible({ timeout: 5_000 });
+
+      await modal.locator(".model-picker-item").nth(1).click();
+
+      await expect(modal).not.toBeVisible({ timeout: 3_000 });
+      await expect(page.locator(".prompt-chip-label").first()).toContainText("claude-opus-4-20250514");
     });
   });
 });

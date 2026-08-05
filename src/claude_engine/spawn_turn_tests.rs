@@ -141,3 +141,18 @@ async fn spawn_turn_failure_emits_error_and_clears_busy() {
         None => std::env::remove_var("OPMAN_CLAUDE_BIN"),
     }
 }
+
+#[tokio::test]
+async fn failed_queued_turn_is_requeued_for_retry() {
+    let e = engine();
+    let s = e.create_session("/tmp", "", "t");
+    e.set_busy(&s.id, true);
+    e.enqueue_prompt(&s.id, "follow-up".into());
+    let text = e.take_pending(&s.id).expect("queued prompt");
+
+    e.finish_turn_failure(&s.id, text, Some(0));
+
+    assert!(!e.get_session(&s.id).unwrap().busy);
+    assert!(!e.is_dispatching(&s.id));
+    assert_eq!(e.pending_list(&s.id), vec!["follow-up"]);
+}
