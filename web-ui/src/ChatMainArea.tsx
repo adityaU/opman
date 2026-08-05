@@ -41,6 +41,7 @@ export interface ChatMainAreaProps {
   subagentMessages: any;
   defaultModelDisplay: string | null;
   selectedModel: any;
+  handleModelSelected: (modelId: string, providerId: string) => void;
   selectedAgent: string;
   selectedRunner: string;
   availableRunners: string[];
@@ -281,6 +282,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
           messages={p.messages}
           sessionStatus={p.sessionStatus}
           activeSessionId={p.activeSessionId}
+          isSending={p.sending}
           isLoadingMessages={p.isLoadingMessages}
           isLoadingOlder={p.isLoadingOlder}
           hasOlderMessages={p.hasOlderMessages}
@@ -332,6 +334,8 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             disabled={!p.appState}
             sessionId={p.activeSessionId}
             currentModel={p.currentModel}
+            selectedModel={p.selectedModel}
+            onModelSelected={p.handleModelSelected}
             currentAgent={p.selectedAgent}
             onAgentChange={p.handleAgentChange}
             currentRunner={p.selectedRunner}

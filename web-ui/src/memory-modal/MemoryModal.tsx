@@ -127,23 +127,23 @@ export function MemoryModal({
         <div className="memory-header">
           <div className="memory-header-left">
             <Brain size={16} />
-            <h3>{filterActive ? "Active Memory" : "Personal Memory"}</h3>
+            <h3>{filterActive ? "Active Session Instructions" : "Session Instructions"}</h3>
             <span className="memory-count">{items.length}</span>
           </div>
-          <button onClick={onClose} aria-label="Close memory"><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close session instructions"><X size={16} /></button>
         </div>
 
         <div className="memory-scrollable">
         <div className="memory-create">
           <div className="memory-create-grid">
-            <input className="memory-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Memory label" />
+            <input className="memory-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Instruction label" />
             <select className="memory-select" value={scope} onChange={(e) => setScope(e.target.value as MemoryScope)}>
               {SCOPE_OPTIONS.map((option) => (
                 <option key={option} value={option}>{formatScope(option)}</option>
               ))}
             </select>
           </div>
-          <textarea className="memory-textarea" rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Store a stable preference, recurring constraint, or working norm" />
+          <textarea className="memory-textarea" rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="A standing preference, constraint, or working norm for this session" />
           <div className="memory-create-footer">
             <span className="memory-context">
               {scope === "global"
@@ -152,20 +152,20 @@ export function MemoryModal({
                   ? `Applies to ${projects[activeProjectIndex]?.name ?? "current project"}`
                   : activeSessionId
                     ? `Applies to session ${activeSessionId.slice(0, 8)}`
-                    : "No active session to scope memory"}
+                    : "No active session to scope an instruction to"}
             </span>
             <button className="memory-create-btn" onClick={handleCreate} disabled={saving || !label.trim() || !content.trim() || (scope === "session" && !activeSessionId)}>
               <Plus size={14} />
-              {saving ? "Saving..." : "Save memory"}
+              {saving ? "Saving..." : "Save instruction"}
             </button>
           </div>
         </div>
 
         <div className="memory-body">
           {loading ? (
-            <div className="memory-empty">Loading memory...</div>
+            <div className="memory-empty">Loading session instructions...</div>
           ) : items.length === 0 ? (
-            <div className="memory-empty">No personal memory yet.</div>
+            <div className="memory-empty">No session instructions yet.</div>
           ) : (
             grouped.map(({ scope: currentScope, items: scopedItems }) =>
               scopedItems.length > 0 ? (

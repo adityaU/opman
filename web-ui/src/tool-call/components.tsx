@@ -18,7 +18,7 @@ import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
 /** Stable style objects to avoid allocations per render */
 const TOOL_INPUT_STYLE = {
   margin: 0,
-  borderRadius: "4px",
+  borderRadius: "var(--radius)",
   fontSize: "0.75rem",
   maxHeight: "300px",
   overflow: "auto",
@@ -29,7 +29,7 @@ const TOOL_INPUT_STYLE = {
 const TOOL_CODE_TAG_PROPS = { style: { fontFamily: "var(--font-mono)" } };
 const TOOL_OUTPUT_FILE_STYLE = {
   margin: 0,
-  borderRadius: "0 0 4px 4px",
+  borderRadius: "0 0 var(--radius) var(--radius)",
   fontSize: "0.75rem",
   maxHeight: "400px",
   overflow: "auto",

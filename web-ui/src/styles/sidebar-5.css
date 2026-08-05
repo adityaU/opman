@@ -14,7 +14,7 @@
     padding: 0 5px;
     height: 14px;
     line-height: 14px;
-    border-radius: 7px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 14%, transparent);
     color: var(--lane-color, var(--color-accent));
     font-size: 9px;
@@ -50,7 +50,8 @@
     display: flex;
     align-items: center;
     gap: 0;
-    width: 100%
+    width: 100%;
+    padding-right: var(--space-3)
 }
 
 .sb-task-group-toggle {
@@ -68,11 +69,22 @@
     font-family: inherit;
     text-align: left;
     cursor: pointer;
+    transition: color var(--transition-fast)
+}
+
+/* The whole row lights up as one surface. The tint sits on the header, which
+   spans the toggle and the count pill alike, so no strip of the row is left
+   unlit while the pointer is anywhere over it. */
+.sb-task-group-header {
     transition: background var(--transition-fast)
 }
 
-.sb-task-group-toggle:hover {
-    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 10%, transparent)
+.sb-task-group-header:hover {
+    background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 12%, transparent)
+}
+
+.sb-task-group-header:hover .sb-task-group-toggle {
+    color: var(--color-text)
 }
 
 .sb-task-group-chevron {
@@ -109,9 +121,9 @@
     min-width: 16px;
     height: 14px;
     padding: 0 5px;
-    margin: 0 var(--space-3) 0 0;
+    margin: 0;
     line-height: 14px;
-    border-radius: 7px;
+    border-radius: var(--radius);
     text-align: center;
     color: var(--color-text-muted);
     background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
@@ -198,8 +210,7 @@
     padding: var(--space-3) var(--space-3);
     font-size: var(--font-size-sm);
     min-height: 48px;
-    border-radius: var(--radius-md)
-}
+    border-radius: var(--radius-md)}
 
 /* ── "+ New Session" row inside project ────────────────────── */
 

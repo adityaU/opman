@@ -68,15 +68,14 @@
 
 .ctx-category-bar-track {
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--radius);
     background: var(--white-4);
     margin: 0 0 2px 16px
 }
 
 .ctx-category-bar-fill {
     height: 100%;
-    border-radius: 2px
-}
+    border-radius: var(--radius)}
 
 .ctx-category-items {
     padding: var(--space-1, 4px) 0 var(--space-1, 4px) 28px;
@@ -154,7 +153,7 @@
     padding: 1px 5px;
     background: var(--white-4);
     border: 1px solid var(--color-border);
-    border-radius: 3px;
+    border-radius: var(--radius);
     font-size: 10px;
     font-family: inherit;
     min-width: 18px;
@@ -164,7 +163,7 @@
 .ctx-window-gauge-section,.ctx-window-breakdown,.ctx-window-actions {
     margin: 12px 14px 0;
     border: 1px solid var(--color-border-subtle);
-    border-radius: 18px;
+    border-radius: var(--radius);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface-hover) 50%,transparent),transparent),var(--color-surface)
 }
 
@@ -186,7 +185,7 @@
 }
 
 .ctx-window-footer kbd,.diff-review-footer-hint kbd,.workspace-mgr-footer kbd {
-    border-radius: 8px;
+    border-radius: var(--radius);
     border-color: var(--color-border-subtle);
     background: var(--color-bg-element)
 }

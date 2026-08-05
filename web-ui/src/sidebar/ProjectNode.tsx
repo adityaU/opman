@@ -23,6 +23,17 @@ export interface ProjectNodeProps {
   isSessionBusy: (sid: string) => boolean;
   /** Serialized key — changes when busy set changes, forces useMemo recomputation. */
   busyKey: string;
+  /**
+   * Sessions already listed above, in Open Sessions. Shown once, not twice: the
+   * duplicate rows were the single largest source of noise in the sidebar.
+   */
+  listedAbove?: Set<string>;
+  /**
+   * Render the sessions without the project's own header row. The sidebar header
+   * already names the project and switches it, so a second row naming it is the
+   * duplication this redesign removes.
+   */
+  chromeless?: boolean;
   expandedSubagents: string | null;
   showMore: boolean;
   searchQuery: string;
@@ -61,6 +72,8 @@ export interface ProjectNodeProps {
 
 export function ProjectNode({
   project,
+  listedAbove,
+  chromeless,
   index,
   isActiveProject,
   isExpanded,
@@ -123,11 +136,14 @@ export function ProjectNode({
   }, [project.sessions, busyKey, pinnedSessions]);
 
   const filteredParents = useMemo(() => {
-    if (!searchQuery) return parentSessions;
-    return parentSessions.filter((s) =>
+    const visible = listedAbove && listedAbove.size > 0
+      ? parentSessions.filter((s) => !listedAbove.has(s.id))
+      : parentSessions;
+    if (!searchQuery) return visible;
+    return visible.filter((s) =>
       (s.title || s.id).toLowerCase().includes(searchQuery),
     );
-  }, [parentSessions, searchQuery]);
+  }, [parentSessions, searchQuery, listedAbove]);
 
   // Split parents into kanban-task groups (shown grouped under the task title)
   // and the rest. Task-linked sessions are pulled out of the plain list so they
@@ -230,7 +246,8 @@ export function ProjectNode({
 
   return (
     <div className="sb-project">
-      {/* Project header */}
+      {/* Project header — omitted when the sidebar header already names it. */}
+      {!chromeless && (
       <button
         className={`sb-project-header ${isActiveProject ? "active" : ""}`}
         onClick={onToggleExpand}
@@ -248,18 +265,14 @@ export function ProjectNode({
         )}
         <span className="sb-project-count">{parentSessions.length}</span>
       </button>
+      )}
 
       {/* Sessions */}
       {isExpanded && (
         <div className="sb-sessions">
-          {/* + New Session row */}
-          <button className="sb-session sb-new-session-row" onClick={onNewSession}>
-            <div className="sb-session-icon"><Plus size={14} /></div>
-            <div className="sb-session-info">
-              <span className="sb-session-title">New Session</span>
-            </div>
-          </button>
-
+          {/* No "New Session" row: it looked like a session, sat two rows under
+              the header's + button, and pushed the real sessions down. Starting
+              one is a header action. */}
           {/* Kanban task groups — all sessions launched from a task, grouped
               under its title. Subsessions render nested via renderSession. */}
           {taskGroups.map((group) => (

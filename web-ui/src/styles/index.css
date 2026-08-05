@@ -25,6 +25,7 @@
 @import './git-panel-2.css';
 @import './git-panel-3.css';
 @import './git-panel-4.css';
+@import './home-welcome.css';
 @import './kanban.css';
 @import './login.css';
 @import './memory-1.css';
@@ -93,7 +94,9 @@
 @import './a2ui-4.css';
 @import './debug-panel.css';
 @import './codex-polish.css';
-@import './runner-controls.css';
+@import './engine-picker.css';
+@import './composer-popover.css';
+@import './sidebar-redesign.css';
 @import './modern-shell.css';
 @import './git-shell-polish.css';
 @import './floating-shell-polish.css';

@@ -1,5 +1,18 @@
 import type { ThemeColors } from "../api";
 
+/**
+ * Fired after the theme's custom properties land on `:root`.
+ *
+ * Anything that paints outside CSS — a canvas, an xterm palette — has to
+ * re-read its colours here, otherwise it keeps whichever theme happened to be
+ * active when it was constructed.
+ */
+export const THEME_CHANGED_EVENT = "opman:theme-changed";
+
+export function notifyThemeChanged(): void {
+  window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
+}
+
 /** Apply theme colors as CSS custom properties on :root */
 export function applyThemeToCss(colors: ThemeColors) {
   const root = document.documentElement.style;
@@ -48,6 +61,8 @@ export function applyThemeToCss(colors: ThemeColors) {
   root.setProperty("--theme-error-soft", `color-mix(in srgb, ${colors.error} 12%, ${colors.background_element})`);
   root.setProperty("--theme-warning-soft", `color-mix(in srgb, ${colors.warning} 12%, ${colors.background_element})`);
   root.setProperty("--theme-accent-soft", `color-mix(in srgb, ${colors.accent} 12%, ${colors.background_element})`);
+
+  notifyThemeChanged();
 }
 
 export const semanticEventColors = {

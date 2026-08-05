@@ -19,7 +19,7 @@
     width: 560px;
     max-width: 92vw;
     max-height: 80vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -53,8 +53,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .workspace-mgr-header button:hover {
     background: var(--color-hover);
@@ -98,7 +97,7 @@
     flex: 1;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 6px;
+    border-radius: var(--radius);
     padding: 6px 10px;
     font-size: 13px;
     color: var(--color-text);
@@ -118,7 +117,7 @@
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
@@ -237,7 +236,7 @@
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-secondary);
@@ -254,7 +253,7 @@
     display: flex;
     align-items: center;
     padding: 4px 6px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     background: none;
     color: var(--color-muted);
@@ -282,7 +281,7 @@
     font-family: inherit;
     font-size: 10px;
     border: 1px solid var(--color-border);
-    border-radius: 3px;
+    border-radius: var(--radius);
     background: var(--color-surface);
     color: var(--color-muted)
 }

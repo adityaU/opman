@@ -91,35 +91,91 @@
     margin-bottom: var(--space-1);
 }
 
-/* ── Key-value input / flat JSON output ───────────────────────── */
-.gmc-kv {
+/* ── Arguments ────────────────────────────────────────────────────
+   Arguments are a definition list, not a table. The old fixed 90-140px key
+   column made every value share one narrow gutter, so a long shell command
+   wrapped into a six-line paragraph while `false` sat alone on the same width
+   — and the hairline under each row turned a handful of arguments into a
+   spreadsheet. Short values stay on the key's line; long ones own the width. */
+.gmc-args {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.gmc-arg {
+    min-width: 0;
+}
+
+.gmc-arg-key {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+}
+
+.gmc-arg-val {
+    margin: 0;
+    min-width: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    word-break: break-word;
+}
+
+/* Scalars read as one statement: key, then value, on a single line. */
+.gmc-arg.is-inline {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.gmc-arg.is-inline .gmc-arg-key {
+    flex-shrink: 0;
+}
+
+.gmc-arg.is-block {
     display: flex;
     flex-direction: column;
     gap: 3px;
 }
 
+/* Code-shaped arguments get a surface of their own so the command is scannable
+   as a unit instead of dissolving into the surrounding prose. */
+.gmc-arg.is-code.is-block .gmc-arg-val {
+    padding: var(--space-2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--shell-radius-control);
+    background: color-mix(in srgb, var(--color-bg) 55%, transparent);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.55;
+}
+
+.gmc-arg.is-code.is-inline .gmc-arg-val {
+    font-family: var(--font-mono);
+}
+
+/* Kept: flat-JSON output still renders through the old key/value markup. */
+.gmc-kv {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
 .gmc-kv-row {
     display: flex;
     gap: var(--space-2);
-    align-items: flex-start;
+    align-items: baseline;
     font-size: var(--font-size-xs);
-    padding: 2px 0;
-    border-bottom: 0.5px solid var(--white-3);
-}
-
-.gmc-kv-row:last-child {
-    border-bottom: none;
 }
 
 .gmc-kv-key {
     font-size: var(--font-size-2xs);
     font-weight: 600;
     color: var(--color-text-muted);
-    min-width: 90px;
-    max-width: 140px;
-    padding-top: 2px;
-    word-break: break-word;
     flex-shrink: 0;
+    word-break: break-word;
 }
 
 .gmc-kv-val {
@@ -135,25 +191,68 @@
 .gmc-val-num   { color: var(--color-success); font-size: var(--font-size-xs); font-family: var(--font-mono); }
 .gmc-val-str   { font-size: var(--font-size-xs); color: var(--color-text); }
 
+.gmc-val-clamp {
+    display: block;
+    position: relative;
+}
+
+.gmc-val-clamp .gmc-val-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-wrap;
+}
+
+.gmc-val-clamp.is-open .gmc-val-text {
+    display: block;
+    overflow: visible;
+}
+
+/* The fade signals "there is more" before the button has to say it. */
+.gmc-val-clamp:not(.is-open)::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 22px;
+    height: 1.6em;
+    background: linear-gradient(
+        to bottom,
+        transparent,
+        color-mix(in srgb, var(--color-bg) 70%, transparent)
+    );
+    pointer-events: none;
+}
+
 .gmc-val-toggle {
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    margin-top: 4px;
     font-size: var(--font-size-2xs);
-    color: var(--color-accent);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
+    font-weight: 600;
     font-family: inherit;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    vertical-align: middle;
+    color: var(--color-text-muted);
+    background: none;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    cursor: pointer;
+    padding: 2px 9px;
+    transition: color var(--transition-fast), border-color var(--transition-fast),
+        background var(--transition-fast);
 }
 
 .gmc-val-toggle:hover {
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-text);
+    border-color: var(--color-border);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.gmc-val-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .gmc-val-obj {

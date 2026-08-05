@@ -2,11 +2,12 @@
  * DesktopLayout — side-by-side file explorer + editor for desktop breakpoints.
  */
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Loader2, File, X, PanelLeftOpen, Pin, PinOff, FilePlus, FolderPlus, Upload, RefreshCw } from "lucide-react";
+import { Loader2, File, X, PanelLeftOpen, FilePlus, FolderPlus } from "lucide-react";
 import type { OpenFileEntry, FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode, FileEntry } from "../types";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorBody } from "./EditorBody";
 import { ExplorerTree } from "./ExplorerTree";
+import { ExplorerHeader } from "./ExplorerHeader";
 
 interface Props {
   editorRef: React.RefObject<HTMLDivElement>;
@@ -142,47 +143,22 @@ export function DesktopLayout(p: Props) {
         style={{ width: explorerWidth }}
         onPointerDown={() => { clearHideTimer(); }}
       >
-        <div className="explorer-header">
-          <span className="explorer-title">Explorer</span>
-          <span className="explorer-header-actions">
-            {p.onCreateFile && (
-              <button type="button" className="explorer-hdr-btn" title="New file" onClick={() => { setInlineCreate("file"); setInlineValue(""); }}>
-                <FilePlus size={13} />
-              </button>
-            )}
-            {p.onCreateDir && (
-              <button type="button" className="explorer-hdr-btn" title="New folder" onClick={() => { setInlineCreate("dir"); setInlineValue(""); }}>
-                <FolderPlus size={13} />
-              </button>
-            )}
-            {p.onUploadFiles && (
-              <button type="button" className="explorer-hdr-btn" title="Upload files" onClick={handleUploadClick}>
-                <Upload size={13} />
-              </button>
-            )}
-            {p.onReloadRoot && (
-              <button type="button" className="explorer-hdr-btn" title="Reload explorer" onClick={p.onReloadRoot}>
-                <RefreshCw size={13} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="explorer-hdr-btn"
-              onClick={() => setPinned((value) => !value)}
-              title={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
-              aria-label={p.explorerCollapsed ? "Show explorer" : "Hide explorer"}
-            >
-              {pinned ? <PinOff size={13} /> : <Pin size={13} />}
-            </button>
-          </span>
-          <input
-            ref={uploadRef}
-            type="file"
-            multiple
-            style={{ display: "none" }}
-            onChange={handleUploadChange}
-          />
-        </div>
+        <ExplorerHeader
+          pinned={pinned}
+          onTogglePinned={() => setPinned((value) => !value)}
+          onCollapse={() => p.setExplorerCollapsed(true)}
+          onCreateFile={p.onCreateFile ? () => { setInlineCreate("file"); setInlineValue(""); } : undefined}
+          onCreateDir={p.onCreateDir ? () => { setInlineCreate("dir"); setInlineValue(""); } : undefined}
+          onUploadFiles={p.onUploadFiles ? handleUploadClick : undefined}
+          onReloadRoot={p.onReloadRoot}
+        />
+        <input
+          ref={uploadRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleUploadChange}
+        />
 
         {/* Open files list */}
         {p.openFiles.length > 0 && (
@@ -277,9 +253,9 @@ export function DesktopLayout(p: Props) {
         <button
           type="button"
           className="explorer-expand-btn"
-          onClick={() => p.setExplorerCollapsed(!p.explorerCollapsed)}
-          title={pinned ? "Unpin explorer" : "Show explorer"}
-          aria-label="Toggle explorer"
+          onClick={() => p.setExplorerCollapsed(false)}
+          title="Show explorer"
+          aria-label="Show explorer"
         >
           <PanelLeftOpen size={14} />
         </button>

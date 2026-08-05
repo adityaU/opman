@@ -204,8 +204,7 @@
 
 .sb-list::-webkit-scrollbar-thumb {
     background: var(--white-8);
-    border-radius: 2px
-}
+    border-radius: var(--radius)}
 
 .sb-project {
     margin-bottom: var(--space-1)

@@ -61,7 +61,7 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "assistant-center", description: "Open the assistant cockpit" },
   { name: "inbox", description: "Open the assistant inbox" },
   { name: "missions", description: "Open mission tracking" },
-  { name: "memory", description: "Open personal memory" },
+  { name: "memory", description: "Open session instructions" },
   { name: "autonomy", description: "Adjust assistant autonomy" },
   { name: "routines", description: "Manage assistant routines" },
   { name: "delegation", description: "Open delegation board" },
@@ -146,20 +146,26 @@ export function SlashCommandPopover({
   if (filtered.length === 0) return null;
 
   return (
-    <div className="slash-popover">
+    <div className="slash-popover composer-popover" role="listbox" aria-label="Slash commands">
+      <div className="composer-popover-group">Commands</div>
       {filtered.map((cmd, idx) => (
         <button
           key={cmd.name}
-          className={`slash-popover-item ${idx === selectedIndex ? "selected" : ""}`}
+          type="button"
+          role="option"
+          aria-selected={idx === selectedIndex}
+          className={`composer-popover-row${idx === selectedIndex ? " is-cursor" : ""}`}
           onClick={() => onSelect(cmd.name)}
           onMouseEnter={() => setSelectedIndex(idx)}
         >
-          <span className="slash-popover-name">/{cmd.name}</span>
+          {/* The slash belongs to the name: this is literally what gets typed,
+              and a repeated glyph in an icon column would only be decoration. */}
+          <span className="composer-popover-key">/{cmd.name}</span>
           {cmd.description && (
-            <span className="slash-popover-desc">{cmd.description}</span>
+            <span className="composer-popover-detail">{cmd.description}</span>
           )}
           {cmd.args && (
-            <span className="slash-popover-args">{cmd.args}</span>
+            <span className="composer-popover-meta">{cmd.args}</span>
           )}
         </button>
       ))}

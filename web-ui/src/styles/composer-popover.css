@@ -1,0 +1,244 @@
+/* ── Composer popovers ────────────────────────────────────────────────
+   The three surfaces that open out of the message composer — slash commands,
+   @-mentions, and the queued messages panel — as one family.
+
+   They were three: three copies of the same position block (each drifting on
+   max-height and radius), two different row paddings, and rows whose leading
+   glyph was the only thing distinguishing an agent from a file. Surface paint
+   (radius, border, shadow, blur, entrance) still comes from modal-shell.css;
+   this sheet owns geometry and the row grammar, and is imported after
+   prompt-input-2.css so its single-class rules win on order. */
+
+.composer-popover {
+    position: absolute;
+    /* Anchored to the composer: same axis, same width. See --composer-max-width. */
+    bottom: calc(100% + 6px);
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    max-width: var(--composer-max-width, var(--chat-max-width));
+    margin-inline: auto;
+    max-height: min(46vh, 340px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    z-index: var(--z-overlay);
+}
+
+/* ── Section header ───────────────────────────────────────────────────
+   Same language as the engine palette, so a section header means the same
+   thing everywhere in the composer. */
+.composer-popover-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 8px 4px;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.composer-popover-group:first-child { padding-top: 4px; }
+
+/* ── Row ──────────────────────────────────────────────────────────────
+   One grammar: a fixed icon slot so labels align down the column, the label,
+   then supporting detail that yields space before the label does. */
+.composer-popover-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    border: none;
+    border-radius: var(--shell-radius-control, 8px);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.composer-popover-row:hover,
+.composer-popover-row.is-cursor {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.composer-popover-row:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* Fixed slot: rows with an icon and rows without still align. */
+.composer-popover-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 16px;
+    color: var(--color-text-muted);
+}
+
+.composer-popover-row.is-cursor .composer-popover-icon { color: var(--color-text); }
+
+.composer-popover-label {
+    flex: 0 0 auto;
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* Command names are literal input — the one place monospace earns its keep.
+   A fixed min-width aligns the descriptions into a column without an icon slot. */
+.composer-popover-key {
+    flex: 0 0 auto;
+    min-width: 76px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.composer-popover-detail {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+/* A path's meaning is at its end, so clip the front. `rtl` moves the ellipsis
+   to the left; the embedded-LTR wrapper keeps the separators facing the right
+   way inside it. */
+.composer-popover-detail.is-path {
+    direction: rtl;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.composer-popover-detail.is-path > span {
+    unicode-bidi: embed;
+    direction: ltr;
+}
+
+.composer-popover-meta {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: 8px;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: .8;
+}
+
+.composer-popover-empty,
+.composer-popover-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 18px 12px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+/* ── Queue panel ──────────────────────────────────────────────────────
+   Same family, plus a header: it reports a state rather than offering a list
+   of choices, and it needs a way out. */
+.composer-popover-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 9px 8px;
+    border-bottom: 1px solid var(--modal-hairline, var(--color-border-subtle));
+    margin-bottom: 4px;
+}
+
+.composer-popover-title {
+    flex: 1;
+    min-width: 0;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.composer-popover-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 18px;
+    height: 18px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 12%, transparent);
+    color: var(--color-text);
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Queue rows are not choices — the row itself does nothing, only its button. */
+.composer-popover-row.is-static {
+    cursor: default;
+    align-items: flex-start;
+}
+
+.composer-popover-row.is-static:hover {
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.composer-popover-row.is-static .composer-popover-detail {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 12.5px;
+}
+
+.composer-popover-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    border: none;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.composer-popover-action:hover {
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    color: var(--color-error);
+}
+
+.composer-popover-action:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+    .composer-popover {
+        left: var(--space-2);
+        right: var(--space-2);
+        max-height: min(52vh, 300px);
+    }
+    .composer-popover-label { max-width: 60%; }
+}

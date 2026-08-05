@@ -99,9 +99,17 @@ export const SessionRow = React.memo(function SessionRow({
           onClick={() => { if (!isRenaming) onSelect(); }}
           onContextMenu={onContextMenu}
         >
-          <div className="sb-session-icon">
-            {isPinned ? <Pin size={12} className="sb-pin-icon" /> : <MessageSquare size={14} />}
-          </div>
+          {/* A dot, not a boxed glyph. Every row carried the same chat bubble
+              in the same box, so the icon column cost 6 boxes and told the
+              reader nothing; the dot spends the same space on the one thing
+              that differs between rows — which runner owns the session. */}
+          <span
+            className={`sb-session-dot${isPinned ? " is-pinned" : ""}`}
+            data-runner={session.runner || "unknown"}
+            aria-hidden="true"
+          >
+            {isPinned && <Pin size={9} />}
+          </span>
           <div className="sb-session-info">
             {isRenaming ? (
               <input
@@ -119,13 +127,14 @@ export const SessionRow = React.memo(function SessionRow({
               />
             ) : (
               <>
-                <span className="sb-session-title">
+                <span className="sb-session-title" title={session.runner ? `${session.title || session.id} · ${session.runner}` : undefined}>
                   {session.title || session.id.slice(0, 12)}
                 </span>
+                {/* The runner moved into the dot and the title's tooltip; what
+                    is left is only what varies per row and is worth a glance. */}
                 <span className="sb-session-meta">
-                  {session.runner && <span className="sb-runner-badge">{session.runner}</span>}
                   {taskLink && <LaneTag link={taskLink} />}
-                  {formatTime(session.time.updated)}
+                  <span className="sb-session-time">{formatTime(session.time.updated)}</span>
                   {subagentCount > 0 && (
                     <span
                       className="sb-subagent-badge"

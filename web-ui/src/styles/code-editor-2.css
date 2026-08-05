@@ -87,19 +87,80 @@
 .explorer-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
+    gap: 6px;
+    padding: 6px 8px;
     border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
     min-height: 32px;
     flex-shrink: 0
 }
 
 .explorer-title {
+    flex: 1;
+    min-width: 0;
     font-size: 11px;
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: .05em
+}
+
+/* Collapsing is the control a reader reaches for most, so it leads the row and
+   sits where its mirror image (the expand button) appears once hidden. */
+.explorer-collapse-trigger {
+    margin-left: -2px
+}
+
+.explorer-menu-wrap {
+    position: relative;
+    flex-shrink: 0
+}
+
+.explorer-hdr-btn.is-active {
+    background: var(--white-8);
+    color: var(--color-text)
+}
+
+.explorer-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    min-width: 168px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px
+}
+
+.explorer-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: var(--shell-radius-control);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.explorer-menu-item:hover {
+    background: var(--theme-surface-hover)
+}
+
+.explorer-menu-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px
+}
+
+.explorer-menu-item svg {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
 }
 
 .explorer-collapse-btn,.explorer-expand-btn {
@@ -110,7 +171,7 @@
     height: 22px;
     background: none;
     border: .5px solid var(--white-8);
-    border-radius: 4px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base);
@@ -256,7 +317,7 @@
     height: 18px;
     background: none;
     border: none;
-    border-radius: 3px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     opacity: 0;
@@ -338,8 +399,7 @@ html.flat-theme .explorer-tree-file.active {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 /* ── Explorer header actions ───────────────────────── */
 
@@ -358,12 +418,17 @@ html.flat-theme .explorer-tree-file.active {
     height: 22px;
     background: none;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base);
     flex-shrink: 0;
     padding: 0
+}
+
+.explorer-hdr-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
 }
 
 .explorer-hdr-btn:hover {
@@ -400,7 +465,7 @@ html.flat-theme .explorer-tree-file.active {
     height: 20px;
     background: none;
     border: none;
-    border-radius: 3px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base);
@@ -441,7 +506,7 @@ html.flat-theme .explorer-tree-file.active {
     min-width: 0;
     background: var(--white-3);
     border: 1px solid var(--white-10);
-    border-radius: 3px;
+    border-radius: var(--radius);
     color: var(--color-text);
     font-size: 12px;
     padding: 2px 5px;
@@ -467,7 +532,7 @@ html.flat-theme .explorer-tree-file.active {
     padding: 4px 8px;
     background: color-mix(in srgb, var(--color-danger) 8%, transparent);
     border: .5px solid color-mix(in srgb, var(--color-danger) 20%, transparent);
-    border-radius: 3px;
+    border-radius: var(--radius);
     margin: 2px 4px;
     font-size: 11px;
     color: var(--color-text)
@@ -485,7 +550,7 @@ html.flat-theme .explorer-tree-file.active {
     background: var(--color-danger);
     color: var(--color-on-accent);
     border: none;
-    border-radius: 3px;
+    border-radius: var(--radius);
     padding: 2px 8px;
     font-size: 11px;
     cursor: pointer;
@@ -504,7 +569,7 @@ html.flat-theme .explorer-tree-file.active {
     height: 18px;
     background: none;
     border: none;
-    border-radius: 3px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     flex-shrink: 0;
@@ -530,7 +595,7 @@ html.flat-theme .explorer-tree-file.active {
     padding: 4px 0;
     background: var(--color-bg-element);
     border: .5px solid var(--white-10);
-    border-radius: 6px;
+    border-radius: var(--radius);
     box-shadow: 0 4px 12px var(--black-30)
 }
 

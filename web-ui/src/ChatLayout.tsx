@@ -10,6 +10,7 @@ import { usePanelState } from "./hooks/usePanelState";
 import { useMobileState } from "./hooks/useMobileState";
 import { useVirtualKeyboard } from "./hooks/useVirtualKeyboard";
 import { useModelState } from "./hooks/useModelState";
+import { useRunnerConfig } from "./hooks/useRunnerConfig";
 import { useAssistantState } from "./hooks/useAssistantState";
 import { useUrlRestore } from "./hooks/useUrlRestore";
 import { useUrlSessionState } from "./hooks/useUrlSessionState";
@@ -18,6 +19,7 @@ import { usePulseActions } from "./hooks/usePulseActions";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useChatCallbacks } from "./hooks/useChatCallbacks";
 import { buildKeyboardShortcuts } from "./chatLayoutKeyboard";
+import { defaultRunner } from "./chatLayoutHandlers";
 import { ChatMainArea } from "./ChatMainArea";
 import { ModalLayer } from "./ModalLayer";
 import { MobileDock } from "./MobileDock";
@@ -41,6 +43,10 @@ function defaultPermissionForRunner(runner: string): string {
 }
 
 export function ChatLayout() {
+  // Latches once the app has painted for the first time; see the startup gate
+  // below.
+  const hasStartedRef = useRef(false);
+
   // ── Core SSE state ──
   const sse = useSSE();
   const {
@@ -110,23 +116,37 @@ export function ChatLayout() {
   // ── Modals / Toast / Providers / Bookmarks ──
   const modalState = useModalState({ onOpen: sse.blockSessionAdoption });
   const { toasts, addToast, removeToast } = useToast();
-  const [selectedRunner, setSelectedRunner] = useState<string | null>(null);
-  const [runnerSettings, setRunnerSettings] = useState<Record<string, { effort: string | null; permission: string }>>({});
-  const currentRunner = selectedRunner || activeSession?.runner || (appState?.backend === "claude-code" ? "claude-code" : appState?.backend) || "opencode";
+  // A runner pick belongs to the session it was made on: if it outlived that
+  // session it would name a runner for the *next* one, which the backend reads
+  // as a switch request and answers by forking a handoff session.
+  // `isSwitch` records *when* the pick was made — choosing a runner before the
+  // session exists configures it, while choosing one for a live session asks to
+  // move that conversation. Only the second is a handoff request — and a session
+  // whose runner label is briefly wrong (the label lands after creation) must
+  // never turn the first kind into the second.
+  const [runnerChoice, setRunnerChoice] = useState<
+    { sessionId: string | null; runner: string; isSwitch: boolean } | null
+  >(null);
+  // What each runner was last configured with — model, agent, effort, permission
+  // — kept per runner and across reloads, because none of those values mean
+  // anything outside the runner they were chosen in.
+  const runnerConfig = useRunnerConfig();
+  const pickedRunner = runnerChoice && runnerChoice.sessionId === activeSessionId ? runnerChoice.runner : null;
+  const currentRunner = pickedRunner || activeSession?.runner || defaultRunner(appState);
+  const runnerSwitch = pickedRunner && runnerChoice?.isSwitch && pickedRunner !== activeSession?.runner
+    ? pickedRunner
+    : null;
+  const clearRunnerChoice = useCallback(() => setRunnerChoice(null), []);
+  /** Follow the pick onto the session it produced, without re-arming a switch. */
+  const bindRunnerChoice = useCallback(
+    (sessionId: string, runner: string) => setRunnerChoice({ sessionId, runner, isSwitch: false }),
+    [],
+  );
   const providers = useProviders(currentRunner);
-  const currentSettings = runnerSettings[currentRunner] || {
-    effort: null,
-    permission: defaultPermissionForRunner(currentRunner),
-  };
+  const currentSettings = runnerConfig.recall(currentRunner);
   const setRunnerSetting = useCallback((patch: Partial<{ effort: string | null; permission: string }>) => {
-    setRunnerSettings((current) => ({
-      ...current,
-      [currentRunner]: {
-        ...(current[currentRunner] || { effort: null, permission: defaultPermissionForRunner(currentRunner) }),
-        ...patch,
-      },
-    }));
-  }, [currentRunner]);
+    runnerConfig.remember(currentRunner, patch);
+  }, [currentRunner, runnerConfig]);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
@@ -247,9 +267,36 @@ export function ChatLayout() {
   // ── Model / Agent ──
   const model = useModelState(messages, providers, activeSessionId);
   const handleRunnerChange = useCallback((runner: string) => {
-    setSelectedRunner(runner);
-    model.setSelectedAgent("");
-  }, [model.setSelectedAgent]);
+    setRunnerChoice({ sessionId: activeSessionId, runner, isSwitch: activeSessionId !== null });
+    // Restore what this runner was last set to. An unknown or stale model is
+    // repaired against the runner's own catalogue in useEngineOptions, so a
+    // remembered value that no longer exists cannot strand the composer.
+    const remembered = runnerConfig.recall(runner);
+    model.setSelectedModel(remembered.model);
+    model.setSelectedAgent(remembered.agent);
+  }, [activeSessionId, model.setSelectedAgent, model.setSelectedModel, runnerConfig]);
+
+  // Model and agent choices are recorded against the runner they were made in.
+  // Wrapped at the setter so every route — engine palette, model picker modal,
+  // agent picker, slash command — records the same way.
+  const selectModel = useCallback((next: { providerID: string; modelID: string } | null) => {
+    model.setSelectedModel(next);
+    if (next) runnerConfig.remember(currentRunner, { model: next });
+  }, [model.setSelectedModel, runnerConfig, currentRunner]);
+  const selectAgent = useCallback((next: string) => {
+    model.setSelectedAgent(next);
+    if (next) runnerConfig.remember(currentRunner, { agent: next });
+  }, [model.setSelectedAgent, runnerConfig, currentRunner]);
+
+  // A reload starts with nothing selected. Fill from what this runner was last
+  // set to rather than making the user pick again; only ever fills a blank, so
+  // it cannot overwrite a live choice or feed back into recording one.
+  useEffect(() => {
+    const remembered = runnerConfig.recall(currentRunner);
+    if (!model.selectedModel && remembered.model) model.setSelectedModel(remembered.model);
+    if (!model.selectedAgent && remembered.agent) model.setSelectedAgent(remembered.agent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRunner]);
   const selectedModelId = model.currentModel || model.defaultModelDisplay;
   const selectedModelInfo = Object.values(providers.all)
     .flatMap((provider) => Object.values(provider.models))
@@ -327,11 +374,12 @@ export function ChatLayout() {
   const getMessages = useCallback(() => messagesRef.current, []);
   const handlers = useChatHandlers({
     activeSessionId, activeProjectIndex, appState,
-    selectedModel: model.selectedModel, selectedAgent: model.selectedAgent, selectedRunner,
+    selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
+    runnerForNewSession: currentRunner, runnerSwitch,
     selectedEffort: currentSettings.effort, selectedPermission: currentSettings.permission,
     sending: model.sending, activeMemoryItems: assistant.activeMemoryItems,
-    setSending: model.setSending, setSelectedModel: model.setSelectedModel,
-    setSelectedAgent: model.setSelectedAgent, setSelectedRunner,
+    setSending: model.setSending, setSelectedModel: selectModel,
+    setSelectedAgent: selectAgent, clearRunnerChoice, bindRunnerChoice,
     setMobileInputHidden: mobile.setInputHidden,
     addToast, addOptimisticMessage, clearOptimistic, refreshState, refreshMessages: sse.refreshMessages,
     clearPermission, clearQuestion,
@@ -393,12 +441,17 @@ export function ChatLayout() {
     return <StartupGate appState={null} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={null} isLoadingMessages={false} providersLoading={providers.loading} />;
   }
 
+  // The gate covers the *first* paint only. It used to be re-evaluated on every
+  // render, so any later provider fetch — switching runners, a manual refresh —
+  // tore the whole chat down to the loading screen and rebuilt it, losing all
+  // transient UI state (open menus, in-progress input) along the way.
   const startupReady = appState.startup_ready !== false;
   const liveReady = sse.initialConnectionsReady;
   const workspaceReady = !activeSessionId || !isLoadingMessages;
-  if (!startupReady || !liveReady || providers.loading || !workspaceReady) {
+  if (!hasStartedRef.current && (!startupReady || !liveReady || providers.loading || !workspaceReady)) {
     return <StartupGate appState={appState} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={activeSessionId} isLoadingMessages={isLoadingMessages} providersLoading={providers.loading} />;
   }
+  hasStartedRef.current = true;
 
   return (
     <EditorOpenProvider value={openFileInEditor}>
@@ -417,6 +470,7 @@ export function ChatLayout() {
         hasOlderMessages={hasOlderMessages} totalMessageCount={totalMessageCount}
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
+        handleModelSelected={handlers.handleModelSelected}
         selectedRunner={currentRunner} availableRunners={appState?.runners || ["opencode", "claude-code", "claude", "codex"]}
         supportedEfforts={effortOptions} effort={currentSettings.effort} permission={currentSettings.permission}
         sending={model.sending} currentModel={model.currentModel}

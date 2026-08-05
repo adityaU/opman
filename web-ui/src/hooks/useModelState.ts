@@ -27,15 +27,23 @@ export function useModelState(
   const sendingMap = useRef(new Map<string, boolean>());
   const [sendingFlag, setSendingFlag] = useState(false);
 
+  // A send that creates its own session starts while activeSessionId is still
+  // null and finishes once it is set. Read the id through a ref so the
+  // completion path compares against the live value rather than the one
+  // captured when the send began — otherwise the flag never flips back and the
+  // in-flight indicator sticks until an unrelated re-render.
+  const activeSessionIdRef = useRef(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
+
   const setSending = useCallback((v: boolean, sessionId?: string) => {
-    const sid = sessionId ?? activeSessionId;
+    const sid = sessionId ?? activeSessionIdRef.current;
     if (sid) {
       if (v) sendingMap.current.set(sid, true);
       else sendingMap.current.delete(sid);
     }
     // Only update the React flag if the target session is the currently active one
-    if (!sid || sid === activeSessionId) setSendingFlag(v);
-  }, [activeSessionId]);
+    if (!sid || sid === activeSessionIdRef.current) setSendingFlag(v);
+  }, []);
 
   // When activeSessionId changes, derive sending from the map
   const sending = activeSessionId

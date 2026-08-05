@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { ListPlus, X, Trash2 } from "lucide-react";
 
-// ── Queue pill (sits in the selector-chip row, beside "memories") ──
+// ── Queue pill (sits in the selector-chip row, beside the instructions chip) ──
 
 interface QueuePillProps {
   count: number;
@@ -55,28 +55,35 @@ export function QueuePanel({ queued, onRemove, onClear, onClose }: QueuePanelPro
   }, [onClose]);
 
   return (
-    <div className="prompt-queue-panel" ref={ref}>
-      <div className="prompt-queue-header">
-        <span className="prompt-queue-title">
-          Queued — sent together next turn
+    <div className="prompt-queue-panel composer-popover" ref={ref}>
+      <div className="composer-popover-header">
+        <span className="composer-popover-title">
+          {queued.length === 1 ? "1 message queued" : `${queued.length} messages queued`}
+          {queued.length > 0 && " · sent together next turn"}
         </span>
         {queued.length > 0 && (
-          <button className="prompt-queue-clear" onClick={onClear} title="Remove all queued messages">
+          <button
+            type="button"
+            className="composer-popover-action"
+            onClick={onClear}
+            title="Remove all queued messages"
+          >
             <Trash2 size={12} />
             <span>Clear all</span>
           </button>
         )}
       </div>
       {queued.length === 0 ? (
-        <div className="prompt-queue-empty">No queued messages</div>
+        <div className="composer-popover-empty">Nothing queued</div>
       ) : (
         <ul className="prompt-queue-list">
           {queued.map((msg, i) => (
-            <li key={i} className="prompt-queue-item">
-              <span className="prompt-queue-index">{i + 1}</span>
-              <span className="prompt-queue-text" title={msg}>{msg}</span>
+            <li key={i} className="composer-popover-row is-static">
+              <span className="composer-popover-index">{i + 1}</span>
+              <span className="composer-popover-detail" title={msg}>{msg}</span>
               <button
-                className="prompt-queue-remove"
+                type="button"
+                className="composer-popover-action"
                 onClick={() => onRemove(i)}
                 title="Remove this queued message"
                 aria-label={`Remove queued message ${i + 1}`}

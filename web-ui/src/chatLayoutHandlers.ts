@@ -15,7 +15,15 @@ export interface HandlerDeps {
   appState: any;
   selectedModel: any;
   selectedAgent: string;
-  selectedRunner: string | null;
+  /** Runner a session created right now should be created with. */
+  runnerForNewSession: string;
+  /**
+   * Runner the user explicitly picked for the active session, when it differs
+   * from the one that session already uses. Non-null means "hand this session
+   * off" — it is the only value that may travel with a send on an existing
+   * session.
+   */
+  runnerSwitch: string | null;
   selectedEffort: string | null;
   selectedPermission: string;
   sending: boolean;
@@ -23,14 +31,20 @@ export interface HandlerDeps {
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
-  setSelectedRunner: (r: string | null) => void;
+  /** Forget the user's runner pick (on session switch). */
+  clearRunnerChoice: () => void;
+  /**
+   * Re-anchor the runner pick to a session that now owns it, so the composer
+   * keeps showing that runner without re-requesting a switch on the next send.
+   */
+  bindRunnerChoice: (sessionId: string, runner: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => void;
   clearOptimistic: () => void;
   refreshState: () => void;
   /** Refresh the active transcript after runner adapters complete synchronously. */
-  refreshMessages: () => Promise<void>;
+  refreshMessages: (sessionId?: string | null) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -57,13 +71,13 @@ export interface HandlerDeps {
 
 /* ── Pure helper ────────────────────────────────────────── */
 
-export function injectMemoryGuidance(text: string, memoryItems: PersonalMemoryItem[]): string {
-  if (memoryItems.length === 0 || text.includes("[Assistant memory in effect]")) return text;
-  const guidance = memoryItems
-    .map((item) => `- ${item.label}: ${item.content}`)
-    .join("\n");
-  return `[Assistant memory in effect]\n${guidance}\n\n[User request]\n${text}`;
-}
+/*
+ * Session instructions used to be prepended here, to every outgoing message.
+ * The server owns that now: it delivers them on a session's opening turn only
+ * (and on the handoff message that opens a taken-over session), so they are not
+ * re-sent and re-billed on every turn, and every client — queue flushes, the
+ * kanban launcher, another browser tab — gets the same treatment.
+ */
 
 /* ── Command → modal mapping ────────────────────────────── */
 
@@ -95,12 +109,25 @@ export const LOCAL_COMMANDS = new Set([
 export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     let sid = deps.activeSessionId;
+    // A session that exists already belongs to a runner. Re-stating a runner on
+    // every send is what used to fork the conversation: any drift in the value
+    // the UI inferred read as a switch request, and the backend answered with a
+    // handoff session. Name a runner only when creating the session, or when the
+    // user deliberately switched.
+    const runnerForNewSession = deps.runnerForNewSession;
+    const runnerForSend = sid ? deps.runnerSwitch : runnerForNewSession;
     if (!sid) {
+      // Creating the session is a round-trip of its own. Flag the send before
+      // it starts so the composer and transcript can report progress instead of
+      // sitting on an empty screen until the session exists.
+      deps.setSending(true);
       try {
-        const created = await newSession(deps.activeProjectIndex, deps.selectedRunner || sessionRunner(deps));
+        const created = await newSession(deps.activeProjectIndex, runnerForNewSession);
         sid = created.session_id;
+        deps.bindRunnerChoice(sid, runnerForNewSession);
         deps.setUrlSession(sid, deps.activeProjectIndex);
       } catch {
+        deps.setSending(false);
         deps.addToast("Failed to create session", "error");
         return false;
       }
@@ -111,18 +138,16 @@ export function createHandleSend(deps: HandlerDeps) {
     // Reserve this session before starting the request so rapid submits cannot
     // race and start competing turns on the same conversation.
     deps.setSending(true, sid);
-    // Prepend file context (from @file mentions) before memory guidance
+    // File context (from @file mentions) still belongs to the message itself.
     const fullText = fileContext ? fileContext + text : text;
-    const enrichedText = injectMemoryGuidance(fullText, deps.activeMemoryItems);
-    // Show optimistic message with the full enriched text so memory pill renders immediately
-    deps.addOptimisticMessage(enrichedText, images);
+    deps.addOptimisticMessage(fullText, images, sid);
     try {
       const result = await sendMessage(
         sid,
-        enrichedText,
+        fullText,
         deps.selectedModel ?? undefined, images,
         deps.selectedAgent || undefined,
-        deps.selectedRunner || sessionRunner(deps),
+        runnerForSend || undefined,
         deps.selectedEffort || undefined,
         deps.selectedPermission || undefined,
       );
@@ -130,10 +155,12 @@ export function createHandleSend(deps: HandlerDeps) {
       // HTTP runners normally update the transcript through SSE. The Codex
       // adapter completes synchronously, so refresh here also covers that
       // runner and makes a handoff immediately visible.
-      await deps.refreshMessages();
+      await deps.refreshMessages(sid);
       if (handoff?.switched && handoff.session_id) {
         deps.setUrlSession(handoff.session_id, deps.activeProjectIndex);
-        deps.setSelectedRunner(handoff.runner || deps.selectedRunner);
+        // Move the pick onto the session that now serves it. Leaving it armed on
+        // the old session would re-request the switch and fork again.
+        deps.bindRunnerChoice(handoff.session_id, handoff.runner || deps.runnerForNewSession);
         deps.addToast(`Session handed off to ${handoff.runner || "new runner"}`, "success");
       }
       return true;
@@ -292,7 +319,7 @@ export function createHandleSelectSession(deps: HandlerDeps) {
     deps.setUrlSession(sessionId, projectIdx);
     deps.setSelectedModel(null);
     deps.setSelectedAgent("");
-    deps.setSelectedRunner(null);
+    deps.clearRunnerChoice();
   };
 }
 
@@ -342,10 +369,13 @@ export function createHandleModelSelected(deps: HandlerDeps) {
   };
 }
 
-function sessionRunner(deps: HandlerDeps): string {
-  const project = deps.appState?.projects?.[deps.activeProjectIndex];
-  const session = project?.sessions?.find((item: any) => item.id === deps.activeSessionId);
-  if (session?.runner) return session.runner;
-  if (deps.appState?.backend === "claude-code") return "claude";
-  return deps.appState?.backend || "opencode";
+/**
+ * Runner a brand-new session should be created with.
+ *
+ * `appState.backend` names the CLI opman wraps, not a runner — both claude
+ * engines report "claude-code" — so it can never identify one. `default_runner`
+ * is the server's own answer; trust it and nothing else.
+ */
+export function defaultRunner(appState: any): string {
+  return appState?.default_runner || "opencode";
 }

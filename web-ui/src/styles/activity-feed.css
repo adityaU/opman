@@ -19,7 +19,7 @@
     width: 540px;
     max-width: 92vw;
     max-height: 80vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -47,8 +47,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .activity-feed-header button:hover {
     background: var(--color-hover);
@@ -64,7 +63,7 @@
 .activity-feed-scroll-btn {
     font-size: 11px;
     padding: 3px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-bg);
     color: var(--color-primary);
@@ -196,8 +195,7 @@
 .activity-feed-legend-dot {
     width: 6px;
     height: 6px;
-    border-radius: 50%
-}
+    border-radius: 50%}
 
 .activity-feed-legend-dot.file_edit {
     background: var(--color-info)

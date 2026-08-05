@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { MOCK_THEME, setupMockAPI } from "./helpers";
+import { chooseRunner, chooseModel, setEngineSettings, closeEnginePalette } from "./enginePicker";
 
 type RunnerCase = {
   runner: string;
@@ -37,6 +38,8 @@ function providerFixture(testCase: RunnerCase) {
 async function installRunnerFixtures(page: Page) {
   await setupMockAPI(page);
   let createdSessions = 0;
+  /** Ids handed out by `/api/session/new`, oldest first. */
+  const createdSessionIds: string[] = [];
 
   await page.route(/\/api\/providers(?:\?.*)?$/, (route) => {
     const runner = new URL(route.request().url()).searchParams.get("runner") || "opencode";
@@ -50,16 +53,20 @@ async function installRunnerFixtures(page: Page) {
 
   await page.route("**/api/session/new", (route) => {
     createdSessions += 1;
+    const sessionId = `fixture-new-${createdSessions}`;
+    createdSessionIds.push(sessionId);
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ session_id: `fixture-new-${createdSessions}` }),
+      body: JSON.stringify({ session_id: sessionId }),
     });
   });
 
   await page.route("**/api/theme", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_THEME) }),
   );
+
+  return { createdSessionIds };
 }
 
 async function navigateRunnerTest(page: Page) {
@@ -70,23 +77,33 @@ async function navigateRunnerTest(page: Page) {
 }
 
 async function chooseRunnerSettings(page: Page, testCase: RunnerCase) {
-  const runnerButton = page.locator('button[title="Choose runner, effort, and permissions"]');
-  await runnerButton.click();
-  await page.getByRole("menuitemradio", { name: testCase.runner, exact: true }).click();
-  await runnerButton.click();
+  await chooseRunner(page, testCase.runner);
 }
 
 async function chooseCheapestModel(page: Page, testCase: RunnerCase) {
-  await page.locator('button[title="Change model"]').click();
-  const modal = page.locator('[role="dialog"][aria-label="Choose model"]');
-  await expect(modal).toBeVisible();
-  await expect(modal.locator(".model-picker-item")).toHaveCount(1);
-  await expect(modal.locator(".model-picker-item")).toContainText(testCase.model);
-  await modal.locator(".model-picker-item").click();
-  await expect(modal).not.toBeVisible();
+  // The runner's models are listed in the same palette the runner was chosen
+  // in — that adjacency is the point of the merged control.
+  const palette = page.locator('[role="dialog"][aria-label="Choose runner, model, and agent"]');
+  await expect(palette.getByRole("option", { name: testCase.model }).first()).toBeVisible();
+  await chooseModel(page, testCase.model);
+  await expect(palette).not.toBeVisible();
 }
 
-async function sendAndAssert(page: Page, testCase: RunnerCase, text: string) {
+/**
+ * Send one prompt and check the whole request, not just its text.
+ *
+ * `runner` is deliberately asymmetric. The first prompt of a session carries it
+ * — that is what binds the session to the runner the user chose. Later prompts
+ * must not: the session is already bound, and naming a runner again is how
+ * opman is asked to *switch* runners, which forks the conversation into a
+ * handoff session. Model, effort, and permission belong on every turn.
+ */
+async function sendAndAssert(
+  page: Page,
+  testCase: RunnerCase,
+  text: string,
+  expect_: { sessionId: string; carriesRunner: boolean },
+) {
   const requestPromise = page.waitForRequest((request) => {
     return request.method() === "POST" && new URL(request.url()).pathname.endsWith("/message");
   });
@@ -96,8 +113,13 @@ async function sendAndAssert(page: Page, testCase: RunnerCase, text: string) {
   const request = await requestPromise;
   const body = request.postDataJSON();
 
+  expect(new URL(request.url()).pathname).toBe(`/api/session/${expect_.sessionId}/message`);
   expect(body.parts).toEqual([{ type: "text", text }]);
-  expect(body.runner).toBe(testCase.runner);
+  if (expect_.carriesRunner) {
+    expect(body.runner).toBe(testCase.runner);
+  } else {
+    expect(body).not.toHaveProperty("runner");
+  }
   expect(body.model).toEqual({ providerID: testCase.provider, modelID: testCase.model });
   expect(body.effort).toBe("low");
   expect(body.permission).toBe(testCase.permission);
@@ -105,23 +127,36 @@ async function sendAndAssert(page: Page, testCase: RunnerCase, text: string) {
 }
 
 test.describe("New session runner configuration", () => {
-  test("selects cheapest model, effort, and permission, then sends twice per runner", async ({ page }) => {
-    await installRunnerFixtures(page);
-    await navigateRunnerTest(page);
-    await expect(page.locator(".chat-layout")).toBeVisible();
+  // One test per runner: the shared loop needed four full configure-and-send
+  // cycles inside a single 30s budget and timed out before it could assert
+  // anything. Split, each case gets its own budget and its own failure.
+  for (const testCase of RUNNERS) {
+    test(`${testCase.runner}: configures the session, then keeps the follow-up in it`, async ({ page }) => {
+      test.setTimeout(90_000);
+      const fixtures = await installRunnerFixtures(page);
+      await navigateRunnerTest(page);
+      await expect(page.locator(".chat-layout")).toBeVisible();
 
-    for (const testCase of RUNNERS) {
       await page.locator(".sb-new-btn").click();
       await expect(page).toHaveURL(/new=1/);
       await chooseRunnerSettings(page, testCase);
       await chooseCheapestModel(page, testCase);
-      const runnerButton = page.locator('button[title="Choose runner, effort, and permissions"]');
-      await runnerButton.click();
-      await page.getByRole("radio", { name: "low", exact: true }).click();
-      await page.getByLabel("Runner permissions").selectOption(testCase.permission);
-      await runnerButton.click();
-      await sendAndAssert(page, testCase, `${testCase.runner} first message`);
-      await sendAndAssert(page, testCase, `${testCase.runner} second message`);
-    }
-  });
+      await setEngineSettings(page, { effort: "low", permission: testCase.permission });
+      await closeEnginePalette(page);
+
+      // The first prompt creates the session for the chosen runner...
+      const sessionId = "fixture-new-1";
+      await sendAndAssert(page, testCase, `${testCase.runner} first message`, {
+        sessionId, carriesRunner: true,
+      });
+      expect(fixtures.createdSessionIds).toEqual([sessionId]);
+
+      // ...and the follow-up continues it: same session, no second creation, and
+      // no runner on the wire to be mistaken for a switch request.
+      await sendAndAssert(page, testCase, `${testCase.runner} second message`, {
+        sessionId, carriesRunner: false,
+      });
+      expect(fixtures.createdSessionIds).toEqual([sessionId]);
+    });
+  }
 });

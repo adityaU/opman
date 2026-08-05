@@ -5,7 +5,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 24px;
+    border-radius: var(--radius);
     backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.05);
     -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.6) brightness(1.05);
     background: linear-gradient(165deg,var(--white-20) 0%,transparent 50%,var(--white-6) 100%);
@@ -98,8 +98,7 @@
 }
 
 .command-palette {
-    border-radius: 28px
-}
+    border-radius: var(--radius)}
 
 .command-palette-input-row {
     padding: 16px 18px
@@ -131,7 +130,7 @@
 
 .command-palette-item {
     padding: 12px 14px;
-    border-radius: 16px;
+    border-radius: var(--radius);
     border: 1px solid transparent
 }
 
@@ -141,7 +140,7 @@
 }
 
 .command-palette-shortcut {
-    border-radius: 999px;
+    border-radius: var(--radius);
     min-height: 24px;
     padding: 0 10px;
     display: inline-flex;

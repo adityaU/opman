@@ -8,14 +8,16 @@ import {
   MessageGroup,
   VIRTUALIZE_THRESHOLD,
   SCROLL_DIRECTION_THRESHOLD,
+  NO_RESPONSE_GRACE_MS,
   groupMessages,
 } from "./types";
-import { MessageShimmer, WelcomeEmpty, NewSessionEmpty } from "./components";
+import { MessageShimmer, WelcomeEmpty, NewSessionEmpty, PendingReply } from "./components";
 
 export function MessageTimeline({
   messages,
   sessionStatus,
   activeSessionId,
+  isSending = false,
   isLoadingMessages = false,
   isLoadingOlder = false,
   hasOlderMessages = false,
@@ -77,6 +79,49 @@ export function MessageTimeline({
       .trim();
     return text.startsWith("/compact");
   }, [sessionStatus.type, messages]);
+
+  // A turn is in flight whenever this client is mid-send or the server reports
+  // the session busy. Show a placeholder until the assistant has content to
+  // render — compaction has its own banner, so defer to that.
+  const turnInFlight = isSending || sessionStatus.type !== "idle";
+
+  // A send returns as soon as the runner is spawned, and the browser learns the
+  // session is busy only on the next app-state push. In that gap nothing is
+  // formally in flight even though the turn is very much running, so wait it out
+  // before calling a prompt unanswered rather than flashing a false verdict.
+  const [graceElapsed, setGraceElapsed] = useState(false);
+  const lastMessageKey = messages.length
+    ? `${messages[messages.length - 1].info.messageID || messages[messages.length - 1].info.id}:${messages.length}`
+    : "";
+  useEffect(() => {
+    setGraceElapsed(false);
+    if (turnInFlight) return;
+    const timer = setTimeout(() => setGraceElapsed(true), NO_RESPONSE_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [turnInFlight, lastMessageKey]);
+
+  const pendingReply = useMemo(() => {
+    if (isCompacting) return null;
+    const last = messages[messages.length - 1];
+    const hasVisibleReply = last && last.info.role !== "user" && last.parts.length > 0;
+    if (hasVisibleReply) return null;
+    if (turnInFlight) {
+      if (sessionStatus.type !== "idle") {
+        return { label: "Working…", detail: "The agent is running. Output appears as it streams." };
+      }
+      return { label: "Sending…", detail: "Handing your prompt to the runner." };
+    }
+    // Idle with an unanswered prompt: the runner ended its turn without writing
+    // anything. Say so — an indefinite spinner or a bare prompt both read as a
+    // hang, and some modes (claude's plan mode) legitimately produce no reply.
+    if (!last || last.info.role !== "user") return null;
+    if (!graceElapsed) return null;
+    return {
+      label: "No response",
+      detail: "The runner finished without sending output. Try resending, or switch permission mode.",
+      settled: true,
+    };
+  }, [isCompacting, turnInFlight, graceElapsed, sessionStatus.type, messages]);
 
   // Find child sessions for task tool → child session matching
   const childSessions = useMemo(() => {
@@ -245,17 +290,40 @@ export function MessageTimeline({
     shouldAutoScrollRef.current = false;
   }, [activeSearchMatchId, useVirtual, virtualizer, messageIdToGroupIndex, messageIdToGroupKey]);
 
-  // Find the last assistant message that hasn't completed yet.
-  // User messages sent after this one are considered "queued".
-  const pendingAssistantId = useMemo(() => {
+  /**
+   * Badge state per user turn, decided by position in the transcript.
+   *
+   * Position rather than confirmation status, because the claude runners never
+   * write user messages: their placeholders stay in the transcript for the whole
+   * session, so treating "unconfirmed" as "still sending" would leave a
+   * long-answered prompt reading as in flight forever.
+   *
+   * - "queued"  — sits after the assistant turn still being generated.
+   * - "sending" — a placeholder with no later turn at all; still on its way.
+   */
+  const userTurnStates = useMemo(() => {
+    const states = new Map<string, "sending" | "queued">();
+    let pendingIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m.info.role !== "assistant") continue;
       const t = m.metadata?.time ?? (typeof m.info.time === "object" ? m.info.time : undefined);
-      if (!t?.completed) return m.info.messageID || m.info.id || "";
+      if (!t?.completed) { pendingIdx = i; break; }
     }
-    return null;
-  }, [messages]);
+
+    let seenLaterTurn = false;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.info.role !== "user") { seenLaterTurn = true; continue; }
+      const id = m.info.messageID || m.info.id || "";
+      if (!id) continue;
+      if (pendingIdx >= 0 && i > pendingIdx) { states.set(id, "queued"); continue; }
+      // Gate on an in-flight turn too: once the runner has finished, a
+      // placeholder claiming to still be sending is simply wrong.
+      if (!seenLaterTurn && turnInFlight && id.startsWith("__optimistic__")) states.set(id, "sending");
+    }
+    return states;
+  }, [messages, turnInFlight]);
 
   // ── Stable turn props (must be before early returns to obey Rules of Hooks) ──
   const turnProps = useMemo(() => ({
@@ -268,7 +336,7 @@ export function MessageTimeline({
     onToggleBookmark,
     sessionId: activeSessionId,
     onOpenSession,
-    pendingAssistantId,
+    userTurnStates,
   }), [
     childSessions,
     onSendPrompt,
@@ -279,11 +347,23 @@ export function MessageTimeline({
     onToggleBookmark,
     activeSessionId,
     onOpenSession,
-    pendingAssistantId,
+    userTurnStates,
   ]);
 
   // ── Empty states ──
-  if (!activeSessionId) return <WelcomeEmpty />;
+  // A session is created lazily by its own first send, so `isSending` with no
+  // session yet means the create round-trip is still open. Report that instead
+  // of the welcome screen, which reads as "nothing happened".
+  if (!activeSessionId) {
+    if (!isSending) return <WelcomeEmpty />;
+    return (
+      <div className="message-timeline" ref={containerRef}>
+        <div className="message-timeline-inner">
+          <PendingReply label="Starting session…" detail="Creating the session for your first message." />
+        </div>
+      </div>
+    );
+  }
 
   if (isLoadingMessages && messages.length === 0) {
     return (
@@ -293,7 +373,9 @@ export function MessageTimeline({
     );
   }
 
-  if (messages.length === 0 && sessionStatus.type === "idle") {
+  // Only offer the starter prompts when the session is genuinely idle and empty.
+  // Showing them mid-turn is what made a slow first reply look like a failure.
+  if (messages.length === 0 && !pendingReply) {
     return (
       <NewSessionEmpty
         sessionDirectory={sessionDirectory}
@@ -307,6 +389,10 @@ export function MessageTimeline({
     <div className="load-older-messages">
       <span className="load-older-spinner">Loading older messages...</span>
     </div>
+  ) : null;
+
+  const pendingIndicator = pendingReply ? (
+    <PendingReply label={pendingReply.label} detail={pendingReply.detail} settled={pendingReply.settled} />
   ) : null;
 
   const jumpButton = showJumpToBottom && (
@@ -347,6 +433,7 @@ export function MessageTimeline({
           })}
         </div>
         {compactionBanner}
+        {pendingIndicator}
         {jumpButton}
       </div>
     );
@@ -362,6 +449,7 @@ export function MessageTimeline({
           </div>
         ))}
         {compactionBanner}
+        {pendingIndicator}
       </div>
       {jumpButton}
     </div>

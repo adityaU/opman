@@ -179,7 +179,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     font-size: var(--font-size-xs);
     font-family: var(--font-mono);
     background: var(--color-bg-element);
@@ -219,7 +219,7 @@
 }
 
 .message-image-thumb img {
-    border-radius: 8px;
+    border-radius: var(--radius);
     max-width: 200px;
     max-height: 180px;
     object-fit: cover;
@@ -236,6 +236,65 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ── Pending reply placeholder ─────────────────────────────────────────
+   Shown between submitting a prompt and the assistant's first visible output.
+   Runners that spawn a CLI (claude --bg) leave a multi-second gap there. Shares
+   the compaction banner's token-only construction so both the glassy and flat
+   themes are covered without an override. */
+.pending-reply {
+    padding: var(--space-2) var(--space-4) var(--space-4);
+    margin: 0 auto;
+    max-width: 52rem;
+    width: 100%;
+    animation: compaction-fade-in 0.2s ease;
+}
+
+.pending-reply-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border);
+}
+
+.pending-reply-inner .tool-spin-icon,
+.pending-reply-icon {
+    flex-shrink: 0;
+    color: var(--color-accent);
+}
+
+/* Turn finished with no output — a verdict, so tint it as a caution rather than
+   leaving accent styling that still reads as "in progress". */
+.pending-reply-settled .pending-reply-inner {
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 26%, transparent);
+}
+
+.pending-reply-settled .pending-reply-icon,
+.pending-reply-settled .pending-reply-label {
+    color: var(--color-warning);
+}
+
+.pending-reply-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pending-reply-label {
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.pending-reply-detail {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    margin-top: 1px;
 }
 
 /* ── Compaction: live banner + completed summary card ─────────────────

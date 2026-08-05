@@ -271,7 +271,7 @@
     gap: var(--space-1);
     min-height: 36px;
     padding: 7px 14px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     font-size: var(--font-size-xs);
     font-weight: 600;
     cursor: pointer;
@@ -314,8 +314,7 @@
     }
 
     .permission-card,.question-card {
-        border-radius: var(--radius-md)
-    }
+        border-radius: var(--radius-md)}
 
     .permission-header {
         display: block;
@@ -430,7 +429,7 @@
     padding: 7px 16px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 12px;
+    border-radius: var(--radius);
     color: var(--color-text);
     font-size: var(--font-size-sm);
     font-weight: 500;

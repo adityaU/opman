@@ -41,7 +41,7 @@
     margin-top: 12px;
     padding: 8px 10px;
     background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-    border-radius: 4px;
+    border-radius: var(--radius);
     color: var(--color-accent);
     font-size: 11px
 }
@@ -56,18 +56,17 @@
 
 .git-panel-tabs,.git-ai-actions {
     padding: 8px;
-    border-radius: 16px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface)
 }
 
 .git-tab,.git-branch-toggle,.git-file-action {
-    border-radius: 12px
-}
+    border-radius: var(--radius)}
 
 .git-branch-toggle,.git-branch-filter,.git-commit-input {
     min-height: 40px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-bg-element)
 }
@@ -77,8 +76,7 @@
 }
 
 .git-file-row,.git-log-entry,.git-commit-file-header {
-    border-radius: 14px
-}
+    border-radius: var(--radius)}
 
 .git-file-row:hover,.git-log-entry:hover,.git-commit-file-header:hover {
     background: var(--color-surface-hover)
@@ -104,7 +102,7 @@
     gap: 5px;
     background: none;
     border: .5px solid var(--white-8);
-    border-radius: 6px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     font-size: 11px;
     cursor: pointer;
@@ -209,7 +207,7 @@
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--color-warning);
     color: var(--color-on-accent);
     font-size: 10px;
@@ -256,7 +254,7 @@ html.flat-theme .git-repo-item:hover {
 .pr-branch-picker {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
-    border-radius: 12px;
+    border-radius: var(--radius);
     width: 90%;
     max-width: 400px;
     max-height: 60vh;
@@ -296,7 +294,7 @@ html.flat-theme .git-repo-item:hover {
     color: var(--color-muted);
     cursor: pointer;
     padding: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     flex-shrink: 0
 }
 
@@ -376,7 +374,7 @@ html.flat-theme .git-repo-item:hover {
     font-weight: 600;
     text-transform: uppercase;
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     background: var(--color-accent);
     color: var(--color-bg);
     flex-shrink: 0;

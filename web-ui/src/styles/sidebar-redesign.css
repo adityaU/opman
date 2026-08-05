@@ -1,0 +1,290 @@
+/* ── Sidebar: one header, one list ────────────────────────────────────
+   The sidebar is for finding and switching sessions, and it had stopped being
+   that: with two projects and six sessions a reader met five to seven header
+   bands above eight to twelve rows, and the same session could appear twice —
+   once under Open Sessions, once in the tree. This sheet is imported after every
+   other sidebar sheet, so it settles the geometry those sheets disagree on. */
+
+/* ── Header ───────────────────────────────────────────────────────────
+   One row: the workspace's name, its branch, its session count — and the
+   control that changes it. */
+.chat-sidebar .sb-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 8px 8px 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.sb-project-switch {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.sb-project-trigger {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--shell-radius-control, 8px);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.sb-project-trigger:hover,
+.sb-project-trigger.is-open {
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    border-color: var(--color-border-subtle);
+}
+
+.sb-project-trigger:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.sb-project-label {
+    flex: 1 1 auto;
+    min-width: 4ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+}
+
+.chat-sidebar .sb-project-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 9ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
+.chat-sidebar .sb-project-count {
+    flex: 0 0 auto;
+    min-width: 16px;
+    padding: 0 5px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 10%, transparent);
+    color: var(--color-text-muted);
+    font-size: 9px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 15px;
+    text-align: center;
+}
+
+.sb-project-caret {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-text-muted);
+}
+
+.sb-project-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 60;
+    min-width: 200px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.sb-project-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: none;
+    border-radius: var(--shell-radius-control, 8px);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.sb-project-item:hover { background: var(--theme-surface-hover); }
+.sb-project-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.sb-project-item-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sb-project-item.is-active .sb-project-item-name { font-weight: 650; }
+
+.sb-project-item-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
+.sb-project-item-check {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-primary);
+}
+
+.sb-project-add {
+    margin-top: 2px;
+    border-top: 1px solid var(--modal-hairline, var(--color-border-subtle));
+    border-radius: 0 0 var(--shell-radius-control, 8px) var(--shell-radius-control, 8px);
+    padding-top: 9px;
+    color: var(--color-text-muted);
+}
+
+.sb-project-add svg { flex: 0 0 auto; }
+.sb-project-add:hover { color: var(--color-text); }
+
+/* ── Rows ─────────────────────────────────────────────────────────────
+   Single line by default. The dot carries the runner, the time sits right, and
+   a second line appears only when a row has something extra to say. */
+.chat-sidebar .sb-session {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 30px;
+    padding: 5px 8px;
+    border-radius: var(--shell-radius-control, 8px);
+}
+
+.sb-session-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    /* Unknown runner still gets a mark, so the column never collapses. */
+    background: color-mix(in srgb, var(--color-text) 30%, transparent);
+    color: var(--color-bg);
+}
+
+.sb-session-dot[data-runner="claude"],
+.sb-session-dot[data-runner="claude-code"] { background: var(--color-accent); }
+.sb-session-dot[data-runner="opencode"] { background: var(--color-primary); }
+.sb-session-dot[data-runner="codex"] { background: var(--color-info); }
+
+/* Pinned rows widen the dot into a badge that holds the pin glyph. */
+.sb-session-dot.is-pinned {
+    flex-basis: 15px;
+    width: 15px;
+    height: 15px;
+    background: color-mix(in srgb, var(--color-warning) 26%, transparent);
+    color: var(--color-warning);
+}
+
+.chat-sidebar .sb-session-info {
+    display: flex;
+    /* Row, explicitly: the earlier sheet stacks these in a column, and a column
+       plus `align-items: center` centred every title. */
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-sidebar .sb-session-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+
+.chat-sidebar .sb-session.active .sb-session-title { font-weight: 600; }
+
+.chat-sidebar .sb-session-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
+.sb-session-time {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The row-actions button used to reserve its own column; it overlays the time
+   on hover instead, so nothing shifts and no space is spent while idle. */
+.chat-sidebar .sb-session-actions {
+    position: absolute;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius);
+    background: var(--theme-surface-2, var(--color-bg-element));
+    color: var(--color-text-muted);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.chat-sidebar .sb-session:hover .sb-session-actions,
+.chat-sidebar .sb-session-actions:focus-visible { opacity: 1; }
+
+/* ── Group labels ─────────────────────────────────────────────────────
+   One quiet style for every band label in the list. */
+.chat-sidebar .sb-open-header,
+.chat-sidebar .sb-open-group-label,
+.chat-sidebar .sb-project-header {
+    padding: 10px 10px 4px;
+    color: var(--color-text-muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.chat-sidebar .sb-open-sessions,
+.chat-sidebar .sb-project {
+    border: 0;
+    background: none;
+}
+
+@media (max-width: 768px) {
+    .chat-sidebar .sb-session { min-height: 40px; }
+    .chat-sidebar .sb-session-actions { opacity: 1; }
+}

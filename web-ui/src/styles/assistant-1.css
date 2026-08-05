@@ -19,7 +19,7 @@
     width: 760px;
     max-width: 94vw;
     max-height: 84vh;
-    border-radius: 14px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -53,8 +53,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .assistant-center-hero {
     padding: 16px;
@@ -102,7 +101,7 @@
     text-align: left;
     padding: 10px 12px;
     margin-top: 8px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     color: var(--color-text);
@@ -160,7 +159,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     color: var(--color-text);
@@ -206,7 +205,7 @@
     justify-content: center;
     min-height: 38px;
     padding: 8px 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
@@ -233,7 +232,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
     color: var(--color-text);
@@ -283,7 +282,7 @@
     align-items: center;
     margin-top: 6px;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: transparent;
     color: var(--color-muted);
@@ -304,7 +303,7 @@
     gap: 8px;
     padding: 6px 10px;
     margin-top: 6px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-error) 30%, var(--color-border));
     color: var(--color-error);
@@ -352,7 +351,7 @@ html.flat-theme .assistant-center-routine-more {
     width: 640px;
     max-width: 92vw;
     max-height: 82vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -387,7 +386,7 @@ html.flat-theme .assistant-center-routine-more {
     min-width: 22px;
     height: 22px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--theme-warning-soft);
     color: var(--color-warning);
     font-size: 11px;
@@ -400,8 +399,7 @@ html.flat-theme .assistant-center-routine-more {
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .assistant-inbox-header button:hover {
     background: var(--color-hover);

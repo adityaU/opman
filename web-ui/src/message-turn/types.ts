@@ -24,8 +24,10 @@ export interface MessageTurnProps {
   sessionId?: string | null;
   /** Callback to navigate to a child session */
   onOpenSession?: (sessionId: string) => void;
-  /** ID of the last assistant message that hasn't completed yet (for "Queued" badge on user messages) */
-  pendingAssistantId?: string | null;
+  /** Badge state per user message id, derived by the timeline from each turn's
+   *  position: "queued" behind the turn being generated, "sending" while still
+   *  on its way. Absent means no badge. */
+  userTurnStates?: ReadonlyMap<string, "sending" | "queued">;
 }
 
 /** File extension mapping for common languages */

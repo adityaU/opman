@@ -1,7 +1,16 @@
+/* One inset for the whole right-hand stack.
+   The gap between cards, the tab strip's edges, and the terminal body's four
+   sides were four different numbers (10px between cards, 4px before the first
+   tab, 8px in the header, 0 around the body), so nothing lined up with anything
+   and the terminal ran flush to its card while its neighbours did not. */
+:root {
+    --panel-inset: 10px;
+}
+
 .right-panel-stack {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--panel-inset);
     width: var(--right-panel-width, 500px);
     flex-shrink: 0;
     min-height: 0;
@@ -77,14 +86,14 @@ html.flat-theme .right-panel-card { box-shadow: none }
     gap: 3px;
     padding: 4px;
     border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
+    border-radius: var(--shell-radius-inner);
     background: var(--theme-surface-2)
 }
 .right-panel-tabs button {
     flex: 1;
     min-height: 28px;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border-radius: var(--shell-radius-control);
     background: transparent;
     color: var(--color-text-muted);
     font: inherit;
@@ -102,7 +111,7 @@ html.flat-theme .right-panel-card { box-shadow: none }
     flex: 1 1 0;
     min-width: 0;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border-radius: var(--shell-radius-control);
 }
 .right-panel-tab.active {
     border-color: var(--color-border-subtle);
@@ -130,7 +139,7 @@ html.flat-theme .right-panel-card { box-shadow: none }
     justify-content: center;
     flex: 0 0 28px;
     min-height: 28px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
 }
 .right-panel-tab:hover .right-panel-tab-trigger,
 .right-panel-tab-close:hover,
@@ -160,7 +169,7 @@ html.flat-theme .right-panel-card { box-shadow: none }
     box-sizing: border-box;
     height: 100%;
     padding: 0;
-    gap: 12px;
+    gap: var(--panel-inset);
     overflow: hidden
 }
 .right-panel-tabs,

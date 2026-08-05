@@ -130,7 +130,7 @@ export function InboxModal({
 
         {activeMemoryItems.length > 0 && (
           <div className="assistant-memory-strip">
-            <span className="assistant-memory-strip-label">Memory in play</span>
+            <span className="assistant-memory-strip-label">Instructions in play</span>
             {activeMemoryItems.slice(0, 4).map((item) => (
               <span key={item.id} className="assistant-memory-chip">{item.label}</span>
             ))}

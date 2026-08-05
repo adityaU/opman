@@ -146,7 +146,7 @@
 }
 
 .sb-search {
-    border-radius: 16px;
+    border-radius: var(--radius);
     border-color: var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 45%,transparent),transparent),var(--color-bg-element)
 }
@@ -169,8 +169,7 @@
 
 .sb-project-header {
     padding: 8px 10px;
-    border-radius: 14px
-}
+    border-radius: var(--radius)}
 
 .sb-project-header:hover,.sb-project-header.active {
     background: var(--color-surface)
@@ -179,7 +178,7 @@
 .sb-session {
     margin-bottom: 6px;
     padding: 10px 12px;
-    border-radius: 16px;
+    border-radius: var(--radius);
     border: 1px solid transparent
 }
 
@@ -192,16 +191,15 @@
 .sb-session-icon {
     width: 30px;
     height: 30px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle)
 }
 
 .sb-session-actions,.sidebar-close-btn,.sb-icon-btn {
-    border-radius: 999px
-}
+    border-radius: var(--radius)}
 
 .sb-context-menu,.sb-modal {
-    border-radius: 20px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent),var(--color-bg);
     box-shadow: 0 22px 60px var(--black-20)
@@ -219,7 +217,7 @@
 .sb-modal-btn {
     min-height: 38px;
     padding: 8px 14px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border)
 }
 
@@ -235,7 +233,7 @@
 
 .sb-add-project-btn {
     min-height: 42px;
-    border-radius: 14px;
+    border-radius: var(--radius);
     border-style: solid;
     border-color: var(--color-border-subtle);
     background: var(--color-surface)

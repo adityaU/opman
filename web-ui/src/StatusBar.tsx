@@ -153,20 +153,38 @@ export const StatusBar = React.memo(function StatusBar({
       {/* Right section */}
       <div className="status-bar-right">
         {stats && totalTokens > 0 && (
+          /* Context usage is a level, so it reads as one: a meter that fills,
+             with the number that matters beside it. The old three-span form
+             ("336.1K / 1.0M 34%") wrapped mid-fraction and asked the reader to
+             divide two abbreviated numbers to learn the one thing it was
+             reporting. The exact figures live in the popover this opens. */
           <button
             className={`status-bar-tokens status-bar-tokens-btn ${contextColorClass}`}
             title={contextLimit
-              ? `${totalTokens.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${contextPct}%) — Click for details`
-              : `${totalTokens.toLocaleString()} tokens — Click for details`}
+              ? `${totalTokens.toLocaleString()} of ${contextLimit.toLocaleString()} tokens used (${contextPct}%) — click for the breakdown`
+              : `${totalTokens.toLocaleString()} tokens used — click for the breakdown`}
             onClick={onOpenContextWindow}
           >
-            <Zap size={11} />
-            {formatTokens(totalTokens)}
-            {contextLimit && (
-              <span className="status-bar-token-limit"> / {formatTokens(contextLimit)}</span>
-            )}
-            {contextPct !== null && (
-              <span className="status-bar-token-pct"> {contextPct}%</span>
+            <Zap size={11} className="status-bar-tokens-icon" />
+            {contextPct !== null ? (
+              <>
+                <span
+                  className="status-bar-ctx-meter"
+                  role="meter"
+                  aria-valuenow={contextPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Context window used"
+                >
+                  <span
+                    className="status-bar-ctx-fill"
+                    style={{ transform: `scaleX(${Math.min(100, contextPct) / 100})` }}
+                  />
+                </span>
+                <span className="status-bar-ctx-pct">{contextPct}%</span>
+              </>
+            ) : (
+              <span className="status-bar-ctx-pct">{formatTokens(totalTokens)}</span>
             )}
           </button>
         )}

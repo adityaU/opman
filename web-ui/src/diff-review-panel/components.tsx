@@ -15,7 +15,7 @@ import {
   Rows,
 } from "lucide-react";
 import type { FileStatus } from "./types";
-import { basename, dirname } from "./helpers";
+import { basename, dirname, isLightAppearance } from "./helpers";
 
 /* ---------- Header ---------- */
 
@@ -234,7 +234,7 @@ export function DiffArea({
           newValue={selectedEdit.new_content}
           splitView={splitView}
           compareMethod={DiffMethod.WORDS}
-          useDarkTheme={true}
+          useDarkTheme={!isLightAppearance()}
           styles={diffStyles}
           leftTitle="Original"
           rightTitle="Modified"

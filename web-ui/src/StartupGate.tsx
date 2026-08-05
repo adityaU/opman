@@ -1,5 +1,6 @@
 import React from "react";
-import { Check, Circle, LoaderCircle, ShieldCheck } from "lucide-react";
+import { Check, Circle, LoaderCircle } from "lucide-react";
+import { OpmanMark } from "./OpmanMark";
 import type { AppState } from "./api";
 import type { SSEConnectionStatus } from "./hooks/sse/types";
 
@@ -46,8 +47,7 @@ export function StartupGate({
   return (
     <main className="startup-gate" aria-live="polite">
       <section className="startup-card" aria-labelledby="startup-title">
-        <div className="startup-mark" aria-hidden="true"><ShieldCheck size={20} /></div>
-        <p className="startup-kicker">OPMAN</p>
+        <div className="startup-mark" aria-hidden="true"><OpmanMark size={24} /></div>
         <h1 id="startup-title">Preparing your workspace</h1>
         <p className="startup-detail">{activeStep.detail}</p>
         <div className="startup-progress" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={completed}>

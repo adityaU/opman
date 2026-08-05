@@ -1,7 +1,7 @@
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import type { GitShowResponse } from "../types";
-import { statusColor, statusLabel, formatRelativeTime, splitDiffByFile, parseUnifiedDiff } from "../utils";
+import { statusColor, statusLabel, formatRelativeTime, splitDiffByFile, parseUnifiedDiff, isLightAppearance } from "../utils";
 
 interface Props {
   commitDetail: GitShowResponse | null;
@@ -79,7 +79,7 @@ export function CommitDetailView({
                     <ReactDiffViewer
                       oldValue={parseUnifiedDiff(fileDiff).oldText}
                       newValue={parseUnifiedDiff(fileDiff).newText}
-                      splitView={false} useDarkTheme={true}
+                      splitView={false} useDarkTheme={!isLightAppearance()}
                       compareMethod={DiffMethod.LINES} styles={diffStyles}
                     />
                   ) : (

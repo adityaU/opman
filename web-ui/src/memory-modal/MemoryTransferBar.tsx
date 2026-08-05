@@ -128,14 +128,14 @@ export function MemoryTransferBar({
           <button
             className="memory-transfer-btn"
             onClick={() => setPanel("download")}
-            title="Export memories to JSON"
+            title="Export session instructions to JSON"
           >
             <Download size={13} /> Export
           </button>
           <button
             className="memory-transfer-btn"
             onClick={() => setPanel("upload")}
-            title="Import memories from JSON"
+            title="Import session instructions from JSON"
           >
             <Upload size={13} /> Import
           </button>

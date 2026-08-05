@@ -19,7 +19,7 @@
     width: 620px;
     max-width: 92vw;
     max-height: 82vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -54,7 +54,7 @@
     min-width: 22px;
     height: 22px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
     color: var(--color-secondary);
     font-size: 11px;
@@ -67,8 +67,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .missions-header button:hover {
     background: var(--color-hover);
@@ -116,7 +115,7 @@
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 9px 11px;
     font-size: 13px;
     color: var(--color-text);
@@ -149,7 +148,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
     background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
     color: var(--color-secondary);
@@ -200,8 +199,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border-radius: 12px
-}
+    border-radius: var(--radius)}
 
 .missions-item-executing,
 .missions-item-evaluating {
@@ -239,8 +237,7 @@
     flex-shrink: 0;
     width: 8px;
     height: 8px;
-    border-radius: 50%
-}
+    border-radius: 50%}
 
 .missions-item-goal {
     flex: 1;
@@ -314,7 +311,7 @@
 .missions-eval-verdict {
     display: inline-flex;
     padding: 1px 7px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -365,7 +362,7 @@
     justify-content: center;
     width: 30px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     background: none;
     cursor: pointer;
@@ -387,7 +384,7 @@
     justify-content: center;
     width: 30px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     background: none;
     color: var(--color-muted);

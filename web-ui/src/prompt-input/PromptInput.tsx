@@ -15,8 +15,12 @@ interface Props {
   onSend: (text: string, images?: ImageAttachment[], fileContext?: string) => Promise<boolean>;
   onAbort: () => void;
   onCommand: (command: string, args?: string) => void;
+  /** Kept for the command palette's "/models" and "/agent" entry points. */
   onOpenModelPicker: () => void;
   onOpenAgentPicker: () => void;
+  /** Direct selection from the composer's engine chip. */
+  selectedModel?: { providerID: string; modelID: string } | null;
+  onModelSelected?: (modelId: string, providerId: string) => void;
   isBusy: boolean;
   isSending?: boolean;
   disabled: boolean;
@@ -45,6 +49,7 @@ interface Props {
 
 export function PromptInput({
   onSend, onAbort, onCommand, onOpenModelPicker, onOpenAgentPicker,
+  selectedModel = null, onModelSelected,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
   backend, onAttachTerminal, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
@@ -186,7 +191,8 @@ export function PromptInput({
         <AtMentionPopover agents={atMention.filteredMentionAgents}
           fileResults={fileMention.fileResults} fileLoading={fileMention.fileLoading}
           popoverRef={atMention.atPopoverRef}
-          onSelectAgent={atMention.handleAtAgentSelect} onSelectFile={handleFileSelect} />
+          onSelectAgent={atMention.handleAtAgentSelect} onSelectFile={handleFileSelect}
+          onClose={atMention.closePopover} />
       )}
       {showQueue && (
         <QueuePanel queued={queue.queued} onRemove={queue.removeAt}
@@ -198,7 +204,8 @@ export function PromptInput({
            supportedEfforts={supportedEfforts} effort={effort} permission={permission}
            onEffortChange={onEffortChange} onPermissionChange={onPermissionChange}
           disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
-          onOpenModelPicker={onOpenModelPicker} onOpenAgentPicker={onOpenAgentPicker} onOpenMemory={onOpenMemory}
+          selectedModel={selectedModel} onModelSelected={onModelSelected} onAgentChange={onAgentChange}
+          onOpenMemory={onOpenMemory}
           queuedCount={queue.queued.length} queueOpen={showQueue}
           onToggleQueue={() => setShowQueue((v) => !v)} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}

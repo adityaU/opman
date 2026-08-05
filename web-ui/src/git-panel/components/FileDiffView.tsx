@@ -1,6 +1,7 @@
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Loader2 } from "lucide-react";
 import type { GitView } from "../types";
+import { isLightAppearance } from "../utils";
 
 interface Props {
   currentView: GitView & { kind: "file-diff" };
@@ -21,7 +22,7 @@ export function FileDiffView({ currentView, diffOld, diffNew, diffLoading, diffS
         ) : (
           <ReactDiffViewer
             oldValue={diffOld} newValue={diffNew}
-            splitView={false} useDarkTheme={true}
+            splitView={false} useDarkTheme={!isLightAppearance()}
             compareMethod={DiffMethod.LINES} styles={diffStyles}
           />
         )}

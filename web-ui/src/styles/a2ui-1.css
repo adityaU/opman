@@ -33,8 +33,7 @@
     font-size: var(--font-size-xs);
     padding: var(--space-1) var(--space-2);
     border: 1px dashed var(--color-border-subtle);
-    border-radius: var(--radius-sm)
-}
+    border-radius: var(--radius-sm)}
 
 /* ── Card ──────────────────────────────────────────────────────── */
 
@@ -76,8 +75,7 @@
 .a2ui-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm)
-}
+    border-radius: var(--radius-sm)}
 
 .a2ui-table {
     width: 100%;
@@ -286,7 +284,7 @@
 .a2ui-markdown code {
     background: var(--color-bg-element);
     padding: 1px 4px;
-    border-radius: 3px;
+    border-radius: var(--radius);
     font-family: var(--font-mono);
     font-size: var(--font-size-2xs)
 }

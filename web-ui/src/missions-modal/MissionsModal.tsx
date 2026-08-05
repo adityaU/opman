@@ -168,7 +168,7 @@ export function MissionsModal({
 
         {activeMemoryItems.length > 0 && (
           <div className="assistant-memory-strip assistant-memory-strip-missions">
-            <span className="assistant-memory-strip-label">Guided by memory</span>
+            <span className="assistant-memory-strip-label">Guided by instructions</span>
             {activeMemoryItems.slice(0, 4).map((item) => (
               <span key={item.id} className="assistant-memory-chip">{item.label}</span>
             ))}

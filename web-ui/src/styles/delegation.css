@@ -19,7 +19,7 @@
     width: 620px;
     max-width: 92vw;
     max-height: 82vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -53,8 +53,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .delegation-scrollable {
     display: contents
@@ -72,7 +71,7 @@
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 9px 11px;
     font-size: 13px;
     color: var(--color-text)
@@ -106,7 +105,7 @@
     gap: 6px;
     min-height: 34px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
@@ -126,7 +125,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     margin-bottom: 10px

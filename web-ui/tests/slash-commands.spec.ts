@@ -79,7 +79,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // Should have at least the built-in commands
-      const items = popover.locator(".slash-popover-item");
+      const items = popover.locator(".composer-popover-row");
       const count = await items.count();
       expect(count).toBeGreaterThanOrEqual(10);
     });
@@ -110,7 +110,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // First item should show /new (or similar built-in)
-      const firstName = popover.locator(".slash-popover-name").first();
+      const firstName = popover.locator(".composer-popover-key").first();
       const text = await firstName.textContent();
       expect(text).toMatch(/^\//);
     });
@@ -126,7 +126,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // At least some descriptions should be visible
-      const descs = popover.locator(".slash-popover-desc");
+      const descs = popover.locator(".composer-popover-detail");
       const count = await descs.count();
       expect(count).toBeGreaterThan(0);
     });
@@ -142,7 +142,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // The /model command should show <model-name> or <model> args
-      const argsHints = popover.locator(".slash-popover-args");
+      const argsHints = popover.locator(".composer-popover-meta");
       const count = await argsHints.count();
       expect(count).toBeGreaterThan(0);
     });
@@ -157,8 +157,8 @@ test.describe("Slash Command Popover", () => {
       const popover = page.locator(".slash-popover");
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
-      const firstItem = popover.locator(".slash-popover-item").first();
-      await expect(firstItem).toHaveClass(/selected/);
+      const firstItem = popover.locator(".composer-popover-row").first();
+      await expect(firstItem).toHaveClass(/is-cursor/);
     });
   });
 
@@ -174,7 +174,7 @@ test.describe("Slash Command Popover", () => {
       const popover = page.locator(".slash-popover");
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
-      const items = popover.locator(".slash-popover-item");
+      const items = popover.locator(".composer-popover-row");
       const count = await items.count();
       // Should match "model" and "models" at minimum
       expect(count).toBeGreaterThanOrEqual(1);
@@ -182,7 +182,7 @@ test.describe("Slash Command Popover", () => {
 
       // All visible items should contain "mod" in their name
       for (let i = 0; i < count; i++) {
-        const name = await items.nth(i).locator(".slash-popover-name").textContent();
+        const name = await items.nth(i).locator(".composer-popover-key").textContent();
         expect(name?.toLowerCase()).toContain("mod");
       }
     });
@@ -197,11 +197,11 @@ test.describe("Slash Command Popover", () => {
       const popover = page.locator(".slash-popover");
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
-      const fullCount = await popover.locator(".slash-popover-item").count();
+      const fullCount = await popover.locator(".composer-popover-row").count();
 
       // Now filter to "und"
       await textarea.fill("/und");
-      const filteredCount = await popover.locator(".slash-popover-item").count();
+      const filteredCount = await popover.locator(".composer-popover-row").count();
       expect(filteredCount).toBeLessThan(fullCount);
       expect(filteredCount).toBeGreaterThanOrEqual(1);
     });
@@ -231,13 +231,13 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // First item selected
-      const items = popover.locator(".slash-popover-item");
-      await expect(items.nth(0)).toHaveClass(/selected/);
+      const items = popover.locator(".composer-popover-row");
+      await expect(items.nth(0)).toHaveClass(/is-cursor/);
 
       // Press ArrowDown
       await page.keyboard.press("ArrowDown");
-      await expect(items.nth(1)).toHaveClass(/selected/);
-      await expect(items.nth(0)).not.toHaveClass(/selected/);
+      await expect(items.nth(1)).toHaveClass(/is-cursor/);
+      await expect(items.nth(0)).not.toHaveClass(/is-cursor/);
     });
 
     test("ArrowUp moves selection to previous item", async ({ page }) => {
@@ -252,12 +252,12 @@ test.describe("Slash Command Popover", () => {
 
       // Move down first
       await page.keyboard.press("ArrowDown");
-      const items = popover.locator(".slash-popover-item");
-      await expect(items.nth(1)).toHaveClass(/selected/);
+      const items = popover.locator(".composer-popover-row");
+      await expect(items.nth(1)).toHaveClass(/is-cursor/);
 
       // Move back up
       await page.keyboard.press("ArrowUp");
-      await expect(items.nth(0)).toHaveClass(/selected/);
+      await expect(items.nth(0)).toHaveClass(/is-cursor/);
     });
 
     test("Enter selects the highlighted command", async ({ page }) => {
@@ -326,7 +326,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // Find the "model" item (not "models") and click it
-      const modelItem = popover.locator(".slash-popover-item", { hasText: "/model" }).first();
+      const modelItem = popover.locator(".composer-popover-row", { hasText: "/model" }).first();
       await modelItem.click();
 
       // For arg commands, textarea should have "/model " (with trailing space)
@@ -392,7 +392,7 @@ test.describe("Slash Command Popover", () => {
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
       // Click on the "compact" command (no-arg → clears textarea)
-      const compactItem = popover.locator(".slash-popover-item", { hasText: "/compact" });
+      const compactItem = popover.locator(".composer-popover-row", { hasText: "/compact" });
       await compactItem.click();
 
       // Popover should close
@@ -409,14 +409,14 @@ test.describe("Slash Command Popover", () => {
       const popover = page.locator(".slash-popover");
       await expect(popover).toBeVisible({ timeout: 3_000 });
 
-      const items = popover.locator(".slash-popover-item");
+      const items = popover.locator(".composer-popover-row");
       // First should be selected
-      await expect(items.nth(0)).toHaveClass(/selected/);
+      await expect(items.nth(0)).toHaveClass(/is-cursor/);
 
       // Hover third item
       await items.nth(2).hover();
-      await expect(items.nth(2)).toHaveClass(/selected/);
-      await expect(items.nth(0)).not.toHaveClass(/selected/);
+      await expect(items.nth(2)).toHaveClass(/is-cursor/);
+      await expect(items.nth(0)).not.toHaveClass(/is-cursor/);
     });
   });
 });

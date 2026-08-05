@@ -8,18 +8,21 @@ import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
 import { UsageInfoButton } from "./UsagePopover";
 import { QueuePill } from "./QueueControls";
-import { RunnerSelector } from "./RunnerSelector";
+export { AtMentionPopover } from "./AtMentionPopover";
+import { EngineChip } from "../engine-picker/EngineChip";
 
 // ── SelectorChips ───────────────────────────────────────────────
 
 interface SelectorChipsProps {
   currentModel: string | null;
+  /** The exact selection, needed to tell a model apart across providers. */
+  selectedModel?: { providerID: string; modelID: string } | null;
   currentAgent: string;
   agents: AgentInfo[];
   disabled: boolean;
   activeMemoryLabels: string[];
-  onOpenModelPicker: () => void;
-  onOpenAgentPicker: () => void;
+  onModelSelected?: (modelId: string, providerId: string) => void;
+  onAgentChange?: (agentId: string) => void;
   onOpenMemory?: () => void;
   /** Session token/cost stats — renders an "i" info button with a breakdown when present. */
   stats?: SessionStats | null;
@@ -39,37 +42,36 @@ interface SelectorChipsProps {
 }
 
 export function SelectorChips({
-  currentModel, currentAgent, agents, disabled,
-  activeMemoryLabels, onOpenModelPicker, onOpenAgentPicker, onOpenMemory, stats,
+  currentModel, selectedModel = null, currentAgent, agents, disabled,
+  activeMemoryLabels, onModelSelected, onAgentChange, onOpenMemory, stats,
   queuedCount = 0, queueOpen = false, onToggleQueue,
   currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: SelectorChipsProps) {
-  const info = agents.find((a) => a.id === currentAgent);
-  const label = info?.label || currentAgent;
-  const chipColor = agentColor(currentAgent, info?.color);
-
   return (
     <div className="prompt-selectors">
-      <button className="prompt-chip" onClick={onOpenModelPicker} title="Change model" disabled={disabled}>
-        <Cpu size={11} />
-        <span className="prompt-chip-label">{currentModel ? shortModelName(currentModel) : "Model"}</span>
-        <ChevronDown size={9} />
-      </button>
-       <RunnerSelector currentRunner={currentRunner} availableRunners={availableRunners}
-         supportedEfforts={supportedEfforts} effort={effort} permission={permission} disabled={disabled}
-         onRunnerChange={onRunnerChange} onEffortChange={onEffortChange} onPermissionChange={onPermissionChange} />
-      <button className="prompt-chip" onClick={onOpenAgentPicker} title="Change agent" disabled={disabled}
-        style={{ borderColor: `color-mix(in srgb, ${chipColor} 20%, transparent)` }}>
-        <span className="prompt-agent-dot" style={{ backgroundColor: chipColor }} />
-        <span className="prompt-chip-label">{label}</span>
-        <ChevronDown size={9} />
-      </button>
+      <EngineChip
+        runner={currentRunner}
+        availableRunners={availableRunners}
+        currentModel={currentModel}
+        selectedModel={selectedModel}
+        currentAgent={currentAgent}
+        agents={agents}
+        disabled={disabled}
+        supportedEfforts={supportedEfforts}
+        effort={effort}
+        permission={permission}
+        onRunnerChange={onRunnerChange || (() => {})}
+        onModelSelected={onModelSelected || (() => {})}
+        onAgentChange={onAgentChange || (() => {})}
+        onEffortChange={onEffortChange || (() => {})}
+        onPermissionChange={onPermissionChange || (() => {})}
+      />
       {activeMemoryLabels.length > 0 && (
         <button className="prompt-chip prompt-chip-memory" onClick={onOpenMemory} title={activeMemoryLabels.join(", ")}>
           <Brain size={11} />
           <span className="prompt-chip-label">
-            {activeMemoryLabels.length} {activeMemoryLabels.length === 1 ? "memory" : "memories"}
+            {activeMemoryLabels.length} {activeMemoryLabels.length === 1 ? "instruction" : "instructions"}
           </span>
         </button>
       )}
@@ -252,63 +254,3 @@ export function HintBar() {
   );
 }
 
-// ── AtMentionPopover (unified: agents + files) ─────────────────
-
-interface AtMentionPopoverProps {
-  agents: AgentInfo[];
-  fileResults: FileSearchEntry[];
-  fileLoading: boolean;
-  popoverRef: React.RefObject<HTMLDivElement>;
-  onSelectAgent: (agentId: string) => void;
-  onSelectFile: (entry: FileSearchEntry) => void;
-}
-
-export function AtMentionPopover({
-  agents, fileResults, fileLoading, popoverRef, onSelectAgent, onSelectFile,
-}: AtMentionPopoverProps) {
-  const hasAgents = agents.length > 0;
-  const hasFiles = fileResults.length > 0;
-  const empty = !hasAgents && !hasFiles && !fileLoading;
-
-  return (
-    <div className="prompt-at-popover" ref={popoverRef}>
-      {hasAgents && (
-        <>
-          <div className="prompt-at-section-label">Agents</div>
-          {agents.map((agent) => {
-            const color = agentColor(agent.id, agent.color);
-            return (
-              <button key={agent.id} className="prompt-at-popover-item" onClick={() => onSelectAgent(agent.id)}>
-                {color ? <span className="prompt-agent-dot" style={{ backgroundColor: color }} /> : <AtSign size={12} />}
-                <span className="prompt-at-popover-name">{agent.label}</span>
-                <span className="prompt-at-popover-desc">{agent.description}</span>
-              </button>
-            );
-          })}
-        </>
-      )}
-      {hasAgents && (hasFiles || fileLoading) && <div className="prompt-at-divider" />}
-      {(hasFiles || fileLoading) && (
-        <>
-          <div className="prompt-at-section-label">Files</div>
-          {fileResults.map((entry) => (
-            <button key={entry.path} className="prompt-at-popover-item" onClick={() => onSelectFile(entry)}>
-              {entry.is_dir ? <Folder size={12} /> : <File size={12} />}
-              <span className="prompt-at-popover-name">{entry.name}</span>
-              <span className="prompt-at-popover-desc">{entry.path}</span>
-            </button>
-          ))}
-          {fileLoading && !hasFiles && (
-            <div className="prompt-at-loading">
-              <Loader2 size={12} className="spinning" />
-              <span>Searching files...</span>
-            </div>
-          )}
-        </>
-      )}
-      {empty && (
-        <div className="prompt-at-empty">No matches found</div>
-      )}
-    </div>
-  );
-}

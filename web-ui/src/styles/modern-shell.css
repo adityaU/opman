@@ -23,7 +23,7 @@
     .chat-content > div:first-child:has(.chat-sidebar) {
         overflow: hidden;
         border: 1px solid var(--color-border-subtle);
-        border-radius: 16px;
+        border-radius: var(--radius);
         background: var(--theme-surface-1);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 18%, transparent)
     }
@@ -33,13 +33,13 @@
     }
     .chat-main {
         border: 1px solid var(--color-border-subtle);
-        border-radius: 16px;
+        border-radius: var(--radius);
         background: var(--color-bg);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
     }
     .side-panel {
         border: 1px solid var(--color-border-subtle);
-        border-radius: 16px;
+        border-radius: var(--radius);
         background: var(--theme-surface-1);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
     }
@@ -53,7 +53,7 @@
         padding-right: 14px;
         border: 1px solid var(--color-border-subtle);
         border-bottom: 0;
-        border-radius: 12px;
+        border-radius: var(--radius);
         background: var(--theme-surface-1)
     }
     .sb-header {
@@ -79,56 +79,107 @@ html.flat-theme .chat-status-bar {
     .sb-brand-wrap { gap: 3px }
     .sb-eyebrow { font-size: 8px }
 }
-.consecutive-tool-group {
-    margin: 2px 0;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--theme-surface-1) 72%, transparent);
-    overflow: hidden
+/* ── A run of same-tool calls ──────────────────────────────────────────
+   Consecutive calls are siblings: each one ran on its own, and none contains
+   another. The previous treatment promoted the first call to a card and hid
+   the rest behind "+N more", which drew a parent/child relationship that does
+   not exist. Now the run states its own size up front and, once opened, lays
+   every call out at the same level. */
+.tool-run {
+    margin: 2px 0
 }
-.consecutive-tool-group-main > * {
-    margin: 0;
-    border: 0;
-    border-radius: 0
-}
-.consecutive-tool-group-toggle {
+.tool-run-summary {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
     padding: 6px 10px;
-    border: 0;
-    border-top: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--shell-radius-control);
+    background: color-mix(in srgb, var(--theme-surface-1) 72%, transparent);
     color: var(--color-text-muted);
     font: inherit;
     font-size: 11px;
     text-align: left;
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast)
+    transition: background var(--transition-fast), color var(--transition-fast),
+        border-color var(--transition-fast)
 }
-.consecutive-tool-group-toggle:hover {
-    background: color-mix(in srgb, var(--color-primary) 11%, transparent);
+.tool-run-summary:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--theme-surface-1));
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
     color: var(--color-text)
 }
-.consecutive-tool-group-chevron {
+.tool-run-summary:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px
+}
+.tool-run-icon { flex-shrink: 0; opacity: .75 }
+.tool-run-count {
+    flex-shrink: 0;
+    min-width: 17px;
+    padding: 0 5px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 12%, transparent);
+    color: var(--color-text);
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center
+}
+.tool-run-label { flex-shrink: 0 }
+/* One tick per call, in order: the run's shape is readable without opening it,
+   and a failure in the middle of a long run is visible from the collapsed row. */
+.tool-run-ticks {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden
+}
+.tool-run-tick {
+    width: 10px;
+    height: 3px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 22%, transparent);
+    flex-shrink: 0
+}
+.tool-run-tick.is-completed { background: color-mix(in srgb, var(--color-success) 65%, transparent) }
+.tool-run-tick.is-error { background: var(--color-error) }
+.tool-run-tick.is-running {
+    background: var(--color-primary);
+    animation: tool-run-tick-pulse 1.4s ease-in-out infinite
+}
+@keyframes tool-run-tick-pulse {
+    50% { opacity: .35 }
+}
+.tool-run-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-left: auto;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums
+}
+.tool-run-failed { color: var(--color-error); font-weight: 600 }
+.tool-run-running { color: var(--color-primary) }
+.tool-run-chevron {
+    flex-shrink: 0;
     transition: transform var(--transition-fast)
 }
-.consecutive-tool-group.is-expanded .consecutive-tool-group-chevron {
-    transform: rotate(180deg)
-}
-.consecutive-tool-group-items {
+.tool-run.is-expanded .tool-run-chevron { transform: rotate(180deg) }
+/* Peers, not children: no wrapper surface, no indent, no connecting rail. */
+.tool-run-items {
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    padding: 0 6px 6px;
-    border-top: 1px solid var(--color-border-subtle)
+    gap: 4px;
+    margin-top: 4px
 }
-.consecutive-tool-group-items > * {
-    margin: 0
+.tool-run-items > * { margin: 0 }
+@media (prefers-reduced-motion: reduce) {
+    .tool-run-tick.is-running { animation: none }
 }
-html.flat-theme .consecutive-tool-group {
+html.flat-theme .tool-run-summary {
     background: var(--theme-surface-1)
 }
 /* One compact radius scale keeps cards and controls visually related. */
@@ -150,27 +201,22 @@ html.flat-theme .consecutive-tool-group {
 .side-panel,
 .theme-selector,
 .theme-card,
-.theme-mode-option,
-.consecutive-tool-group {
-    border-radius: var(--radius-md)
-}
+.theme-mode-option {
+    border-radius: var(--radius-md)}
 .chat-content > div:first-child:has(.chat-sidebar),
 .chat-main {
-    border-radius: var(--radius-lg)
-}
+    border-radius: var(--radius-lg)}
 html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),
 html.flat-theme .chat-main,
 html.flat-theme .side-panel,
 html.flat-theme .chat-status-bar {
-    border-radius: var(--radius-lg)
-}
+    border-radius: var(--radius-lg)}
 @media (max-width: 768px) {
     .chat-content > div:first-child:has(.chat-sidebar),
     .chat-main,
     .side-panel,
     .chat-status-bar {
-        border-radius: 0
-    }
+        border-radius: 0}
 }
 /* UI copy uses Poppins; technical content stays legible in IBM Plex Mono. */
 body,

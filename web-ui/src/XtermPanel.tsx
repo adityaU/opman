@@ -4,6 +4,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { spawnPty, ptyWrite, ptyResize, ptyKill, createPtySSE } from "./api";
+// One palette for every terminal in the app — a second copy drifts.
+import { getTerminalTheme } from "./terminal-panel/types";
+import { THEME_CHANGED_EVENT } from "./utils/theme";
 
 interface Props {
   /** PTY type to spawn: "shell", "neovim", "git", or "opencode" */
@@ -17,43 +20,6 @@ interface Props {
 /** Generate a random UUID v4 */
 function uuid(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getTerminalTheme() {
-  const css = getComputedStyle(document.documentElement);
-  const text = css.getPropertyValue("--color-text").trim() || "var(--color-text)";
-  const muted = css.getPropertyValue("--color-text-muted").trim() || "var(--color-text-muted)";
-  const primary = css.getPropertyValue("--color-primary").trim() || "var(--color-primary)";
-  const secondary = css.getPropertyValue("--color-secondary").trim() || "var(--color-secondary)";
-  const accent = css.getPropertyValue("--color-accent").trim() || "var(--color-accent)";
-  const success = css.getPropertyValue("--color-success").trim() || "var(--color-success)";
-  const warning = css.getPropertyValue("--color-warning").trim() || "var(--color-warning)";
-  const error = css.getPropertyValue("--color-error").trim() || "var(--color-error)";
-  const info = css.getPropertyValue("--color-info").trim() || "var(--color-info)";
-  const panel = css.getPropertyValue("--color-bg-panel").trim() || "var(--color-bg-panel)";
-  return {
-    background: "transparent",
-    foreground: text,
-    cursor: text,
-    selectionBackground: `color-mix(in srgb, ${secondary} 28%, transparent)`,
-    black: panel,
-    red: error,
-    green: success,
-    yellow: warning,
-    blue: secondary,
-    magenta: accent,
-    cyan: info,
-    white: text,
-    brightBlack: muted,
-    brightRed: error,
-    brightGreen: success,
-    brightYellow: warning,
-    brightBlue: secondary,
-    brightMagenta: accent,
-    brightCyan: info,
-    brightWhite: primary,
-    selectionForeground: text,
-  };
 }
 
 export function XtermPanel({ kind, focused, sessionId }: Props) {
@@ -154,8 +120,14 @@ export function XtermPanel({ kind, focused, sessionId }: Props) {
     });
     observer.observe(containerRef.current);
 
+    // Repaint when the theme changes: xterm holds a copy of the palette, so
+    // without this the terminal keeps whichever theme was active at mount.
+    const repaint = () => { term.options.theme = getTerminalTheme(); };
+    window.addEventListener(THEME_CHANGED_EVENT, repaint);
+
     // Cleanup: kill PTY and close SSE on unmount
     return () => {
+      window.removeEventListener(THEME_CHANGED_EVENT, repaint);
       observer.disconnect();
       if (sseRef.current) {
         sseRef.current.close();

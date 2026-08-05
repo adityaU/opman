@@ -1,6 +1,39 @@
 import React from "react";
-import { FolderOpen, Cpu } from "lucide-react";
+import { FolderOpen, Cpu, Loader2, CircleSlash } from "lucide-react";
 import { EXAMPLE_PROMPTS } from "./types";
+import { OpmanMark } from "../OpmanMark";
+
+/**
+ * Placeholder for a turn that is under way but has produced nothing visible
+ * yet. `claude --bg` can take several seconds to spawn and write its first
+ * token; without this the transcript reads as stalled or, on a session's first
+ * send, as empty.
+ */
+export function PendingReply({
+  label,
+  detail,
+  settled = false,
+}: {
+  label: string;
+  detail: string;
+  /** The turn is over — render a verdict rather than a spinner, which would
+   *  otherwise keep implying work is still happening. */
+  settled?: boolean;
+}) {
+  return (
+    <div className={`pending-reply${settled ? " pending-reply-settled" : ""}`} role="status" aria-live="polite">
+      <div className="pending-reply-inner">
+        {settled
+          ? <CircleSlash size={15} className="pending-reply-icon" />
+          : <Loader2 size={15} className="tool-spin-icon" />}
+        <div className="pending-reply-text">
+          <span className="pending-reply-label">{label}</span>
+          <span className="pending-reply-detail">{detail}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Shimmer skeleton shown while messages are loading. */
 export function MessageShimmer() {
@@ -52,17 +85,41 @@ export function MessageShimmer() {
   );
 }
 
-/** Welcome screen when no session is selected */
+/** True on macOS-family platforms, where the modifier key is ⌘ rather than Ctrl. */
+const IS_MAC = /Mac|iPhone|iPad/.test(
+  typeof navigator !== "undefined" ? navigator.platform : "",
+);
+
+/** Welcome screen when no session is selected — the product's front door. */
 export function WelcomeEmpty() {
+  const shortcuts: Array<[string, string]> = IS_MAC
+    ? [
+        ["Start a session", "⌘⇧N"],
+        ["Command palette", "⌘⇧P"],
+        ["Switch model", "⌘'"],
+      ]
+    : [
+        ["Start a session", "Ctrl+Shift+N"],
+        ["Command palette", "Ctrl+Shift+P"],
+        ["Switch model", "Ctrl+'"],
+      ];
   return (
     <div className="message-timeline-empty">
-      <div className="message-timeline-welcome">
-        <h2>Welcome to OpenCode</h2>
-        <p>Select a session from the sidebar or create a new one to start chatting.</p>
-        <div className="message-timeline-shortcuts">
-          <kbd>Cmd+Shift+N</kbd> New Session
-          <kbd>Cmd+Shift+P</kbd> Command Palette
-          <kbd>Cmd&apos;</kbd> Model Picker
+      <div className="message-timeline-welcome home-welcome">
+        <div className="home-welcome-halo" aria-hidden="true" />
+        <OpmanMark size={56} className="home-welcome-mark" />
+        <h2 className="home-welcome-title">Opman</h2>
+        <p className="home-welcome-tagline">
+          Mission control for your coding agents. Pick a session from the
+          sidebar, or start a new one and put an agent to work.
+        </p>
+        <div className="message-timeline-shortcuts home-welcome-shortcuts">
+          {shortcuts.map(([label, keys]) => (
+            <div className="home-shortcut" key={label}>
+              <span className="home-shortcut-label">{label}</span>
+              <kbd>{keys}</kbd>
+            </div>
+          ))}
         </div>
       </div>
     </div>

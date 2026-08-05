@@ -39,7 +39,7 @@ const editorTheme = EditorView.theme(
     ".cm-scroller::-webkit-scrollbar-track": { background: "transparent" },
     ".cm-scroller::-webkit-scrollbar-thumb": {
       background: "var(--color-border)",
-      borderRadius: "5px",
+      borderRadius: "var(--radius)",
       border: "2px solid transparent",
       backgroundClip: "content-box",
     },

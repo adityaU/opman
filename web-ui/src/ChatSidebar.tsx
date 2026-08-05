@@ -9,6 +9,7 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { ProjectNode } from "./sidebar/ProjectNode";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 import { OpenSessionsSection } from "./sidebar/OpenSessionsSection";
 import { useContextMenu, SessionContextMenu } from "./sidebar/ContextMenu";
 import {
@@ -88,6 +89,12 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   const [showMore, setShowMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
+  const toggleSearch = useCallback(() => {
+    setSearchVisible((visible) => {
+      if (visible) setSearchQuery("");
+      return !visible;
+    });
+  }, []);
 
   // ── Pinned sessions ───────────────────────────────
   const [pinnedSessions, setPinnedSessions] = useState<Set<string>>(loadPinnedSessions);
@@ -167,53 +174,20 @@ export const ChatSidebar = React.memo(function ChatSidebar({
       <div className="sidebar-mobile-overlay" onClick={onClose} aria-hidden="true" />
     )}
     <aside className={`chat-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
-      {/* Header */}
-      <div className="sb-header">
-        <div className="sb-brand-wrap">
-          <span className="sb-eyebrow">Workspace</span>
-          <span className="sb-brand">{projects[activeProject]?.name || "Sessions"}</span>
-        </div>
-        <div className="sb-header-actions">
-          <button
-            className="sb-icon-btn"
-            onClick={onToggleSidebar}
-            title="Hide sidebar (Cmd+B)"
-            aria-label="Hide sidebar"
-          >
-            <PanelLeft size={14} />
-          </button>
-          {onToggleKanban && (
-            <button
-              className={`sb-icon-btn${isKanbanView ? " sb-icon-btn-active" : ""}`}
-              onClick={onToggleKanban}
-              title={isKanbanView ? "Back to chat" : "Open Kanban board"}
-              aria-label="Toggle Kanban board"
-              aria-pressed={isKanbanView}
-            >
-              <LayoutGrid size={14} />
-            </button>
-          )}
-          <button
-            className="sb-icon-btn"
-            onClick={() => setSearchVisible((v) => !v)}
-            title="Search sessions"
-            aria-label="Search sessions"
-          >
-            <Search size={14} />
-          </button>
-          <button
-            className="sb-icon-btn sb-new-btn"
-            onClick={onNewSession}
-            title="New Session"
-            aria-label="New session"
-          >
-            <Plus size={14} />
-          </button>
-          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar">
-            <X size={14} />
-          </button>
-        </div>
-      </div>
+      <SidebarHeader
+        projects={projects}
+        activeProject={activeProject}
+        sessionCount={projects[activeProject]?.sessions?.filter((s) => !s.parentID).length || 0}
+        searchVisible={searchVisible}
+        isKanbanView={isKanbanView}
+        onToggleSearch={toggleSearch}
+        onToggleKanban={onToggleKanban}
+        onToggleSidebar={onToggleSidebar}
+        onNewSession={onNewSession}
+        onSwitchProject={onSwitchProject}
+        onOpenAddProject={onOpenAddProject}
+        onClose={onClose}
+      />
 
       {/* Search bar (collapsible) */}
       {searchVisible && (
@@ -258,13 +232,17 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           sessionTaskLinks={sessionTaskLinks}
         />
 
-        {projects.map((project, idx) => (
+        {projects.filter((_, idx) => idx === activeProject).map((project, offset) => {
+          const idx = activeProject + offset;
+          return (
           <ProjectNode
             key={project.path}
             project={project}
+            listedAbove={openSessions}
+            chromeless
             index={idx}
-            isActiveProject={idx === activeProject}
-            isExpanded={expandedProject === idx}
+            isActiveProject
+            isExpanded
             activeSessionId={activeSessionId}
             isSessionBusy={isSessionBusy}
             busyKey={busyKey}
@@ -303,19 +281,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             expandedKanbanTask={expandedKanbanTask}
             onToggleKanbanTaskExpand={toggleKanbanTaskExpand}
           />
-        ))}
-      </div>
-
-      {/* Add Project button */}
-      <div className="sb-add-project">
-        <button
-          className="sb-add-project-btn"
-          onClick={onOpenAddProject}
-          title="Add Project"
-        >
-          <FolderPlus size={14} />
-          <span>Add Project</span>
-        </button>
+          );
+        })}
       </div>
 
       {/* Context menu */}

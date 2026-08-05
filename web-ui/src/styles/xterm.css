@@ -46,7 +46,9 @@
 }
 
 .xterm .xterm-viewport {
-    background-color: var(--color-bg);
+    /* Must agree with `theme.background` in terminal-panel/types.ts — when the
+       two disagree the scrollback paints a different colour than the rows. */
+    background-color: var(--color-bg-panel);
     overflow-y: scroll;
     cursor: default;
     position: absolute;

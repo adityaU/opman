@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - Opening via Cmd+' keyboard shortcut
- *  - Opening via the model chip in the prompt input
+ *  - Opening the engine palette from the composer chip
  *  - Modal renders with correct structure (header, search, tabs, results)
  *  - Model list shows providers and model names
  *  - Search/filter functionality
@@ -24,6 +24,7 @@ import {
   setupMockAPI,
   navigateAuthenticated,
 } from "./helpers";
+import { ENGINE_CHIP } from "./enginePicker";
 
 // ── Rich provider mock for model-picker tests ─────────
 
@@ -117,15 +118,16 @@ test.describe("Model Picker Modal", () => {
       await expect(modal).toBeVisible({ timeout: 5_000 });
     });
 
-    test("opens via model chip in the prompt input", async ({ page }) => {
+    /* The composer chip now opens the merged engine palette — runner, model
+       and agent in one surface. This modal stays reachable from the keyboard
+       shortcut and the command palette, so both routes are covered. */
+    test("composer chip opens the engine palette instead", async ({ page }) => {
       await navigateWithPicker(page);
+      await page.locator(ENGINE_CHIP).click();
 
-      // Click the model chip button (has Cpu icon)
-      const chip = page.locator(".prompt-chip").first();
-      await chip.click();
-
-      const modal = page.locator('[role="dialog"][aria-label="Choose model"]');
-      await expect(modal).toBeVisible({ timeout: 5_000 });
+      await expect(page.locator('[role="dialog"][aria-label="Choose runner, model, and agent"]'))
+        .toBeVisible({ timeout: 5_000 });
+      await expect(page.locator('[role="dialog"][aria-label="Choose model"]')).toHaveCount(0);
     });
   });
 
@@ -542,7 +544,7 @@ test.describe("Model Picker Modal", () => {
       await modal.locator(".model-picker-item").nth(1).click();
 
       await expect(modal).not.toBeVisible({ timeout: 3_000 });
-      await expect(page.locator(".prompt-chip-label").first()).toContainText("claude-opus-4-20250514");
+      await expect(page.locator(".engine-chip-model")).toContainText("claude-opus-4-20250514");
     });
   });
 });

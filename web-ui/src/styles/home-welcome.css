@@ -1,0 +1,93 @@
+/* Home welcome — the empty state when no session is selected. This is the one
+   surface that leads with the brand: the Opman mark over a quiet shortcut
+   list. Everything rides theme tokens so it follows every palette; the halo
+   and mark shadow are glassy-mode language and turn off under .flat-theme. */
+
+.home-welcome {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 400px;
+}
+
+/* Soft ambient light behind the mark (glassy mode only). */
+.home-welcome-halo {
+    position: absolute;
+    top: -90px;
+    left: 50%;
+    width: 380px;
+    height: 300px;
+    transform: translateX(-50%);
+    background:
+        radial-gradient(closest-side,
+            color-mix(in srgb, var(--color-primary) 11%, transparent),
+            transparent 72%);
+    pointer-events: none;
+}
+
+html.flat-theme .home-welcome-halo {
+    display: none;
+}
+
+.home-welcome-mark {
+    margin-bottom: var(--space-5);
+    filter: drop-shadow(0 8px 22px color-mix(in srgb, var(--color-primary) 30%, transparent));
+}
+
+html.flat-theme .home-welcome-mark {
+    filter: none;
+}
+
+.home-welcome-title {
+    margin: 0 0 var(--space-2);
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+}
+
+.home-welcome-tagline {
+    margin: 0 0 var(--space-6);
+    font-size: var(--font-size-sm);
+    line-height: 1.65;
+    color: var(--color-text-muted);
+    text-wrap: balance;
+}
+
+/* Shortcut list: label left, key right, hairline rows. Overrides the legacy
+   .message-timeline-shortcuts flex-row layout it inherits (kept for the
+   shared small-screen hide rule). */
+.home-welcome .home-welcome-shortcuts {
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: 264px;
+    text-align: left;
+}
+
+.home-shortcut {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: 9px 2px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.home-shortcut + .home-shortcut {
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.home-welcome .home-shortcut kbd {
+    margin-right: 0;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    background: var(--white-5);
+    border: 0.5px solid var(--white-8);
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+}

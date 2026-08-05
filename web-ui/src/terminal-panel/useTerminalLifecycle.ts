@@ -10,6 +10,7 @@ import {
   TERM_OPTIONS,
   getTerminalTheme,
 } from "./types";
+import { THEME_CHANGED_EVENT } from "../utils/theme";
 
 // ── Terminal lifecycle hook ────────────────────────────
 
@@ -122,6 +123,20 @@ export function useTerminalLifecycle(
       return () => cancelAnimationFrame(raf);
     }
   }, [tabs, sessionId, runtimesRef, containerRefs, setTabs]);
+
+  // Repaint every live terminal when the theme changes. xterm copies the
+  // palette at construction, so tabs opened before the switch would otherwise
+  // keep the old theme until they are closed and reopened.
+  useEffect(() => {
+    const repaint = () => {
+      const theme = getTerminalTheme();
+      for (const runtime of runtimesRef.current.values()) {
+        runtime.term.options.theme = theme;
+      }
+    };
+    window.addEventListener(THEME_CHANGED_EVENT, repaint);
+    return () => window.removeEventListener(THEME_CHANGED_EVENT, repaint);
+  }, [runtimesRef]);
 
   // Re-fit active tab on switch/expand/visibility change
   useEffect(() => {

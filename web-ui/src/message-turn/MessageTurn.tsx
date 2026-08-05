@@ -19,7 +19,7 @@ export const MessageTurn = React.memo(function MessageTurn({
   onToggleBookmark,
   sessionId,
   onOpenSession,
-  pendingAssistantId,
+  userTurnStates,
 }: MessageTurnProps) {
   const { role, messages } = group;
   const [copied, setCopied] = useState(false);
@@ -44,15 +44,16 @@ export const MessageTurn = React.memo(function MessageTurn({
   // Detect if this group contains an optimistic (pending) message
   const isOptimistic = messages.some((msg) => (msg.info.messageID || msg.info.id || "").startsWith("__optimistic__"));
 
-  // Queued: a user message sent while the session is still processing an earlier
-  // assistant message. An optimistic message (typed while busy, not yet persisted) is
-  // queued by definition; a confirmed message is queued when it sorts after the pending
-  // assistant id.
-  const isQueued = isUser && !!pendingAssistantId &&
-    messages.some((msg) => {
-      const id = msg.info.messageID || msg.info.id || "";
-      return id.startsWith("__optimistic__") || id > pendingAssistantId;
-    });
+  // Badge state comes from the timeline, which can see the whole transcript and
+  // so knows whether this turn is the one being answered or is waiting behind it.
+  const turnState = useMemo(() => {
+    if (!isUser || !userTurnStates?.size) return null;
+    for (const msg of messages) {
+      const state = userTurnStates.get(msg.info.messageID || msg.info.id || "");
+      if (state) return state;
+    }
+    return null;
+  }, [isUser, userTurnStates, messages]);
 
   // Collect model/agent/cost from messages
   const headerModel = useMemo(() => {
@@ -222,10 +223,10 @@ export const MessageTurn = React.memo(function MessageTurn({
           <span className="message-role">
             {isUser ? "You" : isAssistant ? (headerAgent ? headerAgent + " agent" : "Assistant") : role}
           </span>
-          {isOptimistic && !isQueued && (
+          {turnState === "sending" && (
             <span className="message-sending-badge">Sending...</span>
           )}
-          {isQueued && (
+          {turnState === "queued" && (
             <span className="message-queued-badge">Queued</span>
           )}
           {headerModel && (
@@ -250,7 +251,7 @@ export const MessageTurn = React.memo(function MessageTurn({
             >
               <ChevronRight size={12} className="memory-header-chevron" />
               <Brain size={12} />
-              <span>{memoryBlock.items.length} {memoryBlock.items.length === 1 ? "memory" : "memories"}</span>
+              <span>{memoryBlock.items.length === 1 ? "Session instruction" : "Session instructions"}</span>
             </button>
           )}
         </div>

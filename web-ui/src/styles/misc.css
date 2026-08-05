@@ -84,12 +84,16 @@
     --space-8: 2rem;
     --space-10: 2.5rem;
     --space-12: 3rem;
-    --radius-xs: 3px;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 10px;
-    --radius-full: 6px;
+    /* One radius for the whole product. Every corner — cards, chips, inputs,
+       modals — resolves to this single knob; the old size ladder survives only
+       as aliases so nothing has to rename. Circles stay 50% (geometry). */
+    --radius: 6px;
+    --radius-xs: var(--radius);
+    --radius-sm: var(--radius);
+    --radius-md: var(--radius);
+    --radius-lg: var(--radius);
+    --radius-xl: var(--radius);
+    --radius-full: var(--radius);
     --transition-fast: .1s ease;
     --transition-base: .15s ease;
     --transition-slow: .25s ease;
@@ -256,8 +260,7 @@ input,button,textarea,select {
 
 ::-webkit-scrollbar-thumb {
     background: var(--color-border-subtle);
-    border-radius: 3px
-}
+    border-radius: var(--radius)}
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--color-border)

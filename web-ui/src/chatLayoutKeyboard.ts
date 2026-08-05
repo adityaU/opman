@@ -45,7 +45,7 @@ export function buildKeyboardShortcuts(deps: KeyboardDeps): KeyBinding[] {
     { key: "b", meta: true, shift: true, handler: () => openModal("delegation"), description: "Delegation Board" },
     { key: "r", meta: true, shift: true, handler: () => openModal("routines"), description: "Routines" },
     { key: "j", meta: true, shift: true, handler: () => openModal("autonomy"), description: "Autonomy" },
-    { key: "y", meta: true, shift: true, handler: () => openModal("memory"), description: "Personal Memory" },
+    { key: "y", meta: true, shift: true, handler: () => openModal("memory"), description: "Session Instructions" },
     { key: "m", meta: true, shift: true, handler: () => openModal("missions"), description: "Missions" },
     { key: "l", meta: true, shift: true, handler: () => openModal("workspaceManager"), description: "Workspace Manager" },
 

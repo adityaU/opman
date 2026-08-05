@@ -9,6 +9,9 @@ export interface MessageTimelineProps {
   messages: Message[];
   sessionStatus: SessionStatus;
   activeSessionId: string | null;
+  /** A prompt submitted from this client is still in flight. Runners that report
+   *  busy state asynchronously leave a gap this covers. */
+  isSending?: boolean;
   isLoadingMessages?: boolean;
   isLoadingOlder?: boolean;
   hasOlderMessages?: boolean;
@@ -42,6 +45,14 @@ export interface MessageGroup {
 export const VIRTUALIZE_THRESHOLD = 40;
 
 export const SCROLL_DIRECTION_THRESHOLD = 20;
+
+/**
+ * How long an unanswered prompt is given before the timeline calls it
+ * unanswered. A send resolves as soon as the runner is spawned, and the browser
+ * only learns the session is busy on the next app-state push, so there is a
+ * short window where nothing looks in flight while the turn is in fact running.
+ */
+export const NO_RESPONSE_GRACE_MS = 8000;
 
 /** Example prompts shown on the new session empty state */
 export const EXAMPLE_PROMPTS = [

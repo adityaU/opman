@@ -230,8 +230,8 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     {
       id: "personal-memory",
       category: "Assistant",
-      label: "Personal Memory",
-      description: "Store preferences and working norms",
+      label: "Session Instructions",
+      description: "Standing guidance sent when a session opens",
       shortcut: "\u2318\u21E7Y",
       handler: () => { onClose(); onOpenMemory?.(); },
     },

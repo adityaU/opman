@@ -19,7 +19,8 @@ import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../.
 
 import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
 import { SESSION_IDLE } from "./types";
-import { type MessageMap, mapToSortedArray, getMessageTime, mergeMessage, purgeOptimistic } from "./messageMap";
+import { type MessageMap, mapToSortedArray, getMessageTime, mergeMessage } from "./messageMap";
+import { createOptimisticId, purgeOptimistic, retainOptimistic, reconcileOptimistic } from "./optimistic";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
@@ -239,27 +240,47 @@ export function useSSE(): SSEState {
         document.title = s.instance_name;
         appliedTitleRef.current = s.instance_name;
       }
+      // App state carries a full snapshot of who is busy, so reconcile against
+      // it rather than merging: a merge could only ever add, leaving a session
+      // marked busy for the rest of the page's life once its runner finished.
+      const busyNow = new Set<string>();
+      for (const p of s.projects) {
+        for (const sid of p.busy_sessions) busyNow.add(sid);
+      }
       setBusySessions((prev) => {
-        const next = new Set(prev);
-        for (const p of s.projects) {
-          for (const sid of p.busy_sessions) next.add(sid);
-        }
-        return next;
+        if (prev.size === busyNow.size && [...busyNow].every((sid) => prev.has(sid))) return prev;
+        return busyNow;
       });
       // Seed sessionStatuses from busy_sessions (server only reports busy IDs — no retry detail here)
       setSessionStatuses((prev) => {
         let changed = false;
         const next = { ...prev };
-        for (const p of s.projects) {
-          for (const sid of p.busy_sessions) {
-            if (!next[sid] || next[sid].type === "idle") {
-              next[sid] = { type: "busy" };
-              changed = true;
-            }
+        for (const sid of busyNow) {
+          if (!next[sid] || next[sid].type === "idle") {
+            next[sid] = { type: "busy" };
+            changed = true;
           }
+        }
+        for (const sid of Object.keys(next)) {
+          if (busyNow.has(sid)) continue;
+          delete next[sid];
+          changed = true;
         }
         return changed ? next : prev;
       });
+      // The claude adapters report progress only through app state — they emit
+      // no session_busy/session_idle events — so the active session's status has
+      // to be recomputed here as well. Without this the composer keeps offering
+      // Send and the transcript claims idle for the whole turn.
+      const activeSid = activeSessionRef.current;
+      if (activeSid) {
+        const isBusy = busyNow.has(activeSid);
+        setSessionStatus((prev) => {
+          if (!isBusy) return prev.type === "idle" ? prev : SESSION_IDLE;
+          // Keep any richer busy detail an SSE event already supplied.
+          return prev.type === "idle" ? { type: "busy" } : prev;
+        });
+      }
     } catch (e) {
       console.error("Failed to fetch state:", e);
     }
@@ -362,8 +383,67 @@ export function useSSE(): SSEState {
     }
   }, []);
 
-  const refreshMessages = useCallback(async () => {
-    const sid = activeSessionRef.current;
+  /**
+   * Load a session's transcript into the message map.
+   *
+   * Both routes into a session — the URL-driven `beginSessionSwitch` and the
+   * server-confirmed appState effect — go through here so they cannot drift
+   * apart. Optimistic placeholders for the target session survive the load: a
+   * session created by its own first send has no transcript yet, so the
+   * placeholder is the only record of the prompt. The claude runners never
+   * write user messages at all, which makes it the only record there is.
+   */
+  const hydrateSession = useCallback((sid: string, gen: number) => {
+    // Read placeholders before restoring, which replaces the map wholesale.
+    const pending = retainOptimistic(messageMapRef.current, sid);
+    const cached = restoreSessionFromCache(sid);
+
+    if (cached) {
+      for (const [key, msg] of pending) messageMapRef.current.set(key, msg);
+      if (pending.size > 0) setMessages(mapToSortedArray(messageMapRef.current));
+    } else {
+      messageMapRef.current = pending;
+      subagentMapsRef.current = new Map();
+      setMessages(mapToSortedArray(pending));
+      setHasOlderMessages(false); setTotalMessageCount(0);
+      setLiveActivityEvents([]); setSubagentMessages(new Map());
+    }
+    // A placeholder already fills the view, so a shimmer would only flash.
+    setIsLoadingMessages(!cached && pending.size === 0);
+
+    fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
+      .then((resp) => {
+        if (gen !== sessionGenRef.current) return;
+        const map = messageMapRef.current;
+        for (const msg of resp.messages) {
+          const id = msg.info.messageID || msg.info.id || "";
+          if (!id) continue;
+          const existing = map.get(id);
+          map.set(id, existing ? mergeMessage(existing, msg) : msg);
+        }
+        reconcileOptimistic(map);
+        setMessages(mapToSortedArray(map));
+        setHasOlderMessages(resp.has_more);
+        setTotalMessageCount(resp.total);
+      })
+      .catch(() => {
+        if (gen !== sessionGenRef.current) return;
+        setMessages(mapToSortedArray(messageMapRef.current));
+      })
+      .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
+
+    fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+  }, [restoreSessionFromCache]);
+
+  const refreshMessages = useCallback(async (requestedSessionId?: string | null) => {
+    if (requestedSessionId && requestedSessionId !== activeSessionRef.current) {
+      // A lazy new-session send can finish while the previous session's fetch
+      // is still in flight. Move the ref and generation forward first so that
+      // stale results cannot replace the new session's optimistic first turn.
+      sessionGenRef.current += 1;
+      activeSessionRef.current = requestedSessionId;
+    }
+    const sid = requestedSessionId ?? activeSessionRef.current;
     if (!sid) return;
     const gen = sessionGenRef.current;
     try {
@@ -380,6 +460,9 @@ export function useSSE(): SSEState {
           map.set(id, mergeMessage(existing, msg));
         }
       }
+      // The transcript now owns any prompt it has written — retire the local
+      // placeholder for it so the turn is not shown twice.
+      reconcileOptimistic(map);
       setMessages(mapToSortedArray(map));
       setHasOlderMessages(resp.has_more);
       setTotalMessageCount(resp.total);
@@ -439,8 +522,8 @@ export function useSSE(): SSEState {
   }, []);
   const clearMcpTerminalFocus = useCallback(() => { setMcpTerminalFocusId(null); }, []);
 
-  const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[]) => {
-    const id = `__optimistic__${Date.now()}`;
+  const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[], sessionId?: string | null) => {
+    const id = createOptimisticId();
     const parts: MessagePart[] = [{ type: "text", text }];
     if (images) {
       for (const img of images) {
@@ -448,7 +531,9 @@ export function useSSE(): SSEState {
       }
     }
     const msg: Message = {
-      info: { role: "user", messageID: id, id, sessionID: activeSessionRef.current ?? undefined, time: Date.now() / 1000 },
+      // Milliseconds, matching server records — seconds here would sort the
+      // placeholder ahead of the entire transcript instead of at the end.
+      info: { role: "user", messageID: id, id, sessionID: sessionId ?? activeSessionRef.current ?? undefined, time: Date.now() },
       parts,
     };
     messageMapRef.current.set(id, msg);
@@ -514,58 +599,11 @@ export function useSSE(): SSEState {
       reclassifyInteractions(sid);
 
       if (sid) {
-        // Try to restore from cache (instant switch)
-        const restored = restoreSessionFromCache(sid);
-        if (restored) {
-          // Cache hit — show cached data immediately, then background-refresh
-          // to pick up any messages that arrived while this session was inactive
-          setIsLoadingMessages(false);
-          fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
-            .then((resp) => {
-              if (gen !== sessionGenRef.current) return;
-              const map = messageMapRef.current;
-              let changed = false;
-              for (const msg of resp.messages) {
-                const id = msg.info.messageID || msg.info.id || "";
-                if (!id) continue;
-                const existing = map.get(id);
-                if (!existing) {
-                  map.set(id, msg);
-                  changed = true;
-                } else {
-                  // Merge updated info/parts (same logic as refreshMessages)
-                  map.set(id, mergeMessage(existing, msg));
-                  changed = true;
-                }
-              }
-              if (changed) setMessages(mapToSortedArray(map));
-              setHasOlderMessages(resp.has_more);
-              setTotalMessageCount(resp.total);
-            })
-            .catch(() => {});
-          fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
-        } else {
-          // Cache miss — fresh fetch with loading indicator
-          messageMapRef.current = new Map();
-          subagentMapsRef.current = new Map();
-          setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
-          setSubagentMessages(new Map());
-          setIsLoadingMessages(true);
-          fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE })
-            .then((resp) => {
-              if (gen !== sessionGenRef.current) return;
-              const newMap: MessageMap = new Map();
-              for (const msg of resp.messages) { const id = msg.info.messageID || msg.info.id || ""; if (id) newMap.set(id, msg); }
-              messageMapRef.current = newMap;
-              setMessages(mapToSortedArray(newMap)); setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
-            })
-            .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
-            .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
-          fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
-        }
+        hydrateSession(sid, gen);
         // Hydrate pending permissions/questions — deferred so message rendering isn't blocked
         scheduleIdle(() => hydratePending());
       } else {
+        // Landed on the new-session screen — nothing to show yet.
         messageMapRef.current = new Map();
         subagentMapsRef.current = new Map();
         setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
@@ -573,7 +611,7 @@ export function useSSE(): SSEState {
         setIsLoadingMessages(false);
       }
     }
-  }, [appState, saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions]);
+  }, [appState, saveCurrentSessionToCache, hydrateSession, reclassifyInteractions]);
 
   // ── SSE connections (set up once on mount) ────────────────────
   useEffect(() => {
@@ -779,52 +817,10 @@ export function useSSE(): SSEState {
     });
     reclassifyInteractions(targetSid);
 
-    // Try cache first — if hit, show cached data instantly (no shimmer)
-    const restored = restoreSessionFromCache(targetSid);
-    if (restored) {
-      setIsLoadingMessages(false);
-      // Background-refresh to pick up messages that arrived while inactive
-      fetchSessionMessages(targetSid, { limit: MESSAGE_PAGE_SIZE })
-        .then((resp) => {
-          if (gen !== sessionGenRef.current) return;
-          const map = messageMapRef.current;
-          let changed = false;
-          for (const msg of resp.messages) {
-            const id = msg.info.messageID || msg.info.id || "";
-            if (!id) continue;
-            const existing = map.get(id);
-            if (!existing) { map.set(id, msg); changed = true; }
-            else {
-              map.set(id, mergeMessage(existing, msg));
-              changed = true;
-            }
-          }
-          if (changed) setMessages(mapToSortedArray(map));
-          setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
-        })
-        .catch(() => {});
-    } else {
-      // Cache miss — clear and show loading shimmer
-      messageMapRef.current = new Map();
-      subagentMapsRef.current = new Map();
-      setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0);
-      setLiveActivityEvents([]); setSubagentMessages(new Map());
-      setIsLoadingMessages(true);
-      fetchSessionMessages(targetSid, { limit: MESSAGE_PAGE_SIZE })
-        .then((resp) => {
-          if (gen !== sessionGenRef.current) return;
-          const newMap: MessageMap = new Map();
-          for (const msg of resp.messages) { const id = msg.info.messageID || msg.info.id || ""; if (id) newMap.set(id, msg); }
-          messageMapRef.current = newMap;
-          setMessages(mapToSortedArray(newMap)); setHasOlderMessages(resp.has_more); setTotalMessageCount(resp.total);
-        })
-        .catch(() => { if (gen !== sessionGenRef.current) return; setMessages([]); })
-        .finally(() => { if (gen !== sessionGenRef.current) return; setIsLoadingMessages(false); });
-    }
-    fetchSessionStats(targetSid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
+    hydrateSession(targetSid, gen);
     // Deferred — permissions/questions are not on the critical path for message rendering
     scheduleIdle(() => hydratePending());
-  }, [saveCurrentSessionToCache, restoreSessionFromCache, reclassifyInteractions, hydratePending]);
+  }, [saveCurrentSessionToCache, hydrateSession, reclassifyInteractions, hydratePending]);
 
   return {
     appState, messages, stats, busySessions, sessionStatuses, permissions, questions,

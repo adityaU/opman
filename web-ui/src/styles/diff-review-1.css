@@ -36,8 +36,9 @@
     flex-shrink: 0;
     text-align: right;
     padding-right: var(--space-2);
-    color: var(--color-text-muted);
-    opacity: .5;
+    /* Was muted at .5 opacity — under 3:1 on every light surface. Gutters are
+       reference marks: quiet, still readable. */
+    color: color-mix(in srgb, var(--color-text) 62%, transparent);
     -webkit-user-select: none;
     user-select: none
 }
@@ -58,7 +59,8 @@
 }
 
 .diff-line.context {
-    color: var(--color-text-muted)
+    /* Unchanged lines are the reading surface of a diff, not a footnote. */
+    color: var(--color-text)
 }
 
 .diff-stats {
@@ -122,8 +124,7 @@
     min-width: 20px;
     height: 20px;
     padding: 0 6px;
-    border-radius: 10px
-}
+    border-radius: var(--radius)}
 
 .diff-review-header-actions {
     margin-left: auto;

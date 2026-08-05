@@ -30,8 +30,13 @@ export interface AppState {
   focused: string;
   /** Optional instance name from tunnel hostname, used as page title. */
   instance_name?: string;
-  /** Active agent backend: "opencode" or "claude-code". */
+  /**
+   * CLI opman wraps: "opencode" or "claude-code". Both claude engines report
+   * "claude-code", so this cannot identify a runner — use `default_runner`.
+   */
   backend?: string;
+  /** Runner that owns sessions with no runner of their own. */
+  default_runner?: string;
   runners?: string[];
 }
 

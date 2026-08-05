@@ -1,5 +1,5 @@
 import type { ThemePair, ThemeColors } from "../api";
-import { applyThemeToCss } from "./theme";
+import { applyThemeToCss, notifyThemeChanged } from "./theme";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -44,6 +44,9 @@ export function applyAppearanceClass(a: Appearance): void {
     root.classList.remove("light-theme");
   }
   root.setAttribute("data-appearance", resolved);
+  // Light/dark can flip without any colour variable changing (the class alone
+  // decides which end of the ink scale a terminal should use).
+  notifyThemeChanged();
 }
 
 // ── ThemePair resolution ─────────────────────────────────────────────

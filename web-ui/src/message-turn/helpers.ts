@@ -35,23 +35,35 @@ export function parseFileContext(text: string): FileContextBlock | null {
   return { paths, userText };
 }
 
-/** Parsed memory block from a user message. */
+/** Marker the server writes above a session's opening instructions. */
+const INSTRUCTIONS_MARKER = "[Session instructions]";
+/** Marker used before the rename — still present in older transcripts. */
+const LEGACY_MARKER = "[Assistant memory in effect]";
+
+/** Parsed session-instructions block from a user message. */
 export interface MemoryBlock {
   items: { label: string; content: string }[];
   userText: string;
 }
 
 /**
- * Extract `[Assistant memory in effect]` block from user message text.
- * Returns null if no memory block is present.
+ * Extract the session-instructions block from user message text.
+ *
+ * Both markers are accepted: the block is written by the server now, but
+ * transcripts recorded before the rename still carry the old one.
  */
 export function parseMemoryBlock(text: string): MemoryBlock | null {
-  if (!text.startsWith("[Assistant memory in effect]")) return null;
+  const marker = text.startsWith(INSTRUCTIONS_MARKER)
+    ? INSTRUCTIONS_MARKER
+    : text.startsWith(LEGACY_MARKER)
+      ? LEGACY_MARKER
+      : null;
+  if (!marker) return null;
 
   const requestIdx = text.indexOf("[User request]");
   if (requestIdx === -1) return null;
 
-  const memorySection = text.slice("[Assistant memory in effect]".length, requestIdx).trim();
+  const memorySection = text.slice(marker.length, requestIdx).trim();
   const userText = text.slice(requestIdx + "[User request]".length).trim();
 
   const items: MemoryBlock["items"] = [];

@@ -19,7 +19,7 @@
     width: 520px;
     max-width: 92vw;
     max-height: 80vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -53,8 +53,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .autonomy-body {
     display: flex;
@@ -72,7 +71,7 @@
     flex-direction: column;
     gap: 4px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     color: var(--color-text);

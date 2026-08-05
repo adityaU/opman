@@ -130,7 +130,7 @@
     padding: 1px 5px;
     background: var(--white-4);
     border: 1px solid var(--color-border);
-    border-radius: 3px;
+    border-radius: var(--radius);
     font-size: 10px;
     font-family: inherit;
     min-width: 18px;
@@ -156,7 +156,7 @@
 }
 
 .diff-review-file-item {
-    border-radius: 14px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     padding: 10px 12px;
     margin-bottom: 8px;
@@ -170,8 +170,7 @@
 }
 
 .diff-review-diff-area,.diff-review-viewer,.ctx-window-gauge-section,.ctx-window-breakdown,.notification-prefs-permission {
-    border-radius: 18px
-}
+    border-radius: var(--radius)}
 
 .diff-review-viewer {
     border: 1px solid var(--color-border-subtle);

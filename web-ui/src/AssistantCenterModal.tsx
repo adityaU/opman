@@ -220,9 +220,9 @@ export function AssistantCenterModal({
           />
           <AssistantCenterCard
             icon={<Brain size={16} />}
-            title="Memory"
+            title="Session instructions"
             value={stats ? `${stats.memory_items}` : "..."}
-            description="Persistent preferences and working norms"
+            description="Standing guidance sent when a session opens"
             onClick={onOpenMemory}
           />
           <AssistantCenterCard
@@ -257,7 +257,7 @@ export function AssistantCenterModal({
                 fontWeight: 500,
                 background: "color-mix(in srgb, var(--color-text-muted) 15%, transparent)",
                 color: "var(--color-text)",
-                borderRadius: "8px",
+                borderRadius: "var(--radius)",
                 padding: "1px 7px",
                 lineHeight: "16px",
               }}>
@@ -287,7 +287,7 @@ export function AssistantCenterModal({
                     fontSize: "10px",
                     fontWeight: 500,
                     padding: "1px 5px",
-                    borderRadius: "4px",
+                    borderRadius: "var(--radius)",
                     background: routine.trigger === "scheduled"
                       ? "color-mix(in srgb, var(--color-info) 12%, transparent)"
                       : "color-mix(in srgb, var(--color-text-muted) 12%, transparent)",

@@ -39,34 +39,58 @@ export function hexToRgba(hex: string, alpha: number): string {
 
 // ── Diff theme builder ──────────────────────────────────
 
+/** True when the app is currently showing its light appearance. */
+export function isLightAppearance(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("light-theme");
+}
+
+/**
+ * Palette for `react-diff-viewer-continued`.
+ *
+ * The viewer picks one of two variable sets and never merges them, so every
+ * key it reads has to be present in the set that is actually selected. The
+ * previous build filled only `dark` while the callers asked for the dark theme
+ * unconditionally: in light mode the unchanged lines fell through to the
+ * library's own `#FFF` default and disappeared into a light panel. Both sets
+ * are populated here, and `useDarkTheme` follows the real appearance.
+ */
 export function buildDiffStyles(theme: ThemeColors | null) {
   const css = typeof window !== "undefined"
     ? getComputedStyle(document.documentElement)
     : null;
-  const success   = theme?.success    || css?.getPropertyValue("--color-success").trim()    || "#7fd88f";
-  const error     = theme?.error      || css?.getPropertyValue("--color-error").trim()      || "#e06c75";
-  const textMuted = theme?.text_muted || css?.getPropertyValue("--color-text-muted").trim() || "#808080";
+  const read = (name: string) => css?.getPropertyValue(name).trim() || "";
+  const light = isLightAppearance();
+  const success   = theme?.success    || read("--color-success")    || "#7fd88f";
+  const error     = theme?.error      || read("--color-error")      || "#e06c75";
+  const textMuted = theme?.text_muted || read("--color-text-muted") || "#808080";
+  const text      = theme?.text       || read("--color-text")       || (light ? "#1c1c1f" : "#e6e6e6");
+
+  // Unchanged lines carry the code being read, so they get full text colour;
+  // the gutter stays quiet but never drops under 3:1 against the surface.
+  const palette = {
+    diffViewerBackground:    "transparent",
+    diffViewerColor:         text,
+    gutterBackground:        "transparent",
+    addedBackground:         hexToRgba(success, light ? 0.16 : 0.12),
+    addedColor:              text,
+    removedBackground:       hexToRgba(error, light ? 0.16 : 0.12),
+    removedColor:            text,
+    wordAddedBackground:     hexToRgba(success, light ? 0.32 : 0.25),
+    wordRemovedBackground:   hexToRgba(error, light ? 0.32 : 0.25),
+    addedGutterBackground:   hexToRgba(success, 0.08),
+    removedGutterBackground: hexToRgba(error, 0.08),
+    addedGutterColor:        text,
+    removedGutterColor:      text,
+    gutterColor:             textMuted,
+    codeFoldGutterBackground: "transparent",
+    codeFoldBackground:      "var(--theme-surface-3, var(--color-bg-element))",
+    emptyLineBackground:     "transparent",
+    codeFoldContentColor:    textMuted,
+  };
 
   return {
-    variables: {
-      dark: {
-        diffViewerBackground:    "transparent",
-        gutterBackground:        "transparent",
-        addedBackground:         hexToRgba(success, 0.12),
-        addedColor:              success,
-        removedBackground:       hexToRgba(error, 0.12),
-        removedColor:            error,
-        wordAddedBackground:     hexToRgba(success, 0.25),
-        wordRemovedBackground:   hexToRgba(error, 0.25),
-        addedGutterBackground:   hexToRgba(success, 0.08),
-        removedGutterBackground: hexToRgba(error, 0.08),
-        gutterColor:             textMuted,
-        codeFoldGutterBackground: "transparent",
-        codeFoldBackground:      "var(--theme-surface-3, var(--color-bg-element))",
-        emptyLineBackground:     "transparent",
-        codeFoldContentColor:    textMuted,
-      },
-    },
+    variables: { dark: palette, light: palette },
     contentText: {
       fontFamily: "var(--font-mono, monospace)",
       fontSize:   "12px",

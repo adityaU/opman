@@ -15,8 +15,11 @@
    specificity rather than with !important. */
 
 :root {
-    --modal-radius: 16px;
-    --popover-radius: 12px;
+    /* All shell corners ride the product's single --radius knob. */
+    --modal-radius: var(--radius);
+    --popover-radius: var(--radius);
+    --shell-radius-inner: var(--radius);
+    --shell-radius-control: var(--radius);
     /* Lifted off the canvas — never --color-bg, which is the page itself.
        Glassy keeps a sliver of translucency so the blur below has something
        to do; the backdrop is already scrimmed, so text stays readable. */
@@ -122,9 +125,12 @@ html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
 
 /* ── Right-hand dockable cards ────────────────────────────────────── */
 
+/* No inset of its own: `.chat-content` already pays 12px/14px for all three
+   columns, so any padding here makes the right column start lower and end
+   higher than the sidebar and the transcript beside it. */
 .right-panel-stack {
-    gap: 10px;
-    padding: 4px 4px 8px 0;
+    gap: var(--panel-inset, 10px);
+    padding: 0;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
 }
@@ -187,7 +193,7 @@ html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
         .cheatsheet-modal, .watcher-modal, .session-selector-modal, .health-modal,
         .todo-panel-modal, .ctx-window-modal, .diff-review-modal, .command-palette,
         .context-input-modal, .cross-session-search-modal, .pr-description-modal) {
-        border-radius: 20px 20px 0 0;
+        border-radius: var(--radius) var(--radius) 0 0;
         border-bottom: 0;
         animation: modal-sheet-in .26s cubic-bezier(.22, 1, .36, 1) both;
     }

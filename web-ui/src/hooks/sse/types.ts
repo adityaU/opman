@@ -87,7 +87,7 @@ export interface SSEState {
   /** Question requests from non-active sessions (e.g. subagent in another session). */
   crossSessionQuestions: QuestionRequest[];
   refreshState: () => Promise<void>;
-  refreshMessages: () => Promise<void>;
+  refreshMessages: (sessionId?: string | null) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   /** Clear MCP editor open request (after frontend has handled it). */
@@ -98,7 +98,7 @@ export interface SSEState {
   clearMcpTerminalFocus: () => void;
   /** Add an optimistic user message that shows immediately.
    *  It will be removed when the real server message arrives via refreshMessages/SSE. */
-  addOptimisticMessage: (text: string, images?: { base64: string; mimeType: string; name: string }[]) => void;
+  addOptimisticMessage: (text: string, images?: { base64: string; mimeType: string; name: string }[], sessionId?: string | null) => void;
   /** Remove all optimistic messages from the map (e.g. on send failure). */
   clearOptimistic: () => void;
   /** Load older messages (pagination). Returns true if more messages exist. */

@@ -20,7 +20,10 @@ export interface ChatHandlerInputs {
   appState: any;
   selectedModel: any;
   selectedAgent: string;
-  selectedRunner: string | null;
+  /** Runner a session created right now should be created with. */
+  runnerForNewSession: string;
+  /** Explicit pick that disagrees with the active session's runner (handoff intent). */
+  runnerSwitch: string | null;
   selectedEffort: string | null;
   selectedPermission: string;
   sending: boolean;
@@ -28,13 +31,15 @@ export interface ChatHandlerInputs {
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
-  setSelectedRunner: (r: string | null) => void;
+  clearRunnerChoice: () => void;
+  /** Re-anchor the runner pick to a session that was just created or handed off. */
+  bindRunnerChoice: (sessionId: string, runner: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string, images?: ImageAttachment[]) => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => void;
   clearOptimistic: () => void;
   refreshState: () => void;
-  refreshMessages: () => Promise<void>;
+  refreshMessages: (sessionId?: string | null) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -95,7 +100,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     appState: inputs.appState,
     selectedModel: inputs.selectedModel,
     selectedAgent: inputs.selectedAgent,
-    selectedRunner: inputs.selectedRunner,
+    runnerForNewSession: inputs.runnerForNewSession,
+    runnerSwitch: inputs.runnerSwitch,
     selectedEffort: inputs.selectedEffort,
     selectedPermission: inputs.selectedPermission,
     get sending() { return sendingRef.current; },
@@ -103,7 +109,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     setSending: inputs.setSending,
     setSelectedModel: inputs.setSelectedModel,
     setSelectedAgent: inputs.setSelectedAgent,
-    setSelectedRunner: inputs.setSelectedRunner,
+    clearRunnerChoice: inputs.clearRunnerChoice,
+    bindRunnerChoice: inputs.bindRunnerChoice,
     setMobileInputHidden: inputs.setMobileInputHidden,
     addToast: inputs.addToast,
     addOptimisticMessage: inputs.addOptimisticMessage,
@@ -129,8 +136,8 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   }), [
     // activeSessionId, sending, activeMemoryItems intentionally omitted — read from refs via getters
     inputs.appState, inputs.selectedModel,
-    inputs.selectedAgent, inputs.selectedRunner, inputs.selectedEffort, inputs.selectedPermission,
-    inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent, inputs.setSelectedRunner,
+    inputs.selectedAgent, inputs.runnerForNewSession, inputs.runnerSwitch, inputs.selectedEffort, inputs.selectedPermission,
+    inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent, inputs.clearRunnerChoice, inputs.bindRunnerChoice,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.clearOptimistic, inputs.refreshState, inputs.refreshMessages, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,

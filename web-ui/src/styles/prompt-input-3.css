@@ -1,13 +1,12 @@
 
 .prompt-chip-dropdown {
-    border-radius: 18px;
+    border-radius: var(--radius);
     padding: 8px
 }
 
 .prompt-chip-dropdown-item {
     padding: 10px 12px;
-    border-radius: 12px
-}
+    border-radius: var(--radius)}
 
 .prompt-textarea-row {
     gap: 10px;
@@ -21,7 +20,7 @@
 .prompt-attach-btn {
     width: 34px;
     height: 34px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-surface)
 }
 
@@ -36,6 +35,6 @@
 }
 
 .prompt-hints kbd {
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 2px 7px
 }

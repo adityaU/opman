@@ -101,6 +101,22 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
 
 // ── InputView ─────────────────────────────────────────────────────
 
+/**
+ * How much room an argument needs.
+ *
+ * A fixed label column forces every argument into the same shape, so a 400
+ * character command and the word `false` get the same narrow gutter — the
+ * command wraps into a paragraph while most of the row sits empty. Short
+ * values sit on the label's line; long ones get the full width beneath it.
+ */
+function isBlockValue(value: unknown): boolean {
+  if (typeof value === "string") return value.length > 48 || value.includes("\n");
+  return value !== null && typeof value === "object";
+}
+
+/** Arguments that read as code rather than prose. */
+const CODE_KEYS = /^(command|cmd|script|code|query|sql|pattern|regex|path|file_path|url|snippet|content|diff)$/i;
+
 function InputView({ data }: { data: Record<string, unknown> | string }) {
   if (typeof data === "string") {
     return <pre className="gmc-pre">{data}</pre>;
@@ -110,16 +126,22 @@ function InputView({ data }: { data: Record<string, unknown> | string }) {
   );
   if (entries.length === 0) return null;
   return (
-    <div className="gmc-kv">
-      {entries.map(([k, v]) => (
-        <div key={k} className="gmc-kv-row">
-          <span className="gmc-kv-key">{k}</span>
-          <span className="gmc-kv-val">
-            <KvValue value={v} />
-          </span>
-        </div>
-      ))}
-    </div>
+    <dl className="gmc-args">
+      {entries.map(([k, v]) => {
+        const block = isBlockValue(v);
+        return (
+          <div
+            key={k}
+            className={`gmc-arg${block ? " is-block" : " is-inline"}${CODE_KEYS.test(k) ? " is-code" : ""}`}
+          >
+            <dt className="gmc-arg-key">{k}</dt>
+            <dd className="gmc-arg-val">
+              <KvValue value={v} />
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }
 
@@ -135,12 +157,19 @@ function KvValue({ value }: { value: unknown }) {
   if (typeof value === "number")
     return <span className="gmc-val-num">{value}</span>;
   if (typeof value === "string") {
-    if (value.length > 160)
+    // Long arguments clamp to a few lines and fade out, rather than being cut
+    // mid-token with a link glued to the end of the sentence.
+    if (value.length > 220 || value.split("\n").length > 6)
       return (
-        <span className="gmc-val-str">
-          {open ? value : value.slice(0, 160) + "…"}
-          <button className="gmc-val-toggle" onClick={() => setOpen(!open)}>
-            {open ? "less" : "more"}
+        <span className={`gmc-val-str gmc-val-clamp${open ? " is-open" : ""}`}>
+          <span className="gmc-val-text">{value}</span>
+          <button
+            type="button"
+            className="gmc-val-toggle"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+          >
+            {open ? "Show less" : "Show all"}
           </button>
         </span>
       );

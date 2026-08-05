@@ -1,5 +1,6 @@
 import React, { useState, FormEvent, useEffect } from "react";
-import { Lock, User, Terminal, ArrowRight, Loader2 } from "lucide-react";
+import { Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { OpmanMark } from "./OpmanMark";
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>;
@@ -35,7 +36,7 @@ export function LoginPage({ onLogin, appName = "opman" }: Props) {
         {/* Logo / branding */}
         <div className="login-brand">
           <div className="login-logo">
-            <Terminal size={24} strokeWidth={2.5} />
+            <OpmanMark size={30} />
           </div>
           <h1>{appName}</h1>
           <div className="subtitle">AI-Powered Development Environment</div>

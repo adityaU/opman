@@ -97,7 +97,7 @@
     height: 14px;
     background: color-mix(in srgb,var(--color-accent) 12%,transparent);
     color: var(--color-accent);
-    border-radius: 7px;
+    border-radius: var(--radius);
     font-size: 9px;
     font-weight: 600;
     cursor: pointer;
@@ -108,15 +108,51 @@
     background: color-mix(in srgb,var(--color-accent) 20%,transparent)
 }
 
+/* Running session.
+   The old treatment was a 2px bar pinned to the row's right edge, pulsing in
+   place — a decoration that said "selected" more than "working", and read as
+   chrome from another decade. Work in progress is motion along the row, so
+   this is a hairline that sweeps the row's bottom edge and resolves; it sits
+   under the content, never displaces it, and holds at 1px. */
 .sb-busy-indicator {
     position: absolute;
+    left: 0;
     right: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-    border-radius: 1px;
-    background: var(--color-success);
-    animation: sb-pulse 2s ease-in-out infinite
+    bottom: 0;
+    height: 1px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-success) 22%, transparent);
+    pointer-events: none
+}
+
+.sb-busy-indicator::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-success) 30%, transparent) 35%,
+        var(--color-success) 50%,
+        color-mix(in srgb, var(--color-success) 30%, transparent) 65%,
+        transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: sb-busy-sweep 1.9s cubic-bezier(.4, 0, .2, 1) infinite
+}
+
+@keyframes sb-busy-sweep {
+    to { transform: translateX(100%) }
+}
+
+/* Reduced motion still needs the state to be legible — hold the line lit. */
+@media (prefers-reduced-motion: reduce) {
+    .sb-busy-indicator::after {
+        animation: none;
+        transform: none;
+        background: var(--color-success);
+        opacity: .55
+    }
 }
 
 .sb-subagents {

@@ -19,7 +19,7 @@
     width: 620px;
     max-width: 92vw;
     max-height: 82vh;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     box-shadow: 0 12px 48px var(--black-50);
@@ -55,7 +55,7 @@
     min-width: 22px;
     height: 22px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--theme-success-soft);
     color: var(--color-success);
     font-size: 11px;
@@ -68,8 +68,7 @@
     color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
-    border-radius: 4px
-}
+    border-radius: var(--radius)}
 
 .memory-header button:hover {
     background: var(--color-hover);
@@ -98,7 +97,7 @@
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 9px 11px;
     font-size: 13px;
     color: var(--color-text);
@@ -127,7 +126,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid color-mix(in srgb,var(--color-success) 28%,var(--color-border));
     background: var(--theme-success-soft);
     color: var(--color-success);
@@ -175,7 +174,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%)
 }
@@ -218,7 +217,7 @@
     justify-content: center;
     width: 34px;
     height: 34px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     background: none;
     color: var(--color-muted);
@@ -238,7 +237,7 @@
 .memory-input,.memory-textarea,.memory-select,.routines-input,.routines-select,.delegation-input,.delegation-textarea,.delegation-select,.missions-input,.missions-textarea,.missions-select,.workspace-mgr-save input {
     min-height: 42px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-bg-element);
     transition: border-color var(--transition-fast),box-shadow var(--transition-fast),background var(--transition-fast)
@@ -271,7 +270,7 @@
 .memory-create-btn,.missions-create-btn,.routines-create-btn,.delegation-create-btn,.workspace-mgr-save button,.assistant-center-footer-actions button,.mission-handoff-btn,.workspace-mgr-restore-btn {
     min-height: 38px;
     padding: 8px 14px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     font-size: var(--font-size-xs);
     font-weight: 600;
     border: 1px solid color-mix(in srgb,var(--color-primary) 24%,var(--color-border));
@@ -288,7 +287,7 @@
 
 .memory-edit-btn,.memory-delete-btn,.routines-item-actions button,.delegation-open-btn,.delegation-delete-btn,.missions-delete-btn,.workspace-mgr-delete-btn,.assistant-inbox-item-actions button {
     min-height: 36px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     transition: transform var(--transition-fast),border-color var(--transition-fast),background var(--transition-fast),color var(--transition-fast)

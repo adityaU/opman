@@ -6,7 +6,8 @@ import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } fr
 import { SESSION_IDLE } from "./types";
 import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
-import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart, purgeOptimistic } from "./messageMap";
+import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart } from "./messageMap";
+import { reconcileOptimistic } from "./optimistic";
 
 /** Setters and refs needed by the event handler — avoids passing 20+ individual args. */
 export interface EventHandlerContext {
@@ -65,6 +66,22 @@ function getCachedSession(
   return ctx.sessionCacheRef.current.get(sessionId) ?? null;
 }
 
+/**
+ * True when an event belongs to a session other than the one the main
+ * transcript is showing.
+ *
+ * Having no active session still counts as "not this session". On the
+ * new-session screen — and during the window where a first send has created a
+ * session but the server has not yet reported it active — any other session's
+ * events would otherwise be treated as belonging here, splicing foreign
+ * messages into the transcript and clearing the placeholder standing in for the
+ * prompt just sent.
+ */
+function isForeignSession(ctx: EventHandlerContext, sessionId: string): boolean {
+  if (!sessionId) return false;
+  return sessionId !== ctx.activeSessionRef.current;
+}
+
 /** Route an opencode SSE event to the appropriate React state updaters. */
 export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEvent): void {
   const props = event.properties || {};
@@ -76,7 +93,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       const msgSessionId = (info.sessionID as string) || "";
 
       // Route to subagent map if not the active session
-      if (ctx.activeSessionRef.current && msgSessionId && msgSessionId !== ctx.activeSessionRef.current) {
+      if (isForeignSession(ctx, msgSessionId)) {
         // Also update the session cache if this session is cached (background update)
         const cached = getCachedSession(ctx, msgSessionId);
         if (cached) {
@@ -101,10 +118,14 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
         break;
       }
 
-      // When a real user message arrives, remove optimistic placeholder(s)
-      if ((info.role as string) === "user") purgeOptimistic(ctx.messageMapRef.current);
-
-      if (upsertMessageInfo(ctx.messageMapRef.current, info)) ctx.flushMessages();
+      let changed = upsertMessageInfo(ctx.messageMapRef.current, info);
+      // A confirmed user message retires the placeholder standing in for it.
+      // Retire after the upsert: a record that could not be stored must not
+      // clear the only copy of the prompt on screen.
+      if ((info.role as string) === "user" && reconcileOptimistic(ctx.messageMapRef.current)) {
+        changed = true;
+      }
+      if (changed) ctx.flushMessages();
 
       // Update stats from the info (cost, tokens)
       if (info.cost !== undefined || info.tokens !== undefined) {
@@ -127,7 +148,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       if (!part) break;
       const partSessionId = (part.sessionID as string) || "";
 
-      if (ctx.activeSessionRef.current && partSessionId && partSessionId !== ctx.activeSessionRef.current) {
+      if (isForeignSession(ctx, partSessionId)) {
         // Also update the session cache if this session is cached (background update)
         const cachedMap = getCachedMessageMap(ctx, partSessionId);
         if (cachedMap) upsertPart(cachedMap, part);
@@ -148,7 +169,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       const delta = (props.delta as string) || "";
       if (!messageID || !partID || !delta) break;
 
-      if (ctx.activeSessionRef.current && sessionID && sessionID !== ctx.activeSessionRef.current) {
+      if (isForeignSession(ctx, sessionID)) {
         // Also update the session cache if this session is cached (background update)
         const cachedMap = getCachedMessageMap(ctx, sessionID);
         if (cachedMap) applyPartDelta(cachedMap, sessionID, messageID, partID, field, delta);
@@ -166,7 +187,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       const rmSessionId = (props.sessionID as string) || "";
       if (!msgId) break;
 
-      if (ctx.activeSessionRef.current && rmSessionId && rmSessionId !== ctx.activeSessionRef.current) {
+      if (isForeignSession(ctx, rmSessionId)) {
         // Update cached session if present
         const cached = getCachedSession(ctx, rmSessionId);
         if (cached && removeMessage(cached.messageMap, msgId)) {
@@ -187,7 +208,7 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
       const rpSessionId = (props.sessionID as string) || "";
       if (!msgId || !partId) break;
 
-      if (ctx.activeSessionRef.current && rpSessionId && rpSessionId !== ctx.activeSessionRef.current) {
+      if (isForeignSession(ctx, rpSessionId)) {
         // Update cached session if present
         const cachedMap = getCachedMessageMap(ctx, rpSessionId);
         if (cachedMap) removePart(cachedMap, msgId, partId);

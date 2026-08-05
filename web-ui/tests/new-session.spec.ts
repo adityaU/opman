@@ -5,279 +5,10 @@
  * re-enables the input textarea and model picker.
  */
 
-import { test, expect, Page } from "@playwright/test";
-import {
-  SESSION_ID,
-  SESSION_ID_2,
-  MOCK_APP_STATE,
-  MOCK_MESSAGES,
-  MOCK_STATS,
-  MOCK_COMMANDS,
-  MOCK_PROVIDERS,
-  MOCK_THEME,
-} from "./helpers";
-
-// ── Helpers ───────────────────────────────────────────
-
-/**
- * Set up dynamic mock API routes.
- * Returns controllers to swap responses at runtime.
- */
-async function setupDynamicMocks(page: Page) {
-  let currentAppState: any = MOCK_APP_STATE;
-
-  // ── Catch-all: prevent any unmocked /api/* request from hitting the
-  //    real backend (which isn't running) and returning 401. ──
-  //    In Playwright, the LAST registered route for a URL wins, so this
-  //    catch-all is registered first and will be overridden by specific
-  //    routes below.
-  //    NOTE: Playwright checks routes in REVERSE registration order.
-  //    So we register the catch-all first (lowest priority).
-  // Catch-all: use pathname check to avoid intercepting Vite source-file
-  // requests like /src/api/client.ts which match the old "**/api/**" glob.
-  await page.route(/\/api\//, (route) => {
-    const url = new URL(route.request().url());
-    if (url.pathname.startsWith("/api/")) {
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
-    }
-    return route.continue();
-  });
-
-  // Intercept specific API requests (these override the catch-all)
-  await page.route("**/api/auth/verify", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/state", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(currentAppState),
-    })
-  );
-
-  await page.route(`**/api/session/*/messages*`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ messages: [], total: 0 }),
-    })
-  );
-
-  await page.route("**/api/session/*/stats", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(MOCK_STATS),
-    })
-  );
-
-  await page.route("**/api/commands", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(MOCK_COMMANDS),
-    })
-  );
-
-  await page.route("**/api/providers", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(MOCK_PROVIDERS),
-    })
-  );
-
-  await page.route("**/api/theme", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(MOCK_THEME),
-    })
-  );
-
-  // SSE endpoints
-  await page.route("**/api/events*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      headers: { "Cache-Control": "no-cache" },
-      body: "data: {}\n\n",
-    })
-  );
-
-  await page.route("**/api/session/events*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      headers: { "Cache-Control": "no-cache" },
-      body: "data: {}\n\n",
-    })
-  );
-
-  // POST endpoints
-  await page.route("**/api/session/*/message", (route) => {
-    if (route.request().method() === "POST") {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ ok: true }),
-      });
-    }
-    return route.continue();
-  });
-
-  await page.route("**/api/session/*/abort", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/session/*/command", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/session/select", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/session/new", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/project/switch", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/session/*/todos", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  );
-
-  await page.route("**/api/session/*/permission", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  await page.route("**/api/session/*/question", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    })
-  );
-
-  // Register/heartbeat/presence
-  await page.route("**/api/presence", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ clients: [] }) })
-  );
-
-  // OpenSpec assistant endpoints
-  await page.route("**/api/memory", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ memory: [] }) })
-  );
-
-  await page.route("**/api/autonomy", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ mode: "observe", updated_at: new Date().toISOString() }),
-    })
-  );
-
-  await page.route("**/api/routines", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routines: [], runs: [] }) })
-  );
-
-  await page.route("**/api/missions", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ missions: [] }) })
-  );
-
-  await page.route("**/api/delegation", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) })
-  );
-
-  await page.route("**/api/workspaces", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workspaces: [] }) })
-  );
-
-  return {
-    setAppState(state: any) {
-      currentAppState = state;
-    },
-  };
-}
-
-/**
- * Install EventSource spy to dispatch SSE events from tests.
- */
-async function installEventSourceSpy(page: Page) {
-  await page.addInitScript(() => {
-    (window as any).__eventSources = [];
-    const OrigES = window.EventSource;
-    const PatchedES = function (
-      this: EventSource,
-      url: string | URL,
-      opts?: EventSourceInit
-    ) {
-      const es = new OrigES(url, opts);
-      (window as any).__eventSources.push(es);
-      return es;
-    } as unknown as typeof EventSource;
-    PatchedES.prototype = OrigES.prototype;
-    PatchedES.CONNECTING = OrigES.CONNECTING;
-    PatchedES.OPEN = OrigES.OPEN;
-    PatchedES.CLOSED = OrigES.CLOSED;
-    window.EventSource = PatchedES;
-  });
-}
-
-async function dispatchAppSSE(page: Page, eventType: string, data: string) {
-  await page.evaluate(
-    ({ eventType, data }) => {
-      const event = new MessageEvent(eventType, { data });
-      const sources = (window as any).__eventSources || [];
-      for (const es of sources) {
-        if (
-          es.url &&
-          es.url.includes("/api/events") &&
-          !es.url.includes("/api/session/events")
-        ) {
-          es.dispatchEvent(event);
-        }
-      }
-    },
-    { eventType, data }
-  );
-}
+import { test, expect } from "@playwright/test";
+import { MOCK_APP_STATE } from "./helpers";
+import { setupDynamicMocks } from "./newSessionMocks";
+import { installEventSourceSpy, dispatchAppSSE } from "./newSessionFixtures";
 
 // ── Tests ─────────────────────────────────────────────
 
@@ -408,5 +139,46 @@ test.describe("New session creation", () => {
 
     // ── Step 8: New session appears in sidebar ──
     await expect(page.locator(".sb-session-title", { hasText: "New Session" }).first()).toBeVisible({ timeout: 3_000 });
+  });
+
+  test("first send transitions from new URL to a real session without losing the prompt", async ({ page }) => {
+    await installEventSourceSpy(page);
+    await setupDynamicMocks(page, { messageDelayMs: 250 });
+    await page.goto("/?new=1");
+    await page.evaluate(() => sessionStorage.setItem("opman_token", "mock-jwt-token"));
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForSelector(".chat-layout", { timeout: 15_000 });
+
+    await expect(page).toHaveURL(/new=1/);
+    await expect(page.locator(".message-timeline-welcome")).toBeVisible();
+
+    const marker = "First prompt survives lazy session creation";
+    const messageRequest = page.waitForRequest((request) => (
+      request.method() === "POST" && new URL(request.url()).pathname.endsWith("/message")
+    ));
+    await page.locator(".prompt-textarea").fill(marker);
+    await page.locator(".prompt-send-btn").click();
+
+    // The optimistic turn and progress state must appear before the create/send
+    // round-trip finishes; otherwise the new-session screen looks unresponsive.
+    await expect(page.locator(".pending-reply")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".message-turn-user").filter({ hasText: marker })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".message-timeline-welcome")).toHaveCount(0);
+    await messageRequest;
+    await expect(page).toHaveURL(/session=ses_new_from_first_send_1/);
+  });
+
+  test("selecting an existing session exits new-session mode cleanly", async ({ page }) => {
+    await installEventSourceSpy(page);
+    await setupDynamicMocks(page);
+    await page.goto("/?new=1");
+    await page.evaluate(() => sessionStorage.setItem("opman_token", "mock-jwt-token"));
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForSelector(".chat-layout", { timeout: 15_000 });
+
+    await page.locator(".sb-session-title", { hasText: "Test Session" }).first().click();
+    await expect(page).toHaveURL(/session=ses_test_session_001/);
+    await expect(page).not.toHaveURL(/new=1/);
+    await expect(page.locator(".prompt-textarea")).not.toBeDisabled();
   });
 });

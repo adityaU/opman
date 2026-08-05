@@ -67,7 +67,7 @@ export function buildSettingsItems(args: BuildItemsArgs): SettingItem[] {
     { id: "assistant-center", label: "Assistant Center", description: "Open the assistant cockpit", type: "action", icon: <Bot size={14} />, handler: action(onOpenAssistantCenter) },
     { id: "inbox", label: "Inbox", description: "Review items that need your attention", type: "action", icon: <Inbox size={14} />, handler: action(onOpenInbox) },
     { id: "missions", label: "Missions", description: "Track high-level goals above sessions", type: "action", icon: <Target size={14} />, handler: action(onOpenMissions) },
-    { id: "memory", label: "Personal Memory", description: "Store stable preferences and constraints", type: "action", icon: <Brain size={14} />, handler: action(onOpenMemory) },
+    { id: "memory", label: "Session Instructions", description: "Standing guidance sent when a session opens", type: "action", icon: <Brain size={14} />, handler: action(onOpenMemory) },
     { id: "autonomy", label: "Autonomy", description: "Choose how proactive opman may be", type: "action", icon: <Bot size={14} />, handler: action(onOpenAutonomy) },
     { id: "routines", label: "Routines", description: "Manage scheduled and triggered routines", type: "action", icon: <Clock3 size={14} />, handler: action(onOpenRoutines) },
     { id: "delegation", label: "Delegation Board", description: "Track delegated work and linked outputs", type: "action", icon: <Layers size={14} />, handler: action(onOpenDelegation) },

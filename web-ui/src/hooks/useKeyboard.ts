@@ -52,7 +52,15 @@ export function useKeyboard(bindings: KeyBinding[]) {
   }, []);
 }
 
-/** Simple Escape key handler */
+/**
+ * Simple Escape key handler.
+ *
+ * Registered in the capture phase, because the global shortcut table above is
+ * also a capture-phase listener on `document` and calls `stopPropagation()` for
+ * its own Escape binding — which cancels the bubble phase entirely. A listener
+ * on the same node still runs, so capture is what makes Escape reach surfaces
+ * that own their open state locally rather than through the modal registry.
+ */
 export function useEscape(handler: () => void) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
@@ -64,7 +72,7 @@ export function useEscape(handler: () => void) {
         handlerRef.current();
       }
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, []);
 }

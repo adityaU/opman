@@ -139,11 +139,8 @@
 /* ── @agent mention popover ────────────────────────── */
 
 .prompt-at-popover {
+    /* Geometry lives in composer-popover.css, shared by all three surfaces. */
     position: absolute;
-    bottom: calc(100% + 4px);
-    left: var(--space-4);
-    max-width: var(--chat-max-width);
-    width: calc(100% - 2 * var(--space-4));
     backdrop-filter: blur(var(--glass-blur-lg)) saturate(2) brightness(1.1);
     -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(2) brightness(1.1);
     background: linear-gradient(165deg, var(--white-16) 0%, var(--white-4) 100%);
@@ -264,11 +261,8 @@
 }
 
 .slash-popover {
+    /* Geometry lives in composer-popover.css, shared by all three surfaces. */
     position: absolute;
-    bottom: calc(100% + 4px);
-    left: var(--space-4);
-    max-width: var(--chat-max-width);
-    width: calc(100% - 2 * var(--space-4));
     max-height: 300px;
     overflow-y: auto;
     backdrop-filter: blur(var(--glass-blur-lg)) saturate(2) brightness(1.1);
@@ -328,18 +322,16 @@
 }
 
 .slash-popover {
-    border-radius: 22px;
+    border-radius: var(--radius);
     padding: 8px
 }
 
 .slash-popover-item {
     padding: 12px 14px;
-    border-radius: 14px
-}
+    border-radius: var(--radius)}
 
 .prompt-input-wrapper {
-    border-radius: 22px
-}
+    border-radius: var(--radius)}
 
 .prompt-selectors,.prompt-attachments {
     position: relative;
@@ -355,7 +347,7 @@
 .prompt-chip {
     min-height: 26px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface)
 }
@@ -378,7 +370,7 @@
     width: 26px;
     height: 26px;
     padding: 0;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     color: var(--color-text-muted);
@@ -491,11 +483,8 @@
 }
 
 .prompt-queue-panel {
+    /* Geometry lives in composer-popover.css, shared by all three surfaces. */
     position: absolute;
-    bottom: calc(100% + 4px);
-    left: var(--space-4);
-    max-width: var(--chat-max-width);
-    width: calc(100% - 2 * var(--space-4));
     backdrop-filter: blur(var(--glass-blur-lg)) saturate(2) brightness(1.1);
     -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(2) brightness(1.1);
     background: linear-gradient(165deg, var(--white-16) 0%, var(--white-4) 100%);
@@ -559,8 +548,7 @@
     gap: 8px;
     padding: 6px 8px;
     background: var(--white-5);
-    border-radius: var(--radius-md)
-}
+    border-radius: var(--radius-md)}
 
 .prompt-queue-index {
     flex-shrink: 0;
