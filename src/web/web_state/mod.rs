@@ -63,6 +63,9 @@ pub(super) struct WebProject {
 
 /// Inner mutable state protected by `RwLock`.
 pub(super) struct WebStateInner {
+    /// False until every configured project's initial session list is hydrated.
+    /// This prevents an empty first snapshot from being mistaken for a new session.
+    pub(super) startup_ready: bool,
     pub(super) projects: Vec<WebProject>,
     pub(super) active_project: usize,
     /// Panel visibility (sidebar, terminal_pane, neovim_pane, integrated_terminal, git_panel).
@@ -297,6 +300,7 @@ impl WebStateHandle {
         let signals = db.list_signals(100);
 
         WebStateInner {
+            startup_ready: false,
             active_project: 0,
             projects,
             panels: WebPanelVisibility {

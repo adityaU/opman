@@ -224,7 +224,7 @@
 /* ── Sidebar swipe-row opaque background ──────────────────── */
 
 .chat-sidebar .swipe-row-content {
-    background: var(--color-bg-panel, var(--color-bg, #0d1117))
+    background: var(--color-bg-panel)
 }
 
 /* ── Glassy theme refinements ─────────────────────────────── */
@@ -262,7 +262,7 @@ html.flat-theme .sb-ctx-cancel {
 }
 
 html.flat-theme .chat-sidebar .swipe-row-content {
-    background: var(--color-bg-panel, var(--color-surface, #161b22))
+    background: var(--color-bg-panel)
 }
 
 /* Task groups: solid panel surface, opaque lane accent (no translucency). */

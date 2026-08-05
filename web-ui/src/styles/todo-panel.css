@@ -79,17 +79,17 @@
 
 .todo-priority.high {
     color: var(--color-error);
-    background: #e06c751a
+    background: color-mix(in srgb, var(--color-error) 10%, transparent)
 }
 
 .todo-priority.medium {
     color: var(--color-warning);
-    background: #f5a7421a
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent)
 }
 
 .todo-priority.low {
     color: var(--color-info);
-    background: #56b6c21a
+    background: color-mix(in srgb, var(--color-info) 10%, transparent)
 }
 
 .todo-panel-modal {
@@ -342,7 +342,7 @@
 
 .todo-action-btn-danger:hover {
     color: var(--color-error);
-    background: #e06c750d
+    background: color-mix(in srgb, var(--color-error) 5%, transparent)
 }
 
 .todo-edit-input {

@@ -31,6 +31,10 @@ html.light-theme {
     --white-30: rgba(0, 0, 0, .3);
     --white-35: rgba(0, 0, 0, .35);
     --white-40: rgba(0, 0, 0, .4);
+    --white-50: rgba(0, 0, 0, .5);
+    --white-60: rgba(0, 0, 0, .6);
+    --white-70: rgba(0, 0, 0, .7);
+    --white-90: rgba(0, 0, 0, .9);
 
     /* Black-alpha — softer shadows on light backgrounds */
     --black-2: rgba(0, 0, 0, .02);

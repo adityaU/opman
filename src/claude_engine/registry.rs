@@ -44,6 +44,9 @@ pub struct SessionEntry {
     /// Agent to run as (`--agent`), e.g. `plan`, `build`. None = default agent.
     #[serde(default)]
     pub agent: Option<String>,
+    /// Reasoning effort (`--effort low|medium|high`). None = CLI default.
+    #[serde(default)]
+    pub effort: Option<String>,
     /// Per-session permission mode override (`default`, `acceptEdits`,
     /// `bypassPermissions`, `plan`, …). None = engine default. Changeable at runtime.
     #[serde(default)]

@@ -112,7 +112,7 @@
 .context-input-submit {
     padding: var(--space-1) var(--space-3);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-accent);
     border: none;
     border-radius: var(--radius-lg);
     font-size: var(--font-size-2xs);
@@ -131,8 +131,8 @@
 }
 
 .ctx-window-modal {
-    background: var(--color-bg, #1e1e2e);
-    border: 1px solid var(--color-border, #3b3b4f);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg, 12px);
     width: 480px;
     max-width: 95vw;
@@ -140,7 +140,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px #00000080;
+    box-shadow: 0 20px 60px var(--black-50);
     animation: modalSlideIn .15s ease
 }
 
@@ -149,10 +149,10 @@
     align-items: center;
     gap: var(--space-2, 8px);
     padding: var(--space-3, 12px) var(--space-4, 16px);
-    border-bottom: 1px solid var(--color-border, #3b3b4f);
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--font-size-sm, 13px);
     font-weight: 600;
-    color: var(--color-text, #cdd6f4)
+    color: var(--color-text)
 }
 
 .ctx-window-header-actions {
@@ -165,7 +165,7 @@
 .ctx-window-refresh,.ctx-window-close {
     background: none;
     border: none;
-    color: var(--color-text-muted, #888);
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: var(--radius-sm, 4px);
@@ -175,8 +175,8 @@
 }
 
 .ctx-window-refresh:hover,.ctx-window-close:hover {
-    color: var(--color-text, #cdd6f4);
-    background: var(--white-8, rgba(255,255,255,.08))
+    color: var(--color-text);
+    background: var(--white-8)
 }
 
 .ctx-window-loading {
@@ -185,13 +185,13 @@
     justify-content: center;
     gap: var(--space-2, 8px);
     padding: var(--space-6, 24px);
-    color: var(--color-text-muted, #888);
+    color: var(--color-text-muted);
     font-size: var(--font-size-sm, 13px)
 }
 
 .ctx-window-error {
     padding: var(--space-4, 16px);
-    color: var(--color-error, #e06c75);
+    color: var(--color-error);
     text-align: center;
     font-size: var(--font-size-sm, 13px)
 }
@@ -247,19 +247,19 @@
 }
 
 .ctx-summary-label {
-    color: var(--color-text-muted, #888)
+    color: var(--color-text-muted)
 }
 
 .ctx-summary-value {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: var(--color-text, #cdd6f4)
+    color: var(--color-text)
 }
 
 .ctx-summary-estimate {
     margin-top: var(--space-1, 4px);
     font-size: 12px;
-    color: var(--color-text-muted, #888);
+    color: var(--color-text-muted);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -278,7 +278,7 @@
     text-transform: uppercase;
     letter-spacing: .05em;
     font-weight: 600;
-    color: var(--color-text-muted, #888)
+    color: var(--color-text-muted)
 }
 
 .ctx-stacked-bar {
@@ -286,5 +286,5 @@
     height: 8px;
     border-radius: 4px;
     overflow: hidden;
-    background: var(--color-border, #3b3b4f)
+    background: var(--color-border)
 }

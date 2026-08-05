@@ -287,6 +287,26 @@ impl ClaudeEngine {
         }
     }
 
+    /// Set the reasoning effort (`--effort`) used for a session's turns.
+    pub fn set_effort(&self, session_id: &str, effort: &str) {
+        let effort = effort.trim();
+        if effort.is_empty() {
+            return;
+        }
+        let mut changed = false;
+        if let Ok(mut g) = self.reg.lock() {
+            if let Some(e) = g.sessions.get_mut(session_id) {
+                if e.effort.as_deref() != Some(effort) {
+                    e.effort = Some(effort.to_string());
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.save();
+        }
+    }
+
     /// Resolve a requested agent name to a real claude agent for this session's project.
     ///
     /// Kanban lanes and the opencode picker speak opencode agent names (`build`, `plan`,
@@ -819,6 +839,25 @@ impl ClaudeEngine {
             .unwrap_or(false)
     }
 
+    /// Atomically reserve an idle session for a new turn.
+    pub fn try_reserve_dispatch(&self, session_id: &str) -> bool {
+        let Ok(mut dispatching) = self.dispatching.lock() else {
+            return false;
+        };
+        if dispatching.contains(session_id) {
+            return false;
+        }
+        if self
+            .get_session(session_id)
+            .map(|session| session.busy)
+            .unwrap_or(false)
+        {
+            return false;
+        }
+        dispatching.insert(session_id.to_string());
+        true
+    }
+
     /// Record whether a session currently has an in-flight subagent (set by the tailer
     /// from the transcript). The poller ORs this into busy so the session stays alive
     /// while a subagent runs past the main agent's `state=done`.
@@ -1007,6 +1046,7 @@ impl ClaudeEngine {
                 .and_then(|s| s.agent)
                 .map(|a| self.resolve_agent(session_id, &a))
                 .filter(|a| !a.is_empty()),
+            effort: self.get_session(session_id).and_then(|s| s.effort),
             permission_mode: self.effective_mode(session_id),
             settings_json: self.hook_settings(),
             engine_url: self.url(),
@@ -1035,6 +1075,8 @@ impl ClaudeEngine {
 
         // Guard against a racing dispatch and an over-eager poller until the agent
         // registers; record_turn (or the failure path) clears these.
+        // Normal dispatches reserve this before calling spawn_turn. Keep this
+        // insertion for internal callers that invoke spawn_turn directly.
         if let Ok(mut d) = self.dispatching.lock() {
             d.insert(session_id.clone());
         }

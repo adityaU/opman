@@ -115,6 +115,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
         git_panel: false,
     };
     let with = WebAppState {
+        startup_ready: true,
         projects: vec![],
         active_project: 1,
         panels: panels.clone(),
@@ -131,6 +132,7 @@ fn web_app_state_serialize_with_and_without_instance_name() {
     let _ = with.clone();
 
     let without = WebAppState {
+        startup_ready: false,
         projects: vec![],
         active_project: 0,
         panels,

@@ -36,18 +36,19 @@ async fn send_session_message_success() {
 }
 
 #[tokio::test]
-async fn send_session_message_ignores_error_status() {
-    // It never inspects status -> Ok even on 500.
+async fn send_session_message_rejects_error_status() {
     let app = Router::new().route(
         "/session/{id}/message",
         post(|| async { (StatusCode::INTERNAL_SERVER_ERROR, "boom") }),
     );
     let base = spawn(app).await;
     let client = ApiClient::new();
-    assert!(client
+    let err = client
         .send_session_message(&base, "/tmp", "s1", "hi")
         .await
-        .is_ok());
+        .unwrap_err();
+    let message = format!("{err:#}");
+    assert!(message.contains("500") && message.contains("boom"));
 }
 
 #[tokio::test]

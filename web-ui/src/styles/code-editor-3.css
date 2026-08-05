@@ -257,8 +257,8 @@ html.flat-theme .new-session-directory {
 }
 
 html.flat-theme .new-session-model-badge {
-    background: #0064c814;
-    border-color: #0064c826
+    background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
+    border-color: color-mix(in srgb, var(--color-secondary) 15%, transparent)
 }
 
 html.flat-theme .new-session-prompt-card {
@@ -544,8 +544,8 @@ html.flat-theme .document-content td {
 }
 
 .spreadsheet-action-danger:hover {
-    color: var(--color-error, #e55);
-    border-color: var(--color-error, #e55)
+    color: var(--color-error);
+    border-color: var(--color-error)
 }
 
 .spreadsheet-tab-add {
@@ -602,7 +602,7 @@ html.flat-theme .document-content td {
 
 .spreadsheet-tab-close:hover {
     opacity: 1;
-    color: var(--color-error, #e55);
+    color: var(--color-error);
     background: var(--white-6)
 }
 
@@ -717,8 +717,8 @@ html.flat-theme .spreadsheet-action-btn:hover {
 }
 
 html.flat-theme .spreadsheet-action-danger:hover {
-    color: var(--color-error, #e55);
-    border-color: var(--color-error, #e55)
+    color: var(--color-error);
+    border-color: var(--color-error)
 }
 
 html.flat-theme .spreadsheet-tab-group.active {

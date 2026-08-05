@@ -161,6 +161,9 @@ async fn send_message(
     if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
         engine.set_agent(&id, agent);
     }
+    if let Some(effort) = body.get("effort").and_then(|e| e.as_str()) {
+        engine.set_effort(&id, effort);
+    }
     if let Some(permission) = body.get("permission").and_then(|p| p.as_str()) {
         engine.set_permission_mode(&id, permission);
     }

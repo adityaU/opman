@@ -6,7 +6,7 @@ Block types:
 - kv: key-value pairs list
 - status: status indicator with label and level (info/success/warning/error)
 - progress: progress bar with label and percentage
-- alert: highlighted alert message with level
+- alert: highlighted alert message. Use `data.level` (`info`, `success`, `warning`, or `error`) and put the visible text in `data.message` (not `body` or `title`), for example `{"level":"warning","message":"Deployment is pending approval."}`
 - button: clickable action button (sends callback)
 - form: input form with fields (sends callback)
 - markdown: rendered markdown content
@@ -49,6 +49,8 @@ Delta updates: Use `render_id` to assign a stable identity to a render. Subseque
 This enables step-by-step progress rendering, streaming dashboards, and other evolving UI patterns without creating duplicate accordions.
 
 Payload rules:
+- For `alert`, always provide a non-empty string `data.message`; `data.content` is accepted as a compatibility fallback, but `body` and `title` are not rendered as alert text.
+- For `status`, provide `data.label` and `data.level`; optional detail text belongs in `data.detail`.
 - `list.data.items` MUST be an array of objects, for example `[{"text":"Build passed"}]`; do not use bare strings.
 - For key/value summaries prefer `table` with `data.columns` and `data.rows`, for example `{"columns":["Key","Value"],"rows":[["Build","Passed"]]}`.
 - Do not pass arbitrary key/value objects directly as `kv.data`; use the documented `items` shape or a `table`.

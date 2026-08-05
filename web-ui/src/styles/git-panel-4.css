@@ -4,14 +4,14 @@
     gap: 16px;
     margin-bottom: 12px;
     font-size: 12px;
-    color: var(--color-accent, #7c3aed);
+    color: var(--color-accent);
     font-weight: 600
 }
 
 .pr-description-commits h4 {
     margin: 0 0 6px;
     font-size: 12px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .pr-description-commits ul {
@@ -23,13 +23,13 @@
 .pr-description-commits li {
     padding: 3px 0;
     font-size: 11px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     line-height: 1.4
 }
 
 .pr-description-commits code {
     font-family: var(--font-mono, "JetBrains Mono", monospace);
-    color: var(--color-accent, #7c3aed);
+    color: var(--color-accent);
     font-size: 11px;
     margin-right: 6px
 }
@@ -40,9 +40,9 @@
     gap: 6px;
     margin-top: 12px;
     padding: 8px 10px;
-    background: #7c3aed1a;
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     border-radius: 4px;
-    color: var(--color-accent, #7c3aed);
+    color: var(--color-accent);
     font-size: 11px
 }
 
@@ -210,8 +210,8 @@
     height: 16px;
     padding: 0 4px;
     border-radius: 8px;
-    background: var(--color-warning, #f5a742);
-    color: #000;
+    background: var(--color-warning);
+    color: var(--color-on-accent);
     font-size: 10px;
     font-weight: 600
 }
@@ -246,7 +246,7 @@ html.flat-theme .git-repo-item:hover {
     right: 0;
     bottom: 0;
     left: 0;
-    background: #0009;
+    background: var(--black-60);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -254,15 +254,15 @@ html.flat-theme .git-repo-item:hover {
 }
 
 .pr-branch-picker {
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #333);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     width: 90%;
     max-width: 400px;
     max-height: 60vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 32px #00000080;
+    box-shadow: 0 8px 32px var(--black-50);
     overflow: hidden
 }
 
@@ -271,10 +271,10 @@ html.flat-theme .git-repo-item:hover {
     align-items: center;
     gap: 6px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--color-border, #333);
+    border-bottom: 1px solid var(--color-border);
     font-size: 12px;
     font-weight: 600;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .pr-branch-picker-header span {
@@ -293,7 +293,7 @@ html.flat-theme .git-repo-item:hover {
 .pr-branch-picker-close {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 2px;
     border-radius: 4px;
@@ -301,8 +301,8 @@ html.flat-theme .git-repo-item:hover {
 }
 
 .pr-branch-picker-close:hover {
-    color: var(--color-text, #e6edf3);
-    background: var(--color-border, #333)
+    color: var(--color-text);
+    background: var(--color-border)
 }
 
 .pr-branch-picker-search {
@@ -310,7 +310,7 @@ html.flat-theme .git-repo-item:hover {
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    border-bottom: 1px solid var(--color-border-subtle, #222);
+    border-bottom: 1px solid var(--color-border-subtle);
     color: var(--color-text-muted)
 }
 
@@ -351,7 +351,7 @@ html.flat-theme .git-repo-item:hover {
 }
 
 .pr-branch-picker-item:hover:not(:disabled) {
-    background: var(--white-6, #ffffff0f)
+    background: var(--white-6)
 }
 
 .pr-branch-picker-item:disabled {
@@ -360,7 +360,7 @@ html.flat-theme .git-repo-item:hover {
 }
 
 .pr-branch-picker-item.suggested {
-    color: var(--color-accent, #7c3aed)
+    color: var(--color-accent)
 }
 
 .pr-branch-picker-item-name {
@@ -377,8 +377,8 @@ html.flat-theme .git-repo-item:hover {
     text-transform: uppercase;
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--color-accent, #7c3aed);
-    color: var(--color-bg, #000);
+    background: var(--color-accent);
+    color: var(--color-bg);
     flex-shrink: 0;
     letter-spacing: .5px
 }

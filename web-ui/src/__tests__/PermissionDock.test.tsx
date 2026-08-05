@@ -76,21 +76,38 @@ describe("PermissionDock", () => {
     expect(container.querySelector(".permission-desc")).toBeNull();
   });
 
-  it("renders args when provided", () => {
+  it("renders structured details instead of raw JSON when metadata is provided", () => {
     render(
       <PermissionDock
-        permissions={[makePerm({ metadata: { cmd: "ls -la" } })]}
+        permissions={[makePerm({ metadata: { command: "ls -la", cwd: "/workspace" } })]}
         onReply={onReply}
       />
     );
-    expect(screen.getByText(/"cmd": "ls -la"/)).toBeTruthy();
+    expect(screen.getByText("ls -la")).toBeTruthy();
+    expect(screen.getByText("/workspace")).toBeTruthy();
+    expect(document.querySelector(".permission-args")).toBeNull();
   });
 
-  it("does not render args when empty object", () => {
+  it("renders Codex approval metadata as readable options", () => {
+    render(
+      <PermissionDock
+        permissions={[makePerm({ metadata: {
+          availableDecisions: ["accept", { acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm test"] } }],
+          command: "npm test",
+        } })]}
+        onReply={onReply}
+      />
+    );
+    expect(screen.getByText("Allow once")).toBeTruthy();
+    expect(screen.getByText("Allow with policy update")).toBeTruthy();
+    expect(screen.getByText("npm test")).toBeTruthy();
+  });
+
+  it("does not render details when metadata is empty", () => {
     const { container } = render(
       <PermissionDock permissions={[makePerm({ metadata: {} })]} onReply={onReply} />
     );
-    expect(container.querySelector(".permission-args")).toBeNull();
+    expect(container.querySelector(".permission-details")).toBeNull();
   });
 
   // ── Button clicks ────────────────────────────────────
@@ -165,6 +182,12 @@ describe("PermissionDock", () => {
     const card = document.querySelector(".permission-card")!;
     fireEvent.keyDown(card, { key: "r" });
     expect(onReply).toHaveBeenCalledWith("pk", "reject");
+  });
+
+  it("does not let card shortcuts override button keyboard activation", () => {
+    render(<PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />);
+    fireEvent.keyDown(screen.getByLabelText("Always allow"), { key: "Enter" });
+    expect(onReply).not.toHaveBeenCalled();
   });
 
   it("renders three action buttons", () => {

@@ -183,11 +183,11 @@
 .new-session-model-badge {
     font-family: var(--font-mono);
     font-size: var(--font-size-2xs);
-    background: rgba(var(--color-accent-rgb, 88, 166, 255),.12);
-    border: .5px solid rgba(var(--color-accent-rgb, 88, 166, 255),.2);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border: .5px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
     border-radius: var(--radius-full);
     padding: 2px 10px;
-    color: var(--color-accent, #58a6ff)
+    color: var(--color-accent)
 }
 
 .new-session-prompts {
@@ -227,7 +227,7 @@
 
 .new-session-prompt-card:hover .new-session-prompt-icon {
     opacity: 1;
-    color: var(--color-accent, #58a6ff)
+    color: var(--color-accent)
 }
 
 @media(max-width: 600px) {

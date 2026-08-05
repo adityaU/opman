@@ -32,7 +32,7 @@
        system status bar and the app content on Android / iOS. */
     .chat-layout,
     .chat-main {
-        background: var(--color-bg, #0B0E14)
+        background: var(--color-bg)
     }
 
     .chat-mobile-header {

@@ -358,7 +358,7 @@
    tagged "BACKGROUND" and keyed to the warning/amber accent so it reads as a
    detached, long-running side-task — distinct from a subagent. */
 .background-task {
-    --bg-task-accent: var(--color-warning, #f5a742);
+    --bg-task-accent: var(--color-warning);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     margin-top: var(--space-2);

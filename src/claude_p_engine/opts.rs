@@ -85,6 +85,7 @@ impl ClaudePEngine {
                 .and_then(|s| s.agent.clone())
                 .map(|a| self.resolve_agent(session_id, &a))
                 .filter(|a| !a.is_empty()),
+            effort: s.as_ref().and_then(|s| s.effort.clone()),
             permission_mode: self.effective_mode(session_id),
             settings_json: self.hook_settings(),
             engine_url: self.url(),

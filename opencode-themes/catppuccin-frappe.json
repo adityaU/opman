@@ -1,233 +1,307 @@
 {
   "$schema": "https://opencode.ai/theme.json",
   "defs": {
-    "frappeRosewater": "#f2d5cf",
-    "frappeFlamingo": "#eebebe",
-    "frappePink": "#f4b8e4",
-    "frappeMauve": "#ca9ee6",
-    "frappeRed": "#e78284",
-    "frappeMaroon": "#ea999c",
-    "frappePeach": "#ef9f76",
-    "frappeYellow": "#e5c890",
-    "frappeGreen": "#a6d189",
-    "frappeTeal": "#81c8be",
-    "frappeSky": "#99d1db",
-    "frappeSapphire": "#85c1dc",
-    "frappeBlue": "#8da4e2",
-    "frappeLavender": "#babbf1",
-    "frappeText": "#c6d0f5",
-    "frappeSubtext1": "#b5bfe2",
-    "frappeSubtext0": "#a5adce",
-    "frappeOverlay2": "#949cb8",
-    "frappeOverlay1": "#838ba7",
-    "frappeOverlay0": "#737994",
-    "frappeSurface2": "#626880",
-    "frappeSurface1": "#51576d",
-    "frappeSurface0": "#414559",
-    "frappeBase": "#303446",
-    "frappeMantle": "#292c3c",
-    "frappeCrust": "#232634"
+    "darkPrimary": "#8da4e2",
+    "lightPrimary": "#5c71af",
+    "darkSecondary": "#ca9ee6",
+    "lightSecondary": "#80559b",
+    "darkAccent": "#f4b8e4",
+    "lightAccent": "#975e89",
+    "darkError": "#e78284",
+    "lightError": "#b45055",
+    "darkWarning": "#e5c890",
+    "lightWarning": "#8c7036",
+    "darkSuccess": "#a6d189",
+    "lightSuccess": "#598239",
+    "darkInfo": "#81c8be",
+    "lightInfo": "#37837a",
+    "darkText": "#c6d0f5",
+    "lightText": "#0e132d",
+    "darkTextMuted": "#b5bfe2",
+    "lightTextMuted": "#5b6283",
+    "darkBackground": "#303446",
+    "lightBackground": "#eff1f5",
+    "darkBackgroundPanel": "#282c3f",
+    "lightBackgroundPanel": "#e8eaee",
+    "darkBackgroundElement": "#212437",
+    "lightBackgroundElement": "#dee0e5",
+    "darkBorder": "#505569",
+    "lightBorder": "#b8bdd2",
+    "darkBorderActive": "#6f758d",
+    "lightBorderActive": "#8d93a7",
+    "darkBorderSubtle": "#404458",
+    "lightBorderSubtle": "#d2d6e5",
+    "darkDiffAdded": "#a6d189",
+    "lightDiffAdded": "#476e25",
+    "darkDiffRemoved": "#f58f90",
+    "lightDiffRemoved": "#a54349",
+    "darkDiffContext": "#98a0bc",
+    "lightDiffContext": "#2b3148",
+    "darkDiffHunkHeader": "#ef9f76",
+    "lightDiffHunkHeader": "#aa5d32",
+    "darkDiffHighlightAdded": "#a6d189",
+    "lightDiffHighlightAdded": "#476e25",
+    "darkDiffHighlightRemoved": "#f58f90",
+    "lightDiffHighlightRemoved": "#a54349",
+    "darkDiffAddedBg": "#374937",
+    "lightDiffAddedBg": "#d0e6d0",
+    "darkDiffRemovedBg": "#573937",
+    "lightDiffRemovedBg": "#fcd7d3",
+    "darkDiffContextBg": "#37383e",
+    "lightDiffContextBg": "#eaecf0",
+    "darkDiffLineNumber": "#7b8299",
+    "lightDiffLineNumber": "#6d738c",
+    "darkDiffAddedLineNumberBg": "#385439",
+    "lightDiffAddedLineNumberBg": "#bfdfbf",
+    "darkDiffRemovedLineNumberBg": "#673d39",
+    "lightDiffRemovedLineNumberBg": "#fcc8c3",
+    "darkMarkdownText": "#c6d0f5",
+    "lightMarkdownText": "#0e132d",
+    "darkMarkdownHeading": "#ca9ee6",
+    "lightMarkdownHeading": "#81559c",
+    "darkMarkdownLink": "#8da4e2",
+    "lightMarkdownLink": "#5c71af",
+    "darkMarkdownLinkText": "#99d1db",
+    "lightMarkdownLinkText": "#447f88",
+    "darkMarkdownCode": "#a6d189",
+    "lightMarkdownCode": "#598139",
+    "darkMarkdownBlockQuote": "#e5c890",
+    "lightMarkdownBlockQuote": "#8c7036",
+    "darkMarkdownEmph": "#e5c890",
+    "lightMarkdownEmph": "#8a6f35",
+    "darkMarkdownStrong": "#ef9f76",
+    "lightMarkdownStrong": "#a65a2f",
+    "darkMarkdownHorizontalRule": "#a5adce",
+    "lightMarkdownHorizontalRule": "#abb0c5",
+    "darkMarkdownListItem": "#8da4e2",
+    "lightMarkdownListItem": "#5c70ae",
+    "darkMarkdownListEnumeration": "#99d1db",
+    "lightMarkdownListEnumeration": "#447f88",
+    "darkMarkdownImage": "#8da4e2",
+    "lightMarkdownImage": "#5c71af",
+    "darkMarkdownImageText": "#99d1db",
+    "lightMarkdownImageText": "#447f88",
+    "darkMarkdownCodeBlock": "#c6d0f5",
+    "lightMarkdownCodeBlock": "#697193",
+    "darkSyntaxComment": "#949cb8",
+    "lightSyntaxComment": "#6b738f",
+    "darkSyntaxKeyword": "#ca9ee6",
+    "lightSyntaxKeyword": "#8b5fa6",
+    "darkSyntaxFunction": "#8da4e2",
+    "lightSyntaxFunction": "#5c71af",
+    "darkSyntaxVariable": "#e78284",
+    "lightSyntaxVariable": "#b45055",
+    "darkSyntaxString": "#a6d189",
+    "lightSyntaxString": "#598139",
+    "darkSyntaxNumber": "#ef9f76",
+    "lightSyntaxNumber": "#aa5d32",
+    "darkSyntaxType": "#e5c890",
+    "lightSyntaxType": "#8c7036",
+    "darkSyntaxOperator": "#99d1db",
+    "lightSyntaxOperator": "#447f88",
+    "darkSyntaxPunctuation": "#c6d0f5",
+    "lightSyntaxPunctuation": "#6a7395"
   },
   "theme": {
     "primary": {
-      "dark": "frappeBlue",
-      "light": "frappeBlue"
+      "dark": "darkPrimary",
+      "light": "lightPrimary"
     },
     "secondary": {
-      "dark": "frappeMauve",
-      "light": "frappeMauve"
+      "dark": "darkSecondary",
+      "light": "lightSecondary"
     },
     "accent": {
-      "dark": "frappePink",
-      "light": "frappePink"
+      "dark": "darkAccent",
+      "light": "lightAccent"
     },
     "error": {
-      "dark": "frappeRed",
-      "light": "frappeRed"
+      "dark": "darkError",
+      "light": "lightError"
     },
     "warning": {
-      "dark": "frappeYellow",
-      "light": "frappeYellow"
+      "dark": "darkWarning",
+      "light": "lightWarning"
     },
     "success": {
-      "dark": "frappeGreen",
-      "light": "frappeGreen"
+      "dark": "darkSuccess",
+      "light": "lightSuccess"
     },
     "info": {
-      "dark": "frappeTeal",
-      "light": "frappeTeal"
+      "dark": "darkInfo",
+      "light": "lightInfo"
     },
     "text": {
-      "dark": "frappeText",
-      "light": "frappeText"
+      "dark": "darkText",
+      "light": "lightText"
     },
     "textMuted": {
-      "dark": "frappeSubtext1",
-      "light": "frappeSubtext1"
+      "dark": "darkTextMuted",
+      "light": "lightTextMuted"
     },
     "background": {
-      "dark": "frappeBase",
-      "light": "frappeBase"
+      "dark": "darkBackground",
+      "light": "lightBackground"
     },
     "backgroundPanel": {
-      "dark": "frappeMantle",
-      "light": "frappeMantle"
+      "dark": "darkBackgroundPanel",
+      "light": "lightBackgroundPanel"
     },
     "backgroundElement": {
-      "dark": "frappeCrust",
-      "light": "frappeCrust"
+      "dark": "darkBackgroundElement",
+      "light": "lightBackgroundElement"
     },
     "border": {
-      "dark": "frappeSurface0",
-      "light": "frappeSurface0"
+      "dark": "darkBorder",
+      "light": "lightBorder"
     },
     "borderActive": {
-      "dark": "frappeSurface1",
-      "light": "frappeSurface1"
+      "dark": "darkBorderActive",
+      "light": "lightBorderActive"
     },
     "borderSubtle": {
-      "dark": "frappeSurface2",
-      "light": "frappeSurface2"
+      "dark": "darkBorderSubtle",
+      "light": "lightBorderSubtle"
     },
     "diffAdded": {
-      "dark": "frappeGreen",
-      "light": "frappeGreen"
+      "dark": "darkDiffAdded",
+      "light": "lightDiffAdded"
     },
     "diffRemoved": {
-      "dark": "frappeRed",
-      "light": "frappeRed"
+      "dark": "darkDiffRemoved",
+      "light": "lightDiffRemoved"
     },
     "diffContext": {
-      "dark": "frappeOverlay2",
-      "light": "frappeOverlay2"
+      "dark": "darkDiffContext",
+      "light": "lightDiffContext"
     },
     "diffHunkHeader": {
-      "dark": "frappePeach",
-      "light": "frappePeach"
+      "dark": "darkDiffHunkHeader",
+      "light": "lightDiffHunkHeader"
     },
     "diffHighlightAdded": {
-      "dark": "frappeGreen",
-      "light": "frappeGreen"
+      "dark": "darkDiffHighlightAdded",
+      "light": "lightDiffHighlightAdded"
     },
     "diffHighlightRemoved": {
-      "dark": "frappeRed",
-      "light": "frappeRed"
+      "dark": "darkDiffHighlightRemoved",
+      "light": "lightDiffHighlightRemoved"
     },
     "diffAddedBg": {
-      "dark": "#29342b",
-      "light": "#29342b"
+      "dark": "darkDiffAddedBg",
+      "light": "lightDiffAddedBg"
     },
     "diffRemovedBg": {
-      "dark": "#3a2a31",
-      "light": "#3a2a31"
+      "dark": "darkDiffRemovedBg",
+      "light": "lightDiffRemovedBg"
     },
     "diffContextBg": {
-      "dark": "frappeMantle",
-      "light": "frappeMantle"
+      "dark": "darkDiffContextBg",
+      "light": "lightDiffContextBg"
     },
     "diffLineNumber": {
-      "dark": "frappeSurface1",
-      "light": "frappeSurface1"
+      "dark": "darkDiffLineNumber",
+      "light": "lightDiffLineNumber"
     },
     "diffAddedLineNumberBg": {
-      "dark": "#223025",
-      "light": "#223025"
+      "dark": "darkDiffAddedLineNumberBg",
+      "light": "lightDiffAddedLineNumberBg"
     },
     "diffRemovedLineNumberBg": {
-      "dark": "#2f242b",
-      "light": "#2f242b"
+      "dark": "darkDiffRemovedLineNumberBg",
+      "light": "lightDiffRemovedLineNumberBg"
     },
     "markdownText": {
-      "dark": "frappeText",
-      "light": "frappeText"
+      "dark": "darkMarkdownText",
+      "light": "lightMarkdownText"
     },
     "markdownHeading": {
-      "dark": "frappeMauve",
-      "light": "frappeMauve"
+      "dark": "darkMarkdownHeading",
+      "light": "lightMarkdownHeading"
     },
     "markdownLink": {
-      "dark": "frappeBlue",
-      "light": "frappeBlue"
+      "dark": "darkMarkdownLink",
+      "light": "lightMarkdownLink"
     },
     "markdownLinkText": {
-      "dark": "frappeSky",
-      "light": "frappeSky"
+      "dark": "darkMarkdownLinkText",
+      "light": "lightMarkdownLinkText"
     },
     "markdownCode": {
-      "dark": "frappeGreen",
-      "light": "frappeGreen"
+      "dark": "darkMarkdownCode",
+      "light": "lightMarkdownCode"
     },
     "markdownBlockQuote": {
-      "dark": "frappeYellow",
-      "light": "frappeYellow"
+      "dark": "darkMarkdownBlockQuote",
+      "light": "lightMarkdownBlockQuote"
     },
     "markdownEmph": {
-      "dark": "frappeYellow",
-      "light": "frappeYellow"
+      "dark": "darkMarkdownEmph",
+      "light": "lightMarkdownEmph"
     },
     "markdownStrong": {
-      "dark": "frappePeach",
-      "light": "frappePeach"
+      "dark": "darkMarkdownStrong",
+      "light": "lightMarkdownStrong"
     },
     "markdownHorizontalRule": {
-      "dark": "frappeSubtext0",
-      "light": "frappeSubtext0"
+      "dark": "darkMarkdownHorizontalRule",
+      "light": "lightMarkdownHorizontalRule"
     },
     "markdownListItem": {
-      "dark": "frappeBlue",
-      "light": "frappeBlue"
+      "dark": "darkMarkdownListItem",
+      "light": "lightMarkdownListItem"
     },
     "markdownListEnumeration": {
-      "dark": "frappeSky",
-      "light": "frappeSky"
+      "dark": "darkMarkdownListEnumeration",
+      "light": "lightMarkdownListEnumeration"
     },
     "markdownImage": {
-      "dark": "frappeBlue",
-      "light": "frappeBlue"
+      "dark": "darkMarkdownImage",
+      "light": "lightMarkdownImage"
     },
     "markdownImageText": {
-      "dark": "frappeSky",
-      "light": "frappeSky"
+      "dark": "darkMarkdownImageText",
+      "light": "lightMarkdownImageText"
     },
     "markdownCodeBlock": {
-      "dark": "frappeText",
-      "light": "frappeText"
+      "dark": "darkMarkdownCodeBlock",
+      "light": "lightMarkdownCodeBlock"
     },
     "syntaxComment": {
-      "dark": "frappeOverlay2",
-      "light": "frappeOverlay2"
+      "dark": "darkSyntaxComment",
+      "light": "lightSyntaxComment"
     },
     "syntaxKeyword": {
-      "dark": "frappeMauve",
-      "light": "frappeMauve"
+      "dark": "darkSyntaxKeyword",
+      "light": "lightSyntaxKeyword"
     },
     "syntaxFunction": {
-      "dark": "frappeBlue",
-      "light": "frappeBlue"
+      "dark": "darkSyntaxFunction",
+      "light": "lightSyntaxFunction"
     },
     "syntaxVariable": {
-      "dark": "frappeRed",
-      "light": "frappeRed"
+      "dark": "darkSyntaxVariable",
+      "light": "lightSyntaxVariable"
     },
     "syntaxString": {
-      "dark": "frappeGreen",
-      "light": "frappeGreen"
+      "dark": "darkSyntaxString",
+      "light": "lightSyntaxString"
     },
     "syntaxNumber": {
-      "dark": "frappePeach",
-      "light": "frappePeach"
+      "dark": "darkSyntaxNumber",
+      "light": "lightSyntaxNumber"
     },
     "syntaxType": {
-      "dark": "frappeYellow",
-      "light": "frappeYellow"
+      "dark": "darkSyntaxType",
+      "light": "lightSyntaxType"
     },
     "syntaxOperator": {
-      "dark": "frappeSky",
-      "light": "frappeSky"
+      "dark": "darkSyntaxOperator",
+      "light": "lightSyntaxOperator"
     },
     "syntaxPunctuation": {
-      "dark": "frappeText",
-      "light": "frappeText"
+      "dark": "darkSyntaxPunctuation",
+      "light": "lightSyntaxPunctuation"
     }
   }
 }

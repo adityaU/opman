@@ -23,16 +23,16 @@ export function stateColor(state: MissionState): string {
   switch (state) {
     case "executing":
     case "evaluating":
-      return "var(--color-info, #5c8fff)";
+      return "var(--color-info)";
     case "paused":
-      return "var(--color-warning, #e6a817)";
+      return "var(--color-warning)";
     case "completed":
-      return "var(--color-success, #4caf50)";
+      return "var(--color-success)";
     case "failed":
     case "cancelled":
-      return "var(--color-error, #e05252)";
+      return "var(--color-error)";
     default:
-      return "var(--color-text-muted, #999)";
+      return "var(--color-text-muted)";
   }
 }
 

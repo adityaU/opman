@@ -255,7 +255,7 @@ export function AssistantCenterModal({
               <span style={{
                 fontSize: "11px",
                 fontWeight: 500,
-                background: "var(--color-muted, rgba(128,128,128,0.15))",
+                background: "color-mix(in srgb, var(--color-text-muted) 15%, transparent)",
                 color: "var(--color-text)",
                 borderRadius: "8px",
                 padding: "1px 7px",
@@ -289,11 +289,11 @@ export function AssistantCenterModal({
                     padding: "1px 5px",
                     borderRadius: "4px",
                     background: routine.trigger === "scheduled"
-                      ? "rgba(59,130,246,0.12)"
-                      : "rgba(128,128,128,0.12)",
+                      ? "color-mix(in srgb, var(--color-info) 12%, transparent)"
+                      : "color-mix(in srgb, var(--color-text-muted) 12%, transparent)",
                     color: routine.trigger === "scheduled"
-                      ? "var(--color-info, #3b82f6)"
-                      : "var(--color-muted, #888)",
+                      ? "var(--color-info)"
+                      : "var(--color-text-muted)",
                     whiteSpace: "nowrap",
                     flexShrink: 0,
                   }}>
@@ -302,7 +302,7 @@ export function AssistantCenterModal({
                   {routine.trigger === "scheduled" && routine.cron_expr && (
                     <span style={{
                       fontSize: "10px",
-                      color: "var(--color-muted, #888)",
+                      color: "var(--color-text-muted)",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
                       display: "flex",

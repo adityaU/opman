@@ -1,0 +1,155 @@
+/* Mobile chat rail: identity first, command access second. */
+@media (max-width: 768px) {
+    .chat-mobile-header {
+        min-height: 68px;
+        padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+        gap: 10px;
+        border-bottom: 1px solid var(--ui-border-soft, var(--color-border-subtle));
+        background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+        backdrop-filter: blur(18px) saturate(1.15);
+        -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    }
+
+    .mobile-status-pill {
+        min-width: 0;
+        min-height: 46px;
+        flex: 1 1 auto;
+        gap: 9px;
+        padding: 6px 10px 6px 7px;
+        border: 1px solid var(--ui-border, var(--color-border-subtle));
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--theme-surface-1, var(--color-bg-panel)) 88%, transparent);
+        box-shadow: 0 5px 16px color-mix(in srgb, #000 12%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+    }
+
+    .mobile-status-pill:focus-visible,
+    .mobile-cmd-btn:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    .mobile-project-glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 32px;
+        border-radius: 10px;
+        color: var(--color-primary);
+        background: color-mix(in srgb, var(--color-primary) 13%, var(--color-bg-element));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+    }
+
+    .mobile-pill-icon { color: inherit; }
+
+    .mobile-project-copy {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+        line-height: 1.1;
+    }
+
+    .mobile-project-label {
+        color: var(--color-text-muted);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: .1em;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+
+    .mobile-project-name {
+        max-width: 100%;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -.015em;
+        line-height: 1.25;
+    }
+
+    .mobile-project-session {
+        display: block;
+        max-width: min(28vw, 150px);
+        overflow: hidden;
+        color: var(--color-text-muted);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mobile-pill-busy {
+        width: 7px;
+        height: 7px;
+        margin-left: 1px;
+    }
+
+    .mobile-project-chevron {
+        flex: 0 0 auto;
+        color: var(--color-text-muted);
+    }
+
+    .mobile-cmd-btn {
+        display: inline-flex;
+        width: auto;
+        min-width: 92px;
+        height: 46px;
+        gap: 7px;
+        padding: 0 9px;
+        border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
+        border-radius: 14px;
+        color: var(--color-primary);
+        background: color-mix(in srgb, var(--color-primary) 10%, var(--theme-surface-1, var(--color-bg-panel)));
+        box-shadow: 0 5px 16px color-mix(in srgb, #000 10%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+    }
+
+    .mobile-cmd-btn:active {
+        transform: translateY(1px) scale(.97);
+        background: color-mix(in srgb, var(--color-primary) 16%, var(--theme-surface-1, var(--color-bg-panel)));
+    }
+
+    .mobile-cmd-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mobile-cmd-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -.01em;
+    }
+
+}
+
+@media (max-width: 400px) {
+    .mobile-project-session { display: none; }
+    .mobile-cmd-btn { min-width: 48px; width: 48px; padding: 0; }
+    .mobile-cmd-label { display: none; }
+}
+
+@media (max-width: 768px) {
+    html.flat-theme .chat-mobile-header {
+        background: var(--color-bg);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    html.flat-theme .mobile-status-pill,
+    html.flat-theme .mobile-cmd-btn {
+        background: var(--theme-surface-1, var(--color-bg-panel));
+        box-shadow: none;
+    }
+
+    html.flat-theme .mobile-project-glyph {
+        background: var(--theme-primary-soft, var(--color-bg-element));
+        box-shadow: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mobile-status-pill,
+    .mobile-cmd-btn { transition: none; }
+}

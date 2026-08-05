@@ -32,6 +32,13 @@ import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 import { appNavigate } from "./utils/navigation";
 import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
+import { StartupGate } from "./StartupGate";
+
+function defaultPermissionForRunner(runner: string): string {
+  if (runner === "claude" || runner === "claude-code") return "default";
+  if (runner === "codex") return "on-request";
+  return "default";
+}
 
 export function ChatLayout() {
   // ── Core SSE state ──
@@ -109,14 +116,17 @@ export function ChatLayout() {
   const providers = useProviders(currentRunner);
   const currentSettings = runnerSettings[currentRunner] || {
     effort: null,
-    permission: currentRunner === "claude" || currentRunner === "claude-code" ? "default" : currentRunner === "codex" ? "on-request" : "default",
+    permission: defaultPermissionForRunner(currentRunner),
   };
   const setRunnerSetting = useCallback((patch: Partial<{ effort: string | null; permission: string }>) => {
     setRunnerSettings((current) => ({
       ...current,
-      [currentRunner]: { ...currentSettings, ...patch },
+      [currentRunner]: {
+        ...(current[currentRunner] || { effort: null, permission: defaultPermissionForRunner(currentRunner) }),
+        ...patch,
+      },
     }));
-  }, [currentRunner, currentSettings]);
+  }, [currentRunner]);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
@@ -380,7 +390,14 @@ export function ChatLayout() {
   }));
 
   if (!appState) {
-    return <div className="chat-loading"><div className="chat-loading-spinner" /><span>Connecting to opman...</span></div>;
+    return <StartupGate appState={null} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={null} isLoadingMessages={false} providersLoading={providers.loading} />;
+  }
+
+  const startupReady = appState.startup_ready !== false;
+  const liveReady = sse.initialConnectionsReady;
+  const workspaceReady = !activeSessionId || !isLoadingMessages;
+  if (!startupReady || !liveReady || providers.loading || !workspaceReady) {
+    return <StartupGate appState={appState} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={activeSessionId} isLoadingMessages={isLoadingMessages} providersLoading={providers.loading} />;
   }
 
   return (

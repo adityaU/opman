@@ -96,5 +96,5 @@
 
 .chat-sidebar {
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 40%,transparent),transparent 26%),var(--color-bg-panel, var(--color-bg));
-    box-shadow: inset 1px 0 color-mix(in srgb,var(--color-border) 50%,transparent),inset 0 .5px color-mix(in srgb,var(--color-border-subtle) 50%,transparent),3px 0 14px #0000000a
+    box-shadow: inset 1px 0 color-mix(in srgb,var(--color-border) 50%,transparent),inset 0 .5px color-mix(in srgb,var(--color-border-subtle) 50%,transparent),3px 0 14px var(--black-4)
 }

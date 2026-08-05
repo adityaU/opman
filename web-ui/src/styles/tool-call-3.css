@@ -16,10 +16,10 @@
 }
 
 /* ── Variant accents ─────────────────────────────────────────── */
-.tc-read  { --tc-accent: var(--color-info, #60a5fa); }
-.tc-bash  { --tc-accent: var(--color-warning, #f59e0b); }
-.tc-edit  { --tc-accent: color-mix(in srgb, var(--color-secondary, #a78bfa) 90%, transparent); }
-.tc-web   { --tc-accent: var(--color-success, #34d399); }
+.tc-read  { --tc-accent: var(--color-info); }
+.tc-bash  { --tc-accent: var(--color-warning); }
+.tc-edit  { --tc-accent: color-mix(in srgb, var(--color-secondary) 90%, transparent); }
+.tc-web   { --tc-accent: var(--color-success); }
 .tc-glob  { --tc-accent: var(--color-accent); }
 
 /* ── Header (static + clickable variants) ────────────────────── */

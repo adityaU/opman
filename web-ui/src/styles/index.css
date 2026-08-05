@@ -66,6 +66,7 @@
 @import './sidebar-4.css';
 @import './sidebar-5.css';
 @import './status-bar.css';
+@import './startup-gate.css';
 @import './terminal-panel-1.css';
 @import './terminal-panel-2.css';
 @import './theme-selector.css';
@@ -98,3 +99,8 @@
 @import './floating-shell-polish.css';
 @import './panel-layout.css';
 @import './mobile-shell.css';
+@import './mobile-header.css';
+@import './theme-polish.css';
+/* Last: the unified floating-surface contract wins on order, not !important. */
+@import './modal-shell.css';
+@import './modal-content.css';

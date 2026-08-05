@@ -32,6 +32,7 @@ use crate::claude_engine::{claude_cli, jsonl};
 pub(super) struct TurnOpts {
     pub model: Option<String>,
     pub agent: Option<String>,
+    pub effort: Option<String>,
     pub permission_mode: String,
     pub settings_json: String,
     pub engine_url: String,
@@ -155,6 +156,11 @@ async fn spawn(engine: &Arc<ClaudePEngine>, session_id: &str, dir: &str) -> Resu
     if let Some(a) = &opts.agent {
         if !a.is_empty() {
             cmd.arg("--agent").arg(a);
+        }
+    }
+    if let Some(effort) = &opts.effort {
+        if !effort.is_empty() {
+            cmd.arg("--effort").arg(effort);
         }
     }
     if !opts.engine_url.is_empty() {

@@ -8,7 +8,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0000008c;
+    background: var(--black-50);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px)
 }
@@ -20,9 +20,9 @@
     max-width: 92vw;
     max-height: 80vh;
     border-radius: 12px;
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #21262d);
-    box-shadow: 0 12px 48px #00000080;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 12px 48px var(--black-50);
     overflow: hidden
 }
 
@@ -31,28 +31,28 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .activity-feed-header h3 {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .activity-feed-header button {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px
 }
 
 .activity-feed-header button:hover {
-    background: var(--color-hover, #1c2128);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-hover);
+    color: var(--color-text)
 }
 
 .activity-feed-header-right {
@@ -65,8 +65,8 @@
     font-size: 11px;
     padding: 3px 10px;
     border-radius: 6px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-bg, #0d1117);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
     color: var(--color-primary);
     cursor: pointer;
     white-space: nowrap;
@@ -74,7 +74,7 @@
 }
 
 .activity-feed-scroll-btn:hover {
-    background: var(--color-hover, #1c2128)
+    background: var(--color-hover)
 }
 
 .activity-feed-body {
@@ -90,7 +90,7 @@
     align-items: center;
     justify-content: center;
     height: 200px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 13px
 }
 
@@ -104,7 +104,7 @@
 }
 
 .activity-feed-event:hover {
-    background: var(--color-hover, #1c2128)
+    background: var(--color-hover)
 }
 
 .activity-feed-event-icon {
@@ -150,13 +150,13 @@
 }
 
 .activity-feed-event-summary {
-    color: var(--color-text, #e6edf3);
+    color: var(--color-text);
     font-weight: 500;
     line-height: 1.4
 }
 
 .activity-feed-event-detail {
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 11px;
     margin-top: 2px;
     white-space: nowrap;
@@ -166,7 +166,7 @@
 
 .activity-feed-event-time {
     flex-shrink: 0;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 11px;
     margin-top: 2px;
     opacity: .7
@@ -177,9 +177,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    border-top: 1px solid var(--color-border, #21262d);
+    border-top: 1px solid var(--color-border);
     font-size: 11px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .activity-feed-legend {

@@ -8,7 +8,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0000008c;
+    background: var(--black-50);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px)
 }
@@ -20,9 +20,9 @@
     max-width: 92vw;
     max-height: 80vh;
     border-radius: 12px;
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #21262d);
-    box-shadow: 0 12px 48px #00000080;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 12px 48px var(--black-50);
     overflow: hidden
 }
 
@@ -31,28 +31,28 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .notification-prefs-header h3 {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .notification-prefs-header button {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px
 }
 
 .notification-prefs-header button:hover {
-    background: var(--color-hover, #1c2128);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-hover);
+    color: var(--color-text)
 }
 
 .notification-prefs-body {
@@ -68,8 +68,8 @@
     padding: 10px 12px;
     margin-bottom: 12px;
     border-radius: 8px;
-    background: var(--color-surface, #161b22);
-    border: 1px solid var(--color-border, #21262d)
+    background: var(--color-surface);
+    border: 1px solid var(--color-border)
 }
 
 .notification-prefs-permission-info {
@@ -81,7 +81,7 @@
 .notification-prefs-permission-label {
     font-size: 13px;
     font-weight: 500;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .notification-prefs-status {
@@ -98,21 +98,21 @@
 }
 
 .notification-prefs-status.default {
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .notification-prefs-permission button {
     padding: 4px 12px;
     border-radius: 6px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-bg, #0d1117);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text);
     font-size: 12px;
     cursor: pointer
 }
 
 .notification-prefs-permission button:hover {
-    background: var(--color-hover, #1c2128)
+    background: var(--color-hover)
 }
 
 .notification-prefs-item {
@@ -120,7 +120,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 0;
-    border-bottom: 1px solid var(--color-border-subtle, rgba(33, 38, 45, .5))
+    border-bottom: 1px solid var(--color-border-subtle)
 }
 
 .notification-prefs-item:last-child {
@@ -129,12 +129,12 @@
 
 .notification-prefs-item-label {
     font-size: 13px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .notification-prefs-item-desc {
     font-size: 11px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     margin-top: 2px
 }
 
@@ -178,11 +178,11 @@
 .notification-prefs-item-left>svg {
     flex-shrink: 0;
     margin-top: 2px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .notification-prefs-item.master .notification-prefs-item-left>svg {
-    color: var(--color-accent, #7c3aed)
+    color: var(--color-accent)
 }
 
 .notification-prefs-item.disabled {
@@ -193,9 +193,9 @@
 .notification-prefs-grant-btn {
     padding: 4px 12px;
     border-radius: 6px;
-    border: 1px solid var(--color-accent, #7c3aed);
-    background: #7c3aed26;
-    color: var(--color-accent, #7c3aed);
+    border: 1px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -205,14 +205,14 @@
 }
 
 .notification-prefs-grant-btn:hover {
-    background: #7c3aed40
+    background: color-mix(in srgb, var(--color-accent) 25%, transparent)
 }
 
 .notification-prefs-footer {
     padding: 10px 16px;
-    border-top: 1px solid var(--color-border, #21262d);
+    border-top: 1px solid var(--color-border);
     font-size: 11px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     text-align: center
 }
 
@@ -220,7 +220,7 @@
     border-radius: 22px;
     border: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 72%,transparent),transparent),var(--color-bg);
-    box-shadow: 0 12px 40px #00000024,0 4px 14px #00000014
+    box-shadow: 0 12px 40px var(--black-14),0 4px 14px var(--black-8)
 }
 
 .notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.terminal-panel-header,.side-panel-header,.mobile-panel-header {
@@ -276,7 +276,7 @@
 
 .notification-prefs-status,.notification-prefs-badge,.diff-review-badge,.diff-review-pending-badge,.git-tab-badge {
     border-radius: 999px;
-    box-shadow: inset 0 .5px #ffffff08
+    box-shadow: inset 0 .5px var(--white-3)
 }
 
 .notification-prefs-badge {

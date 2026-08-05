@@ -22,6 +22,8 @@ export interface ProjectInfo {
 }
 
 export interface AppState {
+  /** Backend has completed the first session hydration for every project. */
+  startup_ready?: boolean;
   projects: ProjectInfo[];
   active_project: number;
   panels: PanelVisibility;

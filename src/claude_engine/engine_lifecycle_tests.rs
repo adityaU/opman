@@ -251,10 +251,12 @@ fn build_opts_assembles_turn_options() {
     );
     e.set_model(&s.id, "opus");
     e.set_agent(&s.id, "plan");
+    e.set_effort(&s.id, "high");
     e.set_permission_mode(&s.id, "acceptEdits");
     let opts = e.build_opts(&s.id, "/d");
     assert_eq!(opts.model.as_deref(), Some("opus"));
     assert_eq!(opts.agent.as_deref(), Some("Plan"));
+    assert_eq!(opts.effort.as_deref(), Some("high"));
     assert_eq!(opts.permission_mode, "acceptEdits");
     assert!(!opts.settings_json.is_empty());
     assert_eq!(opts.engine_url, "http://engine");

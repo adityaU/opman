@@ -23,6 +23,7 @@ pub struct Session {
     pub claude_uuid: Option<String>,
     pub model: Option<String>,
     pub agent: Option<String>,
+    pub effort: Option<String>,
     pub permission_mode: Option<String>,
     pub allowed_tools: Vec<String>,
     pub busy: bool,
@@ -62,6 +63,8 @@ struct PersistSession {
     #[serde(default)]
     agent: Option<String>,
     #[serde(default)]
+    effort: Option<String>,
+    #[serde(default)]
     permission_mode: Option<String>,
     #[serde(default)]
     title_locked: bool,
@@ -79,6 +82,7 @@ impl From<&Session> for PersistSession {
             claude_uuid: s.claude_uuid.clone(),
             model: s.model.clone(),
             agent: s.agent.clone(),
+            effort: s.effort.clone(),
             permission_mode: s.permission_mode.clone(),
             title_locked: s.title_locked,
         }
@@ -124,6 +128,7 @@ pub fn load_sessions(persist: &Option<PathBuf>) -> HashMap<String, Session> {
                     claude_uuid: p.claude_uuid,
                     model: p.model,
                     agent: p.agent,
+                    effort: p.effort,
                     permission_mode: p.permission_mode,
                     allowed_tools: Vec::new(),
                     busy: false,

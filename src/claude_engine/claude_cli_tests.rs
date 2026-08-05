@@ -71,6 +71,7 @@ fn apply_opts_full_ordering_and_env() {
     let opts = TurnOpts {
         model: Some("opus".into()),
         agent: Some("Plan".into()),
+        effort: Some("high".into()),
         permission_mode: "acceptEdits".into(),
         settings_json: "{\"s\":1}".into(),
         engine_url: "http://127.0.0.1:9".into(),
@@ -92,6 +93,8 @@ fn apply_opts_full_ordering_and_env() {
             "opus",
             "--agent",
             "Plan",
+            "--effort",
+            "high",
         ]
     );
     let envs: std::collections::HashMap<String, Option<String>> = cmd

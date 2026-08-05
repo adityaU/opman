@@ -48,7 +48,7 @@
 }
 
 .sb-dir-browser-entry-star {
-    color: var(--color-warning, #f59e0b);
+    color: var(--color-warning);
     flex-shrink: 0;
     opacity: .8
 }
@@ -77,7 +77,7 @@
 
 .sb-dir-browser-entry-add:hover:not(:disabled) {
     background: var(--color-primary);
-    color: #fff
+    color: var(--color-on-accent)
 }
 
 .sb-dir-browser-entry-add:disabled {
@@ -142,7 +142,7 @@
 }
 
 .sb-search,.sb-project,.sb-session,.sb-show-more,.sb-context-menu,.sb-modal,.sb-add-project-btn {
-    box-shadow: inset 0 .5px #ffffff08
+    box-shadow: inset 0 .5px var(--white-3)
 }
 
 .sb-search {
@@ -186,7 +186,7 @@
 .sb-session:hover,.sb-session.active {
     border-color: var(--color-border-subtle);
     background: var(--color-surface);
-    box-shadow: 0 10px 24px #00000014
+    box-shadow: 0 10px 24px var(--black-8)
 }
 
 .sb-session-icon {
@@ -204,7 +204,7 @@
     border-radius: 20px;
     border: 1px solid var(--color-border);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent),var(--color-bg);
-    box-shadow: 0 22px 60px #0003
+    box-shadow: 0 22px 60px var(--black-20)
 }
 
 .sb-modal {
@@ -229,7 +229,8 @@
 
 .sb-modal-danger {
     border-color: color-mix(in srgb,var(--color-error) 24%,var(--color-border));
-    background: color-mix(in srgb,var(--color-error) 12%,var(--color-surface))
+    background: color-mix(in srgb,var(--color-error) 12%,var(--color-surface));
+    color: var(--color-error)
 }
 
 .sb-add-project-btn {

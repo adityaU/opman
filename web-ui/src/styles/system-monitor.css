@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0000008c;
+  background: var(--black-50);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -30,9 +30,9 @@
   max-width: 94vw;
   max-height: 84vh;
   border-radius: 14px;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
-  box-shadow: 0 12px 48px #00000080;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 48px var(--black-50);
   overflow: hidden;
 }
 
@@ -43,14 +43,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #21262d);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sysm-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 .sysm-header-left h3 {
@@ -61,16 +61,16 @@
 
 .sysm-host {
   font-size: 11px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-weight: 400;
 }
 
 .sysm-badge {
   font-size: 10px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   padding: 2px 8px;
-  background: var(--color-surface, #161b22);
-  border: 1px solid var(--color-border, #21262d);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   font-family: var(--font-mono);
 }
@@ -87,7 +87,7 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 400;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .sysm-dot {
@@ -111,7 +111,7 @@
 .sysm-header button {
   background: none;
   border: none;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -133,7 +133,7 @@
   align-items: center;
   justify-content: center;
   padding: 28px 16px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 13px;
 }
 
@@ -151,8 +151,8 @@
   gap: 8px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid var(--color-border, #21262d);
-  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
 }
 
 .sysm-gauge-top {
@@ -165,13 +165,13 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: .05em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-weight: 700;
 }
 
 .sysm-gauge-val {
   font-size: 13px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -181,7 +181,7 @@
 .sysm-bar-track {
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-border, #21262d) 60%, transparent);
+  background: color-mix(in srgb, var(--color-border) 60%, transparent);
   overflow: hidden;
 }
 
@@ -208,10 +208,10 @@
   gap: 12px;
   padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid var(--color-border, #21262d);
-  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
   font-size: 11px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .sysm-stat {
@@ -222,7 +222,7 @@
 }
 
 .sysm-stat strong {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -232,7 +232,7 @@
 }
 
 .sysm-net-name {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -266,7 +266,7 @@
   gap: 4px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -277,7 +277,7 @@
   gap: 4px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: .05em;
   background: none;
@@ -288,7 +288,7 @@
 }
 
 .sysm-section-toggle:hover {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 /* ── CPU Cores (vertical mini bars) ──────────────────────────────── */
@@ -298,8 +298,8 @@
   gap: 2px;
   padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid var(--color-border, #21262d);
-  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
   overflow-x: auto;
 }
 
@@ -315,14 +315,14 @@
 
 .sysm-core-id {
   font-size: 8px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .sysm-core-bar {
   width: 100%;
   height: 28px;
-  background: color-mix(in srgb, var(--color-border, #21262d) 60%, transparent);
+  background: color-mix(in srgb, var(--color-border) 60%, transparent);
   border-radius: 2px;
   overflow: hidden;
   display: flex;
@@ -342,7 +342,7 @@
 .sysm-core-val {
   font-size: 8px;
   font-weight: 600;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -354,9 +354,9 @@
 .sysm-table-wrap {
   max-height: 280px;
   overflow-y: auto;
-  border: 1px solid var(--color-border, #21262d);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
 }
 
 .sysm-table {
@@ -371,13 +371,13 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-weight: 700;
   padding: 8px;
-  border-bottom: 1px solid var(--color-border, #21262d);
+  border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -385,7 +385,7 @@
 }
 
 .sysm-table th:hover {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 .sysm-table th.active {
@@ -399,8 +399,8 @@
 
 .sysm-table td {
   padding: 3px 8px;
-  color: var(--color-muted, #8b949e);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border, #21262d) 40%, transparent);
+  color: var(--color-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -412,7 +412,7 @@
 }
 
 .sysm-table tbody tr:hover td {
-  background: var(--color-surface-hover, #1c2128);
+  background: var(--color-surface-hover);
 }
 
 .sysm-cell-warn {
@@ -436,8 +436,8 @@
 .sysm-disk {
   padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid var(--color-border, #21262d);
-  background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -452,7 +452,7 @@
 .sysm-disk-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -461,20 +461,20 @@
 .sysm-disk-pct {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .sysm-disk-detail {
   font-size: 10px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-variant-numeric: tabular-nums;
   display: flex;
   gap: 8px;
 }
 
 .sysm-disk-fs {
-  color: color-mix(in srgb, var(--color-muted, #8b949e) 60%, transparent);
+  color: color-mix(in srgb, var(--color-muted) 60%, transparent);
 }
 
 /* ── Footer ──────────────────────────────────────────────────────── */
@@ -484,16 +484,16 @@
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  border-top: 1px solid var(--color-border, #21262d);
+  border-top: 1px solid var(--color-border);
   font-size: 11px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .sysm-footer kbd {
   display: inline-block;
   padding: 1px 5px;
-  background: var(--color-surface, #161b22);
-  border: 1px solid var(--color-border, #21262d);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 10px;

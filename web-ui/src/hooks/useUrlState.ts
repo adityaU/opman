@@ -58,6 +58,11 @@ function buildSearchString(state: UrlState): string {
   if (state.projectIdx !== null) {
     params.set(P_PROJECT, String(state.projectIdx));
   }
+  // Preserve the explicit lazy-new-session marker while no session exists.
+  // Without this, syncing panel state immediately rewrites `?new=1` away.
+  if (!state.sessionId && new URLSearchParams(window.location.search).get("new") === "1") {
+    params.set("new", "1");
+  }
 
   // Only write non-default panel states to keep URLs short
   if (!state.panels.sidebar) params.set(P_SIDEBAR, "0");

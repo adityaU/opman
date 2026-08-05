@@ -532,16 +532,16 @@
     gap: 4px;
     padding: 2px 7px;
     background: none;
-    border: .5px solid color-mix(in srgb, var(--color-danger, #e5484d) 30%, transparent);
+    border: .5px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
     border-radius: var(--radius-full);
-    color: var(--color-danger, #e5484d);
+    color: var(--color-danger);
     font-size: 10px;
     cursor: pointer;
     transition: background var(--transition-fast)
 }
 
 .prompt-queue-clear:hover {
-    background: color-mix(in srgb, var(--color-danger, #e5484d) 14%, transparent)
+    background: color-mix(in srgb, var(--color-danger) 14%, transparent)
 }
 
 .prompt-queue-list {
@@ -603,7 +603,7 @@
 
 .prompt-queue-remove:hover {
     background: var(--white-10);
-    color: var(--color-danger, #e5484d)
+    color: var(--color-danger)
 }
 
 .prompt-queue-empty {

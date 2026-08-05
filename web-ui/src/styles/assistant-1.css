@@ -8,7 +8,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0000008c;
+    background: var(--black-50);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px)
 }
@@ -20,9 +20,9 @@
     max-width: 94vw;
     max-height: 84vh;
     border-radius: 14px;
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #21262d);
-    box-shadow: 0 12px 48px #00000080;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 12px 48px var(--black-50);
     overflow: hidden
 }
 
@@ -31,14 +31,14 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .assistant-center-header-left {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-center-header-left h3 {
@@ -50,7 +50,7 @@
 .assistant-center-header button {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px
@@ -58,7 +58,7 @@
 
 .assistant-center-hero {
     padding: 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
     background: linear-gradient(135deg,var(--theme-primary-soft),var(--theme-success-soft))
 }
 
@@ -73,24 +73,24 @@
 
 .assistant-center-summary {
     font-size: 14px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-center-briefing {
     padding: 14px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
     background: var(--theme-warning-soft)
 }
 
 .assistant-center-daily-summary {
     padding: 14px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
     background: var(--theme-success-soft)
 }
 
 .assistant-center-recommendations {
     padding: 14px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
     background: var(--theme-primary-soft)
 }
 
@@ -103,9 +103,9 @@
     padding: 10px 12px;
     margin-top: 8px;
     border-radius: 10px;
-    border: 1px solid var(--color-border, #21262d);
-    background: color-mix(in srgb,var(--color-surface, #161b22) 92%,white 2%);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
+    color: var(--color-text);
     cursor: pointer
 }
 
@@ -125,7 +125,7 @@
 .assistant-center-recommendation-desc {
     font-size: 12px;
     line-height: 1.45;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .assistant-center-briefing-title {
@@ -140,7 +140,7 @@
 .assistant-center-briefing-summary,.assistant-center-briefing-next {
     font-size: 13px;
     line-height: 1.45;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-center-briefing-next {
@@ -161,9 +161,9 @@
     gap: 8px;
     padding: 14px;
     border-radius: 14px;
-    border: 1px solid var(--color-border, #21262d);
-    background: color-mix(in srgb,var(--color-surface, #161b22) 92%,white 2%);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
+    color: var(--color-text);
     text-align: left;
     cursor: pointer
 }
@@ -191,7 +191,7 @@
 .assistant-center-card-desc {
     font-size: 12px;
     line-height: 1.45;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .assistant-center-footer-actions {
@@ -207,9 +207,9 @@
     min-height: 38px;
     padding: 8px 12px;
     border-radius: 10px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-surface, #161b22);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 12px;
     cursor: pointer
 }
@@ -218,7 +218,7 @@
 
 .assistant-center-quick-routines {
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .assistant-center-routine-list {
@@ -234,17 +234,17 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 10px;
-    border: 1px solid var(--color-border, #21262d);
-    background: color-mix(in srgb, var(--color-surface, #161b22) 92%, white 2%);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 92%, white 2%);
+    color: var(--color-text);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.15s;
 }
 
 .assistant-center-routine-btn:hover {
-    border-color: var(--color-border-active, #388bfd);
-    background: color-mix(in srgb, var(--color-border-active, #388bfd) 10%, var(--color-surface, #161b22));
+    border-color: var(--color-border-active);
+    background: color-mix(in srgb, var(--color-border-active) 10%, var(--color-surface));
 }
 
 .assistant-center-routine-btn:disabled {
@@ -255,7 +255,7 @@
 .assistant-center-routine-icon {
     display: inline-flex;
     align-items: center;
-    color: var(--color-info, #58a6ff);
+    color: var(--color-info);
 }
 
 .assistant-center-routine-name {
@@ -268,13 +268,13 @@
 .assistant-center-routine-cron {
     display: inline-flex;
     align-items: center;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     opacity: 0.7;
 }
 
 .assistant-center-routine-running {
     font-size: 10px;
-    color: var(--color-warning, #d29922);
+    color: var(--color-warning);
     font-weight: 600;
 }
 
@@ -284,16 +284,16 @@
     margin-top: 6px;
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid var(--color-border, #21262d);
+    border: 1px solid var(--color-border);
     background: transparent;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 11px;
     cursor: pointer;
 }
 
 .assistant-center-routine-more:hover {
-    color: var(--color-text, #e6edf3);
-    border-color: var(--color-border-active, #388bfd);
+    color: var(--color-text);
+    border-color: var(--color-border-active);
 }
 
 /* ── Quick-run error banner ────────────────────────── */
@@ -305,16 +305,16 @@
     padding: 6px 10px;
     margin-top: 6px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--color-error, #f85149) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-error, #f85149) 30%, var(--color-border, #21262d));
-    color: var(--color-error, #f85149);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-error) 30%, var(--color-border));
+    color: var(--color-error);
     font-size: 12px;
 }
 
 .assistant-center-routine-error-dismiss {
     background: none;
     border: none;
-    color: var(--color-error, #f85149);
+    color: var(--color-error);
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
@@ -331,19 +331,19 @@
 /* ── Flat-theme overrides for routine quick-run ────── */
 
 html.flat-theme .assistant-center-routine-btn {
-    background: var(--color-surface, #161b22);
+    background: var(--color-surface);
 }
 
 html.flat-theme .assistant-center-routine-btn:hover {
-    background: color-mix(in srgb, var(--color-border-active, #388bfd) 10%, var(--color-surface, #161b22));
+    background: color-mix(in srgb, var(--color-border-active) 10%, var(--color-surface));
 }
 
 html.flat-theme .assistant-center-routine-error {
-    background: color-mix(in srgb, var(--color-error, #f85149) 10%, var(--color-surface, #161b22));
+    background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
 }
 
 html.flat-theme .assistant-center-routine-more {
-    background: var(--color-surface, #161b22);
+    background: var(--color-surface);
 }
 
 .assistant-inbox-modal {
@@ -353,9 +353,9 @@ html.flat-theme .assistant-center-routine-more {
     max-width: 92vw;
     max-height: 82vh;
     border-radius: 12px;
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #21262d);
-    box-shadow: 0 12px 48px #00000080;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 12px 48px var(--black-50);
     overflow: hidden
 }
 
@@ -364,14 +364,14 @@ html.flat-theme .assistant-center-routine-more {
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .assistant-inbox-header-left {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-inbox-header-left h3 {
@@ -397,15 +397,15 @@ html.flat-theme .assistant-center-routine-more {
 .assistant-inbox-header button {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px
 }
 
 .assistant-inbox-header button:hover {
-    background: var(--color-hover, #1c2128);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-hover);
+    color: var(--color-text)
 }
 
 .assistant-inbox-filters {
@@ -413,5 +413,5 @@ html.flat-theme .assistant-center-routine-more {
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }

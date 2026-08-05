@@ -1,6 +1,6 @@
 
 .breadcrumb-link:hover {
-    color: var(--color-primary, #fab283);
+    color: var(--color-primary);
     background: var(--white-4)
 }
 
@@ -54,10 +54,10 @@
     opacity: 0;
     pointer-events: none;
     transition: transform .2s ease, opacity .15s ease;
-    box-shadow: 4px 0 24px rgba(0,0,0,.25);
+    box-shadow: 4px 0 24px var(--black-25);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    background: var(--white-4, rgba(255,255,255,.04))
+    background: var(--white-4)
 }
 
 .explorer-floating-open {
@@ -81,7 +81,7 @@
 
 .explorer-resize-handle:hover,
 .explorer-resize-handle:active {
-    background: var(--color-primary, #007aff)
+    background: var(--color-primary)
 }
 
 .explorer-header {
@@ -164,7 +164,7 @@
 }
 
 .explorer-tree-entry .folder-icon {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-tree-entry .file-name {
@@ -180,11 +180,11 @@
 
 .explorer-tree-file.active {
     background: var(--white-7);
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-tree-file.active .file-icon {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-section-label {
@@ -222,11 +222,11 @@
 
 .explorer-open-file.active {
     background: var(--white-7);
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-open-file.active .file-icon {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-open-file .file-icon {
@@ -244,7 +244,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--color-warning, #f5a742);
+    background: var(--color-warning);
     flex-shrink: 0
 }
 
@@ -305,7 +305,7 @@ html.flat-theme .explorer-floating {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: var(--color-bg-element);
-    box-shadow: 4px 0 16px rgba(0,0,0,.15)
+    box-shadow: 4px 0 16px var(--black-15)
 }
 
 html.flat-theme .explorer-header {
@@ -413,8 +413,8 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .explorer-action-danger:hover {
-    color: var(--color-danger, #f85149);
-    background: color-mix(in srgb, var(--color-danger, #f85149) 12%, transparent)
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent)
 }
 
 /* ── Inline create input ────────────────────────── */
@@ -433,7 +433,7 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .explorer-inline-input .folder-icon {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .explorer-inline-name-input {
@@ -450,8 +450,8 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .explorer-inline-name-input:focus {
-    border-color: var(--color-primary, #fab283);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary, #fab283) 25%, transparent)
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent)
 }
 
 .explorer-root-inline-create {
@@ -465,8 +465,8 @@ html.flat-theme .explorer-tree-file.active {
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
-    background: color-mix(in srgb, var(--color-danger, #f85149) 8%, transparent);
-    border: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+    border: .5px solid color-mix(in srgb, var(--color-danger) 20%, transparent);
     border-radius: 3px;
     margin: 2px 4px;
     font-size: 11px;
@@ -482,8 +482,8 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .explorer-confirm-yes {
-    background: var(--color-danger, #f85149);
-    color: #fff;
+    background: var(--color-danger);
+    color: var(--color-on-accent);
     border: none;
     border-radius: 3px;
     padding: 2px 8px;
@@ -528,7 +528,7 @@ html.flat-theme .explorer-tree-file.active {
     z-index: 9999;
     min-width: 140px;
     padding: 4px 0;
-    background: var(--color-bg-element, #1e1e1e);
+    background: var(--color-bg-element);
     border: .5px solid var(--white-10);
     border-radius: 6px;
     box-shadow: 0 4px 12px var(--black-30)
@@ -566,8 +566,8 @@ html.flat-theme .explorer-tree-file.active {
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: color-mix(in srgb, var(--color-danger, #f85149) 8%, transparent);
-    border-bottom: .5px solid color-mix(in srgb, var(--color-danger, #f85149) 20%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+    border-bottom: .5px solid color-mix(in srgb, var(--color-danger) 20%, transparent);
     font-size: 12px;
     color: var(--color-text)
 }
@@ -599,7 +599,7 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .mobile-entry-delete-btn:hover {
-    color: var(--color-danger, #f85149);
+    color: var(--color-danger);
     opacity: 1
 }
 
@@ -620,7 +620,7 @@ html.flat-theme .explorer-tree-file.active {
 }
 
 .mobile-entry-download-btn:hover {
-    color: var(--color-primary, #58a6ff);
+    color: var(--color-primary);
     opacity: 1
 }
 

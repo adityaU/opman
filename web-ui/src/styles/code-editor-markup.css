@@ -18,18 +18,18 @@
   padding: 4px 10px;
   font-size: 12px;
   font-family: var(--font-sans, sans-serif);
-  color: var(--white-70, rgba(255,255,255,.7));
-  background: var(--white-8, rgba(255,255,255,.08));
+  color: var(--white-70);
+  background: var(--white-8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border: .5px solid var(--white-12);
   border-radius: 6px;
   cursor: pointer;
   transition: background .15s, color .15s;
 }
 .markup-start-btn:hover {
-  background: var(--white-12, rgba(255,255,255,.12));
-  color: var(--white-90, rgba(255,255,255,.9));
+  background: var(--white-12);
+  color: var(--white-90);
 }
 
 /* ── Canvas overlay ───────────────────────────────────── */
@@ -58,12 +58,12 @@
   align-items: center;
   gap: var(--space-1, 4px);
   padding: 5px 8px;
-  background: var(--white-6, rgba(255,255,255,.06));
+  background: var(--white-6);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border: .5px solid var(--white-12);
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  box-shadow: 0 4px 20px var(--black-30);
   white-space: nowrap;
 }
 
@@ -77,7 +77,7 @@
   width: 1px;
   height: 18px;
   margin: 0 4px;
-  background: var(--white-12, rgba(255,255,255,.12));
+  background: var(--white-12);
   flex-shrink: 0;
 }
 
@@ -97,17 +97,17 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--white-60, rgba(255,255,255,.6));
+  color: var(--white-60);
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 .markup-tool-btn:hover {
-  background: var(--white-10, rgba(255,255,255,.1));
-  color: var(--white-90, rgba(255,255,255,.9));
+  background: var(--white-10);
+  color: var(--white-90);
 }
 .markup-tool-btn.active {
-  background: var(--white-15, rgba(255,255,255,.15));
-  color: #fff;
+  background: var(--white-15);
+  color: var(--color-text);
 }
 .markup-tool-btn:disabled {
   opacity: .35;
@@ -119,7 +119,7 @@
 .markup-color-btn {
   width: 16px;
   height: 16px;
-  border: 1.5px solid var(--white-20, rgba(255,255,255,.2));
+  border: 1.5px solid var(--white-20);
   border-radius: 50%;
   cursor: pointer;
   transition: transform .1s, border-color .1s;
@@ -129,16 +129,16 @@
   transform: scale(1.2);
 }
 .markup-color-btn.active {
-  border-color: #fff;
+  border-color: var(--color-text);
   transform: scale(1.25);
-  box-shadow: 0 0 0 2px rgba(255,255,255,.25);
+  box-shadow: 0 0 0 2px var(--white-25);
 }
 
 /* ── Width label ──────────────────────────────────────── */
 
 .markup-width-label {
   font-size: 11px;
-  color: var(--white-50, rgba(255,255,255,.5));
+  color: var(--white-50);
   min-width: 28px;
   text-align: center;
   font-family: var(--font-mono, monospace);
@@ -153,61 +153,61 @@
   padding: 4px 10px;
   font-size: 12px;
   font-family: var(--font-sans, sans-serif);
-  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border: .5px solid var(--white-12);
   border-radius: 6px;
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 .markup-save {
-  background: var(--accent-blue, #007aff);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-bg);
   border-color: transparent;
 }
-.markup-save:hover { background: #0a84ff; }
+.markup-save:hover { background: color-mix(in srgb, var(--color-primary) 86%, var(--color-text)); }
 .markup-save:disabled { opacity: .5; cursor: default; }
 
 .markup-cancel {
-  background: var(--white-8, rgba(255,255,255,.08));
-  color: var(--white-70, rgba(255,255,255,.7));
+  background: var(--white-8);
+  color: var(--white-70);
 }
 .markup-cancel:hover {
-  background: var(--white-12, rgba(255,255,255,.12));
-  color: #fff;
+  background: var(--white-12);
+  color: var(--color-text);
 }
 
 /* ── Flat theme overrides ─────────────────────────────── */
 
 html.flat-theme .markup-start-btn {
-  background: var(--flat-surface, #1e1e2e);
-  border-color: var(--flat-border, #333);
+  background: var(--flat-surface);
+  border-color: var(--flat-border);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 html.flat-theme .markup-start-btn:hover {
-  background: var(--flat-surface-hover, #2a2a3e);
+  background: var(--flat-surface-hover);
 }
 
 html.flat-theme .markup-toolbar {
-  background: var(--flat-surface, #1e1e2e);
-  border-color: var(--flat-border, #333);
+  background: var(--flat-surface);
+  border-color: var(--flat-border);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  box-shadow: 0 2px 8px var(--black-40);
 }
 
 html.flat-theme .markup-tool-btn:hover {
-  background: var(--flat-surface-hover, #2a2a3e);
+  background: var(--flat-surface-hover);
 }
 html.flat-theme .markup-tool-btn.active {
-  background: var(--flat-active, #333350);
+  background: var(--flat-active);
 }
 
 html.flat-theme .markup-cancel {
-  background: var(--flat-surface, #1e1e2e);
-  border-color: var(--flat-border, #333);
+  background: var(--flat-surface);
+  border-color: var(--flat-border);
 }
 html.flat-theme .markup-cancel:hover {
-  background: var(--flat-surface-hover, #2a2a3e);
+  background: var(--flat-surface-hover);
 }
 
 /* ── Responsive: stack toolbar vertically on narrow screens */
@@ -221,7 +221,7 @@ html.flat-theme .markup-cancel:hover {
   flex-direction: column;
   align-items: center;
   overflow: auto;
-  background: var(--white-4, rgba(255,255,255,.04));
+  background: var(--white-4);
 }
 
 .pdf-canvas-viewer canvas {
@@ -239,29 +239,29 @@ html.flat-theme .markup-cancel:hover {
   align-items: center;
   gap: var(--space-1, 4px);
   padding: 4px 8px;
-  background: var(--white-6, rgba(255,255,255,.06));
+  background: var(--white-6);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: .5px solid var(--white-12, rgba(255,255,255,.12));
+  border: .5px solid var(--white-12);
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  box-shadow: 0 4px 20px var(--black-30);
   white-space: nowrap;
 }
 
 .pdf-canvas-page-label {
   font-size: 12px;
   font-family: var(--font-mono, monospace);
-  color: var(--white-60, rgba(255,255,255,.6));
+  color: var(--white-60);
   min-width: 48px;
   text-align: center;
 }
 
 html.flat-theme .pdf-canvas-controls {
-  background: var(--flat-surface, #1e1e2e);
-  border-color: var(--flat-border, #333);
+  background: var(--flat-surface);
+  border-color: var(--flat-border);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  box-shadow: 0 2px 8px var(--black-40);
 }
 
 /* ── Responsive ───────────────────────────────────────── */

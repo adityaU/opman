@@ -48,10 +48,8 @@
     background: var(--white-10)
 }
 
-.sb-modal-danger {
-    background: var(--color-error);
-    color: #fff
-}
+/* Surface + foreground are owned together in sidebar-4.css so the pair
+   cannot drift; this rule only carries the hover behaviour. */
 
 .sb-modal-danger:hover:not(:disabled) {
     filter: brightness(1.1)
@@ -67,7 +65,7 @@
     font-size: var(--font-size-xs);
     font-family: inherit;
     outline: none;
-    box-shadow: 0 0 0 2px #3b82f633
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 20%, transparent)
 }
 
 .sb-rename-input:disabled {
@@ -147,14 +145,14 @@
     margin-top: var(--space-1);
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
-    background: #ef44441a;
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
     color: var(--color-error);
     font-size: var(--font-size-xs)
 }
 
 .sb-modal-primary {
     background: var(--color-primary);
-    color: #fff
+    color: var(--color-on-accent)
 }
 
 .sb-modal-primary:hover:not(:disabled) {

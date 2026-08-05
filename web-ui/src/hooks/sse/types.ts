@@ -54,6 +54,8 @@ export interface SSEState {
   sessionStatus: SessionStatus;
   /** Aggregate SSE connection health (worst-case of app + session streams). */
   connectionStatus: SSEConnectionStatus;
+  /** True once both initial SSE streams have opened at least once. */
+  initialConnectionsReady: boolean;
   /** True while loading messages for a newly-selected session */
   isLoadingMessages: boolean;
   /** True while loading older messages (pagination scroll-up) */

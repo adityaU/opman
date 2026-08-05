@@ -10,7 +10,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0000008c;
+    background: var(--black-50);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px)
 }
@@ -22,9 +22,9 @@
     max-width: 92vw;
     max-height: 80vh;
     border-radius: 12px;
-    background: var(--color-bg, #0d1117);
-    border: 1px solid var(--color-border, #21262d);
-    box-shadow: 0 12px 48px #00000080;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 12px 48px var(--black-50);
     overflow: hidden
 }
 
@@ -35,14 +35,14 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .add-project-header-left {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .add-project-header-left h3 {
@@ -54,15 +54,15 @@
 .add-project-close {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px
 }
 
 .add-project-close:hover {
-    background: var(--color-hover, #1c2128);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-hover);
+    color: var(--color-text)
 }
 
 /* ── Navigation bar ── */
@@ -72,7 +72,7 @@
     align-items: center;
     gap: 6px;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .add-project-nav-btn {
@@ -82,16 +82,16 @@
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-surface, #161b22);
-    color: var(--color-muted, #8b949e);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-muted);
     cursor: pointer;
     flex-shrink: 0
 }
 
 .add-project-nav-btn:hover:not(:disabled) {
-    color: var(--color-text, #e6edf3);
-    background: var(--color-hover, #1c2128)
+    color: var(--color-text);
+    background: var(--color-hover)
 }
 
 .add-project-nav-btn:disabled {
@@ -103,7 +103,7 @@
     flex: 1;
     min-width: 0;
     font-size: 12px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -145,11 +145,11 @@
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .add-project-search-icon {
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     flex-shrink: 0
 }
 
@@ -159,12 +159,12 @@
     border: none;
     outline: none;
     font-size: 13px;
-    color: var(--color-text, #e6edf3);
+    color: var(--color-text);
     padding: 4px 0
 }
 
 .add-project-filter::placeholder {
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 /* ── Body / list ── */
@@ -180,7 +180,7 @@
     padding: 28px 16px;
     text-align: center;
     font-size: 13px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .add-project-entry {
@@ -194,7 +194,7 @@
 
 .add-project-entry:hover,
 .add-project-entry-selected {
-    background: var(--color-hover, #1c2128)
+    background: var(--color-hover)
 }
 
 .add-project-entry-existing {
@@ -202,7 +202,7 @@
 }
 
 .add-project-entry-icon {
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     flex-shrink: 0
 }
 
@@ -210,14 +210,14 @@
     flex: 1;
     min-width: 0;
     font-size: 13px;
-    color: var(--color-text, #e6edf3);
+    color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis
 }
 
 .add-project-entry-star {
-    color: var(--color-warning, #d29922);
+    color: var(--color-warning);
     flex-shrink: 0
 }
 
@@ -230,7 +230,7 @@
     border-radius: 8px;
     border: 1px solid transparent;
     background: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
@@ -257,7 +257,7 @@
 .add-project-error {
     padding: 8px 16px;
     font-size: 12px;
-    color: var(--color-error, #f85149);
+    color: var(--color-error);
     background: color-mix(in srgb, var(--color-error) 8%, transparent);
     border-top: 1px solid color-mix(in srgb, var(--color-error) 20%, var(--color-border))
 }
@@ -269,9 +269,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    border-top: 1px solid var(--color-border, #21262d);
+    border-top: 1px solid var(--color-border);
     font-size: 11px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .add-project-footer kbd {
@@ -279,8 +279,8 @@
     padding: 1px 5px;
     font-family: inherit;
     font-size: 10px;
-    border: 1px solid var(--color-border, #21262d);
+    border: 1px solid var(--color-border);
     border-radius: 3px;
-    background: var(--color-surface, #161b22);
-    color: var(--color-muted, #8b949e)
+    background: var(--color-surface);
+    color: var(--color-muted)
 }

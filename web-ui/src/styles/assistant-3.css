@@ -3,7 +3,7 @@
     transform: translateY(-1px);
     border-color: var(--color-border);
     background: var(--color-surface-hover);
-    box-shadow: 0 10px 26px #0000001a
+    box-shadow: 0 10px 26px var(--black-10)
 }
 
 .assistant-inbox-filter,.mission-handoff-chip,.assistant-inbox-handoff-link,.mission-handoff-link,.delegation-status-btn {

@@ -2,9 +2,9 @@
 .assistant-inbox-filter {
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-surface, #161b22);
-    color: var(--color-muted, #8b949e);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-muted);
     font-size: 12px;
     cursor: pointer
 }
@@ -21,12 +21,12 @@
     gap: 8px;
     flex-wrap: wrap;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--color-border, #21262d);
+    border-bottom: 1px solid var(--color-border);
     background: var(--theme-success-soft)
 }
 
 .assistant-memory-strip-missions {
-    border-bottom: 1px solid var(--color-border, #21262d)
+    border-bottom: 1px solid var(--color-border)
 }
 
 .assistant-memory-strip-label {
@@ -57,7 +57,7 @@
 .assistant-inbox-empty {
     padding: 28px 16px;
     text-align: center;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 13px
 }
 
@@ -68,8 +68,8 @@
     gap: 12px;
     padding: 12px;
     border-radius: 12px;
-    border: 1px solid var(--color-border, #21262d);
-    background: color-mix(in srgb,var(--color-surface, #161b22) 92%,white 2%);
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     margin-bottom: 10px
 }
 
@@ -97,13 +97,13 @@
 .assistant-inbox-item-title {
     font-size: 14px;
     font-weight: 600;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-inbox-item-desc {
     font-size: 13px;
     line-height: 1.45;
-    color: var(--color-text, #e6edf3);
+    color: var(--color-text);
     margin-bottom: 8px
 }
 
@@ -112,7 +112,7 @@
     gap: 12px;
     flex-wrap: wrap;
     font-size: 11px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .assistant-inbox-priority {
@@ -158,19 +158,19 @@
     min-height: 34px;
     padding: 6px 10px;
     border-radius: 8px;
-    border: 1px solid var(--color-border, #21262d);
-    background: var(--color-surface, #161b22);
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 12px;
     cursor: pointer
 }
 
 .assistant-inbox-item-actions button:hover {
-    background: var(--color-hover, #1c2128)
+    background: var(--color-hover)
 }
 
 .assistant-inbox-dismiss {
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .assistant-inbox-handoff {
@@ -180,8 +180,8 @@
     margin-top: 8px;
     padding: 8px 10px;
     border-radius: 8px;
-    background: #388bfd14;
-    border: 1px solid rgba(56,139,253,.16)
+    background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 16%, transparent)
 }
 
 .assistant-inbox-handoff-title {
@@ -189,12 +189,12 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: #58a6ff
+    color: var(--color-secondary)
 }
 
 .assistant-inbox-handoff-next {
     font-size: 12px;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .assistant-inbox-handoff-links,.mission-handoff-links {
@@ -209,9 +209,9 @@
     align-items: center;
     padding: 4px 8px;
     border-radius: 999px;
-    border: 1px solid var(--color-border, #21262d);
-    background: #ffffff0a;
-    color: var(--color-text, #e6edf3);
+    border: 1px solid var(--color-border);
+    background: var(--white-4);
+    color: var(--color-text);
     font-size: 11px;
     cursor: pointer
 }
@@ -221,18 +221,8 @@
     -webkit-backdrop-filter: blur(8px) saturate(1.05)
 }
 
-.assistant-center-modal,.assistant-inbox-modal,.memory-modal,.autonomy-modal,.routines-modal,.delegation-modal,.missions-modal,.workspace-mgr-modal,.add-project-modal,.sysm-modal {
-    border-radius: 22px;
-    border: 1px solid var(--color-border);
-    background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 72%,transparent),transparent),var(--color-bg);
-    box-shadow: 0 26px 80px #0000003d,0 8px 28px #00000024
-}
-
-.assistant-center-header,.assistant-inbox-header,.memory-header,.autonomy-header,.routines-header,.delegation-header,.missions-header,.workspace-mgr-header,.add-project-header,.sysm-header {
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--color-border);
-    background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent)
-}
+/* Surface and header treatment now come from modal-shell.css and
+   modal-content.css so all floating surfaces share one contract. */
 
 .assistant-center-header-left,.assistant-inbox-header-left,.memory-header-left,.autonomy-header-left,.routines-header-left,.delegation-header-left,.missions-header-left,.workspace-mgr-header-left,.add-project-header-left,.sysm-header-left {
     gap: 10px
@@ -254,18 +244,18 @@
     transition: background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast)
 }
 
-.assistant-center-header button:hover,.assistant-inbox-header button:hover,.memory-header button:hover,.autonomy-header button:hover,.routines-header button:hover,.delegation-header button:hover,.missions-header button:hover,.workspace-mgr-header button:hover,.add-project-header button:hover,.sysm-header button:hover {
-    background: var(--color-surface-hover);
-    border-color: var(--color-border);
-    transform: translateY(-1px)
-}
+/* Close-button hover lives in modal-content.css; a close control that lifts
+   on hover draws the eye away from the content it is dismissing. */
 
+/* Content groups sit in a recessed well rather than a bordered card: a card
+   inside a modal is a card inside a card, and going one step *down* from the
+   modal surface separates the group without adding another edge. */
 .assistant-center-hero,.assistant-center-briefing,.assistant-center-daily-summary,.assistant-center-recommendations,.assistant-center-quick-routines,.memory-create,.routines-form,.delegation-create,.missions-create,.workspace-mgr-save,.add-project-nav,.add-project-search {
-    margin: 12px 14px 0;
+    margin: var(--modal-gap) var(--modal-pad-x) 0;
     padding: 14px;
-    border-radius: 18px;
-    border: 1px solid var(--color-border-subtle);
-    background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 80%,transparent),transparent),var(--color-surface)
+    border: 0;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-text) 4%, transparent)
 }
 
 .assistant-center-grid,.assistant-inbox-body,.memory-body,.routines-body,.delegation-body,.missions-body,.workspace-mgr-body,.add-project-body,.sysm-body {

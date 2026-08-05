@@ -367,9 +367,9 @@ test.describe("New session creation", () => {
     await expect(newBtn).toBeVisible();
     await newBtn.click();
 
-    // ── Step 4: Textarea and model chip should become disabled ──
-    await expect(textarea).toBeDisabled({ timeout: 5_000 });
-    await expect(modelChip).toBeDisabled({ timeout: 3_000 });
+    // ── Step 4: Lazy creation keeps input and selectors usable ──
+    await expect(textarea).not.toBeDisabled({ timeout: 5_000 });
+    await expect(modelChip).not.toBeDisabled({ timeout: 3_000 });
 
     // ── Step 5: Simulate backend creating the session ──
     //    After the headless PTY triggers session creation, the backend
@@ -407,6 +407,6 @@ test.describe("New session creation", () => {
     await expect(textarea).toHaveValue("Hello from new session!");
 
     // ── Step 8: New session appears in sidebar ──
-    await expect(page.locator(".sb-session-title", { hasText: "New Session" })).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator(".sb-session-title", { hasText: "New Session" }).first()).toBeVisible({ timeout: 3_000 });
   });
 });

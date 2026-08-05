@@ -75,6 +75,8 @@ export function useSSE(): SSEState {
   const [crossSessionPermissions, setCrossSessionPermissions] = useState<PermissionRequest[]>([]);
   const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
+  const [initialConnectionsReady, setInitialConnectionsReady] = useState(false);
+  const startupReadyRef = useRef(false);
   const activeSessionRef = useRef<string | null>(null);
   /** Ids of questions the user just resolved. Guards against a racing hydratePending()
    *  or a re-delivered question.asked re-adding an already-answered question (the SSE
@@ -230,6 +232,7 @@ export function useSSE(): SSEState {
   const refreshState = useCallback(async () => {
     try {
       const s = await fetchAppState();
+      startupReadyRef.current = s.startup_ready !== false;
       setAppState(s);
       // Set page title from instance name (tunnel subdomain) if provided — only when changed
       if (s.instance_name && s.instance_name !== appliedTitleRef.current) {
@@ -594,6 +597,8 @@ export function useSSE(): SSEState {
     // Track each stream independently; aggregate to worst-case for UI.
     let appStreamOk = false;
     let sessionStreamOk = false;
+    let appStreamOpened = false;
+    let sessionStreamOpened = false;
     let appStreamReconnecting = false;
     let sessionStreamReconnecting = false;
 
@@ -626,7 +631,8 @@ export function useSSE(): SSEState {
       const sse = createEventsSSE();
       setupAppSSEListeners(sse, appSSECtx);
       sse.addEventListener("open", () => {
-        appStreamOk = true; appStreamReconnecting = false;
+        appStreamOk = true; appStreamOpened = true; appStreamReconnecting = false;
+        if (sessionStreamOpened) setInitialConnectionsReady(true);
         recomputeConnectionStatus();
       });
       sse.addEventListener("error", () => {
@@ -649,7 +655,8 @@ export function useSSE(): SSEState {
       });
       sse.addEventListener("open", () => {
         touchEvent();
-        sessionStreamOk = true; sessionStreamReconnecting = false;
+        sessionStreamOk = true; sessionStreamOpened = true; sessionStreamReconnecting = false;
+        if (appStreamOpened) setInitialConnectionsReady(true);
         recomputeConnectionStatus();
         if (sessionSseNeedsRecovery) { sessionSseNeedsRecovery = false; recoverAfterReconnect(); }
       });
@@ -670,6 +677,14 @@ export function useSSE(): SSEState {
 
     currentAppSSE = createAndWireAppSSE();
     currentSessionSSE = createAndWireSessionSSE();
+
+    // The backend may be accepting authenticated requests before its first
+    // session hydration finishes. Poll the explicit readiness flag so an
+    // empty snapshot never becomes an accidental new-session flow.
+    const startupPoll = setInterval(() => {
+      if (startupReadyRef.current) return;
+      refreshState();
+    }, 1000);
 
     // Stale-connection watchdog — closes and recreates both EventSources
     // when no events have been received for too long.
@@ -693,7 +708,7 @@ export function useSSE(): SSEState {
     }, 10_000);
 
     return () => {
-      currentAppSSE?.close(); currentSessionSSE?.close(); clearInterval(watchdogInterval);
+      currentAppSSE?.close(); currentSessionSSE?.close(); clearInterval(watchdogInterval); clearInterval(startupPoll);
       if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       if (flushSubagentTimerRef.current) { clearTimeout(flushSubagentTimerRef.current); flushSubagentTimerRef.current = null; }
       if (expectSwitchTimerRef.current) { clearTimeout(expectSwitchTimerRef.current); expectSwitchTimerRef.current = null; }
@@ -813,7 +828,7 @@ export function useSSE(): SSEState {
 
   return {
     appState, messages, stats, busySessions, sessionStatuses, permissions, questions,
-    sessionStatus, connectionStatus,
+    sessionStatus, connectionStatus, initialConnectionsReady,
     isLoadingMessages, isLoadingOlder, hasOlderMessages,
     totalMessageCount, watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId,

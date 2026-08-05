@@ -127,7 +127,7 @@ html.flat-theme .pr-branch-picker {
     background: color-mix(in srgb, var(--color-text) 8%, transparent);
     border-color: var(--color-border-subtle)
 }
-.right-panel-card .side-panel-body { border-radius: 0 0 calc(var(--floating-radius) - 1px) calc(var(--floating-radius) - 1px) }
+.right-panel-card .side-panel-body { border-radius: calc(var(--floating-radius) - 1px) }
 .modal-backdrop,
 .search-modal-backdrop {
     background: color-mix(in srgb, var(--color-bg) 66%, transparent);

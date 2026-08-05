@@ -94,6 +94,7 @@ export function PromptInput({
 
   // ── Submit handler ───────────────────────────────────
   const handleSubmit = useCallback(async () => {
+    if (submittingRef.current) return;
     const trimmed = text.trim();
     if (!trimmed && attach.attachments.length === 0 && fileMention.fileMentions.length === 0) return;
     if (trimmed.startsWith("/") && attach.attachments.length === 0) {
@@ -103,11 +104,16 @@ export function PromptInput({
     }
     const images = attach.attachments.length > 0 ? [...attach.attachments] : undefined;
     const mentions = [...fileMention.fileMentions];
+    submittingRef.current = true;
     // Clear input immediately (optimistic)
     setText(""); attach.clearAttachments(); atMention.clearMentions(); fileMention.clearFileMentions();
     onContentChange?.(false);
-    const fileCtx = mentions.length > 0 ? await fileMention.buildFileContextFrom(mentions) : undefined;
-    await onSend(trimmed || "Attached image(s)", images, fileCtx || undefined);
+    try {
+      const fileCtx = mentions.length > 0 ? await fileMention.buildFileContextFrom(mentions) : undefined;
+      await onSend(trimmed || "Attached image(s)", images, fileCtx || undefined);
+    } finally {
+      submittingRef.current = false;
+    }
   }, [text, attach, atMention, fileMention, onSend, onCommand, onContentChange]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {

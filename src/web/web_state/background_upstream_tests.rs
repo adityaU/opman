@@ -53,8 +53,8 @@ async fn mock_server(
 #[tokio::test]
 async fn startup_once_keeps_existing_active_session() {
     let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
-    // Pre-set an active session so the `active_session.is_none()` guard is false.
-    h.inner.write().await.projects[0].active_session = Some("preexisting".into());
+    // A valid active session must survive hydration.
+    h.inner.write().await.projects[0].active_session = Some("s1".into());
     let client = ApiClient::new();
     let sessions = serde_json::json!([
         { "id": "s1", "title": "t", "directory": "/proj", "time": { "created": 1, "updated": 2 } }
@@ -62,13 +62,28 @@ async fn startup_once_keeps_existing_active_session() {
     let (base, srv) = mock_server(sessions, serde_json::json!({})).await;
     assert!(h.session_poll_startup_once(&client, &base).await);
     let st = h.inner.read().await;
-    // Session list refreshed, but the user's active session is untouched.
+    // Session list refreshed, and the valid user selection is untouched.
     assert_eq!(st.projects[0].sessions.len(), 1);
-    assert_eq!(
-        st.projects[0].active_session.as_deref(),
-        Some("preexisting")
-    );
+    assert_eq!(st.projects[0].active_session.as_deref(), Some("s1"));
     drop(st);
+    srv.abort();
+}
+
+#[tokio::test]
+async fn startup_once_repairs_stale_active_session() {
+    let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
+    h.inner.write().await.projects[0].active_session = Some("ghost-session".into());
+    let client = ApiClient::new();
+    let sessions = serde_json::json!([
+        { "id": "s1", "title": "t", "directory": "/proj", "time": { "created": 1, "updated": 2 } }
+    ]);
+    let (base, srv) = mock_server(sessions, serde_json::json!({})).await;
+
+    assert!(h.session_poll_startup_once(&client, &base).await);
+    assert_eq!(
+        h.inner.read().await.projects[0].active_session.as_deref(),
+        Some("s1")
+    );
     srv.abort();
 }
 

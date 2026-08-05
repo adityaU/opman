@@ -8,8 +8,8 @@
 
 .search-bar {
     flex-shrink: 0;
-    border-bottom: 1px solid var(--color-border, #484848);
-    background: var(--color-bg-panel, #1e1e1e);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-panel);
     padding: 6px 12px;
     z-index: 10
 }
@@ -22,25 +22,25 @@
 }
 
 .search-bar-icon {
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     flex-shrink: 0
 }
 
 .search-bar-input {
     flex: 1;
-    background: var(--color-bg-element, #2a2a2a);
-    border: 1px solid var(--color-border, #484848);
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 4px 8px;
-    color: var(--color-text, #e0e0e0);
+    color: var(--color-text);
     font-size: 13px;
     font-family: inherit;
     outline: none
 }
 
 .search-bar-input:focus {
-    border-color: var(--color-primary, #7aa2f7);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #7aa2f7) 25%, transparent)
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent)
 }
 
 .search-bar-btn {
@@ -50,15 +50,15 @@
     background: none;
     border: 1px solid transparent;
     border-radius: 3px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: 3px;
     transition: color .15s,background .15s
 }
 
 .search-bar-btn:hover:not(:disabled) {
-    color: var(--color-text, #e0e0e0);
-    background: #ffffff0f
+    color: var(--color-text);
+    background: var(--white-6)
 }
 
 .search-bar-btn:disabled {
@@ -67,21 +67,21 @@
 }
 
 .search-bar-regex.active {
-    color: var(--color-primary, #7aa2f7);
-    background: #7aa2f71f;
-    border-color: var(--color-primary, #7aa2f7)
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    border-color: var(--color-primary)
 }
 
 .search-bar-count {
     font-size: 11px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     white-space: nowrap;
     min-width: 70px;
     text-align: center
 }
 
 .search-highlight {
-    background: #ffd6004d;
+    background: color-mix(in srgb, var(--color-warning) 30%, transparent);
     color: inherit;
     border-radius: 2px;
     padding: 0 1px

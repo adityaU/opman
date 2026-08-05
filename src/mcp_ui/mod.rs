@@ -163,7 +163,7 @@ fn tool_definitions() -> serde_json::Value {
                             },
                             "data": {
                                 "type": "object",
-                                "description": "Block-specific data. Shape depends on block type."
+                                "description": "Block-specific data. For alert use {level, message}; message is the visible alert text. For status use {label, level, detail?}. For callout use {variant, title?, body|content?} or nested blocks."
                             }
                         },
                         "required": ["type", "data"]

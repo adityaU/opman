@@ -177,9 +177,9 @@
 
 .message-queued-badge {
     font-size: var(--font-size-2xs);
-    color: var(--color-warning, #f5a742);
-    background: color-mix(in srgb, var(--color-warning, #f5a742) 10%, transparent);
-    border: .5px solid color-mix(in srgb, var(--color-warning, #f5a742) 25%, transparent);
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border: .5px solid color-mix(in srgb, var(--color-warning) 25%, transparent);
     padding: 1px 8px;
     border-radius: var(--radius-full);
     font-weight: 500
@@ -445,13 +445,13 @@
    so they stand apart from muted info notifications. */
 .message-turn-notification .notification-bubble.notification-warning {
   border-style: solid;
-  border-color: var(--color-warning, #e0af68);
-  color: var(--color-warning, #e0af68);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
   opacity: 1;
 }
 .message-turn-notification .notification-bubble.notification-error {
   border-style: solid;
-  border-color: var(--color-error, #f7768e);
-  color: var(--color-error, #f7768e);
+  border-color: var(--color-error);
+  color: var(--color-error);
   opacity: 1;
 }

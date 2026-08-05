@@ -2,6 +2,17 @@
  * markupCapture — helpers for capturing preview content + annotations to clipboard.
  */
 
+/**
+ * Resolve a theme token to a concrete colour.
+ *
+ * Canvas takes paint values, not CSS variables, so anything drawn has to read
+ * the computed token rather than reference it.
+ */
+export function themeColor(token: string, fallback = "transparent"): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  return v || fallback;
+}
+
 /** Serialize an SVG element and draw it onto a canvas context. */
 export async function drawSvgToCanvas(
   svgEl: SVGSVGElement, ctx: CanvasRenderingContext2D, w: number, h: number,
@@ -39,9 +50,9 @@ export async function drawIframeToCanvas(
     const iRect = iframe.getBoundingClientRect();
     const dx = iRect.left - parentRect.left;
     const dy = iRect.top - parentRect.top;
-    ctx.fillStyle = "#2a2a3e";
+    ctx.fillStyle = themeColor("--color-bg-element");
     ctx.fillRect(dx, dy, iRect.width, iRect.height);
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillStyle = themeColor("--color-text-muted");
     ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("PDF Preview", dx + iRect.width / 2, dy + iRect.height / 2);
@@ -95,7 +106,7 @@ export async function capturePreview(
   // Background — computed style may be "transparent" or "rgba(0, 0, 0, 0)"
   const bg = getComputedStyle(preview).backgroundColor;
   const isTransparent = !bg || bg === "transparent" || bg === "rgba(0, 0, 0, 0)";
-  ctx.fillStyle = isTransparent ? "#1a1a2e" : bg;
+  ctx.fillStyle = isTransparent ? themeColor("--color-bg", "#000") : bg;
   ctx.fillRect(0, 0, rect.width, rect.height);
 
   // Find content elements

@@ -63,7 +63,7 @@ const editorTheme = EditorView.theme(
       backgroundColor: "var(--theme-surface-3, var(--color-bg-element))",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "var(--color-bg-element, #1a1a1a)",
+      backgroundColor: "var(--color-bg-element)",
     },
     ".cm-selectionMatch": {
       backgroundColor: "var(--theme-surface-hover, var(--color-bg-hover))",

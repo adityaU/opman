@@ -103,7 +103,7 @@
         right: 0;
         bottom: 0;
         z-index: 40;
-        background: var(--color-bg, #0B0E14);
+        background: var(--color-bg);
         border-radius: 0;
         overflow: hidden;
         transform: translateY(100%);
@@ -127,8 +127,8 @@
 /* Standalone PWA — Android & general */
 @media (max-width: 768px) and (display-mode: standalone) {
     html, body, #root {
-        background: var(--color-bg, #0B0E14);
-        background-color: var(--color-bg, #0B0E14)
+        background: var(--color-bg);
+        background-color: var(--color-bg)
     }
 
     /* The main layout extends behind both system bars.
@@ -165,8 +165,8 @@
 @media (max-width: 768px) {
     @supports (-webkit-touch-callout: none) {
         html, body, #root {
-            background: var(--color-bg, #0B0E14);
-            background-color: var(--color-bg, #0B0E14)
+            background: var(--color-bg);
+            background-color: var(--color-bg)
         }
 
         .prompt-input-container {
@@ -203,8 +203,8 @@
    ═══════════════════════════════════════════════════════════════ */
 @media (display-mode: standalone) {
     html, body, #root {
-        background: var(--color-bg, #0B0E14);
-        background-color: var(--color-bg, #0B0E14)
+        background: var(--color-bg);
+        background-color: var(--color-bg)
     }
 
     /* Status bar sits at the very bottom — account for home-indicator inset */

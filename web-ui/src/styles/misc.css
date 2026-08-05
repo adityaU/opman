@@ -33,6 +33,28 @@
     --theme-error-soft: color-mix(in srgb, var(--color-error) 12%, var(--color-bg-element));
     --theme-warning-soft: color-mix(in srgb, var(--color-warning) 12%, var(--color-bg-element));
     --theme-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-element));
+    /* Aliases for names used across the app. Defined here so they resolve to
+       theme tokens instead of silently falling back to a baked-in literal. */
+    --color-danger: var(--color-error);
+    --color-hover: var(--theme-surface-hover);
+    --color-surface-hover: var(--theme-surface-hover);
+    --color-bg-secondary: var(--color-bg-panel);
+    --color-bg-elevated: var(--theme-elevated);
+    --color-accent-hover: color-mix(in srgb, var(--color-accent) 84%, var(--color-text));
+    /* Foreground for text/icons sitting on a filled primary, accent or
+       semantic control. The canvas is the correct answer in both appearances:
+       every theme guarantees those fills contrast against it, so this stays
+       legible where a literal #fff goes invisible in light mode. */
+    --color-on-accent: var(--color-bg);
+    /* Foreground for controls that sit on a fixed dark scrim over media (image
+       and file thumbnails). The scrim does not change with the appearance, so
+       neither can this — it is deliberately not theme-derived. */
+    --color-on-scrim: #fff;
+    /* Flat appearance surfaces — overridden under html.flat-theme */
+    --flat-surface: var(--color-bg-element);
+    --flat-surface-hover: var(--theme-surface-hover);
+    --flat-border: var(--color-border);
+    --flat-active: var(--theme-surface-3);
     --color-syntax-keyword: var(--color-primary);
     --color-syntax-function: var(--color-accent);
     --color-syntax-string: var(--color-success);
@@ -53,6 +75,7 @@
     --font-size-lg: 1.125rem;
     --font-size-xl: 1.25rem;
     --space-1: .25rem;
+    --space-1-5: .375rem;
     --space-2: .5rem;
     --space-3: .75rem;
     --space-4: 1rem;
@@ -61,6 +84,7 @@
     --space-8: 2rem;
     --space-10: 2.5rem;
     --space-12: 3rem;
+    --radius-xs: 3px;
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
@@ -74,6 +98,7 @@
     --shadow-md: 0 6px 20px var(--black-20), 0 2px 6px var(--black-10);
     --shadow-lg: 0 12px 40px var(--black-25), 0 4px 12px var(--black-12);
     --sidebar-width: 280px;
+    --right-panel-width: 500px;
     --status-bar-height: 28px;
     --chat-max-width: 860px;
     --z-sidebar: 50;
@@ -103,6 +128,10 @@
     --white-30: rgba(255, 255, 255, .3);
     --white-35: rgba(255, 255, 255, .35);
     --white-40: rgba(255, 255, 255, .4);
+    --white-50: rgba(255, 255, 255, .5);
+    --white-60: rgba(255, 255, 255, .6);
+    --white-70: rgba(255, 255, 255, .7);
+    --white-90: rgba(255, 255, 255, .9);
     --black-2: rgba(0, 0, 0, .02);
     --black-3: rgba(0, 0, 0, .03);
     --black-4: rgba(0, 0, 0, .04);

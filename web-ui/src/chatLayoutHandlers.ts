@@ -108,6 +108,9 @@ export function createHandleSend(deps: HandlerDeps) {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       deps.setMobileInputHidden(true);
     }
+    // Reserve this session before starting the request so rapid submits cannot
+    // race and start competing turns on the same conversation.
+    deps.setSending(true, sid);
     // Prepend file context (from @file mentions) before memory guidance
     const fullText = fileContext ? fileContext + text : text;
     const enrichedText = injectMemoryGuidance(fullText, deps.activeMemoryItems);
@@ -138,6 +141,8 @@ export function createHandleSend(deps: HandlerDeps) {
       deps.clearOptimistic();
       deps.addToast("Failed to send message", "error");
       return false;
+    } finally {
+      deps.setSending(false, sid);
     }
   };
 }

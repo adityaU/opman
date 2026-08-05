@@ -1,0 +1,201 @@
+/* ── Floating surface shell ────────────────────────────────────────────
+   One contract for every dialog, panel, and anchored menu in the app.
+
+   Before this file there were three competing systems: the original
+   floating contract (13 surfaces), a second block in assistant-2.css
+   (10 surfaces, painted on --color-bg), and a long tail of per-modal
+   one-offs. That produced six corner radii and modals that read as flat
+   cut-outs of the canvas instead of surfaces lifted above it.
+
+   Two scales, because a 16px radius on a 180px dropdown reads bloated:
+     dialog  — centred, backdrop, owns the screen
+     popover — anchored to a control, small, transient
+
+   Imported after every component sheet, so it wins on order at equal
+   specificity rather than with !important. */
+
+:root {
+    --modal-radius: 16px;
+    --popover-radius: 12px;
+    /* Lifted off the canvas — never --color-bg, which is the page itself.
+       Glassy keeps a sliver of translucency so the blur below has something
+       to do; the backdrop is already scrimmed, so text stays readable. */
+    --modal-surface: color-mix(in srgb, var(--theme-elevated) 88%, transparent);
+    --modal-blur: blur(20px) saturate(1.3);
+    --modal-border: color-mix(in srgb, var(--color-border) 64%, transparent);
+    --modal-hairline: color-mix(in srgb, var(--color-border-subtle) 78%, transparent);
+    /* Offset + soft blur, twice, so depth reads as light rather than a halo. */
+    --modal-shadow:
+        0 24px 56px color-mix(in srgb, var(--color-bg) 68%, transparent),
+        0 6px 18px color-mix(in srgb, var(--color-bg) 44%, transparent);
+    --popover-shadow:
+        0 14px 32px color-mix(in srgb, var(--color-bg) 58%, transparent),
+        0 3px 10px color-mix(in srgb, var(--color-bg) 38%, transparent);
+    --modal-rim: inset 0 1px 0 color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* ── Scale membership ─────────────────────────────────────────────── */
+
+.modal-dialog-surface,
+:is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal, .autonomy-modal,
+    .routines-modal, .delegation-modal, .missions-modal, .workspace-mgr-modal,
+    .add-project-modal, .sysm-modal, .kanban-modal, .notification-prefs-modal,
+    .settings-modal, .theme-selector, .cheatsheet-modal, .watcher-modal,
+    .session-selector-modal, .health-modal, .todo-panel-modal, .ctx-window-modal,
+    .diff-review-modal, .command-palette, .context-input-modal,
+    .cross-session-search-modal, .pr-description-modal, .routines-confirm-dialog,
+    .activity-feed-panel, .session-dashboard-panel, .session-graph-panel, .sb-modal) {
+    border: 1px solid var(--modal-border);
+    border-radius: var(--modal-radius);
+    background: var(--modal-surface);
+    box-shadow: var(--modal-shadow), var(--modal-rim);
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur);
+    isolation: isolate;
+    animation: modal-surface-in .24s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.modal-popover-surface,
+:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
+    .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
+    .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
+    .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
+    .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
+    .prompt-queue-panel) {
+    border: 1px solid var(--modal-border);
+    border-radius: var(--popover-radius);
+    background: var(--modal-surface);
+    box-shadow: var(--popover-shadow), var(--modal-rim);
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur);
+    isolation: isolate;
+    outline: 0;
+    animation: popover-surface-in .16s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+/* ── Backdrop ─────────────────────────────────────────────────────────
+   The scrim is the authored moment: it fades and blurs while the panel
+   rises, so opening reads as one gesture instead of two effects. */
+
+:is(.modal-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
+    .kanban-modal-overlay) {
+    background: color-mix(in srgb, var(--color-bg) 64%, transparent);
+    backdrop-filter: blur(16px) saturate(1.12);
+    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    animation: modal-backdrop-in .18s ease-out both;
+}
+
+@keyframes modal-backdrop-in {
+    from { opacity: 0 }
+    to { opacity: 1 }
+}
+
+@keyframes modal-surface-in {
+    from { opacity: 0; transform: translateY(10px) scale(.988) }
+    to { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+@keyframes popover-surface-in {
+    from { opacity: 0; transform: translateY(-4px) scale(.99) }
+    to { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+/* ── Flat appearance ──────────────────────────────────────────────────
+   Flat drops the inner rim and the glass blur entirely: depth comes from
+   a single grounded shadow and a slightly firmer border. */
+
+html.flat-theme {
+    --modal-surface: var(--theme-surface-1);
+    --modal-blur: none;
+    --modal-border: var(--color-border);
+    --modal-shadow: 0 16px 34px var(--black-25);
+    --popover-shadow: 0 10px 22px var(--black-20);
+    --modal-rim: none;
+}
+
+html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
+    .routines-confirm-overlay, .kanban-modal-overlay) {
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    background: color-mix(in srgb, var(--color-bg) 76%, transparent);
+}
+
+/* ── Right-hand dockable cards ────────────────────────────────────── */
+
+.right-panel-stack {
+    gap: 10px;
+    padding: 4px 4px 8px 0;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.right-panel-card {
+    position: relative;
+    border: 1px solid var(--modal-border);
+    border-radius: var(--modal-radius);
+    background: var(--modal-surface);
+    box-shadow:
+        0 14px 30px color-mix(in srgb, var(--color-bg) 40%, transparent),
+        var(--modal-rim);
+    transition:
+        border-color var(--transition-base),
+        box-shadow var(--transition-base);
+}
+
+.right-panel-card:hover,
+.right-panel-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-primary) 34%, var(--modal-border));
+    box-shadow:
+        0 18px 38px color-mix(in srgb, var(--color-bg) 50%, transparent),
+        var(--modal-rim);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    :is(.modal-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
+        .kanban-modal-overlay),
+    .modal-dialog-surface,
+    :is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal,
+        .autonomy-modal, .routines-modal, .delegation-modal, .missions-modal,
+        .workspace-mgr-modal, .add-project-modal, .sysm-modal, .kanban-modal,
+        .notification-prefs-modal, .settings-modal, .theme-selector,
+        .cheatsheet-modal, .watcher-modal, .session-selector-modal, .health-modal,
+        .todo-panel-modal, .ctx-window-modal, .diff-review-modal, .command-palette,
+        .context-input-modal, .cross-session-search-modal, .pr-description-modal,
+        .routines-confirm-dialog, .activity-feed-panel, .session-dashboard-panel,
+        .session-graph-panel, .sb-modal),
+    .modal-popover-surface,
+    :is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
+        .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
+        .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
+        .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
+        .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
+        .prompt-queue-panel) {
+        animation: none;
+    }
+}
+
+/* ── Mobile: dialogs become bottom sheets ─────────────────────────── */
+
+@media (max-width: 768px) {
+    .modal-dialog-surface,
+    :is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal,
+        .autonomy-modal, .routines-modal, .delegation-modal, .missions-modal,
+        .workspace-mgr-modal, .add-project-modal, .sysm-modal, .kanban-modal,
+        .notification-prefs-modal, .settings-modal, .theme-selector,
+        .cheatsheet-modal, .watcher-modal, .session-selector-modal, .health-modal,
+        .todo-panel-modal, .ctx-window-modal, .diff-review-modal, .command-palette,
+        .context-input-modal, .cross-session-search-modal, .pr-description-modal) {
+        border-radius: 20px 20px 0 0;
+        border-bottom: 0;
+        animation: modal-sheet-in .26s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .right-panel-stack { padding: 0 }
+
+    @keyframes modal-sheet-in {
+        from { opacity: 0; transform: translateY(18px) }
+        to { opacity: 1; transform: translateY(0) }
+    }
+}

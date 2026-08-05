@@ -56,7 +56,7 @@
 }
 
 .status-bar-dot.retry {
-    background: var(--color-error, #f7768e);
+    background: var(--color-error);
     animation: dot-pulse 1.5s ease-in-out infinite
 }
 
@@ -81,15 +81,15 @@
 }
 
 .status-bar-tokens.context-ok {
-    color: var(--color-success, #7fd88f)
+    color: var(--color-success)
 }
 
 .status-bar-tokens.context-warning {
-    color: var(--color-warning, #f5a742)
+    color: var(--color-warning)
 }
 
 .status-bar-tokens.context-critical {
-    color: var(--color-error, #e06c75)
+    color: var(--color-error)
 }
 
 .status-bar-cost {
@@ -171,11 +171,11 @@
 }
 
 .status-bar-tokens-btn:hover {
-    background: var(--white-8, rgba(255,255,255,.08))
+    background: var(--white-8)
 }
 
 .status-bar-tokens-btn:focus-visible {
-    outline: 1px solid var(--color-primary, #60a5fa);
+    outline: 1px solid var(--color-primary);
     outline-offset: 1px
 }
 
@@ -185,7 +185,7 @@
     gap: 4px;
     padding: 0 6px;
     font-size: 11px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: default
 }
 
@@ -193,7 +193,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #3fb950
+    background: var(--color-success)
 }
 
 .status-bar-presence-count {
@@ -210,7 +210,7 @@
 }
 
 .status-bar-autonomy-observe {
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .status-bar-autonomy-nudge {
@@ -255,12 +255,12 @@
 }
 
 .status-bar-connection-reconnecting {
-    color: var(--color-warning, #f5a742);
+    color: var(--color-warning);
     animation: connection-pulse 2s ease-in-out infinite
 }
 
 .status-bar-connection-disconnected {
-    color: var(--color-error, #e06c75)
+    color: var(--color-error)
 }
 
 @keyframes connection-pulse {
@@ -291,9 +291,9 @@
 }
 
 .status-bar-backend-claude {
-    color: #d97706;
-    background: color-mix(in srgb, #d97706 12%, transparent);
-    border: 1px solid color-mix(in srgb, #d97706 25%, transparent)
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 25%, transparent)
 }
 
 /* flat theme overrides */
@@ -304,5 +304,5 @@
 
 .flat .status-bar-backend-claude {
     background: transparent;
-    border-color: color-mix(in srgb, #d97706 40%, transparent)
+    border-color: color-mix(in srgb, var(--color-warning) 40%, transparent)
 }

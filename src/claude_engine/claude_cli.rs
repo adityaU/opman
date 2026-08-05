@@ -11,11 +11,49 @@
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
 use tracing::{debug, warn};
+
+const CLI_TIMEOUT: Duration = Duration::from_secs(5);
+static AGENTS_QUERY_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn command_output(mut cmd: Command, operation: &str) -> Result<Output> {
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("failed to spawn {operation}"))?;
+    let deadline = Instant::now() + CLI_TIMEOUT;
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child
+                    .wait_with_output()
+                    .with_context(|| format!("failed to collect {operation} output"));
+            }
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                bail!(
+                    "{operation} timed out after {} seconds",
+                    CLI_TIMEOUT.as_secs()
+                );
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(25)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error).with_context(|| format!("failed while waiting for {operation}"));
+            }
+        }
+    }
+}
 
 /// One entry from `claude agents --json`.
 #[derive(Debug, Clone, Deserialize)]
@@ -70,9 +108,9 @@ fn claude_bin() -> String {
 
 /// `claude --version` → version string (best-effort).
 pub fn version() -> String {
-    Command::new(claude_bin())
-        .arg("--version")
-        .output()
+    let mut cmd = Command::new(claude_bin());
+    cmd.arg("--version");
+    command_output(cmd, "claude --version")
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_string())
@@ -102,6 +140,8 @@ pub struct TurnOpts {
     pub model: Option<String>,
     /// Agent to run as (`--agent <name>`). None = default agent.
     pub agent: Option<String>,
+    /// Reasoning effort (`--effort <level>`). None = Claude default.
+    pub effort: Option<String>,
     pub permission_mode: String,
     /// `--settings` JSON (PreToolUse hook config). Empty = omit.
     pub settings_json: String,
@@ -136,6 +176,11 @@ fn apply_opts(cmd: &mut Command, opts: &TurnOpts) {
     if let Some(a) = &opts.agent {
         if !a.is_empty() {
             cmd.arg("--agent").arg(a);
+        }
+    }
+    if let Some(effort) = &opts.effort {
+        if !effort.is_empty() {
+            cmd.arg("--effort").arg(effort);
         }
     }
     if !opts.engine_url.is_empty() {
@@ -183,8 +228,8 @@ pub fn bg_resume(
     run_bg(cmd, dir)
 }
 
-fn run_bg(mut cmd: Command, dir: &str) -> Result<(String, String)> {
-    let out = cmd.output().with_context(|| {
+fn run_bg(cmd: Command, dir: &str) -> Result<(String, String)> {
+    let out = command_output(cmd, "claude --bg").with_context(|| {
         format!(
             "Failed to spawn `claude --bg` (is `{}` on PATH?)",
             claude_bin()
@@ -222,13 +267,14 @@ fn run_bg(mut cmd: Command, dir: &str) -> Result<(String, String)> {
 
 /// List background/interactive agents (optionally scoped to a directory).
 pub fn agents_json(dir: Option<&str>) -> Result<Vec<AgentInfo>> {
+    let lock = AGENTS_QUERY_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut cmd = Command::new(claude_bin());
     cmd.arg("agents").arg("--json").arg("--all");
     if let Some(d) = dir {
         cmd.arg("--cwd").arg(d);
     }
-    let out = cmd
-        .output()
+    let out = command_output(cmd, "claude agents --json")
         .context("Failed to run `claude agents --json`")?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     let agents: Vec<AgentInfo> = serde_json::from_str(stdout.trim()).unwrap_or_default();
@@ -237,11 +283,9 @@ pub fn agents_json(dir: Option<&str>) -> Result<Vec<AgentInfo>> {
 
 /// Stop a background agent (`claude stop <shortid>`). Conversation is retained.
 pub fn stop(short_id: &str) -> Result<()> {
-    let _ = Command::new(claude_bin())
-        .arg("stop")
-        .arg(short_id)
-        .output()
-        .context("Failed to run `claude stop`")?;
+    let mut cmd = Command::new(claude_bin());
+    cmd.arg("stop").arg(short_id);
+    let _ = command_output(cmd, "claude stop").context("Failed to run `claude stop`")?;
     Ok(())
 }
 
@@ -446,19 +490,18 @@ fn model_limits(id: &str) -> (u64, u64) {
 /// Returns `None` if the CLI call fails or the output cannot be parsed — the caller
 /// should fall back to a hardcoded default list.
 pub fn fetch_models_via_cli() -> Option<Vec<ModelInfo>> {
-    let out = Command::new(claude_bin())
-        .args([
-            "-p",
-            "--model",
-            "haiku",
-            "--output-format",
-            "json",
-            "Output ONLY a raw JSON array of currently available Claude model IDs. \
+    let mut cmd = Command::new(claude_bin());
+    cmd.args([
+        "-p",
+        "--model",
+        "haiku",
+        "--output-format",
+        "json",
+        "Output ONLY a raw JSON array of currently available Claude model IDs. \
              No explanation, no markdown, no code block — just the array. \
              Example: [\"claude-haiku-4-5-20251001\",\"claude-sonnet-5\"]",
-        ])
-        .output()
-        .ok()?;
+    ]);
+    let out = command_output(cmd, "claude model discovery").ok()?;
 
     if !out.status.success() {
         warn!("claude -p model fetch exited non-zero");

@@ -96,6 +96,56 @@ html.flat-theme .right-panel-card { box-shadow: none }
     background: var(--theme-surface-1);
     color: var(--color-text)
 }
+.right-panel-tab {
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 0;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+}
+.right-panel-tab.active {
+    border-color: var(--color-border-subtle);
+    background: var(--theme-surface-1)
+}
+.right-panel-tabs .right-panel-tab-trigger,
+.right-panel-tabs .right-panel-tab-close {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+.right-panel-tabs .right-panel-tab-trigger {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 28px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 11px;
+    text-align: center;
+}
+.right-panel-tabs .right-panel-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 28px;
+    min-height: 28px;
+    border-radius: var(--radius-sm);
+}
+.right-panel-tab:hover .right-panel-tab-trigger,
+.right-panel-tab-close:hover,
+.right-panel-tab-close:focus-visible {
+    color: var(--color-text)
+}
+.right-panel-tab-close:hover,
+.right-panel-tab-close:focus-visible {
+    background: var(--theme-surface-hover)
+}
+.right-panel-tab-trigger:focus-visible,
+.right-panel-tab-close:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 60%, transparent);
+    outline-offset: -2px
+}
 .right-panel-tabs {
     flex: 0 0 auto;
     position: relative;

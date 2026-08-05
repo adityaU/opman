@@ -3,7 +3,7 @@
     display: block;
     width: 100%;
     font-size: 10px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     opacity: .7;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -24,7 +24,7 @@
     align-items: center;
     gap: var(--space-2, 8px);
     padding: var(--space-2, 8px) var(--space-3, 12px);
-    border-bottom: 1px solid var(--color-border-subtle, #2a2a2a);
+    border-bottom: 1px solid var(--color-border-subtle);
     flex-shrink: 0
 }
 
@@ -32,7 +32,7 @@
     flex: 1;
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap
@@ -47,9 +47,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #ffffff0a;
-    border: 1px solid var(--color-border, #484848);
-    color: var(--color-text, #eeeeee);
+    background: var(--white-4);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
     font-family: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -59,8 +59,8 @@
 }
 
 .diff-review-btn:hover:not(:disabled) {
-    background: #ffffff14;
-    border-color: var(--color-text-muted, #808080)
+    background: var(--white-8);
+    border-color: var(--color-text-muted)
 }
 
 .diff-review-btn:disabled {
@@ -69,23 +69,23 @@
 }
 
 .diff-review-btn.accept:hover:not(:disabled) {
-    border-color: var(--color-success, #7fd88f);
-    color: var(--color-success, #7fd88f)
+    border-color: var(--color-success);
+    color: var(--color-success)
 }
 
 .diff-review-btn.revert:hover:not(:disabled) {
-    border-color: var(--color-warning, #f5a742);
-    color: var(--color-warning, #f5a742)
+    border-color: var(--color-warning);
+    color: var(--color-warning)
 }
 
 .diff-review-btn.accept-all:hover:not(:disabled) {
-    border-color: var(--color-success, #7fd88f);
-    color: var(--color-success, #7fd88f)
+    border-color: var(--color-success);
+    color: var(--color-success)
 }
 
 .diff-review-btn.revert-all:hover:not(:disabled) {
-    border-color: var(--color-warning, #f5a742);
-    color: var(--color-warning, #f5a742)
+    border-color: var(--color-warning);
+    color: var(--color-warning)
 }
 
 .diff-review-viewer {
@@ -102,7 +102,7 @@
     align-items: center;
     justify-content: center;
     flex: 1;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     font-size: var(--font-size-sm, 13px)
 }
 
@@ -111,7 +111,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-2, 8px) var(--space-4, 16px);
-    border-top: 1px solid var(--color-border, #484848);
+    border-top: 1px solid var(--color-border);
     flex-shrink: 0
 }
 
@@ -122,14 +122,14 @@
 
 .diff-review-footer-hint {
     font-size: 11px;
-    color: var(--color-text-muted, #808080)
+    color: var(--color-text-muted)
 }
 
 .diff-review-footer-hint kbd {
     display: inline-block;
     padding: 1px 5px;
-    background: #ffffff0a;
-    border: 1px solid var(--color-border, #484848);
+    background: var(--white-4);
+    border: 1px solid var(--color-border);
     border-radius: 3px;
     font-size: 10px;
     font-family: inherit;

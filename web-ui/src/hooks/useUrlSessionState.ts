@@ -40,6 +40,8 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
 
   // Read initial URL values
   const [initial] = useState(readSessionFromUrl);
+  const initialUrlSessionRef = useRef(initial.sessionId);
+  const repairedInitialUrlRef = useRef(false);
   const [urlSessionId, setUrlSessionId] = useState<string | null>(initial.sessionId);
   const [newSessionMode, setNewSessionMode] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
   const [urlProjectIndex, setUrlProjectIndex] = useState<number>(initial.projectIdx);
@@ -120,6 +122,28 @@ export function useUrlSessionState(opts: UrlSessionStateOptions): UrlSessionStat
       })();
     }
   }, [urlSessionId, urlProjectIndex]);
+
+  // A persisted URL can outlive its runner-native session (for example after
+  // switching Claude adapters or restarting the runner). Once the server has
+  // hydrated a real session list, repair only the original URL target. This
+  // deliberately does not touch explicit user navigation or a newly-created
+  // session that has not reached the list yet.
+  useEffect(() => {
+    if (repairedInitialUrlRef.current) return;
+    if (!appState || !urlSessionId || urlSessionId !== initialUrlSessionRef.current) return;
+
+    const project = appState.projects[urlProjectIndex];
+    if (!project || project.sessions.length === 0) return;
+    if (project.sessions.some((session: any) => session.id === urlSessionId)) {
+      repairedInitialUrlRef.current = true;
+      return;
+    }
+
+    const fallback = project.active_session;
+    if (!fallback || !project.sessions.some((session: any) => session.id === fallback)) return;
+    repairedInitialUrlRef.current = true;
+    setUrlSession(fallback, urlProjectIndex);
+  }, [appState, urlSessionId, urlProjectIndex, setUrlSession]);
 
   // Handle deferred API call when appState arrives after the URL was already set.
   // This covers the initial page load where urlSessionId is set from URL params

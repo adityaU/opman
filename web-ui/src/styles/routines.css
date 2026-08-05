@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0000008c;
+  background: var(--black-50);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -27,9 +27,9 @@
   max-width: 94vw;
   max-height: 85vh;
   border-radius: 22px;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
-  box-shadow: 0 26px 80px #0000003d, 0 8px 28px #00000024;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 26px 80px var(--black-25), 0 8px 28px var(--black-14);
   overflow: hidden;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -38,7 +38,7 @@
 html.flat-theme .routines-modal {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 /* ── Header ─────────────────────────────────────────── */
@@ -48,24 +48,24 @@ html.flat-theme .routines-modal {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border, #21262d);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--color-surface, #161b22) 52%, transparent),
+    color-mix(in srgb, var(--color-surface) 52%, transparent),
     transparent
   );
 }
 
 html.flat-theme .routines-header {
-  background: var(--color-surface, #161b22);
+  background: var(--color-surface);
 }
 
 .routines-header-left {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 .routines-header-left h3 {
@@ -83,8 +83,8 @@ html.flat-theme .routines-header {
   height: 22px;
   padding: 0 7px;
   border-radius: 999px;
-  background: var(--color-bg-element, var(--color-border, #21262d));
-  color: var(--color-muted, #8b949e);
+  background: var(--color-bg-element);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -104,15 +104,15 @@ html.flat-theme .routines-header {
   border-radius: 999px;
   border: 1px solid transparent;
   background: none;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
 }
 
 .routines-header-actions > button:hover {
-  background: var(--color-surface-hover, var(--color-border, #21262d));
-  border-color: var(--color-border, #21262d);
-  color: var(--color-text, #e6edf3);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+  color: var(--color-text);
   transform: translateY(-1px);
 }
 
@@ -124,9 +124,9 @@ html.flat-theme .routines-header {
   width: auto !important;
   height: auto !important;
   border-radius: 999px !important;
-  border: 1px solid var(--color-border-subtle, var(--color-border, #21262d)) !important;
-  background: var(--color-surface, #161b22) !important;
-  color: var(--color-text, #e6edf3) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -134,9 +134,9 @@ html.flat-theme .routines-header {
 }
 
 .routines-add-btn:hover {
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 22%, var(--color-border, #21262d)) !important;
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 10%, var(--color-surface, #161b22)) !important;
-  color: var(--color-primary, #388bfd) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border)) !important;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)) !important;
+  color: var(--color-primary) !important;
 }
 
 /* ── Scrollable content (form + list unified scroll) ── */
@@ -149,7 +149,7 @@ html.flat-theme .routines-header {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--color-muted, #8b949e) 30%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-muted) 30%, transparent) transparent;
 }
 
 .routines-scrollable::-webkit-scrollbar {
@@ -161,12 +161,12 @@ html.flat-theme .routines-header {
 }
 
 .routines-scrollable::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 25%, transparent);
+  background: color-mix(in srgb, var(--color-muted) 25%, transparent);
   border-radius: 3px;
 }
 
 .routines-scrollable::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 40%, transparent);
+  background: color-mix(in srgb, var(--color-muted) 40%, transparent);
 }
 
 /* ── Form ───────────────────────────────────────────── */
@@ -178,23 +178,23 @@ html.flat-theme .routines-header {
   margin: 14px 14px 0;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid var(--color-border-subtle, var(--color-border, #21262d));
+  border: 1px solid var(--color-border-subtle);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--color-surface, #161b22) 80%, transparent),
+    color-mix(in srgb, var(--color-surface) 80%, transparent),
     transparent
-  ), var(--color-surface, #161b22);
+  ), var(--color-surface);
 }
 
 html.flat-theme .routines-form {
-  background: var(--color-surface, #161b22);
-  border-color: var(--color-border, #21262d);
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 .routines-form-title {
   font-size: 13px;
   font-weight: 700;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   margin-bottom: 12px;
   letter-spacing: -0.01em;
 }
@@ -206,7 +206,7 @@ html.flat-theme .routines-form {
   flex-direction: column;
   gap: 10px;
   padding: 14px 0;
-  border-top: 1px solid color-mix(in srgb, var(--color-border, #21262d) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
 .routines-form-section:first-of-type {
@@ -219,7 +219,7 @@ html.flat-theme .routines-form {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-form-section-toggle {
@@ -228,11 +228,11 @@ html.flat-theme .routines-form {
   gap: 8px;
   cursor: pointer;
   padding: 14px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--color-border, #21262d) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
 .routines-form-section-toggle input[type="checkbox"] {
-  accent-color: var(--color-primary, #388bfd);
+  accent-color: var(--color-primary);
   width: 14px;
   height: 14px;
 }
@@ -250,7 +250,7 @@ html.flat-theme .routines-form {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   margin-bottom: 5px;
   letter-spacing: 0.02em;
 }
@@ -258,37 +258,37 @@ html.flat-theme .routines-form {
 .routines-input,
 .routines-select {
   width: 100%;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 13px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 html.flat-theme .routines-input,
 html.flat-theme .routines-select {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-input:focus,
 .routines-select:focus,
 .routines-textarea:focus {
   outline: none;
-  border-color: var(--color-primary, #388bfd);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #388bfd) 15%, transparent);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .routines-textarea {
   width: 100%;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 13px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   font-family: inherit;
   resize: vertical;
   min-height: 68px;
@@ -298,12 +298,12 @@ html.flat-theme .routines-select {
 }
 
 html.flat-theme .routines-textarea {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-input::placeholder,
 .routines-textarea::placeholder {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   opacity: 0.6;
 }
 
@@ -333,10 +333,10 @@ html.flat-theme .routines-textarea {
 .routines-cron-tabs {
   display: inline-flex;
   gap: 0;
-  border: 1px solid var(--color-border, #21262d);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   overflow: hidden;
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-cron-tab {
@@ -344,7 +344,7 @@ html.flat-theme .routines-textarea {
   padding: 6px 14px;
   background: transparent;
   border: none;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -353,17 +353,17 @@ html.flat-theme .routines-textarea {
 }
 
 .routines-cron-tab:not(:last-child) {
-  border-right: 1px solid var(--color-border, #21262d);
+  border-right: 1px solid var(--color-border);
 }
 
 .routines-cron-tab.active {
-  background: var(--color-surface, #161b22);
-  color: var(--color-text, #e6edf3);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-weight: 600;
 }
 
 .routines-cron-tab:hover:not(.active) {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 /* Cron presets */
@@ -377,9 +377,9 @@ html.flat-theme .routines-textarea {
 .routines-cron-preset {
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid var(--color-border, #21262d);
+  border: 1px solid var(--color-border);
   background: transparent;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -388,20 +388,20 @@ html.flat-theme .routines-textarea {
 }
 
 .routines-cron-preset:hover {
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 40%, var(--color-border, #21262d));
-  color: var(--color-text, #e6edf3);
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 .routines-cron-preset.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 18%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 40%, var(--color-border, #21262d));
-  color: var(--color-primary, #388bfd);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 html.flat-theme .routines-cron-preset.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 15%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-primary) 15%, var(--color-surface));
 }
 
 /* Cron custom */
@@ -419,7 +419,7 @@ html.flat-theme .routines-cron-preset.active {
 
 .routines-cron-hint {
   font-size: 11px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   opacity: 0.7;
   line-height: 1.4;
 }
@@ -432,12 +432,12 @@ html.flat-theme .routines-cron-preset.active {
   gap: 4px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--color-bg, #0d1117) 80%, transparent);
-  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+  border: 1px solid var(--color-border);
 }
 
 html.flat-theme .routines-next-runs {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-next-runs-title {
@@ -445,7 +445,7 @@ html.flat-theme .routines-next-runs {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   margin-bottom: 2px;
 }
 
@@ -460,7 +460,7 @@ html.flat-theme .routines-next-runs {
 
 .routines-next-runs-item {
   font-size: 12px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   opacity: 0.85;
   padding: 2px 0;
   font-family: monospace;
@@ -475,7 +475,7 @@ html.flat-theme .routines-next-runs {
   justify-content: space-between;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--color-border, #21262d) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
   margin-top: 4px;
 }
 
@@ -485,11 +485,11 @@ html.flat-theme .routines-next-runs {
   gap: 8px;
   cursor: pointer;
   font-size: 12px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-toggle input[type="checkbox"] {
-  accent-color: var(--color-success, #3fb950);
+  accent-color: var(--color-success);
   width: 14px;
   height: 14px;
 }
@@ -513,9 +513,9 @@ html.flat-theme .routines-next-runs {
   gap: 6px;
   padding: 8px 16px;
   border-radius: 999px;
-  border: 1px solid var(--color-border, #21262d);
-  background: var(--color-surface, #161b22);
-  color: var(--color-text, #e6edf3);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -524,8 +524,8 @@ html.flat-theme .routines-next-runs {
 }
 
 .routines-btn:hover {
-  background: var(--color-surface-hover, var(--color-border, #21262d));
-  border-color: var(--color-border, #21262d);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
 }
 
 .routines-btn:disabled {
@@ -534,27 +534,27 @@ html.flat-theme .routines-next-runs {
 }
 
 .routines-btn--primary {
-  background: var(--color-primary, #388bfd);
-  border-color: var(--color-primary, #388bfd);
-  color: #fff;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-accent);
   font-weight: 600;
 }
 
 .routines-btn--primary:hover {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary, #388bfd) 30%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .routines-btn--muted {
   background: transparent;
   border-color: transparent;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-btn--muted:hover {
-  color: var(--color-text, #e6edf3);
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 10%, transparent);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-muted) 10%, transparent);
 }
 
 /* ── Body / List ────────────────────────────────────── */
@@ -571,7 +571,7 @@ html.flat-theme .routines-next-runs {
 .routines-empty {
   padding: 32px 16px;
   text-align: center;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 13px;
 }
 
@@ -582,7 +582,7 @@ html.flat-theme .routines-next-runs {
   justify-content: center;
   gap: 14px;
   padding: 48px 24px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-empty-state > svg {
@@ -592,7 +592,7 @@ html.flat-theme .routines-next-runs {
 .routines-empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   letter-spacing: -0.01em;
 }
 
@@ -607,23 +607,23 @@ html.flat-theme .routines-next-runs {
 
 .routines-card {
   border-radius: 16px;
-  border: 1px solid var(--color-border-subtle, var(--color-border, #21262d));
+  border: 1px solid var(--color-border-subtle);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--color-surface-hover, #1c2128) 52%, transparent),
+    color-mix(in srgb, var(--color-surface-hover) 52%, transparent),
     transparent 55%
-  ), var(--color-surface, #161b22);
+  ), var(--color-surface);
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 html.flat-theme .routines-card {
-  background: var(--color-surface, #161b22);
+  background: var(--color-surface);
 }
 
 .routines-card:hover {
   transform: translateY(-1px);
-  border-color: var(--color-border, #21262d);
-  box-shadow: 0 8px 24px #0000001a;
+  border-color: var(--color-border);
+  box-shadow: 0 8px 24px var(--black-10);
 }
 
 .routines-card--disabled {
@@ -636,8 +636,8 @@ html.flat-theme .routines-card {
 }
 
 .routines-card--editing {
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 40%, var(--color-border, #21262d));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #388bfd) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 /* Card header */
@@ -652,7 +652,7 @@ html.flat-theme .routines-card {
 .routines-card-expand {
   background: none;
   border: none;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   cursor: pointer;
   padding: 3px;
   border-radius: 6px;
@@ -662,7 +662,7 @@ html.flat-theme .routines-card {
 }
 
 .routines-card-expand:hover {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
 }
 
 .routines-card-info {
@@ -677,7 +677,7 @@ html.flat-theme .routines-card {
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
@@ -689,7 +689,7 @@ html.flat-theme .routines-card {
 
 .routines-card-prompt-preview {
   font-size: 12px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -705,7 +705,7 @@ html.flat-theme .routines-card {
   gap: 8px;
   margin-top: 6px;
   font-size: 11px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   flex-wrap: wrap;
 }
 
@@ -723,47 +723,47 @@ html.flat-theme .routines-card {
 }
 
 .routines-trigger-badge--scheduled {
-  background: color-mix(in srgb, var(--color-info, #58a6ff) 16%, transparent);
-  color: var(--color-info, #58a6ff);
+  background: color-mix(in srgb, var(--color-info) 16%, transparent);
+  color: var(--color-info);
 }
 
 html.flat-theme .routines-trigger-badge--scheduled {
-  background: color-mix(in srgb, var(--color-info, #58a6ff) 12%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-info) 12%, var(--color-surface));
 }
 
 .routines-trigger-badge--manual {
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 14%, transparent);
-  color: var(--color-muted, #8b949e);
+  background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+  color: var(--color-muted);
 }
 
 html.flat-theme .routines-trigger-badge--manual {
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 10%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-muted) 10%, var(--color-surface));
 }
 
 .routines-trigger-badge--on_session_idle {
-  background: color-mix(in srgb, var(--color-warning, #d29922) 16%, transparent);
-  color: var(--color-warning, #d29922);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
 }
 
 html.flat-theme .routines-trigger-badge--on_session_idle {
-  background: color-mix(in srgb, var(--color-warning, #d29922) 12%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
 }
 
 .routines-trigger-badge--daily_summary {
-  background: color-mix(in srgb, var(--color-success, #3fb950) 16%, transparent);
-  color: var(--color-success, #3fb950);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
 }
 
 html.flat-theme .routines-trigger-badge--daily_summary {
-  background: color-mix(in srgb, var(--color-success, #3fb950) 12%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
 }
 
 .routines-schedule-summary {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-target-summary {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   opacity: 0.8;
 }
 
@@ -771,7 +771,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--color-error, #f85149);
+  color: var(--color-error);
   font-size: 10px;
   font-weight: 600;
 }
@@ -803,14 +803,14 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .routines-icon-btn:hover {
-  background: color-mix(in srgb, var(--color-muted, #8b949e) 12%, transparent);
-  color: var(--color-text, #e6edf3);
+  background: color-mix(in srgb, var(--color-muted) 12%, transparent);
+  color: var(--color-text);
 }
 
 .routines-icon-btn:disabled {
@@ -819,26 +819,26 @@ html.flat-theme .routines-trigger-badge--daily_summary {
 }
 
 .routines-icon-btn--enabled {
-  color: var(--color-success, #3fb950);
+  color: var(--color-success);
 }
 
 .routines-icon-btn--enabled:hover {
-  background: color-mix(in srgb, var(--color-success, #3fb950) 12%, transparent);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
 .routines-icon-btn--disabled-state {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   opacity: 0.45;
 }
 
 .routines-icon-btn--run:hover {
-  color: var(--color-info, #58a6ff);
-  background: color-mix(in srgb, var(--color-info, #58a6ff) 12%, transparent);
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
 }
 
 .routines-icon-btn--danger:hover {
-  color: var(--color-error, #f85149);
-  background: color-mix(in srgb, var(--color-error, #f85149) 12%, transparent);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
 /* ── Card detail (expanded) ─────────────────────────── */
@@ -848,7 +848,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--color-border, #21262d) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   margin: 0 16px;
   padding-top: 12px;
   animation: routines-detail-expand 0.2s ease-out;
@@ -873,30 +873,30 @@ html.flat-theme .routines-trigger-badge--daily_summary {
 .routines-detail-label {
   flex-shrink: 0;
   width: 72px;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .routines-detail-value {
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   font-size: 12px;
   word-break: break-word;
   line-height: 1.4;
 }
 
 .routines-detail-value--error {
-  color: var(--color-error, #f85149);
+  color: var(--color-error);
 }
 
 .routines-detail-prompt {
   padding: 8px 12px;
   border-radius: 10px;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   font-size: 12px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 120px;
@@ -918,7 +918,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   margin-bottom: 2px;
 }
 
@@ -929,11 +929,11 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   font-size: 11px;
   padding: 5px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--color-bg, #0d1117) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg) 70%, transparent);
 }
 
 html.flat-theme .routines-run-row {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-run-status {
@@ -947,28 +947,28 @@ html.flat-theme .routines-run-row {
   min-width: 55px;
 }
 
-.routines-run-status--success { color: var(--color-success, #3fb950); }
-.routines-run-status--error { color: var(--color-error, #f85149); }
-.routines-run-status--running { color: var(--color-warning, #d29922); }
+.routines-run-status--success { color: var(--color-success); }
+.routines-run-status--error { color: var(--color-error); }
+.routines-run-status--running { color: var(--color-warning); }
 
 .routines-run-summary {
   flex: 1;
   min-width: 0;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .routines-run-duration {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-family: monospace;
   font-size: 10px;
   flex-shrink: 0;
 }
 
 .routines-run-time {
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   flex-shrink: 0;
   font-size: 10px;
 }
@@ -981,15 +981,15 @@ html.flat-theme .routines-run-row {
   gap: 8px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--color-error, #f85149) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-error, #f85149) 25%, var(--color-border, #21262d));
-  color: var(--color-error, #f85149);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, var(--color-border));
+  color: var(--color-error);
   font-size: 12px;
   line-height: 1.4;
 }
 
 html.flat-theme .routines-error-banner {
-  background: color-mix(in srgb, var(--color-error, #f85149) 8%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface));
 }
 
 .routines-error-banner span {
@@ -1005,7 +1005,7 @@ html.flat-theme .routines-error-banner {
 .routines-error-dismiss {
   background: none;
   border: none;
-  color: var(--color-error, #f85149);
+  color: var(--color-error);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -1024,8 +1024,8 @@ html.flat-theme .routines-error-banner {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #fff;
+  border: 2px solid var(--white-25);
+  border-top-color: var(--color-text);
   border-radius: 50%;
   animation: routines-spin 0.6s linear infinite;
   flex-shrink: 0;
@@ -1044,7 +1044,7 @@ html.flat-theme .routines-error-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--black-60);
   border-radius: 22px;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
@@ -1056,28 +1056,28 @@ html.flat-theme .routines-error-banner {
   gap: 14px;
   padding: 24px 28px;
   border-radius: 18px;
-  background: var(--color-bg, #0d1117);
-  border: 1px solid var(--color-border, #21262d);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 48px var(--black-50);
   max-width: 380px;
   width: 90%;
 }
 
 html.flat-theme .routines-confirm-dialog {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .routines-confirm-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   letter-spacing: -0.01em;
 }
 
 .routines-confirm-msg {
   font-size: 13px;
   line-height: 1.55;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .routines-confirm-actions {
@@ -1093,9 +1093,9 @@ html.flat-theme .routines-confirm-dialog {
   gap: 6px;
   padding: 8px 16px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-error, #f85149) 40%, var(--color-border, #21262d));
-  background: color-mix(in srgb, var(--color-error, #f85149) 12%, var(--color-surface, #161b22));
-  color: var(--color-error, #f85149);
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
+  color: var(--color-error);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -1103,8 +1103,8 @@ html.flat-theme .routines-confirm-dialog {
 }
 
 .routines-btn--danger:hover {
-  background: color-mix(in srgb, var(--color-error, #f85149) 22%, var(--color-surface, #161b22));
-  border-color: var(--color-error, #f85149);
+  background: color-mix(in srgb, var(--color-error) 22%, var(--color-surface));
+  border-color: var(--color-error);
 }
 
 /* ── Animations ────────────────────────────────────── */
@@ -1138,7 +1138,7 @@ html.flat-theme .routines-confirm-dialog {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .cron-field-chips {
@@ -1150,9 +1150,9 @@ html.flat-theme .routines-confirm-dialog {
 .cron-chip {
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid var(--color-border, #21262d);
+  border: 1px solid var(--color-border);
   background: transparent;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -1161,19 +1161,19 @@ html.flat-theme .routines-confirm-dialog {
 }
 
 .cron-chip:hover {
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 40%, var(--color-border, #21262d));
-  color: var(--color-text, #e6edf3);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-text);
 }
 
 .cron-chip.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 18%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary, #388bfd) 40%, var(--color-border, #21262d));
-  color: var(--color-primary, #388bfd);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 html.flat-theme .cron-chip.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 15%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-primary) 15%, var(--color-surface));
 }
 
 .cron-chip--custom {
@@ -1181,13 +1181,13 @@ html.flat-theme .cron-chip.active {
 }
 
 .cron-chip--custom.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 12%, transparent);
-  color: var(--color-primary, #388bfd);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
   border-style: solid;
 }
 
 html.flat-theme .cron-chip--custom.active {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 10%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
 }
 
 .cron-field-input {
@@ -1205,36 +1205,36 @@ html.flat-theme .cron-chip--custom.active {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--color-bg, #0d1117) 80%, transparent);
-  border: 1px solid var(--color-border, #21262d);
+  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+  border: 1px solid var(--color-border);
 }
 
 html.flat-theme .cron-builder-summary {
-  background: var(--color-bg, #0d1117);
+  background: var(--color-bg);
 }
 
 .cron-builder-summary-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-muted, #8b949e);
+  color: var(--color-muted);
 }
 
 .cron-builder-summary-expr {
   font-family: monospace;
   font-size: 12px;
-  color: var(--color-primary, #388bfd);
+  color: var(--color-primary);
   padding: 2px 8px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 12%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 html.flat-theme .cron-builder-summary-expr {
-  background: color-mix(in srgb, var(--color-primary, #388bfd) 10%, var(--color-surface, #161b22));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
 }
 
 .cron-builder-summary-desc {
   font-size: 11px;
-  color: var(--color-text, #e6edf3);
+  color: var(--color-text);
   opacity: 0.8;
 }
 
@@ -1242,9 +1242,9 @@ html.flat-theme .cron-builder-summary-expr {
 
 .routines-action-label { text-transform: capitalize; }
 .routines-cron-label { font-family: monospace; font-size: 10px; opacity: 0.7; }
-.routines-target-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--color-muted, #8b949e); opacity: 0.8; }
-.routines-model-toggle { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; font-size: 12px; color: var(--color-muted, #8b949e); border: none; background: none; width: 100%; text-align: left; }
-.routines-model-toggle:hover { color: var(--color-text, #e6edf3); }
+.routines-target-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--color-muted); opacity: 0.8; }
+.routines-model-toggle { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; font-size: 12px; color: var(--color-muted); border: none; background: none; width: 100%; text-align: left; }
+.routines-model-toggle:hover { color: var(--color-text); }
 .routines-model-toggle-icon { transition: transform 0.2s; }
 .routines-model-toggle-icon.expanded { transform: rotate(90deg); }
 .routines-model-section { display: flex; flex-direction: column; gap: 8px; animation: routines-section-expand 0.2s ease-out; }
@@ -1287,7 +1287,7 @@ html.flat-theme .cron-builder-summary-expr {
     width: 100%;
     justify-content: flex-end;
     padding-top: 8px;
-    border-top: 1px solid color-mix(in srgb, var(--color-border, #21262d) 50%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
     margin-top: 6px;
   }
 

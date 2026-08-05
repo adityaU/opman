@@ -66,6 +66,10 @@ export function RunnerSelector({
   const permissions = PERMISSIONS[currentRunner] || PERMISSIONS.opencode;
   const runnerLabel = currentRunner === "claude-code" ? "Claude Code" : currentRunner === "claude" ? "Claude" : currentRunner;
   const effortLabel = effort ? ` · ${effort}` : "";
+  const effortOptions = Array.from(new Set([
+    ...supportedEfforts.filter(Boolean),
+    ...(effort && !supportedEfforts.includes(effort) ? [effort] : []),
+  ]));
   const open = anchor !== null;
 
   // The chip row is a horizontal scroll container on touch layouts and the
@@ -93,10 +97,6 @@ export function RunnerSelector({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!supportedEfforts.includes(effort || "")) onEffortChange?.(null);
-  }, [supportedEfforts, effort, onEffortChange]);
-
   const toggle = useCallback(() => {
     setAnchor((prev) => (prev || !btnRef.current ? null : anchorFor(btnRef.current)));
   }, []);
@@ -121,14 +121,18 @@ export function RunnerSelector({
               <span>{runner}</span>{runner === currentRunner && <Check size={12} />}
             </button>
           ))}
-          {supportedEfforts.length > 0 && (
-            <label className="prompt-runner-setting">
+          {effortOptions.length > 0 && (
+            <div className="prompt-runner-setting prompt-effort-setting">
               <span>Effort</span>
-              <select aria-label="Reasoning effort" value={effort || ""} onChange={(event) => onEffortChange?.(event.target.value || null)}>
-                <option value="">Default</option>
-                {supportedEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </label>
+              <div className="prompt-effort-options" role="radiogroup" aria-label="Reasoning effort">
+                <button type="button" role="radio" aria-checked={!effort} className={!effort ? "is-selected" : ""} onClick={() => onEffortChange?.(null)}>Default</button>
+                {effortOptions.map((value) => (
+                  <button key={value} type="button" role="radio" aria-checked={effort === value} className={effort === value ? "is-selected" : ""} onClick={() => onEffortChange?.(value)}>
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           <label className="prompt-runner-setting">
             <span><Shield size={11} /> Permissions</span>

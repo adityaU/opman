@@ -202,6 +202,15 @@ impl ClaudePEngine {
         self.save();
     }
 
+    pub fn set_effort(&self, id: &str, effort: &str) {
+        let effort = effort.trim();
+        if effort.is_empty() {
+            return;
+        }
+        self.mutate(id, |e| e.effort = Some(effort.to_string()));
+        self.save();
+    }
+
     pub fn set_permission_mode(&self, id: &str, mode: &str) {
         let dir = self.mutate(id, |e| e.permission_mode = Some(mode.to_string()));
         self.save();

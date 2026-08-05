@@ -2,7 +2,7 @@
 .session-dashboard-card-cost {
     font-family: var(--font-mono, "JetBrains Mono", monospace);
     font-size: 10px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .session-dashboard-card-actions {
@@ -30,7 +30,7 @@
     grid-column: 1 / -1;
     text-align: center;
     padding: 32px 16px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 12px
 }
 
@@ -39,19 +39,19 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    border-top: 1px solid var(--color-border, #21262d);
+    border-top: 1px solid var(--color-border);
     font-size: 11px;
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .session-dashboard-footer strong {
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .session-dashboard-close {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
@@ -60,14 +60,14 @@
 }
 
 .session-dashboard-close:hover {
-    background: var(--color-border, #21262d);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-border);
+    color: var(--color-text)
 }
 
 .session-dashboard-refresh {
     background: none;
     border: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
@@ -77,8 +77,8 @@
 }
 
 .session-dashboard-refresh:hover {
-    background: var(--color-border, #21262d);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-border);
+    color: var(--color-text)
 }
 
 .session-dashboard-loading {
@@ -87,7 +87,7 @@
     justify-content: center;
     gap: 8px;
     padding: 48px 16px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     font-size: 13px
 }
 
@@ -116,7 +116,7 @@
 }
 
 .session-dashboard-status-dot.idle {
-    background: var(--color-muted, #8b949e)
+    background: var(--color-muted)
 }
 
 .session-dashboard-card-text {
@@ -125,7 +125,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .session-dashboard-card-time {
@@ -134,6 +134,6 @@
     gap: 3px;
     font-family: var(--font-mono, "JetBrains Mono", monospace);
     font-size: 10px;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     white-space: nowrap
 }

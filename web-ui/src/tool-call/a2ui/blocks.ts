@@ -89,7 +89,9 @@ function renderProgress(data: Record<string, unknown>): string {
 }
 
 function renderAlert(data: Record<string, unknown>): string {
-  const msg = sfOr(data, "message", "content");
+  // `message` is canonical; tolerate common aliases so malformed model output
+  // does not leave an otherwise valid alert visibly blank.
+  const msg = sfOr(data, "message", "content", "body", "text");
   const level = sf(data, "level") || "info";
   return `<div class="a2ui-alert a2ui-alert-${esc(level)}">${levelIcon(level, 16)}<div>${md(msg)}</div></div>`;
 }

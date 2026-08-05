@@ -76,9 +76,11 @@ fn turn_opts_uses_session_model_and_defaults() {
     let e = engine((false, false, false, false));
     let s = e.create_session("d1", "", "T");
     e.set_model(&s.id, "claude-custom");
+    e.set_effort(&s.id, "high");
     let opts = e.turn_opts(&s.id, "d1");
     assert_eq!(opts.model, Some("claude-custom".to_string()));
     assert_eq!(opts.permission_mode, "bypassPermissions");
+    assert_eq!(opts.effort.as_deref(), Some("high"));
     assert!(opts.settings_json.contains("PreToolUse"));
     assert_eq!(opts.engine_url, "");
     assert_eq!(opts.mcp_config, "");

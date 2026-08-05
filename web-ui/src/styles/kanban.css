@@ -141,8 +141,8 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
 }
 
 .kanban-lane-count-over {
-  color: #fff;
-  background: var(--color-error, #e5484d);
+  color: var(--color-on-accent);
+  background: var(--color-error);
 }
 
 .kanban-lane-body {
@@ -200,8 +200,8 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
 }
 .kanban-priority-low { background: color-mix(in srgb, var(--color-text-muted) 18%, transparent); color: var(--color-text-muted); }
 .kanban-priority-normal { background: color-mix(in srgb, var(--color-primary) 18%, transparent); color: var(--color-primary); }
-.kanban-priority-high { background: color-mix(in srgb, var(--color-warning, #f5a623) 22%, transparent); color: var(--color-warning, #f5a623); }
-.kanban-priority-urgent { background: color-mix(in srgb, var(--color-error, #e5484d) 22%, transparent); color: var(--color-error, #e5484d); }
+.kanban-priority-high { background: color-mix(in srgb, var(--color-warning) 22%, transparent); color: var(--color-warning); }
+.kanban-priority-urgent { background: color-mix(in srgb, var(--color-error) 22%, transparent); color: var(--color-error); }
 
 .kanban-tag-chip {
   font-size: var(--font-size-xs, 0.7rem);
@@ -256,8 +256,8 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
 }
 .kanban-runstate:disabled { cursor: default; opacity: 0.8; }
 .kanban-runstate-running, .kanban-runstate-launching { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); }
-.kanban-runstate-done { color: var(--color-success, #30a46c); border-color: color-mix(in srgb, var(--color-success, #30a46c) 40%, transparent); }
-.kanban-runstate-failed { color: var(--color-error, #e5484d); border-color: color-mix(in srgb, var(--color-error, #e5484d) 40%, transparent); }
+.kanban-runstate-done { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
+.kanban-runstate-failed { color: var(--color-error); border-color: color-mix(in srgb, var(--color-error) 40%, transparent); }
 
 .kanban-launch-btn {
   display: inline-flex;
@@ -297,8 +297,8 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
 }
 .kanban-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 28%, transparent); }
 .kanban-btn-danger {
-  border-color: color-mix(in srgb, var(--color-error, #e5484d) 45%, transparent);
-  color: var(--color-error, #e5484d);
+  border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+  color: var(--color-error);
 }
 .kanban-icon-btn {
   display: inline-flex;
@@ -312,13 +312,13 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
   border-radius: var(--radius-sm, 6px);
 }
 .kanban-icon-btn:hover { background: color-mix(in srgb, var(--color-text) 8%, transparent); }
-.kanban-icon-btn-danger:hover { color: var(--color-error, #e5484d); }
+.kanban-icon-btn-danger:hover { color: var(--color-error); }
 
 /* ── Modals ── */
 .kanban-modal-overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, #000 55%, transparent);
+  background: var(--theme-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -428,7 +428,7 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
 }
 .kanban-content-tool-btn:disabled { opacity: 0.5; cursor: default; }
 .kanban-content-hint { font-size: var(--font-size-xs, 0.7rem); color: var(--color-text-muted); }
-.kanban-content-error { font-size: var(--font-size-xs, 0.7rem); color: var(--color-error, #e5484d); }
+.kanban-content-error { font-size: var(--font-size-xs, 0.7rem); color: var(--color-error); }
 .kanban-content-textarea {
   width: 100%;
   resize: vertical;
@@ -551,15 +551,15 @@ html.flat-theme .kanban-lane {
   font-size: 0.68rem; color: var(--color-text-muted);
   padding: 1px 5px; border-radius: 4px; background: var(--color-bg-panel);
 }
-.kanban-pipeline-stage-warn { color: var(--color-warning, #e0af68); }
+.kanban-pipeline-stage-warn { color: var(--color-warning); }
 .kanban-pipeline-arrow { color: var(--color-text-muted); margin: 0 2px; }
 .kanban-stage-badge {
   margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: .03em;
   padding: 1px 6px; border-radius: 4px; background: var(--color-bg-panel); color: var(--color-text-muted);
 }
 .kanban-stage-badge-running { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
-.kanban-stage-badge-done { color: var(--color-success, #9ece6a); background: color-mix(in srgb, var(--color-success, #9ece6a) 14%, transparent); }
-.kanban-stage-badge-failed { color: var(--color-error, #f7768e); background: color-mix(in srgb, var(--color-error, #f7768e) 14%, transparent); }
+.kanban-stage-badge-done { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); }
+.kanban-stage-badge-failed { color: var(--color-error); background: color-mix(in srgb, var(--color-error) 14%, transparent); }
 .kanban-stage-open {
   display: inline-flex; align-items: center; border: none; background: transparent;
   color: var(--color-text-muted); cursor: pointer; padding: 2px;

@@ -136,7 +136,7 @@
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
     background: var(--color-primary);
-    color: white;
+    color: var(--color-on-accent);
     border: none;
     border-radius: var(--radius-md);
     font-size: var(--font-size-sm);

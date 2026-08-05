@@ -107,7 +107,7 @@
 }
 
 .settings-toggle.on {
-    background: rgba(var(--color-success),.15);
+    background: color-mix(in srgb, var(--color-success) 15%, transparent);
     color: var(--color-success);
     background: color-mix(in srgb,var(--color-success) 15%,transparent)
 }

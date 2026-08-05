@@ -14,6 +14,8 @@ use super::events::{EditorEvent, WebEvent};
 
 #[derive(Serialize, Clone)]
 pub struct WebAppState {
+    /// True after all configured projects have completed their first session fetch.
+    pub startup_ready: bool,
     pub projects: Vec<WebProjectInfo>,
     pub active_project: usize,
     pub panels: WebPanelVisibility,

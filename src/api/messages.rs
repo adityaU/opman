@@ -19,7 +19,8 @@ impl ApiClient {
         let url = format!("{}/session/{}/message", base_url, session_id);
         debug!(url, session_id, "Sending context message to session");
 
-        self.client
+        let response = self
+            .client
             .post(&url)
             .header("x-opencode-directory", project_dir)
             .header("Accept", "application/json")
@@ -29,6 +30,12 @@ impl ApiClient {
             .send()
             .await
             .context("Failed to send message to opencode session")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Message rejected by server: HTTP {} — {}", status, body);
+        }
 
         Ok(())
     }

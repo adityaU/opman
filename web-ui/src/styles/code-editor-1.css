@@ -1,7 +1,7 @@
 html {
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
-    background: var(--color-bg, #0B0E14);
+    background: var(--color-bg);
     color-scheme: dark
 }
 
@@ -70,7 +70,7 @@ code,pre,kbd,samp {
 }
 
 .code-editor-modified-dot {
-    color: var(--color-warning, #f5a742);
+    color: var(--color-warning);
     font-size: 16px;
     line-height: 1;
     flex-shrink: 0
@@ -120,7 +120,7 @@ code,pre,kbd,samp {
 
 .code-editor-save-status {
     font-size: 10px;
-    color: var(--color-success, #7fd88f);
+    color: var(--color-success);
     text-transform: uppercase;
     letter-spacing: .04em
 }
@@ -145,12 +145,12 @@ code,pre,kbd,samp {
 }
 
 .code-editor-save {
-    color: var(--color-primary, #fab283);
-    border-color: var(--color-primary, #fab283)
+    color: var(--color-primary);
+    border-color: var(--color-primary)
 }
 
 .code-editor-save:hover {
-    background: #fab2831a
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent)
 }
 
 .code-editor-body {
@@ -267,7 +267,7 @@ code,pre,kbd,samp {
 }
 
 .code-editor-file-entry .folder-icon {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .code-editor-file-entry .file-name {

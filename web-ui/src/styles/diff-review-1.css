@@ -48,12 +48,12 @@
 }
 
 .diff-line.added {
-    background: #7fd88f1a;
+    background: color-mix(in srgb, var(--color-success) 10%, transparent);
     color: var(--color-success)
 }
 
 .diff-line.removed {
-    background: #e06c751a;
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
     color: var(--color-error)
 }
 
@@ -79,8 +79,8 @@
 }
 
 .diff-review-modal {
-    background: var(--color-bg, #0B0E14);
-    border: 1px solid var(--color-border, #484848);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg, 12px);
     width: 90vw;
     max-width: 1200px;
@@ -88,7 +88,7 @@
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px #00000080;
+    box-shadow: 0 20px 60px var(--black-50);
     animation: modalSlideIn .15s ease;
     overflow: hidden
 }
@@ -98,10 +98,10 @@
     align-items: center;
     gap: var(--space-2, 8px);
     padding: var(--space-3, 12px) var(--space-4, 16px);
-    border-bottom: 1px solid var(--color-border, #484848);
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--font-size-sm, 13px);
     font-weight: 600;
-    color: var(--color-text, #eeeeee);
+    color: var(--color-text);
     flex-shrink: 0
 }
 
@@ -115,8 +115,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-primary, #fab283);
-    color: var(--color-bg, #0B0E14);
+    background: var(--color-primary);
+    color: var(--color-bg);
     font-size: 11px;
     font-weight: 700;
     min-width: 20px;
@@ -135,7 +135,7 @@
 .diff-review-view-toggle,.diff-review-refresh,.diff-review-close {
     background: none;
     border: none;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: var(--radius-sm, 4px);
@@ -145,8 +145,8 @@
 }
 
 .diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover {
-    color: var(--color-text, #eeeeee);
-    background: #ffffff14
+    color: var(--color-text);
+    background: var(--white-8)
 }
 
 .diff-review-body {
@@ -162,14 +162,14 @@
     justify-content: center;
     gap: var(--space-2, 8px);
     padding: var(--space-6, 24px);
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     font-size: var(--font-size-sm, 13px);
     flex: 1
 }
 
 .diff-review-error {
     padding: var(--space-4, 16px);
-    color: var(--color-error, #e06c75);
+    color: var(--color-error);
     text-align: center;
     font-size: var(--font-size-sm, 13px)
 }
@@ -181,14 +181,14 @@
     justify-content: center;
     gap: var(--space-3, 12px);
     padding: var(--space-8, 32px);
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     font-size: var(--font-size-sm, 13px);
     flex: 1
 }
 
 .diff-review-empty-hint {
     font-size: 12px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     opacity: .7
 }
 
@@ -201,7 +201,7 @@
 .diff-review-file-list {
     width: 240px;
     min-width: 200px;
-    border-right: 1px solid var(--color-border, #484848);
+    border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
@@ -217,13 +217,13 @@
     text-transform: uppercase;
     letter-spacing: .05em;
     font-weight: 600;
-    color: var(--color-text-muted, #808080);
-    border-bottom: 1px solid var(--color-border-subtle, #2a2a2a)
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border-subtle)
 }
 
 .diff-review-pending-badge {
     font-size: 10px;
-    color: var(--color-warning, #f5a742);
+    color: var(--color-warning);
     text-transform: none;
     letter-spacing: normal;
     font-weight: 500
@@ -236,7 +236,7 @@
     padding: var(--space-2, 8px) var(--space-3, 12px);
     background: none;
     border: none;
-    color: var(--color-text, #eeeeee);
+    color: var(--color-text);
     font-family: var(--font-mono);
     font-size: 12px;
     cursor: pointer;
@@ -247,12 +247,12 @@
 }
 
 .diff-review-file-item:hover {
-    background: var(--color-bg-hover, #222222)
+    background: var(--color-bg-hover)
 }
 
 .diff-review-file-item.selected {
-    background: var(--color-bg-selected, #1c1610);
-    border-top: 2px solid var(--color-primary, #fab283)
+    background: var(--color-bg-selected);
+    border-top: 2px solid var(--color-primary)
 }
 
 .diff-review-file-item.file-accepted {
@@ -268,7 +268,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    color: var(--color-text-muted, #808080)
+    color: var(--color-text-muted)
 }
 
 .diff-review-file-name {
@@ -286,9 +286,9 @@
 }
 
 .diff-review-file-status.accepted {
-    color: var(--color-success, #7fd88f)
+    color: var(--color-success)
 }
 
 .diff-review-file-status.reverted {
-    color: var(--color-warning, #f5a742)
+    color: var(--color-warning)
 }

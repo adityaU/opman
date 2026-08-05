@@ -53,16 +53,24 @@ export const EXAMPLE_PROMPTS = [
 
 // ── Helpers ────────────────────────────────────────────
 
-function isToolOnlyMessage(message: Message): boolean {
-  return message.parts.length > 0 && message.parts.every((part) =>
-    part.type === "tool" || part.type === "tool-call" || part.type === "tool_call" ||
-    ["step-start", "step-finish", "snapshot", "patch"].includes(part.type),
-  );
+/**
+ * A runner can stream one assistant turn as several message records. Keep
+ * those records together until the conversation actually changes speaker.
+ * An explicit agent change is also a boundary so a handoff is not presented
+ * as one agent's answer.
+ */
+function canJoinAssistantTurn(last: MessageGroup, message: Message): boolean {
+  if (last.role !== "assistant" || message.info.role !== "assistant") return false;
+
+  const previousAgent = last.messages[last.messages.length - 1]?.info.agent;
+  const nextAgent = message.info.agent;
+  return !previousAgent || !nextAgent || previousAgent === nextAgent;
 }
 
 /**
- * Keep prose and reasoning as separate visual turns. Consecutive tool-only
- * messages may share a turn so the tool renderer can collapse their calls.
+ * Keep all records from one assistant turn in one visual turn. This matters
+ * for runners such as Codex that emit text, tool calls, and more text as
+ * separate records while the model is still answering.
  */
 export function groupMessages(
   messages: Message[],
@@ -71,9 +79,7 @@ export function groupMessages(
   const groups: MessageGroup[] = [];
   for (const msg of messages) {
     const last = groups[groups.length - 1];
-    const canJoinToolTurn = last && last.role === "assistant" &&
-      isToolOnlyMessage(msg) && isToolOnlyMessage(last.messages[last.messages.length - 1]);
-    if (canJoinToolTurn) {
+    if (last && canJoinAssistantTurn(last, msg)) {
       last.messages.push(msg);
     } else {
       groups.push({

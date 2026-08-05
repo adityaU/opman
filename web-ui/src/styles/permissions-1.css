@@ -86,7 +86,7 @@
         color-mix(in srgb, var(--color-surface) 72%, transparent),
         transparent),
         var(--color-bg);
-    box-shadow: 0 8px 28px #00000024, 0 2px 8px #0000001a
+    box-shadow: 0 8px 28px var(--black-14), 0 2px 8px var(--black-10)
 }
 
 .permission-card {
@@ -105,6 +105,31 @@
     border-bottom: 1px solid var(--color-border-subtle);
     font-size: var(--font-size-sm);
     font-weight: 600
+}
+
+.permission-header {
+    align-items: stretch;
+    justify-content: space-between;
+    gap: var(--space-3)
+}
+
+.permission-header-main,.permission-header-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0
+}
+
+.permission-header-meta {
+    justify-content: flex-end;
+    flex-wrap: wrap
+}
+
+.permission-subtitle {
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-weight: 500
 }
 
 .permission-header {
@@ -202,7 +227,11 @@
     padding: var(--space-1) var(--space-2);
     background: color-mix(in srgb, var(--color-accent) 8%, transparent);
     border-radius: var(--radius-sm);
-    display: inline-block
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom
 }
 
 .permission-desc {
@@ -228,7 +257,8 @@
 }
 
 .permission-actions,.question-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
     border-top: 1px solid var(--color-border-subtle);
@@ -246,6 +276,7 @@
     font-weight: 600;
     cursor: pointer;
     border: 1px solid transparent;
+    justify-content: center;
     transition: all var(--transition-base)
 }
 
@@ -275,6 +306,50 @@
 .permission-btn:active {
     transform: translateY(0);
     filter: brightness(.96)
+}
+
+@media (max-width: 640px) {
+    .permission-dock,.question-dock {
+        padding: var(--space-2) var(--space-2)
+    }
+
+    .permission-card,.question-card {
+        border-radius: var(--radius-md)
+    }
+
+    .permission-header {
+        display: block;
+        padding: 12px 14px
+    }
+
+    .permission-header-meta {
+        justify-content: flex-start;
+        margin-top: 10px
+    }
+
+    .permission-hint {
+        white-space: normal;
+        line-height: 1.35
+    }
+
+    .permission-body {
+        padding: 12px 14px
+    }
+
+    .permission-actions {
+        grid-template-columns: 1fr 1fr;
+        padding: 10px 12px;
+        gap: 8px
+    }
+
+    .permission-btn {
+        min-height: 44px;
+        padding: 8px 10px
+    }
+
+    .permission-btn-reject {
+        grid-column: 1 / -1
+    }
 }
 
 .question-submit-btn {

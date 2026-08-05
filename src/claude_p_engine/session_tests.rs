@@ -16,6 +16,7 @@ fn sample(id: &str, dir: &str) -> Session {
         claude_uuid: Some("uuid-1".into()),
         model: Some("m".into()),
         agent: Some("a".into()),
+        effort: Some("high".into()),
         permission_mode: Some("plan".into()),
         allowed_tools: vec!["Bash".into()],
         busy: true,

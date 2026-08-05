@@ -233,7 +233,7 @@
 }
 
 .sb-context-item.sb-context-danger:hover {
-    background: #ef44441f
+    background: color-mix(in srgb, var(--color-error) 12%, transparent)
 }
 
 .sb-modal-overlay {

@@ -35,6 +35,32 @@ fn merge_runner_sessions(
     fetched
 }
 
+/// Keep the active session addressable after a successful session refresh.
+///
+/// A stale URL, a runner restart, or a runner handoff can leave `active_session`
+/// pointing at an ID that is no longer present in the merged list. Preserve a
+/// valid selection; otherwise select the newest available session (or clear it
+/// when the project is empty) so message fetches cannot target a ghost session.
+fn repair_active_session(
+    project: &mut super::WebProject,
+    sessions: &[crate::app::SessionInfo],
+) -> bool {
+    if project
+        .active_session
+        .as_ref()
+        .is_some_and(|active| sessions.iter().any(|session| session.id == *active))
+    {
+        return false;
+    }
+
+    let next = sessions.first().map(|session| session.id.clone());
+    if project.active_session == next {
+        return false;
+    }
+    project.active_session = next;
+    true
+}
+
 impl super::WebStateHandle {
     pub(super) fn schedule_persist(&self) {
         let _ = self.persist_tx.send(());
@@ -117,16 +143,18 @@ impl super::WebStateHandle {
             // Eagerly poll with exponential back-off so sessions are ready
             // before the first frontend /api/state request arrives.
             {
-                let mut delay_ms: u64 = 100;
+                let mut delay_ms: u64 = 0;
                 for attempt in 1..=8 {
-                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    if delay_ms > 0 {
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    }
                     let base = base_url().to_string();
                     if handle.session_poll_startup_once(&client, &base).await {
                         let _ = event_tx.send(WebEvent::StateChanged);
                         debug!("initial session poll succeeded on attempt {attempt}");
                         break;
                     }
-                    delay_ms = (delay_ms * 2).min(2000);
+                    delay_ms = if delay_ms == 0 { 100 } else { (delay_ms * 2).min(2000) };
                 }
             }
 
@@ -151,12 +179,20 @@ impl super::WebStateHandle {
                 .map(|(i, p)| (i, p.path.to_string_lossy().to_string()))
                 .collect()
         };
-        let mut any_ok = false;
-        for (idx, dir) in &project_paths {
-            if let Ok(sessions) = client.fetch_sessions(base, dir).await {
-                any_ok = true;
+        let fetches = project_paths.iter().map(|(idx, dir)| {
+            let base = base.to_string();
+            let dir = dir.clone();
+            async move {
+                let result = client.fetch_sessions(&base, &dir).await;
+                (*idx, dir, result)
+            }
+        });
+        let results = join_all(fetches).await;
+        let mut all_ok = true;
+        for (idx, dir, result) in results {
+            if let Ok(sessions) = result {
                 let native_sessions = if let Some(registry) = &self.runner_registry {
-                    registry.sessions(dir).await.unwrap_or_default()
+                    registry.sessions(&dir).await.unwrap_or_default()
                 } else {
                     Vec::new()
                 };
@@ -166,7 +202,7 @@ impl super::WebStateHandle {
                     .collect();
                 let mut fetched: Vec<_> = sessions
                     .into_iter()
-                    .filter(|s| s.directory == *dir)
+                    .filter(|s| s.directory == dir)
                     .collect();
                 fetched.extend(native_sessions.into_iter().map(|(_, session)| session));
                 let mut state = self.inner.write().await;
@@ -175,19 +211,21 @@ impl super::WebStateHandle {
                 for (session_id, runner) in native_labels {
                     state.session_runners.insert(session_id, runner);
                 }
-                if let Some(project) = state.projects.get_mut(*idx) {
+                if let Some(project) = state.projects.get_mut(idx) {
                     let filtered =
                         merge_runner_sessions(project, &default_runner, fetched, &session_runners);
-                    if project.active_session.is_none() {
-                        if let Some(first) = filtered.first() {
-                            project.active_session = Some(first.id.clone());
-                        }
-                    }
+                    repair_active_session(project, &filtered);
                     project.sessions = filtered;
                 }
+            } else {
+                all_ok = false;
             }
         }
-        any_ok
+        if all_ok {
+            let mut state = self.inner.write().await;
+            state.startup_ready = true;
+        }
+        all_ok
     }
 
     /// One recurring poll iteration: refresh each project's session list (marking
@@ -257,10 +295,12 @@ impl super::WebStateHandle {
                 if let Some(project) = state.projects.get_mut(idx) {
                     let filtered =
                         merge_runner_sessions(project, &default_runner, fetched, &session_runners);
-                    // NOTE: Do NOT auto-assign active_session here.
-                    // The recurring poller should never change the
-                    // user's active session; only the startup hydration
-                    // (above) and explicit user actions may do so.
+                    // Do not change a valid user selection during a recurring
+                    // poll. Repair only when it no longer exists in the merged
+                    // list, which prevents message requests from targeting a
+                    // stale runner-native ID after a restart or handoff.
+                    let active_changed = project.active_session.is_some()
+                        && repair_active_session(project, &filtered);
                     // Only mark changed if the session list actually differs
                     let sessions_differ = {
                         if project.sessions.len() != filtered.len() {
@@ -275,6 +315,9 @@ impl super::WebStateHandle {
                     };
                     if sessions_differ {
                         project.sessions = filtered;
+                        changed = true;
+                    }
+                    if active_changed {
                         changed = true;
                     }
                 }

@@ -6,7 +6,7 @@ import { PermissionDock } from "./PermissionDock";
 import { QuestionDock } from "./QuestionDock";
 import { SearchBar } from "./SearchBar";
 import { StatusBar } from "./StatusBar";
-import { X, FileCode, GitBranch, Sparkles, Command, WifiOff, Activity, Terminal as TerminalIcon } from "lucide-react";
+import { X, Sparkles, Command, WifiOff, ChevronDown } from "lucide-react";
 import { KanbanView } from "./kanban/KanbanView";
 
 import type { SessionStatus } from "./hooks/sse/types";
@@ -150,6 +150,12 @@ export interface ChatMainAreaProps {
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
   const [activeRightPanel, setActiveRightPanel] = useState("editor");
   const visibleRightPanels = [p.terminalOpen ? "terminal" : null, p.neovimOpen ? "editor" : null, p.gitOpen ? "git" : null, p.debugOpen ? "debug" : null].filter((id): id is string => Boolean(id));
+  const closeRightPanel = (id: string) => {
+    if (id === "terminal") p.closeTerminal();
+    if (id === "editor") p.closeNeovim();
+    if (id === "git") p.closeGit();
+    if (id === "debug") p.closeDebug();
+  };
   useEffect(() => {
     if (p.mcpEditorOpenPath && p.neovimOpen) { setActiveRightPanel("editor"); return; }
     if (!visibleRightPanels.includes(activeRightPanel)) setActiveRightPanel(visibleRightPanels[0] || "editor");
@@ -241,9 +247,15 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onClick={p.toggleMobileSidebar}
             aria-label={p.mobileSidebarOpen ? "Close sidebar" : "Open sessions"}
           >
-            <Sparkles size={14} className="mobile-pill-icon" />
-            <span className="mobile-project-name">
-              {p.activeProject?.name || "opman"}
+            <span className="mobile-project-glyph" aria-hidden="true">
+              <Sparkles size={15} className="mobile-pill-icon" />
+            </span>
+            <span className="mobile-project-copy">
+              <span className="mobile-project-label">Project</span>
+              <span className="mobile-project-name">{p.activeProject?.name || "opman"}</span>
+            </span>
+            <span className="mobile-project-session">
+              {sessionTitle || "New session"}
             </span>
             {p.sessionStatus.type !== "idle" && <span className="mobile-pill-busy" />}
             {p.connectionStatus && p.connectionStatus !== "connected" && (
@@ -251,9 +263,11 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
                 <WifiOff size={12} />
               </span>
             )}
+            <ChevronDown size={15} className="mobile-project-chevron" aria-hidden="true" />
           </button>
           <button className="mobile-cmd-btn" onClick={p.openCommandPalette} aria-label="Open command palette">
-            <Command size={14} />
+            <span className="mobile-cmd-icon" aria-hidden="true"><Command size={15} /></span>
+            <span className="mobile-cmd-label">Commands</span>
           </button>
         </div>
 
@@ -313,7 +327,9 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onOpenAgentPicker={p.openAgentPicker}
             isBusy={p.sessionStatus.type !== "idle"}
             isSending={p.sending}
-            disabled={!p.activeSessionId}
+            // A new session is created lazily on the first send. Keep the
+            // composer and runner/model controls usable while sessionId is null.
+            disabled={!p.appState}
             sessionId={p.activeSessionId}
             currentModel={p.currentModel}
             currentAgent={p.selectedAgent}
@@ -349,14 +365,33 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
           >
              <div className="right-panel-tabs" role="tablist">
                {visibleRightPanels.map((id) => (
-                 <button key={id} type="button" role="tab" aria-selected={activeRightPanel === id} className={activeRightPanel === id ? "active" : ""} onClick={() => setActiveRightPanel(id)}>
-                   {id === "editor" ? "Files" : id.charAt(0).toUpperCase() + id.slice(1)}
-                 </button>
+                 <div key={id} className={"right-panel-tab" + (activeRightPanel === id ? " active" : "")}>
+                   <button
+                     type="button"
+                     role="tab"
+                     aria-selected={activeRightPanel === id}
+                     className="right-panel-tab-trigger"
+                     onClick={() => setActiveRightPanel(id)}
+                   >
+                     {id === "editor" ? "Files" : id.charAt(0).toUpperCase() + id.slice(1)}
+                     {id === "editor" && Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_editor")) && (
+                       <span className="mcp-agent-indicator" title="AI agent active"><span className="mcp-agent-dot" /></span>
+                     )}
+                   </button>
+                   <button
+                     type="button"
+                     className="right-panel-tab-close"
+                     onClick={(event) => { event.stopPropagation(); closeRightPanel(id); }}
+                     aria-label={"Close " + (id === "editor" ? "files" : id) + " panel"}
+                     title={"Close " + (id === "editor" ? "files" : id) + " panel"}
+                   >
+                     <X size={12} />
+                   </button>
+                 </div>
                ))}
              </div>
             {p.terminalMounted && (
               <div className="side-panel-section right-panel-card" style={{ display: p.terminalOpen && activeRightPanel === "terminal" ? undefined : "none" }}>
-                <div className="side-panel-header"><TerminalIcon size={14} /><span>Terminal</span><button className="side-panel-close" onClick={p.closeTerminal} aria-label="Close terminal panel"><X size={14} /></button></div>
                 <div className="side-panel-body">
                   <Suspense fallback={null}><TerminalPanel sessionId={p.activeSessionId} projectPath={p.activeProject?.path ?? null} onClose={p.closeTerminal} visible={p.terminalOpen} attachNonce={p.terminalAttachNonce} attachKind="claude-attach" mcpAgentActive={Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_terminal"))} /></Suspense>
                 </div>
@@ -364,14 +399,6 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             )}
             {p.editorMounted && (
               <div className="side-panel-section right-panel-card" style={{ display: p.neovimOpen && activeRightPanel === "editor" ? undefined : "none" }}>
-                <div className="side-panel-header">
-                  <FileCode size={14} />
-                  <span>Editor</span>
-                  {Array.from(p.mcpAgentActivity.keys()).some((t) => t.startsWith("web_editor")) && (
-                    <span className="mcp-agent-indicator" title="AI agent active"><span className="mcp-agent-dot" /></span>
-                  )}
-                  <button className="side-panel-close" onClick={p.closeNeovim} aria-label="Close editor panel"><X size={14} /></button>
-                </div>
                 <div className="side-panel-body">
                   <Suspense fallback={null}>
                     <CodeEditorPanel
@@ -388,11 +415,6 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             )}
             {p.gitMounted && (
               <div className="side-panel-section right-panel-card" style={{ display: p.gitOpen && activeRightPanel === "git" ? undefined : "none" }}>
-                <div className="side-panel-header">
-                  <GitBranch size={14} />
-                  <span>Git</span>
-                  <button className="side-panel-close" onClick={p.closeGit} aria-label="Close git panel"><X size={14} /></button>
-                </div>
                 <div className="side-panel-body">
                   <Suspense fallback={null}>
                     <GitPanel focused={p.gitOpen} projectPath={p.activeProject?.path} onError={p.handlePanelError} onSendToAI={p.handleSend} />
@@ -402,11 +424,6 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             )}
             {p.debugOpen && (
               <div className="side-panel-section right-panel-card" style={{ flex: 1, display: activeRightPanel === "debug" ? "flex" : "none", flexDirection: "column" }}>
-                <div className="side-panel-header">
-                  <Activity size={14} />
-                  <span>Debug</span>
-                  <button className="side-panel-close" onClick={p.closeDebug} aria-label="Close debug panel"><X size={14} /></button>
-                </div>
                 <div className="side-panel-body">
                   <Suspense fallback={null}>
                     <DebugPanel />

@@ -78,7 +78,7 @@
     z-index: 20;
     min-width: 120px;
     padding: 4px 0;
-    background: var(--color-bg-element, #1e1e1e);
+    background: var(--color-bg-element);
     border: .5px solid var(--white-10);
     border-radius: 6px;
     box-shadow: 0 4px 12px var(--black-30)
@@ -134,7 +134,7 @@
 }
 
 .git-breadcrumb-link:hover {
-    color: var(--color-primary, #fab283)
+    color: var(--color-primary)
 }
 
 .git-breadcrumb-current {
@@ -149,7 +149,7 @@
     margin-left: auto;
     flex-shrink: 0;
     font-size: var(--font-size-xs);
-    color: var(--color-primary, #fab283);
+    color: var(--color-primary);
     position: relative
 }
 
@@ -159,7 +159,7 @@
     gap: 4px;
     background: none;
     border: none;
-    color: var(--color-primary, #fab283);
+    color: var(--color-primary);
     font-size: var(--font-size-xs);
     cursor: pointer;
     padding: 3px 6px;

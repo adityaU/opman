@@ -30,7 +30,7 @@
     border-radius: var(--radius-sm);
     border: .5px solid var(--glass-border-dark);
     background: var(--white-4);
-    color: var(--color-error, #f87171);
+    color: var(--color-error);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
 }

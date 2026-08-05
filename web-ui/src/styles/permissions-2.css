@@ -8,3 +8,120 @@
     border-radius: var(--radius-sm);
     color: var(--color-text)
 }
+
+.permission-details {
+    display: grid;
+    gap: 8px;
+    margin-top: var(--space-3)
+}
+
+.permission-detail-row {
+    display: grid;
+    grid-template-columns: minmax(118px, 0.28fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 9px 10px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-bg-element) 58%, transparent)
+}
+
+.permission-detail-command {
+    grid-template-columns: 1fr;
+    gap: 7px
+}
+
+.permission-detail-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 600
+}
+
+.permission-detail-label svg {
+    color: var(--color-warning);
+    flex: 0 0 auto
+}
+
+.permission-detail-value {
+    min-width: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    overflow-wrap: anywhere
+}
+
+.permission-detail-command .permission-detail-value {
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    white-space: pre-wrap;
+    max-height: 118px;
+    overflow: auto;
+    overflow-wrap: anywhere
+}
+
+.permission-value-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px
+}
+
+.permission-value-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--color-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+    color: var(--color-text);
+    font-size: var(--font-size-2xs);
+    line-height: 1.25
+}
+
+.permission-value-more {
+    align-self: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs)
+}
+
+.permission-value-object {
+    display: grid;
+    gap: 5px
+}
+
+.permission-value-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs)
+}
+
+.permission-value-row strong {
+    min-width: 0;
+    color: var(--color-text);
+    font-weight: 500;
+    text-align: right
+}
+
+@media (max-width: 640px) {
+    .permission-detail-row {
+        grid-template-columns: 1fr;
+        gap: 6px
+    }
+
+    .permission-value-row {
+        display: grid;
+        gap: 2px
+    }
+
+    .permission-value-row strong {
+        text-align: left
+    }
+}

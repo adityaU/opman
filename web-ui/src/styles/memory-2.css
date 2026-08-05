@@ -14,7 +14,7 @@
 /* Memory footer & transfer bar */
 
 .memory-footer {
-    border-top: 1px solid var(--color-border, #21262d);
+    border-top: 1px solid var(--color-border);
     padding: 0
 }
 
@@ -29,18 +29,18 @@
     gap: 6px;
     padding: 10px 16px;
     font-size: var(--font-size-2xs);
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }
 
 .memory-transfer-triggers kbd {
     display: inline-block;
     padding: 2px 6px;
     border-radius: 4px;
-    border: 1px solid var(--color-border-subtle, #21262d);
-    background: var(--color-surface, #161b22);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface);
     font-size: var(--font-size-2xs);
     font-family: var(--font-mono, monospace);
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     line-height: 1.3
 }
 
@@ -54,9 +54,9 @@
     gap: 4px;
     padding: 4px 10px;
     border-radius: 8px;
-    border: 1px solid var(--color-border-subtle, #21262d);
-    background: var(--color-surface, #161b22);
-    color: var(--color-muted, #8b949e);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface);
+    color: var(--color-muted);
     font-size: var(--font-size-2xs);
     font-weight: 500;
     cursor: pointer;
@@ -85,7 +85,7 @@
 .memory-transfer-panel-title {
     font-size: var(--font-size-xs);
     font-weight: 600;
-    color: var(--color-text, #e6edf3)
+    color: var(--color-text)
 }
 
 .memory-transfer-close {
@@ -97,14 +97,14 @@
     border-radius: 6px;
     border: none;
     background: none;
-    color: var(--color-muted, #8b949e);
+    color: var(--color-muted);
     cursor: pointer;
     padding: 0
 }
 
 .memory-transfer-close:hover {
-    background: var(--color-hover, #1c2128);
-    color: var(--color-text, #e6edf3)
+    background: var(--color-hover);
+    color: var(--color-text)
 }
 
 .memory-transfer-scopes {
@@ -117,7 +117,7 @@
     align-items: center;
     gap: 6px;
     font-size: var(--font-size-xs);
-    color: var(--color-text, #e6edf3);
+    color: var(--color-text);
     cursor: pointer
 }
 
@@ -141,5 +141,5 @@
 
 .memory-transfer-status {
     font-size: var(--font-size-2xs);
-    color: var(--color-muted, #8b949e)
+    color: var(--color-muted)
 }

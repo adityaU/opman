@@ -263,7 +263,7 @@ fn dispatch_turn(engine: Engine, session_id: String, text: String) {
     let Some(entry) = engine.get_session(&session_id) else {
         return;
     };
-    if engine.is_occupied(&session_id) {
+    if !engine.try_reserve_dispatch(&session_id) {
         engine.enqueue_prompt(&session_id, text);
         engine.emit(
             &entry.directory,
@@ -434,6 +434,9 @@ async fn send_message(
     // The kanban launch (and agent mentions) may include a selected agent.
     if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
         engine.set_agent(&id, agent);
+    }
+    if let Some(effort) = body.get("effort").and_then(|e| e.as_str()) {
+        engine.set_effort(&id, effort);
     }
     let attachments = save_attachments(&body.0, &id);
     let text = with_attachments(extract_text(&body.0), &attachments);

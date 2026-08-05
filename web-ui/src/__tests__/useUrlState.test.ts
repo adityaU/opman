@@ -113,6 +113,20 @@ describe("useUrlState", () => {
     expect(pushStateSpy).toHaveBeenCalled();
   });
 
+  it("preserves lazy new-session mode while syncing the URL", () => {
+    window.location.search = "?new=1&project=0";
+    renderHook(() =>
+      useUrlState({
+        sessionId: null,
+        projectIdx: 0,
+        panels: { sidebar: true, terminal: false, editor: false, git: false },
+        onPopState: vi.fn(),
+      })
+    );
+    const urls = [...replaceStateSpy.mock.calls, ...pushStateSpy.mock.calls].map((call) => call[2]);
+    expect(urls.some((url) => String(url).includes("new=1"))).toBe(true);
+  });
+
   it("uses replaceState for panel toggle (same session)", () => {
     const panels1 = { sidebar: true, terminal: false, editor: false, git: false };
     const panels2 = { sidebar: true, terminal: true, editor: false, git: false };

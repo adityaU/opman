@@ -1,12 +1,12 @@
 .cross-session-search-modal {
-    background: var(--color-bg-panel, #1e1e1e);
-    border: 1px solid var(--color-border, #484848);
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     width: min(640px,90vw);
     max-height: 70vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 32px #00000080
+    box-shadow: 0 8px 32px var(--black-50)
 }
 
 .cross-session-search-header {
@@ -14,11 +14,11 @@
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border-subtle, #333)
+    border-bottom: 1px solid var(--color-border-subtle)
 }
 
 .cross-session-search-icon {
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     flex-shrink: 0
 }
 
@@ -26,18 +26,18 @@
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--color-text, #e0e0e0);
+    color: var(--color-text);
     font-size: 15px;
     font-family: inherit;
     outline: none
 }
 
 .cross-session-search-input::placeholder {
-    color: var(--color-text-muted, #808080)
+    color: var(--color-text-muted)
 }
 
 .cross-session-search-spinner {
-    color: var(--color-primary, #7aa2f7);
+    color: var(--color-primary);
     animation: spin 1s linear infinite;
     flex-shrink: 0
 }
@@ -51,12 +51,12 @@
 .cross-session-search-hint,.cross-session-search-empty,.cross-session-search-error {
     padding: 24px 16px;
     text-align: center;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     font-size: 13px
 }
 
 .cross-session-search-error {
-    color: var(--color-error, #f7768e)
+    color: var(--color-error)
 }
 
 .cross-session-search-group {
@@ -71,8 +71,8 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: var(--color-text-muted, #808080);
-    background: #ffffff05
+    color: var(--color-text-muted);
+    background: var(--white-2)
 }
 
 .cross-session-search-session-title {
@@ -97,7 +97,7 @@
     background: transparent;
     border: none;
     text-align: left;
-    color: var(--color-text, #e0e0e0);
+    color: var(--color-text);
     cursor: pointer;
     font-size: 12px;
     font-family: inherit;
@@ -106,14 +106,14 @@
 }
 
 .cross-session-search-result:hover,.cross-session-search-result.selected {
-    background: #ffffff0a
+    background: var(--white-4)
 }
 
 .cross-session-search-result-meta {
     display: flex;
     align-items: center;
     gap: 4px;
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     font-size: 10px
 }
 
@@ -129,7 +129,7 @@
 .cross-session-search-snippet {
     font-size: 12px;
     line-height: 1.4;
-    color: var(--color-text, #e0e0e0);
+    color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -141,7 +141,7 @@
     top: 50%;
     right: 12px;
     transform: translateY(-50%);
-    color: var(--color-text-muted, #808080);
+    color: var(--color-text-muted);
     opacity: 0;
     transition: opacity .15s
 }
@@ -154,5 +154,5 @@
     padding: 8px 16px;
     text-align: center;
     font-size: 11px;
-    color: var(--color-text-muted, #808080)
+    color: var(--color-text-muted)
 }
