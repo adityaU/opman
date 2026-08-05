@@ -19,7 +19,7 @@
 
 .shimmer-line {
     height: 12px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     background: var(--color-bg-element);
     position: relative;
     overflow: hidden

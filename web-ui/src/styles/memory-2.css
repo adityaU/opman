@@ -35,7 +35,7 @@
 .memory-transfer-triggers kbd {
     display: inline-block;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     font-size: var(--font-size-2xs);
@@ -53,7 +53,7 @@
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     color: var(--color-muted);
@@ -94,7 +94,7 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: none;
     background: none;
     color: var(--color-muted);

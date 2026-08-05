@@ -7,7 +7,7 @@
 }
 
 .assistant-inbox-filter,.mission-handoff-chip,.assistant-inbox-handoff-link,.mission-handoff-link,.delegation-status-btn {
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface)
 }
@@ -25,7 +25,7 @@
     min-width: 44px;
     min-height: 32px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--color-bg-element);
     font-size: 18px
 }

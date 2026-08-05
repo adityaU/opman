@@ -1,7 +1,7 @@
 .cross-session-search-modal {
     background: var(--color-bg-panel);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     width: min(640px,90vw);
     max-height: 70vh;
     display: flex;

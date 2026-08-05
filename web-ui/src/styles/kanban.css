@@ -509,7 +509,7 @@ html.flat-theme .kanban-lane {
 .kanban-mode-toggle { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
 .kanban-mode-option {
   flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: var(--space-2) var(--space-3); border-radius: 8px; cursor: pointer; text-align: left;
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius); cursor: pointer; text-align: left;
   border: 1px solid var(--color-border-subtle); background: var(--color-bg-element);
   color: var(--color-text); transition: border-color .12s, background .12s;
 }
@@ -532,7 +532,7 @@ html.flat-theme .kanban-lane {
 .kanban-pipeline-stages-vert { flex-direction: column; align-items: stretch; gap: var(--space-1); }
 .kanban-pipeline-stage {
   display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--color-text);
-  padding: 4px 8px; border-radius: 6px; background: var(--color-bg-element);
+  padding: 4px 8px; border-radius: var(--radius); background: var(--color-bg-element);
   border: 1px solid var(--color-border-subtle);
 }
 .kanban-pipeline-stages-vert .kanban-pipeline-stage.is-active {
@@ -549,13 +549,13 @@ html.flat-theme .kanban-lane {
 .kanban-pipeline-stage-agent,
 .kanban-pipeline-stage-warn {
   font-size: 0.68rem; color: var(--color-text-muted);
-  padding: 1px 5px; border-radius: 4px; background: var(--color-bg-panel);
+  padding: 1px 5px; border-radius: var(--radius); background: var(--color-bg-panel);
 }
 .kanban-pipeline-stage-warn { color: var(--color-warning); }
 .kanban-pipeline-arrow { color: var(--color-text-muted); margin: 0 2px; }
 .kanban-stage-badge {
   margin-left: auto; font-size: 0.66rem; text-transform: uppercase; letter-spacing: .03em;
-  padding: 1px 6px; border-radius: 4px; background: var(--color-bg-panel); color: var(--color-text-muted);
+  padding: 1px 6px; border-radius: var(--radius); background: var(--color-bg-panel); color: var(--color-text-muted);
 }
 .kanban-stage-badge-running { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
 .kanban-stage-badge-done { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); }
@@ -582,7 +582,7 @@ html.flat-theme .kanban-lane {
 }
 .kanban-detail-empty { font-size: 0.8rem; color: var(--color-text-muted); margin: 0; }
 .kanban-detail-attachments { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.kanban-detail-attachments img { max-height: 90px; border-radius: 6px; border: 1px solid var(--color-border-subtle); }
+.kanban-detail-attachments img { max-height: 90px; border-radius: var(--radius); border: 1px solid var(--color-border-subtle); }
 .kanban-attach-file { font-size: 0.78rem; color: var(--color-primary); }
 
 /* ── Notes timeline ── */
@@ -636,7 +636,7 @@ html.flat-theme .kanban-lane {
   gap: 6px;
   max-width: 80%;
   padding: 2px var(--space-2);
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-bg-element, color-mix(in srgb, var(--color-text) 5%, transparent));
 }
@@ -658,11 +658,11 @@ html.flat-theme .kanban-lane {
 /* Inline & fenced code inside markdown note bodies (glassy + flat themes). */
 .kanban-note-markdown code {
   font-size: 0.92em;
-  padding: 1px 4px; border-radius: 4px;
+  padding: 1px 4px; border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-text) 10%, transparent);
 }
 .kanban-note-markdown pre {
-  padding: 8px 10px; border-radius: 6px;
+  padding: 8px 10px; border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 .kanban-note-markdown pre code { background: none; padding: 0; }

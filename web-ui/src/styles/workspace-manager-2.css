@@ -1,7 +1,7 @@
 
 .workspace-mgr-recipe-toggle {
     padding: 8px 10px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface)
 }

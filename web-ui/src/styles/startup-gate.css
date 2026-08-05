@@ -12,7 +12,7 @@
     width: min(100%, 430px);
     padding: 30px;
     border: 1px solid var(--ui-border, var(--color-border-subtle));
-    border-radius: 20px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--theme-surface-1, var(--color-bg-panel)) 90%, transparent);
     box-shadow: var(--ui-shadow-card, 0 12px 30px color-mix(in srgb, #000 18%, transparent));
 }
@@ -24,7 +24,7 @@
     height: 42px;
     margin-bottom: 18px;
     border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
-    border-radius: 13px;
+    border-radius: var(--radius);
     color: var(--color-primary);
     background: var(--theme-primary-soft, color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-element)));
 }
@@ -54,7 +54,7 @@
     height: 4px;
     overflow: hidden;
     margin-bottom: 22px;
-    border-radius: 99px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-border) 65%, transparent);
 }
 
@@ -99,7 +99,7 @@ html.flat-theme .startup-card {
 
 @media (max-width: 520px) {
     .startup-gate { padding: 18px; }
-    .startup-card { padding: 24px; border-radius: 16px; }
+    .startup-card { padding: 24px; border-radius: var(--radius); }
 }
 
 @media (prefers-reduced-motion: reduce) {

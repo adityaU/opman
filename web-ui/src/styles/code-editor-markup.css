@@ -23,7 +23,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: .5px solid var(--white-12);
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background .15s, color .15s;
 }
@@ -62,7 +62,7 @@
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: .5px solid var(--white-12);
-  border-radius: 10px;
+  border-radius: var(--radius);
   box-shadow: 0 4px 20px var(--black-30);
   white-space: nowrap;
 }
@@ -95,7 +95,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--white-60);
   cursor: pointer;
@@ -154,7 +154,7 @@
   font-size: 12px;
   font-family: var(--font-sans, sans-serif);
   border: .5px solid var(--white-12);
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background .12s, color .12s;
 }
@@ -243,7 +243,7 @@ html.flat-theme .markup-cancel:hover {
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: .5px solid var(--white-12);
-  border-radius: 10px;
+  border-radius: var(--radius);
   box-shadow: 0 4px 20px var(--black-30);
   white-space: nowrap;
 }

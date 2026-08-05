@@ -241,7 +241,7 @@
     font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
     padding: 1px var(--space-1);
-    border-radius: 2px;
+    border-radius: var(--radius);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

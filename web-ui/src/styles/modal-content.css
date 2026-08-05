@@ -112,7 +112,7 @@
     margin-left: auto;
     padding: 0;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--color-text-muted);
     cursor: pointer;
@@ -182,7 +182,7 @@
     .todo-panel-item, .model-picker-item, .agent-picker-item,
     .command-palette-item, .prompt-queue-item) {
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: none;
     transition:
         background var(--transition-fast),
@@ -272,7 +272,7 @@
     .cross-session-search-modal) :focus-visible {
     outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
     outline-offset: 2px;
-    border-radius: 8px;
+    border-radius: var(--radius);
 }
 
 @media (max-width: 768px) {

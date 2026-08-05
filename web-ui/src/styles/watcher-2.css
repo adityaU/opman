@@ -25,7 +25,7 @@
     gap: 4px;
     padding: 3px 8px;
     border: 1px solid var(--color-border-subtle);
-    border-radius: 6px;
+    border-radius: var(--radius);
     background: var(--color-bg-element);
     color: var(--color-text-muted);
     font-size: 10px;
@@ -61,7 +61,7 @@
 .watcher-modal-footer kbd {
     background: var(--color-bg-element);
     border: 1px solid var(--color-border-subtle);
-    border-radius: 4px;
+    border-radius: var(--radius);
     padding: 1px 5px;
     font-size: 10px;
     font-family: var(--font-mono, monospace)
@@ -77,7 +77,7 @@
     color: var(--color-text-muted);
     font-size: 11px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: var(--radius);
     transition: background .12s,color .12s;
     font-family: var(--font-mono, monospace)
 }

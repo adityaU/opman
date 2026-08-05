@@ -57,7 +57,7 @@ html.flat-theme .pr-branch-picker {
 /* Unified floating-surface contract: quiet depth, readable edges, and accent
    only on interaction. Imported last so existing panel layouts remain stable. */
 :root {
-    --floating-radius: 18px;
+    --floating-radius: var(--radius);
     --floating-border: color-mix(in srgb, var(--color-border) 72%, transparent);
     --floating-surface: color-mix(in srgb, var(--theme-elevated) 94%, var(--color-bg));
     --floating-shadow: 0 22px 54px color-mix(in srgb, var(--color-bg) 72%, transparent), 0 5px 16px color-mix(in srgb, var(--color-bg) 42%, transparent)
@@ -78,7 +78,7 @@ html.flat-theme .pr-branch-picker {
     bottom: 10px;
     left: -1px;
     width: 2px;
-    border-radius: 2px;
+    border-radius: var(--radius);
     background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-primary) 68%, transparent), transparent);
     opacity: 0;
     transition: opacity var(--transition-base);
@@ -117,7 +117,7 @@ html.flat-theme .pr-branch-picker {
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     background: transparent;
     transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast)
@@ -127,7 +127,7 @@ html.flat-theme .pr-branch-picker {
     background: color-mix(in srgb, var(--color-text) 8%, transparent);
     border-color: var(--color-border-subtle)
 }
-.right-panel-card .side-panel-body { border-radius: calc(var(--floating-radius) - 1px) }
+.right-panel-card .side-panel-body { border-radius: calc(var(--floating-radius) - 1px)}
 .modal-backdrop,
 .search-modal-backdrop {
     background: color-mix(in srgb, var(--color-bg) 66%, transparent);
@@ -229,5 +229,5 @@ html.flat-theme .search-modal-backdrop { backdrop-filter: blur(8px); -webkit-bac
     .session-selector-modal,
     .watcher-modal,
     .cross-session-search-modal,
-    .context-input-modal { border-radius: 20px 20px 0 0 }
+    .context-input-modal { border-radius: var(--radius) var(--radius) 0 0}
 }

@@ -18,7 +18,7 @@
     .pr-description-modal {
         width: 100%;
         max-width: 100%;
-        border-radius: 20px 20px 0 0;
+        border-radius: var(--radius) var(--radius) 0 0;
         max-height: calc(85vh - env(safe-area-inset-top,0px));
         animation: modal-sheet-up .35s var(--ease-out-expo) forwards;
         padding-bottom: env(safe-area-inset-bottom,0px)
@@ -30,7 +30,7 @@
         width: 36px;
         height: 4px;
         background: var(--white-20);
-        border-radius: 9999px;
+        border-radius: var(--radius);
         margin: 8px auto 0;
         flex-shrink: 0
     }

@@ -50,7 +50,7 @@ code,pre,kbd,samp {
     flex-shrink: 0;
     background: none;
     border: .5px solid var(--white-8);
-    border-radius: 4px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base)
@@ -92,7 +92,7 @@ code,pre,kbd,samp {
     gap: 5px;
     min-height: 24px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     font-size: 11px;
@@ -133,7 +133,7 @@ code,pre,kbd,samp {
     height: 24px;
     background: none;
     border: .5px solid var(--white-8);
-    border-radius: 4px;
+    border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base)
@@ -301,6 +301,6 @@ code,pre,kbd,samp {
     padding: 2px 4px;
     color: var(--color-text-muted);
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: var(--radius);
     transition: all var(--transition-base)
 }

@@ -26,7 +26,7 @@
   width: 700px;
   max-width: 94vw;
   max-height: 85vh;
-  border-radius: 22px;
+  border-radius: var(--radius);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   box-shadow: 0 26px 80px var(--black-25), 0 8px 28px var(--black-14);
@@ -82,7 +82,7 @@ html.flat-theme .routines-header {
   min-width: 22px;
   height: 22px;
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--color-bg-element);
   color: var(--color-muted);
   font-size: 11px;
@@ -101,7 +101,7 @@ html.flat-theme .routines-header {
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid transparent;
   background: none;
   color: var(--color-muted);
@@ -123,7 +123,7 @@ html.flat-theme .routines-header {
   padding: 7px 14px !important;
   width: auto !important;
   height: auto !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius) !important;
   border: 1px solid var(--color-border-subtle) !important;
   background: var(--color-surface) !important;
   color: var(--color-text) !important;
@@ -162,7 +162,7 @@ html.flat-theme .routines-header {
 
 .routines-scrollable::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-muted) 25%, transparent);
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 
 .routines-scrollable::-webkit-scrollbar-thumb:hover {
@@ -177,7 +177,7 @@ html.flat-theme .routines-header {
   gap: 2px;
   margin: 14px 14px 0;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border-subtle);
   background: linear-gradient(
     180deg,
@@ -260,7 +260,7 @@ html.flat-theme .routines-form {
   width: 100%;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 9px 12px;
   font-size: 13px;
   color: var(--color-text);
@@ -285,7 +285,7 @@ html.flat-theme .routines-select {
   width: 100%;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 9px 12px;
   font-size: 13px;
   color: var(--color-text);
@@ -334,7 +334,7 @@ html.flat-theme .routines-textarea {
   display: inline-flex;
   gap: 0;
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--color-bg);
 }
@@ -376,7 +376,7 @@ html.flat-theme .routines-textarea {
 
 .routines-cron-preset {
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-muted);
@@ -431,7 +431,7 @@ html.flat-theme .routines-cron-preset.active {
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-bg) 80%, transparent);
   border: 1px solid var(--color-border);
 }
@@ -512,7 +512,7 @@ html.flat-theme .routines-next-runs {
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
@@ -606,7 +606,7 @@ html.flat-theme .routines-next-runs {
 /* ── Routine card ───────────────────────────────────── */
 
 .routines-card {
-  border-radius: 16px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border-subtle);
   background: linear-gradient(
     180deg,
@@ -655,7 +655,7 @@ html.flat-theme .routines-card {
   color: var(--color-muted);
   cursor: pointer;
   padding: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   flex-shrink: 0;
   margin-top: 1px;
   transition: color 0.15s;
@@ -715,7 +715,7 @@ html.flat-theme .routines-card {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -800,7 +800,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: none;
   background: transparent;
   color: var(--color-muted);
@@ -892,7 +892,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
 
 .routines-detail-prompt {
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   font-size: 12px;
@@ -928,7 +928,7 @@ html.flat-theme .routines-trigger-badge--daily_summary {
   gap: 8px;
   font-size: 11px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-bg) 70%, transparent);
 }
 
@@ -980,7 +980,7 @@ html.flat-theme .routines-run-row {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-error) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-error) 25%, var(--color-border));
   color: var(--color-error);
@@ -1045,7 +1045,7 @@ html.flat-theme .routines-error-banner {
   align-items: center;
   justify-content: center;
   background: var(--black-60);
-  border-radius: 22px;
+  border-radius: var(--radius);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
@@ -1055,7 +1055,7 @@ html.flat-theme .routines-error-banner {
   flex-direction: column;
   gap: 14px;
   padding: 24px 28px;
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   box-shadow: 0 16px 48px var(--black-50);
@@ -1092,7 +1092,7 @@ html.flat-theme .routines-confirm-dialog {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid color-mix(in srgb, var(--color-error) 40%, var(--color-border));
   background: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
   color: var(--color-error);
@@ -1149,7 +1149,7 @@ html.flat-theme .routines-confirm-dialog {
 
 .cron-chip {
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-muted);
@@ -1204,7 +1204,7 @@ html.flat-theme .cron-chip--custom.active {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-bg) 80%, transparent);
   border: 1px solid var(--color-border);
 }
@@ -1224,7 +1224,7 @@ html.flat-theme .cron-builder-summary {
   font-size: 12px;
   color: var(--color-primary);
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
@@ -1267,7 +1267,7 @@ html.flat-theme .cron-builder-summary-expr {
   .routines-form {
     margin: 10px 10px 0;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
 
   .routines-body {
@@ -1319,7 +1319,7 @@ html.flat-theme .cron-builder-summary-expr {
   }
 
   .routines-card {
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
 
   .routines-card-detail {
@@ -1328,6 +1328,6 @@ html.flat-theme .cron-builder-summary-expr {
 
   .routines-confirm-dialog {
     padding: 20px 22px;
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
 }

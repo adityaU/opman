@@ -1,7 +1,7 @@
 
 .assistant-inbox-filter {
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-muted);
@@ -41,7 +41,7 @@
     display: inline-flex;
     align-items: center;
     padding: 4px 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--theme-success-soft);
     border: 1px solid color-mix(in srgb,var(--color-success) 22%,var(--color-border));
     color: var(--color-success);
@@ -67,7 +67,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: color-mix(in srgb,var(--color-surface) 92%,white 2%);
     margin-bottom: 10px
@@ -120,7 +120,7 @@
     align-items: center;
     justify-content: center;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -157,7 +157,7 @@
     gap: 6px;
     min-height: 34px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
@@ -179,7 +179,7 @@
     gap: 2px;
     margin-top: 8px;
     padding: 8px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-secondary) 16%, transparent)
 }
@@ -208,7 +208,7 @@
     display: inline-flex;
     align-items: center;
     padding: 4px 8px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border);
     background: var(--white-4);
     color: var(--color-text);
@@ -239,7 +239,7 @@
     justify-content: center;
     width: 34px;
     height: 34px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     transition: background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast)
 }
@@ -254,7 +254,7 @@
     margin: var(--modal-gap) var(--modal-pad-x) 0;
     padding: 14px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-text) 4%, transparent)
 }
 
@@ -273,7 +273,7 @@
 }
 
 .assistant-center-card,.assistant-inbox-item,.memory-item,.routines-item,.routines-run-item,.delegation-item,.missions-item,.workspace-mgr-item,.add-project-entry,.autonomy-item,.mission-handoff,.sysm-gauge,.sysm-stats-row,.sysm-cores,.sysm-table-wrap,.sysm-disk {
-    border-radius: 18px;
+    border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface-hover) 52%,transparent),transparent 55%),var(--color-surface);
     transition: transform var(--transition-fast),border-color var(--transition-fast),background var(--transition-fast),box-shadow var(--transition-fast)

@@ -24,7 +24,7 @@
     justify-content: center;
     width: 22px;
     height: 22px;
-    border-radius: 7px;
+    border-radius: var(--radius);
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 13%, transparent);
     flex-shrink: 0
@@ -51,7 +51,7 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    border-radius: 9px;
+    border-radius: var(--radius);
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 14%, transparent);
     font-size: 10px;
@@ -81,7 +81,7 @@
     padding: 0 5px;
     height: 14px;
     line-height: 14px;
-    border-radius: 7px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
     color: var(--color-secondary);
     font-size: 9px;

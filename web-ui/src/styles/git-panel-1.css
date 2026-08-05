@@ -39,7 +39,7 @@
     height: 22px;
     background: none;
     border: .5px solid var(--white-8);
-    border-radius: 4px 0 0 4px;
+    border-radius: var(--radius) 0 0 var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base)
@@ -59,7 +59,7 @@
     background: none;
     border: .5px solid var(--white-8);
     border-left: none;
-    border-radius: 0 4px 4px 0;
+    border-radius: 0 var(--radius) var(--radius) 0;
     color: var(--color-text-muted);
     cursor: pointer;
     transition: all var(--transition-base)
@@ -80,7 +80,7 @@
     padding: 4px 0;
     background: var(--color-bg-element);
     border: .5px solid var(--white-10);
-    border-radius: 6px;
+    border-radius: var(--radius);
     box-shadow: 0 4px 12px var(--black-30)
 }
 

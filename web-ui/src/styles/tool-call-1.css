@@ -161,7 +161,7 @@
 .tool-output-markdown code {
     background: var(--color-bg-element);
     padding: 1px 4px;
-    border-radius: 3px;
+    border-radius: var(--radius);
     font-family: var(--font-mono);
     font-size: var(--font-size-2xs)
 }
