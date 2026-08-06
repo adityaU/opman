@@ -130,11 +130,15 @@ export const SessionRow = React.memo(function SessionRow({
                 <span className="sb-session-title" title={session.runner ? `${session.title || session.id} · ${session.runner}` : undefined}>
                   {session.title || session.id.slice(0, 12)}
                 </span>
-                {/* The runner moved into the dot and the title's tooltip; what
-                    is left is only what varies per row and is worth a glance. */}
                 <span className="sb-session-meta">
+                  {/* The dot's colour is only decodable once you know the code,
+                      so the engine is named outright next to it. */}
+                  {session.runner && (
+                    <span className="sb-runner-badge" data-runner={session.runner}>
+                      {session.runner}
+                    </span>
+                  )}
                   {taskLink && <LaneTag link={taskLink} />}
-                  <span className="sb-session-time">{formatTime(session.time.updated)}</span>
                   {subagentCount > 0 && (
                     <span
                       className="sb-subagent-badge"
@@ -145,6 +149,9 @@ export const SessionRow = React.memo(function SessionRow({
                       {subagentCount}
                     </span>
                   )}
+                  <span className="sb-session-time" title="Last activity">
+                    {formatTime(session.time.updated)}
+                  </span>
                 </span>
               </>
             )}

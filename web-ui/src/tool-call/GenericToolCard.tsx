@@ -1,11 +1,9 @@
-import React, { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import { Wrench, ChevronDown, ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { Wrench, ChevronDown, ChevronRight, AlertTriangle, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import type { MessagePart } from "../types";
 import { formatToolName } from "./helpers";
-import { asObj, TcStatus } from "./tcUtils";
-import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
+import { TcStatus } from "./tcUtils";
+import { InputView, OutputView } from "./GenericToolViews";
 import { useAutoOpen } from "../hooks/useAutoOpen";
 
 // ── Generic MCP Tool Card ─────────────────────────────────────────
@@ -28,6 +26,7 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
   const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
 
   const state = part.state;
+  const progressTitle = state?.title;
   const status = state?.status || "pending";
   const isError = status === "error";
   const isRunning = status === "running" || status === "pending";
@@ -56,11 +55,24 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
         <span className="gmc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
         <Wrench size={12} className="gmc-card-icon" />
         <span className="gmc-card-name">{shortName}</span>
-        {state?.title && <span className="gmc-card-title">{state.title}</span>}
         <span className="gmc-card-status">
           <TcStatus status={status} durationMs={durationMs} />
         </span>
       </button>
+
+      {progressTitle && (
+        <div className="gmc-progress" role="status" aria-live="polite">
+          {isRunning ? (
+            <Loader2 size={12} className="tool-spin-icon" />
+          ) : isError ? (
+            <XCircle size={12} className="tool-error-icon" />
+          ) : (
+            <CheckCircle2 size={12} className="tool-success-icon" />
+          )}
+          <span className="gmc-progress-label">Progress</span>
+          <span className="gmc-progress-text">{progressTitle}</span>
+        </div>
+      )}
 
       {expanded && (hasInput || hasOutput || isError || isRunning) && (
         <div className="gmc-card-body">
@@ -98,212 +110,3 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
     </div>
   );
 }
-
-// ── InputView ─────────────────────────────────────────────────────
-
-/**
- * How much room an argument needs.
- *
- * A fixed label column forces every argument into the same shape, so a 400
- * character command and the word `false` get the same narrow gutter — the
- * command wraps into a paragraph while most of the row sits empty. Short
- * values sit on the label's line; long ones get the full width beneath it.
- */
-function isBlockValue(value: unknown): boolean {
-  if (typeof value === "string") return value.length > 48 || value.includes("\n");
-  return value !== null && typeof value === "object";
-}
-
-/** Arguments that read as code rather than prose. */
-const CODE_KEYS = /^(command|cmd|script|code|query|sql|pattern|regex|path|file_path|url|snippet|content|diff)$/i;
-
-function InputView({ data }: { data: Record<string, unknown> | string }) {
-  if (typeof data === "string") {
-    return <pre className="gmc-pre">{data}</pre>;
-  }
-  const entries = Object.entries(data).filter(
-    ([, v]) => v != null && v !== ""
-  );
-  if (entries.length === 0) return null;
-  return (
-    <dl className="gmc-args">
-      {entries.map(([k, v]) => {
-        const block = isBlockValue(v);
-        return (
-          <div
-            key={k}
-            className={`gmc-arg${block ? " is-block" : " is-inline"}${CODE_KEYS.test(k) ? " is-code" : ""}`}
-          >
-            <dt className="gmc-arg-key">{k}</dt>
-            <dd className="gmc-arg-val">
-              <KvValue value={v} />
-            </dd>
-          </div>
-        );
-      })}
-    </dl>
-  );
-}
-
-// ── KvValue ───────────────────────────────────────────────────────
-
-function KvValue({ value }: { value: unknown }) {
-  const [open, setOpen] = useState(false);
-
-  if (value === null || value === undefined)
-    return <span className="gmc-val-null">null</span>;
-  if (typeof value === "boolean")
-    return <span className="gmc-val-bool">{String(value)}</span>;
-  if (typeof value === "number")
-    return <span className="gmc-val-num">{value}</span>;
-  if (typeof value === "string") {
-    // Long arguments clamp to a few lines and fade out, rather than being cut
-    // mid-token with a link glued to the end of the sentence.
-    if (value.length > 220 || value.split("\n").length > 6)
-      return (
-        <span className={`gmc-val-str gmc-val-clamp${open ? " is-open" : ""}`}>
-          <span className="gmc-val-text">{value}</span>
-          <button
-            type="button"
-            className="gmc-val-toggle"
-            onClick={() => setOpen(!open)}
-            aria-expanded={open}
-          >
-            {open ? "Show less" : "Show all"}
-          </button>
-        </span>
-      );
-    return <span className="gmc-val-str">{value}</span>;
-  }
-
-  const label = Array.isArray(value)
-    ? `Array[${(value as unknown[]).length}]`
-    : `Object{${Object.keys(value as object).length}}`;
-  return (
-    <span className="gmc-val-obj">
-      <button className="gmc-val-toggle" onClick={() => setOpen(!open)}>
-        {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-        {label}
-      </button>
-      {open && (
-        <pre className="gmc-val-json">{JSON.stringify(value, null, 2)}</pre>
-      )}
-    </span>
-  );
-}
-
-// ── OutputView ────────────────────────────────────────────────────
-
-function OutputView({
-  output,
-  isLive,
-}: {
-  output: string;
-  isLive?: boolean;
-}) {
-  const liveRef = React.useRef<HTMLPreElement>(null);
-  React.useEffect(() => {
-    if (isLive && liveRef.current)
-      liveRef.current.scrollTop = liveRef.current.scrollHeight;
-  }, [isLive, output]);
-
-  const jsonlRows = useMemo(() => {
-    const lines = output.trim().split("\n").map(l => l.trim()).filter(l => l.startsWith("{") || l.startsWith("["));
-    if (lines.length < 2) return null;
-    const parsed: Record<string, unknown>[] = [];
-    for (const line of lines) {
-      try { parsed.push(JSON.parse(line)); } catch { return null; }
-    }
-    return parsed;
-  }, [output]);
-
-  const jsonData = useMemo(() => {
-    if (jsonlRows !== null) return null;
-    const t = output.trim();
-    if (!t.startsWith("{") && !t.startsWith("[")) return null;
-    try { return JSON.parse(t); } catch { return null; }
-  }, [output, jsonlRows]);
-
-  if (jsonlRows !== null) {
-    return (
-      <div className="gmc-jsonl">
-        {jsonlRows.map((row, i) => (
-          <div key={i} className="gmc-jsonl-row">
-            {Object.entries(row).map(([k, v]) => (
-              <span key={k} className="gmc-jsonl-field">
-                <span className="gmc-jsonl-key">{k}</span>
-                <span className="gmc-jsonl-val"><KvValue value={v} /></span>
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (jsonData !== null) {
-    if (
-      typeof jsonData === "object" &&
-      !Array.isArray(jsonData) &&
-      jsonData !== null
-    ) {
-      const entries = Object.entries(jsonData as Record<string, unknown>);
-      const isFlat =
-        entries.length > 0 &&
-        entries.length <= 24 &&
-        entries.every(([, v]) => typeof v !== "object" || v === null);
-      if (isFlat)
-        return (
-          <div className="gmc-kv">
-            {entries.map(([k, v]) => (
-              <div key={k} className="gmc-kv-row">
-                <span className="gmc-kv-key">{k}</span>
-                <span className="gmc-kv-val">
-                  <KvValue value={v} />
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-    }
-    return (
-      <SyntaxHighlighter
-        useInlineStyles={false}
-        language="json"
-        PreTag="div"
-        codeTagProps={CODE_TAG}
-        customStyle={CODE_STYLE}
-      >
-        {JSON.stringify(jsonData, null, 2)}
-      </SyntaxHighlighter>
-    );
-  }
-
-  const trimmed = output.trim();
-  const looksMarkdown =
-    trimmed.startsWith("#") ||
-    (trimmed.includes("**") && trimmed.includes("\n")) ||
-    trimmed.startsWith("- ") ||
-    trimmed.startsWith("* ");
-  if (looksMarkdown)
-    return (
-      <div className="tool-output-markdown">
-        <ReactMarkdown
-          remarkPlugins={REMARK_PLUGINS}
-          components={markdownComponents}
-        >
-          {output}
-        </ReactMarkdown>
-      </div>
-    );
-
-  return (
-    <pre
-      ref={liveRef}
-      className={`gmc-pre${isLive ? " tool-call-live-output" : ""}`}
-    >
-      {output}
-    </pre>
-  );
-}
-

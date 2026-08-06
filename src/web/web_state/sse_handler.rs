@@ -1,6 +1,7 @@
 use crate::app::SessionInfo;
 
 use super::super::types::*;
+use super::status::Running;
 
 /// Process a single SSE event from the opencode server.
 /// We care about:
@@ -157,6 +158,7 @@ pub(crate) async fn handle_web_sse_event(
                 }
                 state.session_stats.remove(session_id);
                 state.busy_sessions.remove(session_id);
+                state.turn_dispatch.remove(session_id);
                 state.error_sessions.remove(session_id);
                 state.input_sessions.remove(session_id);
                 state.unseen_sessions.remove(session_id);
@@ -179,71 +181,18 @@ pub(crate) async fn handle_web_sse_event(
                 serde_json::from_value::<SessionStatusProps>(event.properties.clone())
             {
                 let sid = status_props.session_id.clone();
-                {
-                    let mut state = inner.write().await;
-                    match status_props.status.status_type.as_str() {
-                        "busy" | "retry" => {
-                            // Clear error state when session starts working again
-                            if state.error_sessions.remove(&sid).is_some() {
-                                let _ = event_tx.send(WebEvent::StateChanged);
-                            }
-                            if !state.busy_sessions.contains(&sid) {
-                                state.busy_sessions.insert(sid.clone());
-                                let _ = event_tx.send(WebEvent::SessionBusy {
-                                    session_id: sid.clone(),
-                                });
-                            }
-                        }
-                        "idle" => {
-                            if state.busy_sessions.remove(&sid) {
-                                let _ = event_tx.send(WebEvent::SessionIdle {
-                                    session_id: sid.clone(),
-                                });
-                            }
-                            // Track unseen only for root sessions (not subagents) that
-                            // are not the active session for their project.
-                            // Upstream opencode skips subagent sessions for notifications:
-                            //   handleSessionIdle: `if (session.parentID) return`
-                            let is_subagent = state
-                                .projects
-                                .iter()
-                                .flat_map(|p| p.sessions.iter())
-                                .find(|s| s.id == sid)
-                                .map(|s| !s.parent_id.is_empty())
-                                .unwrap_or(false);
-                            if !is_subagent {
-                                let is_active = state
-                                    .projects
-                                    .iter()
-                                    .any(|p| p.active_session.as_deref() == Some(sid.as_str()));
-                                if !is_active {
-                                    let count =
-                                        state.unseen_sessions.entry(sid.clone()).or_insert(0);
-                                    *count += 1;
-                                    let _ = event_tx.send(WebEvent::SessionUnseen {
-                                        session_id: sid.clone(),
-                                        count: *count,
-                                    });
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                // Watcher integration: trigger on idle, cancel on busy
+                // Every runner's status event funnels into the same transition
+                // path as the fallback sweep, so busy/idle — and the watcher,
+                // mission, routine and kanban hooks that hang off idle — behave
+                // identically no matter which observer saw the edge first.
                 match status_props.status.status_type.as_str() {
-                    "idle" => {
-                        handle.try_trigger_watcher(&sid).await;
-                        // Mission loop: check if a mission needs evaluation or continuation
-                        handle.try_advance_mission(&sid).await;
-                        // Fire any on_session_idle routines bound to this session
-                        handle.try_fire_idle_routines(&sid).await;
-                        // Kanban pipeline: chain the next stage when this one finishes
-                        handle.try_advance_kanban_pipeline(&sid).await;
+                    "busy" | "retry" | "working" | "active" => {
+                        handle.set_session_running(&sid, Running::Busy).await;
                     }
-                    "busy" | "retry" => {
-                        handle.cancel_watcher_timer(&sid).await;
+                    "idle" => {
+                        if !handle.set_session_running(&sid, Running::Idle).await {
+                            handle.note_untracked_idle(&sid).await;
+                        }
                     }
                     _ => {}
                 }

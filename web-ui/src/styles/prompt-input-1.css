@@ -42,12 +42,6 @@
     box-shadow: inset 0 .5px 0 0 var(--white-14),0 0 0 1px color-mix(in srgb,var(--color-primary) 15%,transparent),0 0 16px color-mix(in srgb,var(--color-primary) 6%,transparent),0 8px 28px var(--black-8),0 3px 10px var(--black-4)
 }
 
-.prompt-textarea-row {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--space-2)
-}
-
 .prompt-textarea {
     flex: 1;
     resize: none;
@@ -64,89 +58,6 @@
 
 .prompt-textarea::placeholder {
     color: var(--color-text-muted)
-}
-
-.prompt-actions {
-    display: flex;
-    gap: var(--space-1);
-    flex-shrink: 0;
-    align-self: flex-end
-}
-
-.prompt-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    transition: all var(--transition-base)
-}
-
-.prompt-send-btn {
-    background: var(--color-primary);
-    color: var(--color-bg)
-}
-
-.prompt-send-btn:hover {
-    opacity: .9;
-    transform: scale(.97)
-}
-
-.prompt-send-btn:active {
-    transform: scale(.94)
-}
-
-.prompt-send-btn:disabled {
-    opacity: .3;
-    cursor: not-allowed;
-    transform: none
-}
-
-.prompt-abort-btn {
-    background: var(--color-error);
-    color: var(--color-on-accent);
-    animation: pulse-stop 1.5s ease-in-out infinite
-}
-
-.prompt-abort-btn:hover {
-    opacity: .9;
-    animation: none;
-    transform: scale(.97)
-}
-
-.prompt-abort-btn:active {
-    animation: none;
-    transform: scale(.94)
-}
-
-/* Busy state: Stop + Send buttons shown side-by-side */
-.prompt-actions-busy {
-    gap: var(--space-2)
-}
-
-.prompt-actions-busy .prompt-send-btn {
-    opacity: .65;
-    transition: opacity var(--transition-base)
-}
-
-.prompt-actions-busy .prompt-send-btn:not(:disabled) {
-    opacity: 1
-}
-
-.prompt-attach-btn {
-    width: 28px;
-    height: 28px;
-    background: var(--white-6);
-    color: var(--color-text-muted);
-    flex-shrink: 0
-}
-
-.prompt-attach-btn:hover {
-    background: var(--white-12);
-    color: var(--color-text)
 }
 
 .prompt-attachments {
@@ -258,16 +169,6 @@
     font-family: var(--font-mono);
     font-size: 10px;
     margin-right: 2px
-}
-
-.prompt-selectors {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding-bottom: var(--space-1);
-    position: relative;
-    z-index: 2
 }
 
 /* Memory chip in selector row */

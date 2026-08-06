@@ -15,9 +15,10 @@ pub(crate) enum AgentBackend {
     Opencode,
     /// Use the `claude` CLI background agents (`claude --bg`).
     ClaudeCode,
-    /// Use the `claude` CLI streaming print mode (`claude -p`): one persistent
-    /// process per session, enabling true mid-turn steering and hard abort.
-    ClaudePrint,
+    /// Drive the `claude` CLI over the Agent Client Protocol, via the generic ACP
+    /// engine. One ACP server per session, with per-token streaming, protocol-level
+    /// permission prompts, and cooperative cancellation.
+    ClaudeAcp,
 }
 
 impl AgentBackend {
@@ -25,7 +26,7 @@ impl AgentBackend {
     pub fn binary(&self) -> &'static str {
         match self {
             AgentBackend::Opencode => "opencode",
-            AgentBackend::ClaudeCode | AgentBackend::ClaudePrint => "claude",
+            AgentBackend::ClaudeCode | AgentBackend::ClaudeAcp => "claude",
         }
     }
 
@@ -34,7 +35,7 @@ impl AgentBackend {
         match self {
             AgentBackend::Opencode => "opencode",
             // Both claude engines present as "claude-code" to the web UI.
-            AgentBackend::ClaudeCode | AgentBackend::ClaudePrint => "claude-code",
+            AgentBackend::ClaudeCode | AgentBackend::ClaudeAcp => "claude-code",
         }
     }
 }
@@ -159,12 +160,15 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub claude: bool,
 
-    /// Use the Claude Code CLI in streaming print mode (`claude -p`): one
-    /// persistent process per session. Unlike `--claude`, follow-up messages are
-    /// pushed straight to the running process (true steering) and abort hard-kills
-    /// the turn. Takes precedence over `--claude`.
-    #[arg(long)]
-    pub claudep: bool,
+    /// Drive Claude over the Agent Client Protocol (the generic ACP engine). Unlike
+    /// `--claude`, replies stream per token, permission prompts are protocol requests
+    /// rather than hook callbacks, and abort cancels the turn instead of killing the
+    /// process. Takes precedence over `--claude`.
+    ///
+    /// `--claudep` is kept as an alias: this replaced the `claude -p` engine that flag
+    /// used to select.
+    #[arg(long = "acp", alias = "claudep")]
+    pub acp: bool,
 
     /// Enable all MCP integrations (terminal, neovim, time, ui)
     #[arg(long)]
@@ -299,11 +303,11 @@ impl Cli {
         None
     }
 
-    /// The effective backend. `--claudep` wins over `--claude`, which wins over
+    /// The effective backend. `--acp` wins over `--claude`, which wins over
     /// `--backend`.
     pub fn resolved_backend(&self) -> AgentBackend {
-        if self.claudep {
-            AgentBackend::ClaudePrint
+        if self.acp {
+            AgentBackend::ClaudeAcp
         } else if self.claude {
             AgentBackend::ClaudeCode
         } else {

@@ -36,6 +36,15 @@ const userMessageEvent = (sessionID: string, id: string, time: number): OpenCode
     properties: { sessionID, info: { id, role: "user", sessionID, time: { created: time } } },
   }) as unknown as OpenCodeEvent;
 
+const userPartEvent = (sessionID: string, id: string, text: string): OpenCodeEvent =>
+  ({
+    type: "message.part.updated",
+    properties: {
+      sessionID,
+      part: { type: "text", id: `${id}:0`, messageID: id, sessionID, text },
+    },
+  }) as unknown as OpenCodeEvent;
+
 const placeholder = (sessionID: string, text: string, time: number) => ({
   info: { role: "user" as const, messageID: "__optimistic__1", id: "__optimistic__1", sessionID, time },
   parts: [{ type: "text", text }],
@@ -64,11 +73,27 @@ describe("handleOpenCodeEvent message routing", () => {
     expect([...ctx.messageMapRef.current.keys()]).toEqual(["__optimistic__1"]);
   });
 
+  /**
+   * Confirmation arrives in two frames: the envelope, then the text. Only the second one
+   * proves which prompt was written, so the placeholder has to survive the first. Deciding
+   * on the envelope alone meant falling back to comparing the browser's clock against the
+   * server's, which kept the placeholder forever whenever the browser ran ahead.
+   */
+  it("keeps the placeholder until the confirmed message carries its text", () => {
+    const map: MessageMap = new Map([["__optimistic__1", placeholder("ses_mine", "hello", 1000)]]);
+    const { ctx } = makeContext("ses_mine", map);
+
+    handleOpenCodeEvent(ctx, userMessageEvent("ses_mine", "msg_mine", 2000));
+
+    expect([...ctx.messageMapRef.current.keys()]).toEqual(["__optimistic__1", "msg_mine"]);
+  });
+
   it("retires the placeholder when this session's own message is confirmed", () => {
     const map: MessageMap = new Map([["__optimistic__1", placeholder("ses_mine", "hello", 1000)]]);
     const { ctx, flushMessages } = makeContext("ses_mine", map);
 
     handleOpenCodeEvent(ctx, userMessageEvent("ses_mine", "msg_mine", 2000));
+    handleOpenCodeEvent(ctx, userPartEvent("ses_mine", "msg_mine", "hello"));
 
     expect([...ctx.messageMapRef.current.keys()]).toEqual(["msg_mine"]);
     expect(flushMessages).toHaveBeenCalled();

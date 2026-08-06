@@ -219,12 +219,16 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
             {isPinned ? <Pin size={12} className="sb-pin-icon" /> : <MessageCircle size={14} />}
           </div>
           <div className="sb-session-info">
-            <span className="sb-session-title">{entry.title}</span>
+            <span className="sb-session-title" title={entry.title}>{entry.title}</span>
             <span className="sb-session-meta">
               <span className="sb-open-project-tag">{entry.projectName}</span>
-              {entry.runner && <span className="sb-runner-badge">{entry.runner}</span>}
+              {entry.runner && (
+                <span className="sb-runner-badge" data-runner={entry.runner}>{entry.runner}</span>
+              )}
               {taskLink && <LaneTag link={taskLink} />}
-              {formatTime(entry.updated)}
+              <span className="sb-session-time" title="Last activity">
+                {formatTime(entry.updated)}
+              </span>
             </span>
           </div>
           {isBusy && <span className="sb-busy-indicator" />}

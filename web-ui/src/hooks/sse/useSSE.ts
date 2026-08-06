@@ -243,13 +243,23 @@ export function useSSE(): SSEState {
       // App state carries a full snapshot of who is busy, so reconcile against
       // it rather than merging: a merge could only ever add, leaving a session
       // marked busy for the rest of the page's life once its runner finished.
+      //
+      // The snapshot reports busy per project session, so it can only speak for
+      // sessions it lists. One it has never heard of — a handoff or a brand-new
+      // session whose first turn is already streaming — is unknown, not idle,
+      // and clearing it here would drop the spinner mid-turn.
       const busyNow = new Set<string>();
+      const known = new Set<string>();
       for (const p of s.projects) {
+        for (const session of p.sessions) known.add(session.id);
         for (const sid of p.busy_sessions) busyNow.add(sid);
       }
+      const retired = (sid: string) => known.has(sid) && !busyNow.has(sid);
       setBusySessions((prev) => {
-        if (prev.size === busyNow.size && [...busyNow].every((sid) => prev.has(sid))) return prev;
-        return busyNow;
+        const next = new Set(busyNow);
+        for (const sid of prev) if (!retired(sid)) next.add(sid);
+        if (prev.size === next.size && [...next].every((sid) => prev.has(sid))) return prev;
+        return next;
       });
       // Seed sessionStatuses from busy_sessions (server only reports busy IDs — no retry detail here)
       setSessionStatuses((prev) => {
@@ -262,7 +272,7 @@ export function useSSE(): SSEState {
           }
         }
         for (const sid of Object.keys(next)) {
-          if (busyNow.has(sid)) continue;
+          if (!retired(sid)) continue;
           delete next[sid];
           changed = true;
         }
@@ -276,7 +286,7 @@ export function useSSE(): SSEState {
       if (activeSid) {
         const isBusy = busyNow.has(activeSid);
         setSessionStatus((prev) => {
-          if (!isBusy) return prev.type === "idle" ? prev : SESSION_IDLE;
+          if (!isBusy) return retired(activeSid) ? SESSION_IDLE : prev;
           // Keep any richer busy detail an SSE event already supplied.
           return prev.type === "idle" ? { type: "busy" } : prev;
         });
@@ -440,8 +450,30 @@ export function useSSE(): SSEState {
       // A lazy new-session send can finish while the previous session's fetch
       // is still in flight. Move the ref and generation forward first so that
       // stale results cannot replace the new session's optimistic first turn.
+      //
+      // The map has to move with the ref. It still holds the session being left
+      // behind — and is the very object that session's cache entry was stored
+      // by reference — so writing this session's transcript into it merges the
+      // two conversations in both directions: the new session renders the old
+      // one's turns, and the old one keeps the new one's for the rest of the
+      // page's life. Every SSE handler decides *whether* to write from the ref
+      // and *where* to write from the map, so a window where they name
+      // different sessions also routes live events into the wrong transcript.
+      saveCurrentSessionToCache();
       sessionGenRef.current += 1;
       activeSessionRef.current = requestedSessionId;
+      const pending = retainOptimistic(messageMapRef.current, requestedSessionId);
+      if (restoreSessionFromCache(requestedSessionId)) {
+        for (const [key, msg] of pending) messageMapRef.current.set(key, msg);
+      } else {
+        messageMapRef.current = pending;
+        subagentMapsRef.current = new Map();
+        setSubagentMessages(new Map());
+        setLiveActivityEvents([]);
+        setHasOlderMessages(false);
+        setTotalMessageCount(0);
+      }
+      setMessages(mapToSortedArray(messageMapRef.current));
     }
     const sid = requestedSessionId ?? activeSessionRef.current;
     if (!sid) return;
@@ -469,7 +501,7 @@ export function useSSE(): SSEState {
     } catch (e) {
       console.error("refreshMessages failed:", e);
     }
-  }, []);
+  }, [saveCurrentSessionToCache, restoreSessionFromCache]);
 
   const loadOlderMessages = useCallback(async (): Promise<boolean> => {
     const sid = activeSessionRef.current;

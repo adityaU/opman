@@ -24,8 +24,10 @@
     white-space: nowrap;
 }
 
-/* The runner decides what the other two can be, so it carries the weight. */
+/* The runner decides what the other two can be, so it carries the weight — and
+   it never gives up characters. "Claude Coc" is worse than a shorter model. */
 .prompt-engine-chip .engine-chip-runner {
+    flex-shrink: 0;
     font-weight: 600;
     color: var(--color-text);
 }
@@ -36,8 +38,11 @@
 }
 
 /* Model identifiers can be a date-stamped mouthful. The chip is a summary, not
-   the source of truth — it truncates rather than pushing the row wide. */
+   the source of truth — it truncates rather than pushing the row wide. It is
+   the one segment with no icon, so `inline-block` earns a real ellipsis where
+   the flex siblings can only hard-clip. */
 .prompt-engine-chip .engine-chip-model {
+    display: inline-block;
     flex-shrink: 1;
     max-width: 15ch;
 }

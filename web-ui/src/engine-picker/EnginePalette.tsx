@@ -66,7 +66,7 @@ export function EnginePalette(props: Props) {
     }
   }, []);
 
-  const { models, agents, loading } = useEngineOptions(
+  const { models, agents, permissionModes, loading } = useEngineOptions(
     props.runner,
     props.selectedModel,
     props.selectedAgent,
@@ -209,6 +209,7 @@ export function EnginePalette(props: Props) {
 
         <EngineSettingsRow
           runner={props.runner}
+          permissionModes={permissionModes}
           supportedEfforts={props.supportedEfforts}
           effort={props.effort}
           permission={props.permission}

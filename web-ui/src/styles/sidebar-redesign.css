@@ -175,7 +175,7 @@
     align-items: center;
     gap: 9px;
     width: 100%;
-    min-height: 30px;
+    min-height: 38px;
     padding: 5px 8px;
     border-radius: var(--shell-radius-control, 8px);
 }
@@ -207,25 +207,27 @@
     color: var(--color-warning);
 }
 
+/* Two lines: the title owns the first one outright, the metadata owns the
+   second. Sharing one row let the project/runner tags — which never shrink —
+   crush the title down to a single ellipsised letter. */
 .chat-sidebar .sb-session-info {
     display: flex;
-    /* Row, explicitly: the earlier sheet stacks these in a column, and a column
-       plus `align-items: center` centred every title. */
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
     flex: 1;
     min-width: 0;
 }
 
 .chat-sidebar .sb-session-title {
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12.5px;
     line-height: 1.35;
+    text-align: left;
 }
 
 .chat-sidebar .sb-session.active .sb-session-title { font-weight: 600; }
@@ -233,16 +235,66 @@
 .chat-sidebar .sb-session-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex: 0 0 auto;
+    min-width: 0;
     margin: 0;
     color: var(--color-text-muted);
     font-size: 10px;
+    opacity: 1;
 }
 
-.sb-session-time {
+/* The last-activity stamp anchors right so it lines up down the whole list. */
+.chat-sidebar .sb-session-time {
+    margin-left: auto;
+    padding-left: 4px;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+
+/* ── Runner tag ───────────────────────────────────────────────────────
+   The dot alone is only legible once you already know the colour code, so the
+   engine is spelled out too — colour-matched to the dot to teach the mapping. */
+.chat-sidebar .sb-runner-badge {
+    display: inline-block;
+    flex: 0 1 auto;
+    max-width: 88px;
+    overflow: hidden;
+    padding: 0 5px;
+    height: 14px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 9%, transparent);
+    color: var(--color-text-muted);
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 14px;
+    letter-spacing: .02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-sidebar .sb-runner-badge[data-runner="claude"],
+.chat-sidebar .sb-runner-badge[data-runner="claude-code"] {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+}
+
+.chat-sidebar .sb-runner-badge[data-runner="opencode"] {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-primary);
+}
+
+/* Long project names shrink instead of shoving the timestamp off the row. */
+.chat-sidebar .sb-open-project-tag {
+    flex: 0 1 auto;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-sidebar .sb-runner-badge[data-runner="codex"] {
+    background: color-mix(in srgb, var(--color-info) 14%, transparent);
+    color: var(--color-info);
 }
 
 /* The row-actions button used to reserve its own column; it overlays the time

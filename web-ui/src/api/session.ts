@@ -154,10 +154,22 @@ export async function fetchCommands(): Promise<SlashCommand[]> {
 
 // ── Providers ─────────────────────────────────────────
 
+export interface PermissionModeOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 interface ProvidersResponse {
   all: Provider[];
   connected: string[];
   default: Record<string, string>;
+  /**
+   * Permission modes the engine itself reports. ACP agents are declared in config, so
+   * their runner name can never appear in a hardcoded table — they ship their modes here
+   * instead, which is what lets a new ACP server arrive with its real modes.
+   */
+  permissionModes?: PermissionModeOption[];
 }
 
 export async function fetchProviders(runner?: string): Promise<ProvidersResponse> {
@@ -169,6 +181,7 @@ export async function fetchProviders(runner?: string): Promise<ProvidersResponse
       all: (resp.all as Provider[]) || [],
       connected: (resp.connected as string[]) || [],
       default: (resp.default as Record<string, string>) || {},
+      permissionModes: (resp.permissionModes as PermissionModeOption[]) || undefined,
     };
   }
   if (Array.isArray(data)) {
@@ -252,8 +265,17 @@ export const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
   codex: [{ id: "default", label: "Default", description: "Codex default agent", mode: "primary", native: true }],
 };
 
+/**
+ * Shown for a runner with no agent list of its own. ACP agents are declared in config, so
+ * their names can never appear in the table above — and inheriting opencode's Build/Plan
+ * there would offer agents the runner has never heard of, which is the bug this replaces.
+ */
+const GENERIC_AGENT_FALLBACK: AgentInfo[] = [
+  { id: "default", label: "Default", description: "Default agent", mode: "primary", native: true },
+];
+
 export function runnerFallbackAgents(runner = "opencode"): AgentInfo[] {
-  return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
+  return RUNNER_AGENT_FALLBACKS[runner] || GENERIC_AGENT_FALLBACK;
 }
 
 export async function fetchAgents(runner = "opencode"): Promise<AgentInfo[]> {
@@ -262,9 +284,9 @@ export async function fetchAgents(runner = "opencode"): Promise<AgentInfo[]> {
     const runnerTagged = agents.filter((agent) => agent.runner);
     if (runnerTagged.length > 0) return runnerTagged.filter((agent) => agent.runner === runner);
     if (agents.length > 0) return agents;
-    if (runner !== "opencode") return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
+    if (runner !== "opencode") return runnerFallbackAgents(runner);
     return agents;
   } catch {
-    return RUNNER_AGENT_FALLBACKS[runner] || RUNNER_AGENT_FALLBACKS.opencode;
+    return runnerFallbackAgents(runner);
   }
 }

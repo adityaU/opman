@@ -73,15 +73,10 @@ html::after { opacity: .18; background-size: 48px 48px; }
 .prompt-input-wrapper { max-width: var(--composer-max-width); padding: 9px 11px 10px; border: 1px solid var(--codex-border); border-radius: var(--radius); background: var(--codex-surface); box-shadow: 0 8px 24px color-mix(in srgb, var(--black-40) 28%, transparent); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .prompt-input-wrapper::before { display: none; }
 .prompt-input-wrapper:focus-within { border-color: color-mix(in srgb, var(--color-primary) 48%, var(--codex-border)); box-shadow: 0 0 0 3px var(--theme-focus-ring), 0 8px 24px color-mix(in srgb, var(--black-40) 28%, transparent); }
-.prompt-selectors { padding-bottom: 7px; margin-bottom: 7px; border-bottom-color: var(--codex-border-soft); }
 .prompt-chip, .usage-info-btn { min-height: 25px; border-color: var(--codex-border-soft); background: transparent; border-radius: var(--radius); }
 .prompt-chip:hover, .usage-info-btn:hover { background: var(--codex-hover); }
 .prompt-textarea { font-size: 14px; line-height: 1.55; }
 .prompt-textarea::placeholder { opacity: .72; }
-.prompt-btn { width: 34px; height: 34px; border-radius: var(--radius); }
-.prompt-send-btn { border: 1px solid color-mix(in srgb, var(--color-primary) 65%, transparent); }
-.prompt-attach-btn { width: 32px; height: 32px; border-radius: var(--radius); border-color: transparent; background: transparent; }
-.prompt-attach-btn:hover { background: var(--codex-hover); }
 .prompt-hints { max-width: var(--codex-content-width); padding: 0 2px; font-size: 10px; opacity: .46; }
 
 .chat-status-bar { height: 30px; padding: 0 12px; border-top: 1px solid var(--codex-border-soft); background: var(--codex-surface); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }

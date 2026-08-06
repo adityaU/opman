@@ -157,7 +157,8 @@ export const ToolCall = React.memo(function ToolCall({
         {taskSessionId ? (
           <SubagentSession
             sessionId={taskSessionId}
-            title={state?.title || childSession?.title || "Task"}
+            title={childSession?.title || "Task"}
+            progressTitle={state?.title}
             messages={subagentMessages?.get(taskSessionId)}
             isRunning={isRunning}
             isCompleted={isCompleted}

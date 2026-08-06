@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchProviders } from "../api";
+import type { PermissionModeOption } from "../api/session";
 import type { Provider } from "../types";
 
 export interface ProviderCache {
   all: Provider[];
   connected: Set<string>;
   defaults: Record<string, string>;
+  /** Permission modes the engine reported, when it reports its own (ACP agents do). */
+  permissionModes: PermissionModeOption[] | null;
   loading: boolean;
   error: string | null;
   refresh: () => void;
@@ -21,6 +24,7 @@ let globalCache: Record<string, {
   all: Provider[];
   connected: string[];
   defaults: Record<string, string>;
+  permissionModes: PermissionModeOption[] | null;
   fetchedAt: number;
 }> = {};
 
@@ -34,6 +38,9 @@ export function useProviders(runner = "opencode"): ProviderCache {
   );
   const [defaults, setDefaults] = useState<Record<string, string>>(
     cached?.defaults ?? {}
+  );
+  const [permissionModes, setPermissionModes] = useState<PermissionModeOption[] | null>(
+    cached?.permissionModes ?? null
   );
   const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +57,7 @@ export function useProviders(runner = "opencode"): ProviderCache {
         setAll(globalCache[runner].all);
         setConnected(new Set(globalCache[runner].connected));
         setDefaults(globalCache[runner].defaults);
+        setPermissionModes(globalCache[runner].permissionModes);
         setLoading(false);
         return;
       }
@@ -63,11 +71,13 @@ export function useProviders(runner = "opencode"): ProviderCache {
             all: resp.all,
             connected: resp.connected,
             defaults: resp.default,
+            permissionModes: resp.permissionModes ?? null,
             fetchedAt: Date.now(),
           };
           setAll(resp.all);
           setConnected(new Set(resp.connected));
           setDefaults(resp.default);
+          setPermissionModes(resp.permissionModes ?? null);
         })
         .catch((e) => {
           if (!mountedRef.current) return;
@@ -90,7 +100,7 @@ export function useProviders(runner = "opencode"): ProviderCache {
 
   const refresh = useCallback(() => load(true), [load]);
 
-  return { all, connected, defaults, loading, error, refresh };
+  return { all, connected, defaults, permissionModes, loading, error, refresh };
 }
 
 /** Invalidate the global provider cache (e.g. after model change) */

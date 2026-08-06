@@ -195,8 +195,6 @@ html.flat-theme .tool-run-summary {
 .prompt-input-wrapper,
 .prompt-chip,
 .usage-info-btn,
-.prompt-btn,
-.prompt-attach-btn,
 .chat-status-bar,
 .side-panel,
 .theme-selector,
@@ -304,7 +302,6 @@ code,
 .prompt-input-wrapper {
     overflow: visible
 }
-.prompt-selectors,
 .prompt-runner-selector {
     position: relative;
     z-index: 4

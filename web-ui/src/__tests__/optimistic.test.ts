@@ -72,6 +72,35 @@ describe("reconcileOptimistic", () => {
     expect([...map.keys()]).toEqual(["__optimistic__100"]);
   });
 
+  /**
+   * The bug this guards: the ACP engine sends a user message's envelope one event before
+   * its text, so at that moment the confirmed record has no parts. Counting a parts-less
+   * record as evidence made the decision fall through to a timestamp comparison between
+   * the *browser's* clock and the server's — and a phone running a few seconds fast kept
+   * the placeholder forever. The prompt rendered twice, and because the stale copy sorted
+   * newest the transcript also claimed "No response" with the reply sitting right above it.
+   */
+  it("keeps the placeholder while the confirmed message has no parts yet", () => {
+    const map = mapOf(
+      userMessage("__optimistic__100", "ses_a", "Hello", 100),
+      userMessage("msg_real", "ses_a", "", 101),
+    );
+
+    expect(reconcileOptimistic(map)).toBe(false);
+    expect([...map.keys()]).toEqual(["__optimistic__100", "msg_real"]);
+  });
+
+  it("retires the placeholder on text alone, whatever the clocks say", () => {
+    // Browser 5s ahead of the server: the old time fallback kept the placeholder here.
+    const map = mapOf(
+      userMessage("__optimistic__100", "ses_a", "Hello", 1_000_005_000),
+      userMessage("msg_real", "ses_a", "Hello", 1_000_000_000),
+    );
+
+    expect(reconcileOptimistic(map)).toBe(true);
+    expect([...map.keys()]).toEqual(["msg_real"]);
+  });
+
   it("keeps a queued follow-up while retiring the confirmed message", () => {
     const map = mapOf(
       userMessage("__optimistic__100", "ses_a", "first", 100),

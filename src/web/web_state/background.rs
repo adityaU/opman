@@ -154,7 +154,11 @@ impl super::WebStateHandle {
                         debug!("initial session poll succeeded on attempt {attempt}");
                         break;
                     }
-                    delay_ms = if delay_ms == 0 { 100 } else { (delay_ms * 2).min(2000) };
+                    delay_ms = if delay_ms == 0 {
+                        100
+                    } else {
+                        (delay_ms * 2).min(2000)
+                    };
                 }
             }
 
@@ -228,10 +232,13 @@ impl super::WebStateHandle {
         all_ok
     }
 
-    /// One recurring poll iteration: refresh each project's session list (marking
-    /// `StateChanged` only on a real diff) and reconcile busy/idle transitions,
-    /// firing watcher/mission/routine side-effects. Extracted from
-    /// `spawn_session_poller` so a single iteration can be driven in tests.
+    /// One recurring poll iteration: refresh each project's session list, marking
+    /// `StateChanged` only on a real diff. Extracted from `spawn_session_poller`
+    /// so a single iteration can be driven in tests.
+    ///
+    /// Running status is deliberately not reconciled here. It belongs to every
+    /// runner, not just the one this poller's `base` points at, and lives on its
+    /// own faster sweep in `status.rs`.
     pub(crate) async fn session_poll_iter_once(&self, client: &ApiClient, base: &str) {
         // Snapshot project paths
         let project_paths: Vec<(usize, String)> = {
@@ -253,25 +260,19 @@ impl super::WebStateHandle {
             let idx = *idx;
             let runner_registry = runner_registry.clone();
             async move {
-                // Run both fetches concurrently within each project
-                let (sessions, status_map) = tokio::join!(
-                    client.fetch_sessions(&base, &dir),
-                    client.fetch_session_status(&base, &dir)
-                );
+                let sessions = client.fetch_sessions(&base, &dir).await;
                 let native_sessions = if let Some(registry) = runner_registry {
                     registry.sessions(&dir).await.ok()
                 } else {
                     None
                 };
-                (idx, dir, sessions.ok(), status_map.ok(), native_sessions)
+                (idx, dir, sessions.ok(), native_sessions)
             }
         });
 
         let results = join_all(fetches).await;
 
-        let mut aggregated_busy = HashSet::new();
-
-        for (idx, dir, sessions, status_map, native_sessions) in results {
+        for (idx, dir, sessions, native_sessions) in results {
             if let Some(sessions) = sessions {
                 let mut state = self.inner.write().await;
                 let default_runner = state.default_runner.clone();
@@ -322,51 +323,6 @@ impl super::WebStateHandle {
                     }
                 }
             }
-
-            if let Some(status_map) = status_map {
-                for (session_id, status) in &status_map {
-                    if status != "idle" {
-                        aggregated_busy.insert(session_id.clone());
-                    }
-                }
-            }
-        }
-
-        // Collect transitions before writing so we can fire side-effects
-        // outside the lock.
-        let (newly_busy, newly_idle) = {
-            let mut state = self.inner.write().await;
-            let mut n_busy = Vec::new();
-            let mut n_idle = Vec::new();
-            for id in &aggregated_busy {
-                if !state.busy_sessions.contains(id) {
-                    n_busy.push(id.clone());
-                    let _ = self.event_tx.send(WebEvent::SessionBusy {
-                        session_id: id.clone(),
-                    });
-                }
-            }
-            for id in state.busy_sessions.iter() {
-                if !aggregated_busy.contains(id) {
-                    n_idle.push(id.clone());
-                    let _ = self.event_tx.send(WebEvent::SessionIdle {
-                        session_id: id.clone(),
-                    });
-                }
-            }
-            state.busy_sessions = aggregated_busy;
-            (n_busy, n_idle)
-        };
-
-        // Fire side-effects for transitions detected by the poller
-        // (mirrors what the SSE handler does on real-time events).
-        for sid in &newly_idle {
-            self.try_trigger_watcher(sid).await;
-            self.try_advance_mission(sid).await;
-            self.try_fire_idle_routines(sid).await;
-        }
-        for sid in &newly_busy {
-            self.cancel_watcher_timer(sid).await;
         }
 
         if changed {

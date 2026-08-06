@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { AgentInfo } from "../api";
-import { agentColor, shortModelName } from "../prompt-input/helpers";
+import { agentColor, shortModelName, RUNNER_LABELS } from "../prompt-input/helpers";
 import { EnginePalette } from "./EnginePalette";
 
 interface Props {
@@ -29,13 +29,6 @@ interface Props {
   onEffortChange: (effort: string | null) => void;
   onPermissionChange: (permission: string) => void;
 }
-
-const RUNNER_LABELS: Record<string, string> = {
-  opencode: "OpenCode",
-  "claude-code": "Claude Code",
-  claude: "Claude",
-  codex: "Codex",
-};
 
 export function EngineChip(props: Props) {
   const [open, setOpen] = useState(false);

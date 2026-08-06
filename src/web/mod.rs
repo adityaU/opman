@@ -1,7 +1,7 @@
 //! Web UI server for opman.
 //!
 //! Runs an Axum HTTP server that is **fully independent** of the TUI, exposing:
-//! - Embedded Leptos frontend (via rust-embed)
+//! - Embedded React frontend (via rust-embed)
 //! - REST API for state queries and actions
 //! - SSE streams for real-time terminal output and app events
 //! - JWT-based authentication
@@ -29,7 +29,7 @@
 //! - `handlers` — REST API route handlers
 //! - `sse`  — SSE streaming (terminal output + app events)
 //! - `web_state` — Independent state manager (talks to opencode API directly)
-//! - `static_files` — Embedded React + Leptos frontend serving
+//! - `static_files` — Embedded React frontend serving
 //! - `pty_manager` — Independent web-owned PTY instances
 
 mod auth;
@@ -40,6 +40,7 @@ mod mcp_ws;
 pub mod pty_manager;
 mod request_log;
 mod routes;
+mod runner_events;
 pub mod session_instructions;
 mod sse;
 mod static_files;
@@ -122,28 +123,24 @@ pub async fn start_web_server(
         runner_registry.clone(),
     );
     web_state
-        .set_default_runner(runner_registry.default_kind().display_name())
+        .set_default_runner(&runner_registry.default_kind().display_name())
         .await;
     // The web state owns the default runner's SSE listener. Forward events
     // from additional HTTP runners as well, so a handoff continues streaming
     // into the same browser connection.
-    let project_dirs: Vec<String> = app_config.projects.iter().map(|p| p.path.clone()).collect();
     for (kind, endpoint) in runner_registry.event_endpoints() {
         if kind == runner_registry.default_kind() {
             continue;
         }
-        for directory in &project_dirs {
-            spawn_runner_event_forwarder(
-                endpoint.clone(),
-                directory.clone(),
-                kind.display_name().to_string(),
-                raw_sse_tx.clone(),
-                web_state.clone(),
-            );
-        }
+        runner_events::spawn_runner_event_forwarder(
+            endpoint,
+            kind.display_name().to_string(),
+            raw_sse_tx.clone(),
+            web_state.clone(),
+        );
     }
     for (kind, receiver) in runner_registry.event_receivers() {
-        spawn_runner_event_receiver(
+        runner_events::spawn_runner_event_receiver(
             receiver,
             kind.display_name().to_string(),
             raw_sse_tx.clone(),
@@ -233,86 +230,6 @@ async fn label_created_session(web_state: &WebStateHandle, data: &str, runner: &
     web_state
         .set_session_runner_if_absent(session_id, runner)
         .await;
-}
-
-fn spawn_runner_event_forwarder(
-    endpoint: String,
-    directory: String,
-    runner: String,
-    tx: broadcast::Sender<String>,
-    web_state: WebStateHandle,
-) {
-    tokio::spawn(async move {
-        use futures::StreamExt;
-        let client = reqwest::Client::new();
-        let response = match client
-            .get(&endpoint)
-            .header("Accept", "text/event-stream")
-            .header("x-opencode-directory", &directory)
-            .send()
-            .await
-        {
-            Ok(response) if response.status().is_success() => response,
-            Ok(response) => {
-                tracing::warn!(%endpoint, status = %response.status(), "runner SSE unavailable");
-                return;
-            }
-            Err(error) => {
-                tracing::warn!(%endpoint, %error, "runner SSE connection failed");
-                return;
-            }
-        };
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        while let Some(chunk) = stream.next().await {
-            let Ok(chunk) = chunk else { break };
-            buffer.push_str(&String::from_utf8_lossy(&chunk).replace("\r\n", "\n"));
-            while let Some(boundary) = buffer.find("\n\n") {
-                let message: String = buffer.drain(..boundary).collect();
-                buffer.drain(..2);
-                let data = message
-                    .lines()
-                    .filter_map(|line| line.strip_prefix("data:").map(str::trim))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if !data.is_empty() {
-                    let _ = tx.send(data.clone());
-                    label_created_session(&web_state, &data, &runner).await;
-                    web_state.handle_runner_event(&data, &directory).await;
-                }
-            }
-        }
-    });
-}
-
-fn spawn_runner_event_receiver(
-    mut receiver: broadcast::Receiver<String>,
-    runner: String,
-    tx: broadcast::Sender<String>,
-    web_state: WebStateHandle,
-) {
-    tokio::spawn(async move {
-        while let Ok(data) = receiver.recv().await {
-            let _ = tx.send(data.clone());
-            label_created_session(&web_state, &data, &runner).await;
-            let session_id = serde_json::from_str::<serde_json::Value>(&data)
-                .ok()
-                .and_then(|event| {
-                    event
-                        .pointer("/properties/sessionID")
-                        .and_then(serde_json::Value::as_str)
-                        .map(str::to_string)
-                });
-            let directory = match session_id {
-                Some(session_id) => web_state
-                    .directory_for_session(&session_id)
-                    .await
-                    .unwrap_or_default(),
-                None => String::new(),
-            };
-            web_state.handle_runner_event(&data, &directory).await;
-        }
-    });
 }
 
 /// Write `~/.config/opman/internal.json` = `{ "url": ..., "token": ... }`.

@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentInfo } from "../api";
+import type { PermissionModeOption } from "../api/session";
 import { fetchAgents } from "../api";
 import { useProviders } from "../hooks/useProviders";
 
@@ -25,6 +26,12 @@ export interface ModelOption {
 export interface EngineOptions {
   models: ModelOption[];
   agents: AgentInfo[];
+  /**
+   * Permission modes the engine reported, or null when it reports none and the caller
+   * should fall back to its own table. ACP agents come from config, so their modes can
+   * only be discovered — never looked up by runner name.
+   */
+  permissionModes: PermissionModeOption[] | null;
   loading: boolean;
 }
 
@@ -99,5 +106,10 @@ export function useEngineOptions(
     onAgentChange(agents[0].id);
   }, [agents, selectedAgent, onAgentChange]);
 
-  return { models, agents, loading: providers.loading || loadingAgents };
+  return {
+    models,
+    agents,
+    permissionModes: providers.permissionModes,
+    loading: providers.loading || loadingAgents,
+  };
 }

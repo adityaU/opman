@@ -803,17 +803,30 @@ impl ClaudeEngine {
             };
             let changed = entry.busy != busy;
             entry.busy = busy;
+            // Both edges of a turn are activity, so `updated` tracks the last
+            // thing that happened in the session rather than only its start.
+            if changed {
+                entry.updated = now_ms();
+            }
             (entry.directory.clone(), changed)
         };
         if !changed {
             return false;
         }
+        self.save();
         let status = if busy { "busy" } else { "idle" };
         self.emit(
             &dir,
             "session.status",
             serde_json::json!({ "sessionID": session_id, "status": { "type": status } }),
         );
+        if let Some(entry) = self.get_session(session_id) {
+            self.emit(
+                &dir,
+                "session.updated",
+                serde_json::json!({ "info": session_info(&entry) }),
+            );
+        }
         if !busy {
             self.emit(
                 &dir,

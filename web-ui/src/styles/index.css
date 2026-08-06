@@ -104,6 +104,7 @@
 @import './mobile-shell.css';
 @import './mobile-header.css';
 @import './theme-polish.css';
+@import './composer.css';
 /* Last: the unified floating-surface contract wins on order, not !important. */
 @import './modal-shell.css';
 @import './modal-content.css';

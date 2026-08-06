@@ -68,7 +68,15 @@ export function reconcileOptimistic(map: MessageMap): boolean {
   let newestConfirmed = 0;
   for (const [key, msg] of map) {
     if (isOptimisticId(key) || msg.info.role !== "user") continue;
-    confirmedText.add(messageText(msg));
+    // A message whose parts have not arrived yet is no evidence at all. Its envelope
+    // lands one event before its text, and counting it here decided the match on
+    // timestamps alone — which compares the *browser's* clock against the server's. A
+    // phone running a few seconds fast kept the placeholder forever: the prompt showed
+    // twice, and because the stale copy sorted newest the transcript also reported "No
+    // response" even though the reply had arrived.
+    const text = messageText(msg);
+    if (!text) continue;
+    confirmedText.add(text);
     newestConfirmed = Math.max(newestConfirmed, getMessageTime(msg));
   }
   if (confirmedText.size === 0) return false;

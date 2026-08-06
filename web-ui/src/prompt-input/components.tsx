@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  Cpu, ChevronDown, Brain, AtSign, X, File, Folder,
-  ImageIcon, Paperclip, Send, Square, Loader2, SquareTerminal,
-} from "lucide-react";
+import { Brain, AtSign, X, File, Folder, ImageIcon } from "lucide-react";
 import type { AgentInfo, ImageAttachment, FileSearchEntry, SessionStats } from "../api";
 import type { FileMention } from "./useFileMention";
 import { agentColor, shortModelName } from "./helpers";
@@ -49,7 +46,7 @@ export function SelectorChips({
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: SelectorChipsProps) {
   return (
-    <div className="prompt-selectors">
+    <div className="composer-context">
       <EngineChip
         runner={currentRunner}
         availableRunners={availableRunners}
@@ -71,7 +68,11 @@ export function SelectorChips({
         <button className="prompt-chip prompt-chip-memory" onClick={onOpenMemory} title={activeMemoryLabels.join(", ")}>
           <Brain size={11} />
           <span className="prompt-chip-label">
-            {activeMemoryLabels.length} {activeMemoryLabels.length === 1 ? "instruction" : "instructions"}
+            {activeMemoryLabels.length}
+            {/* The count carries the meaning; the noun yields first on narrow rails. */}
+            <span className="prompt-chip-word">
+              {" "}{activeMemoryLabels.length === 1 ? "instruction" : "instructions"}
+            </span>
           </span>
         </button>
       )}
@@ -160,72 +161,6 @@ export function AttachmentPreviews({ attachments, onRemove }: AttachmentPreviews
           <span className="prompt-attachment-name">{att.name}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-// ── TextareaRow ─────────────────────────────────────────────────
-
-interface TextareaRowProps {
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  text: string;
-  disabled: boolean;
-  isBusy: boolean;
-  isSending?: boolean;
-  hasContent: boolean;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onPaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: () => void;
-  onAbort: () => void;
-  /** Claude engine only: open an interactive terminal attached to this session's agent. */
-  onAttachTerminal?: () => void;
-}
-
-export function TextareaRow({
-  textareaRef, fileInputRef, text, disabled, isBusy, isSending, hasContent,
-  onChange, onKeyDown, onPaste, onFileSelect, onSubmit, onAbort, onAttachTerminal,
-}: TextareaRowProps) {
-  return (
-    <div className="prompt-textarea-row">
-      <button className="prompt-btn prompt-attach-btn" onClick={() => fileInputRef.current?.click()}
-        disabled={disabled} title="Attach image (or paste/drag)" aria-label="Attach image">
-        <Paperclip size={15} />
-      </button>
-      {onAttachTerminal && (
-        <button className="prompt-btn prompt-attach-btn prompt-terminal-btn" onClick={onAttachTerminal}
-          disabled={disabled} title="Open the claude CLI attached to this session"
-          aria-label="Attach terminal">
-          <SquareTerminal size={15} />
-        </button>
-      )}
-      <input ref={fileInputRef} type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/bmp"
-        multiple onChange={onFileSelect} style={{ display: "none" }} />
-      <textarea ref={textareaRef} className="prompt-textarea" value={text}
-        onChange={onChange} onKeyDown={onKeyDown} onPaste={onPaste}
-        placeholder={disabled ? "Select a session to start..." : isBusy ? "Type a follow-up message..." : "Type a message... (/ for commands, paste or drop images)"}
-        disabled={disabled} rows={1} />
-      <div className={`prompt-actions${isBusy ? " prompt-actions-busy" : ""}`}>
-        {isBusy && (
-          <button className="prompt-btn prompt-abort-btn" onClick={onAbort} title="Stop generation" aria-label="Stop generation">
-            <Square size={16} />
-          </button>
-        )}
-        {isSending ? (
-          <button className="prompt-btn prompt-send-btn" disabled title="Sending..." aria-label="Sending message">
-            <Loader2 size={16} className="spinning" />
-          </button>
-        ) : (
-          <button className="prompt-btn prompt-send-btn" onClick={onSubmit}
-            disabled={disabled || !hasContent}
-            title={isBusy ? "Send follow-up (Enter)" : "Send (Enter)"} aria-label="Send message">
-            <Send size={16} />
-          </button>
-        )}
-      </div>
     </div>
   );
 }

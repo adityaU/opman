@@ -253,39 +253,12 @@
         line-height: 1.5
     }
 
-    /* Send / action buttons */
-    .prompt-btn {
-        width: 2.75rem;
-        height: 2.75rem;
-        border-radius: 50%
-    }
-
-    .prompt-attach-btn {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: var(--radius-md)
-    }
-
-    /* Selector chips */
     .prompt-chip {
         min-height: 32px;
         padding: 0 14px;
         font-size: var(--font-size-2xs);
         border-radius: var(--radius-full)
     }
-
-    .prompt-selectors {
-        gap: 8px;
-        padding-bottom: 10px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none
-    }
-
-    .prompt-selectors::-webkit-scrollbar {
-        display: none
-    }
-
     /* ═════════════════════════════════════════════════════════════
        TOOL CALLS — Compact mobile cards
        ═════════════════════════════════════════════════════════════ */

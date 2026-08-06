@@ -243,8 +243,7 @@ fn schema_declares_operation_enum_and_block_type_desc() {
         assert!(block_type_desc.contains(ty), "schema missing {ty}");
     }
 
-    let data_desc = schema["properties"]["blocks"]["items"]["properties"]["data"]
-        ["description"]
+    let data_desc = schema["properties"]["blocks"]["items"]["properties"]["data"]["description"]
         .as_str()
         .unwrap();
     assert!(data_desc.contains("alert") && data_desc.contains("message"));

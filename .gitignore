@@ -43,3 +43,22 @@ leptos-ui/playwright-e2e.config.ts
 
 # OpenCode tools (personal reusable scripts)
 opencode-tools/
+
+# Assistant working notes (never commit)
+MEMORY.md
+
+# Node deps
+node_modules/
+
+# Playwright scratch / test output
+.playwright-mcp/
+.verify-shots/
+**/test-results/
+
+# Root-level verification screenshots
+/*.png
+sidebar-expanded.yml
+
+# Local Claude Code state
+.claude/settings.local.json
+.claude/worktrees/

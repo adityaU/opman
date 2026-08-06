@@ -32,6 +32,7 @@ mod queries;
 pub(super) mod scheduler;
 mod sse;
 mod sse_handler;
+mod status;
 mod watchers;
 
 use std::collections::{HashMap, HashSet};
@@ -76,6 +77,9 @@ pub(super) struct WebStateInner {
     pub(super) session_stats: HashMap<String, WebSessionStats>,
     /// Set of session IDs currently busy.
     pub(super) busy_sessions: HashSet<String>,
+    /// When a turn was dispatched to a runner, for sessions whose runner has
+    /// not reported the turn yet. Shields that gap from the status sweep.
+    pub(super) turn_dispatch: HashMap<String, Instant>,
     /// Current theme colors (dark + light variants) for the web frontend.
     pub(super) theme: Option<WebThemePair>,
     // ── Watcher state ────────────────────────────────────────────
@@ -208,6 +212,16 @@ impl WebStateHandle {
         sse_handler::handle_web_sse_event(self, data, project_dir).await;
     }
 
+    /// Every configured project directory, as the runners address them.
+    pub async fn project_directories(&self) -> Vec<String> {
+        let inner = self.inner.read().await;
+        inner
+            .projects
+            .iter()
+            .map(|project| project.path.to_string_lossy().to_string())
+            .collect()
+    }
+
     pub async fn directory_for_session(&self, session_id: &str) -> Option<String> {
         let inner = self.inner.read().await;
         inner.projects.iter().find_map(|project| {
@@ -267,6 +281,7 @@ impl WebStateHandle {
         // Spawn background tasks
         handle.spawn_persist_worker(persist_rx);
         handle.spawn_session_poller();
+        handle.spawn_status_poller();
         handle.spawn_opencode_sse_listener();
         handle.spawn_routine_scheduler();
         handle.spawn_presence_cleanup();
@@ -320,6 +335,7 @@ impl WebStateHandle {
             focused: "TerminalPane".to_string(),
             session_stats: HashMap::new(),
             busy_sessions: HashSet::new(),
+            turn_dispatch: HashMap::new(),
             theme: None,
             session_watchers: HashMap::new(),
             watcher_pending: HashMap::new(),

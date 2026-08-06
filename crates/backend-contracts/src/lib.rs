@@ -1,43 +1,114 @@
 #![deny(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use serde::{Deserialize, Serialize};
+
+/// ACP agent ids registered from `acp.json` at startup.
+///
+/// The set of runners is genuinely open now: an ACP agent is declared in config, so opman
+/// cannot know the names at compile time. It must still reject a name nobody declared —
+/// `parse` is what validates runner labels arriving from users and from the web UI — so the
+/// dynamic names are registered here rather than accepted on faith.
+static ACP_RUNNERS: RwLock<BTreeSet<String>> = RwLock::new(BTreeSet::new());
+
+/// Declare the ACP agent ids that exist. Called once per process, after config load.
+pub fn register_acp_runners(ids: impl IntoIterator<Item = String>) {
+    let Ok(mut registered) = ACP_RUNNERS.write() else {
+        return;
+    };
+    registered.extend(ids.into_iter().filter(|id| is_valid_acp_id(id)));
+}
+
+fn acp_registered(id: &str) -> bool {
+    ACP_RUNNERS
+        .read()
+        .map(|set| set.contains(id))
+        .unwrap_or(false)
+}
+
+/// Config ids are used as runner labels, provider ids and file-name fragments, so keep them
+/// to a conservative shape rather than trusting whatever the config file holds.
+fn is_valid_acp_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
+}
 
 /// A runner that can own a session. This is intentionally not `Copy`: runner
 /// selection is a value with an explicit ownership boundary, not a freely
 /// duplicated flag.
-#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub enum RunnerKind {
     #[default]
     Opencode,
-    #[serde(rename = "claude-code")]
     ClaudeCode,
     Claude,
     Codex,
+    /// An ACP agent declared in `acp.json`, identified by its config id.
+    Acp(String),
 }
 
 impl RunnerKind {
     pub fn parse(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
+        let value = value.trim().to_ascii_lowercase();
+        match value.as_str() {
             "opencode" | "open-code" => Some(Self::Opencode),
             "claude-code" | "claudecode" => Some(Self::ClaudeCode),
+            // `claude` keeps its own variant: it is the slot the built-in ACP agent
+            // occupies, and persisted session bindings and UI labels already use it.
             "claude" | "claude-p" | "claudep" => Some(Self::Claude),
             "codex" => Some(Self::Codex),
+            other if acp_registered(other) => Some(Self::Acp(other.to_string())),
             _ => None,
         }
     }
 
-    pub fn display_name(&self) -> &'static str {
+    pub fn display_name(&self) -> Cow<'_, str> {
         match self {
-            Self::Opencode => "opencode",
-            Self::ClaudeCode => "claude-code",
-            Self::Claude => "claude",
-            Self::Codex => "codex",
+            Self::Opencode => Cow::Borrowed("opencode"),
+            Self::ClaudeCode => Cow::Borrowed("claude-code"),
+            Self::Claude => Cow::Borrowed("claude"),
+            Self::Codex => Cow::Borrowed("codex"),
+            Self::Acp(id) => Cow::Borrowed(id.as_str()),
         }
+    }
+}
+
+impl Display for RunnerKind {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.display_name())
+    }
+}
+
+impl Serialize for RunnerKind {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.display_name())
+    }
+}
+
+impl<'de> Deserialize<'de> for RunnerKind {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        if let Some(kind) = Self::parse(&raw) {
+            return Ok(kind);
+        }
+        // Persisted state, unlike user input, may name an agent whose config entry has since
+        // been removed. Preserve it rather than failing the whole load; the runner simply
+        // will not resolve to an engine.
+        let id = raw.trim().to_ascii_lowercase();
+        if is_valid_acp_id(&id) {
+            return Ok(Self::Acp(id));
+        }
+        Err(serde::de::Error::custom(format!("unknown runner '{raw}'")))
     }
 }
 
@@ -164,12 +235,50 @@ mod tests {
             RunnerKind::Claude,
             RunnerKind::Codex,
         ] {
-            assert_eq!(RunnerKind::parse(kind.display_name()), Some(kind.clone()));
+            assert_eq!(RunnerKind::parse(&kind.display_name()), Some(kind.clone()));
             assert_eq!(
                 serde_json::from_str::<RunnerKind>(&format!("\"{}\"", kind.display_name())).ok(),
                 Some(kind),
             );
         }
+    }
+
+    /// An ACP agent is only a runner once its config declared it. Accepting any string
+    /// would turn a typo in a runner label into a session bound to an engine that does
+    /// not exist.
+    #[test]
+    fn acp_runners_must_be_registered_to_parse() {
+        assert_eq!(RunnerKind::parse("gemini-acp"), None);
+        register_acp_runners(["gemini-acp".to_string()]);
+        assert_eq!(
+            RunnerKind::parse("gemini-acp"),
+            Some(RunnerKind::Acp("gemini-acp".to_string()))
+        );
+        let kind = RunnerKind::Acp("gemini-acp".to_string());
+        assert_eq!(kind.display_name(), "gemini-acp");
+        assert_eq!(
+            serde_json::to_string(&kind).ok(),
+            Some("\"gemini-acp\"".to_string())
+        );
+    }
+
+    /// Ids are used as provider ids and file-name fragments; reject shapes that would be
+    /// unsafe there even if a config file contains them.
+    #[test]
+    fn malformed_acp_ids_are_refused() {
+        register_acp_runners(["../escape".to_string(), "Upper".to_string(), String::new()]);
+        assert_eq!(RunnerKind::parse("../escape"), None);
+        assert_eq!(RunnerKind::parse("Upper"), None);
+        assert!(serde_json::from_str::<RunnerKind>("\"../escape\"").is_err());
+    }
+
+    /// A session persisted against an agent whose config was removed must still load.
+    #[test]
+    fn unregistered_but_valid_ids_survive_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<RunnerKind>("\"retired-agent\"").ok(),
+            Some(RunnerKind::Acp("retired-agent".to_string()))
+        );
     }
 
     #[test]

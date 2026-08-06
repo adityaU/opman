@@ -1,11 +1,11 @@
 #![deny(unsafe_code)]
 
+mod acp_engine;
 mod api;
 mod app;
 mod background_tasks;
 mod blockkit;
 mod claude_engine;
-mod claude_p_engine;
 mod cli;
 mod command_palette;
 mod config;
@@ -260,28 +260,36 @@ async fn main() -> Result<()> {
     // Ensure required Docker containers (e.g. SearXNG) are running in background
     preflight::spawn_container_checks();
 
+    // ACP agents are declared in config, so the set of runners is known only at runtime.
+    // Register the ids before anything parses a runner label, or a perfectly valid agent
+    // name would be rejected as unknown.
+    let acp_config = acp_engine::config::load();
+    let mcp_flags = (
+        enable_terminal_mcp,
+        enable_neovim_mcp,
+        enable_time_mcp,
+        enable_ui_mcp,
+    );
+    runner::register_acp_runners(acp_config.active().map(|(id, _)| id.clone()));
+
     // Start the agent backend on a free port. opencode runs as an external
     // `opencode serve` process; claude-code is served by an in-process adapter
     // that speaks the same opencode REST + SSE contract (backed by `claude`
-    // background agents).
+    // background agents); the `claude` slot is served by the generic ACP engine.
+    let mut acp_engines: HashMap<runner::RunnerKind, Arc<acp_engine::AcpEngine>> = HashMap::new();
     let (base_url, server_handle) = if backend == crate::cli::AgentBackend::ClaudeCode {
-        claude_engine::start_embedded_server((
-            enable_terminal_mcp,
-            enable_neovim_mcp,
-            enable_time_mcp,
-            enable_ui_mcp,
-        ))
-        .await
-        .context("Failed to start embedded claude engine")?
-    } else if backend == crate::cli::AgentBackend::ClaudePrint {
-        claude_p_engine::start_embedded_server((
-            enable_terminal_mcp,
-            enable_neovim_mcp,
-            enable_time_mcp,
-            enable_ui_mcp,
-        ))
-        .await
-        .context("Failed to start embedded claude -p engine")?
+        claude_engine::start_embedded_server(mcp_flags)
+            .await
+            .context("Failed to start embedded claude engine")?
+    } else if backend == crate::cli::AgentBackend::ClaudeAcp {
+        let (id, agent) = acp_config
+            .for_runner("claude")
+            .context("No ACP agent is configured for the `claude` runner")?;
+        let (url, handle, engine) = acp_engine::start_embedded_server(id, agent.clone(), mcp_flags)
+            .await
+            .with_context(|| format!("Failed to start ACP engine `{id}`"))?;
+        acp_engines.insert(runner::RunnerKind::Claude, engine);
+        (url, handle)
     } else {
         server::spawn_agent_server(backend).context("Failed to start agent server")?
     };
@@ -294,7 +302,7 @@ async fn main() -> Result<()> {
     let default_runner = match backend {
         crate::cli::AgentBackend::Opencode => runner::RunnerKind::Opencode,
         crate::cli::AgentBackend::ClaudeCode => runner::RunnerKind::ClaudeCode,
-        crate::cli::AgentBackend::ClaudePrint => runner::RunnerKind::Claude,
+        crate::cli::AgentBackend::ClaudeAcp => runner::RunnerKind::Claude,
     };
     // Every runner call is now short — sends go to `prompt_async`, so nothing
     // here waits on an agent turn. A timeout means a wedged engine surfaces as
@@ -364,25 +372,49 @@ async fn main() -> Result<()> {
                 server_handles.push(handle);
             }
         }
-        if !runner_impls.contains_key(&runner::RunnerKind::Claude) {
-            if let Ok((url, handle)) = claude_p_engine::start_embedded_server((
-                enable_terminal_mcp,
-                enable_neovim_mcp,
-                enable_time_mcp,
-                enable_ui_mcp,
-            ))
-            .await
-            {
+    }
+
+    // Every configured ACP agent becomes a runner. This is the whole cost of adding one:
+    // a config entry, no code. An agent that fails to start (missing command, bad args)
+    // simply does not appear in the picker, exactly like a missing optional binary.
+    for (id, agent) in acp_config.active() {
+        let Some(kind) = runner::RunnerKind::parse(&agent.runner) else {
+            tracing::warn!(agent = %id, runner = %agent.runner, "skipping ACP agent: unknown runner slot");
+            continue;
+        };
+        if runner_impls.contains_key(&kind) {
+            continue;
+        }
+        let engine = match acp_engines.get(&kind) {
+            Some(engine) => {
                 runner_impls.insert(
-                    runner::RunnerKind::Claude,
-                    Arc::new(runner::HttpRunner::new(
-                        runner::RunnerKind::Claude,
-                        url,
+                    kind.clone(),
+                    Arc::new(runner::AcpRunner::new(
+                        kind.clone(),
+                        engine.url(),
                         client.clone(),
+                        engine.clone(),
                     )),
                 );
+                continue;
+            }
+            None => acp_engine::start_embedded_server(id, agent.clone(), mcp_flags).await,
+        };
+        match engine {
+            Ok((url, handle, engine)) => {
+                runner_impls.insert(
+                    kind.clone(),
+                    Arc::new(runner::AcpRunner::new(
+                        kind.clone(),
+                        url,
+                        client.clone(),
+                        engine.clone(),
+                    )),
+                );
+                acp_engines.insert(kind, engine);
                 server_handles.push(handle);
             }
+            Err(e) => tracing::warn!(agent = %id, "ACP agent unavailable: {e}"),
         }
     }
     let codex_bin = std::env::var("OPMAN_CODEX_BIN").unwrap_or_else(|_| "codex".into());

@@ -22,7 +22,7 @@ use tokio::sync::{broadcast, oneshot, Mutex, OnceCell, RwLock};
 mod codex_history;
 
 pub type RunnerFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
-pub use opman_backend_contracts::{ProjectDirectory, RunnerKind, SessionId};
+pub use opman_backend_contracts::{register_acp_runners, ProjectDirectory, RunnerKind, SessionId};
 
 /// The small contract every runner implements.  The web layer only deals in
 /// opencode-shaped JSON, so runner-specific protocol details stay here.
@@ -55,6 +55,12 @@ pub trait Runner: Send + Sync {
     fn providers<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
         Box::pin(async { Ok(json!({ "all": [], "connected": [], "default": {} })) })
     }
+    /// The runner's own agent list. Must be asked of the runner rather than the default
+    /// engine: every runner has its own idea of what an agent is, and proxying to whichever
+    /// engine happens to be primary hands back another runner's agents.
+    fn agents<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async { Ok(json!([])) })
+    }
     fn send_message<'a>(
         &'a self,
         session_id: &'a str,
@@ -82,6 +88,31 @@ pub trait Runner: Send + Sync {
     ) -> RunnerFuture<'a, bool> {
         Box::pin(async { Ok(false) })
     }
+}
+
+/// Whether one `/session/status` entry describes a turn that is still going.
+///
+/// Runners agree on the envelope but not on the word: opencode says `busy` or
+/// `retry`, ACP agents say `active`, and codex says `working`. A retry is still
+/// the same unfinished turn, so it counts as running. An entry without a
+/// recognised type is idle — the map only lists non-idle sessions anyway.
+pub fn is_running_status(entry: &Value) -> bool {
+    entry
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| matches!(kind, "busy" | "retry" | "working" | "active"))
+}
+
+/// The session ids a `/session/status` map reports as running.
+pub fn running_session_ids(status: &Value) -> HashSet<String> {
+    let Some(entries) = status.as_object() else {
+        return HashSet::new();
+    };
+    entries
+        .iter()
+        .filter(|(_, entry)| is_running_status(entry))
+        .map(|(id, _)| id.clone())
+        .collect()
 }
 
 #[derive(Clone, Debug)]
@@ -284,6 +315,19 @@ impl Runner for HttpRunner {
         })
     }
 
+    fn agents<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async move {
+            let body = self
+                .json_request(
+                    self.client
+                        .get(format!("{}/agent", self.base_url))
+                        .header("x-opencode-directory", directory),
+                )
+                .await?;
+            Ok(body)
+        })
+    }
+
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()> {
         Box::pin(async move {
             self.json_request(
@@ -327,6 +371,98 @@ impl Runner for HttpRunner {
             )
             .await
         })
+    }
+}
+
+/// Runner wrapper for an embedded ACP engine that exposes an in-process broadcast
+/// receiver instead of an HTTP SSE URL. This bypasses the HTTP relay, which batches
+/// rapid streaming events into a single TCP chunk that the frontend's debounce then
+/// collapses into one render — the "all at once" effect that per-token ACP streaming
+/// exists to avoid.
+pub struct AcpRunner {
+    http: HttpRunner,
+    engine: Arc<crate::acp_engine::AcpEngine>,
+}
+
+impl AcpRunner {
+    pub fn new(
+        kind: RunnerKind,
+        url: impl Into<String>,
+        client: reqwest::Client,
+        engine: Arc<crate::acp_engine::AcpEngine>,
+    ) -> Self {
+        Self {
+            http: HttpRunner::new(kind, url, client),
+            engine,
+        }
+    }
+}
+
+impl Runner for AcpRunner {
+    fn kind(&self) -> RunnerKind {
+        self.http.kind()
+    }
+    fn event_url(&self) -> Option<String> {
+        None
+    }
+    fn event_receiver(&self) -> Option<broadcast::Receiver<String>> {
+        Some(self.engine.subscribe_raw())
+    }
+    fn create_session<'a>(
+        &'a self,
+        directory: &'a str,
+        title: &'a str,
+    ) -> RunnerFuture<'a, RunnerSession> {
+        self.http.create_session(directory, title)
+    }
+    fn sessions<'a>(
+        &'a self,
+        directory: &'a str,
+    ) -> RunnerFuture<'a, Vec<crate::app::SessionInfo>> {
+        self.http.sessions(directory)
+    }
+    fn messages<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, Value> {
+        self.http.messages(session_id, directory)
+    }
+    fn status<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Value> {
+        self.http.status(directory)
+    }
+    fn providers<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Value> {
+        self.http.providers(directory)
+    }
+    fn agents<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Value> {
+        self.http.agents(directory)
+    }
+    fn send_message<'a>(
+        &'a self,
+        session_id: &'a str,
+        directory: &'a str,
+        body: Value,
+    ) -> RunnerFuture<'a, Value> {
+        self.http.send_message(session_id, directory, body)
+    }
+    fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()> {
+        self.http.abort(session_id, directory)
+    }
+    fn rename<'a>(&'a self, session_id: &'a str, title: &'a str) -> RunnerFuture<'a, bool> {
+        self.http.rename(session_id, title)
+    }
+    fn delete<'a>(&'a self, session_id: &'a str) -> RunnerFuture<'a, bool> {
+        self.http.delete(session_id)
+    }
+    fn reply_permission<'a>(
+        &'a self,
+        request_id: &'a str,
+        reply: &'a str,
+    ) -> RunnerFuture<'a, bool> {
+        self.http.reply_permission(request_id, reply)
+    }
+    fn reply_question<'a>(
+        &'a self,
+        request_id: &'a str,
+        answers: &'a [Vec<String>],
+    ) -> RunnerFuture<'a, bool> {
+        self.http.reply_question(request_id, answers)
     }
 }
 
@@ -1620,7 +1756,7 @@ impl RunnerRegistry {
     }
     pub fn available(&self) -> Vec<RunnerKind> {
         let mut runners: Vec<_> = self.runners.keys().cloned().collect();
-        runners.sort_by_key(|runner| runner.display_name());
+        runners.sort_by(|a, b| a.display_name().cmp(&b.display_name()));
         runners
     }
 
@@ -1732,9 +1868,7 @@ impl RunnerRegistry {
             .unwrap_or_else(|_| json!({}));
         let busy = status
             .get(&binding.physical_id)
-            .and_then(|entry| entry.get("type"))
-            .and_then(Value::as_str)
-            .is_some_and(|kind| matches!(kind, "busy" | "working" | "active"));
+            .is_some_and(is_running_status);
         let transcript = runner
             .messages(&binding.physical_id, &binding.directory)
             .await
@@ -1747,6 +1881,31 @@ impl RunnerRegistry {
             "busy": busy,
             "messages": recent_progress_messages(&transcript, 8),
         }))
+    }
+
+    /// Ask every runner which of its sessions are running right now.
+    ///
+    /// A session's turn is owned by one runner and only that runner knows it is
+    /// under way, so the running set is the union across all of them. Each entry
+    /// is the runner's display name plus the ids it reports; `None` marks a
+    /// runner that could not be reached. That is deliberately distinct from "no
+    /// sessions running" — a caller must not retire a session's running state on
+    /// the word of a runner that never answered.
+    pub async fn status_all(&self, directory: &str) -> Vec<(String, Option<HashSet<String>>)> {
+        let Ok(directory) = ProjectDirectory::new(directory) else {
+            return Vec::new();
+        };
+        let Some(directory) = directory.as_str() else {
+            return Vec::new();
+        };
+        let probes = self.runners.iter().map(|(kind, runner)| async move {
+            let reported = runner.status(directory).await.ok();
+            (
+                kind.display_name().to_string(),
+                reported.as_ref().map(running_session_ids),
+            )
+        });
+        futures::future::join_all(probes).await
     }
 
     pub async fn sessions(
@@ -1842,6 +2001,19 @@ impl RunnerRegistry {
             .get(&kind)
             .context("runner is not available")?
             .providers(directory)
+            .await
+    }
+
+    pub async fn agents(&self, kind: RunnerKind, directory: &str) -> Result<Value> {
+        let directory = ProjectDirectory::new(directory)
+            .map_err(|error| anyhow::anyhow!("invalid project directory: {error}"))?;
+        let directory = directory
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
+        self.runners
+            .get(&kind)
+            .context("runner is not available")?
+            .agents(directory)
             .await
     }
 
@@ -2071,6 +2243,78 @@ mod tests {
         url
     }
 
+    /// Runners agree on the `/session/status` envelope but not on the word for
+    /// "still going", and a retry is the same unfinished turn.
+    #[test]
+    fn running_status_accepts_every_runners_wording() {
+        for kind in ["busy", "retry", "working", "active"] {
+            assert!(
+                is_running_status(&json!({ "type": kind })),
+                "{kind} should read as running"
+            );
+        }
+        assert!(!is_running_status(&json!({ "type": "idle" })));
+        assert!(!is_running_status(&json!({})));
+        assert!(!is_running_status(&Value::Null));
+    }
+
+    #[test]
+    fn running_session_ids_keeps_only_the_running_entries() {
+        let status = json!({
+            "a": { "type": "busy" },
+            "b": { "type": "idle" },
+            "c": { "type": "retry" },
+        });
+        let ids = running_session_ids(&status);
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains("a") && ids.contains("c"));
+        assert!(running_session_ids(&json!([])).is_empty());
+    }
+
+    /// The union across runners is the point: asking only the default runner is
+    /// what left every other runner's sessions stuck.
+    #[tokio::test]
+    async fn status_all_reports_each_runner_separately() {
+        let opencode = serve(axum::Router::new().route(
+            "/session/status",
+            axum::routing::get(|| async { axum::Json(json!({ "s1": { "type": "busy" } })) }),
+        ))
+        .await;
+        let client = reqwest::Client::new();
+        let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
+        runners.insert(
+            RunnerKind::Opencode,
+            Arc::new(HttpRunner::new(
+                RunnerKind::Opencode,
+                opencode,
+                client.clone(),
+            )),
+        );
+        // Nothing listens here, so this runner cannot answer.
+        runners.insert(
+            RunnerKind::ClaudeCode,
+            Arc::new(HttpRunner::new(
+                RunnerKind::ClaudeCode,
+                "http://127.0.0.1:1",
+                client,
+            )),
+        );
+        let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
+
+        let reported: HashMap<String, Option<HashSet<String>>> =
+            registry.status_all("/project").await.into_iter().collect();
+        assert_eq!(reported.len(), 2);
+        assert_eq!(
+            reported["opencode"].as_ref().map(HashSet::len),
+            Some(1),
+            "the reachable runner reports its running session"
+        );
+        assert!(
+            reported["claude-code"].is_none(),
+            "an unreachable runner reports nothing, not an empty set"
+        );
+    }
+
     /// A reply is owned by exactly one engine. `ok:false`, transport errors, and
     /// missing routes must all read as "not ours" so the registry fan-out reaches
     /// the engine that actually raised the request.
@@ -2087,7 +2331,11 @@ mod tests {
         );
         let client = reqwest::Client::new();
         let owning = HttpRunner::new(RunnerKind::Claude, serve(owner).await, client.clone());
-        let other = HttpRunner::new(RunnerKind::ClaudeCode, serve(stranger).await, client.clone());
+        let other = HttpRunner::new(
+            RunnerKind::ClaudeCode,
+            serve(stranger).await,
+            client.clone(),
+        );
         // No such route at all (native opencode shape) → not ours, not an error.
         let no_route = HttpRunner::new(
             RunnerKind::Opencode,

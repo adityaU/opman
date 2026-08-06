@@ -37,9 +37,7 @@ Terminal multiplexer and web UI wrapper for the [opencode](https://github.com/An
 | Tool | Why |
 |------|-----|
 | [Rust toolchain](https://rustup.rs/) (stable ≥ 1.94) | Compiles the opman binary |
-| `wasm32-unknown-unknown` target | Leptos frontend compiles to WASM — install with `rustup target add wasm32-unknown-unknown` |
-| [Trunk](https://trunkrs.dev/) | WASM bundler for the Leptos web UI — install with `cargo install trunk --locked` |
-| [Node.js](https://nodejs.org/) ≥ 18 + npm | Runs `npx tailwindcss` during the Trunk build |
+| [Node.js](https://nodejs.org/) ≥ 18 + npm | Builds the React web UI with Vite |
 
 ## Install
 
@@ -56,8 +54,7 @@ git clone https://github.com/adityaU/opman.git
 cd opman
 
 # Build frontend + backend
-cd leptos-ui && npm install && cd .. 
-cd leptos-ui && npx trunk build --release && cd ..
+cd web-ui && npm install && npm run build && cd ..
 cargo build --release
 
 # Install to ~/.local/bin and update PATH

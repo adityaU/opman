@@ -8,6 +8,8 @@ import { Loader2, CheckCircle2, XCircle, Bot, ExternalLink, ChevronDown, Chevron
 interface SubagentSessionProps {
   sessionId: string;
   title: string;
+  /** Latest tool update describing what the subagent is doing. */
+  progressTitle?: string;
   /** SSE-driven messages from useSSE's subagentMessages map. */
   messages?: Message[];
   /** Whether the task tool is still running */
@@ -34,6 +36,7 @@ interface SubagentSessionProps {
 export const SubagentSession = React.memo(function SubagentSession({
   sessionId,
   title,
+  progressTitle,
   messages: sseMessages,
   isRunning,
   isCompleted,
@@ -153,6 +156,20 @@ export const SubagentSession = React.memo(function SubagentSession({
           </button>
         )}
       </div>
+
+      {progressTitle && (
+        <div className="subagent-progress" role="status" aria-live="polite">
+          {isRunning ? (
+            <Loader2 size={12} className="tool-spin-icon" />
+          ) : isError ? (
+            <XCircle size={12} className="tool-error-icon" />
+          ) : (
+            <CheckCircle2 size={12} className="tool-success-icon" />
+          )}
+          <span className="subagent-progress-label">Progress</span>
+          <span className="subagent-progress-text">{progressTitle}</span>
+        </div>
+      )}
 
       {expanded && (
         <>

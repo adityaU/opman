@@ -51,6 +51,14 @@ export function shortModelName(modelId: string): string {
   return name.length > 30 ? name.slice(0, 28) + "\u2026" : name;
 }
 
+/** Display names for the engines a session can run on. */
+export const RUNNER_LABELS: Record<string, string> = {
+  opencode: "OpenCode",
+  "claude-code": "Claude Code",
+  claude: "Claude",
+  codex: "Codex",
+};
+
 /** Commands that execute immediately without needing args */
 export const NO_ARG_COMMANDS = new Set([
   // Session lifecycle

@@ -241,6 +241,12 @@ pub async fn send_message(
             .await;
     }
 
+    // The session is running from here on. No runner reports a turn before it
+    // has accepted it, and an interface that reads idle for that beat looks
+    // like the prompt was dropped. The mark expires on its own, so a send that
+    // never reaches a runner cannot strand the session as running.
+    state.web_state.mark_turn_dispatched(&session_id).await;
+
     if route_through_registry {
         let requested = req.runner.clone();
         let request_body = serde_json::to_value(&req)
@@ -252,7 +258,7 @@ pub async fn send_message(
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         state
             .web_state
-            .set_session_runner(&outcome.session_id, outcome.runner.display_name())
+            .set_session_runner(&outcome.session_id, &outcome.runner.display_name())
             .await;
 
         // A handoff creates a runner-native session. Add it to the same
@@ -279,12 +285,18 @@ pub async fn send_message(
                 .await;
             state
                 .web_state
-                .set_session_runner(&outcome.session_id, outcome.runner.display_name())
+                .set_session_runner(&outcome.session_id, &outcome.runner.display_name())
                 .await;
             // The handoff prompt was this session's opening turn.
             state
                 .web_state
                 .mark_instructions_delivered(&outcome.session_id)
+                .await;
+            // The turn moved to the new session; the one being left is done.
+            state.web_state.mark_turn_settled(&session_id).await;
+            state
+                .web_state
+                .mark_turn_dispatched(&outcome.session_id)
                 .await;
         }
         return Ok(Json(serde_json::json!({
@@ -342,6 +354,9 @@ pub async fn abort_session(
     axum::extract::Path(session_id): axum::extract::Path<String>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    // Drop the dispatch grace first: an abort that lands inside it must not be
+    // outlived by the mark that was holding the session running.
+    state.web_state.mark_turn_settled(&session_id).await;
     if state
         .runner_registry
         .has_or_bind_known_session(&session_id, &dir)

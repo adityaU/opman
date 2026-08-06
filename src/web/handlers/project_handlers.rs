@@ -52,7 +52,7 @@ pub async fn new_session(
         .ok_or(WebError::BadRequest("Invalid project index".into()))?;
 
     if let Some(runner) = req.runner {
-        let runner_name = runner.display_name();
+        let runner_name = runner.display_name().into_owned();
         let session = state
             .runner_registry
             .create_session(runner, &dir, "")
@@ -77,7 +77,7 @@ pub async fn new_session(
             .await;
         state
             .web_state
-            .set_session_runner(&session.id, runner_name)
+            .set_session_runner(&session.id, &runner_name)
             .await;
         return Ok(Json(NewSessionResponse {
             session_id: session.id,

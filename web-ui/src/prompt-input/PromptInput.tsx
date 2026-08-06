@@ -8,8 +8,9 @@ import { useMessageQueue } from "./useMessageQueue";
 import { QueuePanel } from "./QueueControls";
 import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
-  TextareaRow, DragOverlay, AtMentionPopover,
+  DragOverlay, AtMentionPopover,
 } from "./components";
+import { ComposerField, ComposerActions } from "./ComposerBar";
 
 interface Props {
   onSend: (text: string, images?: ImageAttachment[], fileContext?: string) => Promise<boolean>;
@@ -152,6 +153,15 @@ export function PromptInput({
     }
   }, [onCommand, onContentChange]);
 
+  const handleSlashClick = useCallback(() => {
+    if (!text.startsWith("/")) {
+      setText("/");
+      onContentChange?.(true);
+    }
+    setShowSlash(true);
+    textareaRef.current?.focus();
+  }, [text, onContentChange]);
+
   const handleFileSelect = useCallback((entry: FileSearchEntry) => {
     fileMention.addFileMention(entry);
     // Remove the @query text from the input (same pattern as agent select)
@@ -199,27 +209,33 @@ export function PromptInput({
           onClear={queue.clearAll} onClose={() => setShowQueue(false)} />
       )}
       <div className="prompt-input-wrapper">
-        <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
-           currentRunner={currentRunner} availableRunners={availableRunners} onRunnerChange={onRunnerChange}
-           supportedEfforts={supportedEfforts} effort={effort} permission={permission}
-           onEffortChange={onEffortChange} onPermissionChange={onPermissionChange}
-          disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
-          selectedModel={selectedModel} onModelSelected={onModelSelected} onAgentChange={onAgentChange}
-          onOpenMemory={onOpenMemory}
-          queuedCount={queue.queued.length} queueOpen={showQueue}
-          onToggleQueue={() => setShowQueue((v) => !v)} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />
         <FileMentionPills fileMentions={fileMention.fileMentions} onRemove={fileMention.removeFileMention} />
         <AttachmentPreviews attachments={attach.attachments} onRemove={attach.removeAttachment} />
-        <TextareaRow textareaRef={textareaRef} fileInputRef={attach.fileInputRef}
-          text={text} disabled={disabled} isBusy={isBusy} isSending={isSending} hasContent={hasContent}
+        <ComposerField textareaRef={textareaRef} fileInputRef={attach.fileInputRef}
+          text={text} disabled={disabled} isBusy={isBusy} runner={currentRunner}
           onChange={handleChange} onKeyDown={handleKeyDown} onPaste={attach.handlePaste}
-          onFileSelect={attach.handleFileSelect} onSubmit={handleSubmit} onAbort={onAbort}
-          onAttachTerminal={
-            backend === "claude-code" && sessionId && onAttachTerminal ? onAttachTerminal : undefined
-          }
-        />
+          onFileSelect={attach.handleFileSelect} />
+        <div className="composer-bar">
+          <SelectorChips currentModel={currentModel} currentAgent={currentAgent} agents={agents}
+             currentRunner={currentRunner} availableRunners={availableRunners} onRunnerChange={onRunnerChange}
+             supportedEfforts={supportedEfforts} effort={effort} permission={permission}
+             onEffortChange={onEffortChange} onPermissionChange={onPermissionChange}
+            disabled={disabled} activeMemoryLabels={activeMemoryLabels} stats={stats}
+            selectedModel={selectedModel} onModelSelected={onModelSelected} onAgentChange={onAgentChange}
+            onOpenMemory={onOpenMemory}
+            queuedCount={queue.queued.length} queueOpen={showQueue}
+            onToggleQueue={() => setShowQueue((v) => !v)} />
+          <ComposerActions disabled={disabled} isBusy={isBusy} isSending={isSending}
+            hasContent={hasContent}
+            onAttachClick={() => attach.fileInputRef.current?.click()}
+            onSlashClick={handleSlashClick}
+            onSubmit={handleSubmit} onAbort={onAbort}
+            onAttachTerminal={
+              backend === "claude-code" && sessionId && onAttachTerminal ? onAttachTerminal : undefined
+            } />
+        </div>
       </div>
     </div>
   );

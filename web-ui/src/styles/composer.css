@@ -1,0 +1,274 @@
+/* ── Composer ─────────────────────────────────────────────────────────
+   The message is the point, so the card is one surface with the textarea
+   across its full width and a single action rail beneath it: what the message
+   will run on to the left, what happens to it on the right.
+
+   The old shape stacked a chip toolbar, a hairline divider, and a field flanked
+   by two gutters — three bands for one job, with the send button fighting
+   wrapped text for the right edge. This sheet is imported after every
+   prompt-input-* and theme sheet, so its rules land last; the classes it owns
+   are new names, so nothing in the old cascade reaches them. */
+
+/* One inset governs the card: the textarea's first character, the leftmost
+   chip, and the send button's outer edge all land on it. */
+.prompt-input-wrapper {
+    gap: 0;
+    padding: 10px;
+    overflow: visible;
+}
+
+/* ── The writing surface ──────────────────────────────────────────── */
+
+.composer-field {
+    display: flex;
+    position: relative;
+    z-index: 2;
+    padding: 3px 0 9px;
+}
+
+.composer-field .prompt-textarea {
+    width: 100%;
+    min-height: 26px;
+    max-height: 220px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.composer-field .prompt-textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: .82;
+}
+
+/* ── The action rail ──────────────────────────────────────────────── */
+
+.composer-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    position: relative;
+    z-index: 4;
+}
+
+/* Context yields space before the actions do, and scrolls rather than
+   truncating the engine's own name. */
+.composer-context {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* Fade the overflow edge so a cut-off chip reads as "more", not as damage.
+       The fade finishes inside the padding, clear of the action rail. */
+    padding-right: 6px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent 100%);
+}
+
+.composer-context::-webkit-scrollbar { display: none }
+
+.composer-context > * { flex: 0 0 auto }
+
+/* Everything on the rail shares one height, so the row reads as a single line. */
+.composer-bar .prompt-chip,
+.composer-bar .usage-info-btn {
+    min-height: 28px;
+    height: 28px;
+}
+
+.composer-bar .usage-info-btn { width: 28px }
+
+.composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────── */
+
+.composer-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.composer-icon-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    color: var(--color-text);
+}
+
+.composer-icon-btn:disabled {
+    opacity: .38;
+    cursor: not-allowed;
+}
+
+.composer-key-btn {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.composer-send,
+.composer-stop {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast),
+                border-color var(--transition-fast), transform 90ms ease-out;
+}
+
+/* The one committing action on the rail — it gets its own gap. */
+.composer-send {
+    margin-left: 4px;
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+.composer-send:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 88%, var(--color-text));
+}
+
+.composer-send:active:not(:disabled) { transform: scale(.93) }
+
+/* Disabled is "nothing to send yet", not a broken control — it stays a legible
+   outline instead of dissolving into the card. */
+.composer-send:disabled {
+    background: none;
+    border-color: var(--color-border-subtle);
+    color: var(--color-text-muted);
+    opacity: .7;
+    cursor: not-allowed;
+}
+
+.composer-stop {
+    background: color-mix(in srgb, var(--color-error) 16%, transparent);
+    border-color: color-mix(in srgb, var(--color-error) 38%, transparent);
+    color: var(--color-error);
+}
+
+.composer-stop:hover {
+    background: color-mix(in srgb, var(--color-error) 26%, transparent);
+}
+
+.composer-stop:active { transform: scale(.93) }
+
+.composer-send:focus-visible,
+.composer-stop:focus-visible,
+.composer-icon-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ── Attached context sits above the field it belongs to ──────────── */
+
+.prompt-agent-mentions,
+.prompt-file-mentions {
+    padding: 1px 0 5px;
+    position: relative;
+    z-index: 2;
+}
+
+.prompt-attachments {
+    padding: 1px 0 7px;
+}
+
+/* ── Focus ────────────────────────────────────────────────────────── */
+
+.prompt-input-wrapper:focus-within {
+    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border-subtle));
+    box-shadow: 0 0 0 3px var(--theme-focus-ring), 0 8px 24px var(--black-15);
+}
+
+html.flat-theme .prompt-input-wrapper:focus-within {
+    background: var(--color-bg-panel);
+    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
+    box-shadow: 0 0 0 3px var(--theme-focus-ring), 0 2px 8px var(--black-10);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .prompt-input-wrapper {
+        padding: 9px;
+    }
+
+    .composer-field {
+        padding: 2px 0 8px;
+    }
+
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    .composer-field .prompt-textarea {
+        font-size: 16px;
+        min-height: 24px;
+        max-height: 40vh;
+    }
+
+    .composer-icon-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    .composer-send,
+    .composer-stop {
+        width: 36px;
+        height: 36px;
+    }
+
+    /* Touch targets on the rail match each other; the labels inside them get
+       smaller so the whole row still fits without scrolling at 393px. */
+    .composer-bar .prompt-chip,
+    .composer-bar .usage-info-btn {
+        min-height: 34px;
+        height: 34px;
+    }
+
+    .composer-bar .prompt-chip {
+        padding: 0 9px;
+        font-size: 11px;
+    }
+
+    /* Tightened just enough that engine, instructions, and usage all fit the
+       393px rail without scrolling. */
+    .composer-bar { gap: 6px }
+    .composer-context { padding-right: 2px }
+    .composer-actions { gap: 2px }
+    .composer-send { margin-left: 3px }
+
+    .composer-bar .usage-info-btn {
+        width: 30px;
+        min-height: 30px;
+        height: 30px;
+    }
+
+    /* The count is the fact; the noun is grammar. Dropping it is what lets the
+       engine chip, the instruction count, and usage share one 393px rail.
+       (The engine chip sheds its agent name at 560px on its own.) */
+    .composer-bar .prompt-chip-word { display: none }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .composer-send:active:not(:disabled),
+    .composer-stop:active { transform: none }
+}

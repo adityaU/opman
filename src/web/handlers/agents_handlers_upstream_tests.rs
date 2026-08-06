@@ -181,3 +181,102 @@ async fn upstream_non_array_body_falls_through_to_defaults() {
     let arr = body_json(&body);
     assert_eq!(arr.as_array().unwrap().len(), 2);
 }
+
+/// A named runner must answer for itself.
+///
+/// `/api/agents` used to proxy to whichever engine was primary, so selecting the ACP
+/// `claude` runner listed *opencode's* agents. The runner is part of the question, not a
+/// hint — asking the wrong engine is a wrong answer, not a degraded one.
+#[tokio::test]
+async fn named_runner_agents_come_from_that_runner() {
+    let opencode = start_mock_upstream(axum::Router::new().route(
+        "/agent",
+        get(|| async { axum::Json(json!([{ "name": "build" }, { "name": "plan" }])) }),
+    ))
+    .await;
+    // The ACP engine's honest answer: ACP has no agent-selection concept.
+    let claude = start_mock_upstream(
+        axum::Router::new().route("/agent", get(|| async { axum::Json(json!([])) })),
+    )
+    .await;
+
+    let (state, _tmp) = state_with_two_runners(&opencode, &claude).await;
+    let (status, body) = scope_base_url(
+        opencode.clone(),
+        send_json(
+            test_router(state),
+            "GET",
+            "/api/agents?runner=claude",
+            None,
+        ),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let listed = body_json(&body);
+    let listed = listed.as_array().expect("array of agents");
+    assert!(
+        listed.is_empty(),
+        "claude runner must not inherit opencode's agents, got {listed:?}"
+    );
+}
+
+/// The same request for the opencode runner still returns opencode's agents, so routing by
+/// runner did not simply break the working case.
+#[tokio::test]
+async fn named_opencode_runner_still_gets_its_own_agents() {
+    let opencode = start_mock_upstream(axum::Router::new().route(
+        "/agent",
+        get(|| async { axum::Json(json!([{ "name": "build" }, { "name": "plan" }])) }),
+    ))
+    .await;
+    let claude = start_mock_upstream(
+        axum::Router::new().route("/agent", get(|| async { axum::Json(json!([])) })),
+    )
+    .await;
+
+    let (state, _tmp) = state_with_two_runners(&opencode, &claude).await;
+    let (status, body) = scope_base_url(
+        opencode.clone(),
+        send_json(
+            test_router(state),
+            "GET",
+            "/api/agents?runner=opencode",
+            None,
+        ),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let listed = body_json(&body);
+    let listed = listed.as_array().expect("array of agents");
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0]["id"], "build");
+}
+
+/// A registry holding both runners, each pointed at its own mock engine.
+async fn state_with_two_runners(
+    opencode_base: &str,
+    claude_base: &str,
+) -> (ServerState, tempfile::TempDir) {
+    let (mut state, tmp) = state_with_project().await;
+    let client = reqwest::Client::new();
+    let mut runners: std::collections::HashMap<
+        crate::runner::RunnerKind,
+        std::sync::Arc<dyn crate::runner::Runner>,
+    > = std::collections::HashMap::new();
+    for (kind, base) in [
+        (crate::runner::RunnerKind::Opencode, opencode_base),
+        (crate::runner::RunnerKind::Claude, claude_base),
+    ] {
+        runners.insert(
+            kind.clone(),
+            std::sync::Arc::new(crate::runner::HttpRunner::new(kind, base, client.clone())),
+        );
+    }
+    state.runner_registry = std::sync::Arc::new(crate::runner::RunnerRegistry::new(
+        crate::runner::RunnerKind::Opencode,
+        runners,
+    ));
+    (state, tmp)
+}

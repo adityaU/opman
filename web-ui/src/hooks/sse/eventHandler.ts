@@ -82,6 +82,13 @@ function isForeignSession(ctx: EventHandlerContext, sessionId: string): boolean 
   return sessionId !== ctx.activeSessionRef.current;
 }
 
+/** Whether a part belongs to a user message already in the transcript. */
+function isUserMessagePart(ctx: EventHandlerContext, part: Record<string, unknown>): boolean {
+  const messageId = (part.messageID as string) || "";
+  if (!messageId) return false;
+  return ctx.messageMapRef.current.get(messageId)?.info.role === "user";
+}
+
 /** Route an opencode SSE event to the appropriate React state updaters. */
 export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEvent): void {
   const props = event.properties || {};
@@ -157,7 +164,14 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
         if (upsertPart(subMap, part)) ctx.flushSubagentMessages();
         break;
       }
-      if (upsertPart(ctx.messageMapRef.current, part)) ctx.flushMessages();
+      let partChanged = upsertPart(ctx.messageMapRef.current, part);
+      // A user message's text arrives one event after its envelope, so this is the first
+      // moment the placeholder can be matched on content rather than on clocks. Retiring
+      // it here is what keeps the prompt from rendering twice.
+      if (isUserMessagePart(ctx, part) && reconcileOptimistic(ctx.messageMapRef.current)) {
+        partChanged = true;
+      }
+      if (partChanged) ctx.flushMessages();
       break;
     }
 

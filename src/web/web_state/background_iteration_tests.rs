@@ -71,10 +71,13 @@ async fn mock_server(
 // ── session_poll_startup_once ────────────────────────────────────────
 
 #[tokio::test]
-async fn startup_once_no_projects_returns_false() {
+async fn startup_once_no_projects_is_immediately_ready() {
+    // Nothing to hydrate is not a failure to hydrate: with no projects the
+    // startup poll succeeds vacuously and the retry loop stops on the first try.
     let h = WebStateHandle::new_test();
     let client = ApiClient::new();
-    assert!(!h.session_poll_startup_once(&client, DEAD_BASE).await);
+    assert!(h.session_poll_startup_once(&client, DEAD_BASE).await);
+    assert!(h.inner.read().await.startup_ready);
 }
 
 #[tokio::test]
@@ -107,31 +110,7 @@ async fn startup_once_success_hydrates_active_session() {
 // ── session_poll_iter_once ───────────────────────────────────────────
 
 #[tokio::test]
-async fn iter_once_idle_transition_fires_side_effects() {
-    let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
-    // Seed a busy session that the (failing) fetch will not confirm → goes idle.
-    h.inner.write().await.busy_sessions.insert("s1".into());
-    let mut rx = h.subscribe_events();
-    let client = ApiClient::new();
-    h.session_poll_iter_once(&client, DEAD_BASE).await;
-
-    assert!(h.inner.read().await.busy_sessions.is_empty());
-    let mut saw_idle = false;
-    while let Ok(ev) = rx.try_recv() {
-        if let WebEvent::SessionIdle { session_id } = ev {
-            if session_id == "s1" {
-                saw_idle = true;
-            }
-        }
-    }
-    assert!(
-        saw_idle,
-        "expected a SessionIdle event for the cleared session"
-    );
-}
-
-#[tokio::test]
-async fn iter_once_busy_and_changed_via_mock() {
+async fn iter_once_refreshes_the_session_list() {
     let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
     let mut rx = h.subscribe_events();
     let client = ApiClient::new();
@@ -142,16 +121,15 @@ async fn iter_once_busy_and_changed_via_mock() {
     let (base, srv) = mock_server(sessions, status).await;
     h.session_poll_iter_once(&client, &base).await;
 
-    assert!(h.inner.read().await.busy_sessions.contains("s1"));
-    let (mut saw_busy, mut saw_changed) = (false, false);
+    // Running status is not this poller's business — it belongs to every
+    // runner, and `status.rs` sweeps all of them. This poller owns the list.
+    assert_eq!(h.inner.read().await.projects[0].sessions.len(), 1);
+    let mut saw_changed = false;
     while let Ok(ev) = rx.try_recv() {
-        match ev {
-            WebEvent::SessionBusy { session_id } if session_id == "s1" => saw_busy = true,
-            WebEvent::StateChanged => saw_changed = true,
-            _ => {}
+        if matches!(ev, WebEvent::StateChanged) {
+            saw_changed = true;
         }
     }
-    assert!(saw_busy, "expected SessionBusy");
     assert!(
         saw_changed,
         "expected StateChanged for the new session list"

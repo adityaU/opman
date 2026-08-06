@@ -1,8 +1,8 @@
 //! Agent listing handler with upstream proxy + config fallback.
 
 use axum::extract::{Query, State};
-use serde::Deserialize;
 use axum::response::{IntoResponse, Json};
+use serde::Deserialize;
 
 use super::super::auth::AuthUser;
 use super::super::error::WebResult;
@@ -19,26 +19,81 @@ use crate::app::base_url;
 /// `opencode.json` / `.opencode/config.json` for agent definitions and injects
 /// built-in defaults.
 #[derive(Debug, Deserialize)]
-pub struct AgentQuery { runner: Option<String> }
+pub struct AgentQuery {
+    runner: Option<String>,
+}
 
 pub async fn get_agents(
     Query(query): Query<AgentQuery>,
     State(state): State<ServerState>,
     _auth: AuthUser,
 ) -> WebResult<impl IntoResponse> {
-    if matches!(query.runner.as_deref(), Some("claude") | Some("claude-code")) {
+    // `claude-code` drives the CLI directly and can pass `--agent`, so its named agents are
+    // real choices. The ACP runners cannot: ACP has no agent-selection concept, and offering
+    // a list there would be a control that silently does nothing. Those fall through to the
+    // engine's own `/agent`, which reports honestly.
+    if query.runner.as_deref() == Some("claude-code") {
         let dir = resolve_project_dir(&state).await?;
-        let info = tokio::task::spawn_blocking(move || crate::claude_engine::claude_cli::introspect(&dir))
-            .await
-            .map_err(|error| super::super::error::WebError::Internal(format!("Claude agent discovery failed: {error}")))?;
-        let agents = info.agents.into_iter().map(|name| {
-            let mut chars = name.chars();
-            let label = chars.next().map(|first| first.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default();
-            AgentEntry { id: name.clone(), label, description: String::new(), mode: if name == "claude" { "primary" } else { "all" }.to_string(), hidden: false, native: true, color: None }
-        }).collect::<Vec<_>>();
+        let info =
+            tokio::task::spawn_blocking(move || crate::claude_engine::claude_cli::introspect(&dir))
+                .await
+                .map_err(|error| {
+                    super::super::error::WebError::Internal(format!(
+                        "Claude agent discovery failed: {error}"
+                    ))
+                })?;
+        let agents = info
+            .agents
+            .into_iter()
+            .map(|name| {
+                let mut chars = name.chars();
+                let label = chars
+                    .next()
+                    .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
+                    .unwrap_or_default();
+                AgentEntry {
+                    id: name.clone(),
+                    label,
+                    description: String::new(),
+                    mode: if name == "claude" { "primary" } else { "all" }.to_string(),
+                    hidden: false,
+                    native: true,
+                    color: None,
+                }
+            })
+            .collect::<Vec<_>>();
         return Ok(Json(agents));
     }
+
     let dir = resolve_project_dir(&state).await?;
+
+    // Any other named runner answers for itself. Falling through to `base_url()` would ask
+    // whichever engine happens to be primary — which is how the ACP `claude` runner ended up
+    // listing opencode's agents. An ACP engine reports none, and the client falls back to a
+    // single default entry, because ACP has no agent-selection concept.
+    if let Some(kind) = query
+        .runner
+        .as_deref()
+        .filter(|name| !name.is_empty())
+        .and_then(crate::runner::RunnerKind::parse)
+    {
+        let listed = state
+            .runner_registry
+            .agents(kind.clone(), &dir)
+            .await
+            .unwrap_or_else(|_| serde_json::json!([]));
+        let agents = upstream_agents(&listed);
+        // An ACP runner genuinely has none, and no config file would add any, so an empty
+        // list is the final answer rather than a reason to keep looking.
+        let acp = matches!(
+            kind,
+            crate::runner::RunnerKind::Claude | crate::runner::RunnerKind::Acp(_)
+        );
+        if !agents.is_empty() || acp {
+            return Ok(Json(agents));
+        }
+    }
+
     let base = base_url().to_string();
 
     // ── Primary: query the running opencode instance ────────────────
@@ -51,43 +106,8 @@ pub async fn get_agents(
         .await
     {
         if resp.status().is_success() {
-            if let Ok(upstream) = resp.json::<Vec<serde_json::Value>>().await {
-                let agents: Vec<AgentEntry> = upstream
-                    .iter()
-                    .map(|v| AgentEntry {
-                        id: v
-                            .get("name")
-                            .and_then(|n| n.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        label: {
-                            let name = v.get("name").and_then(|n| n.as_str()).unwrap_or("");
-                            // Capitalize first letter for display
-                            let mut chars = name.chars();
-                            match chars.next() {
-                                Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
-                                None => name.to_string(),
-                            }
-                        },
-                        description: v
-                            .get("description")
-                            .and_then(|d| d.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        mode: v
-                            .get("mode")
-                            .and_then(|m| m.as_str())
-                            .unwrap_or("all")
-                            .to_string(),
-                        hidden: v.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false),
-                        native: v.get("native").and_then(|n| n.as_bool()).unwrap_or(false),
-                        color: v
-                            .get("color")
-                            .and_then(|c| c.as_str())
-                            .map(|s| s.to_string()),
-                    })
-                    .collect();
-
+            if let Ok(upstream) = resp.json::<serde_json::Value>().await {
+                let agents = upstream_agents(&upstream);
                 if !agents.is_empty() {
                     return Ok(Json(agents));
                 }
@@ -207,6 +227,37 @@ pub async fn get_agents(
     });
 
     Ok(Json(agents))
+}
+
+/// Map an engine's `/agent` payload into the web UI's agent shape.
+fn upstream_agents(listed: &serde_json::Value) -> Vec<AgentEntry> {
+    let Some(entries) = listed.as_array() else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .map(|v| {
+            let name = v.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            let mut chars = name.chars();
+            let label = match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => name.to_string(),
+            };
+            AgentEntry {
+                id: name.to_string(),
+                label,
+                description: v
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                mode: v.get("mode").and_then(|m| m.as_str()).unwrap_or("all").to_string(),
+                hidden: v.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false),
+                native: v.get("native").and_then(|n| n.as_bool()).unwrap_or(false),
+                color: v.get("color").and_then(|c| c.as_str()).map(str::to_string),
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

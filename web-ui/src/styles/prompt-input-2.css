@@ -333,17 +333,6 @@
 .prompt-input-wrapper {
     border-radius: var(--radius)}
 
-.prompt-selectors,.prompt-attachments {
-    position: relative;
-    z-index: 2
-}
-
-.prompt-selectors {
-    padding-bottom: 8px;
-    margin-bottom: 2px;
-    border-bottom: 1px solid var(--color-border-subtle)
-}
-
 .prompt-chip {
     min-height: 26px;
     padding: 0 10px;
