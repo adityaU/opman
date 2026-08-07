@@ -1,0 +1,94 @@
+/* ══════════════════════════════════════════════════════════
+   Editor LSP surfaces — the hover tooltip, the lint gutter, and the
+   diagnostic underlines. These replace the header's icon row: the
+   information now appears at the token it describes.
+   ══════════════════════════════════════════════════════════ */
+
+.cm-tooltip.cm-tooltip-hover {
+    background: none;
+    border: none;
+}
+
+.cm-lsp-hover {
+    max-width: 520px;
+    max-height: 320px;
+    overflow: auto;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    border: .5px solid var(--glass-border-dark, var(--white-8));
+    background: var(--theme-elevated);
+    box-shadow: 0 8px 28px -8px var(--black-25);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ── Diagnostic underlines ────────────────────────────── */
+
+.cm-diagnostic-error,
+.cm-lintRange-error {
+    text-decoration-color: var(--color-error);
+}
+
+.cm-diagnostic-warning,
+.cm-lintRange-warning {
+    text-decoration-color: var(--color-warning);
+}
+
+.cm-diagnostic-info,
+.cm-lintRange-info {
+    text-decoration-color: var(--color-info);
+}
+
+/* CodeMirror's default lint tooltip is a bare white box; give it the same
+   surface as the hover card so the two do not read as different systems. */
+.cm-tooltip.cm-tooltip-lint {
+    border-radius: var(--radius);
+    border: .5px solid var(--glass-border-dark, var(--white-8));
+    background: var(--theme-elevated);
+    box-shadow: 0 8px 28px -8px var(--black-25);
+    overflow: hidden;
+}
+
+.cm-tooltip .cm-diagnostic {
+    padding: var(--space-2) var(--space-3);
+    border-left: none;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--color-text);
+    white-space: pre-wrap;
+}
+
+.cm-tooltip .cm-diagnostic-error { color: var(--color-error); }
+.cm-tooltip .cm-diagnostic-warning { color: var(--color-warning); }
+.cm-tooltip .cm-diagnostic-info { color: var(--color-info); }
+
+/* ── Lint gutter ──────────────────────────────────────── */
+
+.cm-gutter-lint {
+    width: 12px;
+}
+
+.cm-gutter-lint .cm-gutterElement {
+    padding: 0;
+}
+
+.cm-lint-marker {
+    width: 9px;
+    height: 9px;
+}
+
+/* ⌘/Ctrl held turns identifiers into jump targets. */
+.cm-content[data-lsp="on"] {
+    caret-color: var(--color-primary);
+}
+
+/* The mobile hover card (the desktop one is a CodeMirror tooltip). */
+.code-editor-hover-card {
+    border-bottom: none;
+    border-top: .5px solid var(--color-border-subtle);
+}

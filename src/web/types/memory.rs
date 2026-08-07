@@ -54,6 +54,15 @@ pub struct PersonalMemoryListResponse {
     pub memory: Vec<PersonalMemoryItem>,
 }
 
+/// Query params for `GET /api/memory/active`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ActiveMemoryQuery {
+    #[serde(default)]
+    pub project_index: Option<usize>,
+    #[serde(default)]
+    pub session_id: Option<String>,
+}
+
 #[cfg(test)]
 #[path = "memory_tests.rs"]
 mod memory_tests;

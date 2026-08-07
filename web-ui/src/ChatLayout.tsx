@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSSE } from "./hooks/useSSE";
-import { useKeyboard } from "./hooks/useKeyboard";
 import { useToast } from "./hooks/useToast";
 import { useProviders } from "./hooks/useProviders";
 import { useBookmarks } from "./hooks/useBookmarks";
@@ -15,10 +14,10 @@ import { useAssistantState } from "./hooks/useAssistantState";
 import { useUrlRestore } from "./hooks/useUrlRestore";
 import { useUrlSessionState } from "./hooks/useUrlSessionState";
 import { useNotificationSignals } from "./hooks/useNotificationSignals";
-import { usePulseActions } from "./hooks/usePulseActions";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useChatCallbacks } from "./hooks/useChatCallbacks";
-import { buildKeyboardShortcuts } from "./chatLayoutKeyboard";
+import { buildCommandHandlers } from "./chatLayoutCommands";
+import { useCommands, useWhenContext } from "./keybindings/useCommand";
 import { defaultRunner } from "./chatLayoutHandlers";
 import { ChatMainArea } from "./ChatMainArea";
 import { ModalLayer } from "./ModalLayer";
@@ -35,6 +34,7 @@ import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 import { appNavigate } from "./utils/navigation";
 import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
 import { StartupGate } from "./StartupGate";
+import { isMobileViewport } from "./hooks/useIsMobile";
 
 function defaultPermissionForRunner(runner: string): string {
   if (runner === "claude" || runner === "claude-code") return "default";
@@ -132,7 +132,18 @@ export function ChatLayout() {
   // anything outside the runner they were chosen in.
   const runnerConfig = useRunnerConfig();
   const pickedRunner = runnerChoice && runnerChoice.sessionId === activeSessionId ? runnerChoice.runner : null;
-  const currentRunner = pickedRunner || activeSession?.runner || defaultRunner(appState);
+  const availableRunners = useMemo<string[]>(
+    () => appState?.runners || ["opencode", "claude-code", "claude", "codex"],
+    [appState?.runners],
+  );
+  // A brand-new session has no runner of its own, and the server default is not
+  // what the user was working in. Prefer their last pick — but only while it is
+  // still on offer, so a renamed or removed ACP agent can never be sent.
+  const rememberedRunner = runnerConfig.lastRunner();
+  const fallbackRunner = availableRunners.includes(rememberedRunner)
+    ? rememberedRunner
+    : defaultRunner(appState);
+  const currentRunner = pickedRunner || activeSession?.runner || fallbackRunner;
   const runnerSwitch = pickedRunner && runnerChoice?.isSwitch && pickedRunner !== activeSession?.runner
     ? pickedRunner
     : null;
@@ -259,7 +270,7 @@ export function ChatLayout() {
   // Mobile: the dock must be switched to the editor sheet explicitly.
   const openFileInEditor = useCallback((path: string, line?: number | null) => {
     openMcpEditor(path, line);
-    if (typeof window !== "undefined" && window.innerWidth < 768 && mobile.activePanel !== "editor") {
+    if (isMobileViewport() && mobile.activePanel !== "editor") {
       mobile.togglePanel("editor");
     }
   }, [openMcpEditor, mobile]);
@@ -268,6 +279,8 @@ export function ChatLayout() {
   const model = useModelState(messages, providers, activeSessionId);
   const handleRunnerChange = useCallback((runner: string) => {
     setRunnerChoice({ sessionId: activeSessionId, runner, isSwitch: activeSessionId !== null });
+    // An explicit pick is also what the *next* session should open on.
+    runnerConfig.rememberRunner(runner);
     // Restore what this runner was last set to. An unknown or stale model is
     // repaired against the runner's own catalogue in useEngineOptions, so a
     // remembered value that no longer exists cannot strand the composer.
@@ -329,21 +342,11 @@ export function ChatLayout() {
   });
 
   // ── Assistant state ──
-  const assistant = useAssistantState(
-    {
-      appState, activeSessionId, activeProject: activeProjectIndex,
-      sessionStatus, permissions: allPermissions, questions: allQuestions,
-      liveActivityEvents: sse.liveActivityEvents, watcherStatus,
-      memoryOpen: modalState.modals.memory, autonomyOpen: modalState.modals.autonomy,
-      routinesOpen: modalState.modals.routines, missionsOpen: modalState.modals.missions,
-      delegationOpen: modalState.modals.delegation,
-      workspaceManagerOpen: modalState.modals.workspaceManager,
-      assistantCenterOpen: modalState.modals.assistantCenter,
-    },
-    {
-      onOpenAssistantCenter: () => modalState.open("assistantCenter"),
-    },
-  );
+  const assistant = useAssistantState({
+    activeSessionId, activeProject: activeProjectIndex,
+    memoryOpen: modalState.modals.memory, autonomyOpen: modalState.modals.autonomy,
+    routinesOpen: modalState.modals.routines,
+  });
 
   // ── Notification signals ──
   useNotificationSignals({
@@ -352,18 +355,6 @@ export function ChatLayout() {
     permissions, questions,
     crossSessionPermissions, crossSessionQuestions,
     fileEditCount,
-    setAssistantSignals: assistant.setAssistantSignals,
-  });
-
-  // ── Pulse actions ──
-  const { handleRunAssistantPulse } = usePulseActions({
-    assistantPulse: assistant.assistantPulse,
-    activeSessionId, activeProject,
-    openModal: modalState.open,
-    setAutonomyMode: assistant.setAutonomyMode,
-    setRoutineCache: assistant.setRoutineCache,
-    setWorkspaceCache: assistant.setWorkspaceCache,
-    addToast,
   });
 
   // ── Handlers (send, abort, command, session, etc.) ──
@@ -408,8 +399,6 @@ export function ChatLayout() {
     setSearchMatchIds: modalState.setSearchMatchIds,
     setActiveSearchMatchId: modalState.setActiveSearchMatchId,
     setAutonomyMode: assistant.setAutonomyMode,
-    setAssistantSignals: assistant.setAssistantSignals,
-    setActiveWorkspaceName: assistant.setActiveWorkspaceName,
     handleSelectSession: handlers.handleSelectSession,
   });
 
@@ -425,17 +414,37 @@ export function ChatLayout() {
   const closeSearchBar = useCallback(() => modalState.close("searchBar"), [modalState]);
   const openWatcher = useCallback(() => modalState.open("watcher"), [modalState]);
   const openCtxWindow = useCallback(() => modalState.open("contextWindow"), [modalState]);
-  const openAssistantCenter = useCallback(() => modalState.open("assistantCenter"), [modalState]);
   const onCompactCtx = useCallback(() => addToast("Compacting conversation...", "info"), [addToast]);
   const toggleSplitView = useCallback(() => modalState.toggle("splitView"), [modalState]);
 
-  // ── Keyboard shortcuts ──
-  useKeyboard(buildKeyboardShortcuts({
-    openModal, closeTopModal: modalState.closeTopModal,
-    toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
-    toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,
-    handleNewSession: handlers.handleNewSession, toggleSplitView,
+  // ── Keyboard: commands, not chords ──
+  // The keymap owns which key runs what; this only says what the app can do.
+  useCommands(buildCommandHandlers({
+    openModal: modalState.open,
+    toggleModal: modalState.toggle,
+    closeTopModal: modalState.closeTopModal,
+    toggleSidebar: panels.sidebar.toggle,
+    toggleTerminal: panels.terminal.toggle,
+    toggleEditor: panels.editor.toggle,
+    toggleGit: panels.git.toggle,
+    toggleBoard: openKanban,
+    toggleDebug: panels.debug.toggle,
+    newSession: handlers.handleNewSession,
+    runSlashCommand: handlers.handleCommand,
+    openMemoryActive,
+    reloadApp: () => window.location.reload(),
   }));
+
+  // Context keys read by `when` clauses. Every binding scoped to one of these
+  // is inert until the matching surface says it applies.
+  useWhenContext({
+    sessionActive: Boolean(activeSessionId),
+    sessionBusy: model.sending,
+    gitRepo: panels.git.open,
+    terminalOpen: panels.terminal.open,
+    editorOpen: panels.editor.open,
+    boardOpen: isKanbanView,
+  });
 
   if (!appState) {
     return <StartupGate appState={null} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={null} isLoadingMessages={false} providersLoading={providers.loading} />;
@@ -471,15 +480,15 @@ export function ChatLayout() {
         subagentMessages={subagentMessages} defaultModelDisplay={model.defaultModelDisplay}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
         handleModelSelected={handlers.handleModelSelected}
-        selectedRunner={currentRunner} availableRunners={appState?.runners || ["opencode", "claude-code", "claude", "codex"]}
+        selectedRunner={currentRunner} availableRunners={availableRunners}
         supportedEfforts={effortOptions} effort={currentSettings.effort} permission={currentSettings.permission}
         sending={model.sending} currentModel={model.currentModel}
         allPermissions={allPermissions} allQuestions={allQuestions}
         activeMemoryItems={assistant.activeMemoryItems}
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
-         watcherStatus={watcherStatus} presenceClients={sse.presenceClients} activeWorkspaceName={assistant.activeWorkspaceName}
-         autonomyMode={assistant.autonomyMode} assistantPulse={assistant.assistantPulse} contextLimit={model.currentModelContextLimit}
-         backend={appState?.backend} onRunAssistantPulse={handleRunAssistantPulse}
+         watcherStatus={watcherStatus} presenceClients={sse.presenceClients}
+         autonomyMode={assistant.autonomyMode} contextLimit={model.currentModelContextLimit}
+         backend={appState?.backend}
          onOpenWatcher={openWatcher} onOpenContextWindow={openCtxWindow} onToggleSidebar={panels.sidebar.toggle}
          toggleTerminal={panels.terminal.toggle} toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
         mcpAgentActivity={mcpAgentActivity} fileEditCount={fileEditCount}
@@ -527,13 +536,7 @@ export function ChatLayout() {
         onSelectSession={handlers.handleSelectSession} onSend={handlers.handleSend}
         onModelSelected={handlers.handleModelSelected} onAgentChange={handlers.handleAgentChange}
         onContextSubmit={callbacks.handleContextSubmit} onThemeApplied={callbacks.handleThemeApplied}
-        onRestoreWorkspace={callbacks.handleRestoreWorkspace}
-        buildCurrentSnapshot={callbacks.buildCurrentSnapshot}
         onCompactContext={onCompactCtx} onAutonomyChange={callbacks.onAutonomyChange}
-        onDismissSignal={callbacks.onDismissSignal}
-        onQuickSetupDailyCopilot={handleRunAssistantPulse}
-        onQuickSetupDailySummary={handleRunAssistantPulse}
-        onQuickUpgradeAutonomy={handleRunAssistantPulse}
         toggleSidebar={panels.sidebar.toggle} toggleTerminal={panels.terminal.toggle}
         toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
@@ -542,15 +545,10 @@ export function ChatLayout() {
         allPermissions={allPermissions} allQuestions={allQuestions}
         sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
         neovimOpen={panels.editor.open} gitOpen={panels.git.open}
-        liveActivityEvents={sse.liveActivityEvents} watcherStatus={watcherStatus}
-        assistantSignals={assistant.assistantSignals} autonomyMode={assistant.autonomyMode}
-        missionCache={assistant.missionCache} routineCache={assistant.routineCache}
-        delegatedWorkCache={assistant.delegatedWorkCache}
+        watcherStatus={watcherStatus}
+        autonomyMode={assistant.autonomyMode}
+        routineCache={assistant.routineCache}
         activeMemoryItems={assistant.activeMemoryItems}
-        workspaceCache={assistant.workspaceCache} resumeBriefing={assistant.resumeBriefing}
-        latestDailySummary={assistant.latestDailySummary}
-        activeWorkspaceName={assistant.activeWorkspaceName}
-        personalMemoryForInbox={callbacks.personalMemoryForInbox}
         memoryFilterActive={modalState.memoryFilterActive}
         openMemoryAll={openMemoryAll}
         splitViewSecondaryId={modalState.splitViewSecondaryId}
@@ -564,8 +562,7 @@ export function ChatLayout() {
         togglePanel={mobile.togglePanel} inputHidden={mobile.inputHidden}
         handleComposeButtonTap={mobile.handleComposeButtonTap}
         dockCollapsed={mobile.dockCollapsed} expandDock={mobile.expandDock}
-        assistantCenterOpen={modalState.modals.assistantCenter}
-        onOpenAssistantCenter={openAssistantCenter} onOpenCommandPalette={openCmdPalette}
+        onOpenCommandPalette={openCmdPalette}
         activeSessionId={activeSessionId} activeProject={activeProject}
         mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
         mcpAgentActivity={mcpAgentActivity}

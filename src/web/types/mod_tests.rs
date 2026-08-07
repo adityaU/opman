@@ -17,8 +17,21 @@ fn reexports_are_reachable() {
     let scope = MemoryScope::Global;
     assert_eq!(serde_json::to_value(scope).unwrap(), "global");
 
-    let layout = WorkspaceLayout::default();
-    assert_eq!(layout.sidebar_width, 0);
+    let panels = WebPanelVisibility {
+        sidebar: true,
+        terminal_pane: false,
+        neovim_pane: false,
+        integrated_terminal: false,
+        git_panel: false,
+    };
+    assert!(panels.sidebar);
+
+    let search = SearchResponse {
+        query: "q".into(),
+        results: vec![],
+        total: 0,
+    };
+    assert_eq!(search.total, 0);
 
     let net = NetworkInfo {
         name: "lo".into(),

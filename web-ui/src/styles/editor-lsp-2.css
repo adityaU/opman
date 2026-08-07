@@ -1,0 +1,225 @@
+/* ══════════════════════════════════════════════════════════
+   LSP part 2 — the completion popup, markdown inside tooltips, and the
+   diagnostics panel. Part 1 owns the hover card and lint underlines.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Completion popup ─────────────────────────────────── */
+
+.cm-tooltip.cm-tooltip-autocomplete {
+    border: none;
+    background: none;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+    max-height: 16em;
+    padding: var(--space-1);
+    border-radius: var(--radius);
+    border: .5px solid var(--glass-border-dark, var(--white-8));
+    background: var(--theme-elevated);
+    box-shadow: 0 10px 32px -10px var(--black-25);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 3px var(--space-2);
+    border-radius: 4px;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    color: var(--color-text);
+}
+
+.cm-completionLabel {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The matched span is why this row is in the list — mark it, quietly. */
+.cm-completionMatchedText {
+    text-decoration: none;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* The signature is context, so it never competes with the name. */
+.cm-completionDetail {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: normal;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+/* ── Completion kind icons ────────────────────────────── */
+
+/* CodeMirror ships letter glyphs via ::after; these give each kind a colour
+   so the list reads by shape as well as by name. */
+.cm-completionIcon {
+    width: 1.1em;
+    flex-shrink: 0;
+    opacity: 1;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.cm-completionIcon-function,
+.cm-completionIcon-method { color: var(--color-accent); }
+
+.cm-completionIcon-variable,
+.cm-completionIcon-property,
+.cm-completionIcon-field { color: var(--color-secondary); }
+
+.cm-completionIcon-class,
+.cm-completionIcon-struct,
+.cm-completionIcon-interface,
+.cm-completionIcon-enum { color: var(--color-warning); }
+
+.cm-completionIcon-keyword,
+.cm-completionIcon-operator { color: var(--color-primary); }
+
+.cm-completionIcon-module,
+.cm-completionIcon-namespace { color: var(--color-info); }
+
+.cm-completionIcon-constant,
+.cm-completionIcon-enumMember { color: var(--color-success); }
+
+.cm-completionIcon-snippet { color: var(--color-accent); }
+
+/* ── Documentation beside the list ────────────────────── */
+
+.cm-tooltip.cm-completionInfo {
+    max-width: 420px;
+    max-height: 20em;
+    overflow: auto;
+    margin-left: var(--space-1);
+    padding: 0;
+    border-radius: var(--radius);
+    border: .5px solid var(--glass-border-dark, var(--white-8));
+    background: var(--theme-elevated);
+    box-shadow: 0 10px 32px -10px var(--black-25);
+}
+
+.cm-lsp-doc {
+    padding: var(--space-2) var(--space-3);
+}
+
+/* ── Markdown inside LSP tooltips ─────────────────────── */
+
+.cm-lsp-hover,
+.cm-lsp-doc {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    color: var(--color-text);
+}
+
+.cm-lsp-hover > :first-child,
+.cm-lsp-doc > :first-child {
+    margin-top: 0;
+}
+
+.cm-lsp-hover > :last-child,
+.cm-lsp-doc > :last-child {
+    margin-bottom: 0;
+}
+
+.cm-lsp-hover p,
+.cm-lsp-doc p {
+    margin: var(--space-2) 0;
+}
+
+/* The fenced block holding the signature is the point of most hovers, so it
+   gets the monospace face and enough contrast to read as the answer. */
+.cm-lsp-hover pre,
+.cm-lsp-doc pre {
+    margin: var(--space-2) 0;
+    padding: var(--space-2);
+    border-radius: var(--radius);
+    background: var(--white-4);
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.cm-lsp-hover pre code,
+.cm-lsp-doc pre code {
+    padding: 0;
+    background: none;
+    font-size: var(--font-size-2xs);
+}
+
+.cm-lsp-hover code,
+.cm-lsp-doc code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--white-6);
+    font-family: var(--font-mono);
+    font-size: .92em;
+}
+
+.cm-lsp-hover a,
+.cm-lsp-doc a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.cm-lsp-hover hr,
+.cm-lsp-doc hr {
+    margin: var(--space-2) 0;
+    border: none;
+    border-top: .5px solid var(--glass-border-dark, var(--white-8));
+}
+
+.cm-lsp-hover ul,
+.cm-lsp-hover ol,
+.cm-lsp-doc ul,
+.cm-lsp-doc ol {
+    margin: var(--space-2) 0;
+    padding-left: var(--space-4);
+}
+
+.cm-lsp-hover h1, .cm-lsp-hover h2, .cm-lsp-hover h3,
+.cm-lsp-doc h1, .cm-lsp-doc h2, .cm-lsp-doc h3 {
+    margin: var(--space-3) 0 var(--space-1);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.cm-lsp-hover table,
+.cm-lsp-doc table {
+    border-collapse: collapse;
+    font-size: var(--font-size-2xs);
+}
+
+.cm-lsp-hover th,
+.cm-lsp-hover td,
+.cm-lsp-doc th,
+.cm-lsp-doc td {
+    padding: 2px var(--space-2);
+    border: .5px solid var(--glass-border-dark, var(--white-8));
+    text-align: left;
+}
+
+html.flat-theme .cm-tooltip.cm-tooltip-autocomplete > ul,
+html.flat-theme .cm-tooltip.cm-completionInfo {
+    background: var(--color-bg-element);
+    border-color: var(--color-border);
+}
+
+html.flat-theme .cm-lsp-hover pre,
+html.flat-theme .cm-lsp-doc pre,
+html.flat-theme .cm-lsp-hover code,
+html.flat-theme .cm-lsp-doc code {
+    background: var(--color-bg);
+}

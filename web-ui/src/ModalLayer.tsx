@@ -5,7 +5,7 @@ const CommandPalette = lazy(() => import("./CommandPalette").then(m => ({ defaul
 const ModelPickerModal = lazy(() => import("./ModelPickerModal").then(m => ({ default: m.ModelPickerModal })));
 const AgentPickerModal = lazy(() => import("./AgentPickerModal").then(m => ({ default: m.AgentPickerModal })));
 const ThemeSelectorModal = lazy(() => import("./ThemeSelectorModal").then(m => ({ default: m.ThemeSelectorModal })));
-const CheatsheetModal = lazy(() => import("./CheatsheetModal").then(m => ({ default: m.CheatsheetModal })));
+const KeybindingsModal = lazy(() => import("./keybindings-view/KeybindingsModal").then(m => ({ default: m.KeybindingsModal })));
 const TodoPanelModal = lazy(() => import("./TodoPanelModal").then(m => ({ default: m.TodoPanelModal })));
 const SessionSelectorModal = lazy(() => import("./SessionSelectorModal").then(m => ({ default: m.SessionSelectorModal })));
 const ContextInputModal = lazy(() => import("./ContextInputModal").then(m => ({ default: m.ContextInputModal })));
@@ -17,18 +17,10 @@ const DiffReviewPanel = lazy(() => import("./DiffReviewPanel").then(m => ({ defa
 const CrossSessionSearchModal = lazy(() => import("./CrossSessionSearchModal").then(m => ({ default: m.CrossSessionSearchModal })));
 const SplitView = lazy(() => import("./SplitView").then(m => ({ default: m.SplitView })));
 
-const SessionGraph = lazy(() => import("./SessionGraph").then(m => ({ default: m.SessionGraph })));
-const SessionDashboard = lazy(() => import("./SessionDashboard").then(m => ({ default: m.SessionDashboard })));
-const ActivityFeed = lazy(() => import("./ActivityFeed").then(m => ({ default: m.ActivityFeed })));
 const NotificationPrefsModal = lazy(() => import("./NotificationPrefsModal").then(m => ({ default: m.NotificationPrefsModal })));
-const InboxModal = lazy(() => import("./InboxModal").then(m => ({ default: m.InboxModal })));
 const AutonomyModal = lazy(() => import("./AutonomyModal").then(m => ({ default: m.AutonomyModal })));
 const MemoryModal = lazy(() => import("./MemoryModal").then(m => ({ default: m.MemoryModal })));
 const RoutinesModal = lazy(() => import("./RoutinesModal").then(m => ({ default: m.RoutinesModal })));
-const DelegationBoardModal = lazy(() => import("./DelegationBoardModal").then(m => ({ default: m.DelegationBoardModal })));
-const AssistantCenterModal = lazy(() => import("./AssistantCenterModal").then(m => ({ default: m.AssistantCenterModal })));
-const MissionsModal = lazy(() => import("./MissionsModal").then(m => ({ default: m.MissionsModal })));
-const WorkspaceManagerModal = lazy(() => import("./WorkspaceManagerModal").then(m => ({ default: m.WorkspaceManagerModal })));
 const SystemMonitorModal = lazy(() => import("./SystemMonitorModal").then(m => ({ default: m.SystemMonitorModal })));
 const ProcessHealthDrawer = lazy(() => import("./ProcessHealthDrawer").then(m => ({ default: m.ProcessHealthDrawer })));
 const AutoOpenModal = lazy(() => import("./AutoOpenModal").then(m => ({ default: m.AutoOpenModal })));
@@ -52,14 +44,8 @@ export interface ModalLayerProps {
   onAgentChange: (agentId: string) => Promise<void>;
   onContextSubmit: (text: string) => Promise<void>;
   onThemeApplied: (colors: any) => void;
-  onRestoreWorkspace: (ws: any) => void;
-  buildCurrentSnapshot: () => any;
   onCompactContext: () => void;
   onAutonomyChange: (mode: string) => void;
-  onDismissSignal: (id: string) => void;
-  onQuickSetupDailyCopilot: () => void;
-  onQuickSetupDailySummary: () => void;
-  onQuickUpgradeAutonomy: () => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
   toggleNeovim: () => void;
@@ -77,19 +63,10 @@ export interface ModalLayerProps {
   terminalOpen: boolean;
   neovimOpen: boolean;
   gitOpen: boolean;
-  liveActivityEvents: any[];
   watcherStatus: any;
-  assistantSignals: any[];
   autonomyMode: any;
-  missionCache: any[];
   routineCache: any[];
-  delegatedWorkCache: any[];
   activeMemoryItems: any[];
-  workspaceCache: any[];
-  resumeBriefing: any;
-  latestDailySummary: string | null;
-  activeWorkspaceName: string | null;
-  personalMemoryForInbox: any[];
   memoryFilterActive: boolean;
   /** Open memory modal showing all memories (sets filterActive=false). */
   openMemoryAll: () => void;
@@ -111,10 +88,6 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
   const nav = useCallback((from: string, to: string) => () => { c(from); o(to); }, [c, o]);
   /** Close `from` modal then open memory-all (unfiltered). */
   const navMemoryAll = useCallback((from: string) => () => { c(from); p.openMemoryAll(); }, [c, p.openMemoryAll]);
-  /** Adapter: (projectIndex, sessionId) → onSelectSession */
-  const selByProj = useCallback(
-    (pi: number, sid: string) => p.onSelectSession(sid, pi), [p.onSelectSession],
-  );
   /** Navigate to session within active project */
   const navSess = useCallback(
     (sid: string) => p.onSelectSession(sid, p.activeProjectIndex),
@@ -137,15 +110,9 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onOpenWatcher={() => o("watcher")} onOpenContextWindow={() => o("contextWindow")}
           onOpenDiffReview={() => o("diffReview")} onOpenSearch={() => o("searchBar")}
           onOpenCrossSearch={() => o("crossSearch")} onOpenSplitView={() => o("splitView")}
-          onOpenSessionGraph={() => o("sessionGraph")}
-          onOpenSessionDashboard={() => o("sessionDashboard")}
-          onOpenActivityFeed={() => o("activityFeed")}
           onOpenNotificationPrefs={() => o("notificationPrefs")}
-          onOpenAssistantCenter={() => o("assistantCenter")}
-          onOpenInbox={() => o("inbox")} onOpenMemory={p.openMemoryAll}
+          onOpenMemory={p.openMemoryAll}
           onOpenAutonomy={() => o("autonomy")} onOpenRoutines={() => o("routines")}
-          onOpenDelegation={() => o("delegation")} onOpenMissions={() => o("missions")}
-          onOpenWorkspaceManager={() => o("workspaceManager")}
           onOpenSystemMonitor={() => o("systemMonitor")}
           onOpenSkillsUpload={p.onOpenSkillsUpload}
           sessionId={p.activeSessionId}
@@ -162,7 +129,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       {m.themeSelector && (
         <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} appearance={p.appearance} onAppearanceChange={p.setAppearance} /></L>
       )}
-      {m.cheatsheet && <L><CheatsheetModal onClose={cl("cheatsheet")} /></L>}
+      {m.cheatsheet && <L><KeybindingsModal onClose={cl("cheatsheet")} /></L>}
       {m.todoPanel && p.activeSessionId && (
         <L><TodoPanelModal onClose={cl("todoPanel")} sessionId={p.activeSessionId} /></L>
       )}
@@ -180,14 +147,9 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onOpenThemeSelector={nav("settings", "themeSelector")}
           onOpenCheatsheet={nav("settings", "cheatsheet")}
           onOpenNotificationPrefs={nav("settings", "notificationPrefs")}
-          onOpenAssistantCenter={nav("settings", "assistantCenter")}
           onOpenMemory={navMemoryAll("settings")}
           onOpenAutonomy={nav("settings", "autonomy")}
           onOpenRoutines={nav("settings", "routines")}
-          onOpenDelegation={nav("settings", "delegation")}
-          onOpenWorkspaceManager={nav("settings", "workspaceManager")}
-          onOpenInbox={nav("settings", "inbox")}
-          onOpenMissions={nav("settings", "missions")}
           sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen}
           neovimOpen={p.neovimOpen} gitOpen={p.gitOpen}
           onToggleSidebar={p.toggleSidebar} onToggleTerminal={p.toggleTerminal}
@@ -215,56 +177,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         /></L>
       )}
 
-      {m.sessionGraph && <L><SessionGraph onSelectSession={selByProj} onClose={cl("sessionGraph")} activeSessionId={p.activeSessionId} /></L>}
-      {m.sessionDashboard && <L><SessionDashboard onSelectSession={selByProj} onClose={cl("sessionDashboard")} activeSessionId={p.activeSessionId} /></L>}
-      {m.activityFeed && <L><ActivityFeed sessionId={p.activeSessionId} onClose={cl("activityFeed")} liveEvents={p.liveActivityEvents} /></L>}
       {m.notificationPrefs && <L><NotificationPrefsModal onClose={cl("notificationPrefs")} /></L>}
-
-      {m.assistantCenter && (
-        <L>
-          <AssistantCenterModal
-            onClose={cl("assistantCenter")} autonomyMode={p.autonomyMode}
-            assistantSignals={p.assistantSignals} permissions={p.allPermissions}
-            questions={p.allQuestions}
-            resumeBriefing={p.resumeBriefing} latestDailySummary={p.latestDailySummary}
-            onQuickSetupDailyCopilot={p.onQuickSetupDailyCopilot}
-            onQuickSetupDailySummary={p.onQuickSetupDailySummary}
-            onQuickUpgradeAutonomy={p.onQuickUpgradeAutonomy}
-            onOpenInbox={nav("assistantCenter", "inbox")}
-            onOpenMissions={nav("assistantCenter", "missions")}
-            onOpenMemory={navMemoryAll("assistantCenter")}
-            onOpenAutonomy={nav("assistantCenter", "autonomy")}
-            onOpenRoutines={nav("assistantCenter", "routines")}
-            onOpenDelegation={nav("assistantCenter", "delegation")}
-            onOpenWorkspaces={nav("assistantCenter", "workspaceManager")}
-          />
-        </L>
-      )}
-
-      {m.inbox && (
-        <L>
-          <InboxModal
-            onClose={cl("inbox")} permissions={p.allPermissions} questions={p.allQuestions}
-            watcherStatus={p.watcherStatus} signals={p.assistantSignals}
-            activityEvents={p.liveActivityEvents} onDismissSignal={p.onDismissSignal}
-            onOpenMissions={nav("inbox", "missions")} onOpenActivityFeed={nav("inbox", "activityFeed")}
-            onOpenWatcher={nav("inbox", "watcher")} onPermissionResolved={p.clearPermission}
-            onQuestionResolved={p.clearQuestion} activeMemoryItems={p.personalMemoryForInbox}
-          />
-        </L>
-      )}
-
-      {m.missions && (
-        <L>
-          <MissionsModal
-            onClose={cl("missions")} projects={p.appState.projects}
-             activeProjectIndex={p.activeProjectIndex} activeSessionId={p.activeSessionId}
-            permissions={p.allPermissions} questions={p.allQuestions}
-            activityEvents={p.liveActivityEvents} onOpenInbox={nav("missions", "inbox")}
-            activeMemoryItems={p.activeMemoryItems}
-          />
-        </L>
-      )}
 
       {m.memory && (
         <L><MemoryModal onClose={cl("memory")} projects={p.appState.projects} activeProjectIndex={p.activeProjectIndex} activeSessionId={p.activeSessionId} filterActive={p.memoryFilterActive} /></L>
@@ -273,13 +186,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         <L><AutonomyModal onClose={cl("autonomy")} mode={p.autonomyMode} onChange={p.onAutonomyChange} /></L>
       )}
       {m.routines && (
-        <L><RoutinesModal onClose={cl("routines")} missions={p.missionCache} activeSessionId={p.activeSessionId} autonomyMode={p.autonomyMode} appState={p.appState} /></L>
-      )}
-      {m.delegation && (
-        <L><DelegationBoardModal onClose={cl("delegation")} missions={p.missionCache} activeSessionId={p.activeSessionId} onOpenSession={navSess} /></L>
-      )}
-      {m.workspaceManager && (
-        <L><WorkspaceManagerModal onClose={cl("workspaceManager")} onRestore={p.onRestoreWorkspace} onSaveCurrent={p.buildCurrentSnapshot} activeWorkspaceName={p.activeWorkspaceName} /></L>
+        <L><RoutinesModal onClose={cl("routines")} activeSessionId={p.activeSessionId} autonomyMode={p.autonomyMode} appState={p.appState} /></L>
       )}
 
       {m.addProject && <L><AddProjectModal onClose={cl("addProject")} /></L>}

@@ -1,7 +1,7 @@
 use super::*;
 use crate::theme::ThemeColors;
 use crate::web::types::{
-    ActivityEventPayload, PresenceSnapshot, WatcherStatusEvent, WebSessionStats,
+    PresenceSnapshot, WatcherStatusEvent, WebSessionStats,
 };
 use ratatui::style::Color;
 use serde_json::json;
@@ -89,6 +89,7 @@ fn web_event_stats_and_theme() {
     assert_eq!(v["cost"], 1.0);
 
     let pair = WebThemePair {
+        name: "test-theme".to_string(),
         dark: WebThemeColors::from_theme(&ThemeColors::default()),
         light: WebThemeColors::from_theme(&ThemeColors::default()),
     };
@@ -138,28 +139,12 @@ fn web_event_watcher_and_mcp_variants() {
 }
 
 #[test]
-fn web_event_activity_presence_mission() {
-    let v = serde_json::to_value(WebEvent::ActivityEvent(ActivityEventPayload {
-        session_id: "s".into(),
-        kind: "k".into(),
-        summary: "sum".into(),
-        detail: None,
-        timestamp: "t".into(),
-    }))
-    .unwrap();
-    assert_eq!(v["type"], "ActivityEvent");
-
+fn web_event_presence_changed() {
     let v = serde_json::to_value(WebEvent::PresenceChanged(PresenceSnapshot {
         clients: vec![],
     }))
     .unwrap();
     assert_eq!(v["type"], "PresenceChanged");
-
-    let v = serde_json::to_value(WebEvent::MissionUpdated {
-        mission: json!({"id": "m"}),
-    })
-    .unwrap();
-    assert_eq!(v["mission"]["id"], "m");
 }
 
 #[test]
@@ -254,6 +239,7 @@ fn theme_preview_serializes() {
 #[test]
 fn web_theme_pair_roundtrip() {
     let pair = WebThemePair {
+        name: "test-theme".to_string(),
         dark: WebThemeColors::from_theme(&ThemeColors::default()),
         light: WebThemeColors::from_theme(&ThemeColors::default()),
     };

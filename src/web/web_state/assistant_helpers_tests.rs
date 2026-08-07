@@ -1,6 +1,6 @@
-//! Generated tests for assistant.rs — the extracted pure mission-loop helpers
+//! Tests for the pure send helpers in `assistant_send.rs`
 //! (`build_send_message_body`, `map_send_status`, `parse_session_id_from_body`,
-//! `parse_eval_messages_body`, `apply_verdict`). These had no direct coverage.
+//! `extract_message_text`).
 use super::*;
 
 // ── build_send_message_body ─────────────────────────────────────────
@@ -91,166 +91,47 @@ fn parse_session_id_empty_object() {
     assert!(parse_session_id_from_body(&body).is_err());
 }
 
-// ── apply_verdict ───────────────────────────────────────────────────
+// ── extract_message_text ────────────────────────────────────────────
 
 #[test]
-fn apply_verdict_achieved_completes() {
-    let (state, iter) = apply_verdict(&EvalVerdict::Achieved, 3, 10);
-    assert_eq!(state, MissionState::Completed);
-    assert_eq!(iter, 3); // iteration preserved
-}
-
-#[test]
-fn apply_verdict_failed_fails() {
-    let (state, iter) = apply_verdict(&EvalVerdict::Failed, 4, 10);
-    assert_eq!(state, MissionState::Failed);
-    assert_eq!(iter, 4);
-}
-
-#[test]
-fn apply_verdict_blocked_pauses() {
-    let (state, iter) = apply_verdict(&EvalVerdict::Blocked, 2, 10);
-    assert_eq!(state, MissionState::Paused);
-    assert_eq!(iter, 2);
-}
-
-#[test]
-fn apply_verdict_continue_under_max_advances() {
-    let (state, iter) = apply_verdict(&EvalVerdict::Continue, 1, 5);
-    assert_eq!(state, MissionState::Executing);
-    assert_eq!(iter, 2);
-}
-
-#[test]
-fn apply_verdict_continue_at_max_boundary_advances() {
-    // iteration 4, max 5 → next_iter 5, not > 5 → still executing.
-    let (state, iter) = apply_verdict(&EvalVerdict::Continue, 4, 5);
-    assert_eq!(state, MissionState::Executing);
-    assert_eq!(iter, 5);
-}
-
-#[test]
-fn apply_verdict_continue_over_max_fails() {
-    // iteration 5, max 5 → next_iter 6 > 5 → Failed, iteration preserved.
-    let (state, iter) = apply_verdict(&EvalVerdict::Continue, 5, 5);
-    assert_eq!(state, MissionState::Failed);
-    assert_eq!(iter, 5);
-}
-
-#[test]
-fn apply_verdict_continue_unlimited_never_fails() {
-    // max_iterations 0 → infinite → always executing.
-    let (state, iter) = apply_verdict(&EvalVerdict::Continue, 999, 0);
-    assert_eq!(state, MissionState::Executing);
-    assert_eq!(iter, 1000);
-}
-
-// ── parse_eval_messages_body ────────────────────────────────────────
-
-fn assistant_msg(created: u64, text: &str) -> serde_json::Value {
-    serde_json::json!({
-        "info": {
-            "role": "assistant",
-            "time": { "created": created },
-            "parts": [ { "type": "text", "text": text } ]
-        }
-    })
-}
-
-#[test]
-fn parse_eval_body_not_array_or_object() {
-    // A bare string/number is neither array nor object.
-    let r = parse_eval_messages_body(&serde_json::json!("just a string"));
-    assert!(matches!(r.verdict, EvalVerdict::Continue));
-    assert_eq!(r.summary, "No messages found");
-
-    let r2 = parse_eval_messages_body(&serde_json::json!(42));
-    assert_eq!(r2.summary, "No messages found");
-}
-
-#[test]
-fn parse_eval_body_empty_array_no_assistant() {
-    let r = parse_eval_messages_body(&serde_json::json!([]));
-    assert!(matches!(r.verdict, EvalVerdict::Continue));
-    assert_eq!(r.summary, "No assistant response found");
-}
-
-#[test]
-fn parse_eval_body_only_user_message() {
-    let body = serde_json::json!([
-        { "info": { "role": "user", "time": { "created": 1 },
-                    "parts": [ { "type": "text", "text": "hi" } ] } }
-    ]);
-    let r = parse_eval_messages_body(&body);
-    assert_eq!(r.summary, "No assistant response found");
-}
-
-#[test]
-fn parse_eval_body_assistant_empty_text() {
-    // assistant present but no text parts/content → empty text.
-    let body = serde_json::json!([
-        { "info": { "role": "assistant", "time": { "created": 1 } } }
-    ]);
-    let r = parse_eval_messages_body(&body);
-    assert!(matches!(r.verdict, EvalVerdict::Continue));
-    assert_eq!(r.summary, "Empty assistant response");
-}
-
-#[test]
-fn parse_eval_body_valid_json_verdict() {
-    let body = serde_json::json!([assistant_msg(
-        1,
-        r#"{"verdict":"achieved","summary":"done well"}"#
-    )]);
-    let r = parse_eval_messages_body(&body);
-    assert!(matches!(r.verdict, EvalVerdict::Achieved));
-    assert_eq!(r.summary, "done well");
-}
-
-#[test]
-fn parse_eval_body_picks_latest_assistant_by_time() {
-    // Two assistant messages; the later-created one (200) wins.
-    let body = serde_json::json!([
-        assistant_msg(100, r#"{"verdict":"failed","summary":"old"}"#),
-        assistant_msg(200, r#"{"verdict":"achieved","summary":"new"}"#),
-    ]);
-    let r = parse_eval_messages_body(&body);
-    assert!(matches!(r.verdict, EvalVerdict::Achieved));
-    assert_eq!(r.summary, "new");
-}
-
-#[test]
-fn parse_eval_body_object_keyed_by_id() {
-    // Messages as an object keyed by message-id instead of an array.
-    let body = serde_json::json!({
-        "msg-a": assistant_msg(1, r#"{"verdict":"continue","summary":"a"}"#),
-        "msg-b": assistant_msg(9, r#"{"verdict":"blocked","summary":"b"}"#),
+fn extract_message_text_from_parts() {
+    let msg = serde_json::json!({
+        "info": { "parts": [
+            { "type": "text", "text": "one" },
+            { "type": "tool", "text": "skipped" },
+            { "type": "text", "text": "two" }
+        ] }
     });
-    let r = parse_eval_messages_body(&body);
-    // msg-b is later → blocked.
-    assert!(matches!(r.verdict, EvalVerdict::Blocked));
-    assert_eq!(r.summary, "b");
+    assert_eq!(extract_message_text(&msg), "one\ntwo");
 }
 
 #[test]
-fn parse_eval_body_missing_time_defaults_zero() {
-    // Assistant message with no time → created defaults to 0, still selected
-    // as the only assistant message.
-    let body = serde_json::json!([
-        { "info": { "role": "assistant",
-                    "parts": [ { "type": "text", "text": r#"{"verdict":"achieved"}"# } ] } }
-    ]);
-    let r = parse_eval_messages_body(&body);
-    assert!(matches!(r.verdict, EvalVerdict::Achieved));
+fn extract_message_text_content_fallback() {
+    // No parts → falls back to /info/content.
+    let msg = serde_json::json!({
+        "info": { "content": [ { "type": "text", "text": "The goal has been met." } ] }
+    });
+    assert_eq!(extract_message_text(&msg), "The goal has been met.");
 }
 
 #[test]
-fn parse_eval_body_content_fallback_and_heuristic() {
-    // Uses /info/content (not parts) and non-JSON text → heuristic path.
-    let body = serde_json::json!([
-        { "info": { "role": "assistant", "time": { "created": 5 },
-                    "content": [ { "type": "text", "text": "The goal has been met." } ] } }
-    ]);
-    let r = parse_eval_messages_body(&body);
-    assert!(matches!(r.verdict, EvalVerdict::Achieved));
+fn extract_message_text_empty_parts_falls_through_to_content() {
+    // parts present but yields no text → content is consulted.
+    let msg = serde_json::json!({
+        "info": {
+            "parts": [ { "type": "tool", "text": "x" } ],
+            "content": [ { "type": "text", "text": "from content" } ]
+        }
+    });
+    assert_eq!(extract_message_text(&msg), "from content");
+}
+
+#[test]
+fn extract_message_text_missing_everything_is_empty() {
+    assert_eq!(extract_message_text(&serde_json::json!({})), "");
+    assert_eq!(extract_message_text(&serde_json::json!("bare")), "");
+    assert_eq!(
+        extract_message_text(&serde_json::json!({ "info": { "role": "assistant" } })),
+        ""
+    );
 }

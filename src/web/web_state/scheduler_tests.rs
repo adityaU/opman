@@ -5,7 +5,6 @@ use crate::web::web_state::WebStateHandle;
 fn routine(
     id: &str,
     trigger: RoutineTrigger,
-    action: RoutineAction,
     cron: Option<&str>,
     enabled: bool,
     next_run: Option<&str>,
@@ -14,7 +13,6 @@ fn routine(
         id: id.into(),
         name: id.into(),
         trigger,
-        action,
         enabled,
         cron_expr: cron.map(|s| s.to_string()),
         timezone: None,
@@ -24,7 +22,6 @@ fn routine(
         prompt: None,
         provider_id: None,
         model_id: None,
-        mission_id: None,
         last_run_at: None,
         next_run_at: next_run.map(|s| s.to_string()),
         last_error: None,
@@ -81,7 +78,6 @@ async fn update_next_run_no_cron_sets_none() {
         routine(
             "r1",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             None,
             true,
             Some("x"),
@@ -100,7 +96,6 @@ async fn update_next_run_valid_cron_sets_some() {
         routine(
             "r1",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             None,
@@ -119,7 +114,6 @@ async fn update_next_run_invalid_cron_sets_none() {
         routine(
             "r1",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("nonsense"),
             true,
             Some("x"),
@@ -140,7 +134,6 @@ async fn recompute_all_next_runs_updates_scheduled() {
         routine(
             "sched",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             None,
@@ -152,7 +145,6 @@ async fn recompute_all_next_runs_updates_scheduled() {
         routine(
             "manual",
             RoutineTrigger::Manual,
-            RoutineAction::OpenInbox,
             None,
             true,
             None,
@@ -173,7 +165,6 @@ async fn recompute_next_run_if_scheduled_variants() {
         routine(
             "manual",
             RoutineTrigger::Manual,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             None,
@@ -190,7 +181,6 @@ async fn recompute_next_run_if_scheduled_variants() {
         routine(
             "sched",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             None,
@@ -210,15 +200,15 @@ async fn tick_scheduler_no_routines_is_noop() {
 }
 
 #[tokio::test]
-async fn tick_scheduler_fires_due_legacy_routine() {
+async fn tick_scheduler_fires_due_routine_and_skips_others() {
     let h = WebStateHandle::new_test();
-    // Due: scheduled, enabled, cron set, next_run_at None. Legacy action → no network.
+    // Due: scheduled, enabled, cron set, next_run_at None. No prompt → execute_routine
+    // fails fast without touching the network, but still records a run.
     insert(
         &h,
         routine(
             "due",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             None,
@@ -231,7 +221,6 @@ async fn tick_scheduler_fires_due_legacy_routine() {
         routine(
             "future",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             true,
             Some("2999-01-01T00:00:00Z"),
@@ -244,7 +233,6 @@ async fn tick_scheduler_fires_due_legacy_routine() {
         routine(
             "off",
             RoutineTrigger::Scheduled,
-            RoutineAction::OpenInbox,
             Some("0 9 * * *"),
             false,
             None,
@@ -258,27 +246,14 @@ async fn tick_scheduler_fires_due_legacy_routine() {
     let runs = h.inner.read().await.routine_runs.clone();
     assert!(runs.iter().any(|r| r.routine_id == "due"));
     assert!(next_run_of(&h, "due").await.is_some());
-}
-
-#[tokio::test]
-async fn tick_scheduler_handles_execute_error() {
-    let h = WebStateHandle::new_test();
-    // Due SendMessage routine with no prompt → execute_routine returns Err (warn path).
-    insert(
-        &h,
-        routine(
-            "bad",
-            RoutineTrigger::Scheduled,
-            RoutineAction::SendMessage,
-            Some("0 9 * * *"),
-            true,
-            None,
-        ),
-    )
-    .await;
-    h.tick_scheduler().await;
-    // Even on failure, next_run is recomputed.
-    assert!(next_run_of(&h, "bad").await.is_some());
+    // Neither the future-dated nor the disabled routine fired.
+    assert!(!runs.iter().any(|r| r.routine_id == "future"));
+    assert!(!runs.iter().any(|r| r.routine_id == "off"));
+    assert_eq!(
+        next_run_of(&h, "future").await.as_deref(),
+        Some("2999-01-01T00:00:00Z")
+    );
+    assert!(next_run_of(&h, "off").await.is_none());
 }
 
 #[tokio::test]

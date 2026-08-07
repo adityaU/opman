@@ -7,6 +7,11 @@ import {
   purgeOptimistic,
   reconcileOptimistic,
   retainOptimistic,
+  stashOptimistic,
+  takeOptimistic,
+  dropStashedOptimistic,
+  purgeForeignOptimistic,
+  type OptimisticStash,
 } from "../hooks/sse/optimistic";
 
 const userMessage = (id: string, sessionID: string, text: string, time: number): Message => ({
@@ -123,5 +128,56 @@ describe("purgeOptimistic", () => {
     expect(purgeOptimistic(map)).toBe(true);
     expect([...map.keys()]).toEqual(["msg_real"]);
     expect(purgeOptimistic(map)).toBe(false);
+  });
+});
+
+describe("stash for sessions that are not on screen", () => {
+  const msg = (sessionID: string, text: string) => ({
+    info: { role: "user", id: "x", messageID: "x", sessionID, time: 1 },
+    parts: [{ type: "text", text }],
+  }) as any;
+
+  it("parks and hands back placeholders per session", () => {
+    const stash: OptimisticStash = new Map();
+    stashOptimistic(stash, "ses_b", "o1", msg("ses_b", "one"));
+    stashOptimistic(stash, "ses_b", "o2", msg("ses_b", "two"));
+    stashOptimistic(stash, "ses_c", "o3", msg("ses_c", "three"));
+
+    const taken = takeOptimistic(stash, "ses_b");
+    expect([...taken.keys()]).toEqual(["o1", "o2"]);
+    // Taking is destructive: a placeholder must not be delivered twice.
+    expect(takeOptimistic(stash, "ses_b").size).toBe(0);
+    expect(stash.has("ses_c")).toBe(true);
+  });
+
+  it("returns an empty map for a session with nothing parked", () => {
+    expect(takeOptimistic(new Map(), "ses_z").size).toBe(0);
+  });
+
+  it("drops a single parked placeholder and forgets empty sessions", () => {
+    const stash: OptimisticStash = new Map();
+    stashOptimistic(stash, "ses_b", "o1", msg("ses_b", "one"));
+    dropStashedOptimistic(stash, "ses_b", "o1");
+    expect(stash.has("ses_b")).toBe(false);
+    // Unknown ids are a no-op, not a throw.
+    dropStashedOptimistic(stash, "ses_gone", "o9");
+  });
+
+  it("purges foreign placeholders from a map without touching server records", () => {
+    const map = new Map<string, any>([
+      ["srv", msg("ses_a", "server turn")],
+      ["__optimistic__1-1", msg("ses_a", "mine")],
+      ["__optimistic__1-2", msg("ses_b", "someone else's")],
+    ]);
+    expect(purgeForeignOptimistic(map, "ses_a")).toBe(true);
+    expect([...map.keys()]).toEqual(["srv", "__optimistic__1-1"]);
+    expect(purgeForeignOptimistic(map, "ses_a")).toBe(false);
+  });
+});
+
+describe("createOptimisticId", () => {
+  it("is unique within a millisecond", () => {
+    const ids = new Set(Array.from({ length: 50 }, () => createOptimisticId()));
+    expect(ids.size).toBe(50);
   });
 });

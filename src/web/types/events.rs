@@ -3,7 +3,6 @@
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
-use super::activity::ActivityEventPayload;
 use super::presence::PresenceSnapshot;
 use super::sessions::WebSessionStats;
 use super::watchers::WatcherStatusEvent;
@@ -67,14 +66,8 @@ pub enum WebEvent {
         tool: String,
         active: bool,
     },
-    /// Session activity event (file edit, tool call, terminal command, permission request).
-    ActivityEvent(ActivityEventPayload),
     /// Presence changed — a client connected/disconnected or focused a session.
     PresenceChanged(PresenceSnapshot),
-    /// Mission state changed (created, updated, state transition).
-    MissionUpdated {
-        mission: serde_json::Value,
-    },
     /// Routine configuration or run state changed.
     RoutineUpdated,
     /// A kanban task changed (created, edited, moved, launched, agent update).
@@ -181,6 +174,10 @@ pub struct ThemePreview {
 /// Sent via bootstrap, `/api/theme`, SSE `theme_changed`, and `/api/theme/switch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebThemePair {
+    /// Name of the active theme. Without it the browser only ever receives
+    /// colors, so a picker cannot tell which palette is selected.
+    #[serde(default)]
+    pub name: String,
     pub dark: WebThemeColors,
     pub light: WebThemeColors,
 }
@@ -190,7 +187,11 @@ impl WebThemePair {
     pub fn from_active_theme() -> Self {
         let dark = WebThemeColors::from_theme(&crate::theme::load_theme_with_mode("dark"));
         let light = WebThemeColors::from_theme(&crate::theme::load_theme_with_mode("light"));
-        Self { dark, light }
+        Self {
+            name: crate::theme::active_theme_name(),
+            dark,
+            light,
+        }
     }
 }
 

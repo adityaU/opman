@@ -1,13 +1,18 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   fetchEditorDiagnostics,
   fetchEditorDefinition,
   fetchEditorHover,
+  fetchEditorCompletion,
   formatEditorFile,
   type EditorLspDiagnostic,
+  type EditorCompletionResponse,
 } from "../../api";
 import type { OpenFileEntry } from "../types";
 import { isBinaryRenderType } from "../types";
+
+/** Quiet period after the last edit before diagnostics are re-requested. */
+const DIAGNOSTIC_DEBOUNCE_MS = 450;
 
 export interface LspState {
   diagnostics: EditorLspDiagnostic[];
@@ -18,6 +23,18 @@ export interface LspState {
   handleHover: () => Promise<void>;
   handleDefinition: () => Promise<void>;
   handleFormatWithLsp: () => Promise<void>;
+  /** Hover text at an explicit position — used by the in-editor tooltip. */
+  hoverAt: (line: number, col: number) => Promise<string | null>;
+  /** Jump to the definition at an explicit position. Resolves true on a jump. */
+  definitionAt: (line: number, col: number) => Promise<boolean>;
+  /** Completions at an explicit position, for the editor's autocomplete. */
+  completeAt: (
+    line: number,
+    col: number,
+    trigger?: string,
+  ) => Promise<EditorCompletionResponse | null>;
+  /** Trigger characters the active server reported, e.g. `.` and `:`. */
+  triggerCharacters: () => string[];
 }
 
 export function useLspFeatures(
@@ -37,17 +54,30 @@ export function useLspFeatures(
   const [lspAvailable, setLspAvailable] = useState(false);
   const [lspBusy, setLspBusy]         = useState<null | "hover" | "definition" | "format">(null);
 
-  // Fetch diagnostics when file/session/content changes
+  // Re-check diagnostics as the file changes, but not on every keystroke: the
+  // request now carries the whole buffer, and a language server asked to
+  // re-analyse mid-word answers about a half-typed identifier anyway.
   useEffect(() => {
-    if (!activeEntry || !sessionId) {
-      setDiagnostics([]); setLspAvailable(false); return;
+    if (!activeEntry || !sessionId || isBinaryRenderType(activeEntry.renderType)) {
+      setDiagnostics([]);
+      setLspAvailable(false);
+      return;
     }
-    if (isBinaryRenderType(activeEntry.renderType)) {
-      setDiagnostics([]); setLspAvailable(false); return;
-    }
-    fetchEditorDiagnostics(activeEntry.path, sessionId)
-      .then((resp) => { setDiagnostics(resp.diagnostics ?? []); setLspAvailable(resp.available); })
-      .catch(() => { setDiagnostics([]); setLspAvailable(false); });
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetchEditorDiagnostics(activeEntry.path, sessionId, currentContent)
+        .then((resp) => {
+          if (cancelled) return;
+          setDiagnostics(resp.diagnostics ?? []);
+          setLspAvailable(resp.available);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setDiagnostics([]);
+          setLspAvailable(false);
+        });
+    }, DIAGNOSTIC_DEBOUNCE_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [activeEntry, sessionId, currentContent]);
 
   const activeDiagnostics = useMemo(
@@ -57,11 +87,64 @@ export function useLspFeatures(
     [diagnostics, activeFilePath],
   );
 
+  // ── Position-addressed variants, for the in-editor affordances ──
+  // These return their result instead of parking it in state: a tooltip that
+  // follows the pointer cannot wait on a re-render to know what to show.
+
+  const hoverAt = useCallback(async (line: number, col: number) => {
+    if (!activeEntry || !sessionId) return null;
+    try {
+      const resp = await fetchEditorHover(activeEntry.path, sessionId, line, col, currentContent);
+      setLspAvailable(resp.available);
+      return resp.hover?.trim() || null;
+    } catch {
+      return null;
+    }
+  }, [activeEntry, sessionId, currentContent]);
+
+  const definitionAt = useCallback(async (line: number, col: number) => {
+    if (!activeEntry || !sessionId) return false;
+    setLspBusy("definition");
+    try {
+      const resp = await fetchEditorDefinition(activeEntry.path, sessionId, line, col, currentContent);
+      setLspAvailable(resp.available);
+      const first = resp.locations?.[0];
+      if (!first) { onError?.("No definition found here"); return false; }
+      await loadFile(first.file, first.lnum);
+      return true;
+    } catch {
+      onError?.("Definition lookup unavailable");
+      return false;
+    } finally {
+      setLspBusy(null);
+    }
+  }, [activeEntry, sessionId, currentContent, loadFile, onError]);
+
+  // The server's trigger characters arrive with each completion response;
+  // holding them in a ref keeps the CodeMirror extension stable while still
+  // letting it ask for the current set.
+  const triggersRef = useRef<string[]>([]);
+
+  const completeAt = useCallback(async (line: number, col: number, trigger?: string) => {
+    if (!activeEntry || !sessionId) return null;
+    try {
+      const resp = await fetchEditorCompletion(
+        activeEntry.path, sessionId, line, col, currentContent, trigger,
+      );
+      if (resp.triggerCharacters?.length) triggersRef.current = resp.triggerCharacters;
+      return resp;
+    } catch {
+      return null;
+    }
+  }, [activeEntry, sessionId, currentContent]);
+
+  const triggerCharacters = useCallback(() => triggersRef.current, []);
+
   const handleHover = useCallback(async () => {
     if (!activeEntry || !sessionId) return;
     setLspBusy("hover");
     try {
-      const resp = await fetchEditorHover(activeEntry.path, sessionId, cursorLine, cursorCol);
+      const resp = await fetchEditorHover(activeEntry.path, sessionId, cursorLine, cursorCol, currentContent);
       setLspAvailable(resp.available);
       setHoverText(resp.hover || "No hover information available at cursor.");
     } catch {
@@ -69,13 +152,13 @@ export function useLspFeatures(
     } finally {
       setLspBusy(null);
     }
-  }, [activeEntry, sessionId, cursorLine, cursorCol]);
+  }, [activeEntry, sessionId, cursorLine, cursorCol, currentContent]);
 
   const handleDefinition = useCallback(async () => {
     if (!activeEntry || !sessionId) return;
     setLspBusy("definition");
     try {
-      const resp = await fetchEditorDefinition(activeEntry.path, sessionId, cursorLine, cursorCol);
+      const resp = await fetchEditorDefinition(activeEntry.path, sessionId, cursorLine, cursorCol, currentContent);
       setLspAvailable(resp.available);
       const first = resp.locations?.[0];
       if (first) await loadFile(first.file, first.lnum);
@@ -85,13 +168,13 @@ export function useLspFeatures(
     } finally {
       setLspBusy(null);
     }
-  }, [activeEntry, sessionId, cursorLine, cursorCol, loadFile, onError]);
+  }, [activeEntry, sessionId, cursorLine, cursorCol, currentContent, loadFile, onError]);
 
   const handleFormatWithLsp = useCallback(async () => {
     if (!activeEntry || !sessionId) return;
     setLspBusy("format");
     try {
-      const resp = await formatEditorFile(activeEntry.path, sessionId);
+      const resp = await formatEditorFile(activeEntry.path, sessionId, currentContent);
       setLspAvailable(resp.available);
       if (resp.formatted) {
         setOpenFiles((prev) =>
@@ -107,11 +190,12 @@ export function useLspFeatures(
     } finally {
       setLspBusy(null);
     }
-  }, [activeEntry, sessionId, onError, setOpenFiles, setSaveStatus]);
+  }, [activeEntry, sessionId, currentContent, onError, setOpenFiles, setSaveStatus]);
 
   return {
     diagnostics, activeDiagnostics, hoverText,
     lspAvailable, lspBusy,
     handleHover, handleDefinition, handleFormatWithLsp,
+    hoverAt, definitionAt, completeAt, triggerCharacters,
   };
 }

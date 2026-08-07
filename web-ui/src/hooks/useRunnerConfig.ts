@@ -35,16 +35,47 @@ export function emptyConfig(runner: string): RunnerConfig {
   return { model: null, agent: "", effort: null, permission: defaultPermission(runner) };
 }
 
-function readStored(): Record<string, RunnerConfig> {
+/**
+ * The persisted shape.
+ *
+ * v1 stored the per-runner map at the top level. The runner *choice* itself has
+ * to live next to it — a new session with no runner of its own should open on
+ * the engine the user last worked in — so the map moved under `runners`. The old
+ * flat value is still in browsers, so a stored object without `runners` is read
+ * as that map and rewritten in the new shape on the next write.
+ */
+interface StoredState {
+  runners: Record<string, RunnerConfig>;
+  lastRunner: string;
+}
+
+function readStored(): StoredState {
+  const empty: StoredState = { runners: {}, lastRunner: "" };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) return empty;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    return parsed as Record<string, RunnerConfig>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return empty;
+    const wrapped = (parsed as { runners?: unknown }).runners;
+    if (!wrapped || typeof wrapped !== "object") {
+      return { runners: parsed as Record<string, RunnerConfig>, lastRunner: "" };
+    }
+    const last = (parsed as { lastRunner?: unknown }).lastRunner;
+    return {
+      runners: wrapped as Record<string, RunnerConfig>,
+      lastRunner: typeof last === "string" ? last : "",
+    };
   } catch {
     // Corrupt or unavailable storage is not worth failing a render over.
-    return {};
+    return empty;
+  }
+}
+
+function persist(state: StoredState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Storage full or blocked — the in-memory state still works this session.
   }
 }
 
@@ -53,19 +84,35 @@ export interface RunnerConfigStore {
   recall: (runner: string) => RunnerConfig;
   /** Record part of a runner's config. Empty values are ignored, not stored. */
   remember: (runner: string, patch: Partial<RunnerConfig>) => void;
+  /** Record the runner the user explicitly picked. */
+  rememberRunner: (runner: string) => void;
+  /** The last explicitly picked runner, or "" when there has never been one. */
+  lastRunner: () => string;
 }
 
 export function useRunnerConfig(): RunnerConfigStore {
-  const [configs, setConfigs] = useState<Record<string, RunnerConfig>>(readStored);
-  // Read at call time so `recall` is a stable identity and never re-renders a
+  const [state, setState] = useState<StoredState>(readStored);
+  // Read at call time so the getters are stable identities and never re-render a
   // consumer just because another runner's config changed.
-  const ref = useRef(configs);
-  ref.current = configs;
+  const ref = useRef(state);
+  ref.current = state;
 
   const recall = useCallback((runner: string): RunnerConfig => {
-    const stored = ref.current[runner];
+    const stored = ref.current.runners[runner];
     if (!stored) return emptyConfig(runner);
     return { ...emptyConfig(runner), ...stored };
+  }, []);
+
+  const lastRunner = useCallback(() => ref.current.lastRunner, []);
+
+  const rememberRunner = useCallback((runner: string) => {
+    if (!runner) return;
+    setState((current) => {
+      if (current.lastRunner === runner) return current;
+      const next = { ...current, lastRunner: runner };
+      persist(next);
+      return next;
+    });
   }, []);
 
   const remember = useCallback((runner: string, patch: Partial<RunnerConfig>) => {
@@ -80,19 +127,18 @@ export function useRunnerConfig(): RunnerConfigStore {
     if ("effort" in patch) meaningful.effort = patch.effort ?? null;
     if (Object.keys(meaningful).length === 0) return;
 
-    setConfigs((current) => {
-      const next = {
+    setState((current) => {
+      const next: StoredState = {
         ...current,
-        [runner]: { ...emptyConfig(runner), ...current[runner], ...meaningful },
+        runners: {
+          ...current.runners,
+          [runner]: { ...emptyConfig(runner), ...current.runners[runner], ...meaningful },
+        },
       };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Storage full or blocked — the in-memory map still works this session.
-      }
+      persist(next);
       return next;
     });
   }, []);
 
-  return { recall, remember };
+  return { recall, remember, rememberRunner, lastRunner };
 }

@@ -83,6 +83,7 @@ fn colors(bg: &str, primary: &str) -> WebThemeColors {
 
 fn theme_pair(bg: &str, primary: &str) -> WebThemePair {
     WebThemePair {
+        name: "test-theme".to_string(),
         dark: colors(bg, primary),
         light: colors(bg, primary),
     }

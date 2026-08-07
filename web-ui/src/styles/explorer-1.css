@@ -1,0 +1,219 @@
+/* ══════════════════════════════════════════════════════════
+   File explorer — "spine"
+
+   One continuous surface rather than stacked boxes. Rows carry no
+   controls, so width goes to names. Indent guides run the full height of
+   each branch, and the guides along the open file's ancestor chain are
+   lit, which is how the panel answers "where am I" without being asked.
+
+   Namespaced `xpl-` so it owns its cascade outright; the old
+   `explorer-*` rules in code-editor-2.css no longer apply to it.
+   ══════════════════════════════════════════════════════════ */
+
+.xpl {
+    --xpl-row-h: 24px;
+    --xpl-rail: color-mix(in srgb, var(--color-text) 11%, transparent);
+    --xpl-rail-lit: color-mix(in srgb, var(--color-primary) 62%, transparent);
+
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    overflow: visible;
+
+    background: var(--white-4);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border-right: .5px solid var(--glass-border-dark, var(--white-6));
+    box-shadow: 6px 0 28px -6px var(--black-25);
+
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .26s cubic-bezier(.22, 1, .36, 1), opacity .16s ease;
+}
+
+.xpl.is-open {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.xpl-resize {
+    position: absolute;
+    right: -3px;
+    top: 0;
+    width: 7px;
+    height: 100%;
+    z-index: 26;
+    cursor: col-resize;
+    background: transparent;
+    transition: background .15s ease;
+}
+
+.xpl-resize:hover,
+.xpl-resize:active {
+    background: color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+/* ── Header: collapse · finder · menu ─────────────────── */
+
+.xpl-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1-5);
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    flex-shrink: 0;
+}
+
+.xpl-hdr-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-hdr-btn:hover {
+    background: var(--white-8);
+    color: var(--color-text);
+}
+
+.xpl-hdr-btn.is-active {
+    background: var(--white-8);
+    color: var(--color-text);
+}
+
+.xpl-hdr-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.xpl-search {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    height: 24px;
+    padding: 0 var(--space-1-5);
+    border-radius: var(--radius);
+    background: var(--white-4);
+    border: .5px solid transparent;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.xpl-search:focus-within {
+    background: var(--white-7);
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.xpl-search-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.xpl-search:focus-within .xpl-search-icon,
+.xpl-search.has-query .xpl-search-icon {
+    color: var(--color-primary);
+}
+
+.xpl-search-input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 0;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.xpl-search-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.xpl-search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    padding: 0;
+    background: var(--white-8);
+    border: none;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.xpl-search-clear:hover {
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+.xpl-menu-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.xpl-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    min-width: 176px;
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.xpl-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-2);
+    border: none;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.xpl-menu-item:hover {
+    background: var(--theme-surface-hover);
+}
+
+.xpl-menu-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.xpl-menu-item svg {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+

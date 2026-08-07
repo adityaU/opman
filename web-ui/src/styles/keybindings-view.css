@@ -1,0 +1,348 @@
+/* ── Keybindings view ──────────────────────────────────────────────────
+   Surface, radius and shadow come from .modal-dialog-surface, so glassy
+   and flat are inherited. Everything here is layout and the row rhythm. */
+
+.kbv-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4, 16px);
+}
+
+.kbv {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 980px);
+    height: min(86vh, 820px);
+    overflow: hidden;
+}
+
+.kbv-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3, 12px);
+    padding: var(--space-3, 12px) var(--space-4, 16px);
+    border-bottom: 1px solid var(--modal-hairline);
+}
+
+.kbv-title {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.kbv-mode {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+}
+
+.kbv-mode-btn {
+    padding: 3px 12px;
+    border: 0;
+    border-radius: var(--shell-radius-control);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.kbv-mode-btn.is-active {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+}
+
+.kbv-close {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-lg);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.kbv-close:hover { color: var(--color-text) }
+
+.kbv-tabs {
+    display: flex;
+    gap: var(--space-2, 8px);
+    padding: var(--space-2, 8px) var(--space-4, 16px) 0;
+}
+
+.kbv-tab {
+    padding: 4px 10px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.kbv-tab.is-active {
+    color: var(--color-text);
+    border-bottom-color: var(--color-primary);
+}
+
+.kbv-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: var(--space-3, 12px) var(--space-4, 16px);
+}
+
+.kbv-search {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+    background: var(--color-bg-element);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.kbv-search:focus {
+    outline: 0;
+    border-color: var(--color-border-active);
+}
+
+.kbv-check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.kbv-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.kbv-btn:hover { background: var(--color-bg-hover); color: var(--color-text) }
+.kbv-btn.is-active { border-color: var(--color-primary); color: var(--color-primary) }
+.kbv-btn.is-primary { background: var(--color-accent); color: var(--color-on-accent); border-color: transparent }
+.kbv-btn:disabled { opacity: .5; cursor: not-allowed }
+
+/* ── Rows ─────────────────────────────────────────────────────────── */
+
+.kbv-rows {
+    flex: 1;
+    margin: 0;
+    padding: 0 var(--space-3, 12px) var(--space-3, 12px);
+    list-style: none;
+    overflow-y: auto;
+}
+
+.kbv-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12em minmax(0, 9em) 5.5em auto;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: 3px var(--space-2, 8px);
+    border-radius: var(--shell-radius-inner);
+}
+
+.kbv-row:hover { background: var(--color-bg-hover) }
+
+.kbv-row-main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2, 8px);
+    min-width: 0;
+    padding: 2px 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.kbv-row-title {
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kbv-row-id,
+.kbv-row-when,
+.kbv-leaf-command {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kbv-row-unbound {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-style: italic;
+}
+
+.kbv-chip {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+}
+
+html.flat-theme .kbv-chip { background: var(--color-bg-element); border-color: var(--color-border-subtle) }
+
+.kbv-badge {
+    padding: 1px 6px;
+    border-radius: var(--shell-radius-control);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    color: var(--color-text-muted);
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.kbv-badge.is-config,
+.kbv-badge.is-user { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent) }
+.kbv-badge.is-unbound { color: var(--color-text-muted); opacity: .7 }
+
+.kbv-row-actions { display: flex; gap: 4px; opacity: 0 }
+.kbv-row:hover .kbv-row-actions,
+.kbv-row:focus-within .kbv-row-actions { opacity: 1 }
+
+.kbv-icon-btn {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.kbv-icon-btn:hover { color: var(--color-text) }
+
+.kbv-empty {
+    padding: var(--space-6, 24px);
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+
+.kbv-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3, 12px);
+    padding: var(--space-2, 8px) var(--space-4, 16px);
+    border-top: 1px solid var(--modal-hairline);
+    font-size: var(--font-size-xs);
+}
+
+.kbv-foot-path { flex: 1; color: var(--color-text-muted); font-family: var(--font-mono) }
+.kbv-foot-state { color: var(--color-text-muted) }
+.kbv-foot-error { color: var(--color-error) }
+
+/* ── Leader tree ──────────────────────────────────────────────────── */
+
+.kbv-tree {
+    flex: 1;
+    padding: 0 var(--space-4, 16px) var(--space-4, 16px);
+    overflow-y: auto;
+    columns: 2 320px;
+    column-gap: var(--space-4, 16px);
+}
+
+.kbv-ns { break-inside: avoid; margin-bottom: var(--space-3, 12px) }
+
+.kbv-ns-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2, 8px);
+    cursor: pointer;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.kbv-ns-key { font-family: var(--font-mono); color: var(--color-primary) }
+.kbv-ns-name { color: var(--color-accent) }
+.kbv-ns-count { margin-left: auto; color: var(--color-text-muted); font-size: var(--font-size-xs) }
+
+.kbv-ns-leaves { margin: 4px 0 0; padding: 0 0 0 var(--space-3, 12px); list-style: none }
+
+.kbv-leaf {
+    display: grid;
+    grid-template-columns: 2.6em minmax(0, 1fr) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--space-2, 8px);
+    padding: 1px 0;
+}
+
+.kbv-leaf-label { color: var(--color-text-secondary); font-size: var(--font-size-xs) }
+
+.kbv-ns-free {
+    margin: 4px 0 0 var(--space-3, 12px);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* ── Capture dialog ───────────────────────────────────────────────── */
+
+.kbv-capture-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kbv-capture { width: min(100%, 460px); padding: var(--space-4, 16px) }
+.kbv-capture-title { margin: 0 0 2px; font-size: var(--font-size-base); color: var(--color-text) }
+.kbv-capture-sub { margin: 0 0 var(--space-3, 12px); color: var(--color-text-muted); font-size: var(--font-size-xs) }
+
+.kbv-capture-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 42px;
+    padding: var(--space-2, 8px);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--shell-radius-inner);
+}
+
+.kbv-capture-empty { color: var(--color-text-muted); font-size: var(--font-size-xs) }
+.kbv-capture-prev { margin: var(--space-2, 8px) 0 0; color: var(--color-text-muted); font-size: var(--font-size-xs) }
+
+.kbv-capture-warnings { margin: var(--space-2, 8px) 0 0; padding: 0; list-style: none }
+
+.kbv-warning { padding: 2px 0; font-size: var(--font-size-xs) }
+.kbv-warning.is-conflict { color: var(--color-warning) }
+.kbv-warning.is-reserved,
+.kbv-warning.is-prefix { color: var(--color-error) }
+
+.kbv-capture-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2, 8px);
+    margin-top: var(--space-4, 16px);
+}
+
+@media (max-width: 720px) {
+    .kbv-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px }
+    .kbv-row-when, .kbv-badge { display: none }
+    .kbv-tree { columns: 1 }
+}

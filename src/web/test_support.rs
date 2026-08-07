@@ -53,6 +53,7 @@ pub(crate) fn test_server_state() -> ServerState {
         pty_mgr: noop_pty_handle(),
         http_client: reqwest::Client::new(),
         nvim_registry: crate::mcp::new_nvim_socket_registry(),
+        lsp: std::sync::Arc::new(crate::lsp::LspPool::new()),
         skills_registry: crate::mcp_skills::SkillsRegistry::default(),
         reload_tx,
         instance_name: None,

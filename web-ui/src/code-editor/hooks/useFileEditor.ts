@@ -7,6 +7,7 @@ import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import { loadLanguageExtension, editorThemeExtension } from "../theme";
 import type { OpenFileEntry, EditorViewMode } from "../types";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 export interface FileEditorState {
   languageExtension: any;
@@ -24,28 +25,14 @@ export interface FileEditorState {
   isDesktop: boolean;
 }
 
-// ── Desktop breakpoint ──────────────────────────────────
-
-function useIsDesktop(breakpoint = 768) {
-  const [isDesktop, setIsDesktop] = useState(
-    typeof window !== "undefined" ? window.innerWidth >= breakpoint : false,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${breakpoint}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [breakpoint]);
-  return isDesktop;
-}
-
 // ── Hook ────────────────────────────────────────────────
 
 export function useFileEditor(
   activeFilePath: string | null,
   activeEntry: OpenFileEntry | null,
 ): FileEditorState {
-  const isDesktop = useIsDesktop();
+  // Shared with the rest of the app, and phrased as the stylesheets phrase it.
+  const isDesktop = !useIsMobile();
   const [languageExtension, setLanguageExtension] = useState<any>(null);
   const [languageLoading, setLanguageLoading]     = useState(false);
   const [viewModes, setViewModes]                 = useState<Record<string, EditorViewMode>>({});

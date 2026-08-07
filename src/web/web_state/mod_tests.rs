@@ -66,5 +66,6 @@ async fn emit_editor_file_changed_sends_when_attached() {
 async fn db_for_test_exposes_working_db() {
     let h = WebStateHandle::new_test();
     // A fresh in-memory DB has no persisted rows.
-    assert!(h.db_for_test().list_missions().is_empty());
+    assert!(h.db_for_test().list_routines().is_empty());
+    assert!(h.db_for_test().list_memory().is_empty());
 }

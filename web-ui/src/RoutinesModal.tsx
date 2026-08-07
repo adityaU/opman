@@ -10,7 +10,7 @@ import {
   createRoutine, deleteRoutine, fetchRoutines, runRoutine, updateRoutine,
 } from "./api";
 import type {
-  Mission, RoutineAction, RoutineDefinition, RoutineRunRecord,
+  RoutineDefinition, RoutineRunRecord,
   RoutineTargetMode, RoutineTrigger,
 } from "./api";
 import { useProviders } from "./hooks/useProviders";
@@ -378,7 +378,6 @@ interface ProjectInfo {
 
 interface Props {
   onClose: () => void;
-  missions: Mission[];
   activeSessionId: string | null;
   autonomyMode: "observe" | "nudge" | "continue" | "autonomous";
   appState: { projects: ProjectInfo[]; active_project: number } | null;
@@ -389,7 +388,6 @@ interface Props {
 interface FormState {
   name: string;
   trigger: RoutineTrigger;
-  action: RoutineAction;
   enabled: boolean;
   cronExpr: string;
   timezone: string;
@@ -404,7 +402,6 @@ interface FormState {
 const DEFAULT_FORM: FormState = {
   name: "",
   trigger: "scheduled",
-  action: "send_message",
   enabled: true,
   cronExpr: "0 0 */6 * * *",
   timezone: "UTC",
@@ -420,7 +417,6 @@ function routineToForm(r: RoutineDefinition): FormState {
   return {
     name: r.name,
     trigger: r.trigger,
-    action: r.action,
     enabled: r.enabled,
     cronExpr: r.cron_expr ?? "",
     timezone: r.timezone ?? "UTC",
@@ -435,7 +431,7 @@ function routineToForm(r: RoutineDefinition): FormState {
 
 /* ── Component ────────────────────────────────────────── */
 
-export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode, appState }: Props) {
+export function RoutinesModal({ onClose, activeSessionId, autonomyMode, appState }: Props) {
   const [routines, setRoutines] = useState<RoutineDefinition[]>([]);
   const [runs, setRuns] = useState<RoutineRunRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -525,7 +521,6 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
 
   // Helper to get target summary for a routine card
   const getTargetSummary = useCallback((routine: RoutineDefinition): string => {
-    if (routine.action !== "send_message") return "";
     if (routine.target_mode === "new_session") return "new session";
     if (routine.session_id) {
       // Try to find the session name
@@ -551,21 +546,18 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
       const req: Record<string, unknown> = {
         name: form.name.trim(),
         trigger: form.trigger,
-        action: form.action,
         enabled: form.enabled,
       };
       if (form.trigger === "scheduled" && form.cronExpr) {
         req.cron_expr = form.cronExpr;
         req.timezone = form.timezone || "UTC";
       }
-      if (form.action === "send_message") {
-        req.prompt = form.prompt || null;
-        req.target_mode = form.targetMode;
-        if (form.targetMode === "existing_session") {
-          req.session_id = form.sessionId || activeSessionId || null;
-        } else {
-          req.project_index = form.projectIndex;
-        }
+      req.prompt = form.prompt || null;
+      req.target_mode = form.targetMode;
+      if (form.targetMode === "existing_session") {
+        req.session_id = form.sessionId || activeSessionId || null;
+      } else {
+        req.project_index = form.projectIndex;
       }
       if (form.providerId) req.provider_id = form.providerId;
       if (form.modelId) req.model_id = form.modelId;
@@ -589,7 +581,6 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
       const req: Record<string, unknown> = {
         name: form.name.trim(),
         trigger: form.trigger,
-        action: form.action,
         enabled: form.enabled,
       };
       if (form.trigger === "scheduled") {
@@ -598,18 +589,13 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
       } else {
         req.cron_expr = null;
       }
-      if (form.action === "send_message") {
-        req.prompt = form.prompt || null;
-        req.target_mode = form.targetMode;
-        if (form.targetMode === "existing_session") {
-          req.session_id = form.sessionId || null;
-        } else {
-          req.project_index = form.projectIndex;
-          req.session_id = null;
-        }
+      req.prompt = form.prompt || null;
+      req.target_mode = form.targetMode;
+      if (form.targetMode === "existing_session") {
+        req.session_id = form.sessionId || null;
       } else {
-        req.prompt = null;
-        req.target_mode = null;
+        req.project_index = form.projectIndex;
+        req.session_id = null;
       }
       if (form.providerId) req.provider_id = form.providerId;
       else req.provider_id = null;
@@ -1089,8 +1075,7 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
 
                     <div className="routines-card-info" onClick={() => setExpandedId(isExpanded ? null : routine.id)}>
                       <div className="routines-card-name">
-                        {routine.action === "send_message" && <Send size={13} className="routines-card-icon" />}
-                        {routine.action !== "send_message" && <Clock3 size={13} className="routines-card-icon" />}
+                        <Send size={13} className="routines-card-icon" />
                         {routine.name}
                       </div>
                       {routine.prompt && (
@@ -1103,9 +1088,7 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
                           {routine.trigger === "scheduled" ? "scheduled" : routine.trigger.replace(/_/g, " ")}
                         </span>
                         <span className="routines-schedule-summary">{getScheduleSummary(routine)}</span>
-                        {routine.action === "send_message" && (
-                          <span className="routines-target-summary">{getTargetSummary(routine)}</span>
-                        )}
+                        <span className="routines-target-summary">{getTargetSummary(routine)}</span>
                         {routine.last_error && (
                           <span className="routines-error-badge" title={routine.last_error}>
                             <AlertTriangle size={11} /> error
@@ -1160,25 +1143,21 @@ export function RoutinesModal({ onClose, missions, activeSessionId, autonomyMode
                       )}
 
                       {/* Target */}
-                      {routine.action === "send_message" && (
-                        <>
-                          <div className="routines-detail-row">
-                            <span className="routines-detail-label">Target</span>
-                            <span className="routines-detail-value">
-                              {routine.target_mode === "new_session"
-                                ? `New session (project #${routine.project_index ?? 0})`
-                                : routine.session_id
-                                  ? `Session ${routine.session_id.slice(0, 12)}...`
-                                  : "Current session"}
-                            </span>
-                          </div>
-                          {routine.prompt && (
-                            <div className="routines-detail-row routines-detail-row--block">
-                              <span className="routines-detail-label">Prompt</span>
-                              <div className="routines-detail-prompt">{routine.prompt}</div>
-                            </div>
-                          )}
-                        </>
+                      <div className="routines-detail-row">
+                        <span className="routines-detail-label">Target</span>
+                        <span className="routines-detail-value">
+                          {routine.target_mode === "new_session"
+                            ? `New session (project #${routine.project_index ?? 0})`
+                            : routine.session_id
+                              ? `Session ${routine.session_id.slice(0, 12)}...`
+                              : "Current session"}
+                        </span>
+                      </div>
+                      {routine.prompt && (
+                        <div className="routines-detail-row routines-detail-row--block">
+                          <span className="routines-detail-label">Prompt</span>
+                          <div className="routines-detail-prompt">{routine.prompt}</div>
+                        </div>
                       )}
 
                       {/* Provider / Model */}

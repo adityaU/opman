@@ -1,9 +1,9 @@
 import React, { useMemo, useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle, Brain, ChevronRight, FileText } from "lucide-react";
+import { User, Bot, Wrench, Copy, Check, RotateCcw, Bookmark, AlertTriangle, Brain, ChevronRight, FileText, ArrowLeftRight } from "lucide-react";
 
 import type { MessageTurnProps, MessagePart } from "./types";
-import { modelLabel, parseMemoryBlock, parseFileContext } from "./helpers";
+import { modelLabel, parseMemoryBlock, parseFileContext, parseHandoffBlock } from "./helpers";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { agentColor } from "../utils/theme";
 import { renderInterleavedContent } from "./InterleavedContent";
@@ -125,34 +125,51 @@ export const MessageTurn = React.memo(function MessageTurn({
     return fileContext ? fileContext.userText : plainText;
   }, [fileContext, plainText]);
 
-  // Parse memory block from user messages (after stripping file context)
-  const memoryBlock = useMemo(() => {
+  // Parse the runner-handoff block. It fences the prior runner's transcript,
+  // which the new runner needs but the user never typed.
+  const handoffBlock = useMemo(() => {
     if (!isUser) return null;
-    return parseMemoryBlock(textAfterFiles);
+    return parseHandoffBlock(textAfterFiles);
   }, [isUser, textAfterFiles]);
 
-  // Display text: stripped of file blocks + memory block
+  // Instructions sit inside the handoff block's user half when both are present.
+  const textAfterHandoff = handoffBlock ? handoffBlock.userText : textAfterFiles;
+
+  // Parse memory block from user messages (after stripping file + handoff)
+  const memoryBlock = useMemo(() => {
+    if (!isUser) return null;
+    return parseMemoryBlock(textAfterHandoff);
+  }, [isUser, textAfterHandoff]);
+
+  // Display text: stripped of file blocks, handoff transcript and memory block
   const displaySegments = useMemo(() => {
     if (memoryBlock) return [memoryBlock.userText];
+    if (handoffBlock) return [handoffBlock.userText];
     if (fileContext) return [fileContext.userText];
     return textSegments;
-  }, [textSegments, memoryBlock, fileContext]);
+  }, [textSegments, memoryBlock, handoffBlock, fileContext]);
 
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+
+  // A handoff turn's raw text is mostly the prior transcript. Copying or
+  // retrying that would hand the whole blob back, so those act on what the
+  // user actually wrote.
+  const actionText = handoffBlock ? displaySegments.join("\n").trim() : plainText;
 
   const handleCopy = useCallback(() => {
-    if (!plainText) return;
-    navigator.clipboard.writeText(plainText).then(() => {
+    if (!actionText) return;
+    navigator.clipboard.writeText(actionText).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [plainText]);
+  }, [actionText]);
 
   const handleRetry = useCallback(() => {
-    if (isUser && plainText && onRetry) {
-      onRetry(plainText);
+    if (isUser && actionText && onRetry) {
+      onRetry(actionText);
     }
-  }, [isUser, plainText, onRetry]);
+  }, [isUser, actionText, onRetry]);
 
   if (role === "system") {
     // Compaction summary card: the completed counterpart to the live "Compacting…" banner.
@@ -244,6 +261,20 @@ export const MessageTurn = React.memo(function MessageTurn({
               backgroundColor: `color-mix(in srgb, ${agentColor(headerAgent)} 10%, transparent)`,
             }}>{headerAgent}</span>
           )}
+          {handoffBlock && (
+            <button
+              className={`memory-header-toggle handoff-header-toggle${handoffOpen ? " open" : ""}`}
+              onClick={() => setHandoffOpen((o) => !o)}
+            >
+              <ChevronRight size={12} className="memory-header-chevron" />
+              <ArrowLeftRight size={12} />
+              <span>
+                {handoffBlock.fromRunner
+                  ? `Handed off from ${handoffBlock.fromRunner}`
+                  : "Handed off"}
+              </span>
+            </button>
+          )}
           {memoryBlock && (
             <button
               className={`memory-header-toggle${memoryOpen ? " open" : ""}`}
@@ -255,6 +286,13 @@ export const MessageTurn = React.memo(function MessageTurn({
             </button>
           )}
         </div>
+
+        {/* Handoff transcript (collapsed by default — it is context, not a message) */}
+        {handoffBlock && handoffOpen && (
+          <pre className="memory-accordion-body handoff-accordion-body">
+            {handoffBlock.transcript}
+          </pre>
+        )}
 
         {/* Memory accordion body (expands below header) */}
         {memoryBlock && memoryOpen && (

@@ -5,6 +5,8 @@ import { Search } from "lucide-react";
 import { CommandPaletteProps } from "./types";
 import { buildPaletteItems } from "./items";
 import { filterItems, groupItems } from "./helpers";
+import { withLiveShortcuts } from "./liveShortcuts";
+import { useKeymapContext } from "../keybindings/KeymapContext";
 
 export function CommandPalette(props: CommandPaletteProps) {
   const { onClose, sessionId } = props;
@@ -22,10 +24,11 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   // Memoize on the values that actually change the item list, not the
   // whole props object (which gets a new reference every render).
+  const { keymap, host } = useKeymapContext();
   const items = useMemo(
-    () => buildPaletteItems(props),
+    () => withLiveShortcuts(buildPaletteItems(props), keymap, host.platform),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId],
+    [sessionId, keymap, host.platform],
   );
   const filtered = useMemo(() => filterItems(items, query), [items, query]);
   const grouped = useMemo(() => groupItems(filtered), [filtered]);

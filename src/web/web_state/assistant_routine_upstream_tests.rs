@@ -16,7 +16,6 @@ fn mk_routine(name: &str) -> CreateRoutineRequest {
     CreateRoutineRequest {
         name: name.to_string(),
         trigger: RoutineTrigger::Manual,
-        action: RoutineAction::SendMessage,
         enabled: true,
         cron_expr: None,
         timezone: None,
@@ -26,7 +25,6 @@ fn mk_routine(name: &str) -> CreateRoutineRequest {
         prompt: Some("do the work".to_string()),
         provider_id: None,
         model_id: None,
-        mission_id: None,
     }
 }
 

@@ -13,6 +13,9 @@ interface Props {
   /** Deep-link into the launched session's chat. */
   onOpenSession: (sessionId: string) => void;
   hasAttachment?: boolean;
+  /** True when this card holds the keyboard cursor. */
+  selected?: boolean;
+  onSelect?: (taskId: string) => void;
 }
 
 const PRIORITY_LABEL: Record<Priority, string> = {
@@ -47,10 +50,13 @@ export const TaskCard: React.FC<Props> = React.memo(function TaskCard(p) {
 
   return (
     <div
-      className="kanban-card liquid-glass"
+      className={p.selected ? "kanban-card liquid-glass is-selected" : "kanban-card liquid-glass"}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={p.onDragEnd}
+      // Pointer and keyboard share one cursor, so clicking a card is also how
+      // you tell the keyboard where to act next.
+      onPointerDown={() => p.onSelect?.(task.id)}
       onClick={() => p.onOpenDetail(task)}
       style={{ borderTop: `2px solid ${accent}` }}
     >

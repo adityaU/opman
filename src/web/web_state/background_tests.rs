@@ -1,27 +1,9 @@
 use super::*;
-use crate::web::types::*;
 use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 
 fn ensure_base_url() {
     let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:9".to_string());
-}
-
-fn mission() -> Mission {
-    Mission {
-        id: "m1".into(),
-        goal: "g".into(),
-        session_id: "s1".into(),
-        project_index: 0,
-        state: MissionState::Pending,
-        iteration: 0,
-        max_iterations: 5,
-        last_verdict: None,
-        last_eval_summary: None,
-        eval_history: vec![],
-        created_at: "t".into(),
-        updated_at: "t".into(),
-    }
 }
 
 #[tokio::test]
@@ -34,10 +16,14 @@ async fn schedule_persist_without_worker_is_safe() {
 #[tokio::test]
 async fn persist_worker_writes_snapshot_to_db() {
     let h = WebStateHandle::new_test();
-    {
-        let mut inner = h.inner.write().await;
-        inner.missions.insert("m1".into(), mission());
-    }
+    h.create_personal_memory(CreatePersonalMemoryRequest {
+        label: "L".into(),
+        content: "C".into(),
+        scope: MemoryScope::Global,
+        project_index: None,
+        session_id: None,
+    })
+    .await;
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     h.spawn_persist_worker(rx);
     // Two signals to also exercise the debounce drain (`try_recv` loop).
@@ -47,12 +33,12 @@ async fn persist_worker_writes_snapshot_to_db() {
     let mut wrote = false;
     for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        if h.db_for_test().list_missions().len() == 1 {
+        if h.db_for_test().list_memory().len() == 1 {
             wrote = true;
             break;
         }
     }
-    assert!(wrote, "persist worker did not flush mission to DB");
+    assert!(wrote, "persist worker did not flush memory item to DB");
 }
 
 #[tokio::test]

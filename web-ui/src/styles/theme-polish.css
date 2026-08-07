@@ -135,6 +135,18 @@ html.flat-theme .theme-selector { background: var(--ui-surface-panel); }
 
 .theme-card:hover { border-color: var(--ui-border); background: var(--ui-surface-hover); transform: translateY(-1px); }
 .theme-card.selected { border-color: var(--ui-focus); background: var(--ui-primary-wash); box-shadow: var(--ui-shadow-card); }
+/* The palette actually in effect, as opposed to the keyboard/hover cursor. */
+.theme-card.active { border-color: var(--color-primary); }
+.theme-card.active .theme-card-name::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
 .theme-card-preview { height: 24px; margin: 0; border: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent); border-radius: var(--radius); }
 .theme-card-preview span:first-child { flex: 2; }
 .theme-card-preview span { min-width: 10px; }

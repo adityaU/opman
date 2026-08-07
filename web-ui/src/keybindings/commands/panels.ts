@@ -1,0 +1,73 @@
+import type { CommandDef } from "../types";
+
+/** Terminal panel and its tabs. */
+export const TERMINAL_COMMANDS: readonly CommandDef[] = [
+  { id: "terminal.newTab", title: "New Terminal", category: "Terminal", label: "new" },
+  { id: "terminal.newTabOfKind", title: "New Terminal of Kind…", category: "Terminal", label: "new kind" },
+  { id: "terminal.nextTab", title: "Next Terminal Tab", category: "Terminal", when: "terminalOpen" },
+  { id: "terminal.previousTab", title: "Previous Terminal Tab", category: "Terminal", when: "terminalOpen" },
+  { id: "terminal.selectTab", title: "Select Terminal Tab…", category: "Terminal", when: "terminalOpen", label: "select" },
+  { id: "terminal.closeTab", title: "Close Terminal Tab", category: "Terminal", when: "terminalOpen", label: "close" },
+  { id: "terminal.renameTab", title: "Rename Terminal Tab", category: "Terminal", when: "terminalOpen", label: "rename" },
+  { id: "terminal.find", title: "Find in Terminal", category: "Terminal", when: "terminalOpen", label: "search" },
+  { id: "terminal.findNext", title: "Next Terminal Match", category: "Terminal", when: "terminalFindOpen" },
+  { id: "terminal.findPrevious", title: "Previous Terminal Match", category: "Terminal", when: "terminalFindOpen" },
+  { id: "terminal.clear", title: "Clear Terminal", category: "Terminal", when: "terminalOpen", label: "clear" },
+  { id: "terminal.copy", title: "Copy Selection", category: "Terminal", when: "focus==terminal" },
+  { id: "terminal.paste", title: "Paste", category: "Terminal", when: "focus==terminal" },
+  { id: "terminal.copyMode", title: "Enter Copy Mode", category: "Terminal", when: "focus==terminal" },
+  { id: "terminal.leaveFocus", title: "Leave Terminal Focus", category: "Terminal", when: "focus==terminal" },
+];
+
+/** Git panel, diff review and pull requests. */
+export const GIT_COMMANDS: readonly CommandDef[] = [
+  { id: "git.changesTab", title: "Show Changes", category: "Git", when: "gitRepo", label: "changes" },
+  { id: "git.logTab", title: "Show Commits", category: "Git", when: "gitRepo", label: "log" },
+  { id: "git.refresh", title: "Refresh Git Status", category: "Git", when: "gitRepo", label: "refresh" },
+  { id: "git.toggleStageFile", title: "Stage or Unstage File", category: "Git", when: "focus==git" },
+  { id: "git.stageFile", title: "Stage Selected File", category: "Git", when: "focus==git", label: "stage" },
+  { id: "git.unstageFile", title: "Unstage Selected File", category: "Git", when: "focus==git", label: "unstage" },
+  { id: "git.nextFile", title: "Next Changed File", category: "Git", when: "focus==git" },
+  { id: "git.previousFile", title: "Previous Changed File", category: "Git", when: "focus==git" },
+  { id: "git.stageAll", title: "Stage All Changes", category: "Git", when: "gitRepo", label: "stage all" },
+  { id: "git.unstageAll", title: "Unstage All Changes", category: "Git", when: "gitRepo", label: "unstage all" },
+  { id: "git.discard", title: "Discard Changes", category: "Git", when: "focus==git", label: "discard" },
+  { id: "git.openDiff", title: "Open Diff", category: "Git", when: "focus==git" },
+  { id: "git.nextHunk", title: "Next Hunk", category: "Git", when: "focus==git" },
+  { id: "git.previousHunk", title: "Previous Hunk", category: "Git", when: "focus==git" },
+  { id: "git.expandAll", title: "Expand All Files", category: "Git", when: "focus==git" },
+  { id: "git.collapseAll", title: "Collapse All Files", category: "Git", when: "focus==git" },
+  { id: "git.focusCommitMessage", title: "Focus Commit Message", category: "Git", when: "gitRepo", label: "input" },
+  { id: "git.commit", title: "Commit", category: "Git", when: "gitStaged" },
+  { id: "git.generateCommitMessage", title: "Generate Commit Message", category: "Git", when: "gitStaged", label: "message" },
+  { id: "git.switchBranch", title: "Switch Branch…", category: "Git", when: "gitRepo", label: "branch" },
+  { id: "git.switchRepo", title: "Switch Repository…", category: "Git", label: "repo" },
+  { id: "git.createPr", title: "Create Pull Request…", category: "Git", when: "gitRepo", label: "pull request" },
+  { id: "git.sendToReview", title: "Send Changes to AI Review", category: "Git", when: "gitRepo", label: "review" },
+  { id: "git.diffReview", title: "Diff Review Panel", category: "Git", when: "sessionActive", label: "diff review" },
+  { id: "git.acceptChange", title: "Accept Reviewed Change", category: "Git", when: "diffReviewOpen", label: "accept" },
+  { id: "git.revertChange", title: "Revert Reviewed Change", category: "Git", when: "diffReviewOpen", label: "revert" },
+  { id: "git.back", title: "Go Back", category: "Git", when: "focus==git" },
+];
+
+/** Kanban board, tasks and lanes. */
+export const BOARD_COMMANDS: readonly CommandDef[] = [
+  { id: "board.findTask", title: "Go to Task…", category: "Board", label: "find" },
+  { id: "board.moveDown", title: "Next Card", category: "Board", when: "focus==board" },
+  { id: "board.moveUp", title: "Previous Card", category: "Board", when: "focus==board" },
+  { id: "board.moveLeft", title: "Previous Lane", category: "Board", when: "focus==board" },
+  { id: "board.moveRight", title: "Next Lane", category: "Board", when: "focus==board" },
+  { id: "board.openTask", title: "Open Task", category: "Board", when: "focus==board" },
+  { id: "board.newTask", title: "New Task", category: "Board", label: "new task" },
+  { id: "board.editTask", title: "Edit Task", category: "Board", when: "taskSelected" },
+  { id: "board.launch", title: "Launch Agent for Task", category: "Board", when: "taskSelected" },
+  { id: "board.openTaskSession", title: "Open Task Session", category: "Board", when: "taskHasSession" },
+  { id: "board.abortRun", title: "Abort Task Run", category: "Board", when: "taskRunning", label: "abort" },
+  { id: "board.moveTaskLeft", title: "Move Task to Previous Lane", category: "Board", when: "taskSelected" },
+  { id: "board.moveTaskRight", title: "Move Task to Next Lane", category: "Board", when: "taskSelected" },
+  { id: "board.archiveTask", title: "Archive Task", category: "Board", when: "taskSelected" },
+  { id: "board.addNote", title: "Add Note to Task", category: "Board", when: "taskSelected", label: "note" },
+  { id: "board.configureLanes", title: "Configure Lanes…", category: "Board", label: "lanes" },
+  { id: "board.refresh", title: "Refresh Board", category: "Board", label: "refresh" },
+  { id: "board.switchBoard", title: "Switch Board…", category: "Board", label: "switch board" },
+];

@@ -83,17 +83,9 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
                     .data(payload.to_string()),
             )
         }
-        WebEvent::ActivityEvent(activity) => serde_json::to_string(activity)
-            .ok()
-            .map(|json| SseEvent::default().event("activity_event").data(json)),
         WebEvent::PresenceChanged(snapshot) => serde_json::to_string(snapshot)
             .ok()
             .map(|json| SseEvent::default().event("presence_changed").data(json)),
-        WebEvent::MissionUpdated { mission } => Some(
-            SseEvent::default()
-                .event("mission_updated")
-                .data(mission.to_string()),
-        ),
         WebEvent::RoutineUpdated => Some(SseEvent::default().event("routine_updated").data("")),
         WebEvent::KanbanTaskUpdated {
             project_path,

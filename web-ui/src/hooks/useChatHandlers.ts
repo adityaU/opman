@@ -36,10 +36,10 @@ export interface ChatHandlerInputs {
   bindRunnerChoice: (sessionId: string, runner: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => void;
-  clearOptimistic: () => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => string | null;
+  clearOptimistic: (sessionId?: string | null, id?: string) => void;
   refreshState: () => void;
-  refreshMessages: (sessionId?: string | null) => Promise<void>;
+  refreshMessages: (sessionId?: string | null, options?: { adoptView?: boolean }) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;

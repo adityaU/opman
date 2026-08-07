@@ -1,9 +1,10 @@
 /**
- * Unit tests for useKeyboard and useEscape hooks.
+ * Unit tests for the useEscape hook. The global binding table it used to sit
+ * beside now lives in the keymap matcher, which has its own suite.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useKeyboard, useEscape } from "../hooks/useKeyboard";
+import { useEscape } from "../hooks/useKeyboard";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -65,60 +66,3 @@ describe("useEscape", () => {
 // ═══════════════════════════════════════════════════════
 // useKeyboard
 // ═══════════════════════════════════════════════════════
-
-describe("useKeyboard", () => {
-  it("matches key + meta combo", () => {
-    const handler = vi.fn();
-    renderHook(() =>
-      useKeyboard([{ key: "k", meta: true, handler }])
-    );
-    fireKey("k", { metaKey: true });
-    expect(handler).toHaveBeenCalledOnce();
-  });
-
-  it("does not fire when meta is required but not pressed", () => {
-    const handler = vi.fn();
-    renderHook(() =>
-      useKeyboard([{ key: "k", meta: true, handler }])
-    );
-    fireKey("k");
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it("matches shift modifier", () => {
-    const handler = vi.fn();
-    renderHook(() =>
-      useKeyboard([{ key: "n", meta: true, shift: true, handler }])
-    );
-    fireKey("n", { metaKey: true, shiftKey: true });
-    expect(handler).toHaveBeenCalledOnce();
-  });
-
-  it("does not match when shift is not pressed but required", () => {
-    const handler = vi.fn();
-    renderHook(() =>
-      useKeyboard([{ key: "n", meta: true, shift: true, handler }])
-    );
-    fireKey("n", { metaKey: true });
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it("cleans up on unmount", () => {
-    const handler = vi.fn();
-    const { unmount } = renderHook(() =>
-      useKeyboard([{ key: "b", meta: true, handler }])
-    );
-    unmount();
-    fireKey("b", { metaKey: true });
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it("case-insensitive key matching", () => {
-    const handler = vi.fn();
-    renderHook(() =>
-      useKeyboard([{ key: "B", meta: true, handler }])
-    );
-    fireKey("b", { metaKey: true });
-    expect(handler).toHaveBeenCalledOnce();
-  });
-});

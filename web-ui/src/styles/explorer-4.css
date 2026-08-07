@@ -1,0 +1,176 @@
+/* File explorer, part 4 — context menu, inline rename/create, delete confirm. Part 1 declares the tokens all parts use. */
+
+/* ── Context menu ─────────────────────────────────────── */
+
+.xpl-ctx {
+    position: fixed;
+    z-index: 900;
+    min-width: 188px;
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    outline: none;
+    animation: xpl-ctx-in .13s cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes xpl-ctx-in {
+    from { opacity: 0; transform: translateY(-3px) scale(.98); }
+}
+
+.xpl-ctx-title {
+    padding: var(--space-1-5) var(--space-2) var(--space-2);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    margin-bottom: var(--space-1);
+}
+
+.xpl-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-2);
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+}
+
+.xpl-ctx-item svg {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.xpl-ctx-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.xpl-ctx-item.is-active {
+    background: var(--theme-surface-hover);
+}
+
+.xpl-ctx-item.is-danger {
+    color: var(--color-error);
+}
+
+.xpl-ctx-item.is-danger svg {
+    color: var(--color-error);
+}
+
+.xpl-ctx-item.is-danger.is-active {
+    background: var(--theme-error-soft);
+}
+
+.xpl-ctx-hint {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    background: var(--white-6);
+    border-radius: 3px;
+    padding: 1px 4px;
+}
+
+/* ── Inline name field + delete confirm ───────────────── */
+
+.xpl-namefield {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    height: var(--xpl-row-h);
+    padding-right: var(--space-2);
+    background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.xpl-field-icon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.xpl-namefield-input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 0;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.xpl-namefield-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.xpl-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    padding-right: var(--space-2);
+    background: var(--theme-error-soft);
+    box-shadow: inset 2px 0 0 var(--color-error);
+}
+
+.xpl-confirm-text {
+    font-size: var(--font-size-2xs);
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-error) 30%, var(--color-text));
+}
+
+.xpl-confirm-text strong {
+    color: var(--color-text);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.xpl-confirm-actions {
+    display: flex;
+    gap: var(--space-1-5);
+}
+
+.xpl-confirm-yes,
+.xpl-confirm-no {
+    padding: 3px var(--space-2);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-confirm-yes {
+    background: var(--color-error);
+    border: none;
+    color: var(--color-on-scrim);
+}
+
+.xpl-confirm-yes:hover {
+    background: color-mix(in srgb, var(--color-error) 84%, #000);
+}
+
+.xpl-confirm-no {
+    background: none;
+    border: .5px solid var(--white-8);
+    color: var(--color-text-muted);
+}
+
+.xpl-confirm-no:hover {
+    background: var(--white-6);
+    color: var(--color-text);
+}

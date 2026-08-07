@@ -24,49 +24,6 @@ export function parseOpenCodeEvent(data: string): OpenCodeEvent | null {
   }
 }
 
-// ── Multi-session dashboard ───────────────────────────
-
-export interface SessionOverviewEntry {
-  id: string;
-  title: string;
-  parentID: string;
-  project_name: string;
-  project_index: number;
-  directory: string;
-  is_busy: boolean;
-  time: { created: number; updated: number };
-  stats?: SessionStats;
-}
-
-export interface SessionsOverviewResponse {
-  sessions: SessionOverviewEntry[];
-  total: number;
-  busy_count: number;
-}
-
-export interface SessionTreeNode {
-  id: string;
-  title: string;
-  project_name: string;
-  project_index: number;
-  is_busy: boolean;
-  stats?: SessionStats;
-  children: SessionTreeNode[];
-}
-
-export interface SessionsTreeResponse {
-  roots: SessionTreeNode[];
-  total: number;
-}
-
-export async function fetchSessionsOverview(): Promise<SessionsOverviewResponse> {
-  return apiFetch<SessionsOverviewResponse>("/sessions/overview");
-}
-
-export async function fetchSessionsTree(): Promise<SessionsTreeResponse> {
-  return apiFetch<SessionsTreeResponse>("/sessions/tree");
-}
-
 // ── Context Window ────────────────────────────────────
 
 export interface ContextItem {

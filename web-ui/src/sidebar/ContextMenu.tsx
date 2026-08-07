@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Pin, Pencil, Trash2, XCircle, SquareKanban } from "lucide-react";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
+import { isMobileViewport } from "../hooks/useIsMobile";
 
 // ── Types ────────────────────────────────────────────
 
@@ -13,10 +14,6 @@ export interface ContextMenuState {
 }
 
 // ── Helpers ──────────────────────────────────────────
-
-function isMobile(): boolean {
-  return window.innerWidth <= 768;
-}
 
 const MENU_W = 180;
 const MENU_H = 200;
@@ -95,7 +92,7 @@ export function SessionContextMenu({
   onRemoveOpen,
   onOpenTask,
 }: SessionContextMenuProps) {
-  const mobile = isMobile();
+  const mobile = isMobileViewport();
   const iconSz = mobile ? 16 : 12;
 
   const displayTitle = !menu.sessionTitle

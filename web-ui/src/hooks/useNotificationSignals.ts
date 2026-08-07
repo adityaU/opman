@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import type { AssistantSignal } from "./useAssistantState";
 import {
   getClientId,
   loadNotificationPrefs,
@@ -23,12 +22,10 @@ export interface UseNotificationSignalsOptions {
   crossSessionPermissions: PermissionRequest[];
   crossSessionQuestions: QuestionRequest[];
   fileEditCount: number;
-  setAssistantSignals: React.Dispatch<React.SetStateAction<AssistantSignal[]>>;
 }
 
 /**
- * Handles presence registration, browser notifications for session events,
- * and watcher-triggered assistant signals.
+ * Handles presence registration and browser notifications for session events.
  *
  * Fires service-worker-backed notifications (with plain Notification API fallback)
  * for: session_complete, permission_request, question, watcher_trigger, file_edit.
@@ -44,7 +41,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
     crossSessionPermissions,
     crossSessionQuestions,
     fileEditCount,
-    setAssistantSignals,
   } = opts;
 
   // ── Presence registration + heartbeat ──
@@ -80,17 +76,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
 
     // Only notify when the *same* session transitioned from busy→idle.
     if (sessionStatus.type === "idle" && wasBusy && sameSession && prefs.session_complete && autonomyMode !== "observe") {
-      setAssistantSignals((prev) => {
-        const next: AssistantSignal = {
-          id: `session-complete:${activeSessionId ?? "none"}:${Date.now()}`,
-          kind: "session_complete",
-          title: "Session complete",
-          body: "AI session has finished processing",
-          createdAt: Date.now(),
-          sessionId: activeSessionId,
-        };
-        return [next, ...prev].slice(0, 25);
-      });
       showNotification(
         "session_complete",
         "Session Complete",
@@ -106,18 +91,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
   useEffect(() => {
     if (!watcherStatus || watcherStatus.action !== "triggered" || autonomyMode === "observe") return;
     const prefs = loadNotificationPrefs();
-    setAssistantSignals((prev) => {
-      const id = `watcher-trigger:${watcherStatus.session_id}:${Date.now()}`;
-      const next: AssistantSignal = {
-        id,
-        kind: "watcher_trigger",
-        title: "Watcher triggered",
-        body: "A watched session auto-continued and may need review.",
-        createdAt: Date.now(),
-        sessionId: watcherStatus.session_id,
-      };
-      return [next, ...prev].slice(0, 25);
-    });
     showNotification(
       "watcher_trigger",
       "Watcher Triggered",
@@ -139,17 +112,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
       notifiedPermIdsRef.current.add(perm.id);
 
       const label = perm.toolName || "Permission";
-      setAssistantSignals((prev) => {
-        const next: AssistantSignal = {
-          id: `permission-request:${perm.id}:${Date.now()}`,
-          kind: "permission_request",
-          title: "Permission requested",
-          body: `Tool "${label}" needs approval`,
-          createdAt: Date.now(),
-          sessionId: perm.sessionID,
-        };
-        return [next, ...prev].slice(0, 25);
-      });
       showNotification(
         "permission_request",
         "Permission Requested",
@@ -171,17 +133,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
       notifiedQuestionIdsRef.current.add(q.id);
 
       const label = q.title || "Question";
-      setAssistantSignals((prev) => {
-        const next: AssistantSignal = {
-          id: `question:${q.id}:${Date.now()}`,
-          kind: "question",
-          title: "AI has a question",
-          body: label,
-          createdAt: Date.now(),
-          sessionId: q.sessionID,
-        };
-        return [next, ...prev].slice(0, 25);
-      });
       showNotification(
         "question",
         "AI Question",
@@ -211,7 +162,6 @@ export function useNotificationSignals(opts: UseNotificationSignalsOptions): voi
       () => window.focus(),
       activeSessionId,
     );
-    // No assistant signal for file edits — too noisy for the inbox.
   }, [fileEditCount, activeSessionId]);
 
   // ── Listen for NOTIFICATION_CLICK messages from the service worker ──

@@ -3,12 +3,8 @@ use super::super::types::*;
 /// Clients that haven't sent a heartbeat in this many seconds are considered stale.
 const STALE_CLIENT_TIMEOUT_SECS: u64 = 120;
 
-/// Maximum number of sessions that keep activity logs in memory.
-/// Oldest sessions (by last event time) are pruned when this is exceeded.
-const MAX_ACTIVITY_LOG_SESSIONS: usize = 50;
-
 impl super::WebStateHandle {
-    // ── Session Continuity: Presence + Activity ─────────────────────
+    // ── Session Continuity: Presence ────────────────────────────────
 
     /// Register or update a client's presence.
     pub async fn register_presence(&self, req: &ClientPresence) {
@@ -69,53 +65,6 @@ impl super::WebStateHandle {
             drop(state);
             let _ = self.event_tx.send(WebEvent::PresenceChanged(snapshot));
         }
-    }
-
-    /// Push an activity event for a session (stores + broadcasts).
-    pub async fn push_activity_event(&self, event: ActivityEventPayload) {
-        let session_id = event.session_id.clone();
-        {
-            let mut state = self.inner.write().await;
-            let log = state.activity_log.entry(session_id).or_default();
-            log.push(event.clone());
-            // Ring buffer: keep last 200 events per session
-            if log.len() > 200 {
-                let drain = log.len() - 200;
-                log.drain(..drain);
-            }
-
-            // Prune activity logs if too many sessions are tracked
-            if state.activity_log.len() > MAX_ACTIVITY_LOG_SESSIONS {
-                // Find sessions with fewest recent events and remove them
-                let mut sessions_by_size: Vec<(String, usize)> = state
-                    .activity_log
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.len()))
-                    .collect();
-                sessions_by_size.sort_by_key(|(_, len)| *len);
-                let to_remove = state.activity_log.len() - MAX_ACTIVITY_LOG_SESSIONS;
-                for (sid, _) in sessions_by_size.into_iter().take(to_remove) {
-                    state.activity_log.remove(&sid);
-                }
-            }
-        }
-        let _ = self.event_tx.send(WebEvent::ActivityEvent(event));
-    }
-
-    /// Get recent activity events for a session.
-    pub async fn get_activity_feed(&self, session_id: &str) -> Vec<ActivityEventPayload> {
-        let state = self.inner.read().await;
-        state
-            .activity_log
-            .get(session_id)
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    /// Remove activity log for a specific session (e.g. when session is deleted).
-    pub async fn clear_activity_log(&self, session_id: &str) {
-        let mut state = self.inner.write().await;
-        state.activity_log.remove(session_id);
     }
 
     /// Spawn a background task that periodically evicts stale clients.

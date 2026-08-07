@@ -5,6 +5,7 @@ import {
 } from "./api";
 import type { ImageAttachment, PersonalMemoryItem } from "./api";
 import type { Message } from "./types";
+import { isMobileViewport } from "./hooks/useIsMobile";
 
 /* ── Deps interface ─────────────────────────────────────── */
 
@@ -40,11 +41,11 @@ export interface HandlerDeps {
   bindRunnerChoice: (sessionId: string, runner: string) => void;
   setMobileInputHidden: (v: boolean) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
-  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => void;
-  clearOptimistic: () => void;
+  addOptimisticMessage: (text: string, images?: ImageAttachment[], sessionId?: string | null) => string | null;
+  clearOptimistic: (sessionId?: string | null, id?: string) => void;
   refreshState: () => void;
   /** Refresh the active transcript after runner adapters complete synchronously. */
-  refreshMessages: (sessionId?: string | null) => Promise<void>;
+  refreshMessages: (sessionId?: string | null, options?: { adoptView?: boolean }) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -88,11 +89,8 @@ const MODAL_COMMANDS: Record<string, string> = {
   settings: "settings", watcher: "watcher",
   "context-window": "contextWindow", "diff-review": "diffReview",
   search: "searchBar", "cross-search": "crossSearch",
-  "session-graph": "sessionGraph", "session-dashboard": "sessionDashboard",
-  "activity-feed": "activityFeed", "notification-prefs": "notificationPrefs",
-  "assistant-center": "assistantCenter", inbox: "inbox",
+  "notification-prefs": "notificationPrefs",
   memory: "memory", autonomy: "autonomy", routines: "routines",
-  delegation: "delegation", missions: "missions", workspaces: "workspaceManager",
   system: "systemMonitor", htop: "systemMonitor", monitor: "systemMonitor",
   health: "processHealth", "process-health": "processHealth",
   "auto-open": "autoOpen", autoopen: "autoOpen",
@@ -109,6 +107,9 @@ export const LOCAL_COMMANDS = new Set([
 export function createHandleSend(deps: HandlerDeps) {
   return async (text: string, images?: ImageAttachment[], fileContext?: string): Promise<boolean> => {
     let sid = deps.activeSessionId;
+    // Whether this send is what brings the session into existence. Only then may
+    // the follow-up refresh take over the view — see the refresh call below.
+    const createdSession = !sid;
     // A session that exists already belongs to a runner. Re-stating a runner on
     // every send is what used to fork the conversation: any drift in the value
     // the UI inferred read as a switch request, and the backend answered with a
@@ -132,7 +133,7 @@ export function createHandleSend(deps: HandlerDeps) {
         return false;
       }
     }
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (typeof window !== "undefined" && isMobileViewport()) {
       deps.setMobileInputHidden(true);
     }
     // Reserve this session before starting the request so rapid submits cannot
@@ -140,7 +141,7 @@ export function createHandleSend(deps: HandlerDeps) {
     deps.setSending(true, sid);
     // File context (from @file mentions) still belongs to the message itself.
     const fullText = fileContext ? fileContext + text : text;
-    deps.addOptimisticMessage(fullText, images, sid);
+    const placeholderId = deps.addOptimisticMessage(fullText, images, sid);
     try {
       const result = await sendMessage(
         sid,
@@ -155,7 +156,10 @@ export function createHandleSend(deps: HandlerDeps) {
       // HTTP runners normally update the transcript through SSE. The Codex
       // adapter completes synchronously, so refresh here also covers that
       // runner and makes a handoff immediately visible.
-      await deps.refreshMessages(sid);
+      // A send does not entitle its session to the screen. If the user opened
+      // another conversation while this request was in flight, refresh that
+      // session's transcript in the background instead of pulling them back.
+      await deps.refreshMessages(sid, { adoptView: createdSession });
       if (handoff?.switched && handoff.session_id) {
         deps.setUrlSession(handoff.session_id, deps.activeProjectIndex);
         // Move the pick onto the session that now serves it. Leaving it armed on
@@ -165,7 +169,9 @@ export function createHandleSend(deps: HandlerDeps) {
       }
       return true;
     } catch {
-      deps.clearOptimistic();
+      // Retire only this send's placeholder: a blanket purge would also drop a
+      // queued prompt on another session that never failed.
+      if (placeholderId) deps.clearOptimistic(sid, placeholderId);
       deps.addToast("Failed to send message", "error");
       return false;
     } finally {

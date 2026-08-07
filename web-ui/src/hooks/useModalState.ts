@@ -4,10 +4,8 @@ export type ModalName =
   | "commandPalette" | "modelPicker" | "agentPicker" | "themeSelector"
   | "cheatsheet" | "todoPanel" | "sessionSelector" | "contextInput"
   | "settings" | "watcher" | "contextWindow" | "diffReview"
-  | "searchBar" | "crossSearch" | "splitView" | "sessionGraph"
-  | "sessionDashboard" | "activityFeed" | "notificationPrefs"
-  | "assistantCenter" | "inbox" | "memory" | "autonomy"
-  | "routines" | "delegation" | "missions" | "workspaceManager"
+  | "searchBar" | "crossSearch" | "splitView" | "notificationPrefs"
+  | "memory" | "autonomy" | "routines"
   | "addProject" | "systemMonitor" | "processHealth" | "autoOpen";
 
 /** Escape-key dismiss priority, highest first. */
@@ -15,17 +13,15 @@ const ESCAPE_PRIORITY: ModalName[] = [
   "commandPalette", "modelPicker", "agentPicker", "themeSelector",
   "cheatsheet", "todoPanel", "sessionSelector", "contextInput",
   "settings", "watcher", "contextWindow", "diffReview",
-  "searchBar", "crossSearch", "activityFeed", "notificationPrefs",
-  "assistantCenter", "inbox", "memory", "autonomy",
-  "routines", "delegation", "missions", "workspaceManager",
+  "searchBar", "crossSearch", "notificationPrefs",
+  "memory", "autonomy", "routines",
   "addProject", "systemMonitor", "processHealth", "autoOpen",
 ];
 
 type ModalOpenState = Record<ModalName, boolean>;
 
 const INITIAL_STATE: ModalOpenState = Object.fromEntries(
-  ESCAPE_PRIORITY.concat("splitView", "sessionGraph", "sessionDashboard")
-    .map((k) => [k, false]),
+  ESCAPE_PRIORITY.concat("splitView").map((k) => [k, false]),
 ) as ModalOpenState;
 
 /** Sentinel on history.state to distinguish modal-pushed entries. */

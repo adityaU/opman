@@ -43,6 +43,13 @@ export interface CodeEditorPanelProps {
   sessionId?: string | null;
   /** Callback for surfacing errors to the user (e.g. toast) */
   onError?: (message: string) => void;
+  /**
+   * Which layout to render. Each mount site knows what it is — the desktop
+   * side panel or the mobile sheet — so it says so rather than letting the
+   * panel re-guess from the viewport and disagree with the CSS that decided
+   * whether it is visible at all. Omitted, the viewport decides.
+   */
+  layout?: "desktop" | "mobile";
 }
 
 // ── Helpers ─────────────────────────────────────────────

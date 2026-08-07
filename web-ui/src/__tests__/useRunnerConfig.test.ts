@@ -73,7 +73,66 @@ describe("useRunnerConfig", () => {
     localStorage.setItem("opman-runner-config", "{not json");
     const { result } = renderHook(() => useRunnerConfig());
     expect(result.current.recall("claude")).toEqual(emptyConfig("claude"));
+    expect(result.current.lastRunner()).toBe("");
     act(() => { result.current.remember("claude", { agent: "build" }); });
     expect(result.current.recall("claude").agent).toBe("build");
+  });
+
+  /* A value that is valid JSON but not an object at all — an array, a number —
+     must be discarded rather than indexed into. */
+  it("shrugs off storage of the wrong type", () => {
+    for (const junk of ["[1,2]", "7", '"claude"', "null"]) {
+      localStorage.setItem("opman-runner-config", junk);
+      const { result, unmount } = renderHook(() => useRunnerConfig());
+      expect(result.current.lastRunner()).toBe("");
+      expect(result.current.recall("claude")).toEqual(emptyConfig("claude"));
+      unmount();
+    }
+  });
+
+  /* The runner *choice* is what a brand-new session opens on, so it has to
+     outlive the tab the same way the per-runner configs do. */
+  it("round-trips the last picked runner", () => {
+    const first = renderHook(() => useRunnerConfig());
+    expect(first.result.current.lastRunner()).toBe("");
+    act(() => {
+      first.result.current.rememberRunner("codex");
+      first.result.current.remember("codex", { model: gpt, effort: "high" });
+    });
+    expect(first.result.current.lastRunner()).toBe("codex");
+    first.unmount();
+
+    const second = renderHook(() => useRunnerConfig());
+    expect(second.result.current.lastRunner()).toBe("codex");
+    // The per-runner map still reads back alongside it.
+    expect(second.result.current.recall("codex").model).toEqual(gpt);
+    expect(second.result.current.recall("codex").effort).toBe("high");
+  });
+
+  it("ignores an empty runner pick", () => {
+    const { result } = renderHook(() => useRunnerConfig());
+    act(() => { result.current.rememberRunner("claude"); });
+    act(() => { result.current.rememberRunner(""); });
+    expect(result.current.lastRunner()).toBe("claude");
+  });
+
+  /* v1 stored the per-runner map at the top level; those values are still in
+     users' browsers and must survive the move under `runners`. */
+  it("migrates the old flat shape", () => {
+    localStorage.setItem(
+      "opman-runner-config",
+      JSON.stringify({ claude: { model: haiku, agent: "build", effort: "low", permission: "default" } }),
+    );
+    const { result } = renderHook(() => useRunnerConfig());
+    expect(result.current.recall("claude").model).toEqual(haiku);
+    expect(result.current.recall("claude").agent).toBe("build");
+    // There was no recorded pick in v1, so there is nothing to prefer yet.
+    expect(result.current.lastRunner()).toBe("");
+
+    act(() => { result.current.rememberRunner("codex"); });
+    const stored = JSON.parse(localStorage.getItem("opman-runner-config")!);
+    expect(stored.lastRunner).toBe("codex");
+    // Rewritten in the new shape without losing the migrated config.
+    expect(stored.runners.claude.model).toEqual(haiku);
   });
 });

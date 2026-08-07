@@ -1,3 +1,4 @@
+import { isMobileViewport } from "../hooks/useIsMobile";
 import React, { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 import type { ImageAttachment, FileSearchEntry, SessionStats } from "../api";
 import { SlashCommandPopover } from "../SlashCommandPopover";
@@ -83,7 +84,7 @@ export function PromptInput({
 
   // Focus input on mount and when session changes (desktop only)
   useEffect(() => {
-    if (window.innerWidth >= 768) textareaRef.current?.focus();
+    if (!isMobileViewport()) textareaRef.current?.focus();
   }, [sessionId]);
 
   // Clear file mentions on session change

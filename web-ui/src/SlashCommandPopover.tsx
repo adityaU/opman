@@ -57,22 +57,13 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   { name: "context-window", description: "View context window usage" },
   { name: "diff-review", description: "Review pending diffs" },
   { name: "auto-open", description: "Configure tool auto-open" },
-  // Assistant / delegation
-  { name: "assistant-center", description: "Open the assistant cockpit" },
-  { name: "inbox", description: "Open the assistant inbox" },
-  { name: "missions", description: "Open mission tracking" },
+  // Assistant
   { name: "memory", description: "Open session instructions" },
   { name: "autonomy", description: "Adjust assistant autonomy" },
   { name: "routines", description: "Manage assistant routines" },
-  { name: "delegation", description: "Open delegation board" },
-  { name: "workspaces", description: "Open workspaces and recipes" },
   // System
   { name: "system", description: "Open system monitor (htop)" },
   { name: "health", description: "View process health" },
-  // Analytics
-  { name: "session-graph", description: "View session dependency graph" },
-  { name: "session-dashboard", description: "View session analytics" },
-  { name: "activity-feed", description: "View activity feed" },
   { name: "notification-prefs", description: "Notification preferences" },
 ];
 

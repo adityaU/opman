@@ -1,19 +1,24 @@
 /**
- * ExplorerHeader — title, collapse control, and the explorer's actions menu.
+ * ExplorerHeader — the explorer's one command row.
  *
- * The header used to carry five icon buttons side by side. At the explorer's
- * default width that is most of the row spent on controls that are used once a
- * session, competing with the thing the panel is actually for. They now live
- * behind one menu, and the control that was missing entirely — collapsing the
- * explorer — takes the position that reads first.
+ * The header previously spent its width on a static "EXPLORER" label plus a
+ * menu. The label named a panel you can already see; the width is better spent
+ * on the control that actually shortens the path to a file. So the row is now
+ * collapse, a live project-wide filter, and the overflow menu — three things,
+ * each of which does something.
  */
 import { useEffect, useRef, useState } from "react";
 import {
-  PanelLeftClose, MoreHorizontal, FilePlus, FolderPlus, Upload, RefreshCw, Pin, PinOff,
+  PanelLeftClose, MoreHorizontal, FilePlus, FolderPlus, Upload, RefreshCw,
+  Pin, PinOff, Search, X, Loader2,
 } from "lucide-react";
 
 interface Props {
   pinned: boolean;
+  query: string;
+  searching: boolean;
+  onQueryChange: (value: string) => void;
+  onQueryClear: () => void;
   onTogglePinned: () => void;
   onCollapse: () => void;
   onCreateFile?: () => void;
@@ -22,19 +27,16 @@ interface Props {
   onReloadRoot?: () => void;
 }
 
-interface Action {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-  run: () => void;
-}
+interface Action { key: string; label: string; icon: React.ReactNode; run: () => void }
 
 export function ExplorerHeader({
-  pinned, onTogglePinned, onCollapse, onCreateFile, onCreateDir, onUploadFiles, onReloadRoot,
+  pinned, query, searching, onQueryChange, onQueryClear,
+  onTogglePinned, onCollapse, onCreateFile, onCreateDir, onUploadFiles, onReloadRoot,
 }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -44,10 +46,9 @@ export function ExplorerHeader({
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
     };
     document.addEventListener("mousedown", dismiss);
     document.addEventListener("keydown", onKey);
@@ -70,22 +71,55 @@ export function ExplorerHeader({
   });
 
   return (
-    <div className="explorer-header">
+    <div className="xpl-header">
       <button
         type="button"
-        className="explorer-hdr-btn explorer-collapse-trigger"
+        className="xpl-hdr-btn"
         onClick={onCollapse}
         title="Hide explorer"
         aria-label="Hide explorer"
       >
         <PanelLeftClose size={14} />
       </button>
-      <span className="explorer-title">Explorer</span>
-      <div className="explorer-menu-wrap">
+
+      <div className={`xpl-search${query ? " has-query" : ""}`}>
+        {searching
+          ? <Loader2 size={12} className="xpl-search-icon spin" aria-hidden="true" />
+          : <Search size={12} className="xpl-search-icon" aria-hidden="true" />}
+        <input
+          ref={inputRef}
+          type="text"
+          className="xpl-search-input"
+          value={query}
+          placeholder="Find a file"
+          aria-label="Find a file in this project"
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || !query) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onQueryClear();
+          }}
+        />
+        {query && (
+          <button
+            type="button"
+            className="xpl-search-clear"
+            aria-label="Clear filter"
+            onClick={() => { onQueryClear(); inputRef.current?.focus(); }}
+          >
+            <X size={11} />
+          </button>
+        )}
+      </div>
+
+      <div className="xpl-menu-wrap">
         <button
           ref={triggerRef}
           type="button"
-          className={`explorer-hdr-btn${open ? " is-active" : ""}`}
+          className={`xpl-hdr-btn${open ? " is-active" : ""}`}
           onClick={() => setOpen((value) => !value)}
           title="Explorer actions"
           aria-label="Explorer actions"
@@ -95,13 +129,13 @@ export function ExplorerHeader({
           <MoreHorizontal size={14} />
         </button>
         {open && (
-          <div className="explorer-menu modal-popover-surface" role="menu" ref={menuRef}>
+          <div className="xpl-menu modal-popover-surface" role="menu" ref={menuRef}>
             {actions.map((action) => (
               <button
                 key={action.key}
                 type="button"
                 role="menuitem"
-                className="explorer-menu-item"
+                className="xpl-menu-item"
                 onClick={() => { action.run(); setOpen(false); }}
               >
                 {action.icon}

@@ -11,6 +11,8 @@ import { useState, useEffect } from "react";
 import type { GitPanelProps, GitTab } from "./types";
 import { buildDiffStyles } from "./utils";
 import { useViewNavigation } from "./hooks/useViewNavigation";
+import { useGitCommands } from "./useGitCommands";
+import { useGitSelection } from "./useGitSelection";
 import { useGitData } from "./hooks/useGitData";
 import { useGitActions } from "./hooks/useGitActions";
 import { useAIActions } from "./hooks/useAIActions";
@@ -38,11 +40,31 @@ export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelP
     if (ai.prBranchPickerOpen) data.fetchBranchList();
   }, [ai.prBranchPickerOpen, data.fetchBranchList]);
 
+  const selection = useGitSelection(data.staged, data.unstaged, data.untracked);
+
+  useGitCommands({
+    setTab,
+    selection,
+    stage: actions.handleStage,
+    unstage: actions.handleUnstage,
+    discard: actions.handleDiscard,
+    pushView: nav.pushView,
+    refreshStatus: data.refreshStatus,
+    stageAll: actions.handleStageAll,
+    unstageAll: actions.handleUnstageAll,
+    expandAllFiles: data.expandAllFiles,
+    collapseAllFiles: data.collapseAllFiles,
+    generateCommitMessage: ai.handleAICommitMsg,
+    sendToReview: ai.handleAIReview,
+    createPr: ai.openPRBranchPicker,
+    goBack: nav.popView,
+  });
+
   const diffStyles = buildDiffStyles(data.themeColors);
   const totalChanges = data.staged.length + data.unstaged.length + data.untracked.length;
 
   return (
-    <div className="git-panel">
+    <div className="git-panel" data-surface="git">
       {/* Toolbar: repo selector + breadcrumbs + branch + refresh + tabs */}
       <div className="git-panel-header">
         {/* Repo selector — only show when multiple repos found */}
@@ -89,6 +111,7 @@ export default function GitPanel({ projectPath, onError, onSendToAI }: GitPanelP
             handleStage={actions.handleStage} handleUnstage={actions.handleUnstage}
             handleStageAll={actions.handleStageAll} handleUnstageAll={actions.handleUnstageAll}
             handleDiscard={actions.handleDiscard} pushView={nav.pushView}
+            selection={selection}
             onSendToAI={onSendToAI}
             aiReviewLoading={ai.aiReviewLoading} aiCommitMsgLoading={ai.aiCommitMsgLoading}
             aiPrLoading={ai.aiPrLoading}

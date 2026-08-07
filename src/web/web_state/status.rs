@@ -96,7 +96,6 @@ impl super::WebStateHandle {
             Running::Busy => self.cancel_watcher_timer(session_id).await,
             Running::Idle => {
                 self.try_trigger_watcher(session_id).await;
-                self.try_advance_mission(session_id).await;
                 self.try_fire_idle_routines(session_id).await;
                 self.try_advance_kanban_pipeline(session_id).await;
             }

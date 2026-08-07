@@ -1,13 +1,19 @@
 /**
  * DesktopLayout — side-by-side file explorer + editor for desktop breakpoints.
  */
-import { useRef, useState, useCallback, useEffect } from "react";
-import { Loader2, File, X, PanelLeftOpen, FilePlus, FolderPlus } from "lucide-react";
+import { useRef, useState, useCallback } from "react";
+import { Loader2, PanelLeftOpen, FilePlus, FolderPlus } from "lucide-react";
 import type { OpenFileEntry, FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode, FileEntry } from "../types";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorBody } from "./EditorBody";
 import { ExplorerTree } from "./ExplorerTree";
 import { ExplorerHeader } from "./ExplorerHeader";
+import { ExplorerOpenFiles } from "../explorer/ExplorerOpenFiles";
+import { ExplorerResults } from "../explorer/ExplorerResults";
+import { InlineNameField } from "../explorer/ExplorerBits";
+import { useExplorerFinder } from "../explorer/useExplorerFinder";
+import { useExplorerChrome } from "../explorer/useExplorerChrome";
+import { useCommands } from "../../keybindings/useCommand";
 
 interface Props {
   editorRef: React.RefObject<HTMLDivElement>;
@@ -50,6 +56,7 @@ interface Props {
   handleHover: () => void;
   handleDefinition: () => void;
   handleFormatWithLsp: () => void;
+  onJumpToLine?: (line: number, col: number) => void;
   // Save
   saveStatus: "saved" | "modified" | null;
   saving: boolean;
@@ -76,48 +83,27 @@ interface Props {
 export function DesktopLayout(p: Props) {
   const uploadRef = useRef<HTMLInputElement>(null);
   const [inlineCreate, setInlineCreate] = useState<"file" | "dir" | null>(null);
-  const [inlineValue, setInlineValue] = useState("");
-  const [hoverOpen, setHoverOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [explorerWidth, setExplorerWidth] = useState(200);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const resizing = useRef(false);
-
-  const clearHideTimer = useCallback(() => {
-    if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
-  }, []);
-
-  const scheduleHide = useCallback(() => {
-    clearHideTimer();
-    hideTimer.current = setTimeout(() => setHoverOpen(false), 180);
-  }, [clearHideTimer]);
-
-  useEffect(() => () => clearHideTimer(), [clearHideTimer]);
+  const finder = useExplorerFinder();
+  const collapse = useCallback(() => p.setExplorerCollapsed(true), [p.setExplorerCollapsed]);
+  const chrome = useExplorerChrome({
+    // An open inline field or a live filter query means the reader is still
+    // working in the panel, whatever the pointer is doing.
+    holdOpen: inlineCreate !== null || finder.active,
+    collapse,
+  });
 
   const showExplorer = !p.explorerCollapsed;
 
-  // ── Resize drag ──────────────────────────────────────
-  const onResizeStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    resizing.current = true;
-    const startX = e.clientX;
-    const startW = explorerWidth;
-
-    const onMove = (ev: PointerEvent) => {
-      if (!resizing.current) return;
-      const newW = Math.min(480, Math.max(140, startW + ev.clientX - startX));
-      setExplorerWidth(newW);
-    };
-    const onUp = () => {
-      resizing.current = false;
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-    };
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-  }, [explorerWidth]);
-
   const handleUploadClick = () => uploadRef.current?.click();
+
+  // Registered here rather than in the panel: these open the inline name field,
+  // which is this layout's state, not an API call.
+  useCommands({
+    "explorer.newFile": () => setInlineCreate("file"),
+    "explorer.newFolder": () => setInlineCreate("dir"),
+    "explorer.upload": handleUploadClick,
+    "layout.focusExplorer": () => p.setExplorerCollapsed(false),
+  });
   const handleUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       p.onUploadFiles?.(p.currentPath, e.target.files);
@@ -125,30 +111,34 @@ export function DesktopLayout(p: Props) {
     }
   };
 
-  const handleInlineSubmit = () => {
-    const trimmed = inlineValue.trim();
-    if (trimmed) {
-      if (inlineCreate === "file") p.onCreateFile?.(p.currentPath, trimmed);
-      else if (inlineCreate === "dir") p.onCreateDir?.(p.currentPath, trimmed);
-    }
+  const handleInlineSubmit = (name: string) => {
+    if (inlineCreate === "file") p.onCreateFile?.(p.currentPath, name);
+    else if (inlineCreate === "dir") p.onCreateDir?.(p.currentPath, name);
     setInlineCreate(null);
-    setInlineValue("");
   };
 
   return (
-    <div className="code-editor-panel code-editor-desktop" ref={p.editorRef}>
-      {/* Floating file explorer */}
+    <div className="code-editor-panel code-editor-desktop" ref={p.editorRef} data-surface="editor">
+      {/* Pinned it sits in the flow and the editor shrinks beside it;
+          unpinned it overlays and withdraws on its own. */}
       <div
-        className={`code-editor-explorer explorer-floating${showExplorer ? " explorer-floating-open" : ""}${pinned ? " explorer-pinned" : ""}`}
-        style={{ width: explorerWidth }}
-        onPointerDown={() => { clearHideTimer(); }}
+        className={`xpl${showExplorer ? " is-open" : ""}${chrome.pinned ? " is-pinned" : ""}`}
+        style={{ width: chrome.width }}
+        data-surface="explorer"
+        aria-hidden={!showExplorer}
+        onMouseEnter={chrome.cancelHide}
+        onMouseLeave={chrome.scheduleHide}
       >
         <ExplorerHeader
-          pinned={pinned}
-          onTogglePinned={() => setPinned((value) => !value)}
+          pinned={chrome.pinned}
+          query={finder.query}
+          searching={finder.searching}
+          onQueryChange={finder.setQuery}
+          onQueryClear={finder.clear}
+          onTogglePinned={chrome.togglePinned}
           onCollapse={() => p.setExplorerCollapsed(true)}
-          onCreateFile={p.onCreateFile ? () => { setInlineCreate("file"); setInlineValue(""); } : undefined}
-          onCreateDir={p.onCreateDir ? () => { setInlineCreate("dir"); setInlineValue(""); } : undefined}
+          onCreateFile={p.onCreateFile ? () => setInlineCreate("file") : undefined}
+          onCreateDir={p.onCreateDir ? () => setInlineCreate("dir") : undefined}
           onUploadFiles={p.onUploadFiles ? handleUploadClick : undefined}
           onReloadRoot={p.onReloadRoot}
         />
@@ -160,69 +150,50 @@ export function DesktopLayout(p: Props) {
           onChange={handleUploadChange}
         />
 
-        {/* Open files list */}
-        {p.openFiles.length > 0 && (
-          <div className="explorer-open-files">
-            <div className="explorer-section-label">Open Files</div>
-            {p.openFiles.map((f) => {
-              const name = f.path.split("/").pop() || f.path;
-              const isActive = f.path === p.activeFilePath;
-              return (
-                <div
-                  key={f.path}
-                  className={`explorer-open-file${isActive ? " active" : ""}`}
-                  onClick={() => {
-                    p.setActiveFilePath(f.path);
-                    p.setSaveStatus(f.editedContent !== null ? "modified" : null);
-                  }}
-                  title={f.path}
-                >
-                  <File size={13} className="file-icon" />
-                  <span className="file-name">{name}</span>
-                  {f.editedContent !== null && <span className="open-file-modified-dot" />}
-                  <button
-                    type="button"
-                    className="open-file-close"
-                    onClick={(e) => { e.stopPropagation(); p.closeFile(f.path); }}
-                    aria-label={`Close ${name}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+        {!finder.active && (
+          <ExplorerOpenFiles
+            openFiles={p.openFiles}
+            activeFilePath={p.activeFilePath}
+            onSelect={(f) => {
+              p.setActiveFilePath(f.path);
+              p.setSaveStatus(f.editedContent !== null ? "modified" : null);
+            }}
+            onClose={p.closeFile}
+          />
         )}
 
         {/* Root inline create */}
-        {inlineCreate && (
-          <div className="explorer-root-inline-create">
-            <div className="explorer-inline-input" style={{ paddingLeft: "8px" }}>
-              {inlineCreate === "dir"
-                ? <FolderPlus size={13} className="file-icon folder-icon" />
-                : <FilePlus size={13} className="file-icon" />}
-              <input
-                className="explorer-inline-name-input"
-                value={inlineValue}
-                placeholder={inlineCreate === "file" ? "filename" : "folder name"}
-                autoFocus
-                onChange={(e) => setInlineValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleInlineSubmit();
-                  if (e.key === "Escape") { setInlineCreate(null); setInlineValue(""); }
-                }}
-                onBlur={handleInlineSubmit}
-              />
-            </div>
-          </div>
+        {inlineCreate && !finder.active && (
+          <InlineNameField
+            initial=""
+            depth={0}
+            placeholder={inlineCreate === "file" ? "filename.ext" : "folder name"}
+            icon={inlineCreate === "dir"
+              ? <FolderPlus size={12} className="xpl-field-icon" />
+              : <FilePlus size={12} className="xpl-field-icon" />}
+            onSubmit={handleInlineSubmit}
+            onCancel={() => setInlineCreate(null)}
+          />
         )}
 
-        <div className="explorer-section-label">Files</div>
-        <div className="explorer-tree">
-          {p.loadingDir ? (
-            <div className="code-editor-loading"><Loader2 size={16} className="spin" /></div>
+        <div className="xpl-body">
+          {finder.active ? (
+            <ExplorerResults
+              query={finder.query.trim()}
+              results={finder.results}
+              searching={finder.searching}
+              error={finder.error}
+              activeFilePath={p.activeFilePath}
+              onOpenFile={(path) => { p.loadFile(path); finder.clear(); }}
+              onOpenDir={(path) => { finder.clear(); p.toggleDir(path); }}
+            />
+          ) : p.loadingDir ? (
+            <div className="xpl-state"><Loader2 size={14} className="spin" /> Loading files…</div>
           ) : p.entries.length === 0 ? (
-            <div className="code-editor-empty">Empty directory</div>
+            <div className="xpl-state">
+              This folder is empty.
+              <span className="xpl-state-hint">Use the menu above to add a file or folder.</span>
+            </div>
           ) : (
             <ExplorerTree
               entries={p.entries}
@@ -245,20 +216,31 @@ export function DesktopLayout(p: Props) {
           )}
         </div>
         {/* Resize handle */}
-        <div className="explorer-resize-handle" onPointerDown={onResizeStart} />
+        <div
+          className="xpl-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize explorer"
+          onPointerDown={chrome.onResizeStart}
+        />
       </div>
 
       {/* Editor area */}
-      <div className="code-editor-main">
-        <button
-          type="button"
-          className="explorer-expand-btn"
-          onClick={() => p.setExplorerCollapsed(false)}
-          title="Show explorer"
-          aria-label="Show explorer"
-        >
-          <PanelLeftOpen size={14} />
-        </button>
+      {/* The explorer is an overlay, so while it is open its own collapse
+          control is the one on screen; showing a second, mirrored control
+          underneath it only put a button on top of the filename. */}
+      <div className={`code-editor-main${showExplorer ? "" : " has-expand"}`}>
+        {!showExplorer && (
+          <button
+            type="button"
+            className="xpl-expand"
+            onClick={() => p.setExplorerCollapsed(false)}
+            title="Show explorer"
+            aria-label="Show explorer"
+          >
+            <PanelLeftOpen size={14} />
+          </button>
+        )}
         {p.openFile && (
           <EditorToolbar
             openFile={p.openFile}
@@ -292,6 +274,8 @@ export function DesktopLayout(p: Props) {
           languageLoading={p.languageLoading}
           activeDiagnostics={p.activeDiagnostics}
           hoverText={p.hoverText}
+          lspAvailable={p.lspAvailable}
+          onJumpToLine={p.onJumpToLine}
           activeEntry={p.activeEntry}
           setOpenFiles={p.setOpenFiles}
         />

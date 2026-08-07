@@ -9,14 +9,9 @@ interface Props {
   onOpenThemeSelector: () => void;
   onOpenCheatsheet: () => void;
   onOpenNotificationPrefs?: () => void;
-  onOpenAssistantCenter?: () => void;
   onOpenMemory?: () => void;
   onOpenAutonomy?: () => void;
   onOpenRoutines?: () => void;
-  onOpenDelegation?: () => void;
-  onOpenWorkspaceManager?: () => void;
-  onOpenInbox?: () => void;
-  onOpenMissions?: () => void;
   sidebarOpen: boolean;
   terminalOpen: boolean;
   neovimOpen: boolean;

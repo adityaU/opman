@@ -32,6 +32,7 @@ fn tc() -> WebThemeColors {
 
 fn theme() -> WebThemePair {
     WebThemePair {
+        name: "test-theme".to_string(),
         dark: tc(),
         light: tc(),
     }

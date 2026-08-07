@@ -12,20 +12,20 @@
 //!
 //! No TUI dependency — the web server is fully standalone.
 
-mod assistant;
+mod assistant_autonomy;
+mod assistant_memory;
+mod assistant_routine_exec;
+mod assistant_routines;
+mod assistant_send;
 mod background;
 mod db_sync;
-mod delegation;
 mod file_edits;
 mod kanban;
 mod kanban_pipeline;
 mod kanban_pipeline_brief;
 mod kanban_query;
 pub(crate) use kanban::KanbanError;
-mod intelligence_handoffs;
-mod intelligence_inbox;
-mod intelligence_misc;
-mod intelligence_recs;
+mod active_memory;
 mod mutations;
 mod presence;
 mod queries;
@@ -43,7 +43,7 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio::sync::{broadcast, RwLock};
 use tokio::task::AbortHandle;
-use tracing::info;
+
 
 use crate::config::Config;
 
@@ -97,13 +97,9 @@ pub(super) struct WebStateInner {
     pub(super) file_snapshots: HashMap<String, HashMap<String, String>>,
     /// Per-session ordered list of file edit events.
     pub(super) file_edits: HashMap<String, Vec<FileEditRecord>>,
-    // ── Session Continuity: presence + activity ──────────────────
+    // ── Session Continuity: presence ─────────────────────────────
     /// Connected clients, keyed by client_id.
     pub(super) connected_clients: HashMap<String, ClientPresence>,
-    /// Per-session recent activity events (ring buffer, max 200 per session).
-    pub(super) activity_log: HashMap<String, Vec<ActivityEventPayload>>,
-    /// Saved missions, keyed by ID.
-    pub(super) missions: HashMap<String, Mission>,
     /// Saved personal memory items, keyed by ID.
     pub(super) personal_memory: HashMap<String, PersonalMemoryItem>,
     /// Current autonomy settings.
@@ -112,14 +108,6 @@ pub(super) struct WebStateInner {
     pub(super) routines: HashMap<String, RoutineDefinition>,
     /// Routine execution history.
     pub(super) routine_runs: Vec<RoutineRunRecord>,
-    /// Delegated work items.
-    pub(super) delegated_work: HashMap<String, DelegatedWorkItem>,
-    // ── Workspace Snapshots ─────────────────────────────────────
-    /// Saved workspace snapshots, keyed by name.
-    pub(super) workspaces: HashMap<String, WorkspaceSnapshot>,
-    // ── Signals ─────────────────────────────────────────────────
-    /// Persisted assistant signals (newest first, max 100).
-    pub(super) signals: Vec<SignalInput>,
     // ── Pending permissions & questions (ephemeral, from SSE) ──
     /// Pending permission requests, keyed by request ID.
     /// Stored as raw JSON so the frontend receives the same shape as SSE events.
@@ -250,7 +238,7 @@ impl WebStateHandle {
         let db = Db::open().unwrap_or_else(|e| {
             panic!("failed to open assistant database: {e}");
         });
-        super::db::migrate::run_migration(&db);
+        super::db::migrate_legacy_json::run_migration(&db);
 
         let projects: Vec<WebProject> = config
             .projects
@@ -292,11 +280,6 @@ impl WebStateHandle {
     /// Build the inner mutable state, loading persisted collections from `db`.
     /// Shared by the production constructor and the test constructors.
     fn build_inner(db: &Db, projects: Vec<WebProject>) -> WebStateInner {
-        let missions: HashMap<String, Mission> = db
-            .list_missions()
-            .into_iter()
-            .map(|m| (m.id.clone(), m))
-            .collect();
         let personal_memory: HashMap<String, PersonalMemoryItem> = db
             .list_memory()
             .into_iter()
@@ -309,17 +292,6 @@ impl WebStateHandle {
             .map(|r| (r.id.clone(), r))
             .collect();
         let routine_runs = db.list_routine_runs();
-        let delegated_work: HashMap<String, DelegatedWorkItem> = db
-            .list_delegated_work()
-            .into_iter()
-            .map(|d| (d.id.clone(), d))
-            .collect();
-        let workspaces: HashMap<String, WorkspaceSnapshot> = db
-            .list_workspaces()
-            .into_iter()
-            .map(|ws| (ws.name.clone(), ws))
-            .collect();
-        let signals = db.list_signals(100);
 
         WebStateInner {
             startup_ready: false,
@@ -344,15 +316,10 @@ impl WebStateHandle {
             file_snapshots: HashMap::new(),
             file_edits: HashMap::new(),
             connected_clients: HashMap::new(),
-            activity_log: HashMap::new(),
-            missions,
             personal_memory,
             autonomy_settings,
             routines,
             routine_runs,
-            delegated_work,
-            workspaces,
-            signals,
             pending_permissions: HashMap::new(),
             pending_questions: HashMap::new(),
             error_sessions: HashMap::new(),

@@ -3,6 +3,7 @@ import { verifyToken, login, fetchBootstrap } from "./api";
 import { LoginPage } from "./LoginPage";
 import { ChatLayout } from "./ChatLayout";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { KeymapRoot } from "./keybindings/KeymapRoot";
 import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
 import { applyThemeToCss } from "./utils/theme";
 import { initAppearance, resolveThemeColors, storeThemePair } from "./utils/appearance";
@@ -64,7 +65,9 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <ChatLayout />
+      <KeymapRoot>
+        <ChatLayout />
+      </KeymapRoot>
     </ErrorBoundary>
   );
 }

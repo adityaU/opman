@@ -4,6 +4,7 @@ import {
   MessageSquare, FileEdit, GitPullRequest,
 } from "lucide-react";
 import type { GitFileEntry, GitView } from "../types";
+import type { GitSelection } from "../useGitSelection";
 import { FileSection } from "./FileSection";
 
 interface Props {
@@ -29,6 +30,7 @@ interface Props {
   handleAIReview: () => void;
   handleAICommitMsg: () => void;
   openPRBranchPicker: () => void;
+  selection: GitSelection;
 }
 
 export function ChangesListView({
@@ -37,7 +39,7 @@ export function ChangesListView({
   handleStage, handleUnstage, handleStageAll, handleUnstageAll, handleDiscard,
   pushView, onSendToAI,
   aiReviewLoading, aiCommitMsgLoading, aiPrLoading,
-  handleAIReview, handleAICommitMsg, openPRBranchPicker,
+  handleAIReview, handleAICommitMsg, openPRBranchPicker, selection,
 }: Props) {
   const commitInputRef = useRef<HTMLTextAreaElement>(null);
   const [stagedOpen, setStagedOpen]       = useState(true);
@@ -108,18 +110,18 @@ export function ChangesListView({
       <FileSection
         title="Staged" files={staged} isOpen={stagedOpen}
         onToggle={() => setStagedOpen((v) => !v)} pushView={pushView}
-        variant="staged" onBulkAction={handleUnstageAll} onFileAction={handleUnstage}
+        selection={selection} variant="staged" onBulkAction={handleUnstageAll} onFileAction={handleUnstage}
       />
       <FileSection
         title="Changes" files={unstaged} isOpen={unstagedOpen}
         onToggle={() => setUnstagedOpen((v) => !v)} pushView={pushView}
-        variant="unstaged" onBulkAction={handleStageAll} onFileAction={handleStage}
+        selection={selection} variant="unstaged" onBulkAction={handleStageAll} onFileAction={handleStage}
         onDiscard={handleDiscard}
       />
       <FileSection
         title="Untracked" files={untracked} isOpen={untrackedOpen}
         onToggle={() => setUntrackedOpen((v) => !v)} pushView={pushView}
-        variant="untracked" onBulkAction={handleStageAll} onFileAction={handleStage}
+        selection={selection} variant="untracked" onBulkAction={handleStageAll} onFileAction={handleStage}
       />
     </>
   );

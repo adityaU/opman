@@ -107,8 +107,11 @@ pub struct ServerState {
     /// Shared HTTP client for proxying requests to the opencode server.
     /// Reuses TCP connections across requests (connection pooling).
     pub http_client: reqwest::Client,
-    /// Shared neovim socket registry for LSP-backed editor features.
+    /// Shared neovim socket registry, still used by the terminal and MCP tools.
     pub nvim_registry: NvimSocketRegistry,
+    /// Running language servers for the file editor's LSP features. Started on
+    /// demand per (project root, language); no Neovim session required.
+    pub lsp: std::sync::Arc<crate::lsp::LspPool>,
     /// Skills registry for MCP server.
     pub skills_registry: SkillsRegistry,
     /// Broadcast sender for skills reload.

@@ -12,7 +12,7 @@ const APPEARANCE_KEY = "opman-appearance";
 export function getPersistedAppearance(): Appearance {
   try {
     const v = localStorage.getItem(APPEARANCE_KEY);
-    if (v === "light" || v === "dark") return v;
+    if (v === "light" || v === "dark" || v === "system") return v;
   } catch { /* ignore */ }
   return "dark";
 }
@@ -66,6 +66,17 @@ let _cleanupListener: (() => void) | null = null;
 export function storeThemePair(pair: ThemePair, appearance: Appearance): void {
   _storedPair = pair;
   _storedAppearance = appearance;
+}
+
+/**
+ * Name of the palette currently applied, or "" before the first pair arrives.
+ *
+ * The active theme lives server-side, so this is the only thing the client can
+ * compare a theme list against — a picker without it has to guess, and guessing
+ * means highlighting row zero.
+ */
+export function activeThemeName(): string {
+  return _storedPair?.name ?? "";
 }
 
 /**

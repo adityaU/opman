@@ -13,9 +13,9 @@ impl Db {
         let conn = self.conn();
         let mut stmt = conn
             .prepare(
-                "SELECT id, name, trigger, action, enabled, cron_expr, timezone,
+                "SELECT id, name, trigger, enabled, cron_expr, timezone,
                         target_mode, session_id, project_index, prompt,
-                        provider_id, model_id, mission_id,
+                        provider_id, model_id,
                         last_run_at, next_run_at, last_error,
                         created_at, updated_at
                  FROM routines ORDER BY updated_at DESC",
@@ -27,24 +27,22 @@ impl Db {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 trigger: parse_trigger(&row.get::<_, String>(2)?),
-                action: parse_action(&row.get::<_, String>(3)?),
-                enabled: row.get::<_, i64>(4)? != 0,
-                cron_expr: row.get(5)?,
-                timezone: row.get(6)?,
+                enabled: row.get::<_, i64>(3)? != 0,
+                cron_expr: row.get(4)?,
+                timezone: row.get(5)?,
                 target_mode: row
-                    .get::<_, Option<String>>(7)?
+                    .get::<_, Option<String>>(6)?
                     .map(|s| parse_target_mode(&s)),
-                session_id: row.get(8)?,
-                project_index: row.get::<_, Option<i64>>(9)?.map(|v| v as usize),
-                prompt: row.get(10)?,
-                provider_id: row.get(11)?,
-                model_id: row.get(12)?,
-                mission_id: row.get(13)?,
-                last_run_at: row.get(14)?,
-                next_run_at: row.get(15)?,
-                last_error: row.get(16)?,
-                created_at: row.get(17)?,
-                updated_at: row.get(18)?,
+                session_id: row.get(7)?,
+                project_index: row.get::<_, Option<i64>>(8)?.map(|v| v as usize),
+                prompt: row.get(9)?,
+                provider_id: row.get(10)?,
+                model_id: row.get(11)?,
+                last_run_at: row.get(12)?,
+                next_run_at: row.get(13)?,
+                last_error: row.get(14)?,
+                created_at: row.get(15)?,
+                updated_at: row.get(16)?,
             })
         })
         .expect("query list_routines")
@@ -57,17 +55,16 @@ impl Db {
         let conn = self.conn();
         conn.execute(
             "INSERT INTO routines
-                (id, name, trigger, action, enabled, cron_expr, timezone,
+                (id, name, trigger, enabled, cron_expr, timezone,
                  target_mode, session_id, project_index, prompt,
-                 provider_id, model_id, mission_id,
+                 provider_id, model_id,
                  last_run_at, next_run_at, last_error,
                  created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             params![
                 r.id,
                 r.name,
                 trigger_str(&r.trigger),
-                action_str(&r.action),
                 r.enabled as i64,
                 r.cron_expr,
                 r.timezone,
@@ -77,7 +74,6 @@ impl Db {
                 r.prompt,
                 r.provider_id,
                 r.model_id,
-                r.mission_id,
                 r.last_run_at,
                 r.next_run_at,
                 r.last_error,
@@ -94,17 +90,16 @@ impl Db {
         let conn = self.conn();
         let changed = conn
             .execute(
-                "UPDATE routines SET name=?1, trigger=?2, action=?3,
-                    enabled=?4, cron_expr=?5, timezone=?6,
-                    target_mode=?7, session_id=?8, project_index=?9,
-                    prompt=?10, provider_id=?11, model_id=?12, mission_id=?13,
-                    last_run_at=?14, next_run_at=?15, last_error=?16,
-                    updated_at=?17
-                 WHERE id=?18",
+                "UPDATE routines SET name=?1, trigger=?2,
+                    enabled=?3, cron_expr=?4, timezone=?5,
+                    target_mode=?6, session_id=?7, project_index=?8,
+                    prompt=?9, provider_id=?10, model_id=?11,
+                    last_run_at=?12, next_run_at=?13, last_error=?14,
+                    updated_at=?15
+                 WHERE id=?16",
                 params![
                     r.name,
                     trigger_str(&r.trigger),
-                    action_str(&r.action),
                     r.enabled as i64,
                     r.cron_expr,
                     r.timezone,
@@ -114,7 +109,6 @@ impl Db {
                     r.prompt,
                     r.provider_id,
                     r.model_id,
-                    r.mission_id,
                     r.last_run_at,
                     r.next_run_at,
                     r.last_error,
@@ -208,24 +202,6 @@ pub(crate) fn parse_trigger(s: &str) -> RoutineTrigger {
     }
 }
 
-pub(crate) fn action_str(a: &RoutineAction) -> &'static str {
-    match a {
-        RoutineAction::SendMessage => "send_message",
-        RoutineAction::ReviewMission => "review_mission",
-        RoutineAction::OpenInbox => "open_inbox",
-        RoutineAction::OpenActivityFeed => "open_activity_feed",
-    }
-}
-
-pub(crate) fn parse_action(s: &str) -> RoutineAction {
-    match s {
-        "send_message" => RoutineAction::SendMessage,
-        "open_inbox" => RoutineAction::OpenInbox,
-        "open_activity_feed" => RoutineAction::OpenActivityFeed,
-        _ => RoutineAction::ReviewMission,
-    }
-}
-
 pub(crate) fn target_mode_str(t: &RoutineTargetMode) -> &'static str {
     match t {
         RoutineTargetMode::ExistingSession => "existing_session",
@@ -251,7 +227,6 @@ mod tests {
             id: "rt-1".into(),
             name: "Daily review".into(),
             trigger: RoutineTrigger::Scheduled,
-            action: RoutineAction::SendMessage,
             enabled: true,
             cron_expr: Some("0 9 * * *".into()),
             timezone: Some("America/New_York".into()),
@@ -261,7 +236,6 @@ mod tests {
             prompt: Some("Review the current state of the project".into()),
             provider_id: None,
             model_id: None,
-            mission_id: None,
             last_run_at: None,
             next_run_at: None,
             last_error: None,
@@ -273,7 +247,6 @@ mod tests {
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].name, "Daily review");
         assert_eq!(listed[0].trigger, RoutineTrigger::Scheduled);
-        assert_eq!(listed[0].action, RoutineAction::SendMessage);
         assert!(listed[0].enabled);
         assert_eq!(listed[0].cron_expr.as_deref(), Some("0 9 * * *"));
         assert_eq!(

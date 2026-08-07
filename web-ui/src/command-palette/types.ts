@@ -16,18 +16,10 @@ export interface CommandPaletteProps {
   onOpenSearch: () => void;
   onOpenCrossSearch: () => void;
   onOpenSplitView?: () => void;
-  onOpenSessionGraph?: () => void;
-  onOpenSessionDashboard?: () => void;
-  onOpenActivityFeed?: () => void;
   onOpenNotificationPrefs?: () => void;
-  onOpenInbox?: () => void;
-  onOpenAssistantCenter?: () => void;
   onOpenMemory?: () => void;
   onOpenAutonomy?: () => void;
   onOpenRoutines?: () => void;
-  onOpenDelegation?: () => void;
-  onOpenWorkspaceManager?: () => void;
-  onOpenMissions?: () => void;
   onOpenSystemMonitor?: () => void;
   onOpenSkillsUpload?: () => void;
   sessionId: string | null;

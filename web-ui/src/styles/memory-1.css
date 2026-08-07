@@ -234,7 +234,7 @@
     background: var(--theme-error-soft)
 }
 
-.memory-input,.memory-textarea,.memory-select,.routines-input,.routines-select,.delegation-input,.delegation-textarea,.delegation-select,.missions-input,.missions-textarea,.missions-select,.workspace-mgr-save input {
+.memory-input,.memory-textarea,.memory-select,.routines-input,.routines-select{
     min-height: 42px;
     padding: 10px 12px;
     border-radius: var(--radius);
@@ -243,20 +243,20 @@
     transition: border-color var(--transition-fast),box-shadow var(--transition-fast),background var(--transition-fast)
 }
 
-.memory-textarea,.delegation-textarea,.missions-textarea {
+.memory-textarea{
     min-height: 96px
 }
 
-.memory-input::placeholder,.memory-textarea::placeholder,.routines-input::placeholder,.delegation-input::placeholder,.delegation-textarea::placeholder,.missions-input::placeholder,.missions-textarea::placeholder,.workspace-mgr-save input::placeholder {
+.memory-input::placeholder,.memory-textarea::placeholder,.routines-input::placeholder{
     color: color-mix(in srgb,var(--color-text-muted) 82%,transparent)
 }
 
-.memory-input:focus,.memory-textarea:focus,.memory-select:focus,.routines-input:focus,.routines-select:focus,.delegation-input:focus,.delegation-textarea:focus,.delegation-select:focus,.missions-input:focus,.missions-textarea:focus,.missions-select:focus,.workspace-mgr-save input:focus {
+.memory-input:focus,.memory-textarea:focus,.memory-select:focus,.routines-input:focus,.routines-select:focus{
     border-color: color-mix(in srgb,var(--color-primary) 55%,transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb,var(--color-primary) 16%,transparent)
 }
 
-.memory-select,.routines-select,.delegation-select,.missions-select {
+.memory-select,.routines-select{
     -moz-appearance: none;
     appearance: none;
     -webkit-appearance: none;
@@ -267,7 +267,7 @@
     padding-right: 34px
 }
 
-.memory-create-btn,.missions-create-btn,.routines-create-btn,.delegation-create-btn,.workspace-mgr-save button,.assistant-center-footer-actions button,.mission-handoff-btn,.workspace-mgr-restore-btn {
+.memory-create-btn,.routines-create-btn{
     min-height: 38px;
     padding: 8px 14px;
     border-radius: var(--radius);
@@ -279,13 +279,13 @@
     transition: transform var(--transition-fast),filter var(--transition-fast),border-color var(--transition-fast),background var(--transition-fast)
 }
 
-.memory-create-btn:hover:not(:disabled),.missions-create-btn:hover:not(:disabled),.routines-create-btn:hover:not(:disabled),.delegation-create-btn:hover:not(:disabled),.workspace-mgr-save button:hover:not(:disabled),.assistant-center-footer-actions button:hover,.mission-handoff-btn:hover,.workspace-mgr-restore-btn:hover {
+.memory-create-btn:hover:not(:disabled),.routines-create-btn:hover:not(:disabled){
     transform: translateY(-1px);
     filter: brightness(1.03);
     border-color: color-mix(in srgb,var(--color-primary) 34%,var(--color-border))
 }
 
-.memory-edit-btn,.memory-delete-btn,.routines-item-actions button,.delegation-open-btn,.delegation-delete-btn,.missions-delete-btn,.workspace-mgr-delete-btn,.assistant-inbox-item-actions button {
+.memory-edit-btn,.memory-delete-btn,.routines-item-actions button{
     min-height: 36px;
     border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);

@@ -2054,11 +2054,12 @@ impl RunnerRegistry {
             .context("current runner is not available")?
             .messages(&current.physical_id, &current.directory)
             .await?;
-        let summary = summarize_transcript(&history);
+        let transcript = crate::runner_handoff::render_transcript(&history);
         let user_text = extract_text(&body);
-        let handoff = format!(
-            "You are taking over a coding session from the {} runner.\n\nSession summary:\n{}\n\nContinue with this new user request:\n{}",
-            current.runner.display_name(), summary, user_text
+        let handoff = crate::runner_handoff::build_prompt(
+            &current.runner.display_name(),
+            &transcript,
+            &user_text,
         );
         let session = target.create_session(directory, "Handoff session").await?;
         let mut handoff_body = body;
@@ -2186,47 +2187,6 @@ fn recent_progress_messages(body: &Value, limit: usize) -> Vec<Value> {
             .unwrap_or(0)
     });
     messages.into_iter().rev().take(limit).collect()
-}
-
-/// Produce a bounded, deterministic handoff summary. It deliberately does not
-/// call an LLM, so switching runners works even when the old runner is offline.
-pub fn summarize_transcript(body: &Value) -> String {
-    let values: Vec<Value> = if let Some(array) = body.as_array() {
-        array.clone()
-    } else if let Some(object) = body.as_object() {
-        object.values().cloned().collect()
-    } else {
-        Vec::new()
-    };
-    let mut lines = Vec::new();
-    for message in values {
-        let role = message
-            .pointer("/info/role")
-            .and_then(Value::as_str)
-            .unwrap_or("message");
-        let text = message
-            .get("parts")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|p| p.get("text").and_then(Value::as_str))
-            .collect::<Vec<_>>()
-            .join(" ");
-        if !text.trim().is_empty() {
-            lines.push(format!("{}: {}", role, text.trim()));
-        }
-    }
-    let mut result = lines.join("\n");
-    const MAX: usize = 12_000;
-    if result.len() > MAX {
-        result.truncate(MAX);
-        result.push_str("\n[Earlier transcript omitted]");
-    }
-    if result.is_empty() {
-        "No transcript was available.".to_string()
-    } else {
-        result
-    }
 }
 
 #[cfg(test)]
@@ -2374,12 +2334,6 @@ mod tests {
         );
         assert_eq!(RunnerKind::parse("codex"), Some(RunnerKind::Codex));
         assert_eq!(RunnerKind::parse("nope"), None);
-    }
-
-    #[test]
-    fn transcript_summary_is_bounded_and_readable() {
-        let body = json!([{ "info": { "role": "user" }, "parts": [{ "text": "hello" }] }]);
-        assert_eq!(summarize_transcript(&body), "user: hello");
     }
 
     /// Sends must go to `prompt_async`, not `/message`.

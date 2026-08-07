@@ -89,9 +89,6 @@ fn render_payload_events_are_some() {
             tool: "read".into(),
             active: true,
         },
-        WebEvent::MissionUpdated {
-            mission: serde_json::json!({"id": "m"}),
-        },
         WebEvent::KanbanTaskUpdated {
             project_path: "/p".into(),
             task_id: "t".into(),
@@ -121,6 +118,7 @@ fn render_payload_events_are_some() {
 fn render_serialized_events_are_some() {
     assert!(render_web_event(&WebEvent::StatsUpdated(WebSessionStats::default())).is_some());
     assert!(render_web_event(&WebEvent::ThemeChanged(WebThemePair {
+        name: "test-theme".to_string(),
         dark: theme_colors(),
         light: theme_colors(),
     }))
@@ -128,18 +126,8 @@ fn render_serialized_events_are_some() {
     assert!(
         render_web_event(&WebEvent::WatcherStatusChanged(WatcherStatusEvent {
             session_id: "s".into(),
-            action: "created".into(),
+            action: "countdown".into(),
             idle_since_secs: Some(4),
-        }))
-        .is_some()
-    );
-    assert!(
-        render_web_event(&WebEvent::ActivityEvent(ActivityEventPayload {
-            session_id: "s".into(),
-            kind: "status".into(),
-            summary: "done".into(),
-            detail: None,
-            timestamp: "2026-01-01T00:00:00Z".into(),
         }))
         .is_some()
     );

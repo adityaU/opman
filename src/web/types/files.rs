@@ -59,12 +59,22 @@ pub struct EditorLspQuery {
     pub session_id: String,
     pub line: Option<i64>,
     pub col: Option<i64>,
+    /// The editor's current buffer, when it has unsaved edits. Without it the
+    /// language server would answer about the file as last saved, and every
+    /// position after the first edit would describe the wrong symbol.
+    pub content: Option<String>,
+    /// The character that triggered a completion request, when one did. Servers
+    /// answer `.` with a short member list and a bare request with everything
+    /// in scope, so this changes the result materially.
+    pub trigger: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct EditorFormatRequest {
     pub path: String,
     pub session_id: String,
+    /// Unsaved buffer to format, when the editor has one.
+    pub content: Option<String>,
 }
 
 // ── File management request/response types ──────────────────────────

@@ -10,8 +10,6 @@ mod agents_handlers;
 mod auth_handlers;
 mod common;
 mod context_handlers;
-mod dashboard_ext_handlers;
-mod dashboard_handlers;
 mod doc_handlers;
 mod doc_readers;
 mod doc_readers_docx;
@@ -24,15 +22,18 @@ mod git_context_handlers;
 mod git_ext_handlers;
 mod git_handlers;
 mod health_handlers;
-mod intelligence_handlers;
+mod memory_handlers;
 mod kanban_handlers;
 mod kanban_internal;
 mod kanban_internal_query;
+mod presence_handlers;
 mod project_handlers;
 mod pty_handlers;
+mod routines_handlers;
 mod search_handlers;
 mod session_handlers;
 mod skills_handlers;
+mod keybindings_handlers;
 mod state_handlers;
 pub(crate) mod system_handlers;
 mod watcher_handlers;
@@ -46,6 +47,7 @@ mod handler_tests;
 // continues to work from the router in `super::mod`.
 
 pub use auth_handlers::{health, login, verify};
+pub use keybindings_handlers::{get_keybindings, put_keybindings};
 
 pub use state_handlers::{
     get_session_stats, get_state, get_theme, list_themes, public_bootstrap, switch_theme,
@@ -87,7 +89,8 @@ pub use doc_handlers::{doc_read, doc_write};
 pub use download_handlers::{download_dir, download_file};
 
 pub use editor_handlers::{
-    editor_lsp_definition, editor_lsp_diagnostics, editor_lsp_format, editor_lsp_hover,
+    editor_lsp_completion, editor_lsp_definition, editor_lsp_diagnostics, editor_lsp_format,
+    editor_lsp_hover,
 };
 
 pub use context_handlers::{get_context_window, get_session_todos, update_session_todos};
@@ -99,26 +102,18 @@ pub use watcher_handlers::{
     list_watchers,
 };
 
-pub use dashboard_handlers::{
-    create_mission, create_personal_memory, delete_mission, delete_personal_memory,
-    deregister_presence, get_activity_feed, get_autonomy_settings, get_mission, get_presence,
-    list_missions, list_personal_memory, mission_action, register_presence, sessions_overview,
-    sessions_tree, update_autonomy_settings, update_mission, update_personal_memory,
+pub use memory_handlers::{
+    create_personal_memory, delete_personal_memory, get_autonomy_settings, list_active_memory,
+    list_personal_memory, update_autonomy_settings, update_personal_memory,
 };
 
-pub use dashboard_ext_handlers::{
-    create_delegated_work, create_routine, delete_delegated_work, delete_routine, delete_workspace,
-    list_delegated_work, list_routines, list_workspaces, run_routine, save_workspace,
-    update_delegated_work, update_routine,
+pub use presence_handlers::{deregister_presence, get_presence, register_presence};
+
+pub use routines_handlers::{
+    create_routine, delete_routine, list_routines, run_routine, update_routine,
 };
 
 pub use system_handlers::get_system_stats;
-
-pub use intelligence_handlers::{
-    add_signal, compute_assistant_stats, compute_daily_summary, compute_inbox,
-    compute_recommendations, compute_resume_briefing, compute_session_handoff, list_active_memory,
-    list_signals, list_workspace_templates,
-};
 
 pub use skills_handlers::{
     create_skill, delete_skill, get_skill, list_skills, update_skill, upload_skills,

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Settings2, Plus, LayoutGrid, RefreshCw } from "lucide-react";
 import { useKanbanBoard, midpointOrder } from "./useKanbanBoard";
+import { useBoardCommands } from "./useBoardCommands";
+import { useBoardSelection } from "./useBoardSelection";
 import { KanbanLane } from "./KanbanLane";
 import { ArchiveColumn } from "./ArchiveColumn";
 import { TaskEditorModal } from "./TaskEditorModal";
@@ -147,6 +149,40 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
     [p, selectedIndex],
   );
 
+  const selection = useBoardSelection(board.board?.lanes ?? [], tasksByLane);
+
+  /**
+   * Move a card one lane over, honouring the board's transition graph — the
+   * same rule the drag path enforces, so the keyboard cannot perform a move the
+   * pointer would have rejected. The card lands at the end of the target lane.
+   */
+  const moveTaskLane = useCallback(
+    (task: Task, delta: number) => {
+      const lanes = board.board?.lanes ?? [];
+      const from = lanes.findIndex((lane) => lane.id === task.lane_id);
+      const target = lanes[from + delta];
+      if (!target || !board.canMove(task.lane_id, target.id)) return;
+      const column = tasksByLane.get(target.id) ?? [];
+      const last = column.reduce((max, t) => Math.max(max, t.order_index), 0);
+      board.moveTask(task.id, target.id, midpointOrder(last, null));
+    },
+    [board, tasksByLane],
+  );
+
+  useBoardCommands({
+    selection,
+    newTask: openNewTask,
+    configureLanes: () => setConfigOpen(true),
+    refresh: board.refetch,
+    openDetail,
+    editTask: openEditTask,
+    launchTask: setLaunchTask,
+    openSession: onOpenSession,
+    archiveTask: board.archiveTask,
+    moveTaskLane,
+  });
+
+
   if (board.loading && !board.board) {
     return (
       <div className="kanban-view kanban-view-loading">
@@ -170,7 +206,7 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
   const b: Board | null = board.board;
 
   return (
-    <div className="kanban-view">
+    <div className="kanban-view" data-surface="board">
       <div className="kanban-header">
         <div className="kanban-header-left">
           <LayoutGrid size={16} />
@@ -219,6 +255,8 @@ export const KanbanView: React.FC<Props> = function KanbanView(p) {
               onDragEnd={handleDragEnd}
               onDrop={handleDrop}
               onOpenDetail={openDetail}
+              selectedTaskId={selection.selectedId}
+              onSelectTask={selection.select}
               onLaunchTask={setLaunchTask}
               onOpenSession={onOpenSession}
             />

@@ -196,23 +196,6 @@ pub(crate) async fn handle_web_sse_event(
                     }
                     _ => {}
                 }
-
-                // Activity feed: emit status change
-                let summary = match status_props.status.status_type.as_str() {
-                    "busy" => "Session started processing".to_string(),
-                    "idle" => "Session completed".to_string(),
-                    "retry" => "Session retrying".to_string(),
-                    other => format!("Session status: {other}"),
-                };
-                handle
-                    .push_activity_event(ActivityEventPayload {
-                        session_id: sid,
-                        kind: "status".to_string(),
-                        summary,
-                        detail: Some(status_props.status.status_type.clone()),
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                    })
-                    .await;
             }
         }
         "file.edited" => {
@@ -235,17 +218,6 @@ pub(crate) async fn handle_web_sse_event(
                     let project_path = std::path::PathBuf::from(project_dir);
                     handle
                         .record_file_edit(&sid, file_path, Some(&project_path))
-                        .await;
-
-                    // Activity feed: emit file edit event
-                    handle
-                        .push_activity_event(ActivityEventPayload {
-                            session_id: sid.clone(),
-                            kind: "file_edit".to_string(),
-                            summary: format!("Edited {file_path}"),
-                            detail: Some(file_path.to_string()),
-                            timestamp: chrono::Utc::now().to_rfc3339(),
-                        })
                         .await;
 
                     // Broadcast a state change so the frontend knows a new file edit happened

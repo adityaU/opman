@@ -88,7 +88,7 @@ export async function getWatcherMessages(sessionId: string): Promise<WatcherMess
   );
 }
 
-// ── Activity Feed types ───────────────────────────────
+// ── Session activity event (SSE payload) ──────────────
 
 export interface ActivityEvent {
   session_id: string;
@@ -97,11 +97,6 @@ export interface ActivityEvent {
   summary: string;
   detail?: string;
   timestamp: string;
-}
-
-export interface ActivityFeedResponse {
-  session_id: string;
-  events: ActivityEvent[];
 }
 
 // ── Presence types ────────────────────────────────────
@@ -122,13 +117,7 @@ export interface PresenceSnapshot {
   clients: ClientPresence[];
 }
 
-// ── Activity / Presence API ───────────────────────────
-
-export async function fetchActivityFeed(sessionId: string): Promise<ActivityFeedResponse> {
-  return apiFetch<ActivityFeedResponse>(
-    `/activity?session_id=${encodeURIComponent(sessionId)}`
-  );
-}
+// ── Presence API ──────────────────────────────────────
 
 export async function fetchPresence(): Promise<PresenceResponse> {
   return apiFetch<PresenceResponse>("/presence");

@@ -59,12 +59,9 @@ export interface ChatMainAreaProps {
   fileEditCount: number;
   watcherStatus: any;
   presenceClients?: any[];
-  activeWorkspaceName?: string | null;
   autonomyMode?: any;
-  assistantPulse?: any;
   contextLimit: number | null;
   backend?: string;
-  onRunAssistantPulse?: () => void;
   onOpenWatcher: () => void;
   onOpenContextWindow: () => void;
   onToggleSidebar: () => void;
@@ -180,10 +177,10 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
     return p.activeProject?.sessions?.find((session: any) => session.id === p.activeSessionId)?.title || null;
   }, [p.activeProject, p.activeSessionId]);
 
-  const chatHeader = <StatusBar project={p.activeProject} stats={p.stats} connectionStatus={p.connectionStatus} sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen} neovimOpen={p.neovimOpen} gitOpen={p.gitOpen} watcherStatus={p.watcherStatus} presenceClients={p.presenceClients} activeWorkspaceName={p.activeWorkspaceName} contextLimit={p.contextLimit} sessionTitle={sessionTitle} showSidebarToggle={!p.sidebarOpen} onToggleSidebar={p.onToggleSidebar} onToggleTerminal={p.toggleTerminal} onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit} onOpenCommandPalette={p.openCommandPalette} onOpenWatcher={p.onOpenWatcher} onOpenContextWindow={p.onOpenContextWindow} />;
+  const chatHeader = <StatusBar project={p.activeProject} stats={p.stats} connectionStatus={p.connectionStatus} sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen} neovimOpen={p.neovimOpen} gitOpen={p.gitOpen} watcherStatus={p.watcherStatus} presenceClients={p.presenceClients} contextLimit={p.contextLimit} sessionTitle={sessionTitle} showSidebarToggle={!p.sidebarOpen} onToggleSidebar={p.onToggleSidebar} onToggleTerminal={p.toggleTerminal} onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit} onOpenCommandPalette={p.openCommandPalette} onOpenWatcher={p.onOpenWatcher} onOpenContextWindow={p.onOpenContextWindow} />;
 
   return (
-    <div className="chat-content">
+    <div className="chat-content" data-surface="chat">
       {/* Sidebar */}
       {p.sidebarOpen && (
         <>
@@ -367,6 +364,9 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
             onMouseDown={p.focusSide}
             onFocus={p.focusSide}
           >
+             {/* One panel needs no tab strip — it gets the whole right side.
+                 Closing stays available from the header toggles / ⌘⇧-shortcuts. */}
+             {visibleRightPanels.length > 1 && (
              <div className="right-panel-tabs" role="tablist">
                {visibleRightPanels.map((id) => (
                  <div key={id} className={"right-panel-tab" + (activeRightPanel === id ? " active" : "")}>
@@ -394,6 +394,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
                  </div>
                ))}
              </div>
+             )}
             {p.terminalMounted && (
               <div className="side-panel-section right-panel-card" style={{ display: p.terminalOpen && activeRightPanel === "terminal" ? undefined : "none" }}>
                 <div className="side-panel-body">
@@ -406,6 +407,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
                 <div className="side-panel-body">
                   <Suspense fallback={null}>
                     <CodeEditorPanel
+                      layout="desktop"
                       focused={p.neovimOpen && !p.gitOpen}
                       openFilePath={p.mcpEditorOpenPath}
                       openLine={p.mcpEditorOpenLine}

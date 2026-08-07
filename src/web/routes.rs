@@ -21,6 +21,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/session/{session_id}/stats",
             get(handlers::get_session_stats),
         )
+        .route(
+            "/keybindings",
+            get(handlers::get_keybindings).put(handlers::put_keybindings),
+        )
         .route("/theme", get(handlers::get_theme))
         .route("/themes", get(handlers::list_themes))
         .route("/theme/switch", post(handlers::switch_theme))
@@ -95,8 +99,6 @@ pub(super) fn build_router(state: ServerState) -> Router {
             post(handlers::a2ui_callback),
         )
         // ── Multi-session dashboard ──────────────────────────────────
-        .route("/sessions/overview", get(handlers::sessions_overview))
-        .route("/sessions/tree", get(handlers::sessions_tree))
         .route("/providers", get(handlers::get_providers))
         .route("/commands", get(handlers::get_commands))
         .route(
@@ -146,15 +148,18 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/dir/create", post(handlers::create_dir))
         .route("/dir/delete", post(handlers::delete_dir))
         .route("/dir/download", get(handlers::download_dir))
+        // POST rather than GET: these carry the editor's unsaved buffer, which
+        // does not fit in a query string.
         .route(
             "/editor/lsp/diagnostics",
-            get(handlers::editor_lsp_diagnostics),
+            post(handlers::editor_lsp_diagnostics),
         )
-        .route("/editor/lsp/hover", get(handlers::editor_lsp_hover))
+        .route("/editor/lsp/hover", post(handlers::editor_lsp_hover))
         .route(
             "/editor/lsp/definition",
-            get(handlers::editor_lsp_definition),
+            post(handlers::editor_lsp_definition),
         )
+        .route("/editor/lsp/completion", post(handlers::editor_lsp_completion))
         .route("/editor/lsp/format", post(handlers::editor_lsp_format))
         // ── Session Watcher ──────────────────────────────────────────
         .route("/watchers", get(handlers::list_watchers))
@@ -175,22 +180,6 @@ pub(super) fn build_router(state: ServerState) -> Router {
                 .post(handlers::register_presence)
                 .delete(handlers::deregister_presence),
         )
-        .route("/activity", get(handlers::get_activity_feed))
-        // ── Missions (v2: goal-driven loop) ──────────────────────────
-        .route(
-            "/missions",
-            get(handlers::list_missions).post(handlers::create_mission),
-        )
-        .route(
-            "/missions/{mission_id}",
-            get(handlers::get_mission)
-                .patch(handlers::update_mission)
-                .delete(handlers::delete_mission),
-        )
-        .route(
-            "/missions/{mission_id}/action",
-            post(handlers::mission_action),
-        )
         // ── Personal Memory ─────────────────────────────────────
         .route(
             "/memory",
@@ -201,6 +190,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
             axum::routing::patch(handlers::update_personal_memory)
                 .delete(handlers::delete_personal_memory),
         )
+        .route("/memory/active", get(handlers::list_active_memory))
         // ── Autonomy Controls ──────────────────────────────────
         .route(
             "/autonomy",
@@ -216,44 +206,8 @@ pub(super) fn build_router(state: ServerState) -> Router {
             axum::routing::patch(handlers::update_routine).delete(handlers::delete_routine),
         )
         .route("/routines/{routine_id}/run", post(handlers::run_routine))
-        // ── Delegation Board ─────────────────────────────────
-        .route(
-            "/delegation",
-            get(handlers::list_delegated_work).post(handlers::create_delegated_work),
-        )
-        .route(
-            "/delegation/{item_id}",
-            axum::routing::patch(handlers::update_delegated_work)
-                .delete(handlers::delete_delegated_work),
-        )
-        // ── Workspace Snapshots ─────────────────────────────────────
-        .route(
-            "/workspaces",
-            get(handlers::list_workspaces)
-                .post(handlers::save_workspace)
-                .delete(handlers::delete_workspace),
-        )
         // ── MCP WebSocket (AI agent tool bridge) ─────────────────────
         .route("/mcp/ws", get(mcp_ws::websocket_handler))
-        // ── Computed Intelligence (backend-driven) ───────────────────
-        .route("/inbox", post(handlers::compute_inbox))
-        .route("/recommendations", post(handlers::compute_recommendations))
-        .route("/handoff/session", post(handlers::compute_session_handoff))
-        .route("/resume-briefing", post(handlers::compute_resume_briefing))
-        .route("/daily-summary", post(handlers::compute_daily_summary))
-        .route(
-            "/signals",
-            get(handlers::list_signals).post(handlers::add_signal),
-        )
-        .route(
-            "/assistant-center/stats",
-            post(handlers::compute_assistant_stats),
-        )
-        .route(
-            "/workspace-templates",
-            get(handlers::list_workspace_templates),
-        )
-        .route("/memory/active", get(handlers::list_active_memory))
         // ── MCP Skills ───────────────────────────────────────────────
         .route("/mcp", post(crate::mcp_skills::mcp_handler))
         .route(

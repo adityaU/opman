@@ -178,6 +178,13 @@ html.flat-theme .kanban-project-select { background: var(--color-bg-panel); }
   cursor: grabbing;
 }
 
+/* The keyboard cursor. An outline rather than a fill, because a card already
+   carries priority and status colour and a background change would fight them. */
+.kanban-card.is-selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
 .kanban-card-title {
   font-size: var(--font-size-sm, 0.85rem);
   font-weight: 500;

@@ -1,0 +1,137 @@
+/* File explorer, part 2 — the open-files rail. Part 1 declares the tokens all parts use. */
+
+/* ── Open-files rail ──────────────────────────────────── */
+
+.xpl-open {
+    flex-shrink: 0;
+    max-height: 30%;
+    display: flex;
+    flex-direction: column;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    background: color-mix(in srgb, var(--color-text) 3%, transparent);
+}
+
+.xpl-open-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-2) var(--space-1);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.xpl-open-count {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.xpl-open-dirty {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-warning);
+}
+
+.xpl-open-list {
+    overflow-y: auto;
+    padding-bottom: var(--space-1);
+}
+
+.xpl-open-item {
+    display: flex;
+    align-items: center;
+    height: var(--xpl-row-h);
+    padding-right: var(--space-1);
+    color: var(--color-text);
+    transition: background var(--transition-fast);
+}
+
+.xpl-open-item:hover {
+    background: var(--white-4);
+}
+
+.xpl-open-item.is-active {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.xpl-open-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 var(--space-1) 0 var(--space-2);
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+}
+
+.xpl-open-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-open-item:hover .xpl-open-close,
+.xpl-open-close:focus-visible {
+    opacity: 1;
+}
+
+.xpl-open-close:hover {
+    background: var(--white-8);
+    color: var(--color-text);
+}
+
+/* An unsaved file shows a dot in the close slot until you reach for it, so
+   the state is visible without the row growing a second control. */
+.xpl-open-close.is-dirty {
+    opacity: 1;
+    color: transparent;
+    background: none;
+    position: relative;
+}
+
+.xpl-open-close.is-dirty::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-warning);
+    transition: opacity var(--transition-fast);
+}
+
+.xpl-open-close.is-dirty:hover {
+    color: var(--color-text);
+    background: var(--white-8);
+}
+
+.xpl-open-close.is-dirty:hover::after {
+    opacity: 0;
+}
+

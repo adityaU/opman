@@ -16,197 +16,13 @@
     --modal-gap: 12px;
 }
 
-/* ── Header ───────────────────────────────────────────────────────────
-   A single hairline separates it from the body. No accent wash: the icon
-   carries the colour, so the surface stays quiet. */
-
-:is(.assistant-center-header, .assistant-inbox-header, .memory-header,
-    .autonomy-header, .routines-header, .delegation-header, .missions-header,
-    .workspace-mgr-header, .add-project-header, .sysm-header, .kanban-modal-header,
-    .notification-prefs-header, .settings-header, .theme-selector-header,
-    .cheatsheet-header, .watcher-modal-header, .session-selector-header,
-    .health-drawer-header, .todo-panel-header, .ctx-window-header,
-    .diff-review-header, .context-input-header, .activity-feed-header,
-    .session-dashboard-header, .session-graph-header, .model-picker-header,
-    .agent-picker-header) {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: var(--modal-header-h);
-    padding: 0 10px 0 var(--modal-pad-x);
-    background: none;
-    border-bottom: 1px solid var(--modal-hairline);
-    flex-shrink: 0;
-}
-
-/* The title sits at one size and weight everywhere; `h3` and `span`
-   variants both occur in the markup. */
-:is(.assistant-center-header, .assistant-inbox-header, .memory-header,
-    .autonomy-header, .routines-header, .delegation-header, .missions-header,
-    .workspace-mgr-header, .add-project-header, .sysm-header, .kanban-modal-header,
-    .notification-prefs-header, .settings-header, .theme-selector-header,
-    .cheatsheet-header, .watcher-modal-header, .session-selector-header,
-    .health-drawer-header, .todo-panel-header, .ctx-window-header,
-    .diff-review-header, .context-input-header, .activity-feed-header,
-    .session-dashboard-header, .session-graph-header) :is(h2, h3, h4) {
-    margin: 0;
-    font-size: var(--font-size-md);
-    font-weight: 650;
-    letter-spacing: -.01em;
-    color: var(--color-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* The leading icon is the only accent in the header. */
-:is(.assistant-center-header, .assistant-inbox-header, .memory-header,
-    .autonomy-header, .routines-header, .delegation-header, .missions-header,
-    .workspace-mgr-header, .add-project-header, .sysm-header,
-    .notification-prefs-header, .settings-header, .theme-selector-header,
-    .cheatsheet-header, .watcher-modal-header, .session-selector-header,
-    .health-drawer-header, .todo-panel-header, .ctx-window-header,
-    .diff-review-header, .context-input-header, .activity-feed-header) > svg,
-:is(.assistant-center-header-left, .assistant-inbox-header-left, .memory-header-left,
-    .autonomy-header-left, .routines-header-left, .delegation-header-left,
-    .missions-header-left, .workspace-mgr-header-left, .add-project-header-left,
-    .sysm-header-left) > svg {
-    flex-shrink: 0;
-    color: var(--color-primary);
-    opacity: .9;
-}
-
-:is(.assistant-center-header-left, .assistant-inbox-header-left, .memory-header-left,
-    .autonomy-header-left, .routines-header-left, .delegation-header-left,
-    .missions-header-left, .workspace-mgr-header-left, .add-project-header-left,
-    .sysm-header-left) {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    flex: 1;
-}
-
-/* ── Close button ─────────────────────────────────────────────────────
-   One implementation. Matches the header's optical centre and keeps a
-   visible focus ring for keyboard users. */
-
-:is(.assistant-center-header, .assistant-inbox-header, .memory-header,
-    .autonomy-header, .routines-header, .delegation-header, .missions-header,
-    .workspace-mgr-header, .add-project-header, .sysm-header, .kanban-modal-header,
-    .notification-prefs-header, .settings-header, .theme-selector-header,
-    .cheatsheet-header, .watcher-modal-header, .session-selector-header,
-    .health-drawer-header, .todo-panel-header, .ctx-window-header,
-    .diff-review-header, .context-input-header, .activity-feed-header,
-    .session-dashboard-header, .session-graph-header) > button,
 :is(.add-project-close, .settings-close, .theme-selector-close, .cheatsheet-close,
     .session-selector-close, .todo-panel-close, .ctx-window-close,
     .diff-review-close, .context-input-close, .command-palette-close,
-    .model-picker-close, .session-dashboard-close, .session-graph-close) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 30px;
-    height: 30px;
-    margin-left: auto;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition:
-        color var(--transition-fast),
-        background var(--transition-fast),
-        border-color var(--transition-fast);
-}
-
-:is(.assistant-center-header, .assistant-inbox-header, .memory-header,
-    .autonomy-header, .routines-header, .delegation-header, .missions-header,
-    .workspace-mgr-header, .add-project-header, .sysm-header, .kanban-modal-header,
-    .notification-prefs-header, .settings-header, .theme-selector-header,
-    .cheatsheet-header, .watcher-modal-header, .session-selector-header,
-    .health-drawer-header, .todo-panel-header, .ctx-window-header,
-    .diff-review-header, .context-input-header) > button:hover,
-:is(.add-project-close, .settings-close, .theme-selector-close, .cheatsheet-close,
-    .session-selector-close, .todo-panel-close, .ctx-window-close,
-    .diff-review-close, .context-input-close, .command-palette-close,
-    .model-picker-close):hover {
+    .model-picker-close):hover{
     color: var(--color-text);
     background: color-mix(in srgb, var(--color-text) 8%, transparent);
     border-color: var(--modal-hairline);
-}
-
-/* ── Body ─────────────────────────────────────────────────────────────
-   More room above a heading than below it, so the first group does not
-   crowd the hairline. */
-
-:is(.assistant-inbox-body, .memory-body, .autonomy-body, .routines-body,
-    .delegation-body, .missions-body, .workspace-mgr-body, .add-project-body,
-    .sysm-body, .notification-prefs-body, .cheatsheet-body, .todo-panel-body,
-    .ctx-window-body, .diff-review-body, .context-input-body, .activity-feed-body,
-    .session-dashboard-body, .session-graph-body) {
-    padding: var(--modal-gap) var(--modal-pad-x) var(--modal-pad-x);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--color-text-muted) 34%, transparent) transparent;
-}
-
-/* ── Footer ───────────────────────────────────────────────────────────
-   Reads as a rail: hairline above, actions flushed right, primary last so
-   it lands nearest the pointer's resting edge. */
-
-:is(.memory-footer, .workspace-mgr-footer, .add-project-footer, .sysm-footer,
-    .notification-prefs-footer, .settings-footer, .theme-selector-footer,
-    .cheatsheet-footer, .session-selector-footer, .todo-panel-footer,
-    .ctx-window-footer, .diff-review-footer, .context-input-footer,
-    .activity-feed-footer, .session-dashboard-footer, .session-graph-footer) {
-    display: flex;
-    align-items: center;
-    gap: var(--modal-gap);
-    padding: 10px var(--modal-pad-x);
-    border-top: 1px solid var(--modal-hairline);
-    background: color-mix(in srgb, var(--color-text) 3%, transparent);
-    flex-shrink: 0;
-}
-
-/* ── Rows and list items ──────────────────────────────────────────────
-   Hairline separation rather than boxes — a card inside a modal is a card
-   inside a card, and the hover tint already carries the affordance. */
-
-:is(.memory-item, .routines-item, .missions-item, .delegation-item,
-    .autonomy-item, .workspace-mgr-item, .assistant-inbox-item,
-    .notification-prefs-item, .settings-item, .session-selector-item,
-    .todo-panel-item, .model-picker-item, .agent-picker-item,
-    .command-palette-item, .prompt-queue-item) {
-    border: 0;
-    border-radius: var(--radius);
-    background: none;
-    transition:
-        background var(--transition-fast),
-        color var(--transition-fast);
-}
-
-/* Siblings are divided by a hairline, not boxed individually — the rounded
-   hover tint already tells you where one row ends. */
-:is(.memory-item, .routines-item, .missions-item, .delegation-item,
-    .autonomy-item, .workspace-mgr-item, .assistant-inbox-item,
-    .notification-prefs-item, .settings-item, .session-selector-item,
-    .todo-panel-item, .prompt-queue-item) + :is(.memory-item, .routines-item,
-    .missions-item, .delegation-item, .autonomy-item, .workspace-mgr-item,
-    .assistant-inbox-item, .notification-prefs-item, .settings-item,
-    .session-selector-item, .todo-panel-item, .prompt-queue-item) {
-    border-top: 1px solid var(--modal-hairline);
-}
-
-:is(.memory-item, .routines-item, .missions-item, .delegation-item,
-    .autonomy-item, .workspace-mgr-item, .assistant-inbox-item,
-    .notification-prefs-item, .settings-item, .session-selector-item,
-    .todo-panel-item, .model-picker-item, .agent-picker-item,
-    .command-palette-item, .prompt-queue-item):hover {
-    background: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 
 /* Selection is a tint plus an accent label, not a coloured edge bar. */
@@ -214,41 +30,6 @@
     .session-selector-item):is(.active, .selected, [aria-selected="true"]) {
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     color: var(--color-primary);
-}
-
-/* ── Section labels ───────────────────────────────────────────────── */
-
-:is(.memory-section, .routines-section, .missions-section, .workspace-mgr-section,
-    .sysm-section, .cheatsheet-section, .command-palette-section) {
-    margin-top: var(--modal-pad-x);
-}
-
-:is(.memory-section, .routines-section, .missions-section, .workspace-mgr-section,
-    .sysm-section, .cheatsheet-section, .command-palette-section) > :is(h4, h5, .section-title) {
-    margin: 0 0 6px;
-    font-size: var(--font-size-xs);
-    font-weight: 650;
-    letter-spacing: 0;
-    color: var(--color-text-muted);
-}
-
-/* ── Empty states ─────────────────────────────────────────────────── */
-
-:is(.memory-empty, .routines-empty, .missions-empty, .delegation-empty,
-    .workspace-mgr-empty, .assistant-inbox-empty, .sysm-empty, .theme-selector-empty,
-    .session-selector-empty, .todo-panel-empty, .diff-review-empty,
-    .activity-feed-empty, .health-empty, .watcher-empty, .model-picker-empty,
-    .agent-picker-empty, .command-palette-empty, .prompt-queue-empty,
-    .add-project-empty, .session-dashboard-empty, .session-graph-empty) {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 32px var(--modal-pad-x);
-    text-align: center;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
 }
 
 /* ── Search fields inside floating surfaces ───────────────────────── */
@@ -260,16 +41,9 @@
     flex-shrink: 0;
 }
 
-/* ── Focus: one visible ring for every control on a floating surface ── */
+                                                                           
 
-.modal-dialog-surface :focus-visible,
-:is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal, .autonomy-modal,
-    .routines-modal, .delegation-modal, .missions-modal, .workspace-mgr-modal,
-    .add-project-modal, .sysm-modal, .kanban-modal, .notification-prefs-modal,
-    .settings-modal, .theme-selector, .cheatsheet-modal, .watcher-modal,
-    .session-selector-modal, .health-modal, .todo-panel-modal, .ctx-window-modal,
-    .diff-review-modal, .command-palette, .context-input-modal,
-    .cross-session-search-modal) :focus-visible {
+.modal-dialog-surface :focus-visible{
     outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
     outline-offset: 2px;
     border-radius: var(--radius);

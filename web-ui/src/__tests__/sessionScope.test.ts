@@ -127,4 +127,101 @@ describe("session isolation", () => {
 
     expect(textsOf(result.current.messages)).toEqual(["beta turn"]);
   });
+
+  it("shows a prompt sent to another session in that session, not the one on screen", async () => {
+    const { result } = renderHook(() => useSSE());
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+
+    // The send path stamps the target session, which for a lazily created one is
+    // not the session hydrated on screen yet.
+    act(() => { result.current.addOptimisticMessage("beta prompt", undefined, "ses_b"); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+
+    // A's transcript must be untouched — this is the bug: the placeholder used to
+    // land in whatever map was live and stayed in A's cache entry for good.
+    expect(textsOf(result.current.messages)).toEqual(["alpha turn"]);
+
+    act(() => result.current.beginSessionSwitch("ses_b"));
+    await waitFor(() =>
+      expect(textsOf(result.current.messages).sort()).toEqual(["beta prompt", "beta turn"]),
+    );
+
+    // Returning to A must not surface it either, now or ever.
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+  });
+
+  it("keeps a placeholder for the session on screen", async () => {
+    const { result } = renderHook(() => useSSE());
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+
+    act(() => { result.current.addOptimisticMessage("alpha prompt", undefined, "ses_a"); });
+    await waitFor(() =>
+      expect(textsOf(result.current.messages)).toEqual(["alpha turn", "alpha prompt"]),
+    );
+  });
+
+  it("retires only the named placeholder when a send fails", async () => {
+    const { result } = renderHook(() => useSSE());
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+
+    let failed: string | null = null;
+    act(() => {
+      result.current.addOptimisticMessage("kept prompt", undefined, "ses_a");
+      failed = result.current.addOptimisticMessage("failed prompt", undefined, "ses_a");
+    });
+    await waitFor(() => expect(textsOf(result.current.messages)).toHaveLength(3));
+
+    act(() => result.current.clearOptimistic("ses_a", failed!));
+    await waitFor(() =>
+      expect(textsOf(result.current.messages)).toEqual(["alpha turn", "kept prompt"]),
+    );
+  });
+
+  it("refuses to create a placeholder with no session to attach it to", () => {
+    const { result } = renderHook(() => useSSE());
+    expect(result.current.addOptimisticMessage("orphan", undefined, null)).toBeNull();
+  });
+
+  it("does not pull the view back when a send finishes on a session left behind", async () => {
+    const { result } = renderHook(() => useSSE());
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+
+    // The user moves on while the send is still in flight.
+    act(() => result.current.beginSessionSwitch("ses_b"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["beta turn"]));
+
+    // A's transcript grew server-side in the meantime.
+    transcripts.ses_a = [
+      ...transcripts.ses_a,
+      message("ses_a", "msg_a2", "alpha reply", 1500),
+    ];
+    await act(async () => {
+      await result.current.refreshMessages("ses_a", { adoptView: false });
+    });
+
+    // Still looking at B.
+    expect(textsOf(result.current.messages)).toEqual(["beta turn"]);
+
+    // And A picked the reply up quietly, so going back shows it.
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() =>
+      expect(textsOf(result.current.messages)).toEqual(["alpha turn", "alpha reply"]),
+    );
+  });
+
+  it("still adopts the view for a session the send just created", async () => {
+    const { result } = renderHook(() => useSSE());
+    act(() => result.current.beginSessionSwitch("ses_a"));
+    await waitFor(() => expect(textsOf(result.current.messages)).toEqual(["alpha turn"]));
+
+    await act(async () => {
+      await result.current.refreshMessages("ses_b", { adoptView: true });
+    });
+    expect(textsOf(result.current.messages)).toEqual(["beta turn"]);
+  });
 });

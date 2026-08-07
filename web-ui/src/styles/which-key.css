@@ -1,0 +1,146 @@
+/* ── Which-key hint panel ──────────────────────────────────────────────
+   Anchored to the bottom of the viewport, above the composer, because the
+   eye is already there when a chord is being typed. Surface, radius and
+   shadow come from .modal-popover-surface, so glassy and flat are both
+   inherited rather than restated. */
+
+.which-key {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-4, 16px);
+    transform: translateX(-50%);
+    z-index: 1200;
+    width: min(calc(100vw - 32px), 860px);
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: var(--space-3, 12px);
+    font-size: var(--font-size-sm);
+}
+
+.which-key-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3, 12px);
+    padding-bottom: var(--space-2, 8px);
+    margin-bottom: var(--space-2, 8px);
+    border-bottom: 1px solid var(--modal-hairline);
+}
+
+.which-key-crumb {
+    font-family: var(--font-mono);
+    color: var(--color-primary);
+    letter-spacing: .04em;
+}
+
+.which-key-hint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.which-key-hint kbd {
+    font-family: var(--font-mono);
+    color: var(--color-text-secondary);
+}
+
+/* Columns rather than rows: a namespace list is scanned vertically, and
+   three short columns fit the panel far better than one long one. */
+.which-key-groups {
+    columns: 3 200px;
+    column-gap: var(--space-4, 16px);
+}
+
+.which-key-group {
+    break-inside: avoid;
+    margin-bottom: var(--space-3, 12px);
+}
+
+.which-key-group-name {
+    margin: 0 0 var(--space-1, 4px);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-text-muted);
+}
+
+.which-key-entries {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.which-key-entry {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2, 8px);
+    padding: 1px 0;
+    line-height: 1.5;
+}
+
+.which-key-key {
+    flex: none;
+    min-width: 2.1em;
+    padding: 0 4px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    color: var(--color-text);
+}
+
+.which-key-label {
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A namespace reads as a destination, a leaf as an action. */
+.which-key-label.is-prefix {
+    color: var(--color-accent);
+    font-weight: 500;
+}
+
+html.flat-theme .which-key-key {
+    background: var(--color-bg-element);
+    border-color: var(--color-border-subtle);
+}
+
+/* ── Pending chord strip (normal mode) ─────────────────────────────── */
+
+.which-key-strip {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-4, 16px);
+    transform: translateX(-50%);
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: 6px 12px;
+    border: 1px solid var(--modal-border);
+    border-radius: var(--popover-radius);
+    background: var(--modal-surface);
+    box-shadow: var(--popover-shadow);
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.which-key-strip kbd {
+    font-family: var(--font-mono);
+    color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+    .which-key { max-height: 60vh }
+    .which-key-groups { columns: 2 140px }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .which-key { animation: none }
+}

@@ -68,9 +68,7 @@ export const NO_ARG_COMMANDS = new Set([
   // Modal openers
   "models", "keys", "keybindings", "todos", "sessions", "context", "settings",
   "watcher", "context-window", "diff-review", "search", "cross-search",
-  "session-graph", "session-dashboard", "activity-feed", "notification-prefs",
-  "assistant-center", "inbox", "memory", "autonomy", "routines",
-  "delegation", "missions", "workspaces",
+  "notification-prefs", "memory", "autonomy", "routines",
   "health", "process-health", "auto-open", "autoopen",
   "system", "htop", "monitor",
   // Quota / token commands

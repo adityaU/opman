@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { isMobileViewport } from "./useIsMobile";
 
 type MobilePanel = "opencode" | "git" | "editor" | "terminal";
 
@@ -188,7 +189,7 @@ export function useMobileState(): MobileState {
   }, []);
 
   const handleScrollDirection = useCallback((direction: "up" | "down") => {
-    if (typeof window !== "undefined" && window.innerWidth >= 768) return;
+    if (typeof window !== "undefined" && !isMobileViewport()) return;
 
     if (direction === "down") {
       // Scrolling down — do nothing.

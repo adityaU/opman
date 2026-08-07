@@ -35,6 +35,45 @@ export function parseFileContext(text: string): FileContextBlock | null {
   return { paths, userText };
 }
 
+/** Markers the server fences a runner handoff's prior transcript with. */
+const HANDOFF_MARKER = "[Handoff transcript]";
+const HANDOFF_END_MARKER = "[End handoff transcript]";
+
+/** Parsed handoff block from the first message of a handed-over session. */
+export interface HandoffBlock {
+  /** Runner the session came from, or "" if the lead-in could not be read. */
+  fromRunner: string;
+  /** The prior conversation, as labelled turns. */
+  transcript: string;
+  /** What the user actually typed when they switched runner. */
+  userText: string;
+}
+
+/**
+ * Split a handoff message into context and the user's own text.
+ *
+ * The transcript is carried in the message the new runner receives, because
+ * that is the only place a runner reads history from — but it is not something
+ * the user wrote, so the UI must not render it as their message.
+ */
+export function parseHandoffBlock(text: string): HandoffBlock | null {
+  if (!text.startsWith(HANDOFF_MARKER)) return null;
+  const end = text.indexOf(HANDOFF_END_MARKER);
+  if (end === -1) return null;
+
+  const body = text.slice(HANDOFF_MARKER.length, end).trim();
+  const userText = text.slice(end + HANDOFF_END_MARKER.length).trim();
+  const fromRunner = /from the (\S+) runner/.exec(body)?.[1] ?? "";
+  // Turns start at the first `--- role ---` header; anything before it is the
+  // instruction sentence written for the model, not conversation.
+  const firstTurn = body.indexOf("--- ");
+  return {
+    fromRunner,
+    transcript: firstTurn === -1 ? body : body.slice(firstTurn),
+    userText,
+  };
+}
+
 /** Marker the server writes above a session's opening instructions. */
 const INSTRUCTIONS_MARKER = "[Session instructions]";
 /** Marker used before the rename — still present in older transcripts. */

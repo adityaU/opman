@@ -1,5 +1,5 @@
 //! Generated coverage tests for `db/routines.rs`: update-row, ordering, and
-//! every trigger/action/target-mode string<->enum conversion.
+//! every trigger/target-mode string<->enum conversion.
 use super::*;
 
 fn base_routine(id: &str, updated: &str) -> RoutineDefinition {
@@ -7,7 +7,6 @@ fn base_routine(id: &str, updated: &str) -> RoutineDefinition {
         id: id.into(),
         name: format!("r-{id}"),
         trigger: RoutineTrigger::Manual,
-        action: RoutineAction::SendMessage,
         enabled: false,
         cron_expr: None,
         timezone: None,
@@ -17,7 +16,6 @@ fn base_routine(id: &str, updated: &str) -> RoutineDefinition {
         prompt: None,
         provider_id: None,
         model_id: None,
-        mission_id: None,
         last_run_at: None,
         next_run_at: None,
         last_error: None,
@@ -48,7 +46,6 @@ fn update_routine_row_found_and_not_found() {
     r.name = "renamed".into();
     r.enabled = true;
     r.trigger = RoutineTrigger::DailySummary;
-    r.action = RoutineAction::OpenInbox;
     r.target_mode = Some(RoutineTargetMode::NewSession);
     r.project_index = Some(3);
     r.cron_expr = Some("* * * * *".into());
@@ -59,7 +56,6 @@ fn update_routine_row_found_and_not_found() {
     assert_eq!(got.name, "renamed");
     assert!(got.enabled);
     assert_eq!(got.trigger, RoutineTrigger::DailySummary);
-    assert_eq!(got.action, RoutineAction::OpenInbox);
     assert_eq!(got.target_mode, Some(RoutineTargetMode::NewSession));
     assert_eq!(got.project_index, Some(3));
 
@@ -108,19 +104,6 @@ fn trigger_conversions_roundtrip_and_unknown() {
         assert_eq!(parse_trigger(trigger_str(&t)), t);
     }
     assert_eq!(parse_trigger("nonsense"), RoutineTrigger::Manual);
-}
-
-#[test]
-fn action_conversions_roundtrip_and_unknown() {
-    for a in [
-        RoutineAction::SendMessage,
-        RoutineAction::ReviewMission,
-        RoutineAction::OpenInbox,
-        RoutineAction::OpenActivityFeed,
-    ] {
-        assert_eq!(parse_action(action_str(&a)), a);
-    }
-    assert_eq!(parse_action("weird"), RoutineAction::ReviewMission);
 }
 
 #[test]

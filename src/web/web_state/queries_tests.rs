@@ -67,46 +67,6 @@ async fn get_session_stats_hit_and_miss() {
 }
 
 #[tokio::test]
-async fn get_sessions_overview_sorts_and_counts_busy() {
-    let h = WebStateHandle::new_test_with_projects(vec![
-        ("a".into(), PathBuf::from("/a")),
-        ("b".into(), PathBuf::from("/b")),
-    ]);
-    h.add_and_activate_session(0, sess("old", "", "/a", 5))
-        .await;
-    h.add_and_activate_session(1, sess("new", "", "/b", 99))
-        .await;
-    h.inner.write().await.busy_sessions.insert("new".into());
-    let ov = h.get_sessions_overview().await;
-    assert_eq!(ov.total, 2);
-    assert_eq!(ov.busy_count, 1);
-    // Sorted by updated desc → "new" first.
-    assert_eq!(ov.sessions[0].id, "new");
-    assert!(ov.sessions[0].is_busy);
-    assert_eq!(ov.sessions[0].project_index, 1);
-}
-
-#[tokio::test]
-async fn get_sessions_tree_builds_parent_child_and_orphans() {
-    let h = WebStateHandle::new_test_with_projects(vec![("a".into(), PathBuf::from("/a"))]);
-    h.add_and_activate_session(0, sess("s1", "", "/a", 1)).await; // root
-    h.add_and_activate_session(0, sess("s2", "s1", "/a", 2))
-        .await; // child of s1
-    h.add_and_activate_session(0, sess("s3", "ghost", "/a", 3))
-        .await; // orphan → root
-    h.inner.write().await.busy_sessions.insert("s2".into());
-    let tree = h.get_sessions_tree().await;
-    assert_eq!(tree.total, 3);
-    // Roots: s1 and s3 (orphan parent not present).
-    assert_eq!(tree.roots.len(), 2);
-    let s1 = tree.roots.iter().find(|n| n.id == "s1").unwrap();
-    assert_eq!(s1.children.len(), 1);
-    assert_eq!(s1.children[0].id, "s2");
-    assert!(s1.children[0].is_busy);
-    assert!(tree.roots.iter().any(|n| n.id == "s3"));
-}
-
-#[tokio::test]
 async fn get_file_edits_hit_and_miss() {
     let h = WebStateHandle::new_test();
     assert!(h.get_file_edits("s1").await.is_empty());

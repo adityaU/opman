@@ -36,6 +36,7 @@ mod auth;
 pub(crate) mod db;
 mod error;
 mod handlers;
+pub mod keybindings;
 mod mcp_ws;
 pub mod pty_manager;
 mod request_log;
@@ -151,6 +152,12 @@ pub async fn start_web_server(
     web_state.set_editor_tx(editor_tx.clone());
     let web_state_ret = web_state.clone();
 
+    // Language servers for the editor. Only the editor handlers need these, so
+    // the pool is owned here rather than threaded down from `App`. Servers are
+    // started lazily on the first request for a file and reaped when idle.
+    let lsp_pool = std::sync::Arc::new(crate::lsp::LspPool::new());
+    crate::lsp::reaper::spawn(lsp_pool.clone());
+
     let shared_state = ServerState {
         web_state,
         jwt_secret,
@@ -165,6 +172,7 @@ pub async fn start_web_server(
             .build()
             .unwrap_or_else(|_| reqwest::Client::new()),
         nvim_registry,
+        lsp: lsp_pool,
         skills_registry,
         reload_tx,
         instance_name: config.instance_name,

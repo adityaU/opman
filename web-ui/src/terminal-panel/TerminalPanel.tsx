@@ -3,6 +3,9 @@ import "@xterm/xterm/css/xterm.css";
 import { TerminalPanelProps } from "./types";
 import { useTerminalTabs, useTerminalLifecycle, useTerminalSearch } from "./hooks";
 import { TabBar, HeaderActions, SearchBar, TabBody } from "./components";
+import { MobileKeyBar } from "./mobile/MobileKeyBar";
+import { useTerminalCommands } from "./useTerminalCommands";
+import { useMobileKeys } from "./mobile/useMobileKeys";
 
 export function TerminalPanel({
   sessionId,
@@ -12,7 +15,9 @@ export function TerminalPanel({
   mcpAgentActive = false,
   attachNonce,
   attachKind = "claude-attach",
+  layout = "desktop",
 }: TerminalPanelProps) {
+  const isMobile = layout === "mobile";
   const [expanded, setExpanded] = useState(false);
   const projectKey = projectPath ?? "default";
 
@@ -35,6 +40,10 @@ export function TerminalPanel({
     commitRename,
   } = useTerminalTabs(projectKey);
 
+  // The touch key bar rewrites keystrokes (sticky Ctrl/Alt), so the terminal's
+  // data path reads the transform from this ref.
+  const transformRef = useRef<((data: string) => string) | null>(null);
+
   useTerminalLifecycle(
     tabs,
     setTabs,
@@ -43,8 +52,17 @@ export function TerminalPanel({
     containerRefs,
     activeTabId,
     expanded,
-    visible
+    visible,
+    transformRef
   );
+
+  const mobileKeys = useMobileKeys(activeTabId, runtimesRef, transformRef, isMobile);
+
+  useTerminalCommands({
+    tabs, activeTabId, setActiveTabId, createTab, closeTab, startRename,
+    openKindMenu: () => setKindMenuOpen(true),
+    expand: () => setExpanded((on) => !on),
+  });
 
   // Only the active project's tabs are shown in the tab bar — tabs for other
   // projects stay mounted in TabBody so their terminals keep running.
@@ -95,7 +113,7 @@ export function TerminalPanel({
   );
 
   return (
-    <div className={`terminal-panel ${expanded ? "expanded" : ""}`}>
+    <div className={`terminal-panel ${expanded ? "expanded" : ""}${isMobile ? " terminal-panel-mobile" : ""}`} data-surface="terminal">
       <div className="terminal-panel-header">
         <TabBar
           tabs={visibleTabs}
@@ -139,6 +157,8 @@ export function TerminalPanel({
         activeTabId={activeTabId}
         containerRefs={containerRefs}
       />
+
+      {isMobile && <MobileKeyBar keys={mobileKeys} />}
     </div>
   );
 }

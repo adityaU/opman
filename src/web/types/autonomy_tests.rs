@@ -59,20 +59,6 @@ fn routine_trigger_variants_roundtrip() {
 }
 
 #[test]
-fn routine_action_variants_roundtrip() {
-    for (a, s) in [
-        (RoutineAction::SendMessage, "send_message"),
-        (RoutineAction::ReviewMission, "review_mission"),
-        (RoutineAction::OpenInbox, "open_inbox"),
-        (RoutineAction::OpenActivityFeed, "open_activity_feed"),
-    ] {
-        assert_eq!(serde_json::to_value(&a).unwrap(), json!(s));
-        let back: RoutineAction = serde_json::from_value(json!(s)).unwrap();
-        assert_eq!(back, a);
-    }
-}
-
-#[test]
 fn routine_target_mode_roundtrip() {
     for (tm, s) in [
         (RoutineTargetMode::ExistingSession, "existing_session"),
@@ -91,7 +77,6 @@ fn routine_definition_defaults_apply() {
         "id": "r1",
         "name": "My Routine",
         "trigger": "manual",
-        "action": "send_message",
         "created_at": "c",
         "updated_at": "u"
     }))
@@ -105,7 +90,6 @@ fn routine_definition_defaults_apply() {
     assert!(def.prompt.is_none());
     assert!(def.provider_id.is_none());
     assert!(def.model_id.is_none());
-    assert!(def.mission_id.is_none());
     assert!(def.last_run_at.is_none());
     assert!(def.next_run_at.is_none());
     assert!(def.last_error.is_none());
@@ -119,7 +103,6 @@ fn routine_definition_full_roundtrip() {
         id: "r1".into(),
         name: "n".into(),
         trigger: RoutineTrigger::Scheduled,
-        action: RoutineAction::SendMessage,
         enabled: false,
         cron_expr: Some("* * * * *".into()),
         timezone: Some("UTC".into()),
@@ -129,7 +112,6 @@ fn routine_definition_full_roundtrip() {
         prompt: Some("hi".into()),
         provider_id: Some("anthropic".into()),
         model_id: Some("claude".into()),
-        mission_id: Some("m".into()),
         last_run_at: Some("l".into()),
         next_run_at: Some("nx".into()),
         last_error: Some("err".into()),
@@ -178,7 +160,6 @@ fn create_routine_request_defaults() {
     let req: CreateRoutineRequest = serde_json::from_value(json!({
         "name": "n",
         "trigger": "manual",
-        "action": "send_message"
     }))
     .unwrap();
     assert!(req.enabled);
@@ -193,7 +174,6 @@ fn create_routine_request_full() {
     let req: CreateRoutineRequest = serde_json::from_value(json!({
         "name": "n",
         "trigger": "scheduled",
-        "action": "open_inbox",
         "enabled": false,
         "cron_expr": "* * * * *",
         "timezone": "UTC",
@@ -203,7 +183,6 @@ fn create_routine_request_full() {
         "prompt": "p",
         "provider_id": "prov",
         "model_id": "mod",
-        "mission_id": "mi"
     }))
     .unwrap();
     assert!(!req.enabled);
@@ -228,7 +207,6 @@ fn update_routine_request_double_option_semantics() {
     let set: UpdateRoutineRequest = serde_json::from_value(json!({
         "name": "new",
         "trigger": "manual",
-        "action": "send_message",
         "enabled": true,
         "cron_expr": "1 * * * *",
         "timezone": "UTC",
@@ -238,7 +216,6 @@ fn update_routine_request_double_option_semantics() {
         "prompt": "p",
         "provider_id": "pr",
         "model_id": "m",
-        "mission_id": "mi"
     }))
     .unwrap();
     assert_eq!(set.name, Some("new".into()));
@@ -268,90 +245,6 @@ fn routines_list_response_serializes() {
     let v = serde_json::to_value(&resp).unwrap();
     assert_eq!(v["routines"], json!([]));
     assert_eq!(v["runs"], json!([]));
-    let _ = format!("{resp:?}");
-    let _ = resp.clone();
-}
-
-#[test]
-fn delegation_status_roundtrip() {
-    for (d, s) in [
-        (DelegationStatus::Planned, "planned"),
-        (DelegationStatus::Running, "running"),
-        (DelegationStatus::Completed, "completed"),
-    ] {
-        assert_eq!(serde_json::to_value(&d).unwrap(), json!(s));
-        let back: DelegationStatus = serde_json::from_value(json!(s)).unwrap();
-        assert_eq!(serde_json::to_value(&back).unwrap(), json!(s));
-        let _ = format!("{d:?}");
-        let _ = d.clone();
-    }
-}
-
-#[test]
-fn delegated_work_item_defaults_and_roundtrip() {
-    let item: DelegatedWorkItem = serde_json::from_value(json!({
-        "id": "d1",
-        "title": "t",
-        "assignee": "a",
-        "scope": "sc",
-        "status": "planned",
-        "created_at": "c",
-        "updated_at": "u"
-    }))
-    .unwrap();
-    assert!(item.mission_id.is_none());
-    assert!(item.session_id.is_none());
-    assert!(item.subagent_session_id.is_none());
-    let full = DelegatedWorkItem {
-        id: "d".into(),
-        title: "t".into(),
-        assignee: "a".into(),
-        scope: "s".into(),
-        status: DelegationStatus::Running,
-        mission_id: Some("m".into()),
-        session_id: Some("se".into()),
-        subagent_session_id: Some("sub".into()),
-        created_at: "c".into(),
-        updated_at: "u".into(),
-    };
-    let v = serde_json::to_value(&full).unwrap();
-    assert_eq!(v["status"], "running");
-    assert_eq!(v["subagent_session_id"], "sub");
-    let _ = format!("{item:?}");
-    let _ = full.clone();
-}
-
-#[test]
-fn create_delegated_work_request_defaults() {
-    let req: CreateDelegatedWorkRequest = serde_json::from_value(json!({
-        "title": "t",
-        "assignee": "a",
-        "scope": "s"
-    }))
-    .unwrap();
-    assert!(req.mission_id.is_none());
-    assert!(req.session_id.is_none());
-    assert!(req.subagent_session_id.is_none());
-    let _ = format!("{req:?}");
-    let _ = req.clone();
-}
-
-#[test]
-fn update_delegated_work_request_default_and_value() {
-    let empty: UpdateDelegatedWorkRequest = serde_json::from_value(json!({})).unwrap();
-    assert!(empty.status.is_none());
-    let some: UpdateDelegatedWorkRequest =
-        serde_json::from_value(json!({"status": "completed"})).unwrap();
-    assert!(matches!(some.status, Some(DelegationStatus::Completed)));
-    let _ = format!("{empty:?}");
-    let _ = empty.clone();
-}
-
-#[test]
-fn delegated_work_list_response_serializes() {
-    let resp = DelegatedWorkListResponse { items: vec![] };
-    let v = serde_json::to_value(&resp).unwrap();
-    assert_eq!(v["items"], json!([]));
     let _ = format!("{resp:?}");
     let _ = resp.clone();
 }

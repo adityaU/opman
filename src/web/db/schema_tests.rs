@@ -20,14 +20,10 @@ fn create_tables_creates_every_expected_table() {
     create_tables(&conn).unwrap();
     let names = table_names(&conn);
     for expected in [
-        "missions",
         "personal_memory",
         "autonomy_settings",
         "routines",
         "routine_runs",
-        "delegated_work",
-        "workspaces",
-        "signals",
         "kanban_boards",
         "kanban_tasks",
         "kanban_attachments",
@@ -65,5 +61,5 @@ fn create_indexes_succeeds_and_is_idempotent() {
         .filter_map(|r| r.ok())
         .collect();
     assert!(idx.iter().any(|n| n == "idx_kanban_tasks_board"));
-    assert!(idx.iter().any(|n| n == "idx_signals_created"));
+    assert!(idx.iter().any(|n| n == "idx_memory_scope"));
 }

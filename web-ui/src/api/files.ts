@@ -206,35 +206,77 @@ export function classifyFile(path: string): FileRenderType {
 }
 
 // ── LSP integration ───────────────────────────────────
+//
+// These are POSTs rather than GETs because they carry the editor's current
+// buffer. Without it the language server would answer about the file as last
+// saved, so every position after the first unsaved edit would describe the
+// wrong symbol — confidently, which is worse than not answering.
 
 export async function fetchEditorDiagnostics(
   path: string,
-  sessionId: string
+  sessionId: string,
+  content?: string
 ): Promise<{ diagnostics: EditorLspDiagnostic[]; available: boolean }> {
-  return apiFetch(`/editor/lsp/diagnostics?path=${encodeURIComponent(path)}&session_id=${encodeURIComponent(sessionId)}`);
+  return apiPost("/editor/lsp/diagnostics", { path, session_id: sessionId, content });
 }
 
 export async function fetchEditorHover(
   path: string,
   sessionId: string,
   line: number,
-  col: number
+  col: number,
+  content?: string
 ): Promise<{ hover: string | null; available: boolean }> {
-  return apiFetch(`/editor/lsp/hover?path=${encodeURIComponent(path)}&session_id=${encodeURIComponent(sessionId)}&line=${line}&col=${col}`);
+  return apiPost("/editor/lsp/hover", { path, session_id: sessionId, line, col, content });
 }
 
 export async function fetchEditorDefinition(
   path: string,
   sessionId: string,
   line: number,
-  col: number
+  col: number,
+  content?: string
 ): Promise<{ locations: EditorDefinitionLocation[]; available: boolean }> {
-  return apiFetch(`/editor/lsp/definition?path=${encodeURIComponent(path)}&session_id=${encodeURIComponent(sessionId)}&line=${line}&col=${col}`);
+  return apiPost("/editor/lsp/definition", { path, session_id: sessionId, line, col, content });
+}
+
+export interface EditorCompletionItem {
+  label: string;
+  kind: string;
+  detail: string;
+  documentation: string | null;
+  insert: string;
+  snippet: boolean;
+  sort: string;
+  filter: string;
+  preselect: boolean;
+  deprecated: boolean;
+}
+
+export interface EditorCompletionResponse {
+  available: boolean;
+  items: EditorCompletionItem[];
+  incomplete: boolean;
+  triggerCharacters: string[];
+}
+
+export async function fetchEditorCompletion(
+  path: string,
+  sessionId: string,
+  line: number,
+  col: number,
+  content?: string,
+  trigger?: string
+): Promise<EditorCompletionResponse> {
+  return apiPost("/editor/lsp/completion", {
+    path, session_id: sessionId, line, col, content, trigger,
+  });
 }
 
 export async function formatEditorFile(
   path: string,
-  sessionId: string
+  sessionId: string,
+  content?: string
 ): Promise<{ formatted: boolean; content: string; available: boolean }> {
-  return apiPost("/editor/lsp/format", { path, session_id: sessionId });
+  return apiPost("/editor/lsp/format", { path, session_id: sessionId, content });
 }

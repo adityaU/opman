@@ -62,8 +62,29 @@
     padding: 16px
 }
 
-.autonomy-body .assistant-center-briefing {
+.autonomy-briefing {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--theme-warning-soft)
+}
+
+.autonomy-body .autonomy-briefing {
     margin: 0
+}
+
+.autonomy-briefing-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--color-warning);
+    margin-bottom: 6px
+}
+
+.autonomy-briefing-summary {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--color-text)
 }
 
 .autonomy-item {

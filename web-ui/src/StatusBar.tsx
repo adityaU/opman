@@ -11,7 +11,6 @@ import {
   Zap,
   DollarSign,
   Users,
-  Layers,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -27,8 +26,6 @@ interface Props {
   watcherStatus: WatcherStatus | null;
   /** Connected clients for presence tracking. */
   presenceClients?: ClientPresence[];
-  /** Name of the currently active workspace (if any). */
-  activeWorkspaceName?: string | null;
   contextLimit: number | null;
   onToggleSidebar: () => void;
   sessionTitle?: string | null;
@@ -57,7 +54,6 @@ export const StatusBar = React.memo(function StatusBar({
   gitOpen,
   watcherStatus,
   presenceClients,
-  activeWorkspaceName,
   contextLimit,
   onToggleSidebar,
   sessionTitle,
@@ -138,13 +134,6 @@ export const StatusBar = React.memo(function StatusBar({
           >
             <Users size={11} />
             <span>{presenceClients.length}</span>
-          </span>
-        )}
-
-        {activeWorkspaceName && (
-          <span className="status-bar-workspace" title={`Workspace: ${activeWorkspaceName}`}>
-            <Layers size={11} />
-            <span>{activeWorkspaceName}</span>
           </span>
         )}
 

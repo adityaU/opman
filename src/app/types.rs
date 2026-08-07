@@ -310,7 +310,6 @@ pub struct RoutineItem {
     pub id: String,
     pub name: String,
     pub trigger: String,
-    pub action: String,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default)]
@@ -343,10 +342,6 @@ impl RoutineItem {
                 .ok()
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_else(|| format!("{:?}", def.trigger)),
-            action: serde_json::to_value(&def.action)
-                .ok()
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| format!("{:?}", def.action)),
             enabled: def.enabled,
             cron_expr: def.cron_expr.clone(),
             prompt: def.prompt.clone(),

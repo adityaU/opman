@@ -58,7 +58,11 @@ export function EditorToolbar({
         </div>
       )}
 
-      {!isBinaryRenderType(fileRenderType) && (
+      {/* On desktop these three actions live in the file area itself — hover
+          the token, ⌘-click or F12 for its definition, ⇧⌥F to format — so the
+          header no longer carries them. Touch has no hover and no function
+          keys, so mobile keeps the buttons. */}
+      {!isDesktop && !isBinaryRenderType(fileRenderType) && (
         <div className="code-editor-lsp-group">
           <span className={`code-editor-lsp-pill ${lspAvailable ? "active" : "inactive"}`}>
             <AlertCircle size={12} /> {activeDiagnostics.length} issues

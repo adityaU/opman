@@ -1,5 +1,5 @@
 import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../types";
-import type { SessionStats, ActivityEvent, ClientPresence, Mission, ThemePair } from "../../api";
+import type { SessionStats, ClientPresence, ThemePair } from "../../api";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } from "./types";
@@ -420,7 +420,6 @@ export interface AppSSEContext {
   setMcpTerminalFocusId: React.Dispatch<React.SetStateAction<string | null>>;
   setMcpAgentActivity: React.Dispatch<React.SetStateAction<Map<string, boolean>>>;
   setPresenceClients: React.Dispatch<React.SetStateAction<ClientPresence[]>>;
-  setLiveActivityEvents: React.Dispatch<React.SetStateAction<ActivityEvent[]>>;
 }
 
 /** Wire all listeners onto the app-level EventSource.
@@ -524,40 +523,11 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
     } catch { /* ignore */ }
   });
 
-  // Presence + activity
+  // Presence
   appSSE.addEventListener("presence_changed", (e: MessageEvent) => {
     try {
       const data = JSON.parse(e.data) as { clients: ClientPresence[] };
       ctx.setPresenceClients(data.clients);
-    } catch { /* ignore */ }
-  });
-  appSSE.addEventListener("activity_event", (e: MessageEvent) => {
-    try {
-      const data = JSON.parse(e.data) as ActivityEvent;
-      const currentSession = ctx.activeSessionRef.current;
-      if (currentSession && data.session_id === currentSession) {
-        ctx.setLiveActivityEvents((prev) => {
-          const next = [...prev, data];
-          return next.length > 200 ? next.slice(-200) : next;
-        });
-      } else if (data.session_id) {
-        // Append to cached session's activity events (background update)
-        const cached = ctx.sessionCacheRef.current.get(data.session_id);
-        if (cached) {
-          cached.liveActivityEvents = [...cached.liveActivityEvents, data];
-          if (cached.liveActivityEvents.length > 200) {
-            cached.liveActivityEvents = cached.liveActivityEvents.slice(-200);
-          }
-        }
-      }
-    } catch { /* ignore */ }
-  });
-
-  // Mission loop updates
-  appSSE.addEventListener("mission_updated", (e: MessageEvent) => {
-    try {
-      const mission = JSON.parse(e.data) as Mission;
-      window.dispatchEvent(new CustomEvent("opman:mission-updated", { detail: mission }));
     } catch { /* ignore */ }
   });
 

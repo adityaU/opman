@@ -10,7 +10,6 @@ import {
   fetchPending,
   type AppState,
   type SessionStats,
-  type ActivityEvent,
   type ClientPresence,
 } from "../../api";
 import type { Message, MessagePart, PermissionRequest, QuestionRequest } from "../../types";
@@ -20,7 +19,11 @@ import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../.
 import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
 import { SESSION_IDLE } from "./types";
 import { type MessageMap, mapToSortedArray, getMessageTime, mergeMessage } from "./messageMap";
-import { createOptimisticId, purgeOptimistic, retainOptimistic, reconcileOptimistic } from "./optimistic";
+import {
+  createOptimisticId, purgeOptimistic, retainOptimistic, reconcileOptimistic,
+  stashOptimistic, takeOptimistic, dropStashedOptimistic, purgeForeignOptimistic,
+  type OptimisticStash,
+} from "./optimistic";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
@@ -37,7 +40,6 @@ export interface CachedSession {
   stats: SessionStats | null;
   hasOlderMessages: boolean;
   totalMessageCount: number;
-  liveActivityEvents: ActivityEvent[];
   /** Timestamp of last access — used for LRU eviction. */
   lastAccess: number;
 }
@@ -72,7 +74,6 @@ export function useSSE(): SSEState {
   const [mcpTerminalFocusId, setMcpTerminalFocusId] = useState<string | null>(null);
   const [mcpAgentActivity, setMcpAgentActivity] = useState<Map<string, boolean>>(new Map());
   const [presenceClients, setPresenceClients] = useState<ClientPresence[]>([]);
-  const [liveActivityEvents, setLiveActivityEvents] = useState<ActivityEvent[]>([]);
   const [crossSessionPermissions, setCrossSessionPermissions] = useState<PermissionRequest[]>([]);
   const [crossSessionQuestions, setCrossSessionQuestions] = useState<QuestionRequest[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<SSEConnectionStatus>("reconnecting");
@@ -143,18 +144,20 @@ export function useSSE(): SSEState {
 
   /** LRU session cache — keeps previously-visited sessions in memory for instant switching. */
   const sessionCacheRef = useRef<Map<string, CachedSession>>(new Map());
+  // Placeholders for sends aimed at a session that is not on screen. Parked
+  // here rather than in the live map, which belongs to whatever session is
+  // displayed — and is the very object that session's cache entry holds.
+  const optimisticStashRef = useRef<OptimisticStash>(new Map());
 
   /** Mirror of React state values needed by the cache save function (refs can be read synchronously). */
   const statsRef = useRef<SessionStats | null>(null);
   const hasOlderRef = useRef(false);
   const totalCountRef = useRef(0);
-  const liveActivityRef = useRef<ActivityEvent[]>([]);
 
   // Keep cache-related refs in sync with React state
   useEffect(() => { statsRef.current = stats; }, [stats]);
   useEffect(() => { hasOlderRef.current = hasOlderMessages; }, [hasOlderMessages]);
   useEffect(() => { totalCountRef.current = totalMessageCount; }, [totalMessageCount]);
-  useEffect(() => { liveActivityRef.current = liveActivityEvents; }, [liveActivityEvents]);
 
   // ── Session cache helpers ──────────────────────────────────────
   /** Save the current active session's state into the cache. */
@@ -168,7 +171,6 @@ export function useSSE(): SSEState {
       stats: statsRef.current,
       hasOlderMessages: hasOlderRef.current,
       totalMessageCount: totalCountRef.current,
-      liveActivityEvents: liveActivityRef.current,
       lastAccess: Date.now(),
     });
     // LRU eviction
@@ -190,13 +192,15 @@ export function useSSE(): SSEState {
     const cached = sessionCacheRef.current.get(sid);
     if (!cached) return false;
     cached.lastAccess = Date.now();
+    // A cached map is adopted wholesale, so it is the one place a stray
+    // placeholder from another session could come back to life.
+    purgeForeignOptimistic(cached.messageMap, sid);
     messageMapRef.current = cached.messageMap;
     subagentMapsRef.current = cached.subagentMaps;
     setMessages(mapToSortedArray(cached.messageMap));
     setStats(cached.stats);
     setHasOlderMessages(cached.hasOlderMessages);
     setTotalMessageCount(cached.totalMessageCount);
-    setLiveActivityEvents(cached.liveActivityEvents);
     // Flush subagent messages
     const result = new Map<string, Message[]>();
     for (const [subSid, map] of cached.subagentMaps) {
@@ -406,6 +410,9 @@ export function useSSE(): SSEState {
   const hydrateSession = useCallback((sid: string, gen: number) => {
     // Read placeholders before restoring, which replaces the map wholesale.
     const pending = retainOptimistic(messageMapRef.current, sid);
+    for (const [key, msg] of takeOptimistic(optimisticStashRef.current, sid)) {
+      pending.set(key, msg);
+    }
     const cached = restoreSessionFromCache(sid);
 
     if (cached) {
@@ -416,7 +423,7 @@ export function useSSE(): SSEState {
       subagentMapsRef.current = new Map();
       setMessages(mapToSortedArray(pending));
       setHasOlderMessages(false); setTotalMessageCount(0);
-      setLiveActivityEvents([]); setSubagentMessages(new Map());
+      setSubagentMessages(new Map());
     }
     // A placeholder already fills the view, so a shimmer would only flash.
     setIsLoadingMessages(!cached && pending.size === 0);
@@ -445,7 +452,42 @@ export function useSSE(): SSEState {
     fetchSessionStats(sid).then((st) => { if (gen !== sessionGenRef.current) return; setStats(st); }).catch(() => {});
   }, [restoreSessionFromCache]);
 
-  const refreshMessages = useCallback(async (requestedSessionId?: string | null) => {
+  /**
+   * Re-read a session's transcript from the server.
+   *
+   * `adoptView` decides what happens when the requested session is not the one
+   * on screen. A session the caller just created must be adopted — the view is
+   * already being moved there. A send on an *existing* session must not be: the
+   * user may have opened another conversation while the request was in flight,
+   * and taking the view back would yank them out of it. In that case the fetch
+   * goes into the target's cached transcript, silently, or is skipped when the
+   * session has no cache entry to update (opening it fetches anyway).
+   */
+  const refreshMessages = useCallback(async (
+    requestedSessionId?: string | null,
+    options?: { adoptView?: boolean },
+  ) => {
+    const adoptView = options?.adoptView ?? true;
+    if (requestedSessionId && requestedSessionId !== activeSessionRef.current && !adoptView) {
+      const cached = sessionCacheRef.current.get(requestedSessionId);
+      if (!cached) return;
+      try {
+        const resp = await fetchSessionMessages(requestedSessionId, { limit: MESSAGE_PAGE_SIZE });
+        const map = cached.messageMap;
+        for (const msg of resp.messages) {
+          const id = msg.info.messageID || msg.info.id || "";
+          if (!id) continue;
+          const existing = map.get(id);
+          map.set(id, existing ? mergeMessage(existing, msg) : msg);
+        }
+        reconcileOptimistic(map);
+        cached.totalMessageCount = resp.total;
+        cached.hasOlderMessages = resp.has_more;
+      } catch (e) {
+        console.error("refreshMessages (background) failed:", e);
+      }
+      return;
+    }
     if (requestedSessionId && requestedSessionId !== activeSessionRef.current) {
       // A lazy new-session send can finish while the previous session's fetch
       // is still in flight. Move the ref and generation forward first so that
@@ -463,13 +505,15 @@ export function useSSE(): SSEState {
       sessionGenRef.current += 1;
       activeSessionRef.current = requestedSessionId;
       const pending = retainOptimistic(messageMapRef.current, requestedSessionId);
+      for (const [key, msg] of takeOptimistic(optimisticStashRef.current, requestedSessionId)) {
+        pending.set(key, msg);
+      }
       if (restoreSessionFromCache(requestedSessionId)) {
         for (const [key, msg] of pending) messageMapRef.current.set(key, msg);
       } else {
         messageMapRef.current = pending;
         subagentMapsRef.current = new Map();
         setSubagentMessages(new Map());
-        setLiveActivityEvents([]);
         setHasOlderMessages(false);
         setTotalMessageCount(0);
       }
@@ -554,7 +598,25 @@ export function useSSE(): SSEState {
   }, []);
   const clearMcpTerminalFocus = useCallback(() => { setMcpTerminalFocusId(null); }, []);
 
-  const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[], sessionId?: string | null) => {
+  /**
+   * Show a submitted prompt immediately, in the session it was sent to.
+   *
+   * The target is decided by `sessionId`, never by which transcript happens to
+   * be on screen: a lazily created session is not hydrated until an effect runs,
+   * and the user may navigate away while the request is in flight. Writing into
+   * the live map in either case put the message in another conversation for good
+   * — the map is shared by reference with that session's cache entry, so
+   * reopening it brought the foreign turn back every time.
+   *
+   * Returns the placeholder's id so the caller can retire exactly the one it
+   * created if the send fails.
+   */
+  const addOptimisticMessage = useCallback((text: string, images?: { base64: string; mimeType: string; name: string }[], sessionId?: string | null): string | null => {
+    const target = sessionId ?? activeSessionRef.current;
+    // An unstamped placeholder belongs to no session and could only ever be
+    // removed by a blanket purge. There is nothing useful to show it against.
+    if (!target) return null;
+
     const id = createOptimisticId();
     const parts: MessagePart[] = [{ type: "text", text }];
     if (images) {
@@ -565,15 +627,39 @@ export function useSSE(): SSEState {
     const msg: Message = {
       // Milliseconds, matching server records — seconds here would sort the
       // placeholder ahead of the entire transcript instead of at the end.
-      info: { role: "user", messageID: id, id, sessionID: sessionId ?? activeSessionRef.current ?? undefined, time: Date.now() },
+      info: { role: "user", messageID: id, id, sessionID: target, time: Date.now() },
       parts,
     };
+
+    if (target !== activeSessionRef.current) {
+      const cached = sessionCacheRef.current.get(target);
+      if (cached) cached.messageMap.set(id, msg);
+      else stashOptimistic(optimisticStashRef.current, target, id, msg);
+      return id;
+    }
+
     messageMapRef.current.set(id, msg);
     flushMessages();
+    return id;
   }, [flushMessages]);
 
-  const clearOptimistic = useCallback(() => {
-    if (purgeOptimistic(messageMapRef.current)) flushMessages();
+  /**
+   * Retire placeholders. Scoped to one placeholder when the caller names it, so
+   * a failed send cannot wipe another session's — or another turn's — pending
+   * prompt.
+   */
+  const clearOptimistic = useCallback((sessionId?: string | null, id?: string) => {
+    if (!id) {
+      if (purgeOptimistic(messageMapRef.current)) flushMessages();
+      return;
+    }
+    const target = sessionId ?? activeSessionRef.current;
+    if (target && target !== activeSessionRef.current) {
+      dropStashedOptimistic(optimisticStashRef.current, target, id);
+      sessionCacheRef.current.get(target)?.messageMap.delete(id);
+      return;
+    }
+    if (messageMapRef.current.delete(id)) flushMessages();
   }, [flushMessages]);
 
   // ── Track active session changes ──────────────────────────────
@@ -638,7 +724,7 @@ export function useSSE(): SSEState {
         // Landed on the new-session screen — nothing to show yet.
         messageMapRef.current = new Map();
         subagentMapsRef.current = new Map();
-        setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0); setLiveActivityEvents([]);
+        setMessages([]); setHasOlderMessages(false); setTotalMessageCount(0);
         setSubagentMessages(new Map());
         setIsLoadingMessages(false);
       }
@@ -694,7 +780,7 @@ export function useSSE(): SSEState {
       activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
       setBusySessions, setSessionStatus, setSessionStatuses, setStats, setWatcherStatus,
       setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId,
-      setMcpAgentActivity, setPresenceClients, setLiveActivityEvents,
+      setMcpAgentActivity, setPresenceClients,
     };
 
     function createAndWireAppSSE(): EventSource {
@@ -860,7 +946,7 @@ export function useSSE(): SSEState {
     isLoadingMessages, isLoadingOlder, hasOlderMessages,
     totalMessageCount, watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId,
-    mcpAgentActivity, presenceClients, liveActivityEvents,
+    mcpAgentActivity, presenceClients,
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
     clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,

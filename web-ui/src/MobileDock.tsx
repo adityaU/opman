@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { MessageCircle, GitBranch, FileCode, Terminal, Sparkles, PenSquare, Command, Menu, LayoutGrid } from "lucide-react";
+import { MessageCircle, GitBranch, FileCode, Terminal, PenSquare, Command, Menu, LayoutGrid } from "lucide-react";
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
@@ -12,8 +12,6 @@ interface MobileDockProps {
   handleComposeButtonTap: () => void;
   dockCollapsed: boolean;
   expandDock: () => void;
-  assistantCenterOpen: boolean;
-  onOpenAssistantCenter: () => void;
   onOpenCommandPalette: () => void;
   activeSessionId: string | null;
   activeProject: any;
@@ -32,7 +30,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
   const {
     activePanel, panelsMounted, togglePanel, inputHidden, handleComposeButtonTap,
     dockCollapsed, expandDock,
-    assistantCenterOpen, onOpenAssistantCenter, onOpenCommandPalette,
+    onOpenCommandPalette,
     activeSessionId, activeProject, mcpEditorOpenPath, mcpEditorOpenLine,
     mcpAgentActivity, onError, onSendToAI, isKanbanView, onToggleKanban,
   } = props;
@@ -98,10 +96,6 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
               <span className="dock-label">Board</span>
             </button>
           )}
-          <button className={`mobile-dock-btn ${assistantCenterOpen ? "active" : ""}`} onClick={onOpenAssistantCenter} aria-label="Assistant">
-            <Sparkles size={18} />
-            <span className="dock-label">AI</span>
-          </button>
         </div>
       </nav>
 
@@ -132,7 +126,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
             </button>
           </div>
           <Suspense fallback={null}>
-            <CodeEditorPanel focused={activePanel === "editor"} openFilePath={mcpEditorOpenPath} openLine={mcpEditorOpenLine} projectPath={activeProject?.path} sessionId={activeSessionId} onError={onError} />
+            <CodeEditorPanel layout="mobile" focused={activePanel === "editor"} openFilePath={mcpEditorOpenPath} openLine={mcpEditorOpenLine} projectPath={activeProject?.path} sessionId={activeSessionId} onError={onError} />
           </Suspense>
         </div>
       )}
@@ -148,6 +142,8 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
           </div>
           <Suspense fallback={null}>
             <TerminalPanel
+              layout="mobile"
+              visible={activePanel === "terminal"}
               sessionId={activeSessionId}
               projectPath={activeProject?.path ?? null}
               onClose={() => togglePanel("terminal")}

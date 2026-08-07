@@ -1,4 +1,4 @@
-//! Autonomy controls, routines, delegation board, and workspace snapshot types.
+//! Autonomy controls and routine definition types.
 
 use serde::{Deserialize, Serialize};
 
@@ -40,20 +40,6 @@ pub enum RoutineTrigger {
     DailySummary,
 }
 
-/// What the routine does when it fires.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum RoutineAction {
-    /// Send a predefined message to a session.
-    SendMessage,
-    /// Legacy: open the missions review panel.
-    ReviewMission,
-    /// Legacy: open the inbox panel.
-    OpenInbox,
-    /// Legacy: open the activity feed panel.
-    OpenActivityFeed,
-}
-
 /// Where the routine's message should be sent.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -69,7 +55,6 @@ pub struct RoutineDefinition {
     pub id: String,
     pub name: String,
     pub trigger: RoutineTrigger,
-    pub action: RoutineAction,
     /// Whether this routine is active (scheduler only fires enabled routines).
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -97,9 +82,6 @@ pub struct RoutineDefinition {
     /// Model ID to use (e.g. "claude-sonnet-4-20250514").
     #[serde(default)]
     pub model_id: Option<String>,
-    /// Legacy: linked mission ID.
-    #[serde(default)]
-    pub mission_id: Option<String>,
     /// ISO timestamp of last successful run.
     #[serde(default)]
     pub last_run_at: Option<String>,
@@ -137,7 +119,6 @@ pub struct RoutineRunRecord {
 pub struct CreateRoutineRequest {
     pub name: String,
     pub trigger: RoutineTrigger,
-    pub action: RoutineAction,
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
@@ -156,8 +137,6 @@ pub struct CreateRoutineRequest {
     pub provider_id: Option<String>,
     #[serde(default)]
     pub model_id: Option<String>,
-    #[serde(default)]
-    pub mission_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -166,8 +145,6 @@ pub struct UpdateRoutineRequest {
     pub name: Option<String>,
     #[serde(default)]
     pub trigger: Option<RoutineTrigger>,
-    #[serde(default)]
-    pub action: Option<RoutineAction>,
     #[serde(default)]
     pub enabled: Option<bool>,
     #[serde(default)]
@@ -186,8 +163,6 @@ pub struct UpdateRoutineRequest {
     pub provider_id: Option<Option<String>>,
     #[serde(default)]
     pub model_id: Option<Option<String>>,
-    #[serde(default)]
-    pub mission_id: Option<Option<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -200,57 +175,6 @@ pub struct RunRoutineRequest {
 pub struct RoutinesListResponse {
     pub routines: Vec<RoutineDefinition>,
     pub runs: Vec<RoutineRunRecord>,
-}
-
-// ─── Delegation Board ─────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DelegationStatus {
-    Planned,
-    Running,
-    Completed,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DelegatedWorkItem {
-    pub id: String,
-    pub title: String,
-    pub assignee: String,
-    pub scope: String,
-    pub status: DelegationStatus,
-    #[serde(default)]
-    pub mission_id: Option<String>,
-    #[serde(default)]
-    pub session_id: Option<String>,
-    #[serde(default)]
-    pub subagent_session_id: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CreateDelegatedWorkRequest {
-    pub title: String,
-    pub assignee: String,
-    pub scope: String,
-    #[serde(default)]
-    pub mission_id: Option<String>,
-    #[serde(default)]
-    pub session_id: Option<String>,
-    #[serde(default)]
-    pub subagent_session_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct UpdateDelegatedWorkRequest {
-    #[serde(default)]
-    pub status: Option<DelegationStatus>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DelegatedWorkListResponse {
-    pub items: Vec<DelegatedWorkItem>,
 }
 
 #[cfg(test)]

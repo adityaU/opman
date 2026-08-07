@@ -30,6 +30,9 @@ export interface TerminalPanelProps {
   attachNonce?: number;
   /** Kind to create when `attachNonce` changes (defaults to "claude-attach"). */
   attachKind?: PtyKind;
+  /** Which shell renders the panel. Mobile adds the on-screen key bar, because
+   *  a soft keyboard has no Esc, Tab, Ctrl or arrows. */
+  layout?: "desktop" | "mobile";
 }
 
 export interface TabRuntime {

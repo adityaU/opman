@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, Plus, Minus, Trash2 } from "lucide-react";
 import type { GitFileEntry, GitView } from "../types";
+import type { GitSelection } from "../useGitSelection";
 import { statusColor, statusLabel } from "../utils";
 
 interface Props {
@@ -16,11 +17,13 @@ interface Props {
   onFileAction: (files: string[]) => void;
   /** Per-file discard (only for unstaged) */
   onDiscard?: (files: string[]) => void;
+  /** Keyboard cursor, shared across all three sections. */
+  selection: GitSelection;
 }
 
 export function FileSection({
   title, files, isOpen, onToggle, pushView, variant,
-  onBulkAction, onFileAction, onDiscard,
+  onBulkAction, onFileAction, onDiscard, selection,
 }: Props) {
   if (files.length === 0) return null;
 
@@ -45,7 +48,10 @@ export function FileSection({
       {isOpen && files.map((file) => (
         <div
           key={`${variant}-${file.path}`}
-          className="git-file-row"
+          className={selection.isSelected(file.path, variant) ? "git-file-row is-selected" : "git-file-row"}
+          // Clicking moves the keyboard cursor too, so the pointer and the
+          // keyboard never disagree about which row is current.
+          onPointerDown={() => selection.select(file.path, variant)}
           onClick={!isUntracked ? () => pushView({ kind: "file-diff", file: file.path, staged: isStaged }) : undefined}
           role={!isUntracked ? "button" : undefined}
           tabIndex={!isUntracked ? 0 : undefined}

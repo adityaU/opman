@@ -1,0 +1,197 @@
+/* ══════════════════════════════════════════════════════════
+   LSP part 3 — the diagnostics panel under the editor.
+
+   Collapsed it is one quiet line; opened it is a worklist. It never opens
+   itself, because a panel that appears every time a half-typed line is
+   briefly invalid would push the code around while you type.
+   ══════════════════════════════════════════════════════════ */
+
+.diagp {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-top: .5px solid var(--glass-border-dark, var(--white-6));
+    background: color-mix(in srgb, var(--color-text) 3%, transparent);
+}
+
+.diagp-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 28px;
+    padding: 0 var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.diagp-head:hover:not(:disabled) {
+    background: var(--white-4);
+    color: var(--color-text);
+}
+
+.diagp-head:disabled {
+    cursor: default;
+}
+
+.diagp-head:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.diagp-caret {
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+    transition: transform .18s cubic-bezier(.22, 1, .36, 1);
+}
+
+.diagp.is-open .diagp-caret {
+    transform: none;
+}
+
+.diagp-label {
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+    letter-spacing: .02em;
+}
+
+.diagp-clean-icon {
+    flex-shrink: 0;
+    color: var(--color-success);
+}
+
+.diagp-counts {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.diagp-count {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.diagp-count.is-error {
+    color: var(--color-error);
+}
+
+.diagp-count.is-warning {
+    color: var(--color-warning);
+}
+
+/* ── The list ─────────────────────────────────────────── */
+
+.diagp-list {
+    max-height: 168px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0 0 var(--space-1);
+    list-style: none;
+    border-top: .5px solid var(--glass-border-dark, var(--white-4));
+}
+
+.diagp-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.diagp-item:hover {
+    background: var(--white-4);
+}
+
+.diagp-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.diagp-item-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.diagp-item.is-error .diagp-item-icon { color: var(--color-error); }
+.diagp-item.is-warning .diagp-item-icon { color: var(--color-warning); }
+.diagp-item.is-info .diagp-item-icon,
+.diagp-item.is-hint .diagp-item-icon { color: var(--color-info); }
+
+.diagp-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Compiler messages are frequently several lines; two is enough to
+   recognise one, and the rest is at the line the click jumps to. */
+.diagp-item-msg {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-wrap;
+}
+
+.diagp-item-source {
+    font-size: 9px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.diagp-item-pos {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Flat theme ───────────────────────────────────────── */
+
+html.flat-theme .diagp {
+    background: var(--color-bg);
+    border-color: var(--color-border);
+}
+
+html.flat-theme .diagp-list {
+    border-color: var(--color-border-subtle);
+}
+
+html.flat-theme .diagp-head:hover:not(:disabled),
+html.flat-theme .diagp-item:hover {
+    background: var(--theme-surface-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .diagp-caret {
+        transition: none;
+    }
+}

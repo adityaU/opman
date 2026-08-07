@@ -294,7 +294,7 @@ fn latest_assistant_output(body: &serde_json::Value) -> Option<String> {
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0)
         })?;
-    let text = super::assistant::extract_message_text(latest);
+    let text = super::assistant_send::extract_message_text(latest);
     (!text.trim().is_empty()).then_some(text)
 }
 

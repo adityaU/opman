@@ -1,0 +1,284 @@
+/* File explorer, part 5 — search results, empty states, and flat-theme overrides. Part 1 declares the tokens all parts use. */
+
+
+/* ── Search results ───────────────────────────────────── */
+
+.xpl-results-count {
+    padding: var(--space-1) var(--space-2) var(--space-2);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.xpl-result {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    animation: xpl-result-in .22s cubic-bezier(.22, 1, .36, 1) backwards;
+    animation-delay: calc(var(--i) * 14ms);
+}
+
+@keyframes xpl-result-in {
+    from { opacity: 0; transform: translateX(-6px); }
+}
+
+.xpl-result:hover {
+    background: var(--white-4);
+}
+
+.xpl-result.is-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.xpl-result:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.xpl-result-folder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.xpl-result-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.xpl-result-name {
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The folder is context, not the answer — it truncates from the left so the
+   deepest, most distinguishing part of the path stays visible. */
+.xpl-result-path {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+}
+
+.xpl-match {
+    background: none;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* ── States ───────────────────────────────────────────── */
+
+.xpl-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    padding: var(--space-4) var(--space-3);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.xpl-state strong {
+    color: var(--color-text);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.xpl-state-hint {
+    font-size: var(--font-size-2xs);
+    color: color-mix(in srgb, var(--color-text-muted) 80%, transparent);
+}
+
+.xpl-state-error {
+    color: var(--color-error);
+}
+
+/* ── Expand affordance when collapsed ─────────────────── */
+
+.xpl-expand {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-expand:hover {
+    background: var(--white-6);
+    color: var(--color-text);
+}
+
+/* ── Flat theme ───────────────────────────────────────── */
+
+html.flat-theme .xpl {
+    --xpl-rail: var(--color-border-subtle);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--color-bg-element);
+    border-color: var(--color-border);
+    box-shadow: 4px 0 16px -4px var(--black-25);
+}
+
+html.flat-theme .xpl-header,
+html.flat-theme .xpl-open,
+html.flat-theme .xpl-ctx-title {
+    border-color: var(--color-border);
+}
+
+html.flat-theme .xpl-open {
+    background: var(--color-bg);
+}
+
+html.flat-theme .xpl-search {
+    background: var(--color-bg);
+    border-color: var(--color-border-subtle);
+}
+
+html.flat-theme .xpl-search:focus-within {
+    background: var(--color-bg);
+    border-color: var(--color-primary);
+}
+
+html.flat-theme .xpl-row:hover .xpl-entry,
+html.flat-theme .xpl-open-item:hover,
+html.flat-theme .xpl-result:hover {
+    background: var(--color-bg);
+}
+
+html.flat-theme .xpl-entry-file.is-active,
+html.flat-theme .xpl-open-item.is-active,
+html.flat-theme .xpl-result.is-active {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-element));
+}
+
+html.flat-theme .xpl-row:hover .xpl-entry-file.is-active {
+    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-bg-element));
+}
+
+html.flat-theme .xpl-hdr-btn:hover,
+html.flat-theme .xpl-hdr-btn.is-active,
+html.flat-theme .xpl-open-close:hover,
+html.flat-theme .xpl-confirm-no:hover {
+    background: var(--theme-surface-hover);
+}
+
+html.flat-theme .xpl-row-more {
+    background: var(--color-bg-element);
+}
+
+html.flat-theme .xpl-tile {
+    color: hsl(var(--tile-hue) 55% 45%);
+    background: hsl(var(--tile-hue) 55% 50% / .14);
+}
+
+html.flat-theme .xpl-confirm-no {
+    border-color: var(--color-border);
+}
+
+html.flat-theme .xpl-ctx-hint {
+    background: var(--color-bg);
+}
+
+html.flat-theme .xpl-expand {
+    border-color: var(--color-border);
+}
+
+html.flat-theme .xpl-expand:hover {
+    background: var(--theme-surface-hover);
+}
+
+/* Light flat themes need the tiles darker still to clear 4.5:1. */
+@media (prefers-color-scheme: light) {
+    html.flat-theme .xpl-tile {
+        color: hsl(var(--tile-hue) 60% 34%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .xpl,
+    .xpl-dir-tile,
+    .xpl-rail {
+        transition: none;
+    }
+
+    .xpl-result,
+    .xpl-ctx {
+        animation: none;
+    }
+}
+
+/* ── Expand button clearance ──────────────────────────── */
+
+/* The expand control is absolutely positioned over the editor's top-left
+   corner, which is exactly where the toolbar prints the open file's path.
+   Reserve its width on the toolbar so the two never sit on top of each
+   other; the class is only present while the explorer is collapsed. */
+.code-editor-main.has-expand .code-editor-toolbar {
+    padding-left: 34px;
+}
+
+/* With no toolbar (no file open) the button still needs to clear whatever
+   the empty state draws. */
+.code-editor-main.has-expand .code-editor-empty-state {
+    padding-top: var(--space-8);
+}
+
+/* ── Pinned: in the flow, not over the file ───────────── */
+
+/* Unpinned the explorer is an overlay that withdraws on its own, so it is
+   absolutely positioned. Pinned, it is furniture: it joins the flex row and
+   the editor simply gets the remaining width. */
+.xpl.is-pinned {
+    position: relative;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-text) 3%, transparent);
+}
+
+/* A pinned-but-collapsed panel must give its width back rather than sit
+   there invisible and still occupying the row. */
+.xpl.is-pinned:not(.is-open) {
+    display: none;
+}
+
+html.flat-theme .xpl.is-pinned {
+    background: var(--color-bg-element);
+}

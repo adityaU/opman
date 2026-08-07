@@ -1,0 +1,92 @@
+/* Mobile file browser, part 3 — empty/error states and the flat-theme
+   overrides for the whole mobile browser. Part 1 declares the tokens. */
+
+/* ── States ───────────────────────────────────────────── */
+
+.xplm-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-10) var(--space-5);
+    text-align: center;
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.xplm-state svg {
+    color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+}
+
+.xplm-state strong {
+    color: var(--color-text);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.xplm-state-hint {
+    font-size: var(--font-size-2xs);
+    color: color-mix(in srgb, var(--color-text-muted) 80%, transparent);
+}
+
+.xplm-state-error {
+    color: var(--color-error);
+}
+
+/* ── Flat theme ───────────────────────────────────────── */
+
+html.flat-theme .xplm-header {
+    background: var(--color-bg);
+    border-color: var(--color-border);
+}
+
+html.flat-theme .xplm-row {
+    border-color: var(--color-border-subtle);
+}
+
+html.flat-theme .xplm-row-face:active,
+html.flat-theme .xplm-sheet-item:active,
+html.flat-theme .xplm-up:active,
+html.flat-theme .xplm-actions-trigger:active {
+    background: var(--theme-surface-hover);
+}
+
+html.flat-theme .xplm-row-content {
+    background: var(--color-bg-element);
+}
+
+html.flat-theme .xplm-search,
+html.flat-theme .xplm-crumb,
+html.flat-theme .xplm-sheet-item,
+html.flat-theme .xplm-sheet-input,
+html.flat-theme .xplm-sheet-cancel {
+    background: var(--color-bg);
+    border-color: var(--color-border-subtle);
+}
+
+html.flat-theme .xplm-search:focus-within,
+html.flat-theme .xplm-sheet-input:focus {
+    border-color: var(--color-primary);
+}
+
+html.flat-theme .xplm-sheet {
+    background: var(--color-bg-element);
+    border-color: var(--color-border);
+}
+
+html.flat-theme .xplm-sheet-grip {
+    background: var(--color-border);
+}
+
+html.flat-theme .xplm-sheet-scrim {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .xplm-sheet,
+    .xplm-sheet-scrim {
+        animation: none;
+    }
+}

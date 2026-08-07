@@ -1,0 +1,293 @@
+/* ══════════════════════════════════════════════════════════
+   Mobile file browser — header, breadcrumbs, search, rows.
+
+   The desktop explorer's identity carried over to a thumb: the same typed
+   tiles and the same project-wide finder, at sizes you can actually hit.
+   Part 2 holds the bottom sheets and the flat-theme overrides.
+   ══════════════════════════════════════════════════════════ */
+
+.xplm {
+    --xplm-row-h: 52px;
+    --xplm-tap: 40px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+
+.xplm-header {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6));
+    background: color-mix(in srgb, var(--color-text) 3%, transparent);
+}
+
+.xplm-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.xplm-up,
+.xplm-actions-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--xplm-tap);
+    height: var(--xplm-tap);
+    flex-shrink: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.xplm-up:active,
+.xplm-actions-trigger:active {
+    background: var(--white-8);
+    color: var(--color-text);
+}
+
+/* Keeps the folder name optically centred at the project root, where there
+   is no parent to go up to. */
+.xplm-up-spacer {
+    width: var(--space-1);
+    flex-shrink: 0;
+}
+
+.xplm-title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Breadcrumbs ──────────────────────────────────────── */
+
+/* A trail long enough to matter is longer than a phone is wide, so it
+   scrolls rather than wrapping the header to three lines. */
+.xplm-crumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 calc(var(--space-1) * -1);
+    padding: 0 var(--space-1);
+}
+
+.xplm-crumbs::-webkit-scrollbar {
+    display: none;
+}
+
+.xplm-crumb {
+    flex-shrink: 0;
+    padding: 3px var(--space-2);
+    border: none;
+    border-radius: var(--radius);
+    background: var(--white-4);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.xplm-crumb + .xplm-crumb::before {
+    content: "";
+}
+
+.xplm-crumb.is-current {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+/* ── Search ───────────────────────────────────────────── */
+
+.xplm-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--xplm-tap);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius);
+    background: var(--white-4);
+    border: .5px solid transparent;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.xplm-search:focus-within {
+    background: var(--white-7);
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.xplm-search-icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.xplm-search:focus-within .xplm-search-icon,
+.xplm-search.has-query .xplm-search-icon {
+    color: var(--color-primary);
+}
+
+.xplm-search-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-family: inherit;
+    /* 16px keeps iOS from zooming the page when the field takes focus. */
+    font-size: 16px;
+}
+
+.xplm-search-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.xplm-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.xplm-search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    padding: 0;
+    background: var(--white-8);
+    border: none;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.xplm-search-clear:active {
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+/* ── List ─────────────────────────────────────────────── */
+
+.xplm-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-10);
+}
+
+.xplm-results-count {
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.xplm-row {
+    position: relative;
+    overflow: hidden;
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-4));
+}
+
+.xplm-row-face {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: var(--xplm-row-h);
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.xplm-row-face:active {
+    background: var(--white-6);
+}
+
+.xplm-folder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+/* The typed tile is shared with the desktop tree, but a touch target needs
+   it a little larger to stay legible at arm's length. */
+.xplm .xpl-tile {
+    width: 22px;
+    height: 17px;
+    font-size: 8px;
+    border-radius: 4px;
+}
+
+.xplm-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.xplm-row-name {
+    font-size: var(--font-size-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xplm-row-sub {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* A path is context, not the answer — truncate it from the left so the
+   deepest, most distinguishing part stays readable. Only paths: `direction`
+   reverses the visual order of everything else, which turned "140.8 KB" into
+   "KB 140.8". */
+.xplm-row-sub.is-path {
+    direction: rtl;
+    text-align: left;
+}
+
+.xplm-row-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.xplm .xpl-match {
+    background: none;
+    color: var(--color-primary);
+    font-weight: 600;
+}

@@ -162,11 +162,5 @@ fn format_right_info(routine: &crate::app::RoutineItem) -> String {
             }
         }
     }
-    match routine.action.as_str() {
-        "send_message" => "send msg".to_string(),
-        "review_mission" => "review".to_string(),
-        "open_inbox" => "inbox".to_string(),
-        "open_activity_feed" => "feed".to_string(),
-        _ => routine.action.clone(),
-    }
+    "send msg".to_string()
 }

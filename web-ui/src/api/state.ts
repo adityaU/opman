@@ -127,6 +127,8 @@ export async function fetchSessionStats(
 
 /** Backend theme pair: both dark and light variants. */
 export interface ThemePair {
+  /** Active theme name — what the picker needs to mark the current palette. */
+  name: string;
   dark: ThemeColors;
   light: ThemeColors;
 }

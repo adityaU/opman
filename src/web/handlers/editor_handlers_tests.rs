@@ -1,9 +1,11 @@
-//! Generated coverage tests for `editor_handlers.rs`.
+//! Tests for the editor LSP handlers.
 //!
-//! The LSP handlers proxy to a live Neovim socket. Without a registered socket
-//! they fail fast with BadRequest; with a bogus socket path the RPC connection
-//! fails and they return Internal. The success tail (parsing a live LSP reply)
-//! requires a running Neovim + LSP and is not exercised here.
+//! The handlers no longer need a Neovim socket — they resolve a language server
+//! themselves. What matters here is that the *benign* cases answer
+//! `available: false` with a well-formed body instead of erroring, because the
+//! editor renders availability and a 500 would turn "this is a .txt file" into
+//! a failure toast. Cases that reach a real language server are covered
+//! end-to-end, not here.
 
 use super::*;
 
@@ -11,7 +13,7 @@ use crate::web::auth::AuthUser;
 use crate::web::test_support::test_server_state;
 use crate::web::types::ServerState;
 use crate::web::web_state::WebStateHandle;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::response::IntoResponse;
 
 fn auth() -> AuthUser {
@@ -20,116 +22,129 @@ fn auth() -> AuthUser {
     }
 }
 
-fn state_dir(p: &std::path::Path) -> ServerState {
-    let mut s = test_server_state();
-    s.web_state = WebStateHandle::new_test_with_projects(vec![("t".into(), p.to_path_buf())]);
-    s
+fn state_dir(dir: &std::path::Path) -> ServerState {
+    let mut state = test_server_state();
+    state.web_state = WebStateHandle::new_test_with_projects(vec![("t".into(), dir.to_path_buf())]);
+    state
 }
 
-async fn status<T: IntoResponse>(r: Result<T, WebError>) -> axum::http::StatusCode {
-    r.into_response().status()
-}
-
-async fn seed_socket(state: &ServerState, session_id: &str, sock: std::path::PathBuf) {
-    let mut reg = state.nvim_registry.write().await;
-    reg.insert((0, session_id.to_string()), sock);
-}
-
-fn lsp_query() -> EditorLspQuery {
+fn query(path: &str) -> EditorLspQuery {
     EditorLspQuery {
-        path: "a.rs".into(),
-        session_id: "sess".into(),
+        path: path.into(),
+        session_id: "s".into(),
         line: Some(1),
-        col: Some(0),
+        col: Some(1),
+        content: None,
+        trigger: None,
     }
 }
 
-// ── no socket registered → BadRequest ──────────────────────────────
+async fn body_of<T: IntoResponse>(response: T) -> serde_json::Value {
+    let bytes = axum::body::to_bytes(response.into_response().into_body(), usize::MAX)
+        .await
+        .expect("body");
+    serde_json::from_slice(&bytes).expect("json")
+}
 
+/// A file type with no language server must not be an error.
 #[tokio::test]
-async fn diagnostics_no_socket_400() {
-    let state = test_server_state();
-    let st = status(editor_lsp_diagnostics(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
+async fn diagnostics_unavailable_for_unknown_extension() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("notes.unknownext"), "hello").unwrap();
+    let state = state_dir(dir.path());
+
+    let response =
+        editor_lsp_diagnostics(State(state), auth(), Json(query("notes.unknownext"))).await;
+    let value = body_of(response.expect("handler should not error")).await;
+
+    assert_eq!(value["available"], false);
+    assert_eq!(value["diagnostics"], serde_json::json!([]));
 }
 
 #[tokio::test]
-async fn hover_no_socket_400() {
-    let state = test_server_state();
-    let st = status(editor_lsp_hover(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
+async fn hover_unavailable_for_unknown_extension() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("notes.unknownext"), "hello").unwrap();
+    let state = state_dir(dir.path());
+
+    let response = editor_lsp_hover(State(state), auth(), Json(query("notes.unknownext"))).await;
+    let value = body_of(response.expect("handler should not error")).await;
+
+    assert_eq!(value["available"], false);
+    assert!(value["hover"].is_null());
 }
 
 #[tokio::test]
-async fn definition_no_socket_400() {
-    let state = test_server_state();
-    let st = status(editor_lsp_definition(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
+async fn definition_unavailable_for_unknown_extension() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("notes.unknownext"), "hello").unwrap();
+    let state = state_dir(dir.path());
+
+    let response =
+        editor_lsp_definition(State(state), auth(), Json(query("notes.unknownext"))).await;
+    let value = body_of(response.expect("handler should not error")).await;
+
+    assert_eq!(value["available"], false);
+    assert_eq!(value["locations"], serde_json::json!([]));
 }
 
+/// Format must hand back the original text untouched when it cannot run, so the
+/// editor never replaces a buffer with nothing.
 #[tokio::test]
-async fn format_no_socket_400() {
-    let state = test_server_state();
-    let st = status(
-        editor_lsp_format(
-            State(state),
-            auth(),
-            axum::Json(EditorFormatRequest {
-                path: "a.rs".into(),
-                session_id: "sess".into(),
-            }),
-        )
-        .await,
+async fn format_returns_original_when_unavailable() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("notes.unknownext"), "keep me").unwrap();
+    let state = state_dir(dir.path());
+
+    let response = editor_lsp_format(
+        State(state),
+        auth(),
+        Json(EditorFormatRequest {
+            path: "notes.unknownext".into(),
+            session_id: "s".into(),
+            content: None,
+        }),
     )
     .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
+    let value = body_of(response.expect("handler should not error")).await;
+
+    assert_eq!(value["available"], false);
+    assert_eq!(value["formatted"], false);
+    assert_eq!(value["content"], "keep me");
 }
 
-// ── bogus socket → connection failure → Internal ───────────────────
-
+/// The project sandbox still applies — this is a real client error, not a
+/// missing capability.
 #[tokio::test]
-async fn diagnostics_bogus_socket_500() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    seed_socket(&state, "sess", tmp.path().join("no.sock")).await;
-    let st = status(editor_lsp_diagnostics(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+async fn path_outside_project_is_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = state_dir(dir.path());
+
+    let response = editor_lsp_hover(State(state), auth(), Json(query("../../etc/passwd"))).await;
+    assert!(response.is_err(), "traversal must not resolve");
 }
 
+/// Completion degrades the same way as everything else.
 #[tokio::test]
-async fn hover_bogus_socket_500() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    seed_socket(&state, "sess", tmp.path().join("no.sock")).await;
-    let st = status(editor_lsp_hover(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+async fn completion_unavailable_for_unknown_extension() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("notes.unknownext"), "hello").unwrap();
+    let state = state_dir(dir.path());
+
+    let response =
+        editor_lsp_completion(State(state), auth(), Json(query("notes.unknownext"))).await;
+    let value = body_of(response.expect("handler should not error")).await;
+
+    assert_eq!(value["available"], false);
+    assert_eq!(value["items"], serde_json::json!([]));
 }
 
+/// A missing file is a 404 rather than a silent empty answer.
 #[tokio::test]
-async fn definition_bogus_socket_500() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    seed_socket(&state, "sess", tmp.path().join("no.sock")).await;
-    let st = status(editor_lsp_definition(State(state), auth(), Query(lsp_query())).await).await;
-    assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-}
+async fn missing_file_is_not_found() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = state_dir(dir.path());
 
-#[tokio::test]
-async fn format_bogus_socket_500() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    seed_socket(&state, "sess", tmp.path().join("no.sock")).await;
-    let st = status(
-        editor_lsp_format(
-            State(state),
-            auth(),
-            axum::Json(EditorFormatRequest {
-                path: "a.rs".into(),
-                session_id: "sess".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+    let response = editor_lsp_diagnostics(State(state), auth(), Json(query("nope.rs"))).await;
+    assert!(response.is_err(), "missing file must not resolve");
 }

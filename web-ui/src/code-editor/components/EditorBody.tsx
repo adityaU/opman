@@ -20,6 +20,7 @@ import { DocumentEditor } from "./DocumentEditor";
 import { ImagePreviewZoom } from "./ImagePreviewZoom";
 import { CadViewer } from "./CadViewer";
 import { MarkupOverlay } from "./MarkupOverlay";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 
 interface Props {
   openFile: FileReadResponse | null;
@@ -37,6 +38,10 @@ interface Props {
   // Diagnostics / hover
   activeDiagnostics: EditorLspDiagnostic[];
   hoverText: string | null;
+  /** Whether a language server is serving this file — hides the panel if not. */
+  lspAvailable?: boolean;
+  /** Moves the cursor to a diagnostic's line when one is clicked. */
+  onJumpToLine?: (line: number, col: number) => void;
   // Doc-type editing (spreadsheet/document)
   activeEntry?: OpenFileEntry | null;
   setOpenFiles?: React.Dispatch<React.SetStateAction<OpenFileEntry[]>>;
@@ -46,7 +51,7 @@ export function EditorBody({
   openFile, fileRenderType, currentContent, activeView,
   extensions, onEditorChange, onCreateEditor, onUpdate,
   loadingFile, languageLoading,
-  activeDiagnostics, hoverText,
+  activeDiagnostics, hoverText, lspAvailable = false, onJumpToLine,
   activeEntry, setOpenFiles,
 }: Props) {
   if (loadingFile) {
@@ -73,25 +78,6 @@ export function EditorBody({
 
   return (
     <div className="code-editor-body">
-      {hoverText && (
-        <div className="code-editor-hover-card">
-          <div className="code-editor-hover-title">Hover</div>
-          <pre>{hoverText}</pre>
-        </div>
-      )}
-      {activeDiagnostics.length > 0 && (
-        <div className="code-editor-diagnostics">
-          {activeDiagnostics.slice(0, 6).map((diag, idx) => (
-            <div
-              key={`${diag.lnum}-${diag.col}-${idx}`}
-              className={`code-editor-diagnostic severity-${diag.severity.toLowerCase()}`}
-            >
-              <span className="code-editor-diagnostic-pos">L{diag.lnum}:C{diag.col}</span>
-              <span className="code-editor-diagnostic-msg">{diag.message}</span>
-            </div>
-          ))}
-        </div>
-      )}
       {languageLoading && (
         <div className="code-editor-loading-inline">
           <Loader2 size={16} className="spin" />
@@ -109,6 +95,21 @@ export function EditorBody({
         onUpdate={onUpdate}
         activeEntry={activeEntry}
         setOpenFiles={setOpenFiles}
+      />
+      {/* Diagnostics are underlined at the token by the LSP extensions; the
+          panel is the other half — a count, and a way to reach the problem on
+          line 400 without scrolling to it. It sits under the code so opening a
+          file with errors never shoves the first line off the screen. */}
+      {hoverText && (
+        <div className="code-editor-hover-card">
+          <div className="code-editor-hover-title">Hover</div>
+          <pre>{hoverText}</pre>
+        </div>
+      )}
+      <DiagnosticsPanel
+        diagnostics={activeDiagnostics}
+        available={lspAvailable}
+        onJump={onJumpToLine ?? (() => {})}
       />
     </div>
   );

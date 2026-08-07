@@ -1,0 +1,229 @@
+/* ══════════════════════════════════════════════════════════
+   Mobile file browser, part 2 — swipe actions, bottom sheets, empty
+   states, and the flat-theme overrides. Part 1 owns the header and rows.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Swipe-revealed row actions ───────────────────────── */
+
+.xplm-swipe-actions {
+    position: absolute;
+    inset: 0 0 0 auto;
+    display: flex;
+    align-items: stretch;
+}
+
+.xplm-swipe-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 56px;
+    padding: 0;
+    border: none;
+    color: var(--color-on-scrim);
+    font: inherit;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .01em;
+    cursor: pointer;
+}
+
+.xplm-swipe-btn.is-primary {
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+.xplm-swipe-btn.is-success {
+    background: var(--color-success);
+    color: var(--color-on-accent);
+}
+
+.xplm-swipe-btn.is-danger {
+    background: var(--color-error);
+}
+
+.xplm-swipe-btn:active {
+    filter: brightness(.9);
+}
+
+.xplm-row-content {
+    position: relative;
+    background: var(--color-bg-panel);
+}
+
+/* ── Bottom sheets ────────────────────────────────────── */
+
+.xplm-sheet-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: flex-end;
+    background: var(--theme-overlay);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: xplm-fade .16s ease;
+}
+
+@keyframes xplm-fade {
+    from { opacity: 0; }
+}
+
+.xplm-sheet {
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4)
+        calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+    border-radius: 16px 16px 0 0;
+    background: var(--theme-elevated);
+    border-top: .5px solid var(--glass-border-dark, var(--white-8));
+    box-shadow: 0 -12px 40px -12px var(--black-25);
+    animation: xplm-rise .22s cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes xplm-rise {
+    from { transform: translateY(100%); }
+}
+
+.xplm-sheet-grip {
+    width: 36px;
+    height: 4px;
+    margin: var(--space-1) auto var(--space-1);
+    border-radius: 999px;
+    background: var(--white-8);
+}
+
+.xplm-sheet-title {
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xplm-sheet-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.xplm-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: 48px;
+    padding: 0 var(--space-3);
+    border: none;
+    border-radius: var(--radius);
+    background: var(--white-4);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-md);
+    text-align: left;
+    cursor: pointer;
+}
+
+.xplm-sheet-item svg {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.xplm-sheet-item:active {
+    background: var(--white-8);
+}
+
+.xplm-sheet-input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius);
+    background: var(--white-4);
+    border: .5px solid var(--white-8);
+    color: var(--color-text);
+    font-family: inherit;
+    /* 16px stops iOS zooming the page on focus. */
+    font-size: 16px;
+    outline: none;
+}
+
+.xplm-sheet-input:focus {
+    border-color: var(--color-primary);
+    background: var(--white-7);
+}
+
+.xplm-sheet-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    background: var(--theme-error-soft);
+    color: color-mix(in srgb, var(--color-error) 26%, var(--color-text));
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.xplm-sheet-warning svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--color-error);
+}
+
+.xplm-sheet-warning strong {
+    color: var(--color-text);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.xplm-sheet-buttons {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.xplm-sheet-cancel,
+.xplm-sheet-confirm {
+    flex: 1;
+    min-height: 46px;
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.xplm-sheet-cancel {
+    background: var(--white-4);
+    border: .5px solid var(--white-8);
+    color: var(--color-text);
+}
+
+.xplm-sheet-confirm {
+    background: var(--color-primary);
+    border: none;
+    color: var(--color-on-accent);
+}
+
+.xplm-sheet-confirm:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+.xplm-sheet-confirm.is-danger {
+    background: var(--color-error);
+    color: var(--color-on-scrim);
+}
+
+.xplm-sheet-cancel:active,
+.xplm-sheet-confirm:not(:disabled):active {
+    filter: brightness(.92);
+}
+

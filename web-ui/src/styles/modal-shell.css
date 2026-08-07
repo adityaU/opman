@@ -37,17 +37,9 @@
     --modal-rim: inset 0 1px 0 color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
-/* ── Scale membership ─────────────────────────────────────────────── */
+                                                                         
 
-.modal-dialog-surface,
-:is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal, .autonomy-modal,
-    .routines-modal, .delegation-modal, .missions-modal, .workspace-mgr-modal,
-    .add-project-modal, .sysm-modal, .kanban-modal, .notification-prefs-modal,
-    .settings-modal, .theme-selector, .cheatsheet-modal, .watcher-modal,
-    .session-selector-modal, .health-modal, .todo-panel-modal, .ctx-window-modal,
-    .diff-review-modal, .command-palette, .context-input-modal,
-    .cross-session-search-modal, .pr-description-modal, .routines-confirm-dialog,
-    .activity-feed-panel, .session-dashboard-panel, .session-graph-panel, .sb-modal) {
+.modal-dialog-surface{
     border: 1px solid var(--modal-border);
     border-radius: var(--modal-radius);
     background: var(--modal-surface);
@@ -64,7 +56,7 @@
     .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
     .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
     .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-    .prompt-queue-panel) {
+    .prompt-queue-panel, .which-key) {
     border: 1px solid var(--modal-border);
     border-radius: var(--popover-radius);
     background: var(--modal-surface);
@@ -160,24 +152,12 @@ html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
 
 @media (prefers-reduced-motion: reduce) {
     :is(.modal-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
-        .kanban-modal-overlay),
-    .modal-dialog-surface,
-    :is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal,
-        .autonomy-modal, .routines-modal, .delegation-modal, .missions-modal,
-        .workspace-mgr-modal, .add-project-modal, .sysm-modal, .kanban-modal,
-        .notification-prefs-modal, .settings-modal, .theme-selector,
-        .cheatsheet-modal, .watcher-modal, .session-selector-modal, .health-modal,
-        .todo-panel-modal, .ctx-window-modal, .diff-review-modal, .command-palette,
-        .context-input-modal, .cross-session-search-modal, .pr-description-modal,
-        .routines-confirm-dialog, .activity-feed-panel, .session-dashboard-panel,
-        .session-graph-panel, .sb-modal),
-    .modal-popover-surface,
-    :is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
+        .kanban-modal-overlay),.modal-dialog-surface,.modal-popover-surface,:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
         .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
         .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
         .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
         .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-        .prompt-queue-panel) {
+        .prompt-queue-panel){
         animation: none;
     }
 }
@@ -185,14 +165,7 @@ html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
 /* ── Mobile: dialogs become bottom sheets ─────────────────────────── */
 
 @media (max-width: 768px) {
-    .modal-dialog-surface,
-    :is(.assistant-center-modal, .assistant-inbox-modal, .memory-modal,
-        .autonomy-modal, .routines-modal, .delegation-modal, .missions-modal,
-        .workspace-mgr-modal, .add-project-modal, .sysm-modal, .kanban-modal,
-        .notification-prefs-modal, .settings-modal, .theme-selector,
-        .cheatsheet-modal, .watcher-modal, .session-selector-modal, .health-modal,
-        .todo-panel-modal, .ctx-window-modal, .diff-review-modal, .command-palette,
-        .context-input-modal, .cross-session-search-modal, .pr-description-modal) {
+    .modal-dialog-surface{
         border-radius: var(--radius) var(--radius) 0 0;
         border-bottom: 0;
         animation: modal-sheet-in .26s cubic-bezier(.22, 1, .36, 1) both;

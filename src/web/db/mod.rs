@@ -4,17 +4,14 @@
 //! Uses a single `rusqlite::Connection` wrapped in a `Mutex` for
 //! thread-safe access from async handlers (via `spawn_blocking`).
 
-mod delegation;
 mod kanban;
 mod kanban_pipeline;
 mod memory;
 pub(crate) mod migrate;
-mod missions;
+pub(crate) mod migrate_legacy_json;
 mod routines;
 mod schema;
 mod settings;
-mod signals;
-mod workspaces;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -118,8 +115,8 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        // We expect at least 7 tables
-        assert!(count >= 7, "expected >=7 tables, got {}", count);
+        // Personal memory, autonomy, routines, routine_runs + 5 kanban tables.
+        assert!(count >= 9, "expected >=9 tables, got {}", count);
     }
 }
 

@@ -18,6 +18,8 @@ interface Props {
   onOpenDetail: (task: Task) => void;
   onLaunchTask: (task: Task) => void;
   onOpenSession: (sessionId: string) => void;
+  selectedTaskId?: string;
+  onSelectTask?: (taskId: string) => void;
 }
 
 export const KanbanLane: React.FC<Props> = function KanbanLane(p) {
@@ -82,6 +84,8 @@ export const KanbanLane: React.FC<Props> = function KanbanLane(p) {
             onDragStart={(taskId) => p.onDragStart(taskId, lane.id)}
             onDragEnd={p.onDragEnd}
             onOpenDetail={p.onOpenDetail}
+            selected={p.selectedTaskId === task.id}
+            onSelect={p.onSelectTask}
             onLaunch={p.onLaunchTask}
             onOpenSession={p.onOpenSession}
             hasAttachment={p.attachmentTaskIds?.has(task.id)}

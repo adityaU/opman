@@ -14,51 +14,19 @@ use super::super::types::*;
 /// Runs inside a single SQLite transaction for atomicity.
 pub(super) fn sync_all(
     db: &Db,
-    missions: &[Mission],
     memory: &[PersonalMemoryItem],
     autonomy: &AutonomySettings,
     routines: &[RoutineDefinition],
     routine_runs: &[RoutineRunRecord],
-    delegated: &[DelegatedWorkItem],
-    workspaces: &[WorkspaceSnapshot],
-    signals: &[SignalInput],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let conn = db.conn();
     conn.execute_batch("BEGIN IMMEDIATE")?;
 
     // Clear all tables
-    conn.execute("DELETE FROM missions", [])?;
     conn.execute("DELETE FROM personal_memory", [])?;
     conn.execute("DELETE FROM routines", [])?;
     conn.execute("DELETE FROM routine_runs", [])?;
-    conn.execute("DELETE FROM delegated_work", [])?;
-    conn.execute("DELETE FROM workspaces", [])?;
-    conn.execute("DELETE FROM signals", [])?;
 
-    for m in missions {
-        let eval_history_json =
-            serde_json::to_string(&m.eval_history).unwrap_or_else(|_| "[]".to_string());
-        conn.execute(
-            "INSERT INTO missions (id,goal,session_id,project_index,state,\
-             iteration,max_iterations,last_verdict,last_eval_summary,\
-             eval_history,created_at,updated_at) \
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
-            params![
-                m.id,
-                m.goal,
-                m.session_id,
-                m.project_index as i64,
-                state_str(&m.state),
-                m.iteration as i64,
-                m.max_iterations as i64,
-                m.last_verdict.as_ref().map(verdict_str),
-                m.last_eval_summary,
-                eval_history_json,
-                m.created_at,
-                m.updated_at
-            ],
-        )?;
-    }
     for m in memory {
         conn.execute(
             "INSERT INTO personal_memory (id,label,content,scope,project_index,\
@@ -82,15 +50,14 @@ pub(super) fn sync_all(
     )?;
     for r in routines {
         conn.execute(
-            "INSERT INTO routines (id,name,trigger,action,enabled,cron_expr,timezone,\
+            "INSERT INTO routines (id,name,trigger,enabled,cron_expr,timezone,\
              target_mode,session_id,project_index,prompt,provider_id,model_id,\
-             mission_id,last_run_at,next_run_at,last_error,\
-             created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
+             last_run_at,next_run_at,last_error,\
+             created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
             params![
                 r.id,
                 r.name,
                 trigger_str(&r.trigger),
-                action_str(&r.action),
                 r.enabled as i64,
                 r.cron_expr,
                 r.timezone,
@@ -100,7 +67,6 @@ pub(super) fn sync_all(
                 r.prompt,
                 r.provider_id,
                 r.model_id,
-                r.mission_id,
                 r.last_run_at,
                 r.next_run_at,
                 r.last_error,
@@ -125,66 +91,11 @@ pub(super) fn sync_all(
             ],
         )?;
     }
-    for d in delegated {
-        conn.execute(
-            "INSERT INTO delegated_work (id,title,assignee,scope,status,mission_id,\
-             session_id,subagent_session_id,created_at,updated_at) \
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-            params![
-                d.id,
-                d.title,
-                d.assignee,
-                d.scope,
-                deleg_str(&d.status),
-                d.mission_id,
-                d.session_id,
-                d.subagent_session_id,
-                d.created_at,
-                d.updated_at
-            ],
-        )?;
-    }
-    for ws in workspaces {
-        let json = serde_json::to_string(ws)?;
-        conn.execute(
-            "INSERT INTO workspaces (name,snapshot,created_at) VALUES (?1,?2,?3)",
-            params![ws.name, json, ws.created_at],
-        )?;
-    }
-    for s in signals {
-        conn.execute(
-            "INSERT INTO signals (id,kind,title,body,created_at,session_id) \
-             VALUES (?1,?2,?3,?4,?5,?6)",
-            params![s.id, s.kind, s.title, s.body, s.created_at, s.session_id],
-        )?;
-    }
-
     conn.execute_batch("COMMIT")?;
     Ok(())
 }
 
 // ── String conversion helpers ───────────────────────────────────────
-
-fn state_str(s: &MissionState) -> &'static str {
-    match s {
-        MissionState::Pending => "pending",
-        MissionState::Executing => "executing",
-        MissionState::Evaluating => "evaluating",
-        MissionState::Paused => "paused",
-        MissionState::Completed => "completed",
-        MissionState::Cancelled => "cancelled",
-        MissionState::Failed => "failed",
-    }
-}
-
-fn verdict_str(v: &EvalVerdict) -> &'static str {
-    match v {
-        EvalVerdict::Achieved => "achieved",
-        EvalVerdict::Continue => "continue",
-        EvalVerdict::Blocked => "blocked",
-        EvalVerdict::Failed => "failed",
-    }
-}
 
 fn scope_str(s: &MemoryScope) -> &'static str {
     match s {
@@ -212,27 +123,10 @@ fn trigger_str(t: &RoutineTrigger) -> &'static str {
     }
 }
 
-fn action_str(a: &RoutineAction) -> &'static str {
-    match a {
-        RoutineAction::SendMessage => "send_message",
-        RoutineAction::ReviewMission => "review_mission",
-        RoutineAction::OpenInbox => "open_inbox",
-        RoutineAction::OpenActivityFeed => "open_activity_feed",
-    }
-}
-
 fn target_mode_str(t: &RoutineTargetMode) -> &'static str {
     match t {
         RoutineTargetMode::ExistingSession => "existing_session",
         RoutineTargetMode::NewSession => "new_session",
-    }
-}
-
-fn deleg_str(s: &DelegationStatus) -> &'static str {
-    match s {
-        DelegationStatus::Planned => "planned",
-        DelegationStatus::Running => "running",
-        DelegationStatus::Completed => "completed",
     }
 }
 

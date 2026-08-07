@@ -463,12 +463,10 @@ fn render_detail_pane(
 
     let mut lines: Vec<Line> = Vec::new();
 
-    // Trigger & Action
+    // Trigger
     lines.push(Line::from(vec![
         Span::styled(" Trigger: ", label_style),
         Span::styled(&routine.trigger, value_style),
-        Span::styled("  Action: ", label_style),
-        Span::styled(&routine.action, value_style),
     ]));
 
     // Cron / Schedule

@@ -102,7 +102,6 @@ fn handle_list_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             let req = crate::web::types::UpdateRoutineRequest {
                                 name: None,
                                 trigger: None,
-                                action: None,
                                 enabled: Some(new_enabled),
                                 cron_expr: None,
                                 timezone: None,
@@ -112,7 +111,6 @@ fn handle_list_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                 prompt: None,
                                 provider_id: None,
                                 model_id: None,
-                                mission_id: None,
                             };
                             let _ = wsh.update_routine(&routine_id, req).await;
                             // Refetch
@@ -384,7 +382,6 @@ fn save_editing(app: &mut App) -> Result<()> {
             let req = crate::web::types::CreateRoutineRequest {
                 name,
                 trigger,
-                action: crate::web::types::RoutineAction::SendMessage,
                 enabled,
                 cron_expr,
                 timezone: None,
@@ -394,7 +391,6 @@ fn save_editing(app: &mut App) -> Result<()> {
                 prompt,
                 provider_id: None,
                 model_id: None,
-                mission_id: None,
             };
             tokio::spawn(async move {
                 let def = wsh.create_routine(req).await;
@@ -411,7 +407,6 @@ fn save_editing(app: &mut App) -> Result<()> {
             let req = crate::web::types::UpdateRoutineRequest {
                 name: Some(name),
                 trigger: Some(trigger),
-                action: Some(crate::web::types::RoutineAction::SendMessage),
                 enabled: Some(enabled),
                 cron_expr: Some(cron_expr),
                 timezone: None,
@@ -421,7 +416,6 @@ fn save_editing(app: &mut App) -> Result<()> {
                 prompt: Some(prompt),
                 provider_id: None,
                 model_id: None,
-                mission_id: None,
             };
             tokio::spawn(async move {
                 let _ = wsh.update_routine(&rid, req).await;

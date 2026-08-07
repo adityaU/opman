@@ -455,3 +455,18 @@
   color: var(--color-error);
   opacity: 1;
 }
+
+/* Runner-handoff transcript: prior context, collapsed by default and rendered
+   as pre-formatted turns rather than as the user's own message. */
+.handoff-accordion-body {
+    max-height: 320px;
+    overflow: auto;
+    margin: var(--space-1) 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

@@ -82,6 +82,13 @@
     background: var(--color-surface-hover)
 }
 
+/* The keyboard cursor. A left rule rather than a fill, so it stays legible
+   over the hover background and never competes with the status colours. */
+.git-file-row.is-selected {
+    background: var(--color-bg-selected);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
 .git-diff-body,.git-commit-file-body,.pr-description-modal-body {
     background: var(--color-bg-element)
 }

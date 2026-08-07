@@ -1,193 +1,14 @@
-//! Generated coverage tests for `migrate.rs`:
-//! JSON import (`run_migration_from`), routines v1→v2, kanban `archived` column.
+//! Coverage tests for `migrate.rs`: routines v1→v2 and the kanban `archived` column.
 use super::*;
+use crate::web::types::RoutineTrigger;
 use rusqlite::Connection;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 fn db_from_raw(conn: Connection) -> Db {
     Db {
         conn: Arc::new(Mutex::new(conn)),
     }
-}
-
-fn unique_tmp(name: &str) -> PathBuf {
-    let n: u64 = rand::random();
-    std::env::temp_dir().join(format!("opman_migtest_{name}_{n}.json"))
-}
-
-fn sample_workspace() -> WorkspaceSnapshot {
-    WorkspaceSnapshot {
-        name: "coding".into(),
-        created_at: "2025-01-01T00:00:00Z".into(),
-        panels: WorkspacePanels {
-            sidebar: true,
-            terminal: false,
-            editor: true,
-            git: false,
-        },
-        layout: WorkspaceLayout::default(),
-        open_files: vec!["main.rs".into()],
-        active_file: None,
-        terminal_tabs: vec![],
-        session_id: None,
-        git_branch: None,
-        is_template: false,
-        recipe_description: None,
-        recipe_next_action: None,
-        is_recipe: false,
-    }
-}
-
-fn legacy_json_value() -> serde_json::Value {
-    let mem = PersonalMemoryItem {
-        id: "m1".into(),
-        label: "L".into(),
-        content: "C".into(),
-        scope: MemoryScope::Global,
-        project_index: None,
-        session_id: None,
-        created_at: "2025-01-01T00:00:00Z".into(),
-        updated_at: "2025-01-01T00:00:00Z".into(),
-    };
-    let settings = AutonomySettings {
-        mode: AutonomyMode::Continue,
-        updated_at: "2025-01-01T00:00:00Z".into(),
-    };
-    let routine = RoutineDefinition {
-        id: "r1".into(),
-        name: "R".into(),
-        trigger: RoutineTrigger::Manual,
-        action: RoutineAction::SendMessage,
-        enabled: true,
-        cron_expr: None,
-        timezone: None,
-        target_mode: None,
-        session_id: None,
-        project_index: None,
-        prompt: None,
-        provider_id: None,
-        model_id: None,
-        mission_id: None,
-        last_run_at: None,
-        next_run_at: None,
-        last_error: None,
-        created_at: "2025-01-01T00:00:00Z".into(),
-        updated_at: "2025-01-01T00:00:00Z".into(),
-    };
-    let run = RoutineRunRecord {
-        id: "rr1".into(),
-        routine_id: "r1".into(),
-        status: "completed".into(),
-        summary: "ok".into(),
-        target_session_id: None,
-        duration_ms: None,
-        created_at: "2025-01-01T00:00:00Z".into(),
-    };
-    let dw = DelegatedWorkItem {
-        id: "d1".into(),
-        title: "T".into(),
-        assignee: "a".into(),
-        scope: "s".into(),
-        status: DelegationStatus::Planned,
-        mission_id: None,
-        session_id: None,
-        subagent_session_id: None,
-        created_at: "2025-01-01T00:00:00Z".into(),
-        updated_at: "2025-01-01T00:00:00Z".into(),
-    };
-    let sig = SignalInput {
-        id: "s1".into(),
-        kind: "k".into(),
-        title: "ttl".into(),
-        body: "b".into(),
-        created_at: 1.0,
-        session_id: None,
-    };
-    serde_json::json!({
-        "personal_memory": { "m1": serde_json::to_value(&mem).unwrap() },
-        "autonomy_settings": serde_json::to_value(&settings).unwrap(),
-        "routines": { "r1": serde_json::to_value(&routine).unwrap() },
-        "routine_runs": [serde_json::to_value(&run).unwrap()],
-        "delegated_work": { "d1": serde_json::to_value(&dw).unwrap() },
-        "workspaces": { "coding": serde_json::to_value(&sample_workspace()).unwrap() },
-        "signals": [serde_json::to_value(&sig).unwrap()],
-    })
-}
-
-#[test]
-fn run_migration_from_imports_all_records_and_renames_file() {
-    let db = Db::open_memory().unwrap();
-    let path = unique_tmp("import");
-    std::fs::write(&path, serde_json::to_string(&legacy_json_value()).unwrap()).unwrap();
-
-    run_migration_from(&db, path.clone());
-
-    assert_eq!(db.list_memory().len(), 1);
-    assert!(matches!(
-        db.load_autonomy_settings().mode,
-        AutonomyMode::Continue
-    ));
-    assert_eq!(db.list_routines().len(), 1);
-    assert_eq!(db.list_routine_runs().len(), 1);
-    assert_eq!(db.list_delegated_work().len(), 1);
-    assert_eq!(db.list_workspaces().len(), 1);
-    assert_eq!(db.list_signals(100).len(), 1);
-    // Missions are intentionally NOT imported.
-    assert!(db.list_missions().is_empty());
-
-    // Original renamed to .bak so a re-run is a no-op.
-    assert!(!path.exists());
-    let bak = path.with_extension("json.bak");
-    assert!(bak.exists());
-    let _ = std::fs::remove_file(&bak);
-}
-
-#[test]
-fn run_migration_from_no_file_is_noop() {
-    let db = Db::open_memory().unwrap();
-    let path = unique_tmp("missing");
-    // File does not exist → early return after schema migrations.
-    run_migration_from(&db, path);
-    assert!(db.list_memory().is_empty());
-}
-
-#[test]
-fn run_migration_from_skips_when_db_has_data() {
-    let db = Db::open_memory().unwrap();
-    db.insert_memory(&PersonalMemoryItem {
-        id: "pre".into(),
-        label: "pre".into(),
-        content: "".into(),
-        scope: MemoryScope::Global,
-        project_index: None,
-        session_id: None,
-        created_at: "2025-01-01T00:00:00Z".into(),
-        updated_at: "2025-01-01T00:00:00Z".into(),
-    });
-    let path = unique_tmp("hasdata");
-    std::fs::write(&path, serde_json::to_string(&legacy_json_value()).unwrap()).unwrap();
-
-    run_migration_from(&db, path.clone());
-
-    // Only the pre-existing item; import skipped. File not renamed.
-    assert_eq!(db.list_memory().len(), 1);
-    assert!(db.list_routines().is_empty());
-    assert!(path.exists());
-    let _ = std::fs::remove_file(&path);
-}
-
-#[test]
-fn run_migration_from_bad_json_returns() {
-    let db = Db::open_memory().unwrap();
-    let path = unique_tmp("badjson");
-    std::fs::write(&path, "{ this is not valid json ").unwrap();
-
-    run_migration_from(&db, path.clone());
-
-    assert!(db.list_memory().is_empty());
-    // Parse failed → file left in place (not renamed).
-    assert!(path.exists());
-    let _ = std::fs::remove_file(&path);
 }
 
 #[test]
@@ -234,7 +55,7 @@ fn migrate_routines_v1_to_v2_preserves_rows() {
     )
     .unwrap();
 
-    // Create the remaining tables (missions/etc.) so run_schema_migrations works.
+    // Create the remaining tables so run_schema_migrations works.
     super::super::schema::create_tables(&conn).unwrap();
 
     let db = db_from_raw(conn);
@@ -250,8 +71,8 @@ fn migrate_routines_v1_to_v2_preserves_rows() {
     assert_eq!(routines[0].name, "Nightly");
     assert!(routines[0].enabled);
     assert_eq!(routines[0].trigger, RoutineTrigger::Scheduled);
-    assert_eq!(routines[0].action, RoutineAction::ReviewMission);
-    assert_eq!(routines[0].mission_id.as_deref(), Some("mi1"));
+    // The legacy `action` and `mission_id` columns are dropped, not carried over.
+    assert_eq!(routines[0].session_id.as_deref(), Some("se1"));
 
     let runs = db.list_routine_runs();
     assert_eq!(runs.len(), 1);
@@ -287,7 +108,7 @@ fn migrate_adds_archived_column_to_old_kanban_tasks() {
         .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
         .is_err());
 
-    // Remaining tables (missions already has `state`, routines has `enabled`).
+    // Remaining tables (routines already has `enabled`).
     super::super::schema::create_tables(&conn).unwrap();
 
     let db = db_from_raw(conn);
@@ -297,4 +118,42 @@ fn migrate_adds_archived_column_to_old_kanban_tasks() {
     assert!(conn
         .prepare("SELECT archived FROM kanban_tasks LIMIT 0")
         .is_ok());
+}
+
+/// One-off guard (ignored by default): run the real open+migrate path against a
+/// copy of a production database and confirm the removed-feature tables are gone
+/// while every surviving table keeps its rows.
+/// Run with: OPMAN_MIG_DB=/path/to/copy.db cargo test migrate_real_db -- --ignored --nocapture
+#[test]
+#[ignore]
+fn migrate_real_db_drops_dead_tables_and_keeps_survivors() {
+    let Ok(path) = std::env::var("OPMAN_MIG_DB") else {
+        return;
+    };
+    let db = Db::open_at(PathBuf::from(&path)).expect("open real db copy");
+    run_schema_migrations(&db);
+    run_schema_migrations(&db);
+
+    let conn = db.conn();
+    for dead in ["missions", "delegated_work", "workspaces", "signals"] {
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [dead],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 0, "{dead} should be dropped");
+    }
+    drop(conn);
+
+    println!(
+        "memory={} routines={} runs={}",
+        db.list_memory().len(),
+        db.list_routines().len(),
+        db.list_routine_runs().len()
+    );
+    assert_eq!(db.list_memory().len(), 10, "memory rows must survive");
+    assert_eq!(db.list_routines().len(), 1, "routine rows must survive");
+    assert_eq!(db.list_routine_runs().len(), 2, "run rows must survive");
 }

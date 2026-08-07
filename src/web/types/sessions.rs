@@ -2,7 +2,6 @@
 
 use serde::Serialize;
 
-use super::state::WebSessionTime;
 
 // ── Session stats ───────────────────────────────────────────────────
 
@@ -62,57 +61,6 @@ pub struct ContextItem {
     pub label: String,
     /// Estimated tokens for this item.
     pub tokens: u64,
-}
-
-// ── Multi-session dashboard types ───────────────────────────────────
-
-/// A single session entry in the sessions overview, enriched with stats and status.
-#[derive(Serialize, Clone)]
-pub struct SessionOverviewEntry {
-    pub id: String,
-    pub title: String,
-    #[serde(rename = "parentID")]
-    pub parent_id: String,
-    pub project_name: String,
-    pub project_index: usize,
-    pub directory: String,
-    pub is_busy: bool,
-    pub time: WebSessionTime,
-    /// Cost and token usage (None if no stats recorded yet).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stats: Option<WebSessionStats>,
-}
-
-/// Response for `GET /api/sessions/overview`.
-#[derive(Serialize)]
-pub struct SessionsOverviewResponse {
-    pub sessions: Vec<SessionOverviewEntry>,
-    /// Total number of sessions across all projects.
-    pub total: usize,
-    /// Number of currently busy sessions.
-    pub busy_count: usize,
-}
-
-/// A node in the session tree (parent/child relationships).
-#[derive(Serialize, Clone)]
-pub struct SessionTreeNode {
-    pub id: String,
-    pub title: String,
-    pub project_name: String,
-    pub project_index: usize,
-    pub is_busy: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stats: Option<WebSessionStats>,
-    pub children: Vec<SessionTreeNode>,
-}
-
-/// Response for `GET /api/sessions/tree`.
-#[derive(Serialize)]
-pub struct SessionsTreeResponse {
-    /// Root-level sessions (sessions without a parent, or whose parent is not known).
-    pub roots: Vec<SessionTreeNode>,
-    /// Total session count.
-    pub total: usize,
 }
 
 // ── Agent types ─────────────────────────────────────────────────────

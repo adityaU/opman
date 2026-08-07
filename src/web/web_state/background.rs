@@ -99,29 +99,15 @@ impl super::WebStateHandle {
         tokio::task::JoinError,
     > {
         let state = self.inner.read().await;
-        let missions: Vec<_> = state.missions.values().cloned().collect();
         let memory: Vec<_> = state.personal_memory.values().cloned().collect();
         let autonomy = state.autonomy_settings.clone();
         let routines: Vec<_> = state.routines.values().cloned().collect();
         let routine_runs = state.routine_runs.clone();
-        let delegated: Vec<_> = state.delegated_work.values().cloned().collect();
-        let workspaces: Vec<_> = state.workspaces.values().cloned().collect();
-        let signals = state.signals.clone();
         drop(state);
 
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
-            super::db_sync::sync_all(
-                &db,
-                &missions,
-                &memory,
-                &autonomy,
-                &routines,
-                &routine_runs,
-                &delegated,
-                &workspaces,
-                &signals,
-            )
+            super::db_sync::sync_all(&db, &memory, &autonomy, &routines, &routine_runs)
         })
         .await
     }

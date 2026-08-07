@@ -69,6 +69,17 @@ pub fn load_theme_with_mode(mode: &str) -> ThemeColors {
     }
 }
 
+/// The name of the currently active theme, e.g. `"aura"`.
+///
+/// The web UI needs the *name*, not just the resolved colors: without it the
+/// theme picker has no way to mark the active palette and falls back to the
+/// first row in the list.
+pub fn active_theme_name() -> String {
+    read_active_theme_name()
+        .map(|(name, _)| name)
+        .unwrap_or_else(|_| "opencode".to_string())
+}
+
 fn try_load_theme() -> Result<ThemeColors> {
     let (theme_name, theme_mode) = read_active_theme_name()?;
     debug!(theme = %theme_name, mode = %theme_mode, "Resolved active opencode theme");

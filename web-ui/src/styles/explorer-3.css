@@ -1,0 +1,172 @@
+/* File explorer, part 3 — tree rows, indent spine, and typed file tiles. Part 1 declares the tokens all parts use. */
+
+/* ── Tree body ────────────────────────────────────────── */
+
+.xpl-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--space-1) 0 var(--space-4);
+}
+
+.xpl-branch {
+    position: relative;
+}
+
+/* Guides are absolutely placed inside the branch so one element covers the
+   whole subtree's height — no per-row seams. */
+.xpl-rails {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.xpl-rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--xpl-rail);
+    transition: background .25s ease;
+}
+
+.xpl-rail.is-lit {
+    background: var(--xpl-rail-lit);
+}
+
+.xpl-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.xpl-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex: 1;
+    min-width: 0;
+    height: var(--xpl-row-h);
+    padding-right: var(--space-1);
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-row:hover .xpl-entry {
+    background: var(--white-4);
+}
+
+.xpl-entry:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.xpl-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xpl-entry-file.is-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+.xpl-row:hover .xpl-entry-file.is-active {
+    background: color-mix(in srgb, var(--color-primary) 21%, transparent);
+}
+
+/* A folder on the open file's chain stays legible when collapsed elsewhere. */
+.xpl-entry-dir.on-chain .xpl-folder-icon {
+    color: var(--color-primary);
+}
+
+.xpl-folder-icon {
+    flex-shrink: 0;
+    color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text-muted));
+}
+
+.xpl-dir-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: transform .18s cubic-bezier(.22, 1, .36, 1);
+}
+
+.xpl-dir-tile.is-open {
+    transform: rotate(90deg);
+}
+
+/* ── Typed file tile ──────────────────────────────────── */
+
+.xpl-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    line-height: 1;
+    color: hsl(var(--tile-hue) 72% 72%);
+    background: hsl(var(--tile-hue) 60% 50% / .16);
+    box-shadow: inset 0 0 0 .5px hsl(var(--tile-hue) 60% 60% / .3);
+}
+
+.xpl-empty-branch {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    font-size: var(--font-size-2xs);
+    font-style: italic;
+    color: var(--color-text-muted);
+}
+
+/* ── Row overflow trigger ─────────────────────────────── */
+
+.xpl-row-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.xpl-row:hover .xpl-row-more,
+.xpl-row-more:focus-visible {
+    opacity: 1;
+    background: var(--theme-elevated);
+}
+
+.xpl-row-more:hover {
+    color: var(--color-text);
+}
+

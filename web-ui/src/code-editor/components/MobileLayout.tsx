@@ -1,17 +1,28 @@
 /**
- * MobileLayout — full-screen file browser or editor for mobile breakpoints.
- * Supports swipe-to-reveal actions (rename, download, delete) per entry.
+ * MobileLayout — the phone-sized file browser, and the editor once a file is
+ * open.
+ *
+ * The browser keeps the directory-at-a-time model, which is right for a narrow
+ * column, and adds the one thing that model cannot give you: a search that
+ * reaches the whole project, so finding a file no longer means guessing which
+ * folder it is in and tapping down to it. Row actions stay on a swipe, and
+ * everything that used to be a cramped inline strip — rename, create, delete,
+ * the actions menu — is now a bottom sheet within thumb reach.
  */
-import { useRef, useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { Loader2, Folder, FolderPlus, FilePlus, Upload, X, MoreVertical, RefreshCw } from "lucide-react";
+import { useRef, useState } from "react";
+import { Loader2, FileQuestion } from "lucide-react";
 import type {
   FileReadResponse, FileRenderType, EditorLspDiagnostic,
   EditorViewMode, BreadcrumbEntry, FileEntry, OpenFileEntry,
 } from "../types";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorBody } from "./EditorBody";
-import { SwipeFileEntry, MobileRenameOverlay } from "./MobileFileEntries";
+import { MobileBrowserHeader } from "../explorer/mobile/MobileBrowserHeader";
+import { MobileFileRow } from "../explorer/mobile/MobileFileRow";
+import {
+  ActionsSheet, DeleteSheet, NameSheet, buildFolderActions,
+} from "../explorer/mobile/MobileSheets";
+import { useExplorerFinder } from "../explorer/useExplorerFinder";
 
 interface Props {
   editorRef: React.RefObject<HTMLDivElement>;
@@ -19,6 +30,7 @@ interface Props {
   entries: FileEntry[];
   loadingDir: boolean;
   loadDirectory: (path: string) => Promise<void>;
+  loadFile: (path: string, line?: number | null) => Promise<void>;
   currentPath: string;
   openFile: FileReadResponse | null;
   fileRenderType: FileRenderType;
@@ -39,6 +51,7 @@ interface Props {
   handleHover: () => void;
   handleDefinition: () => void;
   handleFormatWithLsp: () => void;
+  onJumpToLine?: (line: number, col: number) => void;
   saveStatus: "saved" | "modified" | null;
   saving: boolean;
   handleSave: () => void;
@@ -59,61 +72,18 @@ interface Props {
   setOpenFiles?: React.Dispatch<React.SetStateAction<OpenFileEntry[]>>;
 }
 
+type Sheet =
+  | { kind: "actions" }
+  | { kind: "create"; type: "file" | "dir" }
+  | { kind: "rename"; path: string; name: string; isDir: boolean }
+  | { kind: "delete"; path: string; name: string; isDir: boolean };
+
 export function MobileLayout(p: Props) {
   const uploadRef = useRef<HTMLInputElement>(null);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [showActions, setShowActions] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
-  const [inlineCreate, setInlineCreate] = useState<"file" | "dir" | null>(null);
-  const [inlineValue, setInlineValue] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<{ path: string; isDir: boolean; name: string } | null>(null);
-  const [inlineRename, setInlineRename] = useState<{ path: string; isDir: boolean; name: string } | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const finder = useExplorerFinder();
 
-  const openDropdown = useCallback(() => {
-    if (toggleRef.current) {
-      const rect = toggleRef.current.getBoundingClientRect();
-      const menuWidth = 150;
-      const pad = 4;
-      let left = rect.right - menuWidth;
-      if (left < pad) left = pad;
-      if (left + menuWidth > window.innerWidth - pad) left = window.innerWidth - menuWidth - pad;
-      setDropdownPos({ top: rect.bottom + 2, left });
-    }
-    setShowActions(true);
-  }, []);
-
-  useEffect(() => {
-    if (!showActions) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (toggleRef.current?.contains(target)) return;
-      if (dropdownRef.current?.contains(target)) return;
-      setShowActions(false);
-    };
-    document.addEventListener("mousedown", handler, true);
-    return () => document.removeEventListener("mousedown", handler, true);
-  }, [showActions]);
-
-  const handleUploadClick = () => { uploadRef.current?.click(); setShowActions(false); };
-  const handleUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      p.onUploadFiles?.(p.currentPath, e.target.files);
-      e.target.value = "";
-    }
-  };
-
-  const handleInlineSubmit = () => {
-    const trimmed = inlineValue.trim();
-    if (trimmed) {
-      if (inlineCreate === "file") p.onCreateFile?.(p.currentPath, trimmed);
-      else if (inlineCreate === "dir") p.onCreateDir?.(p.currentPath, trimmed);
-    }
-    setInlineCreate(null);
-    setInlineValue("");
-  };
-
-  // File is open — show editor
+  // ── Editor ────────────────────────────────────────────
   if (p.openFile) {
     return (
       <div className="code-editor-panel" ref={p.editorRef}>
@@ -136,124 +106,176 @@ export function MobileLayout(p: Props) {
           onCreateEditor={p.onCreateEditor} onUpdate={p.onUpdate}
           loadingFile={p.loadingFile} languageLoading={p.languageLoading}
           activeDiagnostics={p.activeDiagnostics} hoverText={p.hoverText}
+          lspAvailable={p.lspAvailable} onJumpToLine={p.onJumpToLine}
           activeEntry={p.activeEntry} setOpenFiles={p.setOpenFiles}
         />
       </div>
     );
   }
 
-  // No file open — show file browser
-  const hasActions = p.onCreateFile || p.onCreateDir || p.onUploadFiles || p.onReloadRoot;
+  // ── Browser ───────────────────────────────────────────
+  const folderActions = buildFolderActions({
+    onNewFile: p.onCreateFile ? () => setSheet({ kind: "create", type: "file" }) : undefined,
+    onNewFolder: p.onCreateDir ? () => setSheet({ kind: "create", type: "dir" }) : undefined,
+    onUpload: p.onUploadFiles ? () => uploadRef.current?.click() : undefined,
+    onReload: p.onReloadRoot,
+  });
+
+  const folderName = p.breadcrumbs[p.breadcrumbs.length - 1]?.label ?? "Files";
+
   return (
-    <div className="code-editor-panel">
-      <div className="code-editor-toolbar">
-        <div className="code-editor-breadcrumbs">
-          {p.breadcrumbs.map((crumb, i) => (
-            <span key={crumb.path}>
-              {i > 0 && <span className="breadcrumb-sep">/</span>}
-              <button className="breadcrumb-link" onClick={() => p.loadDirectory(crumb.path)}>{crumb.label}</button>
-            </span>
-          ))}
-        </div>
-        {hasActions && (
-          <div className="mobile-explorer-actions-toggle">
-            <button ref={toggleRef} className="explorer-hdr-btn" onClick={() => showActions ? setShowActions(false) : openDropdown()} title="File actions">
-              <MoreVertical size={14} />
-            </button>
-            {showActions && dropdownPos && createPortal(
-              <div ref={dropdownRef} className="mobile-explorer-actions-dropdown" style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left }}>
-                {p.onCreateFile && (
-                  <button className="mobile-action-item" onClick={() => { setInlineCreate("file"); setInlineValue(""); setShowActions(false); }}>
-                    <FilePlus size={13} /> New File
-                  </button>
-                )}
-                {p.onCreateDir && (
-                  <button className="mobile-action-item" onClick={() => { setInlineCreate("dir"); setInlineValue(""); setShowActions(false); }}>
-                    <FolderPlus size={13} /> New Folder
-                  </button>
-                )}
-                {p.onUploadFiles && (
-                  <button className="mobile-action-item" onClick={handleUploadClick}>
-                    <Upload size={13} /> Upload
-                  </button>
-                )}
-                {p.onReloadRoot && (
-                  <button className="mobile-action-item" onClick={() => { p.onReloadRoot?.(); setShowActions(false); }}>
-                    <RefreshCw size={13} /> Reload
-                  </button>
-                )}
-              </div>,
-              document.body
-            )}
-          </div>
-        )}
-        <input ref={uploadRef} type="file" multiple style={{ display: "none" }} onChange={handleUploadChange} />
+    <div className="code-editor-panel xplm">
+      <MobileBrowserHeader
+        breadcrumbs={p.breadcrumbs}
+        query={finder.query}
+        searching={finder.searching}
+        hasActions={folderActions.length > 0}
+        onQueryChange={finder.setQuery}
+        onQueryClear={finder.clear}
+        onNavigate={(path) => { finder.clear(); p.loadDirectory(path); }}
+        onOpenActions={() => setSheet({ kind: "actions" })}
+      />
+
+      <input
+        ref={uploadRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={(event) => {
+          if (!event.target.files?.length) return;
+          p.onUploadFiles?.(p.currentPath, event.target.files);
+          event.target.value = "";
+        }}
+      />
+
+      <div className="xplm-list">
+        {finder.active ? renderResults() : renderDirectory()}
       </div>
 
-      {/* Inline create */}
-      {inlineCreate && (
-        <div className="mobile-inline-create">
-          {inlineCreate === "dir"
-            ? <FolderPlus size={14} className="file-icon folder-icon" />
-            : <FilePlus size={14} className="file-icon" />}
-          <input
-            className="explorer-inline-name-input" value={inlineValue}
-            placeholder={inlineCreate === "file" ? "filename" : "folder name"} autoFocus
-            onChange={(e) => setInlineValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleInlineSubmit();
-              if (e.key === "Escape") { setInlineCreate(null); setInlineValue(""); }
-            }}
-            onBlur={handleInlineSubmit}
-          />
-        </div>
+      {sheet?.kind === "actions" && (
+        <ActionsSheet folder={folderName} actions={folderActions} onClose={() => setSheet(null)} />
       )}
-
-      {/* Inline rename overlay */}
-      {inlineRename && (
-        <MobileRenameOverlay
-          entry={inlineRename}
-          onSubmit={(newName) => { p.onRename?.(inlineRename.path, newName, inlineRename.isDir); setInlineRename(null); }}
-          onCancel={() => setInlineRename(null)}
+      {sheet?.kind === "create" && (
+        <NameSheet
+          title={sheet.type === "file" ? "New file" : "New folder"}
+          initial=""
+          placeholder={sheet.type === "file" ? "filename.ext" : "folder name"}
+          confirmLabel="Create"
+          onSubmit={(name) => {
+            if (sheet.type === "file") p.onCreateFile?.(p.currentPath, name);
+            else p.onCreateDir?.(p.currentPath, name);
+          }}
+          onClose={() => setSheet(null)}
         />
       )}
-
-      {/* Confirm delete overlay */}
-      {confirmDelete && (
-        <div className="mobile-confirm-delete">
-          <span>Delete {confirmDelete.isDir ? "folder " : ""}<strong>{confirmDelete.name}</strong>?</span>
-          <button className="explorer-confirm-yes" onClick={() => {
-            if (confirmDelete.isDir) p.onDeleteDir?.(confirmDelete.path);
-            else p.onDeleteFile?.(confirmDelete.path);
-            setConfirmDelete(null);
-          }}>Delete</button>
-          <button className="explorer-confirm-no" onClick={() => setConfirmDelete(null)}><X size={12} /></button>
-        </div>
+      {sheet?.kind === "rename" && (
+        <NameSheet
+          title="Rename"
+          initial={sheet.name}
+          selectStem={!sheet.isDir}
+          confirmLabel="Rename"
+          onSubmit={(name) => p.onRename?.(sheet.path, name, sheet.isDir)}
+          onClose={() => setSheet(null)}
+        />
       )}
-
-      <div className="code-editor-filelist">
-        {p.loadingDir ? (
-          <div className="code-editor-loading"><Loader2 size={20} className="spin" /><span>Loading...</span></div>
-        ) : p.entries.length === 0 ? (
-          <div className="code-editor-empty">Empty directory</div>
-        ) : (
-          p.entries.map((entry) => (
-            <SwipeFileEntry
-              key={entry.path}
-              entry={entry}
-              onEntryClick={p.onEntryClick}
-              onDelete={() => setConfirmDelete({ path: entry.path, isDir: entry.is_dir, name: entry.name })}
-              onRename={p.onRename ? () => setInlineRename({ path: entry.path, isDir: entry.is_dir, name: entry.name }) : undefined}
-              onDownload={
-                entry.is_dir
-                  ? (p.onDownloadDir ? () => p.onDownloadDir!(entry.path) : undefined)
-                  : (p.onDownloadFile ? () => p.onDownloadFile!(entry.path) : undefined)
-              }
-              canDelete={!!(entry.is_dir ? p.onDeleteDir : p.onDeleteFile)}
-            />
-          ))
-        )}
-      </div>
+      {sheet?.kind === "delete" && (
+        <DeleteSheet
+          name={sheet.name}
+          isDir={sheet.isDir}
+          onConfirm={() => {
+            if (sheet.isDir) p.onDeleteDir?.(sheet.path);
+            else p.onDeleteFile?.(sheet.path);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </div>
   );
+
+  function rowActions(entry: FileEntry) {
+    return {
+      onRename: p.onRename
+        ? () => setSheet({ kind: "rename", path: entry.path, name: entry.name, isDir: entry.is_dir })
+        : undefined,
+      onDownload: entry.is_dir
+        ? (p.onDownloadDir ? () => p.onDownloadDir!(entry.path) : undefined)
+        : (p.onDownloadFile ? () => p.onDownloadFile!(entry.path) : undefined),
+      onDelete: (entry.is_dir ? p.onDeleteDir : p.onDeleteFile)
+        ? () => setSheet({ kind: "delete", path: entry.path, name: entry.name, isDir: entry.is_dir })
+        : undefined,
+    };
+  }
+
+  function renderDirectory() {
+    if (p.loadingDir) {
+      return (
+        <div className="xplm-state">
+          <Loader2 size={18} className="spin" />
+          <span>Loading files…</span>
+        </div>
+      );
+    }
+    if (p.entries.length === 0) {
+      return (
+        <div className="xplm-state">
+          <span>This folder is empty.</span>
+          <span className="xplm-state-hint">Use the menu above to add a file or folder.</span>
+        </div>
+      );
+    }
+    return p.entries.map((entry) => (
+      <MobileFileRow
+        key={entry.path}
+        entry={entry}
+        onOpen={p.onEntryClick}
+        {...rowActions(entry)}
+      />
+    ));
+  }
+
+  function renderResults() {
+    const query = finder.query.trim();
+    if (finder.error) {
+      return <div className="xplm-state xplm-state-error">{finder.error}</div>;
+    }
+    if (finder.results.length === 0) {
+      if (finder.searching) return <div className="xplm-state"><Loader2 size={18} className="spin" /><span>Searching…</span></div>;
+      return (
+        <div className="xplm-state">
+          <FileQuestion size={22} strokeWidth={1.4} />
+          <span>No file matches <strong>{query}</strong>.</span>
+          <span className="xplm-state-hint">Try part of the name, or a folder it sits in.</span>
+        </div>
+      );
+    }
+    return (
+      <>
+        <div className="xplm-results-count">
+          {finder.results.length} {finder.results.length === 1 ? "match" : "matches"}
+        </div>
+        {finder.results.map((result) => {
+          const entry: FileEntry = {
+            name: result.name,
+            path: result.path,
+            is_dir: result.is_dir,
+            size: 0,
+          } as FileEntry;
+          const parent = result.path.slice(0, Math.max(0, result.path.length - result.name.length - 1));
+          return (
+            <MobileFileRow
+              key={result.path}
+              entry={entry}
+              query={query}
+              subtitle={parent || undefined}
+              onOpen={() => {
+                finder.clear();
+                if (result.is_dir) p.loadDirectory(result.path);
+                else p.loadFile(result.path);
+              }}
+            />
+          );
+        })}
+      </>
+    );
+  }
 }

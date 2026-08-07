@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
 import { spawnPty, ptyWrite, ptyResize, ptyKill, createPtySSE } from "../api";
+import { encodeForPty } from "./encode";
 import {
   TabInfo,
   TabRuntime,
@@ -22,7 +23,12 @@ export function useTerminalLifecycle(
   containerRefs: React.MutableRefObject<Map<string, HTMLDivElement>>,
   activeTabId: string | null,
   expanded: boolean,
-  visible: boolean
+  visible: boolean,
+  /** Optional rewrite applied to every keystroke before it reaches the pty —
+   *  how the touch key bar's sticky Ctrl/Alt reach the soft keyboard's output.
+   *  Held in a ref so arming a modifier never re-installs a terminal's
+   *  data handler. */
+  transformRef?: React.MutableRefObject<((data: string) => string) | null>
 ) {
   // Track pending tabs whose container refs weren't available yet
   const pendingRef = useRef<Set<string>>(new Set());
@@ -56,12 +62,9 @@ export function useTerminalLifecycle(
 
       const ptyId = tab.id;
       term.onData((data: string) => {
-        const encoded = btoa(
-          Array.from(new TextEncoder().encode(data), (b) =>
-            String.fromCharCode(b)
-          ).join("")
-        );
-        ptyWrite(ptyId, encoded).catch(() => {});
+        const transform = transformRef?.current;
+        const out = transform ? transform(data) : data;
+        ptyWrite(ptyId, encodeForPty(out)).catch(() => {});
       });
 
       term.onResize((dims: { cols: number; rows: number }) => {
@@ -122,7 +125,7 @@ export function useTerminalLifecycle(
       });
       return () => cancelAnimationFrame(raf);
     }
-  }, [tabs, sessionId, runtimesRef, containerRefs, setTabs]);
+  }, [tabs, sessionId, runtimesRef, containerRefs, setTabs, transformRef]);
 
   // Repaint every live terminal when the theme changes. xterm copies the
   // palette at construction, so tabs opened before the switch would otherwise

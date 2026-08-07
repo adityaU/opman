@@ -184,7 +184,7 @@
     background: linear-gradient(180deg,transparent,color-mix(in srgb,var(--color-surface) 40%,transparent))
 }
 
-.ctx-window-footer kbd,.diff-review-footer-hint kbd,.workspace-mgr-footer kbd {
+.ctx-window-footer kbd,.diff-review-footer-hint kbd{
     border-radius: var(--radius);
     border-color: var(--color-border-subtle);
     background: var(--color-bg-element)

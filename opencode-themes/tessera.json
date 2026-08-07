@@ -1,0 +1,307 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "defs": {
+    "darkPrimary": "#479ef5",
+    "lightPrimary": "#0f6cbd",
+    "darkSecondary": "#97cc3f",
+    "lightSecondary": "#4d7c0f",
+    "darkAccent": "#f7845f",
+    "lightAccent": "#b4491c",
+    "darkError": "#f1707b",
+    "lightError": "#c50f1f",
+    "darkWarning": "#fcb700",
+    "lightWarning": "#8a5700",
+    "darkSuccess": "#87b747",
+    "lightSuccess": "#0e700e",
+    "darkInfo": "#4cc2ff",
+    "lightInfo": "#0f6cbd",
+    "darkText": "#f3f2f1",
+    "lightText": "#201f1e",
+    "darkTextMuted": "#a19f9d",
+    "lightTextMuted": "#605e5c",
+    "darkBackground": "#1b1a19",
+    "lightBackground": "#faf9f8",
+    "darkBackgroundPanel": "#222120",
+    "lightBackgroundPanel": "#f3f2f1",
+    "darkBackgroundElement": "#2a2928",
+    "lightBackgroundElement": "#e9e8e7",
+    "darkBorder": "#403f3d",
+    "lightBorder": "#c6c4c3",
+    "darkBorderActive": "#605f5d",
+    "lightBorderActive": "#9a9997",
+    "darkBorderSubtle": "#323130",
+    "lightBorderSubtle": "#dfdddc",
+    "darkDiffAdded": "#92c353",
+    "lightDiffAdded": "#0e700e",
+    "darkDiffRemoved": "#f1707b",
+    "lightDiffRemoved": "#c50f1f",
+    "darkDiffContext": "#a19f9d",
+    "lightDiffContext": "#605e5c",
+    "darkDiffHunkHeader": "#a19f9d",
+    "lightDiffHunkHeader": "#605e5c",
+    "darkDiffHighlightAdded": "#92c353",
+    "lightDiffHighlightAdded": "#0e700e",
+    "darkDiffHighlightRemoved": "#f1707b",
+    "lightDiffHighlightRemoved": "#c50f1f",
+    "darkDiffAddedBg": "#1b2c1c",
+    "lightDiffAddedBg": "#d8eed8",
+    "darkDiffRemovedBg": "#381e1c",
+    "lightDiffRemovedBg": "#ffe0dd",
+    "darkDiffContextBg": "#1e1d1c",
+    "lightDiffContextBg": "#f5f4f3",
+    "darkDiffLineNumber": "#a19f9d",
+    "lightDiffLineNumber": "#605e5c",
+    "darkDiffAddedLineNumberBg": "#1c361d",
+    "lightDiffAddedLineNumberBg": "#c7e8c7",
+    "darkDiffRemovedLineNumberBg": "#47201e",
+    "lightDiffRemovedLineNumberBg": "#ffd2ce",
+    "darkMarkdownText": "#f3f2f1",
+    "lightMarkdownText": "#201f1e",
+    "darkMarkdownHeading": "#479ef5",
+    "lightMarkdownHeading": "#0f6cbd",
+    "darkMarkdownLink": "#f7845f",
+    "lightMarkdownLink": "#b4491c",
+    "darkMarkdownLinkText": "#97cc3f",
+    "lightMarkdownLinkText": "#4d7c0f",
+    "darkMarkdownCode": "#92c353",
+    "lightMarkdownCode": "#0e700e",
+    "darkMarkdownBlockQuote": "#a19f9d",
+    "lightMarkdownBlockQuote": "#605e5c",
+    "darkMarkdownEmph": "#fcb700",
+    "lightMarkdownEmph": "#8a5700",
+    "darkMarkdownStrong": "#479ef5",
+    "lightMarkdownStrong": "#0f6cbd",
+    "darkMarkdownHorizontalRule": "#494846",
+    "lightMarkdownHorizontalRule": "#b9b7b5",
+    "darkMarkdownListItem": "#479ef5",
+    "lightMarkdownListItem": "#0f6cbd",
+    "darkMarkdownListEnumeration": "#97cc3f",
+    "lightMarkdownListEnumeration": "#4d7c0f",
+    "darkMarkdownImage": "#f7845f",
+    "lightMarkdownImage": "#b4491c",
+    "darkMarkdownImageText": "#97cc3f",
+    "lightMarkdownImageText": "#4d7c0f",
+    "darkMarkdownCodeBlock": "#f3f2f1",
+    "lightMarkdownCodeBlock": "#201f1e",
+    "darkSyntaxComment": "#a19f9d",
+    "lightSyntaxComment": "#605e5c",
+    "darkSyntaxKeyword": "#479ef5",
+    "lightSyntaxKeyword": "#0f6cbd",
+    "darkSyntaxFunction": "#97cc3f",
+    "lightSyntaxFunction": "#4d7c0f",
+    "darkSyntaxVariable": "#f3f2f1",
+    "lightSyntaxVariable": "#201f1e",
+    "darkSyntaxString": "#92c353",
+    "lightSyntaxString": "#0e700e",
+    "darkSyntaxNumber": "#fcb700",
+    "lightSyntaxNumber": "#8a5700",
+    "darkSyntaxType": "#f7845f",
+    "lightSyntaxType": "#b4491c",
+    "darkSyntaxOperator": "#97cc3f",
+    "lightSyntaxOperator": "#4d7c0f",
+    "darkSyntaxPunctuation": "#a19f9d",
+    "lightSyntaxPunctuation": "#605e5c"
+  },
+  "theme": {
+    "primary": {
+      "dark": "darkPrimary",
+      "light": "lightPrimary"
+    },
+    "secondary": {
+      "dark": "darkSecondary",
+      "light": "lightSecondary"
+    },
+    "accent": {
+      "dark": "darkAccent",
+      "light": "lightAccent"
+    },
+    "error": {
+      "dark": "darkError",
+      "light": "lightError"
+    },
+    "warning": {
+      "dark": "darkWarning",
+      "light": "lightWarning"
+    },
+    "success": {
+      "dark": "darkSuccess",
+      "light": "lightSuccess"
+    },
+    "info": {
+      "dark": "darkInfo",
+      "light": "lightInfo"
+    },
+    "text": {
+      "dark": "darkText",
+      "light": "lightText"
+    },
+    "textMuted": {
+      "dark": "darkTextMuted",
+      "light": "lightTextMuted"
+    },
+    "background": {
+      "dark": "darkBackground",
+      "light": "lightBackground"
+    },
+    "backgroundPanel": {
+      "dark": "darkBackgroundPanel",
+      "light": "lightBackgroundPanel"
+    },
+    "backgroundElement": {
+      "dark": "darkBackgroundElement",
+      "light": "lightBackgroundElement"
+    },
+    "border": {
+      "dark": "darkBorder",
+      "light": "lightBorder"
+    },
+    "borderActive": {
+      "dark": "darkBorderActive",
+      "light": "lightBorderActive"
+    },
+    "borderSubtle": {
+      "dark": "darkBorderSubtle",
+      "light": "lightBorderSubtle"
+    },
+    "diffAdded": {
+      "dark": "darkDiffAdded",
+      "light": "lightDiffAdded"
+    },
+    "diffRemoved": {
+      "dark": "darkDiffRemoved",
+      "light": "lightDiffRemoved"
+    },
+    "diffContext": {
+      "dark": "darkDiffContext",
+      "light": "lightDiffContext"
+    },
+    "diffHunkHeader": {
+      "dark": "darkDiffHunkHeader",
+      "light": "lightDiffHunkHeader"
+    },
+    "diffHighlightAdded": {
+      "dark": "darkDiffHighlightAdded",
+      "light": "lightDiffHighlightAdded"
+    },
+    "diffHighlightRemoved": {
+      "dark": "darkDiffHighlightRemoved",
+      "light": "lightDiffHighlightRemoved"
+    },
+    "diffAddedBg": {
+      "dark": "darkDiffAddedBg",
+      "light": "lightDiffAddedBg"
+    },
+    "diffRemovedBg": {
+      "dark": "darkDiffRemovedBg",
+      "light": "lightDiffRemovedBg"
+    },
+    "diffContextBg": {
+      "dark": "darkDiffContextBg",
+      "light": "lightDiffContextBg"
+    },
+    "diffLineNumber": {
+      "dark": "darkDiffLineNumber",
+      "light": "lightDiffLineNumber"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "darkDiffAddedLineNumberBg",
+      "light": "lightDiffAddedLineNumberBg"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "darkDiffRemovedLineNumberBg",
+      "light": "lightDiffRemovedLineNumberBg"
+    },
+    "markdownText": {
+      "dark": "darkMarkdownText",
+      "light": "lightMarkdownText"
+    },
+    "markdownHeading": {
+      "dark": "darkMarkdownHeading",
+      "light": "lightMarkdownHeading"
+    },
+    "markdownLink": {
+      "dark": "darkMarkdownLink",
+      "light": "lightMarkdownLink"
+    },
+    "markdownLinkText": {
+      "dark": "darkMarkdownLinkText",
+      "light": "lightMarkdownLinkText"
+    },
+    "markdownCode": {
+      "dark": "darkMarkdownCode",
+      "light": "lightMarkdownCode"
+    },
+    "markdownBlockQuote": {
+      "dark": "darkMarkdownBlockQuote",
+      "light": "lightMarkdownBlockQuote"
+    },
+    "markdownEmph": {
+      "dark": "darkMarkdownEmph",
+      "light": "lightMarkdownEmph"
+    },
+    "markdownStrong": {
+      "dark": "darkMarkdownStrong",
+      "light": "lightMarkdownStrong"
+    },
+    "markdownHorizontalRule": {
+      "dark": "darkMarkdownHorizontalRule",
+      "light": "lightMarkdownHorizontalRule"
+    },
+    "markdownListItem": {
+      "dark": "darkMarkdownListItem",
+      "light": "lightMarkdownListItem"
+    },
+    "markdownListEnumeration": {
+      "dark": "darkMarkdownListEnumeration",
+      "light": "lightMarkdownListEnumeration"
+    },
+    "markdownImage": {
+      "dark": "darkMarkdownImage",
+      "light": "lightMarkdownImage"
+    },
+    "markdownImageText": {
+      "dark": "darkMarkdownImageText",
+      "light": "lightMarkdownImageText"
+    },
+    "markdownCodeBlock": {
+      "dark": "darkMarkdownCodeBlock",
+      "light": "lightMarkdownCodeBlock"
+    },
+    "syntaxComment": {
+      "dark": "darkSyntaxComment",
+      "light": "lightSyntaxComment"
+    },
+    "syntaxKeyword": {
+      "dark": "darkSyntaxKeyword",
+      "light": "lightSyntaxKeyword"
+    },
+    "syntaxFunction": {
+      "dark": "darkSyntaxFunction",
+      "light": "lightSyntaxFunction"
+    },
+    "syntaxVariable": {
+      "dark": "darkSyntaxVariable",
+      "light": "lightSyntaxVariable"
+    },
+    "syntaxString": {
+      "dark": "darkSyntaxString",
+      "light": "lightSyntaxString"
+    },
+    "syntaxNumber": {
+      "dark": "darkSyntaxNumber",
+      "light": "lightSyntaxNumber"
+    },
+    "syntaxType": {
+      "dark": "darkSyntaxType",
+      "light": "lightSyntaxType"
+    },
+    "syntaxOperator": {
+      "dark": "darkSyntaxOperator",
+      "light": "lightSyntaxOperator"
+    },
+    "syntaxPunctuation": {
+      "dark": "darkSyntaxPunctuation",
+      "light": "lightSyntaxPunctuation"
+    }
+  }
+}

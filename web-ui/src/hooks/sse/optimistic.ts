@@ -9,9 +9,14 @@ import { getMessageTime, type MessageMap } from "./messageMap";
  */
 const OPTIMISTIC_PREFIX = "__optimistic__";
 
+/** Distinguishes placeholders created within the same millisecond, which would
+ *  otherwise share a key and silently overwrite each other. */
+let optimisticSeq = 0;
+
 /** Key for a new placeholder. Time-ordered so it sorts after existing records. */
 export function createOptimisticId(): string {
-  return `${OPTIMISTIC_PREFIX}${Date.now()}`;
+  optimisticSeq = (optimisticSeq + 1) % 1000;
+  return `${OPTIMISTIC_PREFIX}${Date.now()}-${optimisticSeq}`;
 }
 
 export function isOptimisticId(id: string): boolean {
@@ -54,6 +59,68 @@ export function retainOptimistic(map: MessageMap, sessionId: string | null): Mes
     kept.set(key, msg);
   }
   return kept;
+}
+
+/**
+ * Placeholders for sessions that are not on screen.
+ *
+ * A send can target a session other than the displayed one — a lazily created
+ * session, or one the user navigated away from while the request was in flight.
+ * Writing the placeholder into the live map then put the message in the *wrong*
+ * conversation, permanently: the live map is the object the displayed session's
+ * LRU entry was stored by reference, so restoring that session later brought
+ * the foreign turn back with it.
+ */
+export type OptimisticStash = Map<string, MessageMap>;
+
+/** Park a placeholder until its session is hydrated. */
+export function stashOptimistic(
+  stash: OptimisticStash,
+  sessionId: string,
+  id: string,
+  msg: Message,
+): void {
+  const existing = stash.get(sessionId);
+  if (existing) {
+    existing.set(id, msg);
+    return;
+  }
+  stash.set(sessionId, new Map([[id, msg]]));
+}
+
+/** Remove and return the placeholders parked for `sessionId`. */
+export function takeOptimistic(stash: OptimisticStash, sessionId: string): MessageMap {
+  const parked = stash.get(sessionId);
+  if (!parked) return new Map();
+  stash.delete(sessionId);
+  return parked;
+}
+
+/** Forget a parked placeholder — a send that failed before it was ever shown. */
+export function dropStashedOptimistic(stash: OptimisticStash, sessionId: string, id: string): void {
+  const parked = stash.get(sessionId);
+  if (!parked) return;
+  parked.delete(id);
+  if (parked.size === 0) stash.delete(sessionId);
+}
+
+/**
+ * Drop placeholders that belong to a different session.
+ *
+ * Restoring a cached transcript is the one path that adopts a map wholesale, so
+ * it is also the one that would resurrect a stray placeholder written into it by
+ * an earlier bug or a race. Filtering here keeps a map self-consistent with the
+ * session it is being restored for.
+ */
+export function purgeForeignOptimistic(map: MessageMap, sessionId: string): boolean {
+  let removed = false;
+  for (const [key, msg] of map) {
+    if (!isOptimisticId(key)) continue;
+    if (msg.info.sessionID === sessionId) continue;
+    map.delete(key);
+    removed = true;
+  }
+  return removed;
 }
 
 /**

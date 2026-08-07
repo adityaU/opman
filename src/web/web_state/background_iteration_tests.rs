@@ -4,29 +4,11 @@
 
 use super::*;
 use crate::api::ApiClient;
-use crate::web::types::*;
 use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 const DEAD_BASE: &str = "http://127.0.0.1:9";
-
-fn mission() -> Mission {
-    Mission {
-        id: "m1".into(),
-        goal: "g".into(),
-        session_id: "s1".into(),
-        project_index: 0,
-        state: MissionState::Pending,
-        iteration: 0,
-        max_iterations: 5,
-        last_verdict: None,
-        last_eval_summary: None,
-        eval_history: vec![],
-        created_at: "t".into(),
-        updated_at: "t".into(),
-    }
-}
 
 /// Spin up an axum server that returns canned `/session` and `/session/status`
 /// bodies. Returns `(base_url, abort_handle)`.
@@ -191,12 +173,15 @@ async fn reconnect_once_spawns_one_task_per_project() {
 #[tokio::test]
 async fn persist_snapshot_once_writes_to_db() {
     let h = WebStateHandle::new_test();
-    h.inner
-        .write()
-        .await
-        .missions
-        .insert("m1".into(), mission());
+    h.create_personal_memory(CreatePersonalMemoryRequest {
+        label: "L".into(),
+        content: "C".into(),
+        scope: MemoryScope::Global,
+        project_index: None,
+        session_id: None,
+    })
+    .await;
     let res = h.persist_snapshot_once().await;
     assert!(matches!(res, Ok(Ok(()))), "expected a clean persist");
-    assert_eq!(h.db_for_test().list_missions().len(), 1);
+    assert_eq!(h.db_for_test().list_memory().len(), 1);
 }

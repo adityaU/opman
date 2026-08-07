@@ -4,18 +4,20 @@
  * Wires together the three domain hooks (file explorer, file editor, LSP)
  * and delegates rendering to DesktopLayout or MobileLayout.
  */
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import type { CodeEditorPanelProps, FileRenderType } from "./types";
 import type { FileReadResponse } from "./types";
 import { fileDownloadUrl, dirDownloadUrl, triggerDownload } from "../api";
 import { useFileExplorer } from "./hooks/useFileExplorer";
 import { useFileEditor } from "./hooks/useFileEditor";
 import { useLspFeatures } from "./hooks/useLspFeatures";
+import { useEditorCommands } from "./useEditorCommands";
+import { useEditorLsp } from "./hooks/useEditorLsp";
 import { DesktopLayout } from "./components/DesktopLayout";
 import { MobileLayout } from "./components/MobileLayout";
 
 export default function CodeEditorPanel({
-  focused, openFilePath, openLine, projectPath, sessionId, onError,
+  focused, openFilePath, openLine, projectPath, sessionId, onError, layout,
 }: CodeEditorPanelProps) {
   const explorer = useFileExplorer(projectPath, openFilePath, openLine, onError);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -39,17 +41,34 @@ export default function CodeEditorPanel({
     onError,
   );
 
-  // Keyboard shortcut: Cmd+S / Ctrl+S
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s" && openFile && focused) {
-        e.preventDefault();
-        explorer.handleSave();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [explorer.handleSave, openFile, focused]);
+  // LSP lives inside the editor: hover tooltips, ⌘-click / F12 to definition,
+  // ⇧⌥F to format, diagnostics underlined in place.
+  const lspExtensions = useEditorLsp({
+    enabled: lsp.lspAvailable,
+    activeFilePath: explorer.activeFilePath,
+    activeDiagnostics: lsp.activeDiagnostics,
+    editorViewRef: editor.editorViewRef,
+    hoverAt: lsp.hoverAt,
+    definitionAt: lsp.definitionAt,
+    format: lsp.handleFormatWithLsp,
+    completeAt: lsp.completeAt,
+    triggerCharacters: lsp.triggerCharacters,
+  });
+
+  const extensions = useMemo(
+    () => [...editor.extensions, ...lspExtensions],
+    [editor.extensions, lspExtensions],
+  );
+
+  useEditorCommands({
+    hasOpenFile: Boolean(openFile),
+    save: explorer.handleSave,
+    revert: explorer.handleRevert,
+    format: lsp.handleFormatWithLsp,
+    goToDefinition: lsp.handleDefinition,
+    hover: lsp.handleHover,
+    reloadRoot: explorer.handleReloadRoot,
+  });
 
   // Pending line jump
   useEffect(() => {
@@ -70,6 +89,11 @@ export default function CodeEditorPanel({
     editor.setCursorLine(line.number);
     editor.setCursorCol(pos - line.from + 1);
   }, [editor.setCursorLine, editor.setCursorCol]);
+
+  // Clicking a diagnostic moves the cursor to it and focuses the editor.
+  const handleJumpToLine = useCallback((line: number, _col: number) => {
+    editor.jumpToLine(line);
+  }, [editor.jumpToLine]);
 
   // Mobile navigation helpers
   const handleEntryClick = useCallback((entry: { is_dir: boolean; path: string }) => {
@@ -100,7 +124,7 @@ export default function CodeEditorPanel({
     currentContent,
     activeView: editor.activeView,
     setActiveView: editor.setActiveView,
-    extensions: editor.extensions,
+    extensions,
     onEditorChange: explorer.onEditorChange,
     onCreateEditor,
     onUpdate,
@@ -113,6 +137,7 @@ export default function CodeEditorPanel({
     handleHover: lsp.handleHover,
     handleDefinition: lsp.handleDefinition,
     handleFormatWithLsp: lsp.handleFormatWithLsp,
+    onJumpToLine: handleJumpToLine,
     saveStatus: explorer.saveStatus,
     saving: explorer.saving,
     handleSave: explorer.handleSave,
@@ -135,7 +160,12 @@ export default function CodeEditorPanel({
     fileActionBusy: explorer.fileActionBusy,
   };
 
-  if (editor.isDesktop) {
+  // An explicit `layout` wins: the mount site knows which shell it lives in,
+  // and trusting the viewport instead is what let the mobile sheet render the
+  // desktop editor.
+  const isDesktop = layout ? layout === "desktop" : editor.isDesktop;
+
+  if (isDesktop) {
     return (
       <DesktopLayout
         {...shared}
@@ -165,6 +195,7 @@ export default function CodeEditorPanel({
       entries={explorer.entries}
       loadingDir={explorer.loadingDir}
       loadDirectory={explorer.loadDirectory}
+      loadFile={explorer.loadFile}
       onEntryClick={handleEntryClick}
       onBackToBrowser={handleBackToBrowser}
       currentPath={explorer.currentPath}

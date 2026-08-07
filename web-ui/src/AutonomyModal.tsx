@@ -35,9 +35,9 @@ export function AutonomyModal({ onClose, mode, onChange }: Props) {
           </button>
         </div>
         <div className="autonomy-body">
-          <div className="assistant-center-briefing">
-            <div className="assistant-center-briefing-title">Behavior Profile</div>
-            <div className="assistant-center-briefing-summary">
+          <div className="autonomy-briefing">
+            <div className="autonomy-briefing-title">Behavior Profile</div>
+            <div className="autonomy-briefing-summary">
               Choose how proactive opman should feel across reminders, summaries, and autonomous continuation.
             </div>
           </div>

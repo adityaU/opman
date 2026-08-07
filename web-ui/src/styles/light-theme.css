@@ -106,23 +106,8 @@ html.light-theme .routines-confirm-overlay {
     background: rgba(0, 0, 0, .35)
 }
 
-/* ── Box shadows — softer on light backgrounds ───────────────────── */
-html.light-theme .routines-panel,
-html.light-theme .workspace-mgr-panel,
-html.light-theme .notifications-panel,
-html.light-theme .memory-panel,
-html.light-theme .missions-panel,
-html.light-theme .delegation-panel,
-html.light-theme .autonomy-panel,
-html.light-theme .add-project-panel,
-html.light-theme .activity-feed-panel,
-html.light-theme .assistant-panel,
-html.light-theme .system-monitor-panel,
-html.light-theme .context-window-panel,
-html.light-theme .diff-review-panel,
-html.light-theme .cross-session-panel,
-html.light-theme .git-commit-dialog,
-html.light-theme .pr-branch-picker-dropdown {
+                                                                        
+html.light-theme .routines-panel,html.light-theme .notifications-panel,html.light-theme .memory-panel,html.light-theme .autonomy-panel,html.light-theme .add-project-panel,html.light-theme .assistant-panel,html.light-theme .system-monitor-panel,html.light-theme .context-window-panel,html.light-theme .diff-review-panel,html.light-theme .cross-session-panel,html.light-theme .git-commit-dialog,html.light-theme .pr-branch-picker-dropdown{
     box-shadow: 0 8px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .06)
 }
 

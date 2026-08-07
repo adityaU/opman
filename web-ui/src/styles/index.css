@@ -1,8 +1,4 @@
-@import './activity-feed.css';
 @import './add-project.css';
-@import './assistant-1.css';
-@import './assistant-2.css';
-@import './assistant-3.css';
 @import './autonomy.css';
 @import './base-1.css';
 @import './base-2.css';
@@ -10,6 +6,17 @@
 @import './cheatsheet.css';
 @import './code-editor-1.css';
 @import './code-editor-2.css';
+@import './explorer-1.css';
+@import './explorer-2.css';
+@import './explorer-3.css';
+@import './explorer-4.css';
+@import './explorer-5.css';
+@import './editor-lsp.css';
+@import './editor-lsp-2.css';
+@import './editor-lsp-3.css';
+@import './explorer-mobile-1.css';
+@import './explorer-mobile-2.css';
+@import './explorer-mobile-3.css';
 @import './code-editor-3.css';
 @import './code-editor-4.css';
 @import './code-editor-5.css';
@@ -18,7 +25,6 @@
 @import './context-window-1.css';
 @import './context-window-2.css';
 @import './cross-session.css';
-@import './delegation.css';
 @import './diff-review-1.css';
 @import './diff-review-2.css';
 @import './git-panel-1.css';
@@ -35,8 +41,6 @@
 @import './messages-3.css';
 @import './misc.css';
 @import './light-theme.css';
-@import './missions-1.css';
-@import './missions-2.css';
 @import './mobile.css';
 @import './modals.css';
 @import './model-picker-1.css';
@@ -58,8 +62,6 @@
 @import './routines.css';
 @import './search.css';
 @import './session-1.css';
-@import './session-2.css';
-@import './session-3.css';
 @import './settings.css';
 @import './sidebar-1.css';
 @import './sidebar-2.css';
@@ -70,6 +72,7 @@
 @import './startup-gate.css';
 @import './terminal-panel-1.css';
 @import './terminal-panel-2.css';
+@import './terminal-mobile.css';
 @import './theme-selector.css';
 @import './todo-panel.css';
 @import './tool-call-1.css';
@@ -82,8 +85,6 @@
 @import './virtual-keyboard.css';
 @import './watcher-1.css';
 @import './watcher-2.css';
-@import './workspace-manager-1.css';
-@import './workspace-manager-2.css';
 @import './xterm.css';
 @import './system-monitor.css';
 @import './process-health.css';
@@ -105,6 +106,8 @@
 @import './mobile-header.css';
 @import './theme-polish.css';
 @import './composer.css';
+@import './which-key.css';
+@import './keybindings-view.css';
 /* Last: the unified floating-surface contract wins on order, not !important. */
 @import './modal-shell.css';
 @import './modal-content.css';
