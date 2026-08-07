@@ -1,0 +1,185 @@
+/* ── Settings page: secrets, login and responsive ──────────────────────
+   The parts that only the MCP section reaches, plus the narrow-viewport
+   rules for the whole page. Tokens only, as above. */
+
+/* ── Secrets ──────────────────────────────────────────────────────── */
+
+.stg-secrets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stg-secret {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 6px 4px 9px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    font-size: var(--font-size-xs);
+}
+
+.stg-secret code {
+    font-family: var(--font-mono);
+    color: var(--color-text);
+}
+
+.stg-secret-state {
+    margin-right: auto;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.stg-secret.is-removed {
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+}
+
+.stg-secret.is-removed code {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+}
+
+.stg-secret-add {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.stg-secret-add .stg-input {
+    flex: 1;
+    min-width: 140px;
+}
+
+/* ── OAuth login ──────────────────────────────────────────────────── */
+
+.stg-login {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+    padding: var(--space-3);
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-panel);
+}
+
+.stg-login-note {
+    margin: 0;
+    max-width: 76ch;
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    color: var(--color-text-muted);
+}
+
+.stg-login-note code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text);
+    word-break: break-all;
+}
+
+.stg-login-row {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.stg-login-row .stg-input {
+    flex: 1;
+    min-width: 220px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+}
+
+.stg-login-again {
+    align-self: flex-start;
+    font-size: var(--font-size-2xs);
+    color: var(--color-primary);
+}
+
+/* ── Focus ────────────────────────────────────────────────────────── */
+
+.stg-page :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+}
+
+/* ── Narrow viewports ─────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+    .stg-body {
+        flex-direction: column;
+    }
+
+    /* The rail becomes a scrolling row of chips: four sections do not earn a
+       column when the pane below needs every pixel of width. */
+    .stg-rail {
+        flex-direction: row;
+        gap: var(--space-2);
+        width: auto;
+        padding: var(--space-2) var(--space-3);
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: 0;
+        border-bottom: 1px solid var(--modal-hairline);
+        scrollbar-width: none;
+    }
+
+    .stg-rail::-webkit-scrollbar {
+        display: none;
+    }
+
+    .stg-rail-item {
+        width: auto;
+        flex-shrink: 0;
+        align-items: center;
+    }
+
+    .stg-rail-summary {
+        display: none;
+    }
+
+    .stg-pane-head {
+        padding: var(--space-3) var(--space-3) 0;
+    }
+
+    .stg-pane-body {
+        padding: var(--space-3) var(--space-3) var(--space-10);
+    }
+
+    .stg-head-note {
+        display: none;
+    }
+
+    .stg-row {
+        flex-direction: column;
+    }
+
+    .stg-row-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .stg-card-head {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .stg-confirm {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stg-switch-track,
+    .stg-switch-knob {
+        transition: none;
+    }
+}

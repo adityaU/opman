@@ -65,6 +65,11 @@ html.light-theme {
     --glass-highlight-inner: var(--white-8);
     --glass-highlight-outer: var(--white-5);
 
+    /* Per-project pane hues: darker and a touch more saturated, so a hue tuned
+       for a near-black canvas does not glare on a white one. */
+    --pane-l: .55;
+    --pane-c: .15;
+
     color-scheme: light
 }
 

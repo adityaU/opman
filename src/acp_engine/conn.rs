@@ -145,6 +145,10 @@ async fn establish(engine: &Arc<AcpEngine>, session_id: &str) -> Result<Conn> {
         .context("ACP `initialize` failed")?;
     let steering = advertises_steering(&init);
     let prompt_caps = PromptCaps::from_initialize(&init);
+    // Which remote MCP transports this agent can dial for itself. Must be read before
+    // any session is created, since it decides whether a remote server reaches the
+    // agent directly or through opman's local proxy.
+    let mcp_caps = super::mcp_servers::McpCaps::from_initialize(&init);
     engine.note_load_capable(init_supports_load(&init));
 
     // Resume the prior conversation when the agent supports it; otherwise start clean.
@@ -153,8 +157,8 @@ async fn establish(engine: &Arc<AcpEngine>, session_id: &str) -> Result<Conn> {
         .filter(|_| init_supports_load(&init))
         .filter(|id| !id.is_empty());
     let (acp_session, setup) = match resume {
-        Some(prior) => load_session(engine, &peer, session_id, &dir, &prior).await?,
-        None => new_session(&peer, &dir, engine.mcp_servers(&dir, session_id)).await?,
+        Some(prior) => load_session(engine, &peer, session_id, &dir, &prior, mcp_caps).await?,
+        None => new_session(&peer, &dir, engine.mcp_servers(&dir, session_id, mcp_caps)).await?,
     };
 
     engine.bind_acp_session(session_id, &acp_session);
@@ -190,13 +194,14 @@ async fn load_session(
     session_id: &str,
     dir: &str,
     prior: &str,
+    caps: super::mcp_servers::McpCaps,
 ) -> Result<(String, Value)> {
     engine.bind_acp_session(session_id, prior);
     engine.begin_replay(session_id);
     let params = json!({
         "sessionId": prior,
         "cwd": dir,
-        "mcpServers": engine.mcp_servers(dir, session_id),
+        "mcpServers": engine.mcp_servers(dir, session_id, caps),
     });
     let outcome = peer.request("session/load", params).await;
     let emits = engine.end_replay(session_id);
@@ -208,7 +213,7 @@ async fn load_session(
             // conversation instead of failing every future prompt.
             debug!(session = %session_id, "acp session/load failed, starting fresh: {e}");
             engine.forget_acp_session(session_id);
-            new_session(peer, dir, engine.mcp_servers(dir, session_id)).await
+            new_session(peer, dir, engine.mcp_servers(dir, session_id, caps)).await
         }
     }
 }

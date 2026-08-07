@@ -475,72 +475,6 @@ struct CodexConnection {
     events: broadcast::Sender<Value>,
 }
 
-/// OpMan MCPs made available to a Codex thread.
-#[derive(Clone, Debug, Default)]
-pub struct CodexMcpConfig {
-    pub terminal: bool,
-    pub neovim: bool,
-    pub time: bool,
-    pub ui: bool,
-    pub kanban: bool,
-}
-
-impl CodexMcpConfig {
-    fn for_directory(&self, directory: &str, session_id: Option<&str>) -> Value {
-        let executable = std::env::current_exe()
-            .map(|path| path.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| "opman".to_string());
-        let mut servers = serde_json::Map::new();
-
-        if self.terminal {
-            servers.insert(
-                "terminal".to_string(),
-                json!({ "command": executable, "args": ["mcp", directory] }),
-            );
-        }
-        if self.neovim {
-            servers.insert(
-                "neovim".to_string(),
-                json!({ "command": executable, "args": ["mcp-nvim", directory] }),
-            );
-        }
-        if self.time {
-            servers.insert(
-                "time".to_string(),
-                json!({ "command": executable, "args": ["mcp-time"] }),
-            );
-        }
-        if self.ui {
-            servers.insert(
-                "ui".to_string(),
-                json!({ "command": executable, "args": ["mcp-ui"] }),
-            );
-        }
-        if self.kanban {
-            servers.insert(
-                "kanban".to_string(),
-                json!({ "command": executable, "args": ["mcp-kanban"] }),
-            );
-        }
-        if let Ok(socket) = std::env::var("OPMAN_AGENT_MANAGER_SOCKET") {
-            let mut env = serde_json::Map::new();
-            env.insert("OPMAN_AGENT_MANAGER_SOCKET".into(), Value::String(socket));
-            if let Some(session_id) = session_id {
-                env.insert(
-                    "OPENCODE_SESSION_ID".into(),
-                    Value::String(session_id.to_string()),
-                );
-            }
-            servers.insert(
-                "agent-manager".to_string(),
-                json!({ "command": executable, "args": ["mcp-agent-manager", directory], "env": env }),
-            );
-        }
-
-        json!({ "mcp_servers": servers })
-    }
-}
-
 impl Drop for CodexConnection {
     fn drop(&mut self) {
         if let Ok(mut child) = self._child.try_lock() {
@@ -686,13 +620,30 @@ struct CodexPendingRequest {
 
 struct CodexRuntime {
     binary: String,
-    mcp: CodexMcpConfig,
+    mcp: crate::mcp_registry::SharedRegistry,
     connection: OnceCell<Arc<CodexConnection>>,
     sessions: RwLock<HashMap<String, CodexSessionState>>,
     pending_requests: Mutex<HashMap<String, CodexPendingRequest>>,
     tool_outputs: Mutex<HashMap<String, String>>,
     events: broadcast::Sender<String>,
     event_task_started: AtomicU64,
+}
+
+/// The `config` blob Codex takes with `thread/start` and `thread/resume`.
+///
+/// `session` is `None` at `thread/start`, which is before Codex has allocated a thread
+/// id — servers that route by session simply drop that pair there and get it on the
+/// re-send once the id exists.
+fn codex_config(
+    handle: &crate::mcp_registry::RegistryHandle,
+    directory: &str,
+    session: Option<&str>,
+) -> Value {
+    let registry = handle.current();
+    crate::mcp_registry::render::codex_thread_config(
+        registry.for_runner(&RunnerKind::Codex),
+        registry.bind(directory, session),
+    )
 }
 
 /// Full Codex app-server adapter. It keeps one long-lived JSON-RPC process,
@@ -703,7 +654,7 @@ pub struct CodexRunner {
 }
 
 impl CodexRunner {
-    pub fn new(_client: reqwest::Client, mcp: CodexMcpConfig) -> Self {
+    pub fn new(_client: reqwest::Client, mcp: crate::mcp_registry::SharedRegistry) -> Self {
         let (events, _) = broadcast::channel(2048);
         Self {
             runtime: Arc::new(CodexRuntime {
@@ -738,7 +689,7 @@ impl CodexRunner {
                 json!({
                     "threadId": session_id,
                     "cwd": directory,
-                    "config": self.runtime.mcp.for_directory(directory, Some(session_id)),
+                    "config": codex_config(&self.runtime.mcp, directory, Some(session_id)),
                 }),
             )
             .await?;
@@ -1385,7 +1336,7 @@ impl Runner for CodexRunner {
                         "cwd": directory,
                         "approvalPolicy": "on-request",
                         "sandbox": "workspace-write",
-                        "config": self.runtime.mcp.for_directory(directory, None),
+                        "config": codex_config(&self.runtime.mcp, directory, None),
                     }),
                 )
                 .await?;
@@ -1400,14 +1351,14 @@ impl Runner for CodexRunner {
             // `thread/start` necessarily precedes the id allocation.  Refresh
             // the thread-scoped MCP config once the id exists so the manager
             // bridge can resolve `parent` for Codex-created sessions too.
-            if std::env::var("OPMAN_AGENT_MANAGER_SOCKET").is_ok() {
+            if self.runtime.mcp.current().binds_session(&RunnerKind::Codex) {
                 let _ = connection
                     .request(
                         "thread/resume",
                         json!({
                             "threadId": id.clone(),
                             "cwd": directory,
-                            "config": self.runtime.mcp.for_directory(directory, Some(&id)),
+                            "config": codex_config(&self.runtime.mcp, directory, Some(&id)),
                         }),
                     )
                     .await;
@@ -2449,26 +2400,45 @@ mod tests {
         assert!(!is_codex_thread_id("ses_opencode_session"));
     }
 
+    /// Built from an explicit spec set rather than the real built-ins, so the
+    /// assertions do not depend on whether this machine happens to have the web
+    /// server's descriptor on disk or the agent-manager socket in its environment.
     #[test]
     fn codex_mcp_config_is_thread_scoped_and_project_bound() {
-        let config = CodexMcpConfig {
-            terminal: true,
-            neovim: true,
-            time: true,
-            ui: true,
-            kanban: true,
-        };
-        let payload = config.for_directory("/workspace/project", Some("session"));
+        use crate::mcp_registry::spec::{Arg, ServerSpec};
+        use crate::mcp_registry::{BuiltinFlags, McpRegistry, RegistryHandle};
+
+        let registry = RegistryHandle::new(
+            Arc::new(McpRegistry::from_specs(
+                vec![
+                ServerSpec::stdio(
+                    "terminal",
+                    "/opman",
+                    vec![Arg::lit("mcp"), Arg::Dir],
+                    vec![("OPENCODE_SESSION_ID".into(), Arg::SessionId)],
+                ),
+                ServerSpec::stdio(
+                    "neovim",
+                    "/opman",
+                    vec![Arg::lit("mcp-nvim"), Arg::Dir],
+                    Vec::new(),
+                ),
+                ServerSpec::stdio("time", "/opman", vec![Arg::lit("mcp-time")], Vec::new()),
+                ],
+                BuiltinFlags::default(),
+            )),
+            BuiltinFlags::default(),
+        );
+
+        let payload = codex_config(&registry, "/workspace/project", Some("session"));
         let servers = payload
             .get("mcp_servers")
             .and_then(Value::as_object)
             .expect("MCP server map should be present");
-        // terminal, neovim, time, ui, kanban, and the always-attached
-        // agent-manager bridge.
-        assert_eq!(servers.len(), 6);
-        assert!(servers.contains_key("agent-manager"));
+        assert_eq!(servers.len(), 3);
         assert_eq!(servers["terminal"]["args"][0], "mcp");
         assert_eq!(servers["terminal"]["args"][1], "/workspace/project");
+        assert_eq!(servers["terminal"]["env"]["OPENCODE_SESSION_ID"], "session");
         assert_eq!(servers["neovim"]["args"][1], "/workspace/project");
         assert_eq!(servers["time"]["args"][0], "mcp-time");
     }
@@ -2553,7 +2523,10 @@ mod tests {
     #[ignore = "requires a locally authenticated Codex installation"]
     async fn codex_app_server_can_create_and_read_a_thread(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let runner = CodexRunner::new(reqwest::Client::new(), CodexMcpConfig::default());
+        let runner = CodexRunner::new(
+            reqwest::Client::new(),
+            crate::mcp_registry::RegistryHandle::default(),
+        );
         let session = runner.create_session("/tmp", "OpMan test").await?;
         let messages = runner.messages(&session.id, "/tmp").await?;
         assert!(messages.as_array().is_some());

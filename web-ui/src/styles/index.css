@@ -3,7 +3,6 @@
 @import './base-1.css';
 @import './base-2.css';
 @import './chat-layout.css';
-@import './cheatsheet.css';
 @import './code-editor-1.css';
 @import './code-editor-2.css';
 @import './explorer-1.css';
@@ -62,7 +61,11 @@
 @import './routines.css';
 @import './search.css';
 @import './session-1.css';
-@import './settings.css';
+@import './settings-page.css';
+@import './settings-page-2.css';
+@import './settings-page-3.css';
+@import './settings-page-4.css';
+@import './settings-page-5.css';
 @import './sidebar-1.css';
 @import './sidebar-2.css';
 @import './sidebar-3.css';
@@ -106,6 +109,18 @@
 @import './mobile-header.css';
 @import './theme-polish.css';
 @import './composer.css';
+@import './composer-2.css';
+@import './workspace-1.css';
+@import './workspace-2.css';
+@import './workspace-3.css';
+@import './workspace-4.css';
+@import './workspace-5.css';
+@import './workspace-6.css';
+@import './workspace-7.css';
+@import './workspace-8.css';
+/* After every workspace sheet: motion decorates what they lay out. */
+@import './workspace-zen.css';
+@import './workspace-motion.css';
 @import './which-key.css';
 @import './keybindings-view.css';
 /* Last: the unified floating-surface contract wins on order, not !important. */

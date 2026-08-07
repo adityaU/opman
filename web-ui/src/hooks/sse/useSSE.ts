@@ -25,6 +25,13 @@ import {
   type OptimisticStash,
 } from "./optimistic";
 import { handleOpenCodeEvent, setupAppSSEListeners } from "./eventHandler";
+import {
+  dropSession,
+  isSessionPinned,
+  publishSession,
+  setSessionOlderLoader,
+  setSessionDemandHandler,
+} from "./sessionStore";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 
 /** Number of messages to load per page. */
@@ -173,11 +180,14 @@ export function useSSE(): SSEState {
       totalMessageCount: totalCountRef.current,
       lastAccess: Date.now(),
     });
-    // LRU eviction
+    // LRU eviction. A session a pane is watching is exempt: evicting it would
+    // blank a visible transcript and, worse, silently stop applying its
+    // events — the pane would look idle while its agent was still working.
     if (cache.size > MAX_SESSION_CACHE) {
       let oldestKey: string | null = null;
       let oldestTime = Infinity;
       for (const [key, entry] of cache) {
+        if (isSessionPinned(key)) continue;
         if (entry.lastAccess < oldestTime) {
           oldestTime = entry.lastAccess;
           oldestKey = key;
@@ -210,6 +220,105 @@ export function useSSE(): SSEState {
     return true;
   }, []);
 
+  // ── Per-session publishing ────────────────────────────────────
+  /**
+   * Push a session's current state to whoever is watching it.
+   *
+   * Reads the active session from the live refs and any other from its cache
+   * entry, so a pane showing a background session sees exactly what the event
+   * handler has already written there. Unwatched sessions cost nothing: the
+   * store drops them before any array is built.
+   */
+  const publishOne = useCallback((sid: string) => {
+    if (!isSessionPinned(sid)) return;
+    const active = sid === activeSessionRef.current;
+    const cached = active ? null : sessionCacheRef.current.get(sid);
+    if (!active && !cached) return; // not loaded yet — hydration will publish
+
+    const map = active ? messageMapRef.current : cached!.messageMap;
+    publishSession(sid, {
+      messages: mapToSortedArray(map),
+      stats: active ? statsRef.current : cached!.stats,
+      status: sessionStatusesRef.current[sid] ?? SESSION_IDLE,
+      loading: false,
+      hasOlder: active ? hasOlderRef.current : cached!.hasOlderMessages,
+      total: active ? totalCountRef.current : cached!.totalMessageCount,
+    });
+  }, []);
+
+  /**
+   * Coalesce publishes across sessions into one frame.
+   *
+   * Several sessions can stream at once, and each of their events would
+   * otherwise schedule its own timer; one timer with a dirty set means N busy
+   * agents cost one flush per frame rather than N.
+   */
+  const publishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtySessionsRef = useRef<Set<string>>(new Set());
+  const notifySession = useCallback((sid: string) => {
+    if (!sid) return;
+    dirtySessionsRef.current.add(sid);
+    if (publishTimerRef.current) return;
+    publishTimerRef.current = setTimeout(() => {
+      publishTimerRef.current = null;
+      const dirty = dirtySessionsRef.current;
+      dirtySessionsRef.current = new Set();
+      for (const id of dirty) publishOne(id);
+    }, 16);
+  }, [publishOne]);
+
+  /**
+   * Load a session someone just started watching but nobody has opened.
+   *
+   * Its transcript goes into the same LRU cache the event handler already
+   * writes background sessions into, so from here on it stays current without
+   * any further fetching.
+   */
+  const hydrateWatchedSession = useCallback(async (sid: string) => {
+    if (sid === activeSessionRef.current || sessionCacheRef.current.has(sid)) {
+      publishOne(sid);
+      return;
+    }
+    try {
+      const resp = await fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE });
+      // Another watcher may have hydrated it while this request was in flight.
+      if (!sessionCacheRef.current.has(sid)) {
+        const map: MessageMap = new Map();
+        for (const msg of resp.messages) {
+          const id = msg.info.messageID || msg.info.id || "";
+          if (id) map.set(id, msg);
+        }
+        sessionCacheRef.current.set(sid, {
+          messageMap: map,
+          subagentMaps: new Map(),
+          stats: null,
+          hasOlderMessages: resp.has_more,
+          totalMessageCount: resp.total,
+          lastAccess: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.error("hydrateWatchedSession failed:", e);
+      // Publish anyway so the pane stops saying "loading" and can show its
+      // own empty state rather than a spinner that never resolves.
+      publishSession(sid, {
+        messages: [],
+        stats: null,
+        status: SESSION_IDLE,
+        loading: false,
+        hasOlder: false,
+        total: 0,
+      });
+      return;
+    }
+    publishOne(sid);
+  }, [publishOne]);
+
+  useEffect(() => {
+    setSessionDemandHandler((sid) => { void hydrateWatchedSession(sid); });
+    return () => setSessionDemandHandler(null);
+  }, [hydrateWatchedSession]);
+
   // ── Flush helpers (debounced to ~1 frame) ─────────────────────
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushMessages = useCallback(() => {
@@ -217,8 +326,12 @@ export function useSSE(): SSEState {
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
       setMessages(mapToSortedArray(messageMapRef.current));
+      // A pane may be showing the active session too — it subscribes like any
+      // other, and does not read the hook's own `messages`.
+      const active = activeSessionRef.current;
+      if (active) publishOne(active);
     }, 16);
-  }, []);
+  }, [publishOne]);
 
   const flushSubagentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushSubagentMessages = useCallback(() => {
@@ -573,6 +686,48 @@ export function useSSE(): SSEState {
     finally { setIsLoadingOlder(false); }
   }, [isLoadingOlder]);
 
+  /**
+   * Page any watched session backwards, active or not.
+   *
+   * A pane showing a background session has the same long transcript as the
+   * foreground one, so pagination cannot be a property of being active. The
+   * active session still routes through `loadOlderMessages` — it owns the
+   * hook's own `messages` state, and two writers of that array would race.
+   */
+  const loadOlderIn = useCallback(async (sid: string): Promise<boolean> => {
+    if (!sid) return false;
+    if (sid === activeSessionRef.current) return loadOlderMessages();
+
+    const cached = sessionCacheRef.current.get(sid);
+    if (!cached || !cached.hasOlderMessages) return false;
+    let oldestTs = Infinity;
+    for (const msg of cached.messageMap.values()) {
+      const ts = getMessageTime(msg);
+      if (ts > 0 && ts < oldestTs) oldestTs = ts;
+    }
+    if (oldestTs === Infinity) return false;
+    try {
+      const resp = await fetchSessionMessages(sid, { limit: MESSAGE_PAGE_SIZE, before: oldestTs });
+      // The session may have been evicted or become active while in flight.
+      const live = sessionCacheRef.current.get(sid);
+      if (!live || live !== cached) return false;
+      for (const msg of resp.messages) {
+        const id = msg.info.messageID || msg.info.id || "";
+        if (id && !live.messageMap.has(id)) live.messageMap.set(id, msg);
+      }
+      live.hasOlderMessages = resp.has_more;
+      publishOne(sid);
+      return resp.has_more;
+    } catch {
+      return false;
+    }
+  }, [loadOlderMessages, publishOne]);
+
+  useEffect(() => {
+    setSessionOlderLoader(loadOlderIn);
+    return () => setSessionOlderLoader(null);
+  }, [loadOlderIn]);
+
   // ── Simple callbacks ──────────────────────────────────────────
   const clearPermission = useCallback((id: string) => {
     setPermissions((prev) => prev.filter((p) => p.id !== id));
@@ -822,7 +977,7 @@ export function useSSE(): SSEState {
         if (!event) return;
         handleOpenCodeEvent(
           { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
-            flushMessages, flushSubagentMessages,
+            flushMessages, flushSubagentMessages, notifySession, dropSession,
             refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setSessionStatuses, setPermissions, setQuestions,
             setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount, resolvedQuestionIdsRef },
           event,

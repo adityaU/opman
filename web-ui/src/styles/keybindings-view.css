@@ -1,40 +1,9 @@
-/* ── Keybindings view ──────────────────────────────────────────────────
-   Surface, radius and shadow come from .modal-dialog-surface, so glassy
-   and flat are inherited. Everything here is layout and the row rhythm. */
+/* ── Keybindings editor ────────────────────────────────────────────────
+   A section of the settings page. It carries no surface of its own — the
+   page supplies that — so everything here is layout and the row rhythm.
 
-.kbv-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1300;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4, 16px);
-}
-
-.kbv {
-    display: flex;
-    flex-direction: column;
-    width: min(100%, 980px);
-    height: min(86vh, 820px);
-    overflow: hidden;
-}
-
-.kbv-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3, 12px);
-    padding: var(--space-3, 12px) var(--space-4, 16px);
-    border-bottom: 1px solid var(--modal-hairline);
-}
-
-.kbv-title {
-    flex: 1;
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--color-text);
-}
+   The capture dialog below is the one floating part, and it keeps its own
+   backdrop because recording a chord has to block every other binding. */
 
 .kbv-mode {
     display: flex;
@@ -58,17 +27,6 @@
     background: var(--color-accent);
     color: var(--color-on-accent);
 }
-
-.kbv-close {
-    border: 0;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-lg);
-    line-height: 1;
-    cursor: pointer;
-}
-
-.kbv-close:hover { color: var(--color-text) }
 
 .kbv-tabs {
     display: flex;

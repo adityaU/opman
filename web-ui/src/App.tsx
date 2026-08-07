@@ -4,9 +4,10 @@ import { LoginPage } from "./LoginPage";
 import { ChatLayout } from "./ChatLayout";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { KeymapRoot } from "./keybindings/KeymapRoot";
-import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
+import { getPersistedThemeMode, applyThemeMode } from "./theme-selector/persistence";
 import { applyThemeToCss } from "./utils/theme";
 import { initAppearance, resolveThemeColors, storeThemePair } from "./utils/appearance";
+import { initDensity } from "./utils/density";
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -18,11 +19,12 @@ export function App() {
     () => document.title || "opman"
   );
 
-  // Apply persisted theme mode (glassy/flat) + appearance (system/light/dark)
-  // immediately on mount, before auth check completes.
+  // Apply persisted theme mode (glassy/flat), appearance (system/light/dark)
+  // and layout density immediately on mount, before auth check completes.
   useEffect(() => {
     applyThemeMode(getPersistedThemeMode());
     initAppearance();
+    initDensity();
   }, []);
 
   // Fetch bootstrap + verify token in parallel.  Both must finish

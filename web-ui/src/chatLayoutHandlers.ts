@@ -6,6 +6,8 @@ import {
 import type { ImageAttachment, PersonalMemoryItem } from "./api";
 import type { Message } from "./types";
 import { isMobileViewport } from "./hooks/useIsMobile";
+import { openSettings } from "./settings-page/useSettingsRoute";
+import type { SettingsSection } from "./settings-page/useSettingsRoute";
 
 /* ── Deps interface ─────────────────────────────────────── */
 
@@ -65,7 +67,6 @@ export interface HandlerDeps {
   toggleNeovim: () => void;
   toggleGit: () => void;
   toggleDebug: () => void;
-  toggleSplitView: () => void;
   /** Read current messages without including them in memo deps. */
   getMessages: () => Message[];
 }
@@ -84,9 +85,8 @@ export interface HandlerDeps {
 
 const MODAL_COMMANDS: Record<string, string> = {
   models: "modelPicker", model: "modelPicker", agent: "agentPicker",
-  theme: "themeSelector", keys: "cheatsheet", keybindings: "cheatsheet",
   todos: "todoPanel", sessions: "sessionSelector", context: "contextInput",
-  settings: "settings", watcher: "watcher",
+  watcher: "watcher",
   "context-window": "contextWindow", "diff-review": "diffReview",
   search: "searchBar", "cross-search": "crossSearch",
   "notification-prefs": "notificationPrefs",
@@ -96,10 +96,19 @@ const MODAL_COMMANDS: Record<string, string> = {
   "auto-open": "autoOpen", autoopen: "autoOpen",
 };
 
+/** Slash commands that open a section of the settings page rather than a modal. */
+const SETTINGS_COMMANDS: Record<string, SettingsSection> = {
+  settings: "appearance", theme: "appearance",
+  keys: "keybindings", keybindings: "keybindings",
+  mcp: "mcp", "mcp-servers": "mcp",
+  skills: "skills",
+};
+
 const TOGGLE_COMMANDS = new Set(["terminal", "neovim", "nvim", "git", "split-view", "debug"]);
 
 export const LOCAL_COMMANDS = new Set([
-  "new", "cancel", "copy", ...Object.keys(MODAL_COMMANDS), ...TOGGLE_COMMANDS,
+  "new", "cancel", "copy",
+  ...Object.keys(MODAL_COMMANDS), ...Object.keys(SETTINGS_COMMANDS), ...TOGGLE_COMMANDS,
 ]);
 
 /* ── Factory functions ──────────────────────────────────── */
@@ -260,11 +269,12 @@ export function createHandleCommand(deps: HandlerDeps) {
     if (command === "neovim" || command === "nvim") { deps.toggleNeovim(); return; }
     if (command === "git") { deps.toggleGit(); return; }
     if (command === "debug") { deps.toggleDebug(); return; }
-    if (command === "split-view") { deps.toggleSplitView(); return; }
 
     // Modal commands (models, theme, sessions, settings, etc.)
     // /memory from command palette shows ALL memories (not scoped)
     if (command === "memory") { deps.openMemoryAll(); return; }
+    const section = SETTINGS_COMMANDS[command];
+    if (section) { openSettings(section); return; }
     const modalName = MODAL_COMMANDS[command];
     if (modalName) { deps.openModal(modalName); return; }
 

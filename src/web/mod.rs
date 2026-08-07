@@ -87,6 +87,7 @@ pub async fn start_web_server(
     config: WebConfig,
     nvim_registry: crate::mcp::NvimSocketRegistry,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+    mcp: crate::mcp_registry::RegistryHandle,
 ) -> (u16, WebStateHandle) {
     let (event_tx, _event_rx) = broadcast::channel::<WebEvent>(1000);
     // Raw upstream SSE events — re-broadcast to web clients so we don't need
@@ -110,7 +111,7 @@ pub async fn start_web_server(
     let skills_registry = crate::mcp_skills::SkillsRegistry::default();
     *skills_registry.write().await = crate::mcp_skills::load_skills().await.unwrap_or_default();
     let (reload_tx, reload_rx) = broadcast::channel::<()>(1);
-    crate::mcp_skills::spawn_mcp_skills_server(reload_rx, skills_registry.clone());
+    crate::mcp_skills::spawn_skills_reload_watcher(reload_rx, skills_registry.clone());
 
     // Load config and create the independent web state
     let app_config = Config::load().unwrap_or_else(|e| {
@@ -174,6 +175,7 @@ pub async fn start_web_server(
         nvim_registry,
         lsp: lsp_pool,
         skills_registry,
+        mcp,
         reload_tx,
         instance_name: config.instance_name,
         backend: config.backend,
@@ -181,6 +183,7 @@ pub async fn start_web_server(
         health: crate::process_health::HealthHandle::new(),
         internal_token: internal_token.clone(),
         runner_registry,
+        mcp_logins: std::sync::Arc::default(),
     };
 
     let app = routes::build_router(shared_state);

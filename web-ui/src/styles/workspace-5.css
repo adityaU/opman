@@ -1,0 +1,222 @@
+/* ── Workspace: pane menu, sidebar peek, rename, widget drag ───────────
+   The anchored and edge-attached surfaces. All of them are portalled and
+   positioned from live rects — the rename field would be clipped by the
+   rail, the menu by a pane's overflow — so everything here is
+   `position: fixed` and takes its depth from the app's --z-* scale rather
+   than from an invented number.
+
+   No colour literals: theme tokens only, so both appearances follow. */
+
+/* ── Pane menu ───────────────────────────────────────────────────── */
+
+/* The surface comes from `.modal-popover-surface`; this only places it. */
+.wsp-menu {
+    position: fixed;
+    z-index: calc(var(--z-modal) + 5);
+    min-width: 232px;
+    padding: var(--space-1);
+    outline: none
+}
+
+/* Sections, not one undifferentiated list. Seven rows that split, resize, move
+   and close a pane were reading as a single column of equal-weight choices, so
+   "Close pane" sat one keystroke below "Split right" with nothing between them.
+   The hairline is the same `--modal-hairline` every panel in the app divides
+   with, so flat and glassy both follow without a second rule. */
+.wsp-menu-group + .wsp-menu-group {
+    margin-top: var(--space-1);
+    padding-top: var(--space-1);
+    border-top: 1px solid var(--modal-hairline)
+}
+
+.wsp-menu-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer
+}
+
+/* Fixed box, drawn or not: an action with no icon still starts its label on the
+   same column as the ones that have one. Same 13px as the pane header's own
+   buttons — these are the same commands reached a second way. */
+.wsp-menu-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    color: var(--color-text-muted)
+}
+
+.wsp-menu-label {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.wsp-menu-row.is-cursor {
+    background: var(--theme-select);
+    box-shadow: inset 0 0 0 1px var(--theme-select-ring)
+}
+
+/* The cursor is the only place the icon reaches full text weight — off-cursor
+   it stays muted so the labels, not a column of glyphs, carry the scan. */
+.wsp-menu-row.is-cursor .wsp-menu-icon {
+    color: inherit
+}
+
+.wsp-menu-row:disabled {
+    opacity: .4;
+    cursor: default
+}
+
+/* Destructive at rest, not on arrival. The old row was indistinguishable from
+   "Reset sizes" until the cursor landed on it, which is exactly one keystroke
+   too late to be a warning. The icon carries it at full strength; the label is
+   pulled back toward the text colour so the row is still comfortable to read. */
+.wsp-menu-row.is-danger {
+    color: color-mix(in srgb, var(--color-error) 76%, var(--color-text))
+}
+
+.wsp-menu-row.is-danger .wsp-menu-icon {
+    color: var(--color-error)
+}
+
+.wsp-menu-row.is-danger.is-cursor {
+    background: color-mix(in srgb, var(--color-error) 15%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-error) 40%, transparent);
+    color: var(--color-error)
+}
+
+.wsp-menu-kbd {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: var(--font-size-2xs)
+}
+
+/* The chord is a lookup, not part of the row's message — it must not read as
+   an alarm on the one row that is already coloured. */
+.wsp-menu-row.is-danger .wsp-menu-kbd {
+    color: var(--color-text-muted)
+}
+
+/* ── Rename field ────────────────────────────────────────────────── */
+
+.wsp-rename {
+    position: fixed;
+    transform: translateY(-50%);
+    z-index: calc(var(--z-modal) + 5);
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    border: 1px solid var(--modal-border);
+    border-radius: var(--radius);
+    background: var(--modal-surface);
+    box-shadow: var(--popover-shadow), var(--modal-rim)
+}
+
+.wsp-rename-input {
+    width: 160px;
+    padding: 2px 6px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    outline: none;
+    /* Was a --color-secondary halo around a --color-primary border: two
+       accents on one 24-character input. */
+    box-shadow: 0 0 0 2px var(--theme-focus-ring)
+}
+
+/* ── Sidebar peek ────────────────────────────────────────────────── */
+
+/* A 6px strip, not a full-height invisible panel: it must not swallow clicks
+   meant for the leftmost pane. */
+.wsp-peek-edge {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    z-index: calc(var(--z-sidebar) + 8)
+}
+
+/* Fixed, so peeking floats over the tree and never resizes a pane — no xterm
+   refit, no transcript scroll jump, no editor relayout on a stray mouse move. */
+.wsp-peek {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: calc(var(--z-sidebar) + 9);
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform var(--transition-base), opacity var(--transition-base);
+    border-right: 1px solid var(--color-border);
+    box-shadow: var(--modal-shadow);
+    background: var(--color-bg-panel);
+    overflow: hidden
+}
+
+.wsp-peek.is-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wsp-peek { transition: none }
+}
+
+/* ── Dragging a widget between panes ─────────────────────────────── */
+
+/* The grab handle is the header's kind chip. Only cursor and opacity change:
+   a drag source that restyles itself makes the tree look like it moved
+   before anything has. */
+.wsp-head-widget[draggable="true"] {
+    cursor: grab
+}
+
+.wsp-head-widget[draggable="true"]:active {
+    cursor: grabbing
+}
+
+.wsp-pane.is-drag-source {
+    opacity: .55
+}
+
+/* The overlay in drop mode. Slots are the same rects as targeting, so the two
+   modes read as one mechanism — which they are. */
+.wsp-target-slot.is-source {
+    border-style: dashed;
+    cursor: not-allowed
+}
+
+.wsp-target-slot.is-over {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent)
+}
+
+.wsp-target-slot.is-over .wsp-target-number {
+    color: var(--color-on-accent);
+    background: var(--color-primary)
+}

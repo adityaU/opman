@@ -17,5 +17,4 @@ fn reexported_fn_items_exist() {
     // Reference the re-exported loading fns so the paths are exercised as items.
     let _f: fn() -> ThemeColors = load_theme;
     let _g: fn(&str) -> ThemeColors = load_theme_with_mode;
-    let _d: fn() -> anyhow::Result<()> = deploy_embedded_themes;
 }

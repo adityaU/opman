@@ -7,6 +7,7 @@ mod background_tasks;
 mod blockkit;
 mod claude_engine;
 mod cli;
+mod cli_skills;
 mod command_palette;
 mod config;
 mod event_input;
@@ -19,6 +20,10 @@ mod mcp;
 mod mcp_agent_manager;
 mod mcp_kanban;
 mod mcp_neovim;
+mod mcp_oauth;
+mod mcp_probe;
+mod mcp_proxy;
+mod mcp_registry;
 mod mcp_skills;
 mod mcp_time;
 mod mcp_ui;
@@ -44,6 +49,7 @@ mod which_key;
 
 use std::collections::HashMap;
 use std::io;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -61,70 +67,8 @@ use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::app::{App, BackgroundEvent};
-use crate::cli::{Cli, Commands, SkillsCommands};
+use crate::cli::{Cli, Commands};
 use crate::config::Config;
-
-async fn handle_skills(subcommand: SkillsCommands) -> anyhow::Result<()> {
-    match subcommand {
-        SkillsCommands::List => {
-            let registry = crate::mcp_skills::load_skills().await?;
-            for (name, skill) in registry {
-                println!("{}: {}", name, skill.description);
-            }
-        }
-        SkillsCommands::Create {
-            name,
-            description,
-            content,
-        } => {
-            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
-            std::fs::create_dir_all(&skill_dir)?;
-            let skill_md = skill_dir.join("SKILL.md");
-            let content_str = format!(
-                "---\nname: {}\ndescription: {}\n---\n{}",
-                name, description, content
-            );
-            std::fs::write(&skill_md, content_str)?;
-            println!("Skill '{}' created.", name);
-        }
-        SkillsCommands::Update {
-            name,
-            description,
-            content,
-        } => {
-            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
-            if !skill_dir.exists() {
-                anyhow::bail!("Skill '{}' not found", name);
-            }
-            let skill_md = skill_dir.join("SKILL.md");
-            let content_str = format!(
-                "---\nname: {}\ndescription: {}\n---\n{}",
-                name, description, content
-            );
-            std::fs::write(&skill_md, content_str)?;
-            println!("Skill '{}' updated.", name);
-        }
-        SkillsCommands::Delete { name } => {
-            let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
-            if !skill_dir.exists() {
-                anyhow::bail!("Skill '{}' not found", name);
-            }
-            std::fs::remove_dir_all(&skill_dir)?;
-            println!("Skill '{}' deleted.", name);
-        }
-        SkillsCommands::Show { name } => {
-            let registry = crate::mcp_skills::load_skills().await?;
-            if let Some(skill) = registry.get(&name) {
-                println!("Name: {}", skill.name);
-                println!("Description: {}", skill.description);
-                println!("Content:\n{}", skill.content);
-            } else {
-                anyhow::bail!("Skill '{}' not found", name);
-            }
-        }
-    }
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -155,7 +99,17 @@ async fn main() -> Result<()> {
     // ── Handle subcommands (early exit) ──────────────────────────────
     match cli.command {
         Some(Commands::Mcp { project_path }) => {
-            return mcp::run_mcp_bridge(project_path).await.map_err(Into::into);
+            return mcp::run_mcp_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
+                .await
+                .map_err(Into::into);
+        }
+        Some(Commands::McpProxy { name }) => {
+            mcp_proxy::run_mcp_proxy(&name).await?;
+            return Ok(());
+        }
+        Some(Commands::McpSkills) => {
+            mcp_skills::bridge::run_mcp_skills_bridge().await?;
+            return Ok(());
         }
         Some(Commands::McpTime) => {
             return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
@@ -169,7 +123,7 @@ async fn main() -> Result<()> {
                 .map_err(Into::into);
         }
         Some(Commands::McpAgentManager { project_path }) => {
-            return mcp_agent_manager::run_bridge(project_path)
+            return mcp_agent_manager::run_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
                 .await
                 .map_err(Into::into);
         }
@@ -179,7 +133,7 @@ async fn main() -> Result<()> {
                 .map_err(Into::into);
         }
         Some(Commands::McpNvim { project_path }) => {
-            return mcp_neovim::run_mcp_neovim_bridge(project_path)
+            return mcp_neovim::run_mcp_neovim_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
                 .await
                 .map_err(Into::into);
         }
@@ -187,7 +141,7 @@ async fn main() -> Result<()> {
             return setup::handle_slack_manifest();
         }
         Some(Commands::Skills { subcommand }) => {
-            return handle_skills(subcommand).await.map_err(Into::into);
+            return cli_skills::handle_skills(subcommand).await.map_err(Into::into);
         }
         None => {} // Default mode: run the TUI
     }
@@ -203,13 +157,8 @@ async fn main() -> Result<()> {
     let enable_web = cli.enable_web();
     let tunnel_mode = cli.tunnel_mode();
 
-    let all_mcp = cli.all_mcp;
-    let enable_terminal_mcp = all_mcp || cli.terminal_mcp;
-    let enable_neovim_mcp = all_mcp || cli.neovim_mcp;
-    let enable_time_mcp = all_mcp || cli.time_mcp;
-    let enable_ui_mcp = all_mcp || cli.ui_mcp;
-    let enable_any_mcp =
-        enable_terminal_mcp || enable_neovim_mcp || enable_time_mcp || enable_ui_mcp;
+    let mcp_flags = cli.builtin_mcp();
+    let enable_any_mcp = mcp_flags.any();
 
     // Publish the path before starting any external runner process; OpenCode
     // serve inherits its environment and later launches the MCP child.
@@ -266,13 +215,23 @@ async fn main() -> Result<()> {
     // Register the ids before anything parses a runner label, or a perfectly valid agent
     // name would be rejected as unknown.
     let acp_config = acp_engine::config::load();
-    let mcp_flags = (
-        enable_terminal_mcp,
-        enable_neovim_mcp,
-        enable_time_mcp,
-        enable_ui_mcp,
-    );
     runner::register_acp_runners(acp_config.active().map(|(id, _)| id.clone()));
+
+    // Load after the ACP ids are registered, so `runners`/`excludeRunners` in mcp.json can
+    // name an ACP agent, and after OPMAN_AGENT_MANAGER_SOCKET is published above, so the
+    // agent-manager server's presence check resolves.
+    let mcp_registry = mcp_registry::RegistryHandle::load(mcp_flags);
+    // OpenCode's payload is handed to `opencode serve` once at spawn, so unlike the
+    // other runners it does not pick up later `mcp.json` edits without a restart.
+    let opencode_registry = mcp_registry.current();
+    let opencode_config = mcp_registry::render::opencode_config(
+        opencode_registry.for_runner(&runner::RunnerKind::Opencode),
+        // OpenCode's config is process-wide: it is built once for `opencode serve`, so it
+        // binds with the child's own working directory and no session id.
+        opencode_registry.bind(".", None),
+        mcp_flags,
+    )
+    .context("Failed to build OpenCode MCP configuration")?;
 
     // Start the agent backend on a free port. opencode runs as an external
     // `opencode serve` process; claude-code is served by an in-process adapter
@@ -280,20 +239,21 @@ async fn main() -> Result<()> {
     // background agents); the `claude` slot is served by the generic ACP engine.
     let mut acp_engines: HashMap<runner::RunnerKind, Arc<acp_engine::AcpEngine>> = HashMap::new();
     let (base_url, server_handle) = if backend == crate::cli::AgentBackend::ClaudeCode {
-        claude_engine::start_embedded_server(mcp_flags)
+        claude_engine::start_embedded_server(mcp_registry.clone())
             .await
             .context("Failed to start embedded claude engine")?
     } else if backend == crate::cli::AgentBackend::ClaudeAcp {
         let (id, agent) = acp_config
             .for_runner("claude")
             .context("No ACP agent is configured for the `claude` runner")?;
-        let (url, handle, engine) = acp_engine::start_embedded_server(id, agent.clone(), mcp_flags)
+        let (url, handle, engine) = acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone())
             .await
             .with_context(|| format!("Failed to start ACP engine `{id}`"))?;
         acp_engines.insert(runner::RunnerKind::Claude, engine);
         (url, handle)
     } else {
-        server::spawn_agent_server(backend).context("Failed to start agent server")?
+        server::spawn_agent_server(backend, Some(&opencode_config))
+            .context("Failed to start agent server")?
     };
     crate::app::init_base_url(base_url);
 
@@ -335,7 +295,10 @@ async fn main() -> Result<()> {
             .map(|output| output.status.success())
             .unwrap_or(false)
     {
-        if let Ok((url, handle)) = server::spawn_agent_server(crate::cli::AgentBackend::Opencode) {
+        if let Ok((url, handle)) = server::spawn_agent_server(
+            crate::cli::AgentBackend::Opencode,
+            Some(&opencode_config),
+        ) {
             runner_impls.insert(
                 runner::RunnerKind::Opencode,
                 Arc::new(runner::HttpRunner::new(
@@ -355,13 +318,8 @@ async fn main() -> Result<()> {
         .unwrap_or(false)
     {
         if !runner_impls.contains_key(&runner::RunnerKind::ClaudeCode) {
-            if let Ok((url, handle)) = claude_engine::start_embedded_server((
-                enable_terminal_mcp,
-                enable_neovim_mcp,
-                enable_time_mcp,
-                enable_ui_mcp,
-            ))
-            .await
+            if let Ok((url, handle)) =
+                claude_engine::start_embedded_server(mcp_registry.clone()).await
             {
                 runner_impls.insert(
                     runner::RunnerKind::ClaudeCode,
@@ -400,7 +358,7 @@ async fn main() -> Result<()> {
                 );
                 continue;
             }
-            None => acp_engine::start_embedded_server(id, agent.clone(), mcp_flags).await,
+            None => acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone()).await,
         };
         match engine {
             Ok((url, handle, engine)) => {
@@ -426,18 +384,12 @@ async fn main() -> Result<()> {
         .map(|output| output.status.success())
         .unwrap_or(false)
     {
-        let codex_mcp = runner::CodexMcpConfig {
-            terminal: enable_terminal_mcp,
-            neovim: enable_neovim_mcp,
-            time: enable_time_mcp,
-            ui: enable_ui_mcp,
-            kanban: dirs::config_dir()
-                .map(|path| path.join("opman").join("internal.json").exists())
-                .unwrap_or(false),
-        };
         runner_impls.insert(
             runner::RunnerKind::Codex,
-            Arc::new(runner::CodexRunner::new(client.clone(), codex_mcp)),
+            Arc::new(runner::CodexRunner::new(
+                client.clone(),
+                mcp_registry.clone(),
+            )),
         );
     }
     let runner_registry = Arc::new(runner::RunnerRegistry::new(default_runner, runner_impls));
@@ -467,11 +419,6 @@ async fn main() -> Result<()> {
 
     let config = Config::load().context("Failed to load config")?;
 
-    // Deploy embedded opencode theme JSON files to ~/.config/opencode/themes/
-    if let Err(e) = theme::deploy_embedded_themes() {
-        tracing::warn!("Failed to deploy embedded themes: {}", e);
-    }
-
     // Create background event channel and app state
     let (bg_tx, bg_rx) = mpsc::unbounded_channel::<BackgroundEvent>();
     let mut app = App::new(config, bg_tx.clone());
@@ -491,6 +438,7 @@ async fn main() -> Result<()> {
         backend.display_name(),
         &app,
         runner_registry.clone(),
+        mcp_registry.clone(),
     )
     .await;
 
@@ -546,15 +494,7 @@ async fn main() -> Result<()> {
         info!("Running in web-only mode (no TUI)");
 
         // Still need MCP + session setup (headless=true skips PTY spawning)
-        setup::setup_initial_projects(
-            &mut app,
-            enable_any_mcp,
-            enable_terminal_mcp,
-            enable_neovim_mcp,
-            enable_time_mcp,
-            enable_ui_mcp,
-            true,
-        );
+        setup::setup_initial_projects(&mut app, mcp_flags, true);
 
         println!(
             "opman web-only mode — web UI at http://localhost:{}",
@@ -599,15 +539,7 @@ async fn main() -> Result<()> {
     let (watcher_rx, _watcher) = setup::setup_kv_watcher()?;
 
     // Kick off initial data loading for all projects
-    setup::setup_initial_projects(
-        &mut app,
-        enable_any_mcp,
-        enable_terminal_mcp,
-        enable_neovim_mcp,
-        enable_time_mcp,
-        enable_ui_mcp,
-        false,
-    );
+    setup::setup_initial_projects(&mut app, mcp_flags, false);
 
     // Start Slack integration if enabled
     setup::setup_slack(&mut app);

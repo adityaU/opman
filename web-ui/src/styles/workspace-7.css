@@ -1,0 +1,289 @@
+/* ── Workspace: the staged widget opener ───────────────────────────────
+   Split out of workspace-4.css, which had grown past the file ceiling once
+   the opener stopped being one anonymous row repeated three times. The
+   window switcher followed it into workspace-8.css.
+
+   Both ride modal-shell.css (.modal-backdrop + .modal-dialog-surface)
+   rather than painting their own, so they inherit the app's one floating
+   contract instead of becoming another dialog dialect. Their z-index comes
+   from that contract too.
+
+   Both are keyboard-first — every affordance here has a chord behind it —
+   so the visual job is to say what the keys are, not to be the only way in. */
+
+/* ── Widget opener ───────────────────────────────────────────────── */
+
+.wsp-opener {
+    width: min(560px, 92vw);
+    max-height: min(64vh, 560px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden
+}
+
+/* ── Head: which question am I answering, and what have I answered ── */
+
+.wsp-opener-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-2)
+}
+
+/* The stage's own glyph. Three stages that used to open identically now
+   differ in the first thing the eye lands on, before any text is read. */
+.wsp-opener-stage {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    box-shadow: inset 0 0 0 1px var(--modal-hairline);
+    color: var(--color-text-muted)
+}
+
+.wsp-opener-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    letter-spacing: -.01em
+}
+
+.wsp-opener-count {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 7px;
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-size: var(--font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted)
+}
+
+/* Answers, not a trail: each crumb carries the same mark the row it came
+   from carried, so a glance confirms the pick without re-reading it.
+   Indented to hang under the title rather than under the stage glyph. */
+.wsp-opener-crumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    min-width: 0;
+    padding: 0 var(--space-3) var(--space-2);
+    padding-left: calc(var(--space-3) + 24px + var(--space-2))
+}
+
+.wsp-opener-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    max-width: 220px;
+    padding: 2px 7px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.wsp-opener-crumb-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.wsp-opener-crumb-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    background: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250))
+}
+
+/* ── Filter ───────────────────────────────────────────────────────── */
+
+.wsp-opener-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--modal-hairline);
+    border-bottom: 1px solid var(--modal-hairline);
+    color: var(--color-text-muted)
+}
+
+.wsp-opener-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    outline: none
+}
+
+.wsp-opener-input::placeholder {
+    color: var(--color-text-muted)
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────── */
+
+.wsp-opener-list {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-1);
+    overflow-y: auto;
+    min-height: 0
+}
+
+.wsp-opener-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+/* The cursor is the keyboard's position, so it is styled as selection rather
+   than as hover — the mouse moves it instead of competing with it. */
+.wsp-opener-row.is-cursor {
+    background: var(--theme-select);
+    box-shadow: inset 0 0 0 1px var(--theme-select-ring)
+}
+
+/* A leading mark on every row, so the four stages line their text up on one
+   column even though what sits in that column differs. */
+.wsp-opener-tile {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    box-shadow: inset 0 0 0 1px var(--modal-hairline);
+    color: var(--color-text-muted)
+}
+
+.wsp-opener-row.is-cursor .wsp-opener-tile {
+    color: var(--color-text)
+}
+
+/* "New session" is an answer to a different question than the rows under it,
+   so it is the one tile that carries the accent rather than the surface. */
+.wsp-opener-tile.is-new {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
+    color: var(--color-primary)
+}
+
+/* Same recipe as .wsp-badge-chip, one size up: the colour you pick a project
+   by here is the colour its pane will then be edged in. */
+.wsp-opener-chip {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1;
+    color: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250));
+    background: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250) / .16);
+    box-shadow: inset 0 0 0 1px oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250) / .34)
+}
+
+.wsp-opener-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0
+}
+
+.wsp-opener-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.wsp-opener-sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* Mono for the path only: it is read segment by segment, not as prose. */
+.wsp-opener-sub.is-path {
+    font-family: var(--font-mono)
+}
+
+.wsp-opener-glyph {
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+/* Fixed column, tabular: the times are the evidence for the sort order, and
+   ragged right edges would hide the descent. */
+.wsp-opener-when {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: var(--font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted)
+}
+
+/* Names the sort rather than leaving the user to infer it from the dates. */
+.wsp-opener-group {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin: var(--space-1) var(--space-1) 0;
+    padding: var(--space-3) var(--space-1) var(--space-1);
+    border-top: 1px solid var(--modal-hairline);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-text-muted)
+}
+
+.wsp-opener-group-note {
+    font-size: var(--font-size-2xs);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0
+}
+
+.wsp-opener-empty {
+    padding: var(--space-4) var(--space-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm)
+}
+
+/* ── Key legend ───────────────────────────────────────────────────── */
+
+.wsp-opener-keys {
+    flex-shrink: 0;
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--modal-hairline);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* The keycap recipe itself lives in workspace-8.css, shared with the
+   switcher's own legend so a printed key reads the same in both. */

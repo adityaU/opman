@@ -3,6 +3,11 @@ import { PaletteItem, CommandPaletteProps } from "./types";
 /**
  * Build the full palette item list from component props.
  * Extracted to keep the main component file under 300 lines.
+ *
+ * A row that *navigates* — every settings section — does not call `onClose`.
+ * `history.back()` is asynchronous, so closing this way and then pushing a URL let the
+ * queued pop land on the page just pushed, bouncing the user back to their session.
+ * `onOpenSettings` closes the palette itself, without touching history.
  */
 export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
   const {
@@ -12,7 +17,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     onToggleSidebar,
     onToggleTerminal,
     onOpenModelPicker,
-    onOpenCheatsheet,
     onOpenTodoPanel,
     onOpenSessionSelector,
     onOpenContextInput,
@@ -22,13 +26,11 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     onOpenDiffReview,
     onOpenSearch,
     onOpenCrossSearch,
-    onOpenSplitView,
     onOpenNotificationPrefs,
     onOpenMemory,
     onOpenAutonomy,
     onOpenRoutines,
     onOpenSystemMonitor,
-    onOpenSkillsUpload,
     sessionId,
   } = props;
 
@@ -62,11 +64,12 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       handler: () => { onClose(); onToggleTerminal(); },
     },
     {
-      id: "cheatsheet",
-      category: "Core",
+      id: "keybindings",
+      category: "Settings",
       label: "Keyboard Shortcuts",
+      description: "See and rebind every shortcut",
       shortcut: "?",
-      handler: () => { onClose(); onOpenCheatsheet(); },
+      handler: () => onOpenSettings("keybindings"),
     },
     {
       id: "session-selector",
@@ -78,18 +81,32 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
     },
     {
       id: "settings",
-      category: "Core",
+      category: "Settings",
       label: "Settings",
-      description: "Configure panels and theme",
+      description: "Appearance, keybindings, MCP servers, skills",
       shortcut: "Cmd+,",
-      handler: () => { onClose(); onOpenSettings(); },
+      handler: () => onOpenSettings(),
     },
     {
-      id: "skills-upload",
-      category: "Core",
-      label: "Upload Skills",
-      description: "Upload ZIP file with skills",
-      handler: () => { onClose(); onOpenSkillsUpload?.(); },
+      id: "theme",
+      category: "Settings",
+      label: "Color Theme",
+      description: "Palette, light or dark, glassy or flat",
+      handler: () => onOpenSettings("appearance"),
+    },
+    {
+      id: "mcp-servers",
+      category: "Settings",
+      label: "MCP Servers",
+      description: "Tools every runner can reach",
+      handler: () => onOpenSettings("mcp"),
+    },
+    {
+      id: "skills",
+      category: "Settings",
+      label: "Skills",
+      description: "Write, import and edit reusable instructions",
+      handler: () => onOpenSettings("skills"),
     },
     {
       id: "watcher",
@@ -130,14 +147,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       description: "Search across all sessions in project",
       shortcut: "Cmd+Shift+F",
       handler: () => { onClose(); onOpenCrossSearch(); },
-    },
-    {
-      id: "split-view",
-      category: "Layout",
-      label: "Split View",
-      description: "View two sessions side by side",
-      shortcut: "\u2318\\",
-      handler: () => { onClose(); onOpenSplitView?.(); },
     },
     {
       id: "notification-prefs",

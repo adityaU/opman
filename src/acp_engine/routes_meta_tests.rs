@@ -26,7 +26,7 @@ fn engine_with_modes(modes_are_agents: bool) -> Arc<AcpEngine> {
         "opencode-acp".to_string(),
         agent,
         None,
-        (false, false, false, false),
+        crate::mcp_registry::RegistryHandle::default(),
     ));
     engine.set_capabilities(json!({
         "sessionId": "ses_1",

@@ -33,6 +33,10 @@ export interface TerminalPanelProps {
   /** Which shell renders the panel. Mobile adds the on-screen key bar, because
    *  a soft keyboard has no Esc, Tab, Ctrl or arrows. */
   layout?: "desktop" | "mobile";
+  /** PTY ids this panel owned before a reload — adopted rather than re-spawned. */
+  restoreIds?: readonly string[];
+  /** Reports the live tab ids so the owner can persist them. */
+  onTabsChanged?: (ids: string[]) => void;
 }
 
 export interface TabRuntime {
@@ -68,12 +72,8 @@ export const ALL_PTY_KINDS: PtyKind[] = ["shell", "neovim", "git", "opencode"];
 
 // ── Helpers ────────────────────────────────────────────
 
-export function uuid(): string {
-  return (
-    crypto.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  );
-}
+/** Re-exported so existing terminal imports keep working; owned by utils. */
+export { uuid } from "../utils/uuid";
 
 /**
  * Build the xterm palette from whichever theme is currently applied.

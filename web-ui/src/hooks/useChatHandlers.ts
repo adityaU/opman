@@ -57,7 +57,6 @@ export interface ChatHandlerInputs {
   toggleNeovim: () => void;
   toggleGit: () => void;
   toggleDebug: () => void;
-  toggleSplitView: () => void;
   /** Read current messages at call-time (avoids including in memo deps). */
   getMessages: () => Message[];
 }
@@ -131,7 +130,6 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     toggleNeovim: inputs.toggleNeovim,
     toggleGit: inputs.toggleGit,
     toggleDebug: inputs.toggleDebug,
-    toggleSplitView: inputs.toggleSplitView,
     getMessages: () => messagesRef.current(),
   }), [
     // activeSessionId, sending, activeMemoryItems intentionally omitted — read from refs via getters
@@ -142,7 +140,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.clearOptimistic, inputs.refreshState, inputs.refreshMessages, inputs.clearPermission, inputs.clearQuestion,
     inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
     inputs.openModal, inputs.expectSessionSwitch, inputs.blockSessionAdoption, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
-    inputs.toggleGit, inputs.toggleDebug, inputs.toggleSplitView,
+    inputs.toggleGit, inputs.toggleDebug,
   ]);
 
   const handleSend = useMemo(() => createHandleSend(deps), [deps]);

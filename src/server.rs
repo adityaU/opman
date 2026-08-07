@@ -24,11 +24,14 @@ fn find_free_port() -> Result<u16> {
 
 /// Spawn the agent server for the given backend and wait for it to be ready.
 ///
-/// - `opencode`: runs `opencode serve --port <port>`
+/// - `opencode`: runs `opencode serve --port <port>` with optional inline config
 /// - `claude-code`: runs `claude serve --port <port>`
 ///
 /// Returns `(base_url, child_handle)`.
-pub fn spawn_agent_server(backend: AgentBackend) -> Result<(String, ServerHandle)> {
+pub fn spawn_agent_server(
+    backend: AgentBackend,
+    opencode_config: Option<&str>,
+) -> Result<(String, ServerHandle)> {
     let port = find_free_port().context("Could not find a free port")?;
     let binary = backend.binary();
     info!(port, %binary, "Spawning agent server");
@@ -36,11 +39,16 @@ pub fn spawn_agent_server(backend: AgentBackend) -> Result<(String, ServerHandle
     // Run from a temp directory so the server never picks up a config file
     // from the manager's own CWD.
     let temp = std::env::temp_dir();
-    let mut child = Command::new(binary)
+    let mut command = Command::new(binary);
+    command
         .args(["serve", "--port", &port.to_string()])
         .current_dir(&temp)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+    if let Some(config) = opencode_config {
+        command.env("OPENCODE_CONFIG_CONTENT", config);
+    }
+    let mut child = command
         .spawn()
         .with_context(|| {
             format!("Failed to spawn `{binary} serve`. Is {binary} installed and on PATH?")

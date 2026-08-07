@@ -214,6 +214,9 @@ const OpenSessionRow = React.memo(function OpenSessionRow({
           className={`sb-session sb-open-row${isActive ? " active" : ""}${isBusy ? " busy" : ""}`}
           onClick={onSelect}
           onContextMenu={handleCtx}
+          data-list-item=""
+          data-list-key={entry.sid}
+          data-list-depth={0}
         >
           <div className="sb-session-icon">
             {isPinned ? <Pin size={12} className="sb-pin-icon" /> : <MessageCircle size={14} />}

@@ -1,0 +1,137 @@
+/* ── Workspace: the empty pane ─────────────────────────────────────────
+   Split off from the header sheet purely for size; it belongs with
+   workspace-3.css conceptually. */
+
+/* ── Empty pane ──────────────────────────────────────────────────── */
+
+/* A split should feel finished, not like a hole to fill later, so the pane
+   offers the four widgets straight away.
+
+   These were four equal cards in a 2×2 grid — the lazy container, and worse
+   here than usually, because every empty pane drew its own copy: split twice
+   and the screen was three identical card grids competing for the same
+   attention. They are rows now, on the same recipe as `.wsp-opener-row`, so
+   the inline choice and the full picker read as the one mechanism the code
+   already says they are. Quiet enough to repeat. */
+
+.wsp-empty {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    min-height: 0;
+    overflow: auto
+}
+
+/* Sized to its longest row, not to a fixed width: right-aligning four short
+   hints against a 240px edge left a ragged column and a gulf of dead space
+   between each label and its own hint. */
+.wsp-empty-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: max-content;
+    max-width: 100%
+}
+
+.wsp-empty-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    align-self: stretch
+}
+
+.wsp-empty-label {
+    margin: 0 0 calc(var(--space-2) * -1);
+    padding: 0 var(--space-2);
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted)
+}
+
+.wsp-empty-choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5) var(--space-2);
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast)
+}
+
+.wsp-empty-choice svg {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: color var(--transition-fast)
+}
+
+.wsp-empty-choice:hover {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent)
+}
+
+.wsp-empty-choice:hover svg {
+    color: var(--color-primary)
+}
+
+.wsp-empty-choice:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px
+}
+
+/* Two left-aligned columns: labels start on one line, hints on another. */
+.wsp-empty-choice-label {
+    min-width: 4.75rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.wsp-empty-choice-hint {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* Past three panes there is no room to teach; the rows stay, the prose goes. */
+.wsp-empty.is-compact {
+    padding: var(--space-2)
+}
+
+.wsp-empty.is-compact .wsp-empty-choice {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs)
+}
+
+.wsp-empty-hint {
+    margin: 0;
+    padding-left: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.wsp-empty-hint kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-family: inherit;
+    font-size: var(--font-size-2xs)
+}

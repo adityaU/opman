@@ -19,7 +19,7 @@ async fn start_embedded_server_binds_and_returns_url() {
     std::env::set_var("HOME", tmp.path());
     std::env::set_var("OPMAN_CLAUDE_BIN", "echo");
 
-    let (url, handle) = start_embedded_server((false, false, false, false))
+    let (url, handle) = start_embedded_server(crate::mcp_registry::RegistryHandle::default())
         .await
         .expect("embedded server starts");
 

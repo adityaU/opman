@@ -1,0 +1,265 @@
+/* ── Settings page: rows and status ────────────────────────────────────
+   One row per declared server or installed skill. Status is an icon plus a
+   word — colour is the third signal, never the only one.
+
+   Same contract as the first sheet: tokens only, no rgba(), no
+   backdrop-filter, so flat and glassy both come out right for free. */
+
+/* ── Rows ─────────────────────────────────────────────────────────── */
+
+.stg-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stg-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.stg-row:hover {
+    border-color: var(--color-border-active);
+}
+
+.stg-row.is-busy {
+    opacity: 0.6;
+}
+
+.stg-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    min-width: 0;
+    flex: 1;
+}
+
+/* The whole row opens the editor for skills, so it is a button — reset the
+   chrome a button brings rather than restating the row's own layout. */
+.stg-row-open {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.stg-row-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.stg-row-name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.stg-row-origin {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stg-row-open .stg-row-origin {
+    display: block;
+    font-family: inherit;
+    white-space: normal;
+}
+
+.stg-row-facts {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.stg-row-caveat {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1-5);
+    margin: var(--space-1) 0 0;
+    max-width: 76ch;
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-warning);
+}
+
+.stg-row-caveat svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.stg-row-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex-shrink: 0;
+}
+
+.stg-row-form {
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-active);
+    border-radius: var(--radius);
+    background: var(--color-bg-panel);
+    list-style: none;
+}
+
+.stg-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    border-radius: var(--radius);
+    background: var(--theme-error-soft);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    list-style: none;
+}
+
+.stg-confirm-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+/* ── Tags and status pills ────────────────────────────────────────── */
+
+.stg-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: var(--radius);
+    background: var(--theme-surface-3);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.stg-tag.is-accent {
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color: var(--color-accent);
+}
+
+/* Status carries an icon and a word. Colour is the third signal, never the
+   only one — "connected" and "needs login" must not be a red/green pair. */
+.stg-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: var(--radius);
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.stg-pill.is-success {
+    background: var(--theme-success-soft);
+    color: var(--color-success);
+}
+
+.stg-pill.is-warning {
+    background: var(--theme-warning-soft);
+    color: var(--color-warning);
+}
+
+.stg-pill.is-muted {
+    background: var(--theme-surface-3);
+    color: var(--color-text-muted);
+}
+
+/* ── Appearance section ────────────────────────────────────────────────
+   The theme grid and the two switchers are the quick picker's controls,
+   reused verbatim. Two of their rules assumed a dialog: the grid took
+   `flex: 1` from a flex column that no longer exists, and it kept its own
+   inset. Bounding it here matters for more than looks — the grid scrolls the
+   active card into view on mount, and with no scroller of its own that
+   scrolled the *pane*, landing the user below the two cards above it. */
+
+.stg-card .theme-selector-grid {
+    flex: none;
+    max-height: 384px;
+    padding: 0;
+}
+
+/* Both switchers were rows in a dialog, separated by a hairline from what
+   came next. In a card the card supplies that boundary. */
+.stg-card .theme-mode-switcher,
+.stg-card .theme-appearance-switcher {
+    padding: 0;
+    border-bottom: 0;
+}
+
+/* ── Search field ─────────────────────────────────────────────────── */
+
+.stg-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    padding: 0 9px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    color: var(--color-text-muted);
+}
+
+.stg-search input {
+    flex: 1;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+
+.stg-search input:focus {
+    outline: 0;
+}
+
+.stg-search:focus-within {
+    border-color: var(--color-border-active);
+}
+
+/* ── Keybindings section ───────────────────────────────────────────────
+   Two hundred rows, and the footer holds the config path, any diagnostic,
+   and Reset all. In the dialog the list scrolled inside a fixed-height box;
+   on the page it has to keep doing that, or everything actionable ends up
+   two hundred rows below the fold. */
+
+.stg-pane-body > .kbv-panel {
+    height: 100%;
+}
+
+.kbv-panel .kbv-rows,
+.kbv-panel .kbv-tree {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}

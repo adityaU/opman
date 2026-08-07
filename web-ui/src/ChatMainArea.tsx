@@ -8,6 +8,9 @@ import { SearchBar } from "./SearchBar";
 import { StatusBar } from "./StatusBar";
 import { X, Sparkles, Command, WifiOff, ChevronDown } from "lucide-react";
 import { KanbanView } from "./kanban/KanbanView";
+import { useIsMobile } from "./hooks/useIsMobile";
+import { DesktopShell } from "./workspace/DesktopShell";
+import type { DesktopShellProps } from "./workspace/DesktopShell";
 
 import type { SessionStatus } from "./hooks/sse/types";
 import type { SessionStats } from "./api";
@@ -143,9 +146,15 @@ export interface ChatMainAreaProps {
   boardProjectIndex?: number | null;
   /** Switch the board's project, syncing it to the URL. */
   onSelectBoardProject?: (projectIndex: number) => void;
+  /**
+   * Everything the desktop workspace needs, assembled by ChatLayout. Absent on
+   * mobile, which keeps the fixed panels and MobileDock untouched.
+   */
+  workspace?: Omit<DesktopShellProps, "sidebar" | "sidebarVisible" | "sidebarWidth" | "sidebarResizeHandle">;
 }
 
 export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function ChatMainArea(p) {
+  const isMobile = useIsMobile();
   const [activeRightPanel, setActiveRightPanel] = useState("editor");
   const visibleRightPanels = [p.terminalOpen ? "terminal" : null, p.neovimOpen ? "editor" : null, p.gitOpen ? "git" : null, p.debugOpen ? "debug" : null].filter((id): id is string => Boolean(id));
   const closeRightPanel = (id: string) => {
@@ -178,6 +187,40 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
   }, [p.activeProject, p.activeSessionId]);
 
   const chatHeader = <StatusBar project={p.activeProject} stats={p.stats} connectionStatus={p.connectionStatus} sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen} neovimOpen={p.neovimOpen} gitOpen={p.gitOpen} watcherStatus={p.watcherStatus} presenceClients={p.presenceClients} contextLimit={p.contextLimit} sessionTitle={sessionTitle} showSidebarToggle={!p.sidebarOpen} onToggleSidebar={p.onToggleSidebar} onToggleTerminal={p.toggleTerminal} onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit} onOpenCommandPalette={p.openCommandPalette} onOpenWatcher={p.onOpenWatcher} onOpenContextWindow={p.onOpenContextWindow} />;
+
+  const sidebarProps = {
+    projects: p.appState.projects,
+    activeProject: p.activeProjectIndex,
+    activeSessionId: p.activeSessionId,
+    isSessionBusy: p.isSessionBusy,
+    busyKey: p.busyKey,
+    onSelectSession: p.handleSelectSession,
+    onNewSession: p.handleNewSession,
+    onSwitchProject: p.handleSwitchProject,
+    onOpenAddProject: p.openAddProject,
+    isMobileOpen: p.mobileSidebarOpen,
+    onClose: p.closeMobileSidebar,
+    isKanbanView: p.isKanbanView,
+    onToggleKanban: p.onToggleKanban,
+    onToggleSidebar: p.onToggleSidebar,
+    sessionTaskLinks: p.sessionTaskLinks,
+    onOpenKanbanTask: p.onOpenKanbanTask,
+  };
+
+  // The desktop redesign: everything right of the sidebar becomes panes. The
+  // board keeps taking over the whole area, as it did before — it is a page,
+  // not a widget. Mobile falls through to the original layout untouched.
+  if (!isMobile && !p.isKanbanView && p.workspace) {
+    return (
+      <DesktopShell
+        {...p.workspace}
+        sidebar={sidebarProps}
+        sidebarVisible={p.sidebarOpen}
+        sidebarWidth={p.sidebarResize.size}
+        sidebarResizeHandle={p.sidebarResize.handleProps}
+      />
+    );
+  }
 
   return (
     <div className="chat-content" data-surface="chat">

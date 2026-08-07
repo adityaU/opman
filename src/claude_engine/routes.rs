@@ -1009,7 +1009,10 @@ mod control_command_tests {
     use super::*;
 
     fn engine() -> Engine {
-        Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+        Arc::new(ClaudeEngine::new(
+            None,
+            crate::mcp_registry::RegistryHandle::default(),
+        ))
     }
 
     // `/agent <name>` must set the session's agent and NOT be forwarded to claude as a

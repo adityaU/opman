@@ -1,0 +1,300 @@
+/* ── Settings page ─────────────────────────────────────────────────────
+   A destination, not a floating surface: it sits on the canvas, so it takes
+   no shell, no scrim and no blur. Depth comes from one step of elevation
+   between the page and the cards on it.
+
+   Every colour here is a token. `html.flat-theme` already remaps
+   --modal-surface/--modal-border/--modal-hairline/--modal-shadow, so flat
+   comes out correct for free — which only holds while nothing in this file
+   hard-codes an rgba() or a backdrop-filter. */
+
+.stg-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+
+.stg-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--modal-hairline);
+}
+
+.stg-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.stg-head-note {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.stg-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: 4px 10px 4px 6px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.stg-back:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-active);
+}
+
+/* ── Rail + pane ──────────────────────────────────────────────────── */
+
+.stg-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.stg-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+    width: 232px;
+    padding: var(--space-3);
+    overflow-y: auto;
+    border-right: 1px solid var(--modal-hairline);
+}
+
+.stg-rail-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.stg-rail-item:hover {
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    color: var(--color-text);
+}
+
+.stg-rail-item.is-active {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-primary);
+}
+
+.stg-rail-icon {
+    display: flex;
+    padding-top: 1px;
+    flex-shrink: 0;
+}
+
+.stg-rail-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.stg-rail-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.stg-rail-summary {
+    font-size: var(--font-size-2xs);
+    line-height: 1.35;
+    color: var(--color-text-muted);
+}
+
+.stg-rail-item.is-active .stg-rail-summary {
+    color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text-muted));
+}
+
+.stg-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.stg-pane-head {
+    flex-shrink: 0;
+    padding: var(--space-4) var(--space-5) 0;
+}
+
+.stg-pane-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+}
+
+.stg-pane-body {
+    flex: 1;
+    min-height: 0;
+    padding: var(--space-4) var(--space-5) var(--space-8);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+/* The keybindings editor was a dialog; on the page it fills the pane instead
+   of being centred in one, and its own footer already closes the surface. */
+.kbv-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-width: 1040px;
+}
+
+.kbv-panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.kbv-panel .kbv-tabs {
+    padding: 0;
+}
+
+.kbv-panel .kbv-controls {
+    padding: 0;
+}
+
+.kbv-panel .kbv-foot {
+    border-top: 1px solid var(--modal-hairline);
+}
+
+/* ── Cards ────────────────────────────────────────────────────────── */
+
+.stg-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 1040px;
+}
+
+.stg-card {
+    padding: var(--space-4);
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-panel);
+}
+
+.stg-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+}
+
+.stg-card-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.stg-card-title {
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+}
+
+.stg-card-note {
+    margin: var(--space-1) 0 var(--space-3);
+    max-width: 68ch;
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.stg-card-head .stg-card-note {
+    margin-bottom: 0;
+}
+
+.stg-count {
+    padding: 1px 7px;
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.stg-note {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.stg-hint {
+    margin: var(--space-1) 0 0;
+    max-width: 72ch;
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.stg-error {
+    margin: var(--space-2) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    border-radius: var(--radius);
+    background: var(--theme-error-soft);
+    font-size: var(--font-size-xs);
+    color: var(--color-error);
+}
+
+.stg-loading {
+    padding: var(--space-4);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.stg-empty {
+    padding: var(--space-6) var(--space-4);
+    border: 1px dashed var(--modal-hairline);
+    border-radius: var(--radius);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.stg-empty p {
+    margin: 0 auto;
+    max-width: 52ch;
+}
+
+.stg-empty .stg-hint {
+    margin-top: var(--space-2);
+}

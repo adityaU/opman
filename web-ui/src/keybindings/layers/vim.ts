@@ -57,10 +57,8 @@ const CHAT = vim(
 
 const EXPLORER = vim(
   [
-    { key: "j", command: "explorer.moveDown", when: "focus==explorer" },
-    { key: "k", command: "explorer.moveUp", when: "focus==explorer" },
-    { key: "l", command: "explorer.expand", when: "focus==explorer" },
-    { key: "h", command: "explorer.collapse", when: "focus==explorer" },
+    // `hjkl` moved to the base layer — the explorer answers to them in normal
+    // mode too, and a second copy here would only differ by `mode`.
     { key: "o", command: "explorer.open", when: "focus==explorer" },
     { key: "a", command: "explorer.newFile", when: "focus==explorer" },
     { key: "A", command: "explorer.newFolder", when: "focus==explorer" },
@@ -111,9 +109,70 @@ const TERMINAL = vim(
   "terminal",
 );
 
+/**
+ * `gt` / `gT` — a workspace window is a vim tab, so it gets vim's tab motion.
+ * `<leader>w]` and `[` do the same thing for anyone who found the namespace
+ * first.
+ */
+const WINDOW_MOTIONS = vim(
+  [
+    { key: "gt", command: "workspace.nextWindow", label: "next window" },
+    { key: "gT", command: "workspace.previousWindow", label: "previous window" },
+  ],
+  "motion",
+);
+
+/**
+ * Bare `Ctrl-w`, aliasing the `<leader>w` namespace onto the prefix vim users
+ * reach for first.
+ *
+ * macOS only, and not by preference: on Windows and Linux `Ctrl+W` closes the
+ * browser tab before the page sees the keydown, and `host.ts` lists it as
+ * reserved, so binding it there would fail the conflict test — correctly, since
+ * the binding could never fire. Those platforms keep `<leader>w`.
+ */
+const WINDOW_PREFIX = vim(
+  [
+    { key: "ctrl+w v", command: "workspace.splitRight", label: "split right" },
+    { key: "ctrl+w s", command: "workspace.splitDown", label: "split down" },
+    { key: "ctrl+w h", command: "workspace.focusLeft", label: "left" },
+    { key: "ctrl+w j", command: "workspace.focusDown", label: "down" },
+    { key: "ctrl+w k", command: "workspace.focusUp", label: "up" },
+    { key: "ctrl+w l", command: "workspace.focusRight", label: "right" },
+    { key: "ctrl+w H", command: "workspace.movePaneLeft", label: "move left" },
+    { key: "ctrl+w J", command: "workspace.movePaneDown", label: "move down" },
+    { key: "ctrl+w K", command: "workspace.movePaneUp", label: "move up" },
+    { key: "ctrl+w L", command: "workspace.movePaneRight", label: "move right" },
+    { key: "ctrl+w w", command: "workspace.cyclePane", label: "cycle" },
+    { key: "ctrl+w c", command: "workspace.closePane", label: "close" },
+    { key: "ctrl+w o", command: "workspace.closeOtherPanes", label: "only" },
+    { key: "ctrl+w z", command: "workspace.zoomPane", label: "zoom" },
+    { key: "ctrl+w =", command: "workspace.equalize", label: "equalize" },
+    { key: "ctrl+w T", command: "workspace.movePaneToNewWindow", label: "to new window" },
+  ],
+  "window",
+).map((spec) => ({ ...spec, platform: "mac" as const }));
+
+/**
+ * `hjkl` while the target overlay is up. Vim only — normal mode keeps bare
+ * letters free and uses the arrows the base layer binds.
+ */
+const TARGET = vim(
+  [
+    { key: "h", command: "workspace.focusLeft", when: "workspaceTargeting" },
+    { key: "j", command: "workspace.focusDown", when: "workspaceTargeting" },
+    { key: "k", command: "workspace.focusUp", when: "workspaceTargeting" },
+    { key: "l", command: "workspace.focusRight", when: "workspaceTargeting" },
+  ],
+  "window",
+);
+
 export const VIM_LAYER: readonly BindingSpec[] = [
   ...VIM_LEADER,
   ...MOTIONS,
+  ...WINDOW_MOTIONS,
+  ...WINDOW_PREFIX,
+  ...TARGET,
   ...CHAT,
   ...EXPLORER,
   ...GIT,

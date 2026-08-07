@@ -1,5 +1,7 @@
 import type { CommandHandler } from "./keybindings/KeymapContext";
 import type { ModalName } from "./hooks/useModalState";
+import { toggleSettings } from "./settings-page/useSettingsRoute";
+import type { SettingsSection } from "./settings-page/useSettingsRoute";
 
 /**
  * The global command handlers.
@@ -44,12 +46,23 @@ const MODAL_COMMANDS: Readonly<Record<string, ModalName>> = {
   "assistant.autonomy": "autonomy",
   "assistant.notifications": "notificationPrefs",
   "assistant.autoOpen": "autoOpen",
-  "system.settings": "settings",
-  "system.keybindings": "cheatsheet",
-  "system.themeSelector": "themeSelector",
   "system.monitor": "systemMonitor",
   "system.processHealth": "processHealth",
   "project.add": "addProject",
+};
+
+/**
+ * Commands whose whole implementation is "go to a settings section".
+ *
+ * Settings is a page, so these navigate rather than opening anything — which is also what
+ * makes each section linkable and survivable across a reload.
+ */
+const SETTINGS_COMMANDS: Readonly<Record<string, SettingsSection>> = {
+  "system.settings": "appearance",
+  "system.themeSelector": "appearance",
+  "system.keybindings": "keybindings",
+  "system.mcpServers": "mcp",
+  "system.skills": "skills",
 };
 
 /** Commands that dispatch an existing slash command. */
@@ -71,7 +84,6 @@ export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandH
     "layout.toggleEditor": deps.toggleEditor,
     "layout.toggleGit": deps.toggleGit,
     "layout.toggleBoard": deps.toggleBoard,
-    "layout.toggleSplitView": () => deps.toggleModal("splitView"),
     // Escape is a command like any other, so the chord that dismisses a modal
     // is configurable rather than hard-coded into the listener.
     "layout.escape": () => {
@@ -86,6 +98,10 @@ export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandH
 
   for (const [command, modal] of Object.entries(MODAL_COMMANDS)) {
     handlers[command] = () => deps.openModal(modal);
+  }
+
+  for (const [command, section] of Object.entries(SETTINGS_COMMANDS)) {
+    handlers[command] = () => toggleSettings(section);
   }
 
   for (const [command, slash] of Object.entries(SLASH_COMMANDS)) {

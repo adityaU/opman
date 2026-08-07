@@ -114,6 +114,9 @@ pub struct ServerState {
     pub lsp: std::sync::Arc<crate::lsp::LspPool>,
     /// Skills registry for MCP server.
     pub skills_registry: SkillsRegistry,
+    /// The MCP server set handed to runners. Swappable, so the settings page can add,
+    /// remove, or toggle a server and have it apply without restarting opman.
+    pub mcp: crate::mcp_registry::RegistryHandle,
     /// Broadcast sender for skills reload.
     pub reload_tx: broadcast::Sender<()>,
     /// Optional instance name (from tunnel hostname subdomain or tunnel name).
@@ -131,6 +134,10 @@ pub struct ServerState {
     pub internal_token: String,
     /// Common runtime runner registry used by session handlers.
     pub runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+    /// MCP OAuth logins waiting on a browser. Held here rather than per request because
+    /// the flow outlives the request that started it: the settings page gets the
+    /// authorize URL back immediately and delivers the callback in a second call.
+    pub mcp_logins: std::sync::Arc<crate::web::handlers::LoginSessions>,
 }
 
 #[cfg(test)]

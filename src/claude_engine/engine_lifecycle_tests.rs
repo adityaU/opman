@@ -2,7 +2,10 @@
 use super::*;
 
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 fn agent(session_id: &str, cwd: &str) -> claude_cli::AgentInfo {
@@ -261,9 +264,7 @@ fn build_opts_assembles_turn_options() {
     assert!(!opts.settings_json.is_empty());
     assert_eq!(opts.engine_url, "http://engine");
     assert_eq!(opts.session_env_id, s.id);
-    if !kanban_internal_available() {
-        assert_eq!(opts.mcp_config, "");
-    }
+    assert_eq!(opts.mcp_config, "");
 }
 
 // ── import_agents skip branches ─────────────────────────────────────

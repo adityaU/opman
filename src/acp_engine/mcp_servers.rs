@@ -1,59 +1,61 @@
-//! opman's own MCP servers, in ACP's `mcpServers` shape.
+//! opman's MCP servers, in ACP's `mcpServers` shape.
 //!
 //! Split from [`super`] so the engine module stays about the engine. Every ACP agent is
-//! handed the same tool surface opman gives its other runners, which is why this is built
-//! from the flags the host resolved at startup rather than from per-agent config — the one
-//! per-agent say is `inject_mcp`, for an agent that cannot speak MCP at all.
+//! handed the same tool surface opman gives its other runners; the one per-agent say is
+//! `inject_mcp`, for an agent that cannot speak MCP at all.
+//!
+//! ACP has no timeout anywhere in its schema — not on `McpServer`, not on
+//! `NewSessionRequest` — and `configOptions` ids are agent-defined rather than
+//! standardised. The tool-call ceiling for an ACP agent is therefore set on the agent
+//! process's own environment, through `acp.json`.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::AcpEngine;
+use crate::mcp_registry::{render, RemoteCaps};
+
+/// What the agent said it can dial for itself, from its `initialize` reply.
+///
+/// Absent means unsupported — the spec's own default, and the safe reading for an agent
+/// that predates the field. Anything it cannot dial reaches it as `opman mcp-proxy`
+/// instead of being dropped.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct McpCaps {
+    http: bool,
+    sse: bool,
+}
+
+impl McpCaps {
+    pub(super) fn from_initialize(init: &Value) -> Self {
+        let caps = init.pointer("/agentCapabilities/mcpCapabilities");
+        let flag = |key: &str| {
+            caps.and_then(|caps| caps.get(key))
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        };
+        Self {
+            http: flag("http"),
+            sse: flag("sse"),
+        }
+    }
+
+    fn remote(self) -> RemoteCaps {
+        RemoteCaps::new(self.http, self.sse)
+    }
+}
 
 impl AcpEngine {
     /// The server list for one session, or an empty list when injection is off.
-    pub(super) fn mcp_servers(&self, dir: &str, session_id: &str) -> Value {
+    pub(super) fn mcp_servers(&self, dir: &str, session_id: &str, caps: McpCaps) -> Value {
         if !self.agent.inject_mcp {
-            return json!([]);
+            return Value::Array(Vec::new());
         }
-        let (terminal, neovim, time, ui) = self.mcp_flags;
-        let exe = self.exe.to_string_lossy().to_string();
-        let env = |extra: Vec<(&str, String)>| -> Value {
-            let mut vars = vec![json!({ "name": "OPENCODE_SESSION_ID", "value": session_id })];
-            vars.extend(
-                extra
-                    .into_iter()
-                    .map(|(name, value)| json!({ "name": name, "value": value })),
-            );
-            Value::Array(vars)
-        };
-        let mut servers = Vec::new();
-        let mut stdio = |name: &str, args: Vec<String>, extra: Vec<(&str, String)>| {
-            servers.push(json!({
-                "name": name,
-                "command": exe,
-                "args": args,
-                "env": env(extra),
-            }));
-        };
-        if terminal {
-            stdio("terminal", vec!["mcp".into(), dir.into()], vec![]);
-        }
-        if neovim {
-            stdio("neovim", vec!["mcp-nvim".into(), dir.into()], vec![]);
-        }
-        if time {
-            stdio("time", vec!["mcp-time".into()], vec![]);
-        }
-        if ui {
-            stdio("ui", vec!["mcp-ui".into()], vec![]);
-        }
-        if let Ok(socket) = std::env::var("OPMAN_AGENT_MANAGER_SOCKET") {
-            stdio(
-                "agent-manager",
-                vec!["mcp-agent-manager".into(), dir.into()],
-                vec![("OPMAN_AGENT_MANAGER_SOCKET", socket)],
-            );
-        }
-        Value::Array(servers)
+        let runner = crate::runner::RunnerKind::Acp(self.agent.runner.clone());
+        let registry = self.mcp.current();
+        render::acp_servers(
+            registry.for_runner(&runner),
+            registry.bind(dir, Some(session_id)),
+            caps.remote(),
+        )
     }
 }

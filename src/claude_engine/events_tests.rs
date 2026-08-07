@@ -58,7 +58,7 @@ fn message_hash_handles_zero_parts() {
 // per part, all scoped to the given directory, carrying the session id + timestamp.
 #[test]
 fn emit_message_emits_updated_then_one_event_per_part() {
-    let engine = ClaudeEngine::new(None, (false, false, false, false));
+    let engine = ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default());
     let mut rx = engine.subscribe();
     let m = text_msg();
 
@@ -88,7 +88,7 @@ fn emit_message_emits_updated_then_one_event_per_part() {
 
 #[test]
 fn emit_message_with_no_parts_emits_only_the_message() {
-    let engine = ClaudeEngine::new(None, (false, false, false, false));
+    let engine = ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default());
     let mut rx = engine.subscribe();
     let m = msg(json!({ "role": "assistant", "id": "m" }), vec![]);
     emit_message(&engine, "/d", "s", &m, 1);

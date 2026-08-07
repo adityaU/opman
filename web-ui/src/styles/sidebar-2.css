@@ -121,7 +121,7 @@
     bottom: 0;
     height: 1px;
     overflow: hidden;
-    background: color-mix(in srgb, var(--color-success) 22%, transparent);
+    background: color-mix(in srgb, var(--color-running) 22%, transparent);
     pointer-events: none
 }
 
@@ -132,9 +132,9 @@
     background: linear-gradient(
         90deg,
         transparent 0%,
-        color-mix(in srgb, var(--color-success) 30%, transparent) 35%,
-        var(--color-success) 50%,
-        color-mix(in srgb, var(--color-success) 30%, transparent) 65%,
+        color-mix(in srgb, var(--color-running) 30%, transparent) 35%,
+        var(--color-running) 50%,
+        color-mix(in srgb, var(--color-running) 30%, transparent) 65%,
         transparent 100%
     );
     transform: translateX(-100%);
@@ -150,7 +150,7 @@
     .sb-busy-indicator::after {
         animation: none;
         transform: none;
-        background: var(--color-success);
+        background: var(--color-running);
         opacity: .55
     }
 }

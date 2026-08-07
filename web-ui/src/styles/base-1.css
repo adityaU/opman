@@ -89,8 +89,15 @@
     opacity: .6
 }
 
+/* Named because `.chat-content` has to subtract it from its column gap to keep
+   the sidebar exactly one --panel-inset from the workspace; the two numbers
+   must not be able to drift apart. */
+:root {
+    --resize-handle-w: 4px;
+}
+
 .resize-handle-horizontal {
-    width: 4px;
+    width: var(--resize-handle-w);
     cursor: col-resize
 }
 
@@ -100,7 +107,7 @@
 }
 
 .resize-handle-vertical {
-    height: 4px;
+    height: var(--resize-handle-w);
     cursor: row-resize
 }
 

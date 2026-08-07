@@ -1,21 +1,19 @@
 import React, { Suspense, lazy, useCallback } from "react";
+import { openSettings } from "./settings-page/useSettingsRoute";
+import type { SettingsSection } from "./settings-page/useSettingsRoute";
 
 // Lazy-load all modals — they are conditionally rendered and rarely all open at once
 const CommandPalette = lazy(() => import("./CommandPalette").then(m => ({ default: m.CommandPalette })));
 const ModelPickerModal = lazy(() => import("./ModelPickerModal").then(m => ({ default: m.ModelPickerModal })));
 const AgentPickerModal = lazy(() => import("./AgentPickerModal").then(m => ({ default: m.AgentPickerModal })));
-const ThemeSelectorModal = lazy(() => import("./ThemeSelectorModal").then(m => ({ default: m.ThemeSelectorModal })));
-const KeybindingsModal = lazy(() => import("./keybindings-view/KeybindingsModal").then(m => ({ default: m.KeybindingsModal })));
 const TodoPanelModal = lazy(() => import("./TodoPanelModal").then(m => ({ default: m.TodoPanelModal })));
 const SessionSelectorModal = lazy(() => import("./SessionSelectorModal").then(m => ({ default: m.SessionSelectorModal })));
 const ContextInputModal = lazy(() => import("./ContextInputModal").then(m => ({ default: m.ContextInputModal })));
-const SettingsModal = lazy(() => import("./SettingsModal").then(m => ({ default: m.SettingsModal })));
 const WatcherModal = lazy(() => import("./WatcherModal").then(m => ({ default: m.WatcherModal })));
 const AddProjectModal = lazy(() => import("./AddProjectModal").then(m => ({ default: m.AddProjectModal })));
 const ContextWindowPanel = lazy(() => import("./ContextWindowPanel").then(m => ({ default: m.ContextWindowPanel })));
 const DiffReviewPanel = lazy(() => import("./DiffReviewPanel").then(m => ({ default: m.DiffReviewPanel })));
 const CrossSessionSearchModal = lazy(() => import("./CrossSessionSearchModal").then(m => ({ default: m.CrossSessionSearchModal })));
-const SplitView = lazy(() => import("./SplitView").then(m => ({ default: m.SplitView })));
 
 const NotificationPrefsModal = lazy(() => import("./NotificationPrefsModal").then(m => ({ default: m.NotificationPrefsModal })));
 const AutonomyModal = lazy(() => import("./AutonomyModal").then(m => ({ default: m.AutonomyModal })));
@@ -43,26 +41,15 @@ export interface ModalLayerProps {
   onModelSelected: (modelId: string, providerId: string) => void;
   onAgentChange: (agentId: string) => Promise<void>;
   onContextSubmit: (text: string) => Promise<void>;
-  onThemeApplied: (colors: any) => void;
   onCompactContext: () => void;
   onAutonomyChange: (mode: string) => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
-  toggleNeovim: () => void;
-  toggleGit: () => void;
   selectedModel: any;
   selectedAgent: string;
-  themeMode: any;
-  setThemeMode: (m: any) => void;
-  appearance: any;
-  setAppearance: (a: any) => void;
   fileEditCount: number;
   allPermissions: any[];
   allQuestions: any[];
-  sidebarOpen: boolean;
-  terminalOpen: boolean;
-  neovimOpen: boolean;
-  gitOpen: boolean;
   watcherStatus: any;
   autonomyMode: any;
   routineCache: any[];
@@ -70,11 +57,8 @@ export interface ModalLayerProps {
   memoryFilterActive: boolean;
   /** Open memory modal showing all memories (sets filterActive=false). */
   openMemoryAll: () => void;
-  splitViewSecondaryId: string | null;
-  setSplitViewSecondaryId: (id: string | null) => void;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
-  onOpenSkillsUpload?: () => void;
 }
 
 const L = ({ children }: { children: React.ReactNode }) => (
@@ -84,16 +68,21 @@ const L = ({ children }: { children: React.ReactNode }) => (
 export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLayer(p) {
   const { modals: m, openModal: o, closeModal: c, closeModalSilent: cs } = p;
 
-  /** Close `from` modal then open `to` modal */
-  const nav = useCallback((from: string, to: string) => () => { c(from); o(to); }, [c, o]);
-  /** Close `from` modal then open memory-all (unfiltered). */
-  const navMemoryAll = useCallback((from: string) => () => { c(from); p.openMemoryAll(); }, [c, p.openMemoryAll]);
   /** Navigate to session within active project */
   const navSess = useCallback(
     (sid: string) => p.onSelectSession(sid, p.activeProjectIndex),
     [p.onSelectSession, p.appState],
   );
   const cl = (k: string) => () => c(k);
+  /** Leave the palette and go to a settings section.
+   *
+   *  Closes *silently*: the ordinary close pops the history entry the palette pushed, and
+   *  `history.back()` being asynchronous meant that pop landed on the settings URL this
+   *  then pushed — which is what sent the user back to their session instead. */
+  const navSettings = useCallback((section?: SettingsSection) => {
+    cs("commandPalette");
+    openSettings(section);
+  }, [cs]);
 
   return (
     <>
@@ -104,17 +93,16 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
           onNewSession={p.onNewSession} onToggleSidebar={p.toggleSidebar}
           onToggleTerminal={p.toggleTerminal}
           onOpenModelPicker={() => { c("commandPalette"); o("modelPicker"); }}
-          onOpenCheatsheet={() => o("cheatsheet")} onOpenTodoPanel={() => o("todoPanel")}
+          onOpenTodoPanel={() => o("todoPanel")}
           onOpenSessionSelector={() => o("sessionSelector")}
-          onOpenContextInput={() => o("contextInput")} onOpenSettings={() => o("settings")}
+          onOpenContextInput={() => o("contextInput")} onOpenSettings={navSettings}
           onOpenWatcher={() => o("watcher")} onOpenContextWindow={() => o("contextWindow")}
           onOpenDiffReview={() => o("diffReview")} onOpenSearch={() => o("searchBar")}
-          onOpenCrossSearch={() => o("crossSearch")} onOpenSplitView={() => o("splitView")}
+          onOpenCrossSearch={() => o("crossSearch")}
           onOpenNotificationPrefs={() => o("notificationPrefs")}
           onOpenMemory={p.openMemoryAll}
           onOpenAutonomy={() => o("autonomy")} onOpenRoutines={() => o("routines")}
           onOpenSystemMonitor={() => o("systemMonitor")}
-          onOpenSkillsUpload={p.onOpenSkillsUpload}
           sessionId={p.activeSessionId}
         />
         </L>
@@ -126,10 +114,6 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       {m.agentPicker && (
         <L><AgentPickerModal onClose={cl("agentPicker")} currentAgent={p.selectedAgent} currentRunner={p.currentRunner} onAgentSelected={p.onAgentChange} /></L>
       )}
-      {m.themeSelector && (
-        <L><ThemeSelectorModal onClose={cl("themeSelector")} onThemeApplied={p.onThemeApplied} themeMode={p.themeMode} onThemeModeChange={p.setThemeMode} appearance={p.appearance} onAppearanceChange={p.setAppearance} /></L>
-      )}
-      {m.cheatsheet && <L><KeybindingsModal onClose={cl("cheatsheet")} /></L>}
       {m.todoPanel && p.activeSessionId && (
         <L><TodoPanelModal onClose={cl("todoPanel")} sessionId={p.activeSessionId} /></L>
       )}
@@ -138,24 +122,6 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       )}
       {m.contextInput && (
         <L><ContextInputModal onClose={cl("contextInput")} onSubmit={p.onContextSubmit} /></L>
-      )}
-
-      {m.settings && (
-        <L>
-        <SettingsModal
-          onClose={cl("settings")}
-          onOpenThemeSelector={nav("settings", "themeSelector")}
-          onOpenCheatsheet={nav("settings", "cheatsheet")}
-          onOpenNotificationPrefs={nav("settings", "notificationPrefs")}
-          onOpenMemory={navMemoryAll("settings")}
-          onOpenAutonomy={nav("settings", "autonomy")}
-          onOpenRoutines={nav("settings", "routines")}
-          sidebarOpen={p.sidebarOpen} terminalOpen={p.terminalOpen}
-          neovimOpen={p.neovimOpen} gitOpen={p.gitOpen}
-          onToggleSidebar={p.toggleSidebar} onToggleTerminal={p.toggleTerminal}
-          onToggleNeovim={p.toggleNeovim} onToggleGit={p.toggleGit}
-        />
-        </L>
       )}
 
       {m.watcher && <L><WatcherModal onClose={cl("watcher")} activeSessionId={p.activeSessionId} /></L>}
@@ -168,15 +134,6 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
       {m.crossSearch && p.appState && (
         <L><CrossSessionSearchModal onClose={cl("crossSearch")}          projectIdx={p.activeProjectIndex} onNavigate={navSess} /></L>
       )}
-      {m.splitView && p.appState && p.activeSessionId && (
-        <L><SplitView
-          primarySessionId={p.activeSessionId} secondarySessionId={p.splitViewSecondaryId}
-          onChangeSecondary={p.setSplitViewSecondaryId} onClose={cl("splitView")}
-          sessions={p.activeProject?.sessions ?? []} appState={p.appState}
-           selectedModel={p.selectedModel?.modelID} projectIndex={p.activeProjectIndex}
-        /></L>
-      )}
-
       {m.notificationPrefs && <L><NotificationPrefsModal onClose={cl("notificationPrefs")} /></L>}
 
       {m.memory && (

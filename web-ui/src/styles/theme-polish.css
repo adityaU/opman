@@ -24,14 +24,12 @@ html.light-theme {
 }
 
 /* Shared theme surfaces. Glassy keeps atmosphere; flat keeps exact edges. */
-html:not(.flat-theme) .theme-selector,
 html:not(.flat-theme) .theme-card,
 html:not(.flat-theme) .theme-mode-option {
   backdrop-filter: blur(22px) saturate(1.18);
   -webkit-backdrop-filter: blur(22px) saturate(1.18);
 }
 
-html.flat-theme .theme-selector,
 html.flat-theme .theme-card,
 html.flat-theme .theme-mode-option {
   backdrop-filter: none;

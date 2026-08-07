@@ -132,17 +132,13 @@
     html.flat-theme .command-palette,
     html.flat-theme .model-picker,
     html.flat-theme .agent-picker,
-    html.flat-theme .theme-selector,
-    html.flat-theme .cheatsheet-modal,
     html.flat-theme .todo-panel-modal,
     html.flat-theme .session-selector-modal,
     html.flat-theme .context-input-modal,
-    html.flat-theme .settings-modal,
     html.flat-theme .watcher-modal,
     html.flat-theme .ctx-window-modal,
     html.flat-theme .diff-review-modal,
-    html.flat-theme .cross-session-search-modal,
-    html.flat-theme .skills-upload-drawer {
+    html.flat-theme .cross-session-search-modal {
         background: var(--color-bg-panel);
         border-color: var(--color-border);
         box-shadow: 0 -4px 24px var(--black-20)
@@ -151,17 +147,13 @@
     html.flat-theme .command-palette:before,
     html.flat-theme .model-picker:before,
     html.flat-theme .agent-picker:before,
-    html.flat-theme .theme-selector:before,
-    html.flat-theme .cheatsheet-modal:before,
     html.flat-theme .todo-panel-modal:before,
     html.flat-theme .session-selector-modal:before,
     html.flat-theme .context-input-modal:before,
-    html.flat-theme .settings-modal:before,
     html.flat-theme .watcher-modal:before,
     html.flat-theme .ctx-window-modal:before,
     html.flat-theme .diff-review-modal:before,
-    html.flat-theme .cross-session-search-modal:before,
-    html.flat-theme .skills-upload-drawer:before {
+    html.flat-theme .cross-session-search-modal:before {
         background: var(--color-border)
     }
 

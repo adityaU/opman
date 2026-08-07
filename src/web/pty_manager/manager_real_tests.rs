@@ -2,6 +2,8 @@
 //! programs on PATH/$SHELL, covering the `Ok(pty)` insert branches and the
 //! write/resize/get_output/kill arms against a present PTY.
 
+use super::super::activity::PtyActivity;
+use super::super::handle::WebPtyHandle;
 use super::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
 use super::*;
 
@@ -91,4 +93,75 @@ async fn all_spawn_arms_insert_ptys() {
 
     // Dropping the handle closes the channel; the manager drains & kills all PTYs.
     drop(h);
+}
+
+// ── Foreground activity ─────────────────────────────────────────────
+
+/// Wait until `predicate` holds for the PTY's activity, or give up after ~3s.
+async fn await_activity(h: &WebPtyHandle, id: &str, want: PtyActivity) -> PtyActivity {
+    let mut last = PtyActivity::Idle;
+    for _ in 0..60 {
+        last = h.activity(id).await.unwrap_or_default();
+        if last == want {
+            return last;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    last
+}
+
+#[tokio::test]
+async fn activity_reports_running_while_a_command_holds_the_terminal() {
+    let _g = env_lock();
+    let dir = tempfile::tempdir().unwrap();
+    // `set -m` turns on job control, which is what puts a foreground command in
+    // its own process group — the thing the classifier reads. A real terminal
+    // gets this for free by running an interactive shell.
+    let sh = write_fake_bin(
+        dir.path(),
+        "jobshell",
+        "set -m\nsleep 30\nwhile true; do sleep 1; done",
+    );
+    let mut env = EnvRestore::new();
+    env.set("SHELL", &sh.display().to_string());
+
+    let h = start_web_pty_manager();
+    h.spawn_shell("busy-term".into(), 24, 80, dir.path().to_path_buf())
+        .await
+        .expect("fake shell spawns");
+
+    assert_eq!(
+        await_activity(&h, "busy-term", PtyActivity::Running).await,
+        PtyActivity::Running,
+        "a foreground command should read as running"
+    );
+    assert!(h.kill("busy-term").await);
+}
+
+#[tokio::test]
+async fn activity_is_idle_when_the_shell_owns_the_terminal() {
+    let _g = env_lock();
+    let dir = tempfile::tempdir().unwrap();
+    // No job control and no child: the script itself stays in the foreground.
+    let sh = write_fake_bin(dir.path(), "idleshell", "while true; do sleep 1; done");
+    let mut env = EnvRestore::new();
+    env.set("SHELL", &sh.display().to_string());
+
+    let h = start_web_pty_manager();
+    h.spawn_shell("idle-term".into(), 24, 80, dir.path().to_path_buf())
+        .await
+        .expect("fake shell spawns");
+
+    assert_eq!(
+        h.activity("idle-term").await,
+        Some(PtyActivity::Idle),
+        "the spawned program owning the terminal is not work"
+    );
+    assert!(h.kill("idle-term").await);
+}
+
+#[tokio::test]
+async fn activity_of_an_unknown_pty_is_none() {
+    let h = start_web_pty_manager();
+    assert_eq!(h.activity("nope").await, None);
 }

@@ -1,5 +1,7 @@
 //! Web PTY spawn/write/resize/kill/list handlers.
 
+use std::collections::HashMap;
+
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -8,6 +10,7 @@ use serde::Serialize;
 
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
+use super::super::pty_manager::PtyActivity;
 use super::super::types::*;
 
 #[derive(Serialize)]
@@ -158,6 +161,28 @@ pub async fn pty_list(
 ) -> WebResult<impl IntoResponse> {
     let ids = state.pty_mgr.list().await;
     Ok(Json(ids))
+}
+
+/// Which web PTYs are running a foreground command, keyed by id.
+///
+/// One request for every terminal rather than a flag on each output stream: a
+/// pane in a background window is not mounted and has no stream, but its shell
+/// is still running the build the user wants to know about.
+pub async fn pty_activity(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+) -> WebResult<impl IntoResponse> {
+    let ids = state.pty_mgr.list().await;
+    let mut activity: HashMap<String, PtyActivity> = HashMap::with_capacity(ids.len());
+    for id in ids {
+        // A PTY killed between the list and the query is simply absent from the
+        // map, which is what a caller should read as "no longer running".
+        let Some(current) = state.pty_mgr.activity(&id).await else {
+            continue;
+        };
+        activity.insert(id, current);
+    }
+    Ok(Json(activity))
 }
 
 #[cfg(test)]

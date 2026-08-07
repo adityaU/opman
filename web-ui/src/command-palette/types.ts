@@ -1,3 +1,5 @@
+import type { SettingsSection } from "../settings-page/useSettingsRoute";
+
 export interface CommandPaletteProps {
   onClose: () => void;
   onCommand: (command: string, args?: string) => void;
@@ -5,23 +7,21 @@ export interface CommandPaletteProps {
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onOpenModelPicker: () => void;
-  onOpenCheatsheet: () => void;
   onOpenTodoPanel: () => void;
   onOpenSessionSelector: () => void;
   onOpenContextInput: () => void;
-  onOpenSettings: () => void;
+  /** Open the settings page, optionally on a named section. */
+  onOpenSettings: (section?: SettingsSection) => void;
   onOpenWatcher: () => void;
   onOpenContextWindow: () => void;
   onOpenDiffReview: () => void;
   onOpenSearch: () => void;
   onOpenCrossSearch: () => void;
-  onOpenSplitView?: () => void;
   onOpenNotificationPrefs?: () => void;
   onOpenMemory?: () => void;
   onOpenAutonomy?: () => void;
   onOpenRoutines?: () => void;
   onOpenSystemMonitor?: () => void;
-  onOpenSkillsUpload?: () => void;
   sessionId: string | null;
 }
 

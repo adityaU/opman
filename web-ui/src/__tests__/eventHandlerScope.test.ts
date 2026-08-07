@@ -7,6 +7,7 @@ import type { MessageMap } from "../hooks/sse/messageMap";
 function makeContext(activeSession: string | null, messageMap: MessageMap = new Map()) {
   const flushMessages = vi.fn();
   const flushSubagentMessages = vi.fn();
+  const notifySession = vi.fn();
   const ctx = {
     activeSessionRef: { current: activeSession },
     messageMapRef: { current: messageMap },
@@ -14,6 +15,8 @@ function makeContext(activeSession: string | null, messageMap: MessageMap = new 
     sessionCacheRef: { current: new Map() },
     flushMessages,
     flushSubagentMessages,
+    notifySession,
+    dropSession: vi.fn(),
     refreshState: vi.fn(),
     updateSessionMeta: vi.fn(),
     setStats: vi.fn(),
@@ -27,7 +30,7 @@ function makeContext(activeSession: string | null, messageMap: MessageMap = new 
     setFileEditCount: vi.fn(),
     resolvedQuestionIdsRef: { current: new Set<string>() },
   } as unknown as EventHandlerContext;
-  return { ctx, flushMessages, flushSubagentMessages };
+  return { ctx, flushMessages, flushSubagentMessages, notifySession };
 }
 
 const userMessageEvent = (sessionID: string, id: string, time: number): OpenCodeEvent =>
@@ -97,5 +100,36 @@ describe("handleOpenCodeEvent message routing", () => {
 
     expect([...ctx.messageMapRef.current.keys()]).toEqual(["msg_mine"]);
     expect(flushMessages).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Panes read a session through the store, not through the hook's own
+ * `messages`, so an event that mutates a session must wake that session's
+ * watchers — including when the session is not the active one.
+ */
+describe("per-session notification", () => {
+  it("notifies for the active session", () => {
+    const { ctx, notifySession } = makeContext("s1");
+    handleOpenCodeEvent(ctx, userMessageEvent("s1", "m1", 1));
+    expect(notifySession).toHaveBeenCalledWith("s1");
+  });
+
+  it("notifies for a background session, which is the whole point", () => {
+    const { ctx, notifySession } = makeContext("s1");
+    handleOpenCodeEvent(ctx, userMessageEvent("s2", "m1", 1));
+    expect(notifySession).toHaveBeenCalledWith("s2");
+  });
+
+  it("still notifies when a branch throws, so one bad event cannot freeze a pane", () => {
+    const { ctx, notifySession } = makeContext("s1");
+    ctx.messageMapRef = {
+      get current(): never {
+        throw new Error("boom");
+      },
+    } as unknown as typeof ctx.messageMapRef;
+
+    expect(() => handleOpenCodeEvent(ctx, userMessageEvent("s1", "m1", 1))).toThrow("boom");
+    expect(notifySession).toHaveBeenCalledWith("s1");
   });
 });

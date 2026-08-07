@@ -35,6 +35,9 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
     match event {
         WebEvent::Noop => None,
         WebEvent::StateChanged => Some(SseEvent::default().event("state_changed").data("")),
+        WebEvent::McpServersChanged => {
+            Some(SseEvent::default().event("mcp_servers_changed").data(""))
+        }
         WebEvent::SessionBusy { session_id } => Some(
             SseEvent::default()
                 .event("session_busy")
@@ -184,12 +187,25 @@ pub async fn terminal_stream(
         .await
         .ok_or(WebError::NotFound("PTY not found or not spawned yet"))?;
 
+    let replay = params.replay;
+
     // Stream that polls the raw output buffer at ~20fps.
     // The frontend coalesces output via requestAnimationFrame, so even
     // if multiple SSE events arrive within a single frame they are
     // processed as a single batch. This interval provides a good
     // balance between latency and CPU usage.
     let stream = async_stream::stream! {
+        // A re-attaching tab leads with the retained scrollback so the PTY it
+        // rejoined repaints instead of coming back blank. `snapshot` also seeks
+        // the reader to the tip, so the poll loop below never repeats it.
+        if replay == Replay::Yes {
+            let history = output.snapshot();
+            if !history.is_empty() {
+                let encoded = BASE64.encode(&history);
+                yield Ok::<_, Infallible>(SseEvent::default().event("output").data(encoded));
+            }
+        }
+
         let mut interval = tokio::time::interval(Duration::from_millis(50));
 
         loop {

@@ -13,7 +13,7 @@ import { Search, Check, Cpu, Bot, Zap } from "lucide-react";
 import type { AgentInfo } from "../api";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
-import { useEngineOptions, type ModelOption } from "./useEngineOptions";
+import type { EngineOptions, ModelOption } from "./useEngineOptions";
 import { EngineSettingsRow } from "./EngineSettingsRow";
 
 interface Props {
@@ -30,6 +30,13 @@ interface Props {
   onEffortChange: (effort: string | null) => void;
   onPermissionChange: (permission: string) => void;
   onClose: () => void;
+  /**
+   * Supplied by `EngineChip` rather than read here. The hook that produces
+   * these also repairs an impossible runner/model pair, and a repair that only
+   * runs while this dialog is mounted is a repair that never runs when it
+   * matters — see useEngineOptions.
+   */
+  options: EngineOptions;
 }
 
 type Row =
@@ -66,13 +73,7 @@ export function EnginePalette(props: Props) {
     }
   }, []);
 
-  const { models, agents, permissionModes, loading } = useEngineOptions(
-    props.runner,
-    props.selectedModel,
-    props.selectedAgent,
-    props.onModelSelected,
-    props.onAgentChange,
-  );
+  const { models, agents, permissionModes, loading } = props.options;
 
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();

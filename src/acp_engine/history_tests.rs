@@ -10,7 +10,7 @@ fn engine() -> Arc<AcpEngine> {
         "test".to_string(),
         AgentConfig::default(),
         None,
-        (false, false, false, false),
+        crate::mcp_registry::RegistryHandle::default(),
     ))
 }
 

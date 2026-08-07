@@ -22,12 +22,16 @@ const UNIVERSAL: readonly BindingSpec[] = [
   { key: "mod+k w", command: "editor.close", when: "editorOpen" },
   { key: "mod+k c", command: "session.close", when: "sessionActive" },
 
-  // Cmd/Ctrl+1..9 switch browser tabs.
-  { key: "mod+alt+1", command: "layout.focusChat" },
-  { key: "mod+alt+2", command: "layout.focusEditor" },
-  { key: "mod+alt+3", command: "layout.focusTerminal" },
-  { key: "mod+alt+4", command: "layout.focusGit" },
-  { key: "mod+alt+5", command: "layout.focusBoard" },
+  // Cmd/Ctrl+1..9 switch browser tabs, which costs the whole pane-focus row.
+  { key: "mod+alt+1", command: "workspace.focusPane1" },
+  { key: "mod+alt+2", command: "workspace.focusPane2" },
+  { key: "mod+alt+3", command: "workspace.focusPane3" },
+  { key: "mod+alt+4", command: "workspace.focusPane4" },
+  { key: "mod+alt+5", command: "workspace.focusPane5" },
+  { key: "mod+alt+6", command: "workspace.focusPane6" },
+  { key: "mod+alt+7", command: "workspace.focusPane7" },
+  { key: "mod+alt+8", command: "workspace.focusPane8" },
+  { key: "mod+alt+9", command: "workspace.focusPane9" },
   { key: "mod+alt+0", command: "layout.focusExplorer" },
 
   // Cmd/Ctrl+T opens a browser tab even as the second step of a pending chord,

@@ -1,40 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use include_dir::{include_dir, Dir};
 use serde_json::Value;
 use tracing::{debug, warn};
 
 use super::parsing::{parse_theme, strip_jsonc_comments};
 use super::ThemeColors;
-
-static OPENCODE_THEMES: Dir = include_dir!("$CARGO_MANIFEST_DIR/opencode-themes");
-
-/// Deploy embedded opencode theme JSON files to ~/.config/opencode/themes/.
-/// Returns Ok(()) on success, Err on failure (non-fatal).
-pub fn deploy_embedded_themes() -> Result<()> {
-    let themes_dir = dirs::config_dir()
-        .context("Could not determine config directory")?
-        .join("opencode/themes");
-    std::fs::create_dir_all(&themes_dir)
-        .with_context(|| format!("Failed to create themes dir: {}", themes_dir.display()))?;
-
-    let mut count = 0u32;
-    for entry in OPENCODE_THEMES.files() {
-        if let Some(name) = entry.path().file_name() {
-            let dest = themes_dir.join(name);
-            std::fs::write(&dest, entry.contents())
-                .with_context(|| format!("Failed to write theme: {}", dest.display()))?;
-            count += 1;
-        }
-    }
-    tracing::info!(
-        "Deployed {} embedded opencode themes to {}",
-        count,
-        themes_dir.display()
-    );
-    Ok(())
-}
 
 /// Load the active OpenCode theme and resolve it into `ThemeColors`.
 ///

@@ -16,9 +16,13 @@
     opacity: .68
 }
 @media (min-width: 769px) {
+    /* One number on all four sides and between every column. It was
+       `12px 14px` with a 12px gap, and the workspace then paid another 10px
+       of its own, so the distance from a pane to the viewport differed on
+       every edge and from the distance between two panes. */
     .chat-content {
-        gap: 12px;
-        padding: 12px 14px
+        gap: var(--panel-inset);
+        padding: var(--panel-inset)
     }
     .chat-content > div:first-child:has(.chat-sidebar) {
         overflow: hidden;
@@ -43,14 +47,18 @@
         background: var(--theme-surface-1);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
     }
+    /* The handle sits inside the column gap rather than adding to it: pull it
+       back by half its own width plus half the gap, and the sidebar ends up
+       exactly one --panel-inset from the workspace with the grab target
+       centred on that boundary. */
     .chat-content > .resize-handle {
-        margin: 0 -5px;
+        margin: 0 calc((var(--panel-inset) + var(--resize-handle-w)) / -2);
         z-index: 2
     }
     .chat-status-bar {
-        margin: 0 14px;
-        padding-left: 14px;
-        padding-right: 14px;
+        margin: 0 var(--panel-inset);
+        padding-left: var(--panel-inset);
+        padding-right: var(--panel-inset);
         border: 1px solid var(--color-border-subtle);
         border-bottom: 0;
         border-radius: var(--radius);
@@ -197,7 +205,6 @@ html.flat-theme .tool-run-summary {
 .usage-info-btn,
 .chat-status-bar,
 .side-panel,
-.theme-selector,
 .theme-card,
 .theme-mode-option {
     border-radius: var(--radius-md)}

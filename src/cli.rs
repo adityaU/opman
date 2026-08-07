@@ -196,8 +196,20 @@ pub(crate) enum Commands {
     /// Run the MCP stdio bridge for a project
     Mcp {
         /// Path to the project directory
-        project_path: PathBuf,
+        project_path: Option<PathBuf>,
     },
+
+    /// Front an OAuth-protected remote MCP server over stdio.
+    ///
+    /// Not for direct use: opman substitutes this for a remote server whenever the target
+    /// runner cannot dial the endpoint, or the credential must be minted per request.
+    McpProxy {
+        /// Registry name of the server to front.
+        name: String,
+    },
+
+    /// Run the skills MCP bridge (exposes `~/.config/opman/skills` to any runner)
+    McpSkills,
 
     /// Run the time MCP bridge
     McpTime,
@@ -211,7 +223,7 @@ pub(crate) enum Commands {
     /// Run the agent-manager MCP bridge for a project
     McpAgentManager {
         /// Path to the project directory
-        project_path: PathBuf,
+        project_path: Option<PathBuf>,
     },
 
     /// Internal: PreToolUse permission/question hook relay for the Claude engine.
@@ -222,7 +234,7 @@ pub(crate) enum Commands {
     /// Run the neovim MCP bridge for a project
     McpNvim {
         /// Path to the project directory
-        project_path: PathBuf,
+        project_path: Option<PathBuf>,
     },
 
     /// Print the Slack app manifest and copy to clipboard
@@ -274,6 +286,24 @@ pub(crate) enum SkillsCommands {
 }
 
 impl Cli {
+    /// Which of opman's own MCP servers the user asked for, with `--all-mcp` folded over
+    /// the individual flags.
+    ///
+    /// One method rather than a tuple built at each call site: the tuple used to be
+    /// constructed twice in `main`, and the second copy was assembled by hand from the
+    /// same four booleans instead of reusing the first.
+    pub fn builtin_mcp(&self) -> crate::mcp_registry::BuiltinFlags {
+        if self.all_mcp {
+            return crate::mcp_registry::BuiltinFlags::ALL;
+        }
+        crate::mcp_registry::BuiltinFlags {
+            terminal: self.terminal_mcp,
+            neovim: self.neovim_mcp,
+            time: self.time_mcp,
+            ui: self.ui_mcp,
+        }
+    }
+
     /// Determine the tunnel mode from CLI flags and env vars.
     ///
     /// Priority: `--tunnel-hostname` > `--tunnel-token` > `--tunnel`.

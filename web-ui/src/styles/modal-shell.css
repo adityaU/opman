@@ -54,7 +54,7 @@
 :is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
     .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
     .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-    .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
+    .term-kind-menu, .mobile-explorer-actions-dropdown,
     .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
     .prompt-queue-panel, .which-key) {
     border: 1px solid var(--modal-border);
@@ -72,7 +72,7 @@
    The scrim is the authored moment: it fades and blurs while the panel
    rises, so opening reads as one gesture instead of two effects. */
 
-:is(.modal-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
+:is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
     .kanban-modal-overlay) {
     background: color-mix(in srgb, var(--color-bg) 64%, transparent);
     backdrop-filter: blur(16px) saturate(1.12);
@@ -108,7 +108,7 @@ html.flat-theme {
     --modal-rim: none;
 }
 
-html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
+html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop,
     .routines-confirm-overlay, .kanban-modal-overlay) {
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -151,11 +151,11 @@ html.flat-theme :is(.modal-backdrop, .search-modal-backdrop,
 /* ── Reduced motion ───────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-    :is(.modal-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
+    :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
         .kanban-modal-overlay),.modal-dialog-surface,.modal-popover-surface,:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
         .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
         .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-        .term-kind-menu, .mobile-explorer-actions-dropdown, .split-view-picker,
+        .term-kind-menu, .mobile-explorer-actions-dropdown,
         .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
         .prompt-queue-panel){
         animation: none;

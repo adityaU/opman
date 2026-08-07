@@ -9,6 +9,8 @@ import {
 import { BASE_CHAT, BASE_SESSION } from "./base-session";
 import { BASE_EDITOR, BASE_EXPLORER, BASE_LSP, BASE_RICH_FILE } from "./base-editor";
 import { BASE_BOARD, BASE_GIT, BASE_TERMINAL } from "./base-panels";
+import { BASE_WORKSPACE, BASE_WORKSPACE_TARGET } from "./base-workspace";
+import { BASE_NAV, BASE_SIDEBAR } from "./base-nav";
 import { PLATFORM_LAYER } from "./platform";
 import { WEB_LAYER } from "./web";
 import { VIM_LAYER } from "./vim";
@@ -17,6 +19,10 @@ import { VIM_LAYER } from "./vim";
 export const BASE_BINDINGS: readonly BindingSpec[] = [
   ...BASE_PALETTE,
   ...BASE_LAYOUT,
+  ...BASE_NAV,
+  ...BASE_WORKSPACE,
+  ...BASE_WORKSPACE_TARGET,
+  ...BASE_SIDEBAR,
   ...BASE_SESSION,
   ...BASE_CHAT,
   ...BASE_ENGINE,

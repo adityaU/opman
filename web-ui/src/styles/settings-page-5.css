@@ -1,0 +1,379 @@
+/* ── Settings page: the MCP tool catalog ───────────────────────────────
+   What a server actually offers, under the row that declares it.
+
+   Same contract as the other four sheets: tokens only, no rgba(), no
+   backdrop-filter, so flat and glassy both come out right without a second
+   set of rules. The one thing this sheet adds is a reading surface — a
+   parameter table and a schema dump — inside a row built for one line of
+   text, so most of what follows is about keeping long identifiers and long
+   prose from taking the row's width with them. */
+
+.mcpt {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--modal-hairline);
+    min-width: 0;
+}
+
+/* ── The one-line answer above the list ───────────────────────────── */
+
+.mcpt-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.mcpt-status strong {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.mcpt-ident {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+}
+
+.mcpt-empty,
+.mcpt-def-none {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    color: var(--color-text-muted);
+}
+
+/* ── Problems ──────────────────────────────────────────────────────────
+   A server that will not start is a fact about the entry above it, not an
+   alert about the page — so it is warning-toned and inline, not a banner. */
+
+.mcpt-problem {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--theme-warning-border, var(--modal-hairline));
+    border-radius: var(--radius);
+    background: var(--theme-warning-soft);
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    color: var(--color-text);
+}
+
+.mcpt-problem svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-warning);
+}
+
+.mcpt-retry {
+    align-self: flex-start;
+}
+
+/* ── The tool list ────────────────────────────────────────────────── */
+
+.mcpt-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    min-width: 0;
+}
+
+.mcpt-item {
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    min-width: 0;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.mcpt-item:hover {
+    background: var(--theme-surface-hover);
+}
+
+/* Open is a border and a surface, not a shadow: this sits inside a row that
+   already has depth, and a second elevation would read as a nested card. */
+.mcpt-item.is-open {
+    border-color: var(--modal-hairline);
+    background: var(--theme-surface-3);
+}
+
+.mcpt-item-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.mcpt-chevron {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.mcpt-item.is-open .mcpt-chevron {
+    transform: rotate(90deg);
+}
+
+.mcpt-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+/* The call signature is the headline. Monospace because it is code — the
+   argument names are literally what the caller types. */
+.mcpt-sig {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+}
+
+.mcpt-summary {
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* ── One tool's definition ────────────────────────────────────────── */
+
+.mcpt-def {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: 0 var(--space-2) var(--space-3) calc(var(--space-2) + 13px + var(--space-2));
+    min-width: 0;
+}
+
+.mcpt-def-prose {
+    margin: 0;
+    max-width: 72ch;
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ── The parameter table ───────────────────────────────────────────────
+   A real table, because the three columns are three different questions and
+   a caller reads down one of them at a time. `table-layout: fixed` is what
+   stops one long regex in Notes from setting the width of every row. */
+
+.mcpt-params {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: var(--font-size-2xs);
+}
+
+.mcpt-params th,
+.mcpt-params td {
+    padding: var(--space-2) var(--space-2) var(--space-2) 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--modal-hairline);
+    overflow-wrap: anywhere;
+}
+
+.mcpt-params tbody tr:last-child th,
+.mcpt-params tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.mcpt-params thead th {
+    padding-top: 0;
+    font-weight: 600;
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.mcpt-params thead th:nth-child(1) {
+    width: 30%;
+}
+
+.mcpt-params thead th:nth-child(2) {
+    width: 26%;
+}
+
+.mcpt-params tbody th {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-weight: 400;
+}
+
+.mcpt-param-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.mcpt-param-type {
+    font-family: var(--font-mono);
+    color: var(--color-syntax-string);
+}
+
+/* Required is a word first. Colour is the second signal and weight the
+   third, so the distinction survives greyscale and a screen reader alike. */
+.mcpt-need {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+.mcpt-need.is-required {
+    font-weight: 600;
+    color: var(--color-warning);
+}
+
+.mcpt-param-prose {
+    display: block;
+    line-height: 1.55;
+    color: var(--color-text);
+}
+
+.mcpt-param-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    margin-top: 3px;
+    color: var(--color-text-muted);
+}
+
+.mcpt-param-facts:empty {
+    margin-top: 0;
+}
+
+.mcpt-param-facts code {
+    font-family: var(--font-mono);
+    color: var(--color-text);
+}
+
+/* ── Schema source ────────────────────────────────────────────────── */
+
+.mcpt-source > summary {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.mcpt-source > summary::-webkit-details-marker {
+    display: none;
+}
+
+.mcpt-source > summary::before {
+    content: "▸ ";
+}
+
+.mcpt-source[open] > summary::before {
+    content: "▾ ";
+}
+
+.mcpt-source > summary:hover {
+    color: var(--color-text);
+}
+
+.mcpt-source-body {
+    position: relative;
+    margin-top: var(--space-2);
+}
+
+.mcpt-source-body pre {
+    margin: 0;
+    padding: var(--space-3);
+    padding-right: var(--space-8);
+    max-height: 22rem;
+    overflow: auto;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text);
+}
+
+.mcpt-copy {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 1;
+}
+
+/* ── Narrow viewports ──────────────────────────────────────────────────
+   Three columns do not survive a phone. The table becomes stacked blocks —
+   still a table for assistive technology, just not laid out as a grid — and
+   the header row goes, because each cell now carries its own label. */
+
+@media (max-width: 720px) {
+    .mcpt-def {
+        padding-left: var(--space-2);
+    }
+
+    .mcpt-params,
+    .mcpt-params tbody,
+    .mcpt-params tbody tr,
+    .mcpt-params tbody td {
+        display: block;
+        width: 100%;
+    }
+
+    .mcpt-params thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .mcpt-params tbody tr {
+        padding: var(--space-2) 0;
+        border-bottom: 1px solid var(--modal-hairline);
+    }
+
+    .mcpt-params tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .mcpt-params tbody th,
+    .mcpt-params tbody td {
+        padding: 0 0 var(--space-1);
+        border-bottom: 0;
+    }
+
+    .mcpt-params tbody th {
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--space-2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mcpt-chevron {
+        transition: none;
+    }
+}

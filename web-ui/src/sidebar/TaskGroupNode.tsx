@@ -44,6 +44,9 @@ export const TaskGroupNode = React.memo(function TaskGroupNode({
           className="sb-task-group-toggle"
           onClick={() => onToggleExpand(group.taskId)}
           aria-expanded={isExpanded}
+          data-list-item=""
+          data-list-key={group.taskId}
+          data-list-depth={0}
           title={group.taskTitle}
         >
           <span className="sb-task-group-chevron">

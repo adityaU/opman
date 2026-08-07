@@ -14,6 +14,8 @@ use super::watchers::WatcherStatusEvent;
 #[serde(tag = "type")]
 pub enum WebEvent {
     StateChanged,
+    /// The MCP server set changed, so any open settings view should re-read it.
+    McpServersChanged,
     SessionBusy {
         session_id: String,
     },

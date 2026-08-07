@@ -4,7 +4,7 @@ use crate::claude_engine::registry::SessionEntry;
 use axum::http::StatusCode;
 
 fn engine() -> Engine {
-    Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
 }
 
 /// Local mirror of `crate::web::test_support::send_json` for the engine router.

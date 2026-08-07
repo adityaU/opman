@@ -119,7 +119,7 @@ pub struct AcpEngine {
     persist: Option<PathBuf>,
     url: Mutex<String>,
     exe: PathBuf,
-    mcp_flags: (bool, bool, bool, bool),
+    mcp: crate::mcp_registry::SharedRegistry,
 }
 
 impl AcpEngine {
@@ -127,7 +127,7 @@ impl AcpEngine {
         id: String,
         agent: AgentConfig,
         persist: Option<PathBuf>,
-        mcp_flags: (bool, bool, bool, bool),
+        mcp: crate::mcp_registry::SharedRegistry,
     ) -> Self {
         let (events, _) = broadcast::channel(2048);
         let (raw_events, _) = broadcast::channel(2048);
@@ -151,7 +151,7 @@ impl AcpEngine {
             persist,
             url: Mutex::new(String::new()),
             exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("opman")),
-            mcp_flags,
+            mcp,
         }
     }
 
@@ -224,11 +224,11 @@ fn emit_system(engine: &Arc<AcpEngine>, session_id: &str, level: &str, text: &st
 pub async fn start_embedded_server(
     id: &str,
     agent: AgentConfig,
-    mcp_flags: (bool, bool, bool, bool),
+    mcp: crate::mcp_registry::SharedRegistry,
 ) -> Result<(String, ServerHandle, Arc<AcpEngine>)> {
     let persist =
         dirs::config_dir().map(|d| d.join("opman").join(format!("acp_{id}_sessions.json")));
-    let engine = Arc::new(AcpEngine::new(id.to_string(), agent, persist, mcp_flags));
+    let engine = Arc::new(AcpEngine::new(id.to_string(), agent, persist, mcp));
 
     // Discover the agent's models and modes off the startup path, so `/provider` serves a
     // real catalogue rather than an empty list the picker cannot repair.

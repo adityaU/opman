@@ -64,6 +64,7 @@ pub(crate) async fn setup_web_server(
     backend: &str,
     app: &App,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+    mcp: crate::mcp_registry::RegistryHandle,
 ) -> (u16, Option<web::WebStateHandle>) {
     if enable_web {
         let (actual_port, wsh) = web::start_web_server(
@@ -76,6 +77,7 @@ pub(crate) async fn setup_web_server(
             },
             app.nvim_registry.clone(),
             runner_registry,
+            mcp,
         )
         .await;
         info!("Web UI available at http://localhost:{}", actual_port);
@@ -139,11 +141,7 @@ pub(crate) fn setup_kv_watcher() -> Result<(std::sync::mpsc::Receiver<notify::Ev
 /// Kick off initial data loading for all projects.
 pub(crate) fn setup_initial_projects(
     app: &mut App,
-    _enable_any_mcp: bool,
-    enable_terminal_mcp: bool,
-    enable_neovim_mcp: bool,
-    enable_time_mcp: bool,
-    enable_ui_mcp: bool,
+    flags: crate::mcp_registry::BuiltinFlags,
     headless: bool,
 ) {
     if app.projects.is_empty() {
@@ -161,12 +159,11 @@ pub(crate) fn setup_initial_projects(
         sse::spawn_provider_fetcher(&app.bg_tx, i, dir);
     }
 
-    // Spawn terminal/neovim socket servers and write the runner MCP config for
-    // every project.  The agent-manager MCP is always written, even when the
-    // optional terminal MCPs are disabled.
+    // Spawn terminal/neovim socket servers. Runner MCP configuration is passed
+    // to each runner process at launch rather than written into project files.
     for i in 0..app.projects.len() {
         let project_path = app.projects[i].path.clone();
-        if enable_terminal_mcp || enable_neovim_mcp {
+        if flags.terminal || flags.neovim {
             mcp::spawn_socket_server(
                 &project_path,
                 app.bg_tx.clone(),
@@ -175,23 +172,10 @@ pub(crate) fn setup_initial_projects(
                 app.last_mcp_activity_ms.clone(),
             );
         }
-        if let Err(e) = mcp::write_opencode_json(
-            &project_path,
-            enable_terminal_mcp,
-            enable_neovim_mcp,
-            enable_time_mcp,
-            enable_ui_mcp,
-        ) {
-            tracing::warn!(
-                "Failed to write opencode.json for {}: {}",
-                project_path.display(),
-                e
-            );
-        }
     }
 
     // When neovim MCP is enabled, store flag on App (disables follow-edits)
-    if enable_neovim_mcp {
+    if flags.neovim {
         app.neovim_mcp_enabled = true;
     }
 
@@ -214,7 +198,7 @@ pub(crate) fn setup_initial_projects(
     spawn_activate_project(&app.bg_tx, 0, path, inner_rows, inner_cols, theme_envs);
 
     // Auto-start neovim PTY for all projects when neovim MCP is enabled
-    if enable_neovim_mcp {
+    if flags.neovim {
         let saved = app.active_project;
         for i in 0..app.projects.len() {
             app.active_project = i;

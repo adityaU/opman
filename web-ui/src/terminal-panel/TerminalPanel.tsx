@@ -16,6 +16,8 @@ export function TerminalPanel({
   attachNonce,
   attachKind = "claude-attach",
   layout = "desktop",
+  restoreIds,
+  onTabsChanged,
 }: TerminalPanelProps) {
   const isMobile = layout === "mobile";
   const [expanded, setExpanded] = useState(false);
@@ -38,7 +40,7 @@ export function TerminalPanel({
     closeTab,
     startRename,
     commitRename,
-  } = useTerminalTabs(projectKey);
+  } = useTerminalTabs(projectKey, restoreIds, onTabsChanged);
 
   // The touch key bar rewrites keystrokes (sticky Ctrl/Alt), so the terminal's
   // data path reads the transform from this ref.

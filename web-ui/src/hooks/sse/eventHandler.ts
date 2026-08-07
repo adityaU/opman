@@ -1,5 +1,6 @@
 import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../types";
 import type { SessionStats, ClientPresence, ThemePair } from "../../api";
+import { MCP_SERVERS_CHANGED } from "../../api/mcp";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } from "./types";
@@ -18,6 +19,10 @@ export interface EventHandlerContext {
   sessionCacheRef: { current: Map<string, CachedSession> };
   flushMessages: () => void;
   flushSubagentMessages: () => void;
+  /** Wake anything watching this session — panes read through the store. */
+  notifySession: (sessionId: string) => void;
+  /** Tell watchers a session is gone (deleted upstream). */
+  dropSession: (sessionId: string) => void;
   refreshState: () => void;
   /** Update a single session's metadata in app state without a full refresh. */
   updateSessionMeta: (sessionInfo: Record<string, unknown>) => void;
@@ -90,9 +95,38 @@ function isUserMessagePart(ctx: EventHandlerContext, part: Record<string, unknow
 }
 
 /** Route an opencode SSE event to the appropriate React state updaters. */
+/**
+ * The session an event concerns, wherever the id happens to live on it.
+ *
+ * Different event types carry it in different places, and the point of
+ * reading it once here is that the notify below cannot be forgotten when a new
+ * branch is added — which is exactly what would happen if each branch had to
+ * remember to publish for itself.
+ */
+function eventSessionId(props: Record<string, unknown>): string {
+  const info = props.info as Record<string, unknown> | undefined;
+  const direct = props.sessionID ?? props.sessionId ?? info?.sessionID ?? props.id;
+  return typeof direct === "string" ? direct : "";
+}
+
 export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEvent): void {
   const props = event.properties || {};
+  const sessionId = eventSessionId(props);
 
+  try {
+    dispatchOpenCodeEvent(ctx, event, props);
+  } finally {
+    // After the mutation, never before. Unwatched sessions are dropped inside
+    // the store before any array is built, so this is free in the common case.
+    if (sessionId) ctx.notifySession(sessionId);
+  }
+}
+
+function dispatchOpenCodeEvent(
+  ctx: EventHandlerContext,
+  event: OpenCodeEvent,
+  props: Record<string, unknown>,
+): void {
   switch (event.type) {
     case "message.updated": {
       const info = props.info as Record<string, unknown> | undefined;
@@ -312,7 +346,12 @@ export function handleOpenCodeEvent(ctx: EventHandlerContext, event: OpenCodeEve
     case "session.deleted": {
       // Evict deleted session from the LRU cache
       const deletedSid = (props.sessionID ?? props.id ?? "") as string;
-      if (deletedSid) ctx.sessionCacheRef.current.delete(deletedSid);
+      if (deletedSid) {
+        ctx.sessionCacheRef.current.delete(deletedSid);
+        // Panes still pointed at it must be told, or they would keep rendering
+        // a transcript for a session that no longer exists.
+        ctx.dropSession(deletedSid);
+      }
       ctx.refreshState();
       break;
     }
@@ -534,6 +573,13 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
   // Routine updates
   appSSE.addEventListener("routine_updated", () => {
     window.dispatchEvent(new CustomEvent("opman:routine-updated"));
+  });
+
+  // The MCP registry was edited — by the settings page, or by a finished OAuth login,
+  // which is the only thing that tells the page a credential now exists. Re-broadcast so
+  // the settings page can refetch without opening a second event stream.
+  appSSE.addEventListener("mcp_servers_changed", () => {
+    window.dispatchEvent(new CustomEvent(MCP_SERVERS_CHANGED));
   });
 
   // Toast notifications from TUI

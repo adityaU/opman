@@ -1,0 +1,140 @@
+/* ── Composer, part two: focus and the narrow rail ────────────────────
+   Split out of composer.css when that sheet crossed the project's 300-line
+   ceiling. The seam is real rather than arbitrary: composer.css builds the
+   card, the writing surface and the action rail, and this sheet holds the two
+   things that act on all of them at once — the focus state and the phone
+   layout. Imported immediately after composer.css, so the cascade order the
+   original file relied on is unchanged. */
+
+/* ── Focus ────────────────────────────────────────────────────────────
+   Focus used to draw a boundary: the border went primary and a 3px ring sat
+   outside it, so starting to type put an outline around the one card in the
+   column that was already the only place to write.
+
+   What replaces it is the card behaving like a surface instead of a field. It
+   lifts: the fill steps one notch off its resting value and the shadow drops
+   further, the same "raised" language the panel cards use. And the leading edge
+   — the column the caret sits in — catches the accent, strongest at the first
+   line and falling off down the card, so the mark reads as "the caret is live
+   here" rather than as a stripe on a container.
+
+   Keeping both halves is what makes this a real focus indicator rather than a
+   decorative fade: the lift alone would be too quiet to find at a glance. */
+
+/* Both appearances are written out at `html …` specificity rather than sharing
+   one `.prompt-input-wrapper:focus-within`. Each already has a sheet painting
+   this card from an `html:not(.flat-theme)` / `html.flat-theme` selector, so a
+   plain class rule loses the fill outright — the step computed and was thrown
+   away, leaving the accent edge doing the work alone.
+
+   The step is toward the ink, not toward white: that is the one direction that
+   gains contrast against the canvas in both appearances, the same move --white-N
+   makes when light-theme flips it to black-alpha. It is also why the named
+   "raised" tokens are wrong here — --codex-surface-raised is *darker* than the
+   composer's resting fill, so it read as a sink, and --theme-elevated's 14%
+   greys the card in light mode until it looks disabled. */
+
+html:not(.flat-theme) .prompt-input-wrapper:focus-within {
+    /* Held at the resting value on purpose: this is what removes the boundary. */
+    border-color: var(--codex-border);
+    /* Glassy stays translucent — the blur behind it is the material — so the
+       step is mixed into that fill rather than replacing it with a solid. */
+    background: color-mix(in srgb, var(--color-text) 8%,
+        color-mix(in srgb, var(--color-bg-panel) 76%, transparent));
+    box-shadow: 0 14px 34px color-mix(in srgb, var(--black-40) 38%, transparent);
+}
+
+/* Inset-inline so the mark follows the writing direction rather than the left
+   of the box. Inset by --space-2 top and bottom: it starts below the corner
+   radius, so it never has to bend around it. */
+.prompt-input-wrapper::after {
+    content: "";
+    position: absolute;
+    inset-block: var(--space-2);
+    inset-inline-start: 0;
+    width: 2px;
+    /* Full strength down the first line, then a fall-off. A straight top-to-
+       bottom ramp left nothing solid beside the caret, which is the one place
+       the mark has to be unambiguous. */
+    background: linear-gradient(to bottom, var(--color-primary) 0%,
+        var(--color-primary) 34%, color-mix(in srgb, var(--color-primary) 10%, transparent));
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    pointer-events: none;
+}
+
+.prompt-input-wrapper:focus-within::after { opacity: 1 }
+
+/* Flat takes the same 8%-toward-ink step, on an opaque fill because it has no
+   blur to keep alive, and grounds it with a closer, firmer shadow. */
+html.flat-theme .prompt-input-wrapper:focus-within {
+    border-color: var(--color-border);
+    background: color-mix(in srgb, var(--color-text) 8%, var(--color-bg-panel));
+    box-shadow: 0 6px 18px var(--black-14), 0 2px 6px var(--black-8);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .prompt-input-wrapper {
+        padding: 9px;
+    }
+
+    .composer-field {
+        padding: 2px 0 8px;
+    }
+
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    .composer-field .prompt-textarea {
+        font-size: 16px;
+        min-height: 24px;
+        max-height: 40vh;
+    }
+
+    .composer-icon-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    .composer-send,
+    .composer-stop {
+        width: 36px;
+        height: 36px;
+    }
+
+    /* Touch targets on the rail match each other; the labels inside them get
+       smaller so the whole row still fits without scrolling at 393px. */
+    .composer-bar .prompt-chip,
+    .composer-bar .usage-info-btn {
+        min-height: 34px;
+        height: 34px;
+    }
+
+    .composer-bar .prompt-chip {
+        padding: 0 9px;
+        font-size: 11px;
+    }
+
+    /* Tightened just enough that engine, instructions, and usage all fit the
+       393px rail without scrolling. */
+    .composer-bar { gap: 6px }
+    .composer-context { padding-right: 2px }
+    .composer-actions { gap: 2px }
+    .composer-send { margin-left: 3px }
+
+    .composer-bar .usage-info-btn {
+        width: 30px;
+        min-height: 30px;
+        height: 30px;
+    }
+
+    /* The count is the fact; the noun is grammar. Dropping it is what lets the
+       engine chip, the instruction count, and usage share one 393px rail.
+       (The engine chip sheds its agent name at 560px on its own.) */
+    .composer-bar .prompt-chip-word { display: none }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .composer-send:active:not(:disabled),
+    .composer-stop:active { transform: none }
+}

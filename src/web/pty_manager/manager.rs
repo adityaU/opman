@@ -176,6 +176,10 @@ async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
                 let output = ptys.get(&id).map(|pty| pty.output.clone());
                 let _ = reply.send(output);
             }
+            PtyCmd::Activity { id, reply } => {
+                let activity = ptys.get(&id).map(WebPty::activity);
+                let _ = reply.send(activity);
+            }
             PtyCmd::Kill { id, reply } => {
                 let ok = if let Some(mut pty) = ptys.remove(&id) {
                     let _ = pty.child.kill();

@@ -1,4 +1,4 @@
-import { apiFetch, apiPost } from "./client";
+import { apiFetch, apiPost, apiUpload } from "./client";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -164,19 +164,7 @@ export async function uploadFiles(
   for (const file of files) {
     formData.append("files", file);
   }
-  const res = await fetch("/api/file/upload", {
-    method: "POST",
-    credentials: "same-origin",
-    body: formData,
-  });
-  if (res.status === 401) {
-    const { clearToken } = await import("./client");
-    clearToken();
-    window.location.reload();
-    throw new Error("Unauthorized");
-  }
-  if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
-  return res.json();
+  return apiUpload<FileUploadResponse>("/file/upload", formData);
 }
 
 // ── File classification ───────────────────────────────

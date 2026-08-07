@@ -29,14 +29,6 @@ use tracing::info;
 use crate::server::ServerHandle;
 use registry::{Registry, SessionEntry};
 
-/// Whether the web server's loopback Kanban API descriptor exists. When present,
-/// the kanban MCP server is attached to launched sessions so they can self-update.
-fn kanban_internal_available() -> bool {
-    dirs::config_dir()
-        .map(|d| d.join("opman").join("internal.json").exists())
-        .unwrap_or(false)
-}
-
 /// How opman answered a pending permission/question request from the hook.
 #[derive(Debug)]
 pub enum PendingReply {
@@ -73,8 +65,9 @@ pub struct ClaudeEngine {
     exe: PathBuf,
     /// Cache of discovered claude slash commands, keyed by project directory.
     command_cache: Mutex<HashMap<String, claude_cli::InitInfo>>,
-    /// opman-managed MCP servers to attach to every turn: (terminal, neovim, time, ui).
-    mcp_flags: (bool, bool, bool, bool),
+    /// Every MCP server to attach to a turn, already resolved from built-ins plus
+    /// `mcp.json`. Shared with the other engines rather than re-derived here.
+    mcp: crate::mcp_registry::SharedRegistry,
     /// Follow-up prompts queued while a session's agent is still running. Flushed (as
     /// a single `--resume` turn) once the session goes fully idle — we never resume a
     /// live agent, which would spawn a competing process and orphan its subagents.
@@ -135,7 +128,7 @@ fn default_model() -> Option<String> {
 }
 
 impl ClaudeEngine {
-    fn new(persist: Option<PathBuf>, mcp_flags: (bool, bool, bool, bool)) -> Self {
+    fn new(persist: Option<PathBuf>, mcp: crate::mcp_registry::SharedRegistry) -> Self {
         let reg = match &persist {
             Some(p) => Registry::load(p),
             None => Registry::default(),
@@ -159,7 +152,7 @@ impl ClaudeEngine {
             default_mode,
             exe,
             command_cache: Mutex::new(HashMap::new()),
-            mcp_flags,
+            mcp,
             pending_prompts: Mutex::new(HashMap::new()),
             dispatching: Mutex::new(HashSet::new()),
             aborting: Mutex::new(HashMap::new()),
@@ -167,63 +160,18 @@ impl ClaudeEngine {
         }
     }
 
-    /// Build the `--mcp-config` JSON attaching opman's managed MCP servers
-    /// (terminal/neovim/time/ui) for a turn. `OPENCODE_SESSION_ID` is injected so the
-    /// terminal/neovim bridges route to this session's resources. Returns None if no
-    /// MCP server is enabled.
+    /// Build the `--mcp-config` payload for a turn, or `None` when nothing is offered so
+    /// the flag can be omitted rather than passed an empty object.
+    ///
+    /// Rebuilt per turn rather than cached, because a server's availability can change
+    /// mid-run: the kanban bridge appears as soon as the web server writes its loopback
+    /// descriptor.
     pub fn mcp_config_json(&self, dir: &str, session_id: &str) -> Option<String> {
-        let (terminal, neovim, time, ui) = self.mcp_flags;
-        // The kanban MCP is attached whenever the web server is up (its
-        // internal descriptor exists), so launched tasks can self-update.
-        let kanban = kanban_internal_available();
-        let manager_socket = std::env::var("OPMAN_AGENT_MANAGER_SOCKET").ok();
-        if !(terminal || neovim || time || ui || kanban || manager_socket.is_some()) {
-            return None;
-        }
-        let exe = self.exe.to_string_lossy().to_string();
-        let env = serde_json::json!({ "OPENCODE_SESSION_ID": session_id });
-        let mut servers = serde_json::Map::new();
-        if terminal {
-            servers.insert(
-                "terminal".into(),
-                serde_json::json!({ "command": exe, "args": ["mcp", dir], "env": env }),
-            );
-        }
-        if neovim {
-            servers.insert(
-                "neovim".into(),
-                serde_json::json!({ "command": exe, "args": ["mcp-nvim", dir], "env": env }),
-            );
-        }
-        if time {
-            servers.insert(
-                "time".into(),
-                serde_json::json!({ "command": exe, "args": ["mcp-time"] }),
-            );
-        }
-        if ui {
-            servers.insert(
-                "ui".into(),
-                serde_json::json!({ "command": exe, "args": ["mcp-ui"] }),
-            );
-        }
-        if kanban {
-            servers.insert(
-                "kanban".into(),
-                serde_json::json!({ "command": exe, "args": ["mcp-kanban"] }),
-            );
-        }
-        if let Some(socket) = manager_socket {
-            servers.insert(
-                "agent-manager".into(),
-                serde_json::json!({
-                    "command": exe,
-                    "args": ["mcp-agent-manager", dir],
-                    "env": { "OPENCODE_SESSION_ID": session_id, "OPMAN_AGENT_MANAGER_SOCKET": socket }
-                }),
-            );
-        }
-        Some(serde_json::json!({ "mcpServers": servers }).to_string())
+        let registry = self.mcp.current();
+        crate::mcp_registry::render::claude_mcp_config(
+            registry.for_runner(&crate::runner::RunnerKind::ClaudeCode),
+            registry.bind(dir, Some(session_id)),
+        )
     }
 
     fn set_url(&self, url: &str) {
@@ -1267,10 +1215,10 @@ fn session_info(entry: &SessionEntry) -> serde_json::Value {
 /// Start the embedded adapter server. Mirrors `server::spawn_agent_server`'s
 /// `(base_url, ServerHandle)` return so `main.rs` can swap cleanly.
 pub async fn start_embedded_server(
-    mcp_flags: (bool, bool, bool, bool),
+    mcp: crate::mcp_registry::SharedRegistry,
 ) -> Result<(String, ServerHandle)> {
     let persist = dirs::config_dir().map(|d| d.join("opman").join("claude_sessions.json"));
-    let engine = Arc::new(ClaudeEngine::new(persist, mcp_flags));
+    let engine = Arc::new(ClaudeEngine::new(persist, mcp));
     let _ = ENGINE.set(engine.clone());
 
     // Fetch available models once at startup in a background task so the
@@ -1344,7 +1292,10 @@ mod lifecycle_tests {
     use super::*;
 
     fn engine() -> Arc<ClaudeEngine> {
-        Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+        Arc::new(ClaudeEngine::new(
+            None,
+            crate::mcp_registry::RegistryHandle::default(),
+        ))
     }
 
     // The core of the resume-safety fix: while an agent is running, a follow-up must

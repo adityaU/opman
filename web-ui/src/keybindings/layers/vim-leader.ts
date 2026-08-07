@@ -152,15 +152,43 @@ const LANGUAGE = namespace("l", "language", [
   { key: "C", command: "sheet.addColumn", label: "add column", when: "focus==sheet" },
 ]);
 
+/**
+ * Panes and windows — vim's own `Ctrl-w` set, moved under the leader.
+ *
+ * A pane here is a vim window and a window is a vim tab, so `v`/`s` split,
+ * `hjkl` move between them, `HJKL` move them, `c` closes, `o` keeps only this
+ * one, `z` zooms and `=` equalizes. Anyone who knows `Ctrl-w` knows this
+ * namespace without reading it; the same set is aliased onto bare `Ctrl-w`
+ * itself in `vim.ts`, where the browser leaves it alone.
+ */
 const WINDOW = namespace("w", "window", [
+  { key: "v", command: "workspace.splitRight", label: "split right" },
+  { key: "s", command: "workspace.splitDown", label: "split down" },
+  { key: "h", command: "workspace.focusLeft", label: "left" },
+  { key: "j", command: "workspace.focusDown", label: "down" },
+  { key: "k", command: "workspace.focusUp", label: "up" },
+  { key: "l", command: "workspace.focusRight", label: "right" },
+  { key: "H", command: "workspace.movePaneLeft", label: "move left" },
+  { key: "J", command: "workspace.movePaneDown", label: "move down" },
+  { key: "K", command: "workspace.movePaneUp", label: "move up" },
+  { key: "L", command: "workspace.movePaneRight", label: "move right" },
+  { key: "w", command: "workspace.cyclePane", label: "cycle" },
+  { key: "c", command: "workspace.closePane", label: "close" },
+  { key: "o", command: "workspace.closeOtherPanes", label: "only" },
+  { key: "z", command: "workspace.zoomPane", label: "zoom" },
+  { key: "=", command: "workspace.equalize", label: "equalize" },
+  { key: "p", command: "workspace.openWidget", label: "pick widget" },
+  { key: "m", command: "workspace.paneMenu", label: "menu" },
+  { key: "T", command: "workspace.movePaneToNewWindow", label: "to new window" },
+  { key: "n", command: "workspace.newWindow", label: "new window" },
+  { key: "x", command: "workspace.closeWindow", label: "close window" },
+  { key: "]", command: "workspace.nextWindow", label: "next window" },
+  { key: "[", command: "workspace.previousWindow", label: "prev window" },
+  { key: "g", command: "workspace.windowSwitcher", label: "go to window" },
+  { key: "r", command: "workspace.renameWindow", label: "rename window" },
   { key: "b", command: "layout.toggleSidebar", label: "sidebar" },
-  { key: "t", command: "layout.toggleTerminal", label: "terminal" },
-  { key: "e", command: "layout.toggleEditor", label: "editor" },
-  { key: "g", command: "layout.toggleGit", label: "git" },
-  { key: "k", command: "layout.toggleBoard", label: "board" },
-  { key: "s", command: "layout.toggleSplitView", label: "split" },
-  { key: "z", command: "layout.maximizePanel", label: "maximize" },
-  { key: "w", command: "layout.cycleWindowFocus", label: "cycle" },
+  { key: "t", command: "workspace.toggleRail", label: "rail" },
+  { key: "Z", command: "workspace.toggleZen", label: "zen" },
 ]);
 
 const YANK = namespace("y", "yank", [
@@ -178,6 +206,8 @@ const UI = namespace("u", "ui", [
   { key: "h", command: "system.processHealth", label: "health" },
   { key: "d", command: "system.debugPanel", label: "debug" },
   { key: "r", command: "system.refreshApp", label: "reload" },
+  { key: "s", command: "system.mcpServers", label: "mcp servers" },
+  { key: "k", command: "system.skills", label: "skills" },
 ]);
 
 const PROJECT = namespace("p", "project", [
@@ -192,11 +222,17 @@ const DIRECT: readonly BindingSpec[] = [
   { key: "<leader>/", command: "palette.searchAll", label: "search all" },
   { key: "<leader>,", command: "system.settings", label: "settings" },
   { key: "<leader>?", command: "system.keybindings", label: "help" },
-  { key: "<leader>1", command: "layout.focusChat", label: "chat" },
-  { key: "<leader>2", command: "layout.focusEditor", label: "editor" },
-  { key: "<leader>3", command: "layout.focusTerminal", label: "terminal" },
-  { key: "<leader>4", command: "layout.focusGit", label: "git" },
-  { key: "<leader>5", command: "layout.focusBoard", label: "board" },
+  // The digits address panes, matching the numbers the target overlay paints
+  // on them — one counting language for "which pane", everywhere.
+  { key: "<leader>1", command: "workspace.focusPane1", label: "pane 1" },
+  { key: "<leader>2", command: "workspace.focusPane2", label: "pane 2" },
+  { key: "<leader>3", command: "workspace.focusPane3", label: "pane 3" },
+  { key: "<leader>4", command: "workspace.focusPane4", label: "pane 4" },
+  { key: "<leader>5", command: "workspace.focusPane5", label: "pane 5" },
+  { key: "<leader>6", command: "workspace.focusPane6", label: "pane 6" },
+  { key: "<leader>7", command: "workspace.focusPane7", label: "pane 7" },
+  { key: "<leader>8", command: "workspace.focusPane8", label: "pane 8" },
+  { key: "<leader>9", command: "workspace.focusPane9", label: "pane 9" },
 ].map((spec) => ({ ...spec, mode: "vim" as const, group: "leader" }));
 
 export const VIM_LEADER: readonly BindingSpec[] = [

@@ -154,11 +154,28 @@ pub struct PtyKillRequest {
 
 // ── SSE / Proxy ─────────────────────────────────────────────────────
 
+/// Whether a terminal stream opens with the PTY's retained scrollback.
+///
+/// A tab that re-attaches to a PTY the server kept running across a reload asks
+/// for [`Replay::Yes`] to repaint what is already on screen. A freshly spawned
+/// PTY asks for [`Replay::No`] — it has no history of its own, and the buffer
+/// it would replay belongs to nothing the user has seen.
+#[derive(Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Replay {
+    #[serde(rename = "1", alias = "true")]
+    Yes,
+    #[default]
+    #[serde(rename = "0", alias = "false")]
+    No,
+}
+
 #[derive(Deserialize)]
 pub struct SseTokenQuery {
     pub token: Option<String>,
     /// PTY ID for terminal stream
     pub id: Option<String>,
+    #[serde(default)]
+    pub replay: Replay,
 }
 
 /// Model reference for overriding the default model on a per-message basis.

@@ -1,172 +1,112 @@
-//! Generated coverage tests for `skills_handlers.rs`.
+//! Skills REST handlers: the read paths, auth, and name validation.
 //!
-//! NOTE: `create_skill`/`update_skill`/`delete_skill`/`upload_skills` success
-//! paths write into the real `~/.config/opman/skills` directory (there is no
-//! override hook), so per the test guide we do NOT exercise those — only the
-//! validation / not-found / bad-input branches and the registry-read handlers.
+//! The FS-writing paths live in `skills_handlers_fs_tests.rs`, which redirects
+//! `XDG_CONFIG_HOME` under a lock.
 
 use super::*;
 
-use crate::mcp_skills::Skill;
-use crate::web::test_support::{test_router, test_server_state};
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::extract::State;
 
-fn unique_absent_name() -> String {
-    format!("opman_gen_test_absent_{}", rand::random::<u64>())
+use crate::mcp_skills::{Skill, SkillName, SkillsRegistry};
+use crate::web::test_support::test_server_state;
+
+fn name(raw: &str) -> SkillName {
+    SkillName::parse(raw).expect("valid name")
 }
 
-// ── list_skills ────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn list_skills_empty() {
-    let state = test_server_state();
-    let axum::Json(v) = list_skills(State(state)).await.unwrap();
-    assert_eq!(v.len(), 0);
-}
-
-#[tokio::test]
-async fn list_skills_with_seeded() {
-    let state = test_server_state();
-    {
-        let mut reg = state.skills_registry.write().await;
-        reg.insert(
-            "demo".into(),
-            Skill {
-                name: "demo".into(),
-                description: "d".into(),
-                content: "c".into(),
-            },
-        );
+fn skill(n: &str, description: &str) -> Skill {
+    Skill {
+        name: name(n),
+        title: n.to_string(),
+        description: description.to_string(),
+        content: "BODY".to_string(),
+        requires: Vec::new(),
     }
-    let axum::Json(v) = list_skills(State(state)).await.unwrap();
-    assert_eq!(v.len(), 1);
 }
 
-// ── get_skill ──────────────────────────────────────────────────────
+async fn state_with(skills: Vec<Skill>) -> crate::web::types::ServerState {
+    let state = test_server_state();
+    let registry: &SkillsRegistry = &state.skills_registry;
+    let mut guard = registry.write().await;
+    for s in skills {
+        guard.insert(s.name.clone(), s);
+    }
+    drop(guard);
+    state
+}
+
+/// The extractor is a no-op when auth is not configured, which is what `test_server_state`
+/// produces — so these exercise the handler bodies, not the auth gate.
+fn open() -> AuthUser {
+    AuthUser {
+        subject: String::new(),
+    }
+}
 
 #[tokio::test]
-async fn get_skill_present_and_absent() {
-    let state = test_server_state();
-    {
-        let mut reg = state.skills_registry.write().await;
-        reg.insert(
-            "demo".into(),
-            Skill {
-                name: "demo".into(),
-                description: "d".into(),
-                content: "c".into(),
-            },
-        );
-    }
-    let axum::Json(found) = get_skill(State(state.clone()), Path("demo".into()))
+async fn list_returns_every_skill_in_name_order() {
+    let state = state_with(vec![skill("zeta", "Z"), skill("alpha", "A")]).await;
+    let axum::Json(list) = list_skills(open(), State(state)).await.expect("ok");
+    let names: Vec<_> = list.iter().map(|s| s.name.as_str().to_string()).collect();
+    // BTreeMap-backed, so the UI list stops reshuffling between fetches.
+    assert_eq!(names, ["alpha", "zeta"]);
+}
+
+#[tokio::test]
+async fn list_carries_the_fields_the_ui_needs() {
+    let mut demo = skill("demo", "D");
+    demo.title = "Demo Skill".into();
+    demo.requires = vec!["jira".into()];
+    let state = state_with(vec![demo]).await;
+    let axum::Json(list) = list_skills(open(), State(state)).await.expect("ok");
+    assert_eq!(list[0].title, "Demo Skill");
+    assert_eq!(list[0].requires, ["jira"]);
+}
+
+#[tokio::test]
+async fn get_returns_the_skill() {
+    let state = state_with(vec![skill("demo", "D")]).await;
+    let axum::Json(found) = get_skill(open(), State(state), Path(name("demo")))
         .await
-        .unwrap();
-    assert!(found.is_some());
-    assert_eq!(found.unwrap().name, "demo");
-
-    let axum::Json(missing) = get_skill(State(state), Path("nope".into())).await.unwrap();
-    assert!(missing.is_none());
-}
-
-// ── create_skill validation ────────────────────────────────────────
-
-#[tokio::test]
-async fn create_skill_empty_name_400() {
-    let state = test_server_state();
-    let res = create_skill(
-        State(state),
-        axum::Json(CreateSkillRequest {
-            name: String::new(),
-            description: "d".into(),
-            content: "c".into(),
-        }),
-    )
-    .await;
-    assert_eq!(res.unwrap_err(), StatusCode::BAD_REQUEST);
+        .expect("ok");
+    assert_eq!(found.expect("present").content, "BODY");
 }
 
 #[tokio::test]
-async fn create_skill_empty_description_400() {
-    let state = test_server_state();
-    let res = create_skill(
-        State(state),
-        axum::Json(CreateSkillRequest {
-            name: "x".into(),
-            description: String::new(),
-            content: "c".into(),
-        }),
-    )
-    .await;
-    assert_eq!(res.unwrap_err(), StatusCode::BAD_REQUEST);
+async fn get_returns_null_for_an_unknown_skill() {
+    let state = state_with(Vec::new()).await;
+    let axum::Json(found) = get_skill(open(), State(state), Path(name("nope")))
+        .await
+        .expect("ok");
+    assert!(found.is_none());
 }
 
-// ── update_skill / delete_skill not-found ──────────────────────────
+/// The traversal guard is the deserializer, so an invalid name never reaches a handler.
+#[test]
+fn a_traversal_name_cannot_be_deserialized_into_a_request() {
+    let body = r#"{"name":"../evil","description":"d","content":"c"}"#;
+    assert!(serde_json::from_str::<CreateSkillRequest>(body).is_err());
 
-#[tokio::test]
-async fn update_skill_missing_404() {
-    let state = test_server_state();
-    let res = update_skill(
-        State(state),
-        Path(unique_absent_name()),
-        axum::Json(CreateSkillRequest {
-            name: "x".into(),
-            description: "d".into(),
-            content: "c".into(),
-        }),
-    )
-    .await;
-    assert_eq!(res.unwrap_err(), StatusCode::NOT_FOUND);
+    let ok = r#"{"name":"fine","description":"d","content":"c"}"#;
+    assert!(serde_json::from_str::<CreateSkillRequest>(ok).is_ok());
+}
+
+#[test]
+fn a_request_renders_frontmatter_that_survives_a_round_trip() {
+    let body = r#"{"name":"demo","description":"Fix: it","content":"BODY","requires":["jira"]}"#;
+    let req: CreateSkillRequest = serde_json::from_str(body).expect("parses");
+    let rendered = req.render().expect("renders");
+    let parsed = crate::mcp_skills::format::parse_skill_md(&rendered, &name("demo"))
+        .expect("round trips");
+    assert_eq!(parsed.description, "Fix: it");
+    assert_eq!(parsed.requires, ["jira"]);
 }
 
 #[tokio::test]
-async fn delete_skill_missing_404() {
-    let state = test_server_state();
-    let res = delete_skill(State(state), Path(unique_absent_name())).await;
-    assert_eq!(res.unwrap_err(), StatusCode::NOT_FOUND);
-}
-
-// ── upload_skills (multipart, error paths only) ────────────────────
-
-async fn send_multipart(router: axum::Router, body: Vec<u8>) -> StatusCode {
-    use axum::body::Body;
-    use axum::http::Request;
-    use tower::ServiceExt;
-    let req = Request::builder()
-        .method("POST")
-        .uri("/api/skills/upload")
-        .header("content-type", "multipart/form-data; boundary=BOUND")
-        .body(Body::from(body))
-        .unwrap();
-    router.oneshot(req).await.unwrap().status()
-}
-
-#[tokio::test]
-async fn upload_skills_wrong_field_400() {
-    let state = test_server_state();
-    let router = test_router(state);
-    let mut b = String::new();
-    b.push_str("--BOUND\r\n");
-    b.push_str("Content-Disposition: form-data; name=\"other\"\r\n\r\n");
-    b.push_str("junk");
-    b.push_str("\r\n--BOUND--\r\n");
-    assert_eq!(
-        send_multipart(router, b.into_bytes()).await,
-        StatusCode::BAD_REQUEST
-    );
-}
-
-#[tokio::test]
-async fn upload_skills_invalid_zip_400() {
-    let state = test_server_state();
-    let router = test_router(state);
-    let mut b = String::new();
-    b.push_str("--BOUND\r\n");
-    b.push_str("Content-Disposition: form-data; name=\"skills_zip\"; filename=\"s.zip\"\r\n\r\n");
-    b.push_str("this-is-not-a-valid-zip-archive");
-    b.push_str("\r\n--BOUND--\r\n");
-    assert_eq!(
-        send_multipart(router, b.into_bytes()).await,
-        StatusCode::BAD_REQUEST
-    );
+async fn create_rejects_an_empty_description() {
+    let state = state_with(Vec::new()).await;
+    let req: CreateSkillRequest =
+        serde_json::from_str(r#"{"name":"demo","description":"","content":"c"}"#).expect("parses");
+    let result = create_skill(open(), State(state), axum::Json(req)).await;
+    assert!(matches!(result, Err(StatusCode::BAD_REQUEST)));
 }

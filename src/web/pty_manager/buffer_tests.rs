@@ -87,6 +87,93 @@ fn hard_cap_discards_oldest_unconsumed_data() {
 }
 
 #[test]
+fn snapshot_replays_bytes_already_drained() {
+    let b = RawOutputBuffer::new();
+    b.push(b"MARKER_42\n");
+    assert_eq!(b.drain_new(), b"MARKER_42\n");
+    // The live reader consumed it, but a re-attaching reader still gets it.
+    assert_eq!(b.snapshot(), b"MARKER_42\n");
+}
+
+#[test]
+fn snapshot_of_empty_buffer_is_empty() {
+    let b = RawOutputBuffer::new();
+    assert!(b.snapshot().is_empty());
+}
+
+#[test]
+fn snapshot_seeks_reader_to_tip() {
+    let b = RawOutputBuffer::new();
+    b.push(b"history");
+    assert_eq!(b.snapshot(), b"history");
+    // Replay already covered those bytes; the drain loop must not repeat them.
+    assert!(b.drain_new().is_empty());
+    b.push(b"live");
+    assert_eq!(b.drain_new(), b"live");
+}
+
+#[test]
+fn snapshot_is_capped_at_the_retained_window() {
+    let b = RawOutputBuffer::new();
+    b.push(&vec![b'x'; RETAINED_SCROLLBACK * 2]);
+    b.drain_new();
+    assert_eq!(b.snapshot().len(), RETAINED_SCROLLBACK);
+}
+
+#[test]
+fn compaction_keeps_the_retained_window() {
+    let b = RawOutputBuffer::new();
+    b.push(b"oldest\n");
+    b.drain_new();
+    // Enough consumed prefix to trip COMPACT_THRESHOLD.
+    b.push(&vec![b'x'; COMPACT_THRESHOLD + RETAINED_SCROLLBACK]);
+    b.drain_new();
+    b.push(b"TAIL\n");
+    assert_eq!(b.drain_new(), b"TAIL\n");
+
+    let snap = b.snapshot();
+    assert_eq!(snap.len(), RETAINED_SCROLLBACK);
+    assert!(snap.ends_with(b"TAIL\n"), "newest output survives compaction");
+}
+
+#[test]
+fn snapshot_starts_on_a_line_boundary() {
+    let b = RawOutputBuffer::new();
+    // 64-byte lines, well past the retained window, so the cut lands mid-line.
+    let line = b"L0123456789012345678901234567890123456789012345678901234567890\n";
+    let reps = (RETAINED_SCROLLBACK * 2) / line.len();
+    for _ in 0..reps {
+        b.push(line);
+    }
+    b.drain_new();
+
+    let snap = b.snapshot();
+    assert!(snap.starts_with(b"L"), "replay opens on a fresh line");
+    assert!(snap.len() < RETAINED_SCROLLBACK);
+    assert!(snap.len() > RETAINED_SCROLLBACK - line.len());
+}
+
+#[test]
+fn snapshot_without_newlines_is_not_trimmed_away() {
+    let b = RawOutputBuffer::new();
+    // A progress bar redrawing with \r and no \n at all.
+    b.push(&vec![b'#'; RETAINED_SCROLLBACK * 2]);
+    b.drain_new();
+    // The line-alignment scan gives up rather than returning nothing.
+    assert_eq!(b.snapshot().len(), RETAINED_SCROLLBACK);
+}
+
+#[test]
+fn hard_cap_outranks_retention() {
+    let b = RawOutputBuffer::new();
+    b.push(&vec![b'a'; MAX_BUFFER_BYTES]);
+    b.push(&vec![b'b'; 512 * 1024]);
+    // The ceiling holds even though every byte is inside nothing droppable.
+    assert!(b.snapshot().len() <= RETAINED_SCROLLBACK);
+    assert_eq!(b.drain_new().len(), 0);
+}
+
+#[test]
 fn clone_shares_underlying_buffer() {
     let b = RawOutputBuffer::new();
     let b2 = b.clone();

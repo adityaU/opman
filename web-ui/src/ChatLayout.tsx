@@ -11,8 +11,8 @@ import { useVirtualKeyboard } from "./hooks/useVirtualKeyboard";
 import { useModelState } from "./hooks/useModelState";
 import { useRunnerConfig } from "./hooks/useRunnerConfig";
 import { useAssistantState } from "./hooks/useAssistantState";
-import { useUrlRestore } from "./hooks/useUrlRestore";
-import { useUrlSessionState } from "./hooks/useUrlSessionState";
+import { useSessionRestore } from "./hooks/useSessionRestore";
+import { useSessionSelection } from "./hooks/useSessionSelection";
 import { useNotificationSignals } from "./hooks/useNotificationSignals";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useChatCallbacks } from "./hooks/useChatCallbacks";
@@ -23,18 +23,18 @@ import { ChatMainArea } from "./ChatMainArea";
 import { ModalLayer } from "./ModalLayer";
 import { MobileDock } from "./MobileDock";
 import { ToastContainer } from "./ToastContainer";
-import { getPersistedThemeMode, applyThemeMode } from "./ThemeSelectorModal";
-import type { ThemeMode } from "./ThemeSelectorModal";
+import { getPersistedThemeMode, applyThemeMode } from "./theme-selector/persistence";
+import type { ThemeMode } from "./theme-selector/persistence";
 import { getPersistedAppearance, initAppearance } from "./utils/appearance";
 import type { Appearance } from "./utils/appearance";
-import { SkillsUploadModal } from "./SkillsUploadModal";
 import { KanbanView } from "./kanban/KanbanView";
+import { SettingsPage, useSettingsRoute } from "./settings-page";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
-import { appNavigate } from "./utils/navigation";
 import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
 import { StartupGate } from "./StartupGate";
 import { isMobileViewport } from "./hooks/useIsMobile";
+import { useWorkspaceShellProps } from "./workspace/useWorkspaceShellProps";
 
 function defaultPermissionForRunner(runner: string): string {
   if (runner === "claude" || runner === "claude-code") return "default";
@@ -69,10 +69,14 @@ export function ChatLayout() {
     return Array.from(busySessions).sort().join(",");
   }, [busySessions]);
 
-  // ── URL-driven session state (single source of truth) ──
-  const { urlSessionId, urlProjectIndex, newSessionMode, setUrlSession } = useUrlSessionState({
-    appState, beginSessionSwitch,
-  });
+  // ── Active session + project (single source of truth) ──
+  const {
+    sessionId: urlSessionId,
+    projectIndex: urlProjectIndex,
+    newSessionMode,
+    selectSessionAt: setUrlSession,
+    selectProject,
+  } = useSessionSelection({ appState, beginSessionSwitch });
 
   // ── Derived app state ──
   // URL is the single source of truth for active session + project.
@@ -160,10 +164,17 @@ export function ChatLayout() {
   }, [currentRunner, runnerConfig]);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
-  const [skillsUploadOpen, setSkillsUploadOpen] = useState(false);
   // Bumped each time the input's "Attach terminal" button is clicked, so the terminal
   // panel opens a fresh `claude attach` tab for the active session.
   const [terminalAttachNonce, setTerminalAttachNonce] = useState(0);
+
+  // ── Settings page (its own route: /settings) ──
+  const settings = useSettingsRoute();
+  // Leaving settings returns to the conversation that was open, or the chat root.
+  const leaveSettings = useCallback(() => {
+    if (activeSessionId) setUrlSession(activeSessionId, activeProjectIndex);
+    else selectProject(activeProjectIndex);
+  }, [activeSessionId, activeProjectIndex, setUrlSession, selectProject]);
 
   // ── Kanban board view (its own route: /kanban) ──
   const {
@@ -180,8 +191,8 @@ export function ChatLayout() {
       appState?.projects?.[proj]?.active_session ??
       null;
     if (sid) setUrlSession(sid, proj);
-    else appNavigate(`/?project=${proj}`);
-  }, [boardProjectIndex, activeProjectIndex, activeSessionId, appState, setUrlSession]);
+    else selectProject(proj);
+  }, [boardProjectIndex, activeProjectIndex, activeSessionId, appState, setUrlSession, selectProject]);
   const toggleKanbanView = useCallback(() => {
     if (isKanbanView) goToChat();
     else openKanban(activeProjectIndex);
@@ -331,14 +342,13 @@ export function ChatLayout() {
     .filter((value): value is string => Boolean(value));
   const effortOptions = supportedEfforts.length > 0 ? [...new Set(supportedEfforts)] : ["low", "medium", "high"];
 
-  // ── URL restore/sync ──
-  useUrlRestore({
-    appState, activeSessionId, activeProjectIndex, newSessionMode,
-    panels: {
-      sidebarOpen: panels.sidebar.open, terminalOpen: panels.terminal.open,
-      neovimOpen: panels.editor.open, gitOpen: panels.git.open,
-    },
-    setPanels, setUrlSession,
+  // ── Restore the last session on a cold start ──
+  useSessionRestore({
+    appState,
+    activeSessionId,
+    projectIndex: activeProjectIndex,
+    newSessionMode,
+    selectSessionAt: setUrlSession,
   });
 
   // ── Assistant state ──
@@ -384,7 +394,6 @@ export function ChatLayout() {
     toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
     toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,
     toggleDebug: panels.debug.toggle,
-    toggleSplitView: () => modalState.toggle("splitView"),
     getMessages,
   });
 
@@ -408,6 +417,98 @@ export function ChatLayout() {
   const openAddProject = useCallback(() => modalState.open("addProject"), [modalState]);
   const openModelPicker = useCallback(() => modalState.open("modelPicker"), [modalState]);
   const openAgentPicker = useCallback(() => modalState.open("agentPicker"), [modalState]);
+
+  // ── Desktop workspace ──
+  // What a pane that has never chosen an engine of its own sends on.
+  const defaultEngine = useMemo(
+    () => ({
+      runner: currentRunner,
+      model: model.selectedModel,
+      agent: model.selectedAgent,
+      effort: currentSettings.effort,
+      permission: currentSettings.permission,
+    }),
+    [currentRunner, currentSettings.effort, currentSettings.permission, model.selectedAgent, model.selectedModel],
+  );
+
+  // Unfiltered, unlike `allPermissions`: that list is scoped to the active
+  // session and its subagents, and a pane may be showing neither. Each pane
+  // filters to its own session.
+  const paneInteractions = useMemo(
+    () => ({
+      permissions: [...permissions, ...crossSessionPermissions],
+      questions: [...questions, ...crossSessionQuestions],
+    }),
+    [crossSessionPermissions, crossSessionQuestions, permissions, questions],
+  );
+
+  const { workspaceProps, armTargeting, openKindHere } = useWorkspaceShellProps({
+    appState,
+    busySessions,
+    defaultEngine,
+    availableRunners,
+    openModelPicker,
+    openAgentPicker,
+    runSlashCommand: (command: string, args?: string) => handlers.handleCommand(command, args),
+    onError: (message: string) => addToast(message, "error"),
+    subagentMessages,
+    isBookmarked,
+    toggleBookmark,
+    openSession: (sessionId: string) => handlers.handleSelectSession(sessionId, activeProjectIndex),
+    permissions: paneInteractions.permissions,
+    questions: paneInteractions.questions,
+    onPermissionReply: handlers.handlePermissionReply,
+    onQuestionReply: handlers.handleQuestionReply,
+    onQuestionDismiss: handlers.handleQuestionDismiss,
+    searchOpen: modalState.modals.searchBar,
+    closeSearch: () => modalState.close("searchBar"),
+  });
+
+  /**
+   * Hand a chat to a pane instead of navigating. Reports false when it could
+   * not, so the caller falls back to the old single-transcript navigation:
+   * mobile, the board, or a workspace that has not mounted.
+   */
+  const targetChat = useCallback(
+    (sessionId: string | null, projectIdx: number, label: string) => {
+      if (isMobileViewport() || isKanbanView) return false;
+      const project = appState?.projects?.[projectIdx];
+      if (!project) return false;
+      return armTargeting({
+        widget: { kind: "chat", projectPath: project.path, sessionId, engine: null },
+        label,
+      });
+    },
+    [appState, armTargeting, isKanbanView],
+  );
+
+  /**
+   * Clicking a session in the sidebar.
+   *
+   * On desktop it arms the pane-target overlay instead of navigating: the
+   * sidebar no longer commands one transcript, it hands a session to whichever
+   * pane the user picks.
+   */
+  const handleSelectSessionOrTarget = useCallback(
+    (sessionId: string, projectIdx: number) => {
+      const project = appState?.projects?.[projectIdx];
+      const session = project?.sessions?.find((candidate: any) => candidate.id === sessionId);
+      if (targetChat(sessionId, projectIdx, session?.title || sessionId.slice(0, 8))) return;
+      handlers.handleSelectSession(sessionId, projectIdx);
+    },
+    [appState, handlers, targetChat],
+  );
+
+  /**
+   * Starting a new session — the same gesture, one step earlier. It has no id
+   * to hand over yet, so the pane takes an unbound chat and creates the session
+   * on first send; asking "which pane" only for existing sessions made the
+   * button the one place in the workspace that seized a pane without asking.
+   */
+  const handleNewSessionOrTarget = useCallback(async () => {
+    if (targetChat(null, activeProjectIndex, "New session")) return;
+    await handlers.handleNewSession();
+  }, [activeProjectIndex, handlers, targetChat]);
   const openMemoryActive = useCallback(() => modalState.openMemoryActive(), [modalState]);
   const openMemoryAll = useCallback(() => modalState.openMemoryAll(), [modalState]);
   const openCmdPalette = useCallback(() => modalState.open("commandPalette"), [modalState]);
@@ -415,7 +516,6 @@ export function ChatLayout() {
   const openWatcher = useCallback(() => modalState.open("watcher"), [modalState]);
   const openCtxWindow = useCallback(() => modalState.open("contextWindow"), [modalState]);
   const onCompactCtx = useCallback(() => addToast("Compacting conversation...", "info"), [addToast]);
-  const toggleSplitView = useCallback(() => modalState.toggle("splitView"), [modalState]);
 
   // ── Keyboard: commands, not chords ──
   // The keymap owns which key runs what; this only says what the app can do.
@@ -424,12 +524,16 @@ export function ChatLayout() {
     toggleModal: modalState.toggle,
     closeTopModal: modalState.closeTopModal,
     toggleSidebar: panels.sidebar.toggle,
-    toggleTerminal: panels.terminal.toggle,
-    toggleEditor: panels.editor.toggle,
-    toggleGit: panels.git.toggle,
+    // The three panel chords survive the redesign, but on desktop they open
+    // that widget in the focused pane instead of toggling a panel that no
+    // longer exists. `openKindHere` reports false when the workspace is not
+    // mounted — on mobile, or on the board — and the old toggle runs instead.
+    toggleTerminal: () => { if (!openKindHere("terminal")) panels.terminal.toggle(); },
+    toggleEditor: () => { if (!openKindHere("files")) panels.editor.toggle(); },
+    toggleGit: () => { if (!openKindHere("git")) panels.git.toggle(); },
     toggleBoard: openKanban,
     toggleDebug: panels.debug.toggle,
-    newSession: handlers.handleNewSession,
+    newSession: handleNewSessionOrTarget,
     runSlashCommand: handlers.handleCommand,
     openMemoryActive,
     reloadApp: () => window.location.reload(),
@@ -461,6 +565,30 @@ export function ChatLayout() {
     return <StartupGate appState={appState} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={activeSessionId} isLoadingMessages={isLoadingMessages} providersLoading={providers.loading} />;
   }
   hasStartedRef.current = true;
+
+  // Settings is a destination: it replaces the chat surface rather than floating over
+  // it, so an unsaved skill or a login in flight cannot be dismissed by an Escape aimed
+  // at something else. Toasts stay mounted; the mobile dock does not, because every
+  // button on it targets a chat panel that is not on screen.
+  if (settings.isSettingsView) {
+    return (
+      <div className="chat-layout">
+        <SettingsPage
+          section={settings.section}
+          onSelectSection={settings.openSection}
+          onExit={leaveSettings}
+          appearance={appearance}
+          onAppearanceChange={setAppearanceState}
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
+          onThemeApplied={callbacks.handleThemeApplied}
+          onError={(message) => addToast(message, "error")}
+          runners={availableRunners}
+        />
+        <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      </div>
+    );
+  }
 
   return (
     <EditorOpenProvider value={openFileInEditor}>
@@ -506,7 +634,8 @@ export function ChatLayout() {
         handleCommand={handlers.handleCommand} handlePermissionReply={handlers.handlePermissionReply}
         handleQuestionReply={handlers.handleQuestionReply}
         handleQuestionDismiss={handlers.handleQuestionDismiss}
-        handleSelectSession={handlers.handleSelectSession} handleNewSession={handlers.handleNewSession}
+        workspace={workspaceProps}
+        handleSelectSession={handleSelectSessionOrTarget} handleNewSession={handleNewSessionOrTarget}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
         handleRunnerChange={handleRunnerChange}
         handleEffortChange={(effort) => setRunnerSetting({ effort })}
@@ -532,29 +661,22 @@ export function ChatLayout() {
         appState={appState} activeSessionId={activeSessionId} activeProject={activeProject}
         currentRunner={currentRunner}
         activeProjectIndex={activeProjectIndex}
-        onCommand={handlers.handleCommand} onNewSession={handlers.handleNewSession}
+        onCommand={handlers.handleCommand} onNewSession={handleNewSessionOrTarget}
         onSelectSession={handlers.handleSelectSession} onSend={handlers.handleSend}
         onModelSelected={handlers.handleModelSelected} onAgentChange={handlers.handleAgentChange}
-        onContextSubmit={callbacks.handleContextSubmit} onThemeApplied={callbacks.handleThemeApplied}
+        onContextSubmit={callbacks.handleContextSubmit}
         onCompactContext={onCompactCtx} onAutonomyChange={callbacks.onAutonomyChange}
         toggleSidebar={panels.sidebar.toggle} toggleTerminal={panels.terminal.toggle}
-        toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
-        themeMode={themeMode} setThemeMode={setThemeMode}
-        appearance={appearance} setAppearance={setAppearanceState} fileEditCount={fileEditCount}
+        fileEditCount={fileEditCount}
         allPermissions={allPermissions} allQuestions={allQuestions}
-        sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
-        neovimOpen={panels.editor.open} gitOpen={panels.git.open}
         watcherStatus={watcherStatus}
         autonomyMode={assistant.autonomyMode}
         routineCache={assistant.routineCache}
         activeMemoryItems={assistant.activeMemoryItems}
         memoryFilterActive={modalState.memoryFilterActive}
         openMemoryAll={openMemoryAll}
-        splitViewSecondaryId={modalState.splitViewSecondaryId}
-        setSplitViewSecondaryId={modalState.setSplitViewSecondaryId}
         clearPermission={clearPermission} clearQuestion={clearQuestion}
-        onOpenSkillsUpload={() => setSkillsUploadOpen(true)}
       />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
       <MobileDock
@@ -569,7 +691,6 @@ export function ChatLayout() {
         onError={callbacks.handlePanelError} onSendToAI={handlers.handleSend}
         isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
       />
-      {skillsUploadOpen && <SkillsUploadModal onClose={() => setSkillsUploadOpen(false)} />}
     </div>
     </EditorOpenProvider>
   );

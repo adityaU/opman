@@ -2,7 +2,17 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { ptyKill } from "../api";
 import { TabInfo, TabRuntime, PtyKind, KIND_LABELS, uuid } from "./types";
 
-export function useTerminalTabs(projectKey: string) {
+/**
+ * `restoreIds` are PTYs this pane owned before a reload. They still exist in the
+ * server process, so the pane adopts them instead of spawning fresh shells —
+ * `useTerminalLifecycle` skips the spawn for an id the backend already knows.
+ * `onTabsChanged` reports the live set back so it can be persisted.
+ */
+export function useTerminalTabs(
+  projectKey: string,
+  restoreIds: readonly string[] = [],
+  onTabsChanged?: (ids: string[]) => void,
+) {
   const [tabs, setTabs] = useState<TabInfo[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -15,6 +25,16 @@ export function useTerminalTabs(projectKey: string) {
   const projectKeyRef = useRef(projectKey);
   projectKeyRef.current = projectKey;
   const activeTabByProjectRef = useRef<Map<string, string>>(new Map());
+  // Read once, at the moment the project's tabs are seeded: after that the
+  // live tabs are the truth and a changing prop must not re-adopt.
+  const restoreIdsRef = useRef(restoreIds);
+
+  // Report the live set so the pane can persist it.
+  const reportRef = useRef(onTabsChanged);
+  reportRef.current = onTabsChanged;
+  useEffect(() => {
+    reportRef.current?.(tabs.filter((t) => t.projectKey === projectKey).map((t) => t.id));
+  }, [tabs, projectKey]);
 
   // Remember which tab was active for the current project, so switching
   // projects and back restores the same tab instead of picking the first one.
@@ -29,6 +49,21 @@ export function useTerminalTabs(projectKey: string) {
     setTabs((currentTabs) => {
       const forProject = currentTabs.filter((t) => t.projectKey === projectKey);
       if (forProject.length === 0) {
+        const restored = restoreIdsRef.current;
+        if (restored.length > 0) {
+          const adopted = restored.map((id, index): TabInfo => {
+            tabCounter.current += 1;
+            return {
+              id,
+              kind: "shell",
+              label: `${KIND_LABELS.shell} ${index + 1}`,
+              status: "connecting",
+              projectKey,
+            };
+          });
+          setActiveTabId(adopted[0].id);
+          return [...currentTabs, ...adopted];
+        }
         tabCounter.current += 1;
         const id = uuid();
         const label = `${KIND_LABELS.shell} ${tabCounter.current}`;

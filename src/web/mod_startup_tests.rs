@@ -80,7 +80,13 @@ async fn start_web_server_binds_random_port() {
     };
     let registry = crate::mcp::new_nvim_socket_registry();
 
-    let (port, _handle) = start_web_server(config, registry, runner_registry()).await;
+    let (port, _handle) = start_web_server(
+        config,
+        registry,
+        runner_registry(),
+        crate::mcp_registry::RegistryHandle::default(),
+    )
+    .await;
     // Port 0 requested → the OS assigns a real, non-zero port.
     assert!(port > 0, "expected a real bound port, got {port}");
 
@@ -108,6 +114,12 @@ async fn start_web_server_explicit_port_none_defaults_to_zero() {
         backend: "opencode".to_string(),
     };
     let registry = crate::mcp::new_nvim_socket_registry();
-    let (port, _handle) = start_web_server(config, registry, runner_registry()).await;
+    let (port, _handle) = start_web_server(
+        config,
+        registry,
+        runner_registry(),
+        crate::mcp_registry::RegistryHandle::default(),
+    )
+    .await;
     assert!(port > 0);
 }

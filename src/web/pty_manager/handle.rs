@@ -2,6 +2,7 @@
 
 use tokio::sync::{mpsc, oneshot};
 
+use super::activity::PtyActivity;
 use super::buffer::RawOutputBuffer;
 use super::commands::PtyCmd;
 
@@ -161,6 +162,18 @@ impl WebPtyHandle {
         let (tx, rx) = oneshot::channel();
         self.cmd_tx
             .send(PtyCmd::GetOutput {
+                id: id.to_string(),
+                reply: tx,
+            })
+            .ok()?;
+        rx.await.ok()?
+    }
+
+    /// Whether a PTY is running a foreground command. `None` when it is gone.
+    pub async fn activity(&self, id: &str) -> Option<PtyActivity> {
+        let (tx, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(PtyCmd::Activity {
                 id: id.to_string(),
                 reply: tx,
             })

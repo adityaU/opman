@@ -293,26 +293,6 @@ fn load_theme_json_not_found_bails() {
 }
 
 // ---------------------------------------------------------------------------
-// deploy_embedded_themes
-// ---------------------------------------------------------------------------
-
-#[test]
-fn deploy_embedded_themes_writes_files() {
-    let _l = env_lock();
-    let cfg = TempDir::new().unwrap();
-    let _e = EnvGuard::new(&[("XDG_CONFIG_HOME", Some(cfg.path()))]);
-    deploy_embedded_themes().unwrap();
-    let themes = cfg.path().join("opencode/themes");
-    assert!(themes.is_dir());
-    let count = fs::read_dir(&themes).unwrap().count();
-    assert!(count > 0, "expected embedded themes to be written");
-    // A known bundled theme should be present and non-empty.
-    let aura = themes.join("aura.json");
-    assert!(aura.exists());
-    assert!(!fs::read_to_string(&aura).unwrap().is_empty());
-}
-
-// ---------------------------------------------------------------------------
 // load_theme / load_theme_with_mode (end to end)
 // ---------------------------------------------------------------------------
 

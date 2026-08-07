@@ -4,23 +4,47 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::mcp_skills::Skill;
+use crate::mcp_skills::format::{render_skill_md, SkillDraft};
+use crate::mcp_skills::{Skill, SkillName};
+use crate::web::auth::AuthUser;
 use crate::web::types::ServerState;
 
 #[derive(Serialize)]
 pub struct SkillSummary {
-    name: String,
+    name: SkillName,
+    title: String,
     description: String,
+    requires: Vec<String>,
 }
 
+/// `name` deserializes through [`SkillName`], so a traversal attempt is a 422 at the
+/// extractor rather than something each handler has to remember to check.
 #[derive(Deserialize)]
 pub struct CreateSkillRequest {
-    name: String,
+    name: SkillName,
+    #[serde(default)]
+    title: String,
     description: String,
     content: String,
+    #[serde(default)]
+    requires: Vec<String>,
+}
+
+impl CreateSkillRequest {
+    fn render(&self) -> Result<String, StatusCode> {
+        render_skill_md(&SkillDraft {
+            name: &self.name,
+            title: (!self.title.is_empty()).then_some(self.title.as_str()),
+            description: &self.description,
+            requires: &self.requires,
+            body: &self.content,
+        })
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    }
 }
 
 pub async fn list_skills(
+    _auth: AuthUser,
     State(state): State<ServerState>,
 ) -> Result<Json<Vec<SkillSummary>>, StatusCode> {
     let registry = state.skills_registry.read().await;
@@ -28,64 +52,62 @@ pub async fn list_skills(
         .values()
         .map(|s| SkillSummary {
             name: s.name.clone(),
+            title: s.title.clone(),
             description: s.description.clone(),
+            requires: s.requires.clone(),
         })
         .collect();
     Ok(Json(skills))
 }
 
 pub async fn get_skill(
+    _auth: AuthUser,
     State(state): State<ServerState>,
-    Path(name): Path<String>,
+    Path(name): Path<SkillName>,
 ) -> Result<Json<Option<Skill>>, StatusCode> {
     let registry = state.skills_registry.read().await;
     Ok(Json(registry.get(&name).cloned()))
 }
 
 pub async fn create_skill(
+    _auth: AuthUser,
     State(state): State<ServerState>,
     Json(req): Json<CreateSkillRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    if req.name.is_empty() || req.description.is_empty() {
+    if req.description.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let skill_dir = crate::mcp_skills::get_skills_dir().join(&req.name);
+    let skill_dir = req.name.dir_in(&crate::mcp_skills::get_skills_dir());
     std::fs::create_dir_all(&skill_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let skill_md = skill_dir.join("SKILL.md");
-    let content = format!(
-        "---\nname: {}\ndescription: {}\n---\n{}",
-        req.name, req.description, req.content
-    );
-    std::fs::write(&skill_md, content).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(skill_dir.join("SKILL.md"), req.render()?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let _ = state.reload_tx.send(());
     Ok(Json(json!({"status": "created"})))
 }
 
 pub async fn update_skill(
+    _auth: AuthUser,
     State(state): State<ServerState>,
-    Path(name): Path<String>,
+    Path(name): Path<SkillName>,
     Json(req): Json<CreateSkillRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
-    if !skill_dir.exists() {
+    let skill_dir = name.dir_in(&crate::mcp_skills::get_skills_dir());
+    if !skill_dir.is_dir() {
         return Err(StatusCode::NOT_FOUND);
     }
-    let skill_md = skill_dir.join("SKILL.md");
-    let content = format!(
-        "---\nname: {}\ndescription: {}\n---\n{}",
-        req.name, req.description, req.content
-    );
-    std::fs::write(&skill_md, content).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(skill_dir.join("SKILL.md"), req.render()?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let _ = state.reload_tx.send(());
     Ok(Json(json!({"status": "updated"})))
 }
 
 pub async fn delete_skill(
+    _auth: AuthUser,
     State(state): State<ServerState>,
-    Path(name): Path<String>,
+    Path(name): Path<SkillName>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let skill_dir = crate::mcp_skills::get_skills_dir().join(&name);
-    if !skill_dir.exists() {
+    let skill_dir = name.dir_in(&crate::mcp_skills::get_skills_dir());
+    if !skill_dir.is_dir() {
         return Err(StatusCode::NOT_FOUND);
     }
     std::fs::remove_dir_all(&skill_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -94,6 +116,7 @@ pub async fn delete_skill(
 }
 
 pub async fn upload_skills(
+    _auth: AuthUser,
     State(state): State<ServerState>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, StatusCode> {

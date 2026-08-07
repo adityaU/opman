@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tracing::debug;
 
+use super::activity::PtyActivity;
 use super::buffer::RawOutputBuffer;
 
 /// A PTY owned by the web UI (not shared with TUI).
@@ -16,6 +17,27 @@ pub(crate) struct WebPty {
     pub(crate) output: RawOutputBuffer,
     pub(crate) rows: u16,
     pub(crate) cols: u16,
+}
+
+impl WebPty {
+    /// Whether a process other than the spawned program owns the terminal.
+    ///
+    /// Cheap enough to call on a timer: `process_group_leader` is one
+    /// `tcgetpgrp` on the master fd, with no allocation and no child reaping.
+    pub(crate) fn activity(&self) -> PtyActivity {
+        PtyActivity::classify(self.foreground_group(), self.child.process_id())
+    }
+
+    #[cfg(unix)]
+    fn foreground_group(&self) -> Option<i32> {
+        self.master.process_group_leader()
+    }
+
+    /// Nothing equivalent exists on Windows ConPTY, so every PTY reads idle.
+    #[cfg(not(unix))]
+    fn foreground_group(&self) -> Option<i32> {
+        None
+    }
 }
 
 /// Background reader that captures raw bytes into the output buffer.

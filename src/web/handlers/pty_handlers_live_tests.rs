@@ -152,3 +152,27 @@ async fn spawn_opencode_with_explicit_session_id() {
         "unexpected status {st}"
     );
 }
+
+#[tokio::test]
+async fn pty_activity_reports_a_live_shell() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = live_state(dir.path());
+    let ok = spawn_pty(State(state.clone()), auth(), axum::Json(spawn_req("shell", "act1")))
+        .await
+        .is_ok();
+    assert!(ok, "shell spawns");
+
+    let resp = pty_activity(State(state), auth())
+        .await
+        .unwrap()
+        .into_response();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let entry = v.get("act1").and_then(|s| s.as_str());
+    assert!(
+        matches!(entry, Some("idle") | Some("running")),
+        "a live PTY reports one of the two states: {v:?}"
+    );
+}

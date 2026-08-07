@@ -15,6 +15,9 @@
     gap: 0;
     padding: 10px;
     overflow: visible;
+    /* The inherited transition covers only blur and shadow, from when focus was
+       a ring; the fill is now half the focus state, so it has to ease too. */
+    transition: background-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 /* ── The writing surface ──────────────────────────────────────────── */
@@ -146,9 +149,7 @@
     color: var(--color-on-accent);
 }
 
-.composer-send:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-primary) 88%, var(--color-text));
-}
+.composer-send:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 88%, var(--color-text)) }
 
 .composer-send:active:not(:disabled) { transform: scale(.93) }
 
@@ -168,9 +169,7 @@
     color: var(--color-error);
 }
 
-.composer-stop:hover {
-    background: color-mix(in srgb, var(--color-error) 26%, transparent);
-}
+.composer-stop:hover { background: color-mix(in srgb, var(--color-error) 26%, transparent) }
 
 .composer-stop:active { transform: scale(.93) }
 
@@ -190,85 +189,4 @@
     z-index: 2;
 }
 
-.prompt-attachments {
-    padding: 1px 0 7px;
-}
-
-/* ── Focus ────────────────────────────────────────────────────────── */
-
-.prompt-input-wrapper:focus-within {
-    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border-subtle));
-    box-shadow: 0 0 0 3px var(--theme-focus-ring), 0 8px 24px var(--black-15);
-}
-
-html.flat-theme .prompt-input-wrapper:focus-within {
-    background: var(--color-bg-panel);
-    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
-    box-shadow: 0 0 0 3px var(--theme-focus-ring), 0 2px 8px var(--black-10);
-}
-
-/* ── Mobile ───────────────────────────────────────────────────────── */
-
-@media (max-width: 768px) {
-    .prompt-input-wrapper {
-        padding: 9px;
-    }
-
-    .composer-field {
-        padding: 2px 0 8px;
-    }
-
-    /* 16px keeps iOS from zooming the viewport on focus. */
-    .composer-field .prompt-textarea {
-        font-size: 16px;
-        min-height: 24px;
-        max-height: 40vh;
-    }
-
-    .composer-icon-btn {
-        width: 34px;
-        height: 34px;
-    }
-
-    .composer-send,
-    .composer-stop {
-        width: 36px;
-        height: 36px;
-    }
-
-    /* Touch targets on the rail match each other; the labels inside them get
-       smaller so the whole row still fits without scrolling at 393px. */
-    .composer-bar .prompt-chip,
-    .composer-bar .usage-info-btn {
-        min-height: 34px;
-        height: 34px;
-    }
-
-    .composer-bar .prompt-chip {
-        padding: 0 9px;
-        font-size: 11px;
-    }
-
-    /* Tightened just enough that engine, instructions, and usage all fit the
-       393px rail without scrolling. */
-    .composer-bar { gap: 6px }
-    .composer-context { padding-right: 2px }
-    .composer-actions { gap: 2px }
-    .composer-send { margin-left: 3px }
-
-    .composer-bar .usage-info-btn {
-        width: 30px;
-        min-height: 30px;
-        height: 30px;
-    }
-
-    /* The count is the fact; the noun is grammar. Dropping it is what lets the
-       engine chip, the instruction count, and usage share one 393px rail.
-       (The engine chip sheds its agent name at 560px on its own.) */
-    .composer-bar .prompt-chip-word { display: none }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .composer-send:active:not(:disabled),
-    .composer-stop:active { transform: none }
-}
+.prompt-attachments { padding: 1px 0 7px }

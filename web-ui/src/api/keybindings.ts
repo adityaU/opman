@@ -11,6 +11,28 @@ import { apiFetch } from "./client";
  * by pressing a key that does nothing.
  */
 
+/**
+ * Window event carrying a config the user just committed.
+ *
+ * The keybindings view is not the only holder of this document — `KeymapRoot` owns the
+ * copy the whole app's keyboard is composed from, and it fetches once at mount. Without
+ * this the two drift the moment anything is edited: the file and the view agree, the live
+ * keymap does not, and the view's own mode switch appears not to have worked because the
+ * mode it renders comes from the app-level copy.
+ *
+ * The committed config travels in `detail` rather than the listener refetching, so the
+ * keymap recomposes in the same tick the user clicked — matching the view's optimistic
+ * write instead of trailing it by a round trip.
+ */
+export const KEYBINDINGS_CHANGED = "opman:keybindings-changed";
+
+export type KeybindingsChanged = CustomEvent<KeybindingsConfig>;
+
+/** Tell every other holder of the config what was just written. */
+export function publishKeybindings(config: KeybindingsConfig): void {
+  window.dispatchEvent(new CustomEvent(KEYBINDINGS_CHANGED, { detail: config }));
+}
+
 export async function fetchKeybindings(): Promise<KeybindingsResponse> {
   const raw = await apiFetch<KeybindingsResponse>("/keybindings");
   const parsed = parseConfig(raw?.config);

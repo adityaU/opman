@@ -1,0 +1,247 @@
+/* ── Workspace: shell, canvas, window rail ─────────────────────────────
+   The desktop surface right of the sidebar: windows down the rail, a tree
+   of panes in the rest.
+
+   The workspace used to be its own visual dialect — flush tmux cells on the
+   raw canvas, hairline gutters, a 44px rail with its own surface and border.
+   It is now built from the same parts as the rest of the app: `--panel-inset`
+   is the one gap, panes are cards (see workspace-2.css) on the same recipe as
+   `.right-panel-card`, and the rail borrows `.stg-rail-item`'s states.
+
+   That means the rail owns no surface of its own. The panes are inset cards,
+   so the canvas shows through between them and behind the rail — a border or
+   a panel fill here would draw a second edge a few pixels from every card's.
+
+   No colour literals: hues come from --pane-hue (hashed per project) and
+   everything else from theme tokens, so both appearances and every palette
+   follow without a second rule. */
+
+/* The gap here separates the pane tree from the window rail beside it, and it
+   is the same `--panel-inset` that `.chat-content` puts around the whole shell
+   and that every gutter puts between two panes. */
+.wsp-root {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    gap: var(--panel-inset);
+    position: relative;
+    background: transparent
+}
+
+/* No padding of its own. `.chat-content` already pays the outer inset for
+   every column; paying it again here made the workspace's edges wider than
+   the sidebar's and wider than the space between two panes. */
+.wsp-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0
+}
+
+/* ── Window rail ─────────────────────────────────────────────────── */
+
+/* Width is the content's, not a constant. Windows named "1".."9" keep the rail
+   at one chip wide; the moment one is renamed to "review" the rail grows to
+   fit it, up to a ceiling past which names ellipsize rather than eat the
+   panes. `max-content` over a column of chips resolves to the widest chip. */
+.wsp-rail {
+    width: max-content;
+    min-width: 34px;
+    max-width: 180px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    background: transparent
+}
+
+.wsp-rail::-webkit-scrollbar {
+    display: none
+}
+
+/* The collapse control leads the rail, sized exactly like a chip so it cannot
+   be what forces the rail wider than its window names. */
+.wsp-rail-toggle {
+    height: 28px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast)
+}
+
+.wsp-rail-toggle:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent)
+}
+
+.wsp-rail-toggle:focus-visible,
+.wsp-spine:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
+}
+
+.wsp-rail-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    width: 100%
+}
+
+/* Same three states as .stg-rail-item: the rail is the settings rail with the
+   summary dropped, not a new control. */
+.wsp-rail-chip {
+    position: relative;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-2);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast),
+        box-shadow var(--transition-fast)
+}
+
+.wsp-rail-chip:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent)
+}
+
+.wsp-rail-chip.is-active {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent)
+}
+
+.wsp-rail-chip:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
+}
+
+/* Clamped by the rail's own max-width rather than by a fixed pixel count, so
+   a short name is never truncated just because a long one could be. */
+.wsp-rail-chip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+/* The pulse: an agent is working somewhere in that window. */
+.wsp-rail-chip-pulse {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-running);
+    opacity: 0;
+    transition: opacity var(--transition-base)
+}
+
+.wsp-rail-chip.is-busy .wsp-rail-chip-pulse {
+    opacity: 1;
+    animation: wsp-pulse var(--wsp-pulse-dur) ease-in-out infinite
+}
+
+/* Directly under the last chip, not pinned to the bottom of the column: with
+   two windows open, `margin-top: auto` put the only other control in the rail
+   a full viewport away from the thing it extends. */
+.wsp-rail-add {
+    height: 24px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    margin-top: var(--space-1);
+    border: 1px dashed var(--modal-hairline);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast)
+}
+
+.wsp-rail-add:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-active);
+    border-style: solid
+}
+
+.wsp-rail-add:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
+}
+
+/* ── Collapsed spine ─────────────────────────────────────────────── */
+
+/* Hidden, the rail leaves the spine rather than nothing: losing the ability to
+   see that an agent is running in window 3 is too high a price for the width
+   back, and one dot per window costs effectively zero.
+
+   The spine is itself the control that reopens the rail — clicking the dots is
+   the mouse's version of the chord its tooltip names. */
+.wsp-spine {
+    width: 10px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: 0;
+    align-items: center;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.wsp-spine:hover {
+    background: color-mix(in srgb, var(--color-text) 6%, transparent)
+}
+
+.wsp-spine-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-border);
+    flex-shrink: 0
+}
+
+.wsp-spine-dot.is-active {
+    background: var(--color-primary)
+}
+
+.wsp-spine-dot.is-busy {
+    background: var(--color-running);
+    animation: wsp-pulse var(--wsp-pulse-dur) ease-in-out infinite
+}
+
+@keyframes wsp-pulse {
+    0%, 100% { opacity: 1 }
+    50% { opacity: .35 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wsp-rail-chip.is-busy .wsp-rail-chip-pulse,
+    .wsp-spine-dot.is-busy {
+        animation: none
+    }
+}

@@ -32,6 +32,11 @@ mod pty_handlers;
 mod routines_handlers;
 mod search_handlers;
 mod session_handlers;
+mod mcp_handlers;
+mod mcp_login;
+mod mcp_login_state;
+mod mcp_tools_handlers;
+mod mcp_upsert;
 mod skills_handlers;
 mod keybindings_handlers;
 mod state_handlers;
@@ -58,7 +63,7 @@ pub use project_handlers::{
     switch_project, toggle_panel,
 };
 
-pub use pty_handlers::{pty_kill, pty_list, pty_resize, pty_write, spawn_pty};
+pub use pty_handlers::{pty_activity, pty_kill, pty_list, pty_resize, pty_write, spawn_pty};
 
 pub use session_handlers::{
     a2ui_callback, abort_session, clear_session_queue, delete_session, execute_command,
@@ -115,6 +120,11 @@ pub use routines_handlers::{
 
 pub use system_handlers::get_system_stats;
 
+pub use mcp_handlers::{delete_server, list_servers, set_enabled};
+pub use mcp_tools_handlers::list_tools;
+pub use mcp_upsert::upsert_server;
+pub use mcp_login::{finish_login, logout_server, start_login};
+pub use mcp_login_state::LoginSessions;
 pub use skills_handlers::{
     create_skill, delete_skill, get_skill, list_skills, update_skill, upload_skills,
 };

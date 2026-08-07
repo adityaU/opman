@@ -3,7 +3,30 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
-import { spawnPty, ptyWrite, ptyResize, ptyKill, createPtySSE } from "../api";
+import { spawnPty, ptyWrite, ptyResize, ptyKill, createPtySSE, ptyList } from "../api";
+
+/**
+ * Attach to an existing PTY, or spawn one. Resolves to `true` when it attached.
+ *
+ * A PTY lives in the server process, so a browser refresh leaves it running.
+ * Re-spawning over a live id would abandon the running shell and its
+ * scrollback, so a tab restored from the workspace attaches instead. The list
+ * is fetched once per attach — cheap, and it is the only way to tell a restored
+ * tab from a new one without the caller having to say so.
+ *
+ * The caller needs the distinction too: only an attach may replay scrollback.
+ */
+async function attachOrSpawn(
+  kind: string, id: string, rows: number, cols: number, sessionId?: string,
+): Promise<boolean> {
+  try {
+    if ((await ptyList()).includes(id)) return true;
+  } catch {
+    // The list is an optimisation; failing it just means spawning.
+  }
+  await spawnPty(kind, id, rows, cols, sessionId);
+  return false;
+}
 import { encodeForPty } from "./encode";
 import {
   TabInfo,
@@ -89,12 +112,12 @@ export function useTerminalLifecycle(
       const sid =
         tab.kind === "opencode" || tab.kind === "claude-attach" ? sessionId ?? undefined : undefined;
 
-      spawnPty(tab.kind, tab.id, rows, cols, sid)
-        .then(() => {
+      attachOrSpawn(tab.kind, tab.id, rows, cols, sid)
+        .then((attached) => {
           setTabs((prev) =>
             prev.map((t) => (t.id === tab.id ? { ...t, status: "ready" } : t))
           );
-          const sse = createPtySSE(tab.id);
+          const sse = createPtySSE(tab.id, attached);
           runtime.sse = sse;
           sse.addEventListener("output", (event: MessageEvent) => {
             try {

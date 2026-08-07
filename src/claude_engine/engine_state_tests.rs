@@ -2,8 +2,17 @@
 use super::registry::SessionEntry;
 use super::*;
 
+use crate::mcp_registry::{BuiltinFlags, McpRegistry, RegistryHandle};
+
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    engine_with(BuiltinFlags::default())
+}
+
+fn engine_with(flags: BuiltinFlags) -> Arc<ClaudeEngine> {
+    Arc::new(ClaudeEngine::new(
+        None,
+        RegistryHandle::new(Arc::new(McpRegistry::builtins(flags)), flags),
+    ))
 }
 
 // ── free functions ──────────────────────────────────────────────────
@@ -18,10 +27,9 @@ fn now_ms_and_rand_id() {
 }
 
 #[test]
-fn default_model_and_kanban_flag_are_callable() {
-    // Exercise the bodies (values depend on env / real config, so just call them).
+fn default_model_is_callable() {
+    // Value depends on the environment, so just exercise the body.
     let _ = default_model();
-    let _ = kanban_internal_available();
 }
 
 #[test]
@@ -46,39 +54,56 @@ fn session_info_shape() {
 
 // ── mcp_config_json ─────────────────────────────────────────────────
 
+/// An empty registry must produce no payload at all, so the caller can omit the flag
+/// rather than pass an empty object.
+///
+/// This used to be guarded on `!kanban_internal_available()`, which silently turned the
+/// whole assertion off on any machine that had ever run the web server. An explicit
+/// empty registry makes it unconditional.
 #[test]
-fn mcp_config_none_when_all_disabled() {
-    let e = engine();
-    // Only assert None when the kanban internal descriptor is absent (test env).
-    if !kanban_internal_available() {
-        assert!(e.mcp_config_json("/d", "ses1").is_none());
-    }
+fn mcp_config_none_when_nothing_is_offered() {
+    let engine = Arc::new(ClaudeEngine::new(
+        None,
+        RegistryHandle::default(),
+    ));
+    assert!(engine.mcp_config_json("/d", "ses1").is_none());
+}
+
+fn config_for(flags: BuiltinFlags) -> serde_json::Value {
+    let payload = engine_with(flags)
+        .mcp_config_json("/dir", "ses1")
+        .expect("a payload when at least one server is enabled");
+    serde_json::from_str(&payload).expect("valid json")
 }
 
 #[test]
 fn mcp_config_builds_each_server() {
-    let terminal = Arc::new(ClaudeEngine::new(None, (true, false, false, false)));
-    let cfg: serde_json::Value =
-        serde_json::from_str(&terminal.mcp_config_json("/dir", "ses1").unwrap()).unwrap();
-    let t = &cfg["mcpServers"]["terminal"];
-    assert!(t["command"].is_string());
-    assert_eq!(t["args"][0], "mcp");
-    assert_eq!(t["args"][1], "/dir");
-    assert_eq!(t["env"]["OPENCODE_SESSION_ID"], "ses1");
+    let cfg = config_for(BuiltinFlags {
+        terminal: true,
+        ..BuiltinFlags::default()
+    });
+    let terminal = &cfg["mcpServers"]["terminal"];
+    assert!(terminal["command"].is_string());
+    assert_eq!(terminal["args"][0], "mcp");
+    assert_eq!(terminal["args"][1], "/dir");
+    assert_eq!(terminal["env"]["OPENCODE_SESSION_ID"], "ses1");
 
-    let neovim = Arc::new(ClaudeEngine::new(None, (false, true, false, false)));
-    let cfg: serde_json::Value =
-        serde_json::from_str(&neovim.mcp_config_json("/dir", "s").unwrap()).unwrap();
+    let cfg = config_for(BuiltinFlags {
+        neovim: true,
+        ..BuiltinFlags::default()
+    });
     assert_eq!(cfg["mcpServers"]["neovim"]["args"][0], "mcp-nvim");
 
-    let time = Arc::new(ClaudeEngine::new(None, (false, false, true, false)));
-    let cfg: serde_json::Value =
-        serde_json::from_str(&time.mcp_config_json("/dir", "s").unwrap()).unwrap();
+    let cfg = config_for(BuiltinFlags {
+        time: true,
+        ..BuiltinFlags::default()
+    });
     assert_eq!(cfg["mcpServers"]["time"]["args"][0], "mcp-time");
 
-    let ui = Arc::new(ClaudeEngine::new(None, (false, false, false, true)));
-    let cfg: serde_json::Value =
-        serde_json::from_str(&ui.mcp_config_json("/dir", "s").unwrap()).unwrap();
+    let cfg = config_for(BuiltinFlags {
+        ui: true,
+        ..BuiltinFlags::default()
+    });
     assert_eq!(cfg["mcpServers"]["ui"]["args"][0], "mcp-ui");
 }
 
@@ -280,7 +305,7 @@ fn save_and_load_roundtrip_with_persist() {
     let path = dir.join("sessions.json");
     let e = Arc::new(ClaudeEngine::new(
         Some(path.clone()),
-        (false, false, false, false),
+        crate::mcp_registry::RegistryHandle::default(),
     ));
     let s = e.create_session("/proj", "", "persisted"); // triggers save()
     assert!(path.exists());

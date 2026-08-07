@@ -108,10 +108,16 @@ export function useKeymapListener(): KeymapListenerState {
       const { keymap: map, mode: current, context: ctx, runCommand: run } = latest.current;
       const steps = latest.current.pending?.steps ?? [];
 
+      // `textInput` is read from the event target rather than from the
+      // published context, and then handed to the `when` evaluator as a context
+      // key of its own. That is what lets a binding opt *out* of the insert
+      // guard it would otherwise pass on the strength of its modifier —
+      // `ctrl+h` must not fire while a shell is waiting for a Backspace.
+      const textInput = isTextInput(event.target);
       const matchContext: MatchContext = {
         mode: current,
-        textInput: isTextInput(event.target),
-        isTrue: whenEvaluator(ctx),
+        textInput,
+        isTrue: whenEvaluator({ ...ctx, textInput }),
       };
 
       // While a chord is pending, three keys belong to the hint panel rather

@@ -8,6 +8,16 @@
 
 use super::*;
 
+use crate::mcp_skills::SkillName;
+
+/// Auth is a no-op for `test_server_state` (empty username), so these exercise the
+/// handler bodies rather than the gate.
+fn open() -> AuthUser {
+    AuthUser {
+        subject: String::new(),
+    }
+}
+
 use crate::web::test_support::{test_router, test_server_state};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -54,7 +64,9 @@ impl Drop for XdgRedirect {
 
 fn req(name: &str, desc: &str, content: &str) -> CreateSkillRequest {
     CreateSkillRequest {
-        name: name.into(),
+        title: String::new(),
+        requires: Vec::new(),
+        name: SkillName::parse(name).expect("valid test name"),
         description: desc.into(),
         content: content.into(),
     }
@@ -65,6 +77,7 @@ async fn create_skill_writes_skill_md() {
     let xdg = XdgRedirect::new();
     let state = test_server_state();
     let axum::Json(v) = create_skill(
+        open(),
         State(state),
         axum::Json(req("mysk", "does things", "hello body")),
     )
@@ -85,14 +98,16 @@ async fn update_skill_success_overwrites() {
     let state = test_server_state();
     // Seed via create, then update.
     create_skill(
+        open(),
         State(state.clone()),
         axum::Json(req("upd", "old", "old-content")),
     )
     .await
     .unwrap();
     let axum::Json(v) = update_skill(
+        open(),
         State(state),
-        Path("upd".into()),
+        Path(SkillName::parse("upd").expect("valid")),
         axum::Json(req("upd", "new-desc", "new-content")),
     )
     .await
@@ -110,15 +125,23 @@ async fn update_skill_success_overwrites() {
 async fn delete_skill_success_removes_dir() {
     let xdg = XdgRedirect::new();
     let state = test_server_state();
-    create_skill(State(state.clone()), axum::Json(req("del", "d", "c")))
+    create_skill(
+        open(),
+        State(state.clone()),
+        axum::Json(req("del", "d", "c")),
+    )
         .await
         .unwrap();
     let dir = xdg.skills_dir().join("del");
     assert!(dir.exists());
 
-    let axum::Json(v) = delete_skill(State(state), Path("del".into()))
-        .await
-        .unwrap();
+    let axum::Json(v) = delete_skill(
+        open(),
+        State(state),
+        Path(SkillName::parse("del").expect("valid")),
+    )
+    .await
+    .unwrap();
     assert_eq!(v["status"], "deleted");
     assert!(!dir.exists());
 }
@@ -128,8 +151,9 @@ async fn update_skill_missing_still_404() {
     let _xdg = XdgRedirect::new();
     let state = test_server_state();
     let res = update_skill(
+        open(),
         State(state),
-        Path("ghost_skill".into()),
+        Path(SkillName::parse("ghost_skill").expect("valid")),
         axum::Json(req("ghost_skill", "d", "c")),
     )
     .await;
@@ -140,7 +164,7 @@ async fn update_skill_missing_still_404() {
 async fn delete_skill_missing_still_404() {
     let _xdg = XdgRedirect::new();
     let state = test_server_state();
-    let res = delete_skill(State(state), Path("ghost_skill".into())).await;
+    let res = delete_skill(open(), State(state), Path(SkillName::parse("ghost_skill").expect("valid"))).await;
     assert_eq!(res.unwrap_err(), StatusCode::NOT_FOUND);
 }
 

@@ -1,0 +1,63 @@
+/* ── Zen ───────────────────────────────────────────────────────────────
+   One pane, the whole shell, nothing else.
+
+   The reducer's half of this is a zoom (see `toggleZen`); this is the rest —
+   every surface that is not the pane standing down. They are reached through
+   an attribute on <html> because most of them are siblings of the workspace,
+   not descendants: the sidebar column and the resize handle are children of
+   `.chat-content`, and the status bar is outside it entirely.
+
+   `display: none` throughout, deliberately. Zen is about the pane getting the
+   space, so the hidden surfaces must leave the layout rather than merely stop
+   painting — and unlike the window layers, nothing here measures itself from
+   its container, so there is no refit to pay on the way back. */
+
+@media (min-width: 769px) {
+    html[data-wsp-zen] .chat-content > div:first-child:has(.chat-sidebar),
+    html[data-wsp-zen] .chat-content > .resize-handle,
+    html[data-wsp-zen] .chat-status-bar {
+        display: none
+    }
+}
+
+html[data-wsp-zen] .wsp-rail,
+html[data-wsp-zen] .wsp-spine {
+    display: none
+}
+
+/* The rail's gap goes with the rail: `.wsp-root` would otherwise hold
+   --panel-inset of empty space against the right edge that no longer
+   separates the pane from anything. */
+html[data-wsp-zen] .wsp-root {
+    gap: 0
+}
+
+/* The header is the one thing Zen hides that the user may have deliberately
+   turned on, so it comes back the moment the pane is hovered — the pane's own
+   controls, including the way out, stay one pointer-move away. */
+html[data-wsp-zen] .wsp-head {
+    opacity: 0;
+    transition: opacity var(--transition-base)
+}
+
+html[data-wsp-zen] .wsp-pane:hover .wsp-head,
+html[data-wsp-zen] .wsp-head:focus-within {
+    opacity: 1
+}
+
+/* Nothing to distinguish from, so the card stops advertising that it is the
+   focused one. It keeps its border and radius: the pane is still a surface
+   sitting on the canvas, --panel-inset away from every edge. */
+html[data-wsp-zen] .wsp-pane.is-focused {
+    border-color: color-mix(in srgb, var(--pane-tint) 18%, var(--color-border-subtle));
+    box-shadow: var(--modal-rim)
+}
+
+/* ── The toggle ──────────────────────────────────────────────────── */
+
+/* Lives in the pane header next to split and close, because it is the same
+   kind of thing: something you do to this pane. */
+.wsp-head-btn-zen.is-on {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent)
+}

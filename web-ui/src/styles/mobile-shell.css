@@ -31,7 +31,6 @@
     .prompt-input-wrapper,
     .prompt-chip,
     .sb-session,
-    .theme-selector,
     .theme-card {
         border-radius: var(--radius-md)
     }

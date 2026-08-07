@@ -1,0 +1,123 @@
+//! The tool definitions the runner reads.
+//!
+//! `model` and `effort` are `required` on both tools that start a turn. The schema is only
+//! half the contract — a runner may or may not enforce it — so [`super::dispatch`] refuses
+//! the same two arguments again on the way in. What the schema adds is that the agent sees
+//! the requirement before it calls, and is told which tool answers it.
+
+use serde_json::{json, Value};
+
+/// Every runner slot a caller may name. Kept as one list so the four occurrences cannot
+/// drift apart.
+const RUNNERS: [&str; 4] = ["opencode", "claude-code", "claude", "codex"];
+
+fn runner_field(purpose: &str) -> Value {
+    json!({ "type": "string", "enum": RUNNERS, "description": purpose })
+}
+
+fn delivery_field() -> Value {
+    json!({
+        "type": "string",
+        "enum": ["immediate", "queued"],
+        "default": "immediate",
+        "description": "immediate steers the target now; queued waits for its next idle turn.",
+    })
+}
+
+/// The model and effort every dispatched turn must name, plus the optional provider.
+fn dispatch_fields() -> Value {
+    json!({
+        "model": {
+            "type": "string",
+            "description": "Required. A model id from agent_runner_options — not a display \
+                            name. Omitting it would silently inherit whatever the target \
+                            last ran, which the caller cannot see.",
+        },
+        "effort": {
+            "type": "string",
+            "description": "Required. A reasoning effort the chosen model supports, from \
+                            agent_runner_options (commonly low, medium, high).",
+        },
+        "provider": {
+            "type": "string",
+            "description": "Provider id for the model, when the runner needs one \
+                            disambiguated (OpenCode). Optional.",
+        },
+    })
+}
+
+/// Merge the shared dispatch fields into a tool's own properties.
+fn properties(own: Value) -> Value {
+    let mut merged = dispatch_fields();
+    let (Some(target), Some(own)) = (merged.as_object_mut(), own.as_object()) else {
+        return merged;
+    };
+    for (key, value) in own {
+        target.insert(key.clone(), value.clone());
+    }
+    merged
+}
+
+pub(super) fn definitions() -> Value {
+    json!([
+        {
+            "name": "agent_send",
+            "description": "Send a message to the parent agent (omit 'to') or any agent id. \
+                            Requires model and effort — call agent_runner_options first if \
+                            you do not already know what the runner accepts.",
+            "inputSchema": {
+                "type": "object",
+                "properties": properties(json!({
+                    "to": { "type": "string", "description": "Target agent id, or 'parent'. Omit to address the parent." },
+                    "message": { "type": "string", "description": "The message text." },
+                    "delivery": delivery_field(),
+                    "runner": runner_field("Switch the target to this runner before sending. Optional."),
+                })),
+                "required": ["message", "model", "effort"],
+            },
+        },
+        {
+            "name": "agent_start",
+            "description": "Start a new agent session on any available runner. Requires \
+                            model and effort — call agent_runner_options first if you do \
+                            not already know what the runner accepts.",
+            "inputSchema": {
+                "type": "object",
+                "properties": properties(json!({
+                    "message": { "type": "string", "description": "Opening message. Omit to create the session without starting a turn." },
+                    "title": { "type": "string", "description": "Session title. Defaults to 'Agent session'." },
+                    "delivery": delivery_field(),
+                    "runner": runner_field("Runner to start on. Defaults to the caller's own."),
+                })),
+                "required": ["model", "effort"],
+            },
+        },
+        {
+            "name": "agent_progress",
+            "description": "Inspect another agent's current busy/idle state, recent \
+                            transcript messages, runner, and queued message count.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "agent_id": { "type": "string", "description": "Agent id, or 'parent'. Omit to ask about the parent." },
+                },
+            },
+        },
+        {
+            "name": "agent_runner_options",
+            "description": "List the models and the reasoning efforts each one supports. \
+                            Call this before agent_send or agent_start: both require a \
+                            model and an effort, and this is what says which are valid.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "runner": runner_field("Runner to describe. Omit for the default runner."),
+                },
+            },
+        },
+    ])
+}
+
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tools_tests;

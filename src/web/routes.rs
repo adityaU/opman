@@ -1,5 +1,5 @@
 use axum::extract::DefaultBodyLimit;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 use tower_http::compression::CompressionLayer;
 
@@ -45,6 +45,7 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/pty/resize", post(handlers::pty_resize))
         .route("/pty/kill", post(handlers::pty_kill))
         .route("/pty/list", get(handlers::pty_list))
+        .route("/pty/activity", get(handlers::pty_activity))
         .route("/pty/stream", get(sse::terminal_stream))
         // App events SSE
         .route("/events", get(sse::events_stream))
@@ -209,7 +210,19 @@ pub(super) fn build_router(state: ServerState) -> Router {
         // ── MCP WebSocket (AI agent tool bridge) ─────────────────────
         .route("/mcp/ws", get(mcp_ws::websocket_handler))
         // ── MCP Skills ───────────────────────────────────────────────
-        .route("/mcp", post(crate::mcp_skills::mcp_handler))
+        .route("/mcp/servers", get(handlers::list_servers))
+        .route(
+            "/mcp/servers/{name}",
+            put(handlers::upsert_server).delete(handlers::delete_server),
+        )
+        .route("/mcp/servers/{name}/enabled", post(handlers::set_enabled))
+        .route("/mcp/servers/{name}/tools", get(handlers::list_tools))
+        .route("/mcp/servers/{name}/login", post(handlers::start_login))
+        .route(
+            "/mcp/servers/{name}/login/finish",
+            post(handlers::finish_login),
+        )
+        .route("/mcp/servers/{name}/logout", post(handlers::logout_server))
         .route(
             "/skills",
             get(handlers::list_skills).post(handlers::create_skill),

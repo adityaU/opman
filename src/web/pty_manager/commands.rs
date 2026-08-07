@@ -2,6 +2,7 @@
 
 use tokio::sync::oneshot;
 
+use super::activity::PtyActivity;
 use super::buffer::RawOutputBuffer;
 
 pub enum PtyCmd {
@@ -66,6 +67,11 @@ pub enum PtyCmd {
     GetOutput {
         id: String,
         reply: oneshot::Sender<Option<RawOutputBuffer>>,
+    },
+    /// Whether a PTY is running a command, or `None` if there is no such PTY.
+    Activity {
+        id: String,
+        reply: oneshot::Sender<Option<PtyActivity>>,
     },
     /// Kill and remove a web PTY.
     Kill {

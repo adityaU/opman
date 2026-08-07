@@ -52,6 +52,13 @@ export const BASE_EXPLORER: readonly BindingSpec[] = [
   { key: "up", command: "explorer.moveUp", when: "focus==explorer" },
   { key: "right", command: "explorer.expand", when: "focus==explorer" },
   { key: "left", command: "explorer.collapse", when: "focus==explorer" },
+  // `hjkl` alongside the arrows in both modes, not just vim's. A tree is a list
+  // and these are the list keys; nothing types into the explorer, so the letters
+  // cost normal mode nothing and the muscle memory is worth more than the purity.
+  { key: "j", command: "explorer.moveDown", when: "focus==explorer" },
+  { key: "k", command: "explorer.moveUp", when: "focus==explorer" },
+  { key: "l", command: "explorer.expand", when: "focus==explorer" },
+  { key: "h", command: "explorer.collapse", when: "focus==explorer" },
   { key: "enter", command: "explorer.open", when: "focus==explorer" },
   { key: "mod+k mod+0", command: "explorer.collapseAll", when: "focus==explorer" },
   { key: "mod+alt+n", command: "explorer.newFile", when: "focus==explorer" },

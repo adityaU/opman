@@ -225,6 +225,9 @@ export function ProjectNode({
                 key={sub.id}
                 className={`sb-session sb-session-sub${sub.id === activeSessionId ? " active" : ""}${isSessionBusy(sub.id) ? " busy" : ""}`}
                 onClick={() => onSelectSession(sub.id, index)}
+                data-list-item=""
+                data-list-key={sub.id}
+                data-list-depth={2}
               >
                 <div className="sb-session-icon sub"><Zap size={12} /></div>
                 <div className="sb-session-info">
@@ -251,6 +254,10 @@ export function ProjectNode({
       <button
         className={`sb-project-header ${isActiveProject ? "active" : ""}`}
         onClick={onToggleExpand}
+        aria-expanded={isExpanded}
+        data-list-item=""
+        data-list-key={project.path}
+        data-list-depth={0}
       >
         <span className="sb-project-chevron">
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

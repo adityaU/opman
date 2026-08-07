@@ -55,6 +55,7 @@ pub(crate) fn test_server_state() -> ServerState {
         nvim_registry: crate::mcp::new_nvim_socket_registry(),
         lsp: std::sync::Arc::new(crate::lsp::LspPool::new()),
         skills_registry: crate::mcp_skills::SkillsRegistry::default(),
+        mcp: crate::mcp_registry::RegistryHandle::default(),
         reload_tx,
         instance_name: None,
         backend: "opencode".to_string(),
@@ -65,6 +66,7 @@ pub(crate) fn test_server_state() -> ServerState {
             crate::runner::RunnerKind::Opencode,
             runners,
         )),
+        mcp_logins: std::sync::Arc::default(),
     }
 }
 
@@ -79,6 +81,69 @@ pub(crate) fn test_server_state_with_auth(username: &str, password: &str) -> Ser
 /// Build the production router around a test [`ServerState`].
 pub(crate) fn test_router(state: ServerState) -> axum::Router {
     super::routes::build_router(state)
+}
+
+/// Point `mcp.json` and the OAuth token store at a temp directory.
+///
+/// Both, always: the MCP handlers read the config *and* the credential store to answer a
+/// single listing, so redirecting only one of them still leaves a test writing into the
+/// developer's real `~/.config/opman`.
+pub(crate) struct ConfigRedirect {
+    _tmp: tempfile::TempDir,
+    previous: Vec<(&'static str, Option<std::ffi::OsString>)>,
+    /// Shares the lock the other env-mutating tests use, so a second mutex cannot
+    /// reintroduce the race this exists to prevent.
+    _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+impl ConfigRedirect {
+    pub(crate) fn new() -> Self {
+        let guard = crate::claude_engine::claude_cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let vars = [
+            ("OPMAN_MCP_CONFIG", tmp.path().join("mcp.json")),
+            // What `dirs::config_dir` reads, and therefore what moves the token store.
+            ("XDG_CONFIG_HOME", tmp.path().to_path_buf()),
+        ];
+        let previous = vars
+            .iter()
+            .map(|(key, value)| {
+                let prior = std::env::var_os(key);
+                std::env::set_var(key, value);
+                (*key, prior)
+            })
+            .collect();
+        Self {
+            _tmp: tmp,
+            previous,
+            _guard: guard,
+        }
+    }
+
+    /// The `mcp.json` as it stands on disk right now.
+    pub(crate) fn document(&self) -> crate::mcp_registry::config::McpConfig {
+        crate::mcp_registry::config::load()
+    }
+
+    /// Write one server into the redirected `mcp.json`.
+    pub(crate) fn declare(&self, name: &str, entry: crate::mcp_registry::config::ServerConfig) {
+        let mut document = self.document();
+        document.servers.insert(name.to_string(), entry);
+        crate::mcp_registry::config::save(&document).expect("save mcp.json");
+    }
+}
+
+impl Drop for ConfigRedirect {
+    fn drop(&mut self) {
+        for (key, prior) in self.previous.drain(..) {
+            match prior {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+    }
 }
 
 /// Run `fut` with a per-task opencode base-URL override in effect, so any

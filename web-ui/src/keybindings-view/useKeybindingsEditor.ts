@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { loadKeybindingsOrDefault, saveKeybindings } from "../api/keybindings";
+import {
+  loadKeybindingsOrDefault,
+  publishKeybindings,
+  saveKeybindings,
+} from "../api/keybindings";
 import type { ConfigDiagnostic, KeybindingsConfig } from "../keybindings/config";
 import { DEFAULT_CONFIG } from "../keybindings/config";
 import type { BindingSpec, CommandId, Mode } from "../keybindings/types";
@@ -66,9 +70,16 @@ export function useKeybindingsEditor(): KeybindingsEditor {
    * Persist optimistically: the local config updates first so the table never
    * lags a keystroke behind, and a failed write surfaces as an error rather
    * than silently reverting an edit the user watched land.
+   *
+   * The publish is what keeps "no second store" true. `KeymapRoot` holds the
+   * copy the live keymap is composed from and fetches it once at mount, so
+   * without this an edit reaches the file and the table but not the keyboard —
+   * and a mode switch, whose active state this view reads back from that
+   * app-level copy, looks like it did not take until the page is reloaded.
    */
   const commit = useCallback((next: KeybindingsConfig) => {
     setConfig(next);
+    publishKeybindings(next);
     setSaving(true);
     setError(undefined);
     saveKeybindings(next)

@@ -36,6 +36,7 @@ fn q(token: Option<&str>, id: Option<&str>) -> Query<SseTokenQuery> {
     Query(SseTokenQuery {
         token: token.map(|s| s.to_string()),
         id: id.map(|s| s.to_string()),
+        replay: Replay::No,
     })
 }
 

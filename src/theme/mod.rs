@@ -8,7 +8,7 @@ mod types;
 mod tests;
 
 pub use colors::{ansi_palette_from_theme, color_to_hex};
-pub use loading::{active_theme_name, deploy_embedded_themes, load_theme, load_theme_with_mode};
+pub use loading::{active_theme_name, load_theme, load_theme_with_mode};
 pub use types::ThemeColors;
 
 #[cfg(test)]

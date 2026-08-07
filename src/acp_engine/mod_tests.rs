@@ -3,14 +3,18 @@
 use super::*;
 
 fn test_engine(agent: config::AgentConfig) -> Arc<AcpEngine> {
-    engine_with_mcp(agent, (false, false, false, false))
+    engine_with_mcp(agent, crate::mcp_registry::BuiltinFlags::default())
 }
 
 fn engine_with_mcp(
     agent: config::AgentConfig,
-    mcp_flags: (bool, bool, bool, bool),
+    flags: crate::mcp_registry::BuiltinFlags,
 ) -> Arc<AcpEngine> {
-    Arc::new(AcpEngine::new("test".to_string(), agent, None, mcp_flags))
+    let registry = crate::mcp_registry::RegistryHandle::new(
+        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
+        flags,
+    );
+    Arc::new(AcpEngine::new("test".to_string(), agent, None, registry))
 }
 
 /// ACP reports per-turn usage; the engine this replaced had no channel for it, which is why
@@ -46,7 +50,10 @@ fn mcp_servers_are_omitted_when_injection_is_disabled() {
         ..Default::default()
     };
     let engine = test_engine(agent);
-    assert_eq!(engine.mcp_servers("/tmp", "ses1"), json!([]));
+    assert_eq!(
+        engine.mcp_servers("/tmp", "ses1", mcp_servers::McpCaps::default()),
+        json!([])
+    );
 }
 
 /// ACP wants `mcpServers` as a list of named stdio servers with `env` as name/value pairs —
@@ -57,16 +64,31 @@ fn mcp_servers_use_the_acp_list_shape() {
         inject_mcp: true,
         ..Default::default()
     };
-    let engine = engine_with_mcp(agent, (true, false, true, false));
-    let servers = engine.mcp_servers("/tmp/project", "ses1");
+    let flags = crate::mcp_registry::BuiltinFlags {
+        terminal: true,
+        time: true,
+        ..Default::default()
+    };
+    let engine = engine_with_mcp(agent, flags);
+    let servers = engine.mcp_servers("/tmp/project", "ses1", mcp_servers::McpCaps::default());
     let list = servers.as_array().expect("expected a list of servers");
+
     let time = list
         .iter()
         .find(|s| s["name"] == "time")
         .expect("time server should be present");
     assert_eq!(time["args"][0], "mcp-time");
-    assert_eq!(time["env"][0]["name"], "OPENCODE_SESSION_ID");
-    assert_eq!(time["env"][0]["value"], "ses1");
+
+    // env is a name/value pair list, not an object. Only the bridges that route by
+    // session declare it — `time` does not read it, so it no longer carries one.
+    let terminal = list
+        .iter()
+        .find(|s| s["name"] == "terminal")
+        .expect("terminal server should be present");
+    assert_eq!(terminal["args"][1], "/tmp/project");
+    assert_eq!(terminal["env"][0]["name"], "OPENCODE_SESSION_ID");
+    assert_eq!(terminal["env"][0]["value"], "ses1");
+    assert_eq!(time["env"], json!([]));
 }
 
 /// A live round-trip against the real ACP server: spawn it, stream a reply, and assert that

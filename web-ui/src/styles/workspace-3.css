@@ -1,0 +1,201 @@
+/* ── Workspace: pane header and project badge ──────────────────────────
+   (The empty pane's own styles are in workspace-6.css, split off for size.)
+
+   The header is `.side-panel-header` for a pane: `--theme-surface-2`, a
+   bottom hairline, 30px tall. It was 22px with 11px italic text and 12px
+   icons — dense enough that it read as a debug strip rather than as the
+   chrome of a panel, and nothing else in the app is built at that scale.
+
+   Everything here is also a command, so the header stays a convenience
+   rather than the only route — which is what lets it be switched off
+   entirely (zen mode) without taking any capability with it. */
+
+.wsp-head {
+    height: var(--pane-head-h);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: 0 var(--space-1) 0 var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--theme-surface-2)
+}
+
+/* The glass sheen is one gradient over the surface, matching the sidebar's
+   own header; flat gets the plain fill. */
+html:not(.flat-theme) .wsp-head {
+    background: linear-gradient(180deg, var(--white-4), transparent), var(--theme-surface-2)
+}
+
+.wsp-head.is-focused {
+    color: var(--color-text)
+}
+
+.wsp-head-ordinal {
+    min-width: 12px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    opacity: .7
+}
+
+.wsp-head-sep {
+    width: 1px;
+    height: 12px;
+    flex-shrink: 0;
+    background: var(--color-border-subtle)
+}
+
+.wsp-head-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0
+}
+
+.wsp-head-kind {
+    font-weight: 500
+}
+
+.wsp-head.is-focused .wsp-head-kind {
+    color: var(--color-text)
+}
+
+/* The subtitle is the first thing to go when the pane narrows: the project
+   and the widget kind identify the pane, the session title only labels it. */
+.wsp-head-subtitle {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted)
+}
+
+.wsp-head-empty {
+    color: var(--color-text-muted)
+}
+
+.wsp-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: auto;
+    padding-left: var(--space-2);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-fast)
+}
+
+/* Revealed on hover or focus — but always present for a keyboard user, and
+   never hidden from the accessibility tree. */
+.wsp-pane:hover .wsp-head-actions,
+.wsp-pane.is-focused .wsp-head-actions,
+.wsp-head-actions:focus-within {
+    opacity: 1
+}
+
+.wsp-head-btn {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast)
+}
+
+.wsp-head-btn:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent)
+}
+
+.wsp-head-btn-close:hover {
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 14%, transparent)
+}
+
+.wsp-head-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px
+}
+
+/* ── Project badge ───────────────────────────────────────────────── */
+
+.wsp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    min-width: 0;
+    flex-shrink: 1
+}
+
+/* The common case: colour and name, each doing one job. The dot is the app's
+   own identity mark — the sidebar's session rows and the window rail use the
+   same one — so a project reads the same wherever it appears. */
+.wsp-badge-dot {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250));
+    transition: background var(--transition-base)
+}
+
+/* Working outranks identity: the name is still there to say which project, so
+   the dot is free to carry the more urgent fact — and it says it in the one
+   colour every other running indicator uses. */
+.wsp-badge.is-busy .wsp-badge-dot {
+    background: var(--color-running);
+    animation: wsp-pulse var(--wsp-pulse-dur) ease-in-out infinite
+}
+
+.wsp-badge-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+/* Only when there is no room for the name. Two letters are a poor substitute
+   for the word, but they beat a bare dot when the word is gone entirely. */
+.wsp-badge-chip {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1;
+    color: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250));
+    background: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250) / .16);
+    box-shadow: inset 0 0 0 1px oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250) / .34)
+}
+
+.wsp-badge.is-busy .wsp-badge-chip {
+    animation: wsp-pulse var(--wsp-pulse-dur) ease-in-out infinite
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wsp-badge.is-busy .wsp-badge-dot,
+    .wsp-badge.is-busy .wsp-badge-chip { animation: none }
+}
+
+.wsp-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0
+}
+

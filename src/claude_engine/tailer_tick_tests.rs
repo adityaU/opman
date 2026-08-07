@@ -25,7 +25,7 @@ fn with_home<T>(home: &Path, f: impl FnOnce() -> T) -> T {
 }
 
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, (false, false, false, false)))
+    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
 }
 
 fn set_uuid(e: &Arc<ClaudeEngine>, sid: &str, uuid: &str) {

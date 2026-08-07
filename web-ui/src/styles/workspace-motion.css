@@ -1,0 +1,141 @@
+/* ── Shell motion: what appearing and disappearing look like ───────────
+   Every show and hide in the shell used to be a cut. A split popped a fully
+   formed pane into place, switching windows swapped one screenful for another
+   between frames, and collapsing the rail made 34px of chrome vanish — all
+   changes big enough that the eye has to re-find its place afterwards.
+
+   One vocabulary, applied to all of them: things enter by rising a few pixels
+   out of a slight scale-down while they fade up, on --ease-out-expo, in the
+   150-220ms band the rest of the app transitions in. Nothing here is
+   decorative — each one answers "what just changed, and where did it go?"
+
+   Motion is opacity and transform only, so none of it costs layout. */
+
+@keyframes wsp-enter {
+    from {
+        opacity: 0;
+        transform: translateY(4px) scale(.994)
+    }
+    to {
+        opacity: 1;
+        transform: none
+    }
+}
+
+@keyframes wsp-fade-in {
+    from { opacity: 0 }
+    to { opacity: 1 }
+}
+
+/* ── Windows ─────────────────────────────────────────────────────── */
+
+/* Both layers are mounted (see WindowLayer), so a switch can be a real
+   cross-fade rather than a swap: the outgoing window fades and only then
+   stops being visible, which is what the delayed `visibility` does — without
+   it the layer would blink out on frame one and the fade would play to an
+   empty box. */
+.wsp-window {
+    opacity: 1;
+    transition: opacity .16s var(--ease-out-expo), visibility 0s
+}
+
+.wsp-window:not(.is-active) {
+    opacity: 0;
+    transition: opacity .16s var(--ease-out-expo), visibility 0s .16s
+}
+
+/* ── Panes ───────────────────────────────────────────────────────── */
+
+/* A new pane arrives; it does not appear to have always been there. Scoped to
+   :not(.is-dragging) on the tree so the animation never re-fires on the panes
+   either side of a gutter the user is dragging. */
+.wsp-pane {
+    animation: wsp-enter .2s var(--ease-out-expo) both
+}
+
+/* ── Window rail ─────────────────────────────────────────────────── */
+
+/* Collapsing swaps the rail for the spine and expanding swaps it back. Each
+   fades up in place so the exchange reads as one control changing size rather
+   than two unrelated things blinking. */
+.wsp-rail,
+.wsp-spine {
+    animation: wsp-fade-in .18s var(--ease-out-expo) both
+}
+
+.wsp-rail-chip {
+    animation: wsp-enter .18s var(--ease-out-expo) both
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+
+/* The sidebar column is unmounted when hidden rather than collapsed, so only
+   the entrance can be animated. It comes in from its own edge — the direction
+   it would have come from had it slid. */
+@keyframes wsp-sidebar-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-8px)
+    }
+    to {
+        opacity: 1;
+        transform: none
+    }
+}
+
+@media (min-width: 769px) {
+    .chat-content > div:first-child:has(.chat-sidebar) {
+        animation: wsp-sidebar-enter .2s var(--ease-out-expo) both
+    }
+}
+
+/* ── Empty pane ──────────────────────────────────────────────────── */
+
+/* The choices arrive just after their pane, so a fresh split reads as one
+   gesture settling rather than two things appearing at once. */
+.wsp-empty-block {
+    animation: wsp-enter .22s var(--ease-out-expo) .06s both
+}
+
+/* ── Closing ─────────────────────────────────────────────────────── */
+
+/* Splitting and closing run inside a view transition (see viewTransition.ts).
+   The pane area gets its own snapshot pair so the sidebar and the rail hold
+   still — cross-fading the whole page for a change inside one column would
+   animate three things to explain one. */
+.wsp-body {
+    view-transition-name: wsp-body
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none
+}
+
+::view-transition-old(wsp-body),
+::view-transition-new(wsp-body) {
+    animation-duration: .22s;
+    animation-timing-function: var(--ease-out-expo)
+}
+
+/* The entrances above would play on the new snapshot while the transition is
+   already cross-fading it, which reads as the same element animating twice. */
+html[data-wsp-transition] :is(.wsp-pane, .wsp-empty-block) {
+    animation: none
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────── */
+
+/* The cross-fade stays: without it a window switch has no transition at all
+   and the delayed `visibility` would leave the outgoing layer on screen. It
+   is a plain opacity fade, which is what reduced-motion asks for. */
+@media (prefers-reduced-motion: reduce) {
+    .wsp-pane,
+    .wsp-rail,
+    .wsp-spine,
+    .wsp-rail-chip,
+    .wsp-empty-block,
+    .chat-content > div:first-child:has(.chat-sidebar) {
+        animation: none
+    }
+}

@@ -98,6 +98,11 @@ export const SessionRow = React.memo(function SessionRow({
           className={`sb-session${isActive ? " active" : ""}${busy ? " busy" : ""}`}
           onClick={() => { if (!isRenaming) onSelect(); }}
           onContextMenu={onContextMenu}
+          // A traversal stop for `useListNav`. Depth 1: sessions hang off the
+          // project header, so `h` from here climbs to it.
+          data-list-item=""
+          data-list-key={session.id}
+          data-list-depth={1}
         >
           {/* A dot, not a boxed glyph. Every row carried the same chat bubble
               in the same box, so the icon column cost 6 boxes and told the

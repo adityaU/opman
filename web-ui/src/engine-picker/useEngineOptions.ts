@@ -7,11 +7,18 @@
  * alone, and the model was never checked at all — so a session could sit there
  * claiming a model its runner has never heard of. Ownership of that repair
  * belongs in one place, next to the lists it repairs.
+ *
+ * That repair only works if this hook is actually mounted. It used to live
+ * inside `EnginePalette`, which only exists while the picker is open — so an
+ * impossible pair (`Claude · zen/big-pickle`) would sit in the chip until the
+ * user opened the very surface that would have shown them the right value.
+ * `EngineChip` mounts it now and passes the lists down, so the invariant holds
+ * whenever the composer is on screen.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { AgentInfo } from "../api";
 import type { PermissionModeOption } from "../api/session";
-import { fetchAgents } from "../api";
+import { useAgents } from "../hooks/useAgents";
 import { useProviders } from "../hooks/useProviders";
 
 export interface ModelOption {
@@ -43,8 +50,7 @@ export function useEngineOptions(
   onAgentChange: (agentId: string) => void,
 ): EngineOptions {
   const providers = useProviders(runner);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [loadingAgents, setLoadingAgents] = useState(false);
+  const { agents, loading: loadingAgents } = useAgents(runner);
 
   const models = useMemo<ModelOption[]>(() => {
     const out: ModelOption[] = [];
@@ -68,19 +74,6 @@ export function useEngineOptions(
     });
     return out;
   }, [providers.all, providers.defaults, providers.connected]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingAgents(true);
-    fetchAgents(runner)
-      .then((fetched) => {
-        if (cancelled) return;
-        setAgents(fetched);
-      })
-      .catch(() => { if (!cancelled) setAgents([]); })
-      .finally(() => { if (!cancelled) setLoadingAgents(false); });
-    return () => { cancelled = true; };
-  }, [runner]);
 
   // Repair a selection the new runner cannot honour. Only ever downgrades to
   // that runner's own default — never silently swaps one working choice for

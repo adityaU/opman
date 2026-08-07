@@ -50,6 +50,9 @@ tower-http = { version = "0.6", features = ["cors", "set-header", "compression-g
 rust-embed = { version = "8", features = ["interpolate-folder-path", "compression"] }
 mime_guess = "2"
 base64 = "0.22"
+# Advisory file locking without `unsafe`: refresh tokens are single-use at most
+# authorization servers, so two proxies refreshing at once would revoke the grant.
+fs4 = { version = "0.12", features = ["sync"] }
 sha2 = "0.10"
 hmac = "0.12"
 async-stream = "0.3"

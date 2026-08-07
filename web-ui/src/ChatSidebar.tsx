@@ -22,6 +22,7 @@ import {
 import { loadPinnedSessions, savePinnedSessions } from "./sidebar/pinnedSessions";
 import { loadOpenSessions, pruneOpenSessions, saveOpenSessions } from "./sidebar/openSessions";
 import type { SessionTaskLink } from "./sidebar/useSessionTaskLinks";
+import { useListNav } from "./keybindings/useListNav";
 
 interface Props {
   projects: ProjectInfo[];
@@ -167,13 +168,26 @@ export const ChatSidebar = React.memo(function ChatSidebar({
     setExpandedKanbanTask((prev) => (prev === taskId ? null : taskId));
   }, []);
 
+  // The session list is a list, so it gets the list keys. Registered from the
+  // same place that renders it; the rows themselves say where the stops are.
+  useListNav({
+    surface: "sidebar",
+    commands: {
+      moveDown: "sidebar.moveDown",
+      moveUp: "sidebar.moveUp",
+      expand: "sidebar.expand",
+      collapse: "sidebar.collapse",
+      activate: "sidebar.open",
+    },
+  });
+
   return (
     <>
     {/* Mobile overlay backdrop */}
     {isMobileOpen && (
       <div className="sidebar-mobile-overlay" onClick={onClose} aria-hidden="true" />
     )}
-    <aside className={`chat-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
+    <aside className={`chat-sidebar ${isMobileOpen ? "mobile-open" : ""}`} data-surface="sidebar">
       <SidebarHeader
         projects={projects}
         activeProject={activeProject}

@@ -219,3 +219,20 @@ async fn pty_list_empty_ok() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v.as_array().unwrap().len(), 0);
 }
+
+// ── pty_activity ───────────────────────────────────────────────────
+
+#[tokio::test]
+async fn pty_activity_empty_ok() {
+    let state = test_server_state();
+    let resp = pty_activity(State(state), auth())
+        .await
+        .unwrap()
+        .into_response();
+    assert_eq!(resp.status(), axum::http::StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v.as_object().expect("an object of id -> state").len(), 0);
+}

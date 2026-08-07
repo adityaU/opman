@@ -1,10 +1,16 @@
-/* One inset for the whole right-hand stack.
+/* One inset for the whole desktop shell.
    The gap between cards, the tab strip's edges, and the terminal body's four
    sides were four different numbers (10px between cards, 4px before the first
    tab, 8px in the header, 0 around the body), so nothing lined up with anything
-   and the terminal ran flush to its card while its neighbours did not. */
+   and the terminal ran flush to its card while its neighbours did not.
+
+   It has since grown past the right-hand stack: `.chat-content` pays it on all
+   four sides and as its column gap, the resize handle's negative margin is
+   derived from it, and the workspace uses it for the rail gap and every
+   gutter. One number now separates every surface from every other surface and
+   from the viewport — so widening the shell is a single edit here. */
 :root {
-    --panel-inset: 10px;
+    --panel-inset: 12px;
 }
 
 .right-panel-stack {

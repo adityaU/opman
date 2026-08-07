@@ -1,18 +1,19 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { MODAL_HISTORY_KEY } from "../utils/navigation";
 
 export type ModalName =
-  | "commandPalette" | "modelPicker" | "agentPicker" | "themeSelector"
-  | "cheatsheet" | "todoPanel" | "sessionSelector" | "contextInput"
-  | "settings" | "watcher" | "contextWindow" | "diffReview"
-  | "searchBar" | "crossSearch" | "splitView" | "notificationPrefs"
+  | "commandPalette" | "modelPicker" | "agentPicker"
+  | "todoPanel" | "sessionSelector" | "contextInput"
+  | "watcher" | "contextWindow" | "diffReview"
+  | "searchBar" | "crossSearch" | "notificationPrefs"
   | "memory" | "autonomy" | "routines"
   | "addProject" | "systemMonitor" | "processHealth" | "autoOpen";
 
 /** Escape-key dismiss priority, highest first. */
 const ESCAPE_PRIORITY: ModalName[] = [
-  "commandPalette", "modelPicker", "agentPicker", "themeSelector",
-  "cheatsheet", "todoPanel", "sessionSelector", "contextInput",
-  "settings", "watcher", "contextWindow", "diffReview",
+  "commandPalette", "modelPicker", "agentPicker",
+  "todoPanel", "sessionSelector", "contextInput",
+  "watcher", "contextWindow", "diffReview",
   "searchBar", "crossSearch", "notificationPrefs",
   "memory", "autonomy", "routines",
   "addProject", "systemMonitor", "processHealth", "autoOpen",
@@ -21,18 +22,28 @@ const ESCAPE_PRIORITY: ModalName[] = [
 type ModalOpenState = Record<ModalName, boolean>;
 
 const INITIAL_STATE: ModalOpenState = Object.fromEntries(
-  ESCAPE_PRIORITY.concat("splitView").map((k) => [k, false]),
+  ESCAPE_PRIORITY.map((k) => [k, false]),
 ) as ModalOpenState;
 
-/** Sentinel on history.state to distinguish modal-pushed entries. */
-const MODAL_HISTORY_KEY = "_modalLayer";
+
+/**
+ * Whether the current history entry is one a modal open pushed.
+ *
+ * `appNavigate` pushes with a null state, so a page navigation is distinguishable from a
+ * modal entry — which is what tells a closing modal whether `history.back()` would unwind
+ * itself or somebody else's navigation.
+ */
+function ownsTopHistoryEntry(): boolean {
+  const state = window.history.state as Record<string, unknown> | null;
+  return Boolean(state && MODAL_HISTORY_KEY in state);
+}
 
 export interface ModalStateAPI {
   /** Check whether a modal is currently open. */
   isOpen: (name: ModalName) => boolean;
   /** Open a modal by name. */
   open: (name: ModalName) => void;
-  /** Close a modal by name (with side-effect cleanup for searchBar/splitView). */
+  /** Close a modal by name (with side-effect cleanup for searchBar/memory). */
   close: (name: ModalName) => void;
   /** Close a modal without navigating browser history. */
   closeSilent: (name: ModalName) => void;
@@ -48,8 +59,6 @@ export interface ModalStateAPI {
   activeSearchMatchId: string | null;
   setActiveSearchMatchId: React.Dispatch<React.SetStateAction<string | null>>;
   /* Split-view auxiliary state */
-  splitViewSecondaryId: string | null;
-  setSplitViewSecondaryId: React.Dispatch<React.SetStateAction<string | null>>;
   /** Open memory modal showing only active (scoped) memories. */
   openMemoryActive: () => void;
   /** Open memory modal showing all memories. */
@@ -67,7 +76,6 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
   const [modals, setModals] = useState<ModalOpenState>(INITIAL_STATE);
   const [searchMatchIds, setSearchMatchIds] = useState<Set<string>>(new Set());
   const [activeSearchMatchId, setActiveSearchMatchId] = useState<string | null>(null);
-  const [splitViewSecondaryId, setSplitViewSecondaryId] = useState<string | null>(null);
   const [memoryFilterActive, setMemoryFilterActive] = useState(false);
 
   // Keep a ref so closeTopModal doesn't depend on `modals` (avoids stale closure).
@@ -91,8 +99,6 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
     if (name === "searchBar") {
       setSearchMatchIds(new Set());
       setActiveSearchMatchId(null);
-    } else if (name === "splitView") {
-      setSplitViewSecondaryId(null);
     } else if (name === "memory") {
       setMemoryFilterActive(false);
     }
@@ -118,8 +124,15 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
       // Pop the matching history entry we pushed on open
       if (historyDepthRef.current > 0) {
         historyDepthRef.current -= 1;
-        suppressPopRef.current = true;
-        window.history.back();
+        // Only unwind while the entry on top is still the one this modal pushed.
+        // A navigation since then sits above it — a command palette row that opens
+        // a *page* is the case that broke: the row pushed `/settings`, this close
+        // ran `history.back()`, and the browser popped the page rather than the
+        // modal, landing the user back in the session they came from.
+        if (ownsTopHistoryEntry()) {
+          suppressPopRef.current = true;
+          window.history.back();
+        }
       }
       return { ...prev, [name]: false };
     });
@@ -131,8 +144,8 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
       if (!prev[name]) return prev;
       if (historyDepthRef.current > 0) {
         historyDepthRef.current -= 1;
-        const st = window.history.state as Record<string, unknown> | null;
-        if (st && MODAL_HISTORY_KEY in st) {
+        if (ownsTopHistoryEntry()) {
+          const st = window.history.state as Record<string, unknown>;
           const { [MODAL_HISTORY_KEY]: _, ...rest } = st;
           window.history.replaceState(Object.keys(rest).length ? rest : null, "");
         }
@@ -173,7 +186,8 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
 
       // Only handle popstate events that correspond to our modal history entries.
       // Mobile-overlay entries (_mobileOverlay) are handled by useMobileState.
-      // Session/panel entries are handled by useUrlState.
+      // Nothing else pushes entries any more: session and panel state left the
+      // URL, so the only other producers are the page routes themselves.
       // We check historyDepthRef rather than e.state because the *popped-to*
       // state may not carry our sentinel (the sentinel was on the entry we left).
       if (historyDepthRef.current > 0) {
@@ -208,7 +222,6 @@ export function useModalState(options?: ModalStateOptions): ModalStateAPI {
     isOpen, open, close, closeSilent, toggle, closeTopModal, modals,
     searchMatchIds, setSearchMatchIds,
     activeSearchMatchId, setActiveSearchMatchId,
-    splitViewSecondaryId, setSplitViewSecondaryId,
     openMemoryActive, openMemoryAll, memoryFilterActive,
   };
 }

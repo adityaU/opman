@@ -8,8 +8,10 @@ import {
   LSP_COMMANDS,
   RICH_FILE_COMMANDS,
 } from "./editor";
+import { NAV_COMMANDS, SIDEBAR_COMMANDS } from "./nav";
 import { BOARD_COMMANDS, GIT_COMMANDS, TERMINAL_COMMANDS } from "./panels";
 import { SESSION_COMMANDS } from "./session";
+import { WORKSPACE_COMMANDS, WORKSPACE_OVERLAY_COMMANDS } from "./workspace";
 
 /**
  * The command registry.
@@ -20,6 +22,10 @@ import { SESSION_COMMANDS } from "./session";
 export const COMMANDS: readonly CommandDef[] = [
   ...PALETTE_COMMANDS,
   ...LAYOUT_COMMANDS,
+  ...NAV_COMMANDS,
+  ...WORKSPACE_COMMANDS,
+  ...WORKSPACE_OVERLAY_COMMANDS,
+  ...SIDEBAR_COMMANDS,
   ...SESSION_COMMANDS,
   ...CHAT_COMMANDS,
   ...ENGINE_COMMANDS,
@@ -48,9 +54,12 @@ export function commandLabel(command: CommandDef): string {
 /** Category order used by the palette and the cheatsheet. */
 export const CATEGORY_ORDER: readonly string[] = [
   "Palette",
+  "Navigation",
   "Sessions",
+  "Sidebar",
   "Chat",
   "Engine",
+  "Workspace",
   "Layout",
   "Editor",
   "Language",

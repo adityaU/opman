@@ -30,30 +30,21 @@ export const LAYOUT_COMMANDS: readonly CommandDef[] = [
   { id: "layout.toggleEditor", title: "Toggle Editor and Explorer", category: "Layout", label: "editor" },
   { id: "layout.toggleGit", title: "Toggle Git Panel", category: "Layout", label: "git" },
   { id: "layout.toggleBoard", title: "Toggle Board", category: "Layout", label: "board" },
-  { id: "layout.toggleSplitView", title: "Toggle Split View", category: "Layout", label: "split" },
-  { id: "layout.focusChat", title: "Focus Chat", category: "Layout" },
-  { id: "layout.focusEditor", title: "Focus Editor", category: "Layout" },
-  { id: "layout.focusTerminal", title: "Focus Terminal", category: "Layout" },
-  { id: "layout.focusGit", title: "Focus Git Panel", category: "Layout" },
-  { id: "layout.focusBoard", title: "Focus Board", category: "Layout" },
   { id: "layout.focusExplorer", title: "Focus Explorer", category: "Layout", label: "explorer" },
-  { id: "layout.cycleFocusForward", title: "Focus Next Panel", category: "Layout" },
-  { id: "layout.cycleFocusBackward", title: "Focus Previous Panel", category: "Layout" },
-  { id: "layout.maximizePanel", title: "Maximize or Restore Panel", category: "Layout", label: "maximize" },
-  { id: "layout.cycleWindowFocus", title: "Cycle Panel Focus", category: "Layout", label: "cycle" },
   { id: "layout.escape", title: "Dismiss or Return to Chat", category: "Layout" },
 ];
 
 export const SYSTEM_COMMANDS: readonly CommandDef[] = [
   { id: "system.settings", title: "Open Settings", category: "System", label: "settings" },
-  { id: "system.keybindings", title: "Preferences: Keyboard Shortcuts", category: "System", label: "help" },
-  { id: "system.themeSelector", title: "Choose Color Theme", category: "System", label: "theme" },
+  { id: "system.keybindings", title: "Settings: Keyboard Shortcuts", category: "System", label: "help" },
+  { id: "system.themeSelector", title: "Settings: Color Theme", category: "System", label: "theme" },
+  { id: "system.mcpServers", title: "Settings: MCP Servers", category: "System", label: "mcp" },
+  { id: "system.skills", title: "Settings: Skills", category: "System", label: "skills" },
   { id: "system.toggleVimMode", title: "Toggle Vim Mode", category: "System", label: "vim mode" },
   { id: "system.monitor", title: "System Monitor", category: "System", label: "monitor" },
   { id: "system.processHealth", title: "Process Health", category: "System", label: "health" },
   { id: "system.debugPanel", title: "Toggle Debug Panel", category: "System", label: "debug" },
   { id: "system.refreshApp", title: "Reload Application", category: "System", label: "reload" },
-  { id: "system.uploadSkills", title: "Upload Skills…", category: "System", paletteOnly: true },
 ];
 
 export const PROJECT_COMMANDS: readonly CommandDef[] = [

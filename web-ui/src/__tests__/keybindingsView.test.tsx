@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG } from "../keybindings/config";
 import { KeymapProvider } from "../keybindings/KeymapContext";
-import { KeybindingsModal } from "../keybindings-view/KeybindingsModal";
+import { KeybindingsPanel } from "../keybindings-view/KeybindingsPanel";
 import { buildRows, filterRows } from "../keybindings-view/rows";
 import { builtInLayers } from "../keybindings/layers";
 import { Keymap } from "../keybindings/matcher";
@@ -13,6 +13,7 @@ import type { Host } from "../keybindings/types";
 const HOST: Host = { platform: "linux", target: "web", browser: "chrome" };
 
 const saved: unknown[] = [];
+const published: unknown[] = [];
 
 vi.mock("../api/keybindings", () => ({
   loadKeybindingsOrDefault: vi.fn(async () => ({
@@ -24,6 +25,12 @@ vi.mock("../api/keybindings", () => ({
     saved.push(config);
     return { config, diagnostics: [], path: "/home/u/.config/opman/keybindings.json" };
   }),
+  // The panel publishes every commit so the app-level keymap follows it; the real one
+  // dispatches a window event, and these tests mount the panel without a `KeymapRoot`.
+  KEYBINDINGS_CHANGED: "opman:keybindings-changed",
+  publishKeybindings: vi.fn((config: unknown) => {
+    published.push(config);
+  }),
 }));
 
 function keymap(mode: "normal" | "vim" = "normal") {
@@ -33,13 +40,14 @@ function keymap(mode: "normal" | "vim" = "normal") {
 function mount(mode: "normal" | "vim" = "normal") {
   return render(
     <KeymapProvider config={{ ...DEFAULT_CONFIG, mode }} host={HOST}>
-      <KeybindingsModal onClose={() => undefined} />
+      <KeybindingsPanel />
     </KeymapProvider>,
   );
 }
 
 beforeEach(() => {
   saved.length = 0;
+  published.length = 0;
 });
 
 describe("rows", () => {
@@ -83,7 +91,7 @@ describe("rows", () => {
   });
 });
 
-describe("KeybindingsModal", () => {
+describe("KeybindingsPanel", () => {
   it("renders the table with commands and their chords", async () => {
     mount();
     expect(await screen.findByText("Toggle Sidebar")).toBeTruthy();
@@ -123,6 +131,31 @@ describe("KeybindingsModal", () => {
 
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ mode: "vim" });
+  });
+
+  /* Writing the file is only half of it. The mode this view renders as active comes from
+     the app-level keymap, which holds its own copy and fetches it once at mount — so
+     without the publish the switch saves correctly and appears to have done nothing until
+     the page is reloaded. */
+  it("publishes a mode switch so the live keymap follows it", async () => {
+    mount();
+    await screen.findByText("Toggle Sidebar");
+    fireEvent.click(screen.getByText("Vim"));
+
+    expect(published).toHaveLength(1);
+    expect(published[0]).toMatchObject({ mode: "vim" });
+  });
+
+  it("publishes every other edit too, not just the mode", async () => {
+    mount();
+    const title = await screen.findByText("Toggle Sidebar");
+    const row = title.closest("li");
+
+    await userEvent.click(within(row as HTMLElement).getByTitle("Remove this keybinding"));
+
+    expect(published[0]).toMatchObject({
+      bindings: [{ key: "ctrl+b", command: "-layout.toggleSidebar" }],
+    });
   });
 
   it("removes a binding and records the removal entry", async () => {

@@ -18,6 +18,7 @@ fn q() -> Query<SseTokenQuery> {
     Query(SseTokenQuery {
         token: None,
         id: None,
+        replay: Replay::No,
     })
 }
 
@@ -185,4 +186,108 @@ async fn system_stats_stream_yields_a_sample() {
         s.contains("system_stats"),
         "expected a system_stats frame: {s:?}"
     );
+}
+
+// ── terminal_stream replay ──────────────────────────────────────────
+
+/// Spawn a real PTY whose program prints `marker` and then idles, and return a
+/// server state wired to it. Idling matters: a shell that exits is reaped, and
+/// `get_output` would then have nothing to hand the stream.
+async fn state_with_marker_pty(
+    dir: &std::path::Path,
+    marker: &str,
+) -> (ServerState, crate::web::pty_manager::RawOutputBuffer) {
+    use crate::web::pty_manager::pty_test_support::write_fake_bin;
+    let script = format!("echo {marker}; while true; do sleep 1; done");
+    let sh = write_fake_bin(dir, "replayshell", &script);
+    std::env::set_var("SHELL", sh.display().to_string());
+
+    let mut state = test_server_state();
+    state.pty_mgr = crate::web::pty_manager::start_web_pty_manager();
+    let buf = state
+        .pty_mgr
+        .spawn_shell("replay-term".into(), 24, 80, dir.to_path_buf())
+        .await
+        .expect("fake shell spawns");
+    (state, buf)
+}
+
+fn term_query(replay: Replay) -> Query<SseTokenQuery> {
+    Query(SseTokenQuery {
+        token: None,
+        id: Some("replay-term".into()),
+        replay,
+    })
+}
+
+/// Wait until the PTY reader thread has produced output, up to ~2s.
+async fn await_output(buf: &crate::web::pty_manager::RawOutputBuffer) {
+    for _ in 0..40 {
+        if buf.dirty.load(Ordering::Acquire) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
+#[tokio::test]
+async fn terminal_stream_replays_scrollback_to_a_reattaching_reader() {
+    let _g = crate::web::pty_manager::pty_test_support::env_lock();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (state, buf) = state_with_marker_pty(dir.path(), "MARKER_42").await;
+    await_output(&buf).await;
+
+    // First reader consumes the marker, exactly as a live tab would.
+    let first = terminal_stream(State(state.clone()), HeaderMap::new(), term_query(Replay::No))
+        .await
+        .expect("stream opens")
+        .into_response();
+    let live = collect_frames(first.into_body(), 2, 500).await;
+    assert!(decoded_frames(&live).contains("MARKER_42"), "live: {live:?}");
+    drop(live);
+
+    // A reload re-attaches: the bytes are already drained, so only replay can
+    // bring them back.
+    let second = terminal_stream(State(state), HeaderMap::new(), term_query(Replay::Yes))
+        .await
+        .expect("stream opens")
+        .into_response();
+    let replayed = collect_frames(second.into_body(), 1, 500).await;
+    assert!(
+        decoded_frames(&replayed).contains("MARKER_42"),
+        "replay: {replayed:?}"
+    );
+}
+
+#[tokio::test]
+async fn terminal_stream_without_replay_starts_blank() {
+    let _g = crate::web::pty_manager::pty_test_support::env_lock();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (state, buf) = state_with_marker_pty(dir.path(), "MARKER_99").await;
+    await_output(&buf).await;
+
+    let first = terminal_stream(State(state.clone()), HeaderMap::new(), term_query(Replay::No))
+        .await
+        .expect("stream opens")
+        .into_response();
+    let _ = collect_frames(first.into_body(), 2, 500).await;
+
+    let second = terminal_stream(State(state), HeaderMap::new(), term_query(Replay::No))
+        .await
+        .expect("stream opens")
+        .into_response();
+    let quiet = collect_frames(second.into_body(), 1, 300).await;
+    assert!(
+        !decoded_frames(&quiet).contains("MARKER_99"),
+        "a fresh spawn must not repaint history: {quiet:?}"
+    );
+}
+
+/// Concatenate the base64 payloads of every `data:` line back into text.
+fn decoded_frames(raw: &str) -> String {
+    raw.lines()
+        .filter_map(|l| l.strip_prefix("data:"))
+        .filter_map(|d| BASE64.decode(d.trim()).ok())
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .collect()
 }

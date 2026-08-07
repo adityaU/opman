@@ -154,6 +154,18 @@ fn sse_token_query_all_optional() {
     let empty: SseTokenQuery = serde_json::from_value(json!({})).unwrap();
     assert!(empty.token.is_none());
     assert!(empty.id.is_none());
+    // An unasked stream never replays.
+    assert_eq!(empty.replay, Replay::No);
+}
+
+#[test]
+fn sse_token_query_parses_replay_flag() {
+    let on: SseTokenQuery = serde_json::from_value(json!({"replay": "1"})).unwrap();
+    assert_eq!(on.replay, Replay::Yes);
+    let off: SseTokenQuery = serde_json::from_value(json!({"replay": "0"})).unwrap();
+    assert_eq!(off.replay, Replay::No);
+    let worded: SseTokenQuery = serde_json::from_value(json!({"replay": "true"})).unwrap();
+    assert_eq!(worded.replay, Replay::Yes);
 }
 
 #[test]

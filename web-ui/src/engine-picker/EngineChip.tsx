@@ -11,6 +11,7 @@ import { ChevronDown } from "lucide-react";
 import type { AgentInfo } from "../api";
 import { agentColor, shortModelName, RUNNER_LABELS } from "../prompt-input/helpers";
 import { EnginePalette } from "./EnginePalette";
+import { useEngineOptions } from "./useEngineOptions";
 
 interface Props {
   runner: string;
@@ -32,6 +33,25 @@ interface Props {
 
 export function EngineChip(props: Props) {
   const [open, setOpen] = useState(false);
+
+  /**
+   * Mounted here, not in the palette.
+   *
+   * This hook is what keeps runner, model and agent consistent with each
+   * other, and it can only do that while it is rendered. Inside the palette it
+   * ran solely when the picker was open, so the chip could advertise a pairing
+   * the runner has never heard of — `Claude · zen/big-pickle` — right up until
+   * the user opened the one surface that would have corrected it. The chip is
+   * the thing making the claim, so the chip carries the invariant.
+   */
+  const options = useEngineOptions(
+    props.runner,
+    props.selectedModel,
+    props.currentAgent,
+    props.onModelSelected,
+    props.onAgentChange,
+  );
+
   const agent = props.agents.find((a) => a.id === props.currentAgent);
   const agentLabel = agent?.label || props.currentAgent;
   const dot = agentColor(props.currentAgent, agent?.color);
@@ -77,6 +97,7 @@ export function EngineChip(props: Props) {
           onAgentChange={props.onAgentChange}
           onEffortChange={props.onEffortChange}
           onPermissionChange={props.onPermissionChange}
+          options={options}
           onClose={() => setOpen(false)}
         />
       )}
