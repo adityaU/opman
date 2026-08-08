@@ -32,7 +32,10 @@ fn accepts_a_completion_list() {
         "items": [item(json!({}))]
     }));
     assert_eq!(items.len(), 1);
-    assert!(incomplete, "an incomplete list must be re-queried, not filtered");
+    assert!(
+        incomplete,
+        "an incomplete list must be re-queried, not filtered"
+    );
 }
 
 #[test]

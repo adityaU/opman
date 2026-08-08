@@ -12,11 +12,19 @@ fn registry(spec: ServerSpec) -> McpRegistry {
 
 #[tokio::test]
 async fn a_server_that_is_not_declared_is_unavailable_rather_than_a_failure() {
-    let registry = registry(ServerSpec::stdio("known", "/bin/true", Vec::new(), Vec::new()));
+    let registry = registry(ServerSpec::stdio(
+        "known",
+        "/bin/true",
+        Vec::new(),
+        Vec::new(),
+    ));
 
     let outcome = catalog(&registry, "unknown", "/tmp").await;
 
-    assert!(matches!(outcome, Catalog::Unavailable { .. }), "{outcome:?}");
+    assert!(
+        matches!(outcome, Catalog::Unavailable { .. }),
+        "{outcome:?}"
+    );
 }
 
 /// A presence condition is opman's own decision not to offer the server, so it must not
@@ -29,7 +37,10 @@ async fn an_unmet_presence_condition_is_unavailable_not_failed() {
 
     let outcome = catalog(&registry, "gated", "/tmp").await;
 
-    assert!(matches!(outcome, Catalog::Unavailable { .. }), "{outcome:?}");
+    assert!(
+        matches!(outcome, Catalog::Unavailable { .. }),
+        "{outcome:?}"
+    );
 }
 
 /// `${session}` is why this exists: without a stand-in id, three built-ins would report

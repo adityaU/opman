@@ -58,7 +58,8 @@ impl DegradedReason {
 
 impl Mode {
     async fn resolve(name: &ServerName) -> Self {
-        let registry = crate::mcp_registry::McpRegistry::load(crate::mcp_registry::BuiltinFlags::default());
+        let registry =
+            crate::mcp_registry::McpRegistry::load(crate::mcp_registry::BuiltinFlags::default());
         let Some(spec) = registry.get(name.as_str()) else {
             return Self::Degraded(DegradedReason::NotConfigured);
         };
@@ -130,12 +131,7 @@ where
     Ok(())
 }
 
-async fn handle(
-    upstream: &Upstream,
-    name: &ServerName,
-    message: &Value,
-    id: Value,
-) -> Vec<Value> {
+async fn handle(upstream: &Upstream, name: &ServerName, message: &Value, id: Value) -> Vec<Value> {
     match upstream.send(message).await {
         Ok(values) => values,
         // Only a tool call is worth holding open. The handshake and the listings must be
@@ -144,7 +140,12 @@ async fn handle(
         // user a login is all that was missing. Answering locally also means the server
         // recovers on its own once the credential lands, with no restart.
         Err(UpstreamError::NeedsLogin) if !is_tool_call(message) => {
-            vec![degraded_reply(name, &DegradedReason::NotAuthenticated, message, id)]
+            vec![degraded_reply(
+                name,
+                &DegradedReason::NotAuthenticated,
+                message,
+                id,
+            )]
         }
         Err(UpstreamError::NeedsLogin) => {
             // Hold the call open rather than failing: emit progress while watching for
@@ -168,12 +169,7 @@ async fn handle(
     }
 }
 
-fn degraded_reply(
-    name: &ServerName,
-    reason: &DegradedReason,
-    message: &Value,
-    id: Value,
-) -> Value {
+fn degraded_reply(name: &ServerName, reason: &DegradedReason, message: &Value, id: Value) -> Value {
     let method = message.get("method").and_then(Value::as_str).unwrap_or("");
     match method {
         // Answer the handshake locally: a runner that gets a dead stdio server drops the

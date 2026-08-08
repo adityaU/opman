@@ -56,17 +56,8 @@ describe("usePaneEngine", () => {
       model: null,
       agent: "",
       effort: null,
-      permission: "on-request",
+      permission: "default",
     });
-  });
-
-  it("defaults permission per runner", () => {
-    const { result, setEngine } = harness(null);
-    act(() => result.current.setRunner("claude"));
-    expect(setEngine).toHaveBeenCalledWith(
-      "p1",
-      expect.objectContaining({ runner: "claude", permission: "default" }),
-    );
   });
 
   it("arms the runner switch once and disarms it after the send", () => {

@@ -1,8 +1,9 @@
 import { isMobileViewport } from "../hooks/useIsMobile";
 import React, { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 import type { ImageAttachment, FileSearchEntry, SessionStats } from "../api";
+import type { SlashCommand } from "../types";
 import { SlashCommandPopover } from "../SlashCommandPopover";
-import { NO_ARG_COMMANDS } from "./helpers";
+import { takesArguments } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
 import { useFileMention } from "./useFileMention";
 import { useMessageQueue } from "./useMessageQueue";
@@ -145,13 +146,13 @@ export function PromptInput({
     onContentChange?.(val.trim().length > 0);
   }, [onContentChange, atMention]);
 
-  const handleSlashSelect = useCallback((command: string) => {
+  const handleSlashSelect = useCallback((command: SlashCommand) => {
     setShowSlash(false);
-    if (NO_ARG_COMMANDS.has(command)) {
-      onCommand(command); setText(""); onContentChange?.(false);
-    } else {
-      setText(`/${command} `); onContentChange?.(true); textareaRef.current?.focus();
+    if (takesArguments(command)) {
+      setText(`/${command.name} `); onContentChange?.(true); textareaRef.current?.focus();
+      return;
     }
+    onCommand(command.name); setText(""); onContentChange?.(false);
   }, [onCommand, onContentChange]);
 
   const handleSlashClick = useCallback(() => {
@@ -196,7 +197,7 @@ export function PromptInput({
       {attach.dragOver && <DragOverlay />}
       {showSlash && (
         <SlashCommandPopover filter={text.startsWith("/") ? text.slice(1) : ""}
-          onSelect={handleSlashSelect} onClose={() => setShowSlash(false)} sessionId={sessionId} backend={backend} />
+          onSelect={handleSlashSelect} onClose={() => setShowSlash(false)} sessionId={sessionId} runner={currentRunner} />
       )}
       {showPopover && (
         <AtMentionPopover agents={atMention.filteredMentionAgents}

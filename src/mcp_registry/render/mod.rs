@@ -2,18 +2,15 @@
 //! that runner expects — nothing else in the crate knows those shapes.
 //!
 //! The renderers differ in more than key names: OpenCode and Claude take a timeout in
-//! milliseconds, Codex takes seconds under a different key, and ACP has no timeout field
-//! at all (its schema carries none, so the ceiling is set on the agent process's
-//! environment instead).
+//! milliseconds, while ACP has no timeout field at all (its schema carries none, so the
+//! ceiling is set on the agent process's environment instead).
 
 mod acp;
 mod claude;
-mod codex;
 mod opencode;
 
 pub use acp::servers as acp_servers;
 pub use claude::config as claude_mcp_config;
-pub use codex::config as codex_thread_config;
 pub use opencode::config as opencode_config;
 
 use serde_json::{Map, Value};

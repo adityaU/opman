@@ -43,10 +43,22 @@ pub(super) async fn command_list(State(engine): State<Engine>, headers: HeaderMa
         .iter()
         .filter_map(|c| {
             let name = c.get("name").and_then(Value::as_str)?;
-            Some(json!({
+            let mut command = json!({
                 "name": name,
                 "description": c.get("description").and_then(Value::as_str).unwrap_or(""),
-            }))
+            });
+            // ACP's optional `input.hint` is the agent's own word for what it expects after
+            // the command — "<pattern>", "[file]". Carried through as `args` so the picker
+            // shows the agent's phrasing rather than opman guessing at an argument shape.
+            let hint = c
+                .get("input")
+                .and_then(|input| input.get("hint"))
+                .and_then(Value::as_str)
+                .filter(|hint| !hint.is_empty());
+            if let (Some(hint), Some(object)) = (hint, command.as_object_mut()) {
+                object.insert("args".to_string(), Value::String(hint.to_string()));
+            }
+            Some(command)
         })
         .collect();
     Json(Value::Array(commands))

@@ -16,7 +16,12 @@ fn parsed(specs: &[ServerSpec], flags: BuiltinFlags) -> serde_json::Value {
 
 #[test]
 fn stdio_is_one_flat_command_array() {
-    let spec = ServerSpec::stdio("terminal", "/opman", vec![Arg::lit("mcp"), Arg::Dir], Vec::new());
+    let spec = ServerSpec::stdio(
+        "terminal",
+        "/opman",
+        vec![Arg::lit("mcp"), Arg::Dir],
+        Vec::new(),
+    );
     let json = parsed(&[spec], BuiltinFlags::default());
     let command = &json["mcp"]["terminal"]["command"];
     assert_eq!(command[0], "/opman");

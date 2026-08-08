@@ -27,7 +27,9 @@ pub async fn list_tools(
     let name = validate_name(&name)?;
     let dir = resolve_project_dir(&state).await?;
     let registry = state.mcp.current();
-    Ok(Json(crate::mcp_probe::catalog(&registry, &name, &dir).await))
+    Ok(Json(
+        crate::mcp_probe::catalog(&registry, &name, &dir).await,
+    ))
 }
 
 /// The same name rule the editing endpoints enforce, reported as a message rather than a

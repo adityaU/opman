@@ -111,17 +111,22 @@ function paneLabel(widget: WidgetState | null, projectName: string, ordinal: num
 
 /**
  * Pull DOM focus into the pane when it becomes the focused one — but only if
- * focus is not already inside it.
+ * focus is not already inside it, and only if its window is on screen.
  *
- * Without that guard, a pane containing a text input would steal the caret back
- * to its own wrapper on every unrelated re-render, and typing into a composer
- * would drop characters.
+ * Without the first guard, a pane containing a text input would steal the caret
+ * back to its own wrapper on every unrelated re-render, and typing into a
+ * composer would drop characters.
+ *
+ * The second guard is what lets `focused` mean "this window's focused pane"
+ * rather than "the focused pane". Every mounted window has one, and only the
+ * visible window's may hold the caret; `WindowLayer` adopts it on the way in.
  */
 function useAdoptFocus(ref: React.RefObject<HTMLElement>, focused: boolean): void {
   useEffect(() => {
     if (!focused) return;
     const element = ref.current;
     if (!element) return;
+    if (element.closest(".wsp-window:not(.is-active)")) return;
     if (element.contains(document.activeElement)) return;
     element.focus({ preventScroll: true });
   }, [focused, ref]);

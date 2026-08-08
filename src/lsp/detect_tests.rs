@@ -23,7 +23,10 @@ fn related_languages_share_a_server() {
     let ts = spec_for("typescript").unwrap();
     assert_eq!(spec_for("typescriptreact").unwrap().command, ts.command);
     assert_eq!(spec_for("javascript").unwrap().command, ts.command);
-    assert_eq!(spec_for("cpp").unwrap().command, spec_for("c").unwrap().command);
+    assert_eq!(
+        spec_for("cpp").unwrap().command,
+        spec_for("c").unwrap().command
+    );
 }
 
 #[test]
@@ -103,7 +106,10 @@ fn never_climbs_above_the_project_dir() {
     touch(&file);
 
     let root = project_root(&file, &project, &["Cargo.toml"]);
-    assert!(root.starts_with(&project), "resolved outside project: {root:?}");
+    assert!(
+        root.starts_with(&project),
+        "resolved outside project: {root:?}"
+    );
 }
 
 /// A missing binary is a normal state, not a failure — it decides whether the

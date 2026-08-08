@@ -54,7 +54,11 @@ fn stdio_entries_carry_no_type_field() {
 
 #[test]
 fn a_remote_reaches_an_agent_that_advertised_the_transport() {
-    let json = servers([&remote(RemoteKind::Http)], at(), RemoteCaps::new(true, false));
+    let json = servers(
+        [&remote(RemoteKind::Http)],
+        at(),
+        RemoteCaps::new(true, false),
+    );
     assert_eq!(json[0]["type"], "http");
     assert_eq!(json[0]["url"], "https://x/mcp");
     assert!(json[0]["headers"].is_array());
@@ -71,9 +75,17 @@ fn a_remote_is_proxied_for_an_agent_that_did_not() {
 
 #[test]
 fn an_sse_remote_needs_the_sse_capability_specifically() {
-    let http_only = servers([&remote(RemoteKind::Sse)], at(), RemoteCaps::new(true, false));
+    let http_only = servers(
+        [&remote(RemoteKind::Sse)],
+        at(),
+        RemoteCaps::new(true, false),
+    );
     assert_eq!(http_only[0]["args"][0], "mcp-proxy");
-    let sse_ok = servers([&remote(RemoteKind::Sse)], at(), RemoteCaps::new(false, true));
+    let sse_ok = servers(
+        [&remote(RemoteKind::Sse)],
+        at(),
+        RemoteCaps::new(false, true),
+    );
     assert_eq!(sse_ok[0]["type"], "sse");
 }
 

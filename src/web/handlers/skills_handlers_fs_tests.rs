@@ -130,8 +130,8 @@ async fn delete_skill_success_removes_dir() {
         State(state.clone()),
         axum::Json(req("del", "d", "c")),
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     let dir = xdg.skills_dir().join("del");
     assert!(dir.exists());
 
@@ -164,7 +164,12 @@ async fn update_skill_missing_still_404() {
 async fn delete_skill_missing_still_404() {
     let _xdg = XdgRedirect::new();
     let state = test_server_state();
-    let res = delete_skill(open(), State(state), Path(SkillName::parse("ghost_skill").expect("valid"))).await;
+    let res = delete_skill(
+        open(),
+        State(state),
+        Path(SkillName::parse("ghost_skill").expect("valid")),
+    )
+    .await;
     assert_eq!(res.unwrap_err(), StatusCode::NOT_FOUND);
 }
 

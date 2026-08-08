@@ -146,4 +146,3 @@ pub async fn abort(engine: Arc<AcpEngine>, session_id: &str) {
     }
     engine.set_busy(session_id, false);
 }
-

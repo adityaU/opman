@@ -20,7 +20,10 @@ fn renders_turns_in_creation_order_from_a_map() {
 
 #[test]
 fn empty_transcript_says_so() {
-    assert_eq!(render_transcript(&json!([])), "No transcript was available.");
+    assert_eq!(
+        render_transcript(&json!([])),
+        "No transcript was available."
+    );
 }
 
 #[test]

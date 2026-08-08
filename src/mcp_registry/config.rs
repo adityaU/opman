@@ -14,9 +14,7 @@ use opman_backend_contracts::RunnerKind;
 use serde::{Deserialize, Serialize};
 
 use super::parse;
-use super::spec::{
-    Auth, Presence, Remote, RemoteKind, RunnerScope, ServerSpec, Stdio, Transport,
-};
+use super::spec::{Auth, Presence, Remote, RemoteKind, RunnerScope, ServerSpec, Stdio, Transport};
 
 /// The whole `mcp.json` document.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

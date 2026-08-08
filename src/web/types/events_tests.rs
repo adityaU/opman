@@ -1,8 +1,6 @@
 use super::*;
 use crate::theme::ThemeColors;
-use crate::web::types::{
-    PresenceSnapshot, WatcherStatusEvent, WebSessionStats,
-};
+use crate::web::types::{PresenceSnapshot, WatcherStatusEvent, WebSessionStats};
 use ratatui::style::Color;
 use serde_json::json;
 

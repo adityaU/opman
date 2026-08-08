@@ -15,7 +15,7 @@ fn registry(names: &[&str]) -> Arc<McpRegistry> {
 
 fn names(registry: &McpRegistry) -> Vec<String> {
     registry
-        .for_runner(&opman_backend_contracts::RunnerKind::Codex)
+        .for_runner(&opman_backend_contracts::RunnerKind::Opencode)
         .map(|s| s.name().to_string())
         .collect()
 }

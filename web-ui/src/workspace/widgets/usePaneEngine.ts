@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { DEFAULT_PERMISSION } from "../../api/session";
 import { useWorkspaceChat } from "./WorkspaceChatContext";
 import type { PaneEngine } from "../types";
 
@@ -54,7 +55,7 @@ export function usePaneEngine(paneId: string, own: PaneEngine | null): PaneEngin
       // Model, agent, effort and permission all name things inside one runner's
       // catalogue, so they are cleared rather than carried across. The composer
       // repairs them against the new runner's own options.
-      patch({ runner, model: null, agent: "", effort: null, permission: defaultPermission(runner) });
+      patch({ runner, model: null, agent: "", effort: null, permission: DEFAULT_PERMISSION });
       setSwitchRunner(true);
     },
     [patch],
@@ -82,9 +83,4 @@ export function usePaneEngine(paneId: string, own: PaneEngine | null): PaneEngin
     }),
     [engine, runnerSent, setAgent, setEffort, setModel, setPermission, setRunner, switchRunner],
   );
-}
-
-/** Codex asks before acting by default; every other runner does not. */
-function defaultPermission(runner: string): string {
-  return runner === "codex" ? "on-request" : "default";
 }

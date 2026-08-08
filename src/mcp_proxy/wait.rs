@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use super::upstream::{Upstream, UpstreamError};
 use super::tool_error;
+use super::upstream::{Upstream, UpstreamError};
 use crate::mcp_oauth::ServerName;
 use crate::mcp_registry::AUTH_WAIT_SECS;
 
@@ -58,7 +58,9 @@ pub(crate) async fn hold_open(
                     emitted.push(tool_error(
                         &id,
                         message,
-                        format!("The MCP server \"{name}\" needs additional permissions ({scope})."),
+                        format!(
+                            "The MCP server \"{name}\" needs additional permissions ({scope})."
+                        ),
                     ));
                     emitted
                 }

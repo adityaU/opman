@@ -4,7 +4,10 @@ use super::*;
 
 #[test]
 fn shell_owning_its_own_terminal_is_idle() {
-    assert_eq!(PtyActivity::classify(Some(4242), Some(4242)), PtyActivity::Idle);
+    assert_eq!(
+        PtyActivity::classify(Some(4242), Some(4242)),
+        PtyActivity::Idle
+    );
 }
 
 #[test]

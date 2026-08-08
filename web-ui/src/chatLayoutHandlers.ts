@@ -1,13 +1,11 @@
 import {
   sendMessage, abortSession, executeCommand,
-  replyPermission, replyQuestion, rejectQuestion, newSession, switchProject,
-  fetchAppState,
+  replyPermission, replyQuestion, rejectQuestion, newSession,
 } from "./api";
-import type { ImageAttachment, PersonalMemoryItem } from "./api";
+import type { ImageAttachment } from "./api";
 import type { Message } from "./types";
 import { isMobileViewport } from "./hooks/useIsMobile";
-import { openSettings } from "./settings-page/useSettingsRoute";
-import type { SettingsSection } from "./settings-page/useSettingsRoute";
+import { findSlashCommand } from "./keybindings/commands";
 
 /* ── Deps interface ─────────────────────────────────────── */
 
@@ -29,8 +27,6 @@ export interface HandlerDeps {
   runnerSwitch: string | null;
   selectedEffort: string | null;
   selectedPermission: string;
-  sending: boolean;
-  activeMemoryItems: PersonalMemoryItem[];
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
@@ -50,23 +46,20 @@ export interface HandlerDeps {
   refreshMessages: (sessionId?: string | null, options?: { adoptView?: boolean }) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
-  setMobileSidebarOpen: (v: boolean) => void;
   /** Close mobile sidebar without history.back() — prevents undoing the session URL pushState. */
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string | null, projectIdx: number) => void;
-  openModal: (name: string) => void;
-  /** Signal that the next SSE session change is expected (for real session switches). */
-  expectSessionSwitch: () => void;
   /** Temporarily block background SSE-driven session adoption for non-switch actions. */
   blockSessionAdoption: (ms?: number) => void;
-  /** Open memory modal showing all memories (for /memory command). */
-  openMemoryAll: () => void;
-  toggleSidebar: () => void;
-  toggleTerminal: () => void;
-  toggleNeovim: () => void;
-  toggleGit: () => void;
-  toggleDebug: () => void;
+  /**
+   * Run a registered command by id, reporting whether a mounted surface handled it.
+   *
+   * This is how a `/name` reaches its implementation: the slash resolves to a command id
+   * and the keymap's own registry runs it, so the composer and the chord that share a
+   * command share one implementation rather than two that can drift.
+   */
+  runCommandId: (id: string) => boolean;
   /** Read current messages without including them in memo deps. */
   getMessages: () => Message[];
 }
@@ -80,36 +73,6 @@ export interface HandlerDeps {
  * re-sent and re-billed on every turn, and every client — queue flushes, the
  * kanban launcher, another browser tab — gets the same treatment.
  */
-
-/* ── Command → modal mapping ────────────────────────────── */
-
-const MODAL_COMMANDS: Record<string, string> = {
-  models: "modelPicker", model: "modelPicker", agent: "agentPicker",
-  todos: "todoPanel", sessions: "sessionSelector", context: "contextInput",
-  watcher: "watcher",
-  "context-window": "contextWindow", "diff-review": "diffReview",
-  search: "searchBar", "cross-search": "crossSearch",
-  "notification-prefs": "notificationPrefs",
-  memory: "memory", autonomy: "autonomy", routines: "routines",
-  system: "systemMonitor", htop: "systemMonitor", monitor: "systemMonitor",
-  health: "processHealth", "process-health": "processHealth",
-  "auto-open": "autoOpen", autoopen: "autoOpen",
-};
-
-/** Slash commands that open a section of the settings page rather than a modal. */
-const SETTINGS_COMMANDS: Record<string, SettingsSection> = {
-  settings: "appearance", theme: "appearance",
-  keys: "keybindings", keybindings: "keybindings",
-  mcp: "mcp", "mcp-servers": "mcp",
-  skills: "skills",
-};
-
-const TOGGLE_COMMANDS = new Set(["terminal", "neovim", "nvim", "git", "split-view", "debug"]);
-
-export const LOCAL_COMMANDS = new Set([
-  "new", "cancel", "copy",
-  ...Object.keys(MODAL_COMMANDS), ...Object.keys(SETTINGS_COMMANDS), ...TOGGLE_COMMANDS,
-]);
 
 /* ── Factory functions ──────────────────────────────────── */
 
@@ -211,74 +174,27 @@ export function createHandleAgentChange(deps: HandlerDeps) {
   };
 }
 
+/**
+ * Run a `/name` typed in the composer.
+ *
+ * One decision, made from the command registry: a name opman claims runs the command
+ * registered under that id, and every other name is the runner's. There is deliberately no
+ * list of agent commands to consult — an unknown name is forwarded, because the agent knows
+ * its own vocabulary and opman does not.
+ */
 export function createHandleCommand(deps: HandlerDeps) {
   return async (command: string, args?: string) => {
-    // /cancel — abort the running session (same as the Stop button)
-    if (command === "cancel") {
-      if (!deps.activeSessionId) return;
-      try {
-        await abortSession(deps.activeSessionId);
-        deps.addToast("Session cancelled", "info");
-      } catch {
-        deps.addToast("Failed to cancel session", "error");
+    const local = findSlashCommand(command);
+    if (local) {
+      // A false result means the id has no mounted handler: the command is opman's, so
+      // forwarding it to the agent would only send it a word it never claimed. Say so
+      // instead of doing nothing visible.
+      if (!deps.runCommandId(local.id)) {
+        deps.addToast(`${local.title} is not available here`, "warning");
       }
       return;
     }
 
-    // /new — create a new session
-    if (command === "new") {
-      if (!deps.appState) return;
-      try {
-      const projectIdx = deps.activeProjectIndex;
-        deps.setUrlSession(null, projectIdx);
-        // URL is the single source of truth — triggers beginSessionSwitch + API calls
-        deps.setSelectedModel(null);
-        
-        deps.setSelectedAgent("");
-
-        deps.addToast("New session created", "success");
-      } catch {
-        deps.addToast("Failed to create session", "error");
-      }
-      return;
-    }
-
-    // /copy — copy session transcript to clipboard
-    if (command === "copy") {
-      const msgs = deps.getMessages();
-      if (msgs.length === 0) { deps.addToast("Nothing to copy", "warning"); return; }
-      const lines: string[] = [];
-      for (const msg of msgs) {
-        const role = msg.info.role === "user" ? "User" : "Assistant";
-        for (const part of msg.parts) {
-          if (part.type === "text" && part.text) lines.push(`## ${role}\n\n${part.text}`);
-        }
-      }
-      if (lines.length === 0) { deps.addToast("No text content to copy", "warning"); return; }
-      try {
-        await navigator.clipboard.writeText(lines.join("\n\n---\n\n"));
-        deps.addToast("Session transcript copied to clipboard", "success");
-      } catch {
-        deps.addToast("Clipboard access denied", "error");
-      }
-      return;
-    }
-
-    // Toggle panels
-    if (command === "terminal") { deps.toggleTerminal(); return; }
-    if (command === "neovim" || command === "nvim") { deps.toggleNeovim(); return; }
-    if (command === "git") { deps.toggleGit(); return; }
-    if (command === "debug") { deps.toggleDebug(); return; }
-
-    // Modal commands (models, theme, sessions, settings, etc.)
-    // /memory from command palette shows ALL memories (not scoped)
-    if (command === "memory") { deps.openMemoryAll(); return; }
-    const section = SETTINGS_COMMANDS[command];
-    if (section) { openSettings(section); return; }
-    const modalName = MODAL_COMMANDS[command];
-    if (modalName) { deps.openModal(modalName); return; }
-
-    // Fallback: server-side command
     if (!deps.activeSessionId) return;
     try {
       await executeCommand(deps.activeSessionId, command, args);
@@ -286,6 +202,28 @@ export function createHandleCommand(deps: HandlerDeps) {
     } catch (err: unknown) {
       const detail = err instanceof Error ? err.message : "";
       deps.addToast(detail || `Command /${command} failed`, "error");
+    }
+  };
+}
+
+/** `/copy` — the transcript as markdown, on the clipboard. */
+export function createHandleCopyTranscript(deps: HandlerDeps) {
+  return async () => {
+    const msgs = deps.getMessages();
+    if (msgs.length === 0) { deps.addToast("Nothing to copy", "warning"); return; }
+    const lines: string[] = [];
+    for (const msg of msgs) {
+      const role = msg.info.role === "user" ? "User" : "Assistant";
+      for (const part of msg.parts) {
+        if (part.type === "text" && part.text) lines.push(`## ${role}\n\n${part.text}`);
+      }
+    }
+    if (lines.length === 0) { deps.addToast("No text content to copy", "warning"); return; }
+    try {
+      await navigator.clipboard.writeText(lines.join("\n\n---\n\n"));
+      deps.addToast("Session transcript copied to clipboard", "success");
+    } catch {
+      deps.addToast("Clipboard access denied", "error");
     }
   };
 }
@@ -323,75 +261,4 @@ export function createHandleQuestionDismiss(deps: HandlerDeps) {
       deps.addToast("Failed to dismiss question", "error");
     }
   };
-}
-
-export function createHandleSelectSession(deps: HandlerDeps) {
-  return (sessionId: string, projectIdx: number) => {
-    if (!deps.appState) return;
-    // Close mobile sidebar without history.back() so the subsequent
-    // pushState for the new session URL isn't undone by the async back().
-    deps.closeMobileSidebarSilent();
-    // URL is the single source of truth — this triggers beginSessionSwitch + API calls
-    deps.setUrlSession(sessionId, projectIdx);
-    deps.setSelectedModel(null);
-    deps.setSelectedAgent("");
-    deps.clearRunnerChoice();
-  };
-}
-
-export function createHandleNewSession(deps: HandlerDeps) {
-  return async () => {
-    if (!deps.appState) return;
-    try {
-      const projectIdx = deps.activeProjectIndex;
-      deps.setUrlSession(null, projectIdx);
-      deps.setSelectedModel(null);
-      deps.setSelectedModel(null);
-      deps.setSelectedAgent("");
-
-      deps.addToast("New session created", "success");
-    } catch {
-      deps.addToast("Failed to create session", "error");
-    }
-  };
-}
-
-export function createHandleSwitchProject(deps: HandlerDeps) {
-  return async (index: number) => {
-    try {
-      await switchProject(index);
-      // Fetch fresh state to discover the new project's active session
-      const freshState = await fetchAppState();
-      const proj = freshState.projects[index];
-      const newSid = proj?.active_session ?? null;
-      if (newSid) {
-        // URL is the single source of truth — triggers beginSessionSwitch + API calls
-        deps.setUrlSession(newSid, index);
-      }
-      deps.setSelectedModel(null);
-      deps.setSelectedAgent("");
-
-    } catch {
-      deps.addToast("Failed to switch project", "error");
-    }
-  };
-}
-
-export function createHandleModelSelected(deps: HandlerDeps) {
-  return (modelId: string, providerId: string) => {
-    deps.blockSessionAdoption();
-    deps.setSelectedModel({ providerID: providerId, modelID: modelId });
-    deps.addToast(`Model switched to ${modelId}`, "success");
-  };
-}
-
-/**
- * Runner a brand-new session should be created with.
- *
- * `appState.backend` names the CLI opman wraps, not a runner — both claude
- * engines report "claude-code" — so it can never identify one. `default_runner`
- * is the server's own answer; trust it and nothing else.
- */
-export function defaultRunner(appState: any): string {
-  return appState?.default_runner || "opencode";
 }

@@ -150,7 +150,10 @@ async fn live_prompt_streams_incrementally() {
                 if part["type"] == "tool" {
                     tools.push((
                         part["tool"].as_str().unwrap_or_default().to_string(),
-                        part["state"]["status"].as_str().unwrap_or_default().to_string(),
+                        part["state"]["status"]
+                            .as_str()
+                            .unwrap_or_default()
+                            .to_string(),
                     ));
                 }
             }
@@ -223,7 +226,10 @@ async fn live_capability_probe_populates_models_and_modes() {
         .as_object()
         .expect("models map in the provider payload");
     assert!(!listed.is_empty(), "provider payload exposed no models");
-    assert!(!payload["permissionModes"].as_array().unwrap_or(&vec![]).is_empty());
+    assert!(!payload["permissionModes"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .is_empty());
 }
 
 /// Drive a brand-new session the way the web layer does — `POST /session` then

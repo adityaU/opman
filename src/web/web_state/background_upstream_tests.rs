@@ -106,4 +106,3 @@ async fn startup_once_no_matching_sessions_leaves_active_none() {
     drop(st);
     srv.abort();
 }
-

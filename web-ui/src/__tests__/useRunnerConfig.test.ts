@@ -17,9 +17,10 @@ describe("useRunnerConfig", () => {
 
   it("defaults a runner it has never seen", () => {
     const { result } = renderHook(() => useRunnerConfig());
-    expect(result.current.recall("claude")).toEqual(emptyConfig("claude"));
-    // Codex has a different permission vocabulary, so its default differs.
-    expect(result.current.recall("codex").permission).toBe("on-request");
+    expect(result.current.recall("claude")).toEqual(emptyConfig());
+    // Every runner opens on the same permission: the ones with a real permission
+    // model report their own modes, and that list replaces this value.
+    expect(result.current.recall("codex")).toEqual(emptyConfig());
   });
 
   it("keeps each runner's configuration apart", () => {
@@ -72,7 +73,7 @@ describe("useRunnerConfig", () => {
   it("shrugs off corrupt storage", () => {
     localStorage.setItem("opman-runner-config", "{not json");
     const { result } = renderHook(() => useRunnerConfig());
-    expect(result.current.recall("claude")).toEqual(emptyConfig("claude"));
+    expect(result.current.recall("claude")).toEqual(emptyConfig());
     expect(result.current.lastRunner()).toBe("");
     act(() => { result.current.remember("claude", { agent: "build" }); });
     expect(result.current.recall("claude").agent).toBe("build");
@@ -85,7 +86,7 @@ describe("useRunnerConfig", () => {
       localStorage.setItem("opman-runner-config", junk);
       const { result, unmount } = renderHook(() => useRunnerConfig());
       expect(result.current.lastRunner()).toBe("");
-      expect(result.current.recall("claude")).toEqual(emptyConfig("claude"));
+      expect(result.current.recall("claude")).toEqual(emptyConfig());
       unmount();
     }
   });

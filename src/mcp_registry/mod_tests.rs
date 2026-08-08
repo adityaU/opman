@@ -1,5 +1,5 @@
 //! The registry itself, and the one test that justifies the module existing: the same
-//! server set rendering into all four runner shapes.
+//! server set rendering into every runner shape.
 
 use super::*;
 use crate::mcp_registry::config::{McpConfig, ServerConfig};
@@ -12,7 +12,7 @@ fn user(raw: &str) -> McpConfig {
 #[test]
 fn builtins_load_when_the_user_has_no_config() {
     let registry = McpRegistry::from_config(BuiltinFlags::ALL, McpConfig::default());
-    let all = RunnerKind::Codex;
+    let all = RunnerKind::Opencode;
     let names: Vec<_> = registry.for_runner(&all).map(ServerSpec::name).collect();
     assert!(names.contains(&"terminal"));
     assert!(names.contains(&"time"));
@@ -57,10 +57,8 @@ fn runner_scoping_is_honoured() {
         BuiltinFlags::default(),
         user(r#"{"servers":{"only-codex":{"command":"x","runners":["codex"]}}}"#),
     );
-    let in_codex: Vec<_> = registry
-        .for_runner(&RunnerKind::Codex)
-        .map(ServerSpec::name)
-        .collect();
+    let codex = RunnerKind::Acp("codex".into());
+    let in_codex: Vec<_> = registry.for_runner(&codex).map(ServerSpec::name).collect();
     let in_opencode: Vec<_> = registry
         .for_runner(&RunnerKind::Opencode)
         .map(ServerSpec::name)
@@ -69,42 +67,19 @@ fn runner_scoping_is_honoured() {
     assert!(!in_opencode.contains(&"only-codex"));
 }
 
-#[test]
-fn binds_session_is_false_when_no_offered_server_needs_one() {
-    let registry = McpRegistry::from_specs(
-        vec![ServerSpec::stdio(
-            "time",
-            "/opman",
-            vec![Arg::lit("mcp-time")],
-            Vec::new(),
-        )],
-        BuiltinFlags::default(),
-    );
-    assert!(!registry.binds_session(&RunnerKind::Codex));
-}
-
-#[test]
-fn binds_session_is_true_when_one_does() {
-    let registry = McpRegistry::from_specs(
-        vec![ServerSpec::stdio(
-            "t",
-            "/opman",
-            vec![Arg::lit("mcp")],
-            vec![("S".into(), Arg::SessionId)],
-        )],
-        BuiltinFlags::default(),
-    );
-    assert!(registry.binds_session(&RunnerKind::Codex));
-}
-
-/// The regression guard for "one registry, four shapes". Nothing like it existed while
-/// the four injection sites were hand-rolled, which is exactly why they drifted.
+/// The regression guard for "one registry, every shape". Nothing like it existed while
+/// the injection sites were hand-rolled, which is exactly why they drifted.
 #[test]
 fn one_registry_renders_every_runner_with_the_same_server_set() {
     let registry = McpRegistry::from_specs(
         vec![
             ServerSpec::stdio("time", "/opman", vec![Arg::lit("mcp-time")], Vec::new()),
-            ServerSpec::stdio("ext", "npx", vec![Arg::lit("-y"), Arg::lit("pkg")], Vec::new()),
+            ServerSpec::stdio(
+                "ext",
+                "npx",
+                vec![Arg::lit("-y"), Arg::lit("pkg")],
+                Vec::new(),
+            ),
         ],
         BuiltinFlags::default(),
     );
@@ -113,7 +88,6 @@ fn one_registry_renders_every_runner_with_the_same_server_set() {
     let claude = render::claude_mcp_config(registry.for_runner(&RunnerKind::ClaudeCode), at)
         .expect("claude payload");
     let claude: serde_json::Value = serde_json::from_str(&claude).expect("claude json");
-    let codex = render::codex_thread_config(registry.for_runner(&RunnerKind::Codex), at);
     let acp = render::acp_servers(
         registry.for_runner(&RunnerKind::Acp("claude".into())),
         at,
@@ -133,12 +107,6 @@ fn one_registry_renders_every_runner_with_the_same_server_set() {
         .keys()
         .cloned()
         .collect();
-    let mut codex_names: Vec<_> = codex["mcp_servers"]
-        .as_object()
-        .expect("object")
-        .keys()
-        .cloned()
-        .collect();
     let mut acp_names: Vec<_> = acp
         .as_array()
         .expect("array")
@@ -151,16 +119,10 @@ fn one_registry_renders_every_runner_with_the_same_server_set() {
         .keys()
         .cloned()
         .collect();
-    for names in [
-        &mut claude_names,
-        &mut codex_names,
-        &mut acp_names,
-        &mut opencode_names,
-    ] {
+    for names in [&mut claude_names, &mut acp_names, &mut opencode_names] {
         names.sort();
     }
     assert_eq!(claude_names, ["ext", "time"]);
-    assert_eq!(codex_names, claude_names);
     assert_eq!(acp_names, claude_names);
     assert_eq!(opencode_names, claude_names);
 }

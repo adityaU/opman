@@ -5,15 +5,21 @@ use super::*;
 #[test]
 fn a_resource_uri_is_canonicalised() {
     assert_eq!(
-        canonical_resource("https://mcp.example.com/mcp/").expect("ok").as_str(),
+        canonical_resource("https://mcp.example.com/mcp/")
+            .expect("ok")
+            .as_str(),
         "https://mcp.example.com/mcp"
     );
     assert_eq!(
-        canonical_resource("https://mcp.example.com/mcp#frag").expect("ok").as_str(),
+        canonical_resource("https://mcp.example.com/mcp#frag")
+            .expect("ok")
+            .as_str(),
         "https://mcp.example.com/mcp"
     );
     assert_eq!(
-        canonical_resource("https://mcp.example.com/mcp?a=b").expect("ok").as_str(),
+        canonical_resource("https://mcp.example.com/mcp?a=b")
+            .expect("ok")
+            .as_str(),
         "https://mcp.example.com/mcp"
     );
 }

@@ -146,7 +146,11 @@ async fn malformed_input_is_answered_and_the_loop_survives() {
 async fn blank_lines_are_skipped() {
     let out = drive(
         Vec::new(),
-        &["", "   ", r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#],
+        &[
+            "",
+            "   ",
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+        ],
     )
     .await;
     assert_eq!(out.len(), 1);

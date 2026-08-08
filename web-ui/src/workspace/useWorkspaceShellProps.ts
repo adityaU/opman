@@ -104,12 +104,17 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
    * A pane's chrome: which project, what it is showing, and whether its agent
    * is working. Recomputed per render rather than memoised per pane — it reads
    * three fields and memoising per widget identity would cost more than it saves.
+   *
+   * Deliberately *not* read through `latest`, unlike its neighbours here. A
+   * mounted window re-renders when this function's identity changes and at no
+   * other time (see `WindowView`), so a ref would freeze every pane header's
+   * subtitle and busy dot at whatever they were when the window was last
+   * touched. These two inputs are the whole reason it may change.
    */
   const describe = useCallback(
     (widget: WidgetState | null): PaneContext => {
       if (!widget) return { projectName: "", subtitle: null, busy: false };
-      const state = latest.current;
-      const project = (state.appState?.projects ?? []).find(
+      const project = (appState?.projects ?? []).find(
         (candidate: { path: string }) => candidate.path === widget.projectPath,
       );
       const projectName = project?.name ?? basename(widget.projectPath);
@@ -123,10 +128,10 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
       return {
         projectName,
         subtitle: widget.sessionId ? session?.title ?? widget.sessionId.slice(0, 8) : "New session",
-        busy: widget.sessionId ? state.busySessions.has(widget.sessionId) : false,
+        busy: widget.sessionId ? deps.busySessions.has(widget.sessionId) : false,
       };
     },
-    [],
+    [appState?.projects, deps.busySessions],
   );
 
   /**

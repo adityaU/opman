@@ -134,6 +134,9 @@ pub struct ServerState {
     pub internal_token: String,
     /// Common runtime runner registry used by session handlers.
     pub runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+    /// The live ACP engines. Reconcilable against `acp.json`, so the settings page can add,
+    /// edit or remove an agent and have the runner appear or disappear without a restart.
+    pub acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
     /// MCP OAuth logins waiting on a browser. Held here rather than per request because
     /// the flow outlives the request that started it: the settings page gets the
     /// authorize URL back immediately and delivers the callback in a second call.

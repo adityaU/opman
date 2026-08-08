@@ -33,7 +33,11 @@ pub(crate) fn arg(raw: &str, server: &str) -> Arg {
                 parts.push(parsed);
             }
             None => {
-                tracing::warn!(server, token, "unknown placeholder in mcp.json, kept literal");
+                tracing::warn!(
+                    server,
+                    token,
+                    "unknown placeholder in mcp.json, kept literal"
+                );
                 literal.push_str(&rest[..start + len + 1]);
             }
         }

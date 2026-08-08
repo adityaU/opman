@@ -28,7 +28,9 @@ pub(super) async fn bind(port: u16) -> Result<(TcpListener, String), OAuthError>
 }
 
 /// Accept one request and return its query parameters.
-pub(super) async fn wait_for_callback(listener: TcpListener) -> Result<BTreeMap<String, String>, OAuthError> {
+pub(super) async fn wait_for_callback(
+    listener: TcpListener,
+) -> Result<BTreeMap<String, String>, OAuthError> {
     let (mut stream, _) = tokio::time::timeout(BROWSER_TIMEOUT, listener.accept())
         .await
         .map_err(|_| OAuthError::Discovery("timed out waiting for the browser".into()))?
@@ -93,7 +95,6 @@ pub(crate) fn validate_response(
         .cloned()
         .ok_or_else(|| OAuthError::Denied("no authorization code returned".into()))
 }
-
 
 #[cfg(test)]
 #[path = "callback_tests.rs"]

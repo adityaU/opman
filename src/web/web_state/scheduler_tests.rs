@@ -75,13 +75,7 @@ async fn update_next_run_no_cron_sets_none() {
     let h = WebStateHandle::new_test();
     insert(
         &h,
-        routine(
-            "r1",
-            RoutineTrigger::Scheduled,
-            None,
-            true,
-            Some("x"),
-        ),
+        routine("r1", RoutineTrigger::Scheduled, None, true, Some("x")),
     )
     .await;
     h.update_next_run("r1").await;
@@ -142,13 +136,7 @@ async fn recompute_all_next_runs_updates_scheduled() {
     .await;
     insert(
         &h,
-        routine(
-            "manual",
-            RoutineTrigger::Manual,
-            None,
-            true,
-            None,
-        ),
+        routine("manual", RoutineTrigger::Manual, None, true, None),
     )
     .await;
     h.recompute_all_next_runs().await;

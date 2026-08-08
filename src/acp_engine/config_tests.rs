@@ -70,6 +70,52 @@ fn builtin_claude_uses_the_renamed_acp_package() {
     assert_eq!(claude.default_mode, "bypassPermissions");
 }
 
+/// Codex used to be a compile-time runner driving `codex app-server` over its own
+/// JSON-RPC. It is an ACP agent now, so "is Codex available" has to be answerable from
+/// config alone — with no config file present.
+#[test]
+fn builtin_codex_ships_as_an_acp_agent() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let cfg = load_without_file();
+    let codex = cfg.agents.get("codex").expect("built-in codex entry");
+    assert!(codex.launchable());
+    assert!(
+        codex
+            .args
+            .iter()
+            .any(|a| a.contains("@agentclientprotocol/codex-acp")),
+        "expected the renamed adapter package in args, got {:?}",
+        codex.args
+    );
+    // The runner slot keeps the name every persisted session and UI label already uses.
+    assert_eq!(codex.runner, "codex");
+    // Codex's ACP modes are approval policies, so they belong in the permission
+    // dropdown rather than the agent picker.
+    assert!(!codex.modes_are_agents);
+    // The adapter opens on `agent`; restating it here would just drift from the adapter.
+    assert!(codex.default_mode.is_empty());
+    // Only Claude writes the transcripts the subagent enrichment reads.
+    assert!(!codex.subagent_transcripts);
+    assert_eq!(
+        cfg.for_runner("codex").map(|(id, _)| id.as_str()),
+        Some("codex")
+    );
+}
+
+/// The distinction the patch document exists for: an explicit empty value is a decision,
+/// where the previous merge could not tell it from silence and would restore the built-in.
+#[test]
+fn an_explicit_empty_value_clears_the_builtin_one() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let (cfg, _dir) = load_with(r#"{"agents":{"claude":{"args":[],"defaultMode":""}}}"#);
+    let claude = cfg.agents.get("claude").expect("claude entry");
+    assert!(claude.args.is_empty(), "got {:?}", claude.args);
+    assert!(claude.default_mode.is_empty());
+    // Clearing two fields must not disturb the rest of the built-in definition.
+    assert!(!claude.command.is_empty());
+    assert!(claude.subagent_transcripts);
+}
+
 #[test]
 fn partial_user_entry_keeps_the_builtin_launch_command() {
     let _guard = ENV_LOCK.lock().unwrap();

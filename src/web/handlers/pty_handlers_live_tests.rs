@@ -157,9 +157,13 @@ async fn spawn_opencode_with_explicit_session_id() {
 async fn pty_activity_reports_a_live_shell() {
     let dir = tempfile::tempdir().unwrap();
     let state = live_state(dir.path());
-    let ok = spawn_pty(State(state.clone()), auth(), axum::Json(spawn_req("shell", "act1")))
-        .await
-        .is_ok();
+    let ok = spawn_pty(
+        State(state.clone()),
+        auth(),
+        axum::Json(spawn_req("shell", "act1")),
+    )
+    .await
+    .is_ok();
     assert!(ok, "shell spawns");
 
     let resp = pty_activity(State(state), auth())

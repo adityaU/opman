@@ -250,6 +250,7 @@ fn build_opts_assembles_turn_options() {
         claude_cli::InitInfo {
             commands: vec![],
             agents: vec!["Plan".into()],
+            ..Default::default()
         },
     );
     e.set_model(&s.id, "opus");

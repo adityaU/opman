@@ -96,8 +96,8 @@ fn a_request_renders_frontmatter_that_survives_a_round_trip() {
     let body = r#"{"name":"demo","description":"Fix: it","content":"BODY","requires":["jira"]}"#;
     let req: CreateSkillRequest = serde_json::from_str(body).expect("parses");
     let rendered = req.render().expect("renders");
-    let parsed = crate::mcp_skills::format::parse_skill_md(&rendered, &name("demo"))
-        .expect("round trips");
+    let parsed =
+        crate::mcp_skills::format::parse_skill_md(&rendered, &name("demo")).expect("round trips");
     assert_eq!(parsed.description, "Fix: it");
     assert_eq!(parsed.requires, ["jira"]);
 }

@@ -251,7 +251,11 @@ fn upstream_agents(listed: &serde_json::Value) -> Vec<AgentEntry> {
                     .and_then(|d| d.as_str())
                     .unwrap_or("")
                     .to_string(),
-                mode: v.get("mode").and_then(|m| m.as_str()).unwrap_or("all").to_string(),
+                mode: v
+                    .get("mode")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("all")
+                    .to_string(),
                 hidden: v.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false),
                 native: v.get("native").and_then(|n| n.as_bool()).unwrap_or(false),
                 color: v.get("color").and_then(|c| c.as_str()).map(str::to_string),

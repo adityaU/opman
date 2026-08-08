@@ -146,8 +146,15 @@ export async function executeCommand(
   });
 }
 
-export async function fetchCommands(): Promise<SlashCommand[]> {
-  const data = await apiFetch<unknown>("/commands");
+/**
+ * The slash commands a runner advertises for the active project.
+ *
+ * The runner is named explicitly: every agent has a different set, so asking without one
+ * returns the default engine's commands and quietly offers the wrong list to every other.
+ */
+export async function fetchCommands(runner?: string): Promise<SlashCommand[]> {
+  const query = runner ? `?runner=${encodeURIComponent(runner)}` : "";
+  const data = await apiFetch<unknown>(`/commands${query}`);
   if (Array.isArray(data)) return data as SlashCommand[];
   return [];
 }
@@ -255,6 +262,15 @@ export interface AgentInfo {
   color?: string;
 }
 
+/**
+ * The permission mode a runner opens on before it has one of its own.
+ *
+ * No runner needs a special case here: the HTTP runners understand this value, and
+ * every engine with a real permission model reports its modes and the default it was
+ * configured with, which replaces this as soon as the list arrives.
+ */
+export const DEFAULT_PERMISSION = "default";
+
 export const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
   opencode: [
     { id: "build", label: "Build", description: "Default coding agent", mode: "primary", native: true },
@@ -262,7 +278,6 @@ export const RUNNER_AGENT_FALLBACKS: Record<string, AgentInfo[]> = {
   ],
   "claude-code": [{ id: "default", label: "Default", description: "Claude Code default agent", mode: "primary", native: true }],
   claude: [{ id: "default", label: "Default", description: "Claude default agent", mode: "primary", native: true }],
-  codex: [{ id: "default", label: "Default", description: "Codex default agent", mode: "primary", native: true }],
 };
 
 /**

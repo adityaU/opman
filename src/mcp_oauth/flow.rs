@@ -5,11 +5,11 @@
 //! only the request line, and degrade to printing the URL when no browser can be opened.
 
 use base64::Engine;
-use url::Url;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use url::Url;
 
-use super::callback::{bind, wait_for_callback, validate_response};
+use super::callback::{bind, validate_response, wait_for_callback};
 use super::discovery::{discover, AuthServerMetadata};
 use super::store::{now_secs, TokenRecord};
 use super::{OAuthError, Secret, ServerName};
@@ -96,7 +96,10 @@ async fn client_identity(
         .json()
         .await
         .map_err(|e| OAuthError::Http(e.to_string()))?;
-    Ok((registered.client_id, registered.client_secret.map(Secret::new)))
+    Ok((
+        registered.client_id,
+        registered.client_secret.map(Secret::new),
+    ))
 }
 
 // ── token endpoint ──────────────────────────────────────────────────────────────────
@@ -163,7 +166,9 @@ pub async fn login(
         &params,
         &state,
         &discovered.meta.issuer,
-        discovered.meta.authorization_response_iss_parameter_supported,
+        discovered
+            .meta
+            .authorization_response_iss_parameter_supported,
     )?;
 
     let mut form = vec![
@@ -215,7 +220,10 @@ pub async fn refresh(
     let token: TokenResponse = post_form(http, &record.token_endpoint, &form).await?;
     Ok(TokenRecord {
         access_token: Secret::new(token.access_token),
-        refresh_token: token.refresh_token.map(Secret::new).or(record.refresh_token),
+        refresh_token: token
+            .refresh_token
+            .map(Secret::new)
+            .or(record.refresh_token),
         expires_at: token.expires_in.map(|secs| now_secs() + secs),
         granted_scopes: split_scopes(token.scope.as_deref())
             .into_iter()

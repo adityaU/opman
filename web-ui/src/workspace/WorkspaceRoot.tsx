@@ -1,12 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { EmptyPane } from "./EmptyPane";
-import { Pane } from "./Pane";
-import { PaneTree } from "./PaneTree";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WindowLayer } from "./WindowLayer";
 import { WindowRail } from "./WindowRail";
-import { ordinalOfPane } from "./nav";
+import { WindowView } from "./WindowView";
 import { withViewTransition } from "./viewTransition";
-import { paneCount } from "./tree";
 import type { WorkspaceAction } from "./reducer";
 import type {
   PaneId,
@@ -16,7 +12,6 @@ import type {
   WidgetState,
   WindowId,
   Workspace,
-  WorkspaceWindow,
 } from "./types";
 
 /**
@@ -31,7 +26,17 @@ import type {
  * shell, which is what keeps this directory free of the app's SSE, session and
  * project plumbing — and what lets a pane hold anything the shell can render
  * without this file learning about it.
+ *
+ * Every callback handed to `WindowView` has to keep one identity for the life
+ * of the workspace, and `renderWidget` and `describePane` with it: a switch
+ * changes `activeWindowId` and nothing else, so a memoised window can only bail
+ * out of re-rendering if none of its props moved. That is the entire cost model
+ * of a window switch — two class names and a focus call, or three transcripts
+ * re-parsed through react-markdown.
  */
+
+/** Matches the `.wsp-window` opacity transition in workspace-motion.css. */
+const SWITCH_MS = 160;
 
 export interface PaneContext {
   readonly projectName: string;
@@ -42,7 +47,7 @@ export interface PaneContext {
 export interface WorkspaceRootProps {
   readonly workspace: Workspace;
   readonly dispatch: (action: WorkspaceAction) => void;
-  readonly renderWidget: (widget: WidgetState, pane: PaneNode) => React.ReactNode;
+  readonly renderWidget: (widget: WidgetState, pane: PaneNode, focused: boolean) => React.ReactNode;
   /** Project name, live subtitle and busy state for a pane's chrome. */
   readonly describePane: (widget: WidgetState | null) => PaneContext;
   /** Windows with a busy agent inside — drives the rail and spine pulse. */
@@ -116,6 +121,31 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
     return () => root.removeAttribute("data-wsp-zen");
   }, [workspace.chrome.zen]);
 
+  /**
+   * Promote the window layers to their own compositing layers, but only while a
+   * switch is actually in flight.
+   *
+   * The switch cross-fades two full-screen trees. Without a promotion the
+   * browser repaints both on every frame of it, which was the most expensive
+   * thing about changing windows; with one, the fade is a compositor property
+   * and costs nothing. `will-change` left on permanently would hold a
+   * full-screen layer per mounted window forever, which trades the frame cost
+   * for GPU memory that grows with the desk. An attribute for the duration of
+   * the transition buys the frames and gives the memory back.
+   *
+   * Written to the DOM rather than held in state: it is presentation with a
+   * timer on it, and two extra renders of the whole workspace to say "still
+   * fading" would be the very work this exists to avoid.
+   */
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    body.dataset.wspSwitching = "";
+    const timer = setTimeout(() => delete body.dataset.wspSwitching, SWITCH_MS);
+    return () => clearTimeout(timer);
+  }, [workspace.activeWindowId]);
+
   const onFocus = useCallback((pane: PaneId) => dispatch({ type: "focusPane", pane }), [dispatch]);
 
   // Structural changes go through a view transition: closing a pane has no
@@ -151,73 +181,31 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
     [dispatch],
   );
 
-  const renderPaneIn = useCallback(
-    (win: WorkspaceWindow, visible: boolean, total: number) => (pane: PaneNode) => {
-      const context = describePane(pane.widget);
-      const ordinal = ordinalOfPane(win.root, pane.id) ?? 1;
-      return (
-        <Pane
-          key={pane.id}
-          pane={pane}
-          ordinal={ordinal}
-          // Only the visible window may own focus. `Pane` pulls DOM focus to
-          // itself when this is true, so a hidden window's focused pane would
-          // yank the caret out of the one being typed in.
-          focused={visible && pane.id === win.focusedPaneId}
-          showHeader={workspace.chrome.paneHeaders}
-          canClose={total > 1}
-          projectName={context.projectName}
-          subtitle={context.subtitle}
-          busy={context.busy || busyPanes.has(pane.id)}
-          onFocus={onFocus}
-          onSplit={onSplit}
-          onClose={onClose}
-          onMenu={onPaneMenu}
-          zen={workspace.chrome.zen}
-          onToggleZen={onToggleZen}
-          onDragWidget={onDragWidget}
-          onDragWidgetEnd={onDragWidgetEnd}
-          dragSource={pane.id === dragSourcePane}
-        >
-          {pane.widget ? (
-            renderWidget(pane.widget, pane)
-          ) : (
-            <EmptyPane paneId={pane.id} compact={total > 3} onChoose={onOpenWidget} />
-          )}
-        </Pane>
-      );
-    },
-    [
-      busyPanes,
-      describePane,
-      dragSourcePane,
-      onClose,
-      onDragWidget,
-      onDragWidgetEnd,
-      onFocus,
-      onOpenWidget,
-      onPaneMenu,
-      onSplit,
-      onToggleZen,
-      renderWidget,
-      workspace.chrome.paneHeaders,
-      workspace.chrome.zen,
-    ],
-  );
-
   return (
     <div className="wsp-root" data-workspace="desktop">
-      <div className="wsp-body">
+      <div className="wsp-body" ref={bodyRef}>
         {live.map((win) => (
-          <WindowLayer key={win.id} active={win.id === workspace.activeWindowId}>
-            <PaneTree
-              node={win.root}
-              zoomedPaneId={win.zoomedPaneId}
-              renderPane={renderPaneIn(
-                win,
-                win.id === workspace.activeWindowId,
-                paneCount(win.root),
-              )}
+          <WindowLayer
+            key={win.id}
+            active={win.id === workspace.activeWindowId}
+            focusedPaneId={win.focusedPaneId}
+          >
+            <WindowView
+              win={win}
+              describePane={describePane}
+              renderWidget={renderWidget}
+              busyPanes={busyPanes}
+              showHeaders={workspace.chrome.paneHeaders}
+              zen={workspace.chrome.zen}
+              dragSourcePane={dragSourcePane}
+              onFocus={onFocus}
+              onSplit={onSplit}
+              onClose={onClose}
+              onMenu={onPaneMenu}
+              onToggleZen={onToggleZen}
+              onOpenWidget={onOpenWidget}
+              onDragWidget={onDragWidget}
+              onDragWidgetEnd={onDragWidgetEnd}
               onResize={onResize}
               onEqualize={onEqualize}
             />

@@ -18,7 +18,8 @@ import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useChatCallbacks } from "./hooks/useChatCallbacks";
 import { buildCommandHandlers } from "./chatLayoutCommands";
 import { useCommands, useWhenContext } from "./keybindings/useCommand";
-import { defaultRunner } from "./chatLayoutHandlers";
+import { useKeymapContext } from "./keybindings/KeymapContext";
+import { defaultRunner } from "./chatSessionHandlers";
 import { ChatMainArea } from "./ChatMainArea";
 import { ModalLayer } from "./ModalLayer";
 import { MobileDock } from "./MobileDock";
@@ -36,16 +37,14 @@ import { StartupGate } from "./StartupGate";
 import { isMobileViewport } from "./hooks/useIsMobile";
 import { useWorkspaceShellProps } from "./workspace/useWorkspaceShellProps";
 
-function defaultPermissionForRunner(runner: string): string {
-  if (runner === "claude" || runner === "claude-code") return "default";
-  if (runner === "codex") return "on-request";
-  return "default";
-}
-
 export function ChatLayout() {
   // Latches once the app has painted for the first time; see the startup gate
   // below.
   const hasStartedRef = useRef(false);
+
+  // A `/name` in the composer resolves to a command id and runs through the same registry
+  // as its chord, so the two can never drift into separate implementations.
+  const { runCommand } = useKeymapContext();
 
   // ── Core SSE state ──
   const sse = useSSE();
@@ -378,22 +377,15 @@ export function ChatLayout() {
     selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
     runnerForNewSession: currentRunner, runnerSwitch,
     selectedEffort: currentSettings.effort, selectedPermission: currentSettings.permission,
-    sending: model.sending, activeMemoryItems: assistant.activeMemoryItems,
     setSending: model.setSending, setSelectedModel: selectModel,
     setSelectedAgent: selectAgent, clearRunnerChoice, bindRunnerChoice,
     setMobileInputHidden: mobile.setInputHidden,
     addToast, addOptimisticMessage, clearOptimistic, refreshState, refreshMessages: sse.refreshMessages,
     clearPermission, clearQuestion,
-    setMobileSidebarOpen: mobile.setSidebarOpen,
     closeMobileSidebarSilent: mobile.closeSidebarSilent,
     setUrlSession,
-    openModal,
-    expectSessionSwitch: sse.expectSessionSwitch,
     blockSessionAdoption: sse.blockSessionAdoption,
-    openMemoryAll: modalState.openMemoryAll,
-    toggleSidebar: panels.sidebar.toggle, toggleTerminal: panels.terminal.toggle,
-    toggleNeovim: panels.editor.toggle, toggleGit: panels.git.toggle,
-    toggleDebug: panels.debug.toggle,
+    runCommandId: runCommand,
     getMessages,
   });
 
@@ -534,8 +526,11 @@ export function ChatLayout() {
     toggleBoard: openKanban,
     toggleDebug: panels.debug.toggle,
     newSession: handleNewSessionOrTarget,
-    runSlashCommand: handlers.handleCommand,
+    abortSession: handlers.handleAbort,
+    copyTranscript: handlers.handleCopyTranscript,
+    forwardToRunner: handlers.handleCommand,
     openMemoryActive,
+    openMemoryAll,
     reloadApp: () => window.location.reload(),
   }));
 

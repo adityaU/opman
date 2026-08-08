@@ -70,7 +70,9 @@ fn expired_without_a_refresh_token_is_unusable() {
 #[test]
 fn a_saved_record_round_trips() {
     let (store, dir) = temp_store("roundtrip");
-    store.save(&name(), &record(Some(9_999), Some("rt"))).expect("save");
+    store
+        .save(&name(), &record(Some(9_999), Some("rt")))
+        .expect("save");
     let loaded = store.load(&name()).expect("load");
     assert_eq!(loaded.access_token.expose(), "at");
     assert_eq!(loaded.refresh_token.expect("rt").expose(), "rt");
@@ -130,7 +132,9 @@ fn a_secret_does_not_print_itself() {
 async fn concurrent_refreshes_run_the_exchange_exactly_once() {
     let (store, dir) = temp_store("refresh-once");
     let store = Arc::new(store);
-    store.save(&name(), &record(Some(1), Some("rt"))).expect("save");
+    store
+        .save(&name(), &record(Some(1), Some("rt")))
+        .expect("save");
 
     let calls = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
@@ -164,7 +168,9 @@ async fn concurrent_refreshes_run_the_exchange_exactly_once() {
 #[tokio::test]
 async fn refresh_once_skips_the_exchange_when_the_record_is_already_fresh() {
     let (store, dir) = temp_store("already-fresh");
-    store.save(&name(), &record(Some(9_999), Some("rt"))).expect("save");
+    store
+        .save(&name(), &record(Some(9_999), Some("rt")))
+        .expect("save");
     let calls = AtomicUsize::new(0);
     let out = store
         .refresh_once(&name(), 1_000, |old| {

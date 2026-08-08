@@ -44,6 +44,15 @@
     transition: opacity .16s var(--ease-out-expo), visibility 0s .16s
 }
 
+/* A cross-fade between two full-screen trees is a repaint of both on every
+   frame unless each one owns a compositing layer. `WorkspaceRoot` sets this
+   attribute for the length of the transition and takes it off again, because
+   `will-change` left on permanently would hold one full-screen layer per
+   mounted window for as long as the desk exists. */
+.wsp-body[data-wsp-switching] .wsp-window {
+    will-change: opacity
+}
+
 /* ── Panes ───────────────────────────────────────────────────────── */
 
 /* A new pane arrives; it does not appear to have always been there. Scoped to

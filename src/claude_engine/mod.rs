@@ -10,6 +10,7 @@
 //! `tailer.rs` (live event streaming + busy/idle polling), `routes.rs` (REST).
 
 pub(crate) mod claude_cli;
+mod command_meta;
 mod events;
 pub(crate) mod jsonl;
 pub(crate) mod models;
@@ -1373,6 +1374,7 @@ mod lifecycle_tests {
                     "general-purpose".into(),
                     "Plan".into(),
                 ],
+                ..Default::default()
             },
         );
         // opencode aliases translate; case-insensitive real names normalize.

@@ -203,12 +203,7 @@ async fn named_runner_agents_come_from_that_runner() {
     let (state, _tmp) = state_with_two_runners(&opencode, &claude).await;
     let (status, body) = scope_base_url(
         opencode.clone(),
-        send_json(
-            test_router(state),
-            "GET",
-            "/api/agents?runner=claude",
-            None,
-        ),
+        send_json(test_router(state), "GET", "/api/agents?runner=claude", None),
     )
     .await;
 

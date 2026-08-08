@@ -354,6 +354,10 @@ pub struct InitInfo {
     pub commands: Vec<String>,
     /// Real agents available as `--agent <name>` (built-ins + project/user agents).
     pub agents: Vec<String>,
+    /// Descriptions read from the command and skill files behind `commands`, keyed by the
+    /// definition's own name. The init event carries no prose of its own, so this is filled
+    /// in by `command_meta` rather than by the CLI.
+    pub descriptions: std::collections::HashMap<String, String>,
 }
 
 /// Introspect what claude exposes for a directory (slash commands + agents).

@@ -40,7 +40,10 @@ impl AuthLookup for Fixed {
 #[test]
 fn a_tool_name_is_prefixed_and_slugged() {
     let mut taken = HashSet::new();
-    assert_eq!(tool_name_for(&name("jira-triage"), &mut taken), "skill_jira_triage");
+    assert_eq!(
+        tool_name_for(&name("jira-triage"), &mut taken),
+        "skill_jira_triage"
+    );
 }
 
 #[test]
@@ -75,7 +78,10 @@ fn the_pair_is_always_present() {
 
 #[test]
 fn each_skill_gets_its_own_tool() {
-    let store = store_with(vec![skill("alpha", "A", vec![]), skill("beta", "B", vec![])]);
+    let store = store_with(vec![
+        skill("alpha", "A", vec![]),
+        skill("beta", "B", vec![]),
+    ]);
     let tools = tool_definitions(&store, &NoAuthInfo);
     let names: Vec<_> = tools
         .as_array()

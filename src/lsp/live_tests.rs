@@ -43,7 +43,11 @@ async fn starts_rust_analyzer_and_reports_capabilities() {
     }
     let dir = fixture();
     let file = dir.path().join("src/main.rs");
-    std::fs::write(&file, "fn main() {\n    let n: i32 = 1;\n    println!(\"{n}\");\n}\n").unwrap();
+    std::fs::write(
+        &file,
+        "fn main() {\n    let n: i32 = 1;\n    println!(\"{n}\");\n}\n",
+    )
+    .unwrap();
 
     let pool = Arc::new(LspPool::new());
     let resolved = pool
@@ -131,7 +135,10 @@ async fn diagnostics_report_a_real_error() {
     let mut found: serde_json::Value = serde_json::json!({});
     for _ in 0..40 {
         found = super::api::diagnostics(&pool, &file, dir.path(), Some(source)).await;
-        if found["diagnostics"].as_array().is_some_and(|d| !d.is_empty()) {
+        if found["diagnostics"]
+            .as_array()
+            .is_some_and(|d| !d.is_empty())
+        {
             break;
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -165,14 +172,18 @@ async fn completion_offers_methods_after_a_dot() {
     let mut found = serde_json::json!({});
     // Column 11 on line 3 is just after `items.`.
     for _ in 0..30 {
-        found = super::api::completion(&pool, &file, dir.path(), 3, 11, Some(source), Some(".")).await;
+        found =
+            super::api::completion(&pool, &file, dir.path(), 3, 11, Some(source), Some(".")).await;
         if found["items"].as_array().is_some_and(|i| !i.is_empty()) {
             break;
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    assert_eq!(found["available"], true, "completion should be available: {found}");
+    assert_eq!(
+        found["available"], true,
+        "completion should be available: {found}"
+    );
     let labels: Vec<String> = found["items"]
         .as_array()
         .map(|items| {
@@ -189,7 +200,10 @@ async fn completion_offers_methods_after_a_dot() {
     );
 
     // Trigger characters must reach the editor, or it never re-queries on `.`.
-    let triggers = found["triggerCharacters"].as_array().cloned().unwrap_or_default();
+    let triggers = found["triggerCharacters"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     assert!(
         triggers.iter().any(|t| t == "."),
         "rust-analyzer reports `.` as a trigger, got: {triggers:?}"

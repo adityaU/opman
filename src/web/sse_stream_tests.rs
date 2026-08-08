@@ -238,12 +238,19 @@ async fn terminal_stream_replays_scrollback_to_a_reattaching_reader() {
     await_output(&buf).await;
 
     // First reader consumes the marker, exactly as a live tab would.
-    let first = terminal_stream(State(state.clone()), HeaderMap::new(), term_query(Replay::No))
-        .await
-        .expect("stream opens")
-        .into_response();
+    let first = terminal_stream(
+        State(state.clone()),
+        HeaderMap::new(),
+        term_query(Replay::No),
+    )
+    .await
+    .expect("stream opens")
+    .into_response();
     let live = collect_frames(first.into_body(), 2, 500).await;
-    assert!(decoded_frames(&live).contains("MARKER_42"), "live: {live:?}");
+    assert!(
+        decoded_frames(&live).contains("MARKER_42"),
+        "live: {live:?}"
+    );
     drop(live);
 
     // A reload re-attaches: the bytes are already drained, so only replay can
@@ -266,10 +273,14 @@ async fn terminal_stream_without_replay_starts_blank() {
     let (state, buf) = state_with_marker_pty(dir.path(), "MARKER_99").await;
     await_output(&buf).await;
 
-    let first = terminal_stream(State(state.clone()), HeaderMap::new(), term_query(Replay::No))
-        .await
-        .expect("stream opens")
-        .into_response();
+    let first = terminal_stream(
+        State(state.clone()),
+        HeaderMap::new(),
+        term_query(Replay::No),
+    )
+    .await
+    .expect("stream opens")
+    .into_response();
     let _ = collect_frames(first.into_body(), 2, 500).await;
 
     let second = terminal_stream(State(state), HeaderMap::new(), term_query(Replay::No))

@@ -174,7 +174,10 @@ export interface ModelInfo {
 export interface SlashCommand {
   name: string;
   description?: string;
+  /** The runner's own hint for what follows the command, e.g. `<pattern>`. */
   args?: string;
+  /** An opencode command's prompt template; interpolates `$ARGUMENTS` when it takes any. */
+  template?: string;
 }
 
 // ── Todo types ──────────────────────────────────────────────────────

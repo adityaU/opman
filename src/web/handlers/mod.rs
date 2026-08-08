@@ -6,6 +6,8 @@
 //! State queries use the independent `WebStateHandle` (no TUI dependency).
 //! Terminal I/O goes directly to the `WebPtyManager` (independent web PTYs).
 
+mod acp_handlers;
+mod acp_upsert;
 mod agents_handlers;
 mod auth_handlers;
 mod common;
@@ -22,23 +24,23 @@ mod git_context_handlers;
 mod git_ext_handlers;
 mod git_handlers;
 mod health_handlers;
-mod memory_handlers;
 mod kanban_handlers;
 mod kanban_internal;
 mod kanban_internal_query;
+mod keybindings_handlers;
+mod mcp_handlers;
+mod mcp_login;
+mod mcp_login_state;
+mod mcp_tools_handlers;
+mod mcp_upsert;
+mod memory_handlers;
 mod presence_handlers;
 mod project_handlers;
 mod pty_handlers;
 mod routines_handlers;
 mod search_handlers;
 mod session_handlers;
-mod mcp_handlers;
-mod mcp_login;
-mod mcp_login_state;
-mod mcp_tools_handlers;
-mod mcp_upsert;
 mod skills_handlers;
-mod keybindings_handlers;
 mod state_handlers;
 pub(crate) mod system_handlers;
 mod watcher_handlers;
@@ -120,11 +122,13 @@ pub use routines_handlers::{
 
 pub use system_handlers::get_system_stats;
 
+pub use acp_handlers::{delete_agent, list_agents, set_agent_enabled};
+pub use acp_upsert::upsert_agent;
 pub use mcp_handlers::{delete_server, list_servers, set_enabled};
-pub use mcp_tools_handlers::list_tools;
-pub use mcp_upsert::upsert_server;
 pub use mcp_login::{finish_login, logout_server, start_login};
 pub use mcp_login_state::LoginSessions;
+pub use mcp_tools_handlers::list_tools;
+pub use mcp_upsert::upsert_server;
 pub use skills_handlers::{
     create_skill, delete_skill, get_skill, list_skills, update_skill, upload_skills,
 };

@@ -12,6 +12,7 @@
  * state, so restoring a config can never feed back into recording one.
  */
 import { useCallback, useRef, useState } from "react";
+import { DEFAULT_PERMISSION } from "../api/session";
 
 export interface ModelRef {
   providerID: string;
@@ -27,12 +28,8 @@ export interface RunnerConfig {
 
 const STORAGE_KEY = "opman-runner-config";
 
-function defaultPermission(runner: string): string {
-  return runner === "codex" ? "on-request" : "default";
-}
-
-export function emptyConfig(runner: string): RunnerConfig {
-  return { model: null, agent: "", effort: null, permission: defaultPermission(runner) };
+export function emptyConfig(): RunnerConfig {
+  return { model: null, agent: "", effort: null, permission: DEFAULT_PERMISSION };
 }
 
 /**
@@ -99,8 +96,8 @@ export function useRunnerConfig(): RunnerConfigStore {
 
   const recall = useCallback((runner: string): RunnerConfig => {
     const stored = ref.current.runners[runner];
-    if (!stored) return emptyConfig(runner);
-    return { ...emptyConfig(runner), ...stored };
+    if (!stored) return emptyConfig();
+    return { ...emptyConfig(), ...stored };
   }, []);
 
   const lastRunner = useCallback(() => ref.current.lastRunner, []);
@@ -132,7 +129,7 @@ export function useRunnerConfig(): RunnerConfigStore {
         ...current,
         runners: {
           ...current.runners,
-          [runner]: { ...emptyConfig(runner), ...current.runners[runner], ...meaningful },
+          [runner]: { ...emptyConfig(), ...current.runners[runner], ...meaningful },
         },
       };
       persist(next);

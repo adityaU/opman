@@ -97,7 +97,10 @@ fn ttl_ms_reads_env() {
 // ---- reap_snapshot / clear_short_ids ----------------------------------
 
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 fn seed(engine: &Arc<ClaudeEngine>, e: SessionEntry) {

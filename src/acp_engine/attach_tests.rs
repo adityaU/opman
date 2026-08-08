@@ -160,10 +160,7 @@ fn message_parts_carry_the_attachment_for_preview() {
     assert_eq!(parts[1]["mime"], "image/png");
     assert_eq!(parts[1]["filename"], "shot.png");
     // A data URL, because the renderer puts it straight into an `<img src>`.
-    assert_eq!(
-        parts[1]["url"],
-        format!("data:image/png;base64,{PNG}")
-    );
+    assert_eq!(parts[1]["url"], format!("data:image/png;base64,{PNG}"));
     // Ids stay unique within the message so the part map cannot collapse them.
     assert_eq!(parts[0]["id"], "msg_user_1:0");
     assert_eq!(parts[1]["id"], "msg_user_1:1");

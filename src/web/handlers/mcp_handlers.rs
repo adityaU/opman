@@ -150,7 +150,9 @@ pub(super) fn commit(state: &ServerState, document: &McpConfig) -> Result<(), St
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     state.mcp.reload();
-    let _ = state.event_tx.send(crate::web::types::WebEvent::McpServersChanged);
+    let _ = state
+        .event_tx
+        .send(crate::web::types::WebEvent::McpServersChanged);
     Ok(())
 }
 

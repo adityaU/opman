@@ -94,5 +94,4 @@ impl AcpEngine {
     pub fn take_followup(&self, id: &str) -> Option<Prompt> {
         self.followups.lock().ok()?.remove(id)
     }
-
 }

@@ -73,4 +73,3 @@ pub(super) fn new_tool_part(session_id: &str, message_id: &str, call_id: &str) -
         "state": { "status": "running", "input": {}, "time": { "start": super::now_ms() } },
     })
 }
-

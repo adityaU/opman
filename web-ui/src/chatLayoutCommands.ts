@@ -1,4 +1,5 @@
 import type { CommandHandler } from "./keybindings/KeymapContext";
+import { RUNNER_SLASH_COMMANDS } from "./keybindings/commands";
 import type { ModalName } from "./hooks/useModalState";
 import { toggleSettings } from "./settings-page/useSettingsRoute";
 import type { SettingsSection } from "./settings-page/useSettingsRoute";
@@ -23,8 +24,12 @@ export interface CommandDeps {
   readonly toggleBoard: () => void;
   readonly toggleDebug: () => void;
   readonly newSession: () => void;
-  readonly runSlashCommand: (name: string) => void;
+  readonly abortSession: () => void;
+  readonly copyTranscript: () => void;
+  /** Send a slash command to the agent serving the session. */
+  readonly forwardToRunner: (name: string) => void;
   readonly openMemoryActive: () => void;
+  readonly openMemoryAll: () => void;
   readonly reloadApp: () => void;
 }
 
@@ -65,18 +70,6 @@ const SETTINGS_COMMANDS: Readonly<Record<string, SettingsSection>> = {
   "system.skills": "skills",
 };
 
-/** Commands that dispatch an existing slash command. */
-const SLASH_COMMANDS: Readonly<Record<string, string>> = {
-  "chat.compact": "compact",
-  "chat.undoTurn": "undo",
-  "chat.redoTurn": "redo",
-  "chat.clear": "clear",
-  "chat.abort": "cancel",
-  "chat.copyTranscript": "copy",
-  "session.fork": "fork",
-  "session.share": "share",
-};
-
 export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandHandler> {
   const handlers: Record<string, CommandHandler> = {
     "layout.toggleSidebar": deps.toggleSidebar,
@@ -91,7 +84,10 @@ export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandH
     },
     "session.new": deps.newSession,
     "session.newInProject": deps.newSession,
+    "chat.abort": deps.abortSession,
+    "chat.copyTranscript": deps.copyTranscript,
     "assistant.instructions": deps.openMemoryActive,
+    "assistant.memories": deps.openMemoryAll,
     "system.debugPanel": deps.toggleDebug,
     "system.refreshApp": deps.reloadApp,
   };
@@ -104,8 +100,11 @@ export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandH
     handlers[command] = () => toggleSettings(section);
   }
 
-  for (const [command, slash] of Object.entries(SLASH_COMMANDS)) {
-    handlers[command] = () => deps.runSlashCommand(slash);
+  // Commands the *agent* runs. The registry names them, so a chord for "compact" and the
+  // `/compact` the runner advertises are the same command reaching the same place — and
+  // adding one is a line in the registry rather than a second table to keep in step.
+  for (const command of RUNNER_SLASH_COMMANDS) {
+    handlers[command.id] = () => deps.forwardToRunner(command.slash.name);
   }
 
   return handlers;

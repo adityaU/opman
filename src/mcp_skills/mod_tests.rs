@@ -24,7 +24,10 @@ fn the_skills_dir_honours_the_env_override() {
     // The seam tests and future per-project skills both need.
     let previous = std::env::var("OPMAN_SKILLS_DIR").ok();
     std::env::set_var("OPMAN_SKILLS_DIR", "/tmp/opman-skills-override");
-    assert_eq!(get_skills_dir(), PathBuf::from("/tmp/opman-skills-override"));
+    assert_eq!(
+        get_skills_dir(),
+        PathBuf::from("/tmp/opman-skills-override")
+    );
     match previous {
         Some(value) => std::env::set_var("OPMAN_SKILLS_DIR", value),
         None => std::env::remove_var("OPMAN_SKILLS_DIR"),
@@ -82,7 +85,10 @@ async fn a_reload_signal_refreshes_the_registry() {
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
-    assert!(registry.read().await.contains_key(&SkillName::parse("alpha").expect("valid")));
+    assert!(registry
+        .read()
+        .await
+        .contains_key(&SkillName::parse("alpha").expect("valid")));
 
     std::env::remove_var("OPMAN_SKILLS_DIR");
     let _ = std::fs::remove_dir_all(&root);

@@ -97,7 +97,12 @@ async fn a_warm_transcript_is_served_without_touching_the_agent() {
     let id = cold_session(&engine, Some("acp-1"));
     engine.with_transcript(&id, |t| {
         let mut out = Vec::new();
-        t.chunk(super::super::emit::Chunk::Text, Some("m1"), "hello", &mut out);
+        t.chunk(
+            super::super::emit::Chunk::Text,
+            Some("m1"),
+            "hello",
+            &mut out,
+        );
     });
     assert_eq!(messages(&engine, &id).await.len(), 1);
     assert!(!engine.was_hydrated(&id));

@@ -103,7 +103,9 @@ pub fn from_lsp_position(text: &str, position: &Value, encoding: PositionEncodin
 }
 
 fn nth_line(text: &str, index: usize) -> Option<&str> {
-    text.split('\n').nth(index).map(|l| l.trim_end_matches('\r'))
+    text.split('\n')
+        .nth(index)
+        .map(|l| l.trim_end_matches('\r'))
 }
 
 /// How many UTF-16 code units precede `byte_col` in `line`.
@@ -207,7 +209,10 @@ pub fn apply_text_edits(text: &str, edits: &[Value], encoding: PositionEncoding)
 
     let mut out = text.to_string();
     for (start, end, new_text) in resolved {
-        if start > end || end > out.len() || !out.is_char_boundary(start) || !out.is_char_boundary(end)
+        if start > end
+            || end > out.len()
+            || !out.is_char_boundary(start)
+            || !out.is_char_boundary(end)
         {
             return None;
         }

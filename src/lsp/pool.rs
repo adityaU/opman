@@ -150,7 +150,14 @@ impl LspPool {
 
     /// Shut everything down — used when the process is going away.
     pub async fn shutdown_all(&self) {
-        let servers: Vec<_> = self.inner.lock().await.servers.drain().map(|(_, s)| s).collect();
+        let servers: Vec<_> = self
+            .inner
+            .lock()
+            .await
+            .servers
+            .drain()
+            .map(|(_, s)| s)
+            .collect();
         for server in servers {
             server.shutdown().await;
         }

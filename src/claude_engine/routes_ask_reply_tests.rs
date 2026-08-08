@@ -4,7 +4,10 @@ use crate::claude_engine::PendingReply;
 use axum::extract::State;
 
 fn engine() -> Engine {
-    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 async fn call_ask(e: &Engine, input: Value) -> Value {

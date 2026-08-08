@@ -26,7 +26,13 @@ struct McpRequest {
 
 pub async fn run_mcp_skills_bridge() -> anyhow::Result<()> {
     let store = SkillStore::from_env();
-    run_skills_over(store, Box::new(NoAuthInfo), tokio::io::stdin(), tokio::io::stdout()).await
+    run_skills_over(
+        store,
+        Box::new(NoAuthInfo),
+        tokio::io::stdin(),
+        tokio::io::stdout(),
+    )
+    .await
 }
 
 /// Generic over the streams so the loop is testable without a process.
@@ -87,7 +93,9 @@ fn route(store: &mut SkillStore, auth: &dyn AuthLookup, request: McpRequest) -> 
         "notifications/initialized" => None,
         "tools/list" => {
             store.refresh();
-            Some(json!({ "jsonrpc": "2.0", "id": id, "result": { "tools": tools::tool_definitions(store, auth) } }))
+            Some(
+                json!({ "jsonrpc": "2.0", "id": id, "result": { "tools": tools::tool_definitions(store, auth) } }),
+            )
         }
         "tools/call" => {
             store.refresh();

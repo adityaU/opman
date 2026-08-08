@@ -6,12 +6,7 @@ use super::*;
 fn tool(name: &str) -> Value {
     definitions()
         .as_array()
-        .and_then(|tools| {
-            tools
-                .iter()
-                .find(|tool| tool["name"] == name)
-                .cloned()
-        })
+        .and_then(|tools| tools.iter().find(|tool| tool["name"] == name).cloned())
         .unwrap_or_else(|| panic!("{name} should be defined"))
 }
 
@@ -82,7 +77,9 @@ fn the_read_only_tools_require_nothing() {
 fn a_dispatching_tool_keeps_its_own_fields_alongside_the_shared_ones() {
     let properties = &tool("agent_send")["inputSchema"]["properties"];
 
-    for field in ["to", "message", "delivery", "runner", "model", "effort", "provider"] {
+    for field in [
+        "to", "message", "delivery", "runner", "model", "effort", "provider",
+    ] {
         assert!(properties.get(field).is_some(), "missing {field}");
     }
 }

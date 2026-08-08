@@ -17,16 +17,17 @@ impl Handler for Silent {
 }
 
 /// A peer wired to a pipe we can read the outgoing frames from.
-fn wired() -> (Peer, BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>) {
+fn wired() -> (
+    Peer,
+    BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>,
+) {
     let (ours, theirs) = tokio::io::duplex(256 * 1024);
     let peer = Peer::new(ours, Arc::new(Silent));
     let (read, _write) = tokio::io::split(theirs);
     (peer, BufReader::new(read))
 }
 
-async fn next_frame(
-    reader: &mut BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>,
-) -> Value {
+async fn next_frame(reader: &mut BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>) -> Value {
     tokio::time::timeout(std::time::Duration::from_secs(2), read_frame(reader))
         .await
         .expect("a frame should arrive")
@@ -60,11 +61,14 @@ async fn unchanged_content_sends_nothing_further() {
 
     let (peer, mut reader) = wired();
     let docs = DocStore::new();
-    docs.sync(&peer, &file, "rust", Some("fn main() {}")).unwrap();
+    docs.sync(&peer, &file, "rust", Some("fn main() {}"))
+        .unwrap();
     let _open = next_frame(&mut reader).await;
 
-    docs.sync(&peer, &file, "rust", Some("fn main() {}")).unwrap();
-    docs.sync(&peer, &file, "rust", Some("fn main() {}")).unwrap();
+    docs.sync(&peer, &file, "rust", Some("fn main() {}"))
+        .unwrap();
+    docs.sync(&peer, &file, "rust", Some("fn main() {}"))
+        .unwrap();
 
     // Force a frame we can recognise; if a didChange had been sent it would
     // arrive before this one.
@@ -81,7 +85,8 @@ async fn edited_content_sends_a_change_with_the_next_version() {
 
     let (peer, mut reader) = wired();
     let docs = DocStore::new();
-    docs.sync(&peer, &file, "rust", Some("fn main() {}")).unwrap();
+    docs.sync(&peer, &file, "rust", Some("fn main() {}"))
+        .unwrap();
     let _open = next_frame(&mut reader).await;
 
     docs.sync(&peer, &file, "rust", Some("fn main() { todo!() }"))
@@ -105,15 +110,15 @@ async fn versions_increase_monotonically() {
     let (peer, mut reader) = wired();
     let docs = DocStore::new();
     docs.sync(&peer, &file, "rust", Some("a")).unwrap();
-    assert_eq!(next_frame(&mut reader).await["params"]["textDocument"]["version"], 1);
+    assert_eq!(
+        next_frame(&mut reader).await["params"]["textDocument"]["version"],
+        1
+    );
 
     for (index, text) in ["b", "c", "d"].iter().enumerate() {
         docs.sync(&peer, &file, "rust", Some(text)).unwrap();
         let frame = next_frame(&mut reader).await;
-        assert_eq!(
-            frame["params"]["textDocument"]["version"],
-            index as i64 + 2
-        );
+        assert_eq!(frame["params"]["textDocument"]["version"], index as i64 + 2);
     }
 }
 

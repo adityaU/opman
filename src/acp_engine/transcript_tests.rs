@@ -173,7 +173,10 @@ fn a_replay_does_not_swallow_the_prompt_that_triggered_it() {
         .filter_map(|m| m.info["id"].as_str())
         .collect();
     assert_eq!(ids.len(), 3, "replayed history plus the held prompt");
-    assert_eq!(ids[2], pending, "the unsent prompt lands last, in time order");
+    assert_eq!(
+        ids[2], pending,
+        "the unsent prompt lands last, in time order"
+    );
     // Ids stay unique across the reset: the client already rendered the held prompt under
     // its own id, so a replayed message must not claim the same one.
     assert_ne!(ids[0], pending);

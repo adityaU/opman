@@ -88,6 +88,7 @@ pub async fn start_web_server(
     nvim_registry: crate::mcp::NvimSocketRegistry,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     mcp: crate::mcp_registry::RegistryHandle,
+    acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
 ) -> (u16, WebStateHandle) {
     let (event_tx, _event_rx) = broadcast::channel::<WebEvent>(1000);
     // Raw upstream SSE events — re-broadcast to web clients so we don't need
@@ -183,6 +184,7 @@ pub async fn start_web_server(
         health: crate::process_health::HealthHandle::new(),
         internal_token: internal_token.clone(),
         runner_registry,
+        acp,
         mcp_logins: std::sync::Arc::default(),
     };
 

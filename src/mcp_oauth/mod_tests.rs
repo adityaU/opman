@@ -19,7 +19,9 @@ fn name() -> ServerName {
 async fn access_token_reports_login_required_rather_than_prompting() {
     let (store, dir) = temp_store("nologin");
     let http = reqwest::Client::new();
-    let error = access_token(&http, &store, &name()).await.expect_err("no token");
+    let error = access_token(&http, &store, &name())
+        .await
+        .expect_err("no token");
     assert!(matches!(error, OAuthError::LoginRequired));
     let _ = std::fs::remove_dir_all(dir);
 }

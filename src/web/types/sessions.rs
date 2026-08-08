@@ -2,7 +2,6 @@
 
 use serde::Serialize;
 
-
 // ── Session stats ───────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Clone, Default)]

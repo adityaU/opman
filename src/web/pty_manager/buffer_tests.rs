@@ -133,7 +133,10 @@ fn compaction_keeps_the_retained_window() {
 
     let snap = b.snapshot();
     assert_eq!(snap.len(), RETAINED_SCROLLBACK);
-    assert!(snap.ends_with(b"TAIL\n"), "newest output survives compaction");
+    assert!(
+        snap.ends_with(b"TAIL\n"),
+        "newest output survives compaction"
+    );
 }
 
 #[test]

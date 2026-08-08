@@ -160,7 +160,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/editor/lsp/definition",
             post(handlers::editor_lsp_definition),
         )
-        .route("/editor/lsp/completion", post(handlers::editor_lsp_completion))
+        .route(
+            "/editor/lsp/completion",
+            post(handlers::editor_lsp_completion),
+        )
         .route("/editor/lsp/format", post(handlers::editor_lsp_format))
         // ── Session Watcher ──────────────────────────────────────────
         .route("/watchers", get(handlers::list_watchers))
@@ -223,6 +226,16 @@ pub(super) fn build_router(state: ServerState) -> Router {
             post(handlers::finish_login),
         )
         .route("/mcp/servers/{name}/logout", post(handlers::logout_server))
+        // ── ACP agents (the runners themselves) ──────────────────────
+        .route("/acp/agents", get(handlers::list_agents))
+        .route(
+            "/acp/agents/{id}",
+            put(handlers::upsert_agent).delete(handlers::delete_agent),
+        )
+        .route(
+            "/acp/agents/{id}/enabled",
+            post(handlers::set_agent_enabled),
+        )
         .route(
             "/skills",
             get(handlers::list_skills).post(handlers::create_skill),

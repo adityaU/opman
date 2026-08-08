@@ -109,7 +109,9 @@ impl fmt::Display for OAuthError {
                  callbackPort in mcp.json"
             ),
             Self::Discovery(detail) => write!(f, "OAuth discovery failed: {detail}"),
-            Self::IssuerMismatch => f.write_str("authorization response came from the wrong issuer"),
+            Self::IssuerMismatch => {
+                f.write_str("authorization response came from the wrong issuer")
+            }
             Self::StateMismatch => f.write_str("authorization response state did not match"),
             Self::Denied(reason) => write!(f, "authorization denied: {reason}"),
             Self::Http(detail) => write!(f, "HTTP error: {detail}"),

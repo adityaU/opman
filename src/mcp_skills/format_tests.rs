@@ -93,8 +93,11 @@ fn a_body_containing_a_rule_round_trips() {
 
 #[test]
 fn requires_accepts_a_list_or_a_bare_string() {
-    let list = parse_skill_md("---\ndescription: d\nrequires: [jira, linear]\n---\nb\n", &name("x"))
-        .expect("parses");
+    let list = parse_skill_md(
+        "---\ndescription: d\nrequires: [jira, linear]\n---\nb\n",
+        &name("x"),
+    )
+    .expect("parses");
     assert_eq!(list.requires, ["jira", "linear"]);
 
     let one = parse_skill_md("---\ndescription: d\nrequires: jira\n---\nb\n", &name("x"))
@@ -117,5 +120,8 @@ fn requires_round_trips() {
         body: "b",
     })
     .expect("renders");
-    assert_eq!(parse_skill_md(&rendered, &n).expect("parses").requires, requires);
+    assert_eq!(
+        parse_skill_md(&rendered, &n).expect("parses").requires,
+        requires
+    );
 }

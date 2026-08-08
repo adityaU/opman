@@ -40,10 +40,7 @@ async fn execute_routine_empty_prompt_fails() {
     let h = WebStateHandle::new_test();
     // SendMessage with no prompt.
     let r = h
-        .create_routine(mk_create_routine(
-            "np",
-            RoutineTrigger::Manual,
-        ))
+        .create_routine(mk_create_routine("np", RoutineTrigger::Manual))
         .await;
     let err = h.execute_routine(&r.id).await.unwrap_err();
     assert!(err.contains("no prompt configured"));
@@ -128,10 +125,7 @@ async fn execute_routine_existing_session_with_project_and_model_refused() {
 async fn try_fire_idle_no_matching_routine() {
     let h = WebStateHandle::new_test();
     // A routine bound to a different session should not fire.
-    let mut req = mk_create_routine(
-        "idle",
-        RoutineTrigger::OnSessionIdle,
-    );
+    let mut req = mk_create_routine("idle", RoutineTrigger::OnSessionIdle);
     req.prompt = Some("ping".to_string());
     req.session_id = Some("other-sess".to_string());
     let _ = h.create_routine(req).await;
@@ -143,10 +137,7 @@ async fn try_fire_idle_no_matching_routine() {
 #[tokio::test]
 async fn try_fire_idle_fires_and_respects_cooldown() {
     let h = WebStateHandle::new_test();
-    let mut req = mk_create_routine(
-        "idle",
-        RoutineTrigger::OnSessionIdle,
-    );
+    let mut req = mk_create_routine("idle", RoutineTrigger::OnSessionIdle);
     req.prompt = Some("ping".to_string());
     req.session_id = Some("sess-idle".to_string());
     // No project → execute fails, but the run is still recorded and cooldown set.
@@ -166,10 +157,7 @@ async fn try_fire_idle_fires_and_respects_cooldown() {
 async fn try_fire_idle_skips_disabled_and_wrong_trigger() {
     let h = WebStateHandle::new_test();
     // Disabled routine.
-    let mut d = mk_create_routine(
-        "disabled",
-        RoutineTrigger::OnSessionIdle,
-    );
+    let mut d = mk_create_routine("disabled", RoutineTrigger::OnSessionIdle);
     d.prompt = Some("x".to_string());
     d.session_id = Some("s".to_string());
     d.enabled = false;

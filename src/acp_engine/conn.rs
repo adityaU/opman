@@ -60,14 +60,23 @@ impl ConnMap {
         }
     }
 
+    /// Drop every connection, killing the children.
+    ///
+    /// Used when an agent is reconfigured or removed from `acp.json`: those processes were
+    /// launched from the definition that no longer exists, so leaving them running would
+    /// mean a session still talking to config the user just deleted.
+    pub async fn close_all(&self) {
+        let drained: Vec<Conn> = self.0.lock().await.drain().map(|(_, conn)| conn).collect();
+        for mut conn in drained {
+            let _ = conn.child.start_kill();
+            let _ = conn.child.wait().await;
+        }
+    }
+
     /// The session's connection, establishing one on first use. Returns what a turn needs —
     /// never the `Conn` itself, so the child handle stays owned by the map and cannot be
     /// dropped (and so killed) by a caller holding it across an await.
-    pub(super) async fn ensure(
-        &self,
-        engine: &Arc<AcpEngine>,
-        session_id: &str,
-    ) -> Result<Ready> {
+    pub(super) async fn ensure(&self, engine: &Arc<AcpEngine>, session_id: &str) -> Result<Ready> {
         let mut conns = self.0.lock().await;
         if !conns.contains_key(session_id) {
             let conn = establish(engine, session_id).await?;
@@ -106,7 +115,10 @@ pub(super) async fn probe_capabilities(engine: &Arc<AcpEngine>) -> Result<Value>
 
     let mut child = spawn(engine, &dir, "probe")?;
     let stdin = child.stdin.take().context("acp probe child has no stdin")?;
-    let stdout = child.stdout.take().context("acp probe child has no stdout")?;
+    let stdout = child
+        .stdout
+        .take()
+        .context("acp probe child has no stdout")?;
     let peer = Peer::new(stdin, stdout, Client::new(engine.clone()));
     let init = peer
         .request("initialize", initialize_params(engine))

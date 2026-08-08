@@ -5,14 +5,20 @@ use super::*;
 
 #[test]
 fn ordinary_names_parse() {
-    assert_eq!(SkillName::parse("jira-triage").expect("ok").as_str(), "jira-triage");
+    assert_eq!(
+        SkillName::parse("jira-triage").expect("ok").as_str(),
+        "jira-triage"
+    );
     assert_eq!(SkillName::parse("a").expect("ok").as_str(), "a");
     assert_eq!(SkillName::parse("v1.2_x").expect("ok").as_str(), "v1.2_x");
 }
 
 #[test]
 fn names_are_case_folded() {
-    assert_eq!(SkillName::parse("JiraTriage").expect("ok").as_str(), "jiratriage");
+    assert_eq!(
+        SkillName::parse("JiraTriage").expect("ok").as_str(),
+        "jiratriage"
+    );
 }
 
 #[test]
@@ -27,14 +33,20 @@ fn traversal_is_rejected() {
 
 #[test]
 fn a_leading_dot_is_rejected() {
-    assert_eq!(SkillName::parse(".hidden"), Err(SkillNameError::BadChar('.')));
+    assert_eq!(
+        SkillName::parse(".hidden"),
+        Err(SkillNameError::BadChar('.'))
+    );
 }
 
 #[test]
 fn empty_and_overlong_names_are_rejected() {
     assert_eq!(SkillName::parse(""), Err(SkillNameError::Empty));
     assert_eq!(SkillName::parse("   "), Err(SkillNameError::Empty));
-    assert_eq!(SkillName::parse(&"a".repeat(65)), Err(SkillNameError::TooLong));
+    assert_eq!(
+        SkillName::parse(&"a".repeat(65)),
+        Err(SkillNameError::TooLong)
+    );
     assert!(SkillName::parse(&"a".repeat(64)).is_ok());
 }
 

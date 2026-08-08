@@ -50,7 +50,10 @@ async fn waiting_returns_immediately_when_already_known() {
     let start = std::time::Instant::now();
     let found = store.wait_for("file:///a.rs", Duration::from_secs(5)).await;
     assert_eq!(found.len(), 1);
-    assert!(start.elapsed() < Duration::from_millis(200), "should not wait");
+    assert!(
+        start.elapsed() < Duration::from_millis(200),
+        "should not wait"
+    );
 }
 
 #[tokio::test]

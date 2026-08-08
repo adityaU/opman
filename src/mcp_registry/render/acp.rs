@@ -43,7 +43,10 @@ fn entry(name: &str, wire: &Wire<'_>) -> Value {
                         .collect(),
                 ),
             );
-            entry.insert("env".into(), pairs(stdio.env.iter().map(|(n, v)| (*n, v.as_ref()))));
+            entry.insert(
+                "env".into(),
+                pairs(stdio.env.iter().map(|(n, v)| (*n, v.as_ref()))),
+            );
         }
         Wire::Remote(remote) => {
             let kind = match remote.kind {

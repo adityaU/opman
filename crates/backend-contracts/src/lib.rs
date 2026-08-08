@@ -17,7 +17,8 @@ use serde::{Deserialize, Serialize};
 /// dynamic names are registered here rather than accepted on faith.
 static ACP_RUNNERS: RwLock<BTreeSet<String>> = RwLock::new(BTreeSet::new());
 
-/// Declare the ACP agent ids that exist. Called once per process, after config load.
+/// Declare the ACP agent ids that exist. Called after every config load, so an agent added
+/// from the settings page can be named before it is spawned.
 pub fn register_acp_runners(ids: impl IntoIterator<Item = String>) {
     let Ok(mut registered) = ACP_RUNNERS.write() else {
         return;
@@ -34,7 +35,10 @@ fn acp_registered(id: &str) -> bool {
 
 /// Config ids are used as runner labels, provider ids and file-name fragments, so keep them
 /// to a conservative shape rather than trusting whatever the config file holds.
-fn is_valid_acp_id(id: &str) -> bool {
+///
+/// Public because the settings API has to reject a bad id at the point the user types it,
+/// rather than writing it to `acp.json` and having it silently ignored at the next load.
+pub fn is_valid_acp_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 64
         && id.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
@@ -52,7 +56,6 @@ pub enum RunnerKind {
     Opencode,
     ClaudeCode,
     Claude,
-    Codex,
     /// An ACP agent declared in `acp.json`, identified by its config id.
     Acp(String),
 }
@@ -63,10 +66,10 @@ impl RunnerKind {
         match value.as_str() {
             "opencode" | "open-code" => Some(Self::Opencode),
             "claude-code" | "claudecode" => Some(Self::ClaudeCode),
-            // `claude` keeps its own variant: it is the slot the built-in ACP agent
-            // occupies, and persisted session bindings and UI labels already use it.
+            // `claude` is the one ACP agent with a compile-time variant, because the
+            // `--backend claude-acp` CLI path names it before any config is read. Every
+            // other agent — `codex` included — is `Acp(id)`, resolved from `acp.json`.
             "claude" | "claude-p" | "claudep" => Some(Self::Claude),
-            "codex" => Some(Self::Codex),
             other if acp_registered(other) => Some(Self::Acp(other.to_string())),
             _ => None,
         }
@@ -77,7 +80,6 @@ impl RunnerKind {
             Self::Opencode => Cow::Borrowed("opencode"),
             Self::ClaudeCode => Cow::Borrowed("claude-code"),
             Self::Claude => Cow::Borrowed("claude"),
-            Self::Codex => Cow::Borrowed("codex"),
             Self::Acp(id) => Cow::Borrowed(id.as_str()),
         }
     }
@@ -227,13 +229,11 @@ mod tests {
             Some(RunnerKind::ClaudeCode)
         );
         assert_eq!(RunnerKind::parse("nope"), None);
-        assert_eq!(RunnerKind::Codex.display_name(), "codex");
         // Every name must round-trip through the label the web UI sends back.
         for kind in [
             RunnerKind::Opencode,
             RunnerKind::ClaudeCode,
             RunnerKind::Claude,
-            RunnerKind::Codex,
         ] {
             assert_eq!(RunnerKind::parse(&kind.display_name()), Some(kind.clone()));
             assert_eq!(

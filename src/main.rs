@@ -123,9 +123,11 @@ async fn main() -> Result<()> {
                 .map_err(Into::into);
         }
         Some(Commands::McpAgentManager { project_path }) => {
-            return mcp_agent_manager::run_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
-                .await
-                .map_err(Into::into);
+            return mcp_agent_manager::run_bridge(
+                project_path.unwrap_or_else(|| PathBuf::from(".")),
+            )
+            .await
+            .map_err(Into::into);
         }
         Some(Commands::ClaudeHook) => {
             return claude_engine::run_permission_hook()
@@ -133,15 +135,19 @@ async fn main() -> Result<()> {
                 .map_err(Into::into);
         }
         Some(Commands::McpNvim { project_path }) => {
-            return mcp_neovim::run_mcp_neovim_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
-                .await
-                .map_err(Into::into);
+            return mcp_neovim::run_mcp_neovim_bridge(
+                project_path.unwrap_or_else(|| PathBuf::from(".")),
+            )
+            .await
+            .map_err(Into::into);
         }
         Some(Commands::SlackManifest) => {
             return setup::handle_slack_manifest();
         }
         Some(Commands::Skills { subcommand }) => {
-            return cli_skills::handle_skills(subcommand).await.map_err(Into::into);
+            return cli_skills::handle_skills(subcommand)
+                .await
+                .map_err(Into::into);
         }
         None => {} // Default mode: run the TUI
     }
@@ -246,9 +252,10 @@ async fn main() -> Result<()> {
         let (id, agent) = acp_config
             .for_runner("claude")
             .context("No ACP agent is configured for the `claude` runner")?;
-        let (url, handle, engine) = acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone())
-            .await
-            .with_context(|| format!("Failed to start ACP engine `{id}`"))?;
+        let (url, handle, engine) =
+            acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone())
+                .await
+                .with_context(|| format!("Failed to start ACP engine `{id}`"))?;
         acp_engines.insert(runner::RunnerKind::Claude, engine);
         (url, handle)
     } else {
@@ -295,10 +302,9 @@ async fn main() -> Result<()> {
             .map(|output| output.status.success())
             .unwrap_or(false)
     {
-        if let Ok((url, handle)) = server::spawn_agent_server(
-            crate::cli::AgentBackend::Opencode,
-            Some(&opencode_config),
-        ) {
+        if let Ok((url, handle)) =
+            server::spawn_agent_server(crate::cli::AgentBackend::Opencode, Some(&opencode_config))
+        {
             runner_impls.insert(
                 runner::RunnerKind::Opencode,
                 Arc::new(runner::HttpRunner::new(
@@ -358,7 +364,9 @@ async fn main() -> Result<()> {
                 );
                 continue;
             }
-            None => acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone()).await,
+            None => {
+                acp_engine::start_embedded_server(id, agent.clone(), mcp_registry.clone()).await
+            }
         };
         match engine {
             Ok((url, handle, engine)) => {
@@ -377,22 +385,19 @@ async fn main() -> Result<()> {
             Err(e) => tracing::warn!(agent = %id, "ACP agent unavailable: {e}"),
         }
     }
-    let codex_bin = std::env::var("OPMAN_CODEX_BIN").unwrap_or_else(|_| "codex".into());
-    if std::process::Command::new(&codex_bin)
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
-    {
-        runner_impls.insert(
-            runner::RunnerKind::Codex,
-            Arc::new(runner::CodexRunner::new(
-                client.clone(),
-                mcp_registry.clone(),
-            )),
-        );
-    }
     let runner_registry = Arc::new(runner::RunnerRegistry::new(default_runner, runner_impls));
+
+    // Hand the engines started above to the supervisor, so a later edit to `acp.json` can
+    // start, restart or drop an agent against the same runner slots rather than fighting
+    // for them. Only engines that actually made it into the registry are adopted.
+    let acp_supervisor = Arc::new(acp_engine::supervisor::AcpSupervisor::adopt(
+        runner_registry.clone(),
+        mcp_registry.clone(),
+        client.clone(),
+        acp_engines
+            .into_iter()
+            .filter(|(kind, _)| runner_registry.has(kind)),
+    ));
 
     // The agent-manager MCP is attached to every runner.  MCP child processes
     // inherit this per-opman socket path and use it to reach the shared
@@ -439,6 +444,7 @@ async fn main() -> Result<()> {
         &app,
         runner_registry.clone(),
         mcp_registry.clone(),
+        acp_supervisor,
     )
     .await;
 

@@ -48,11 +48,9 @@ pub fn spawn_agent_server(
     if let Some(config) = opencode_config {
         command.env("OPENCODE_CONFIG_CONTENT", config);
     }
-    let mut child = command
-        .spawn()
-        .with_context(|| {
-            format!("Failed to spawn `{binary} serve`. Is {binary} installed and on PATH?")
-        })?;
+    let mut child = command.spawn().with_context(|| {
+        format!("Failed to spawn `{binary} serve`. Is {binary} installed and on PATH?")
+    })?;
 
     let stdout = child
         .stdout

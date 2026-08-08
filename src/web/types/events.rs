@@ -16,6 +16,9 @@ pub enum WebEvent {
     StateChanged,
     /// The MCP server set changed, so any open settings view should re-read it.
     McpServersChanged,
+    /// The ACP agent set changed. Unlike an MCP edit this can add or remove a *runner*, so
+    /// the engine picker and the settings view both re-read on it.
+    AcpAgentsChanged,
     SessionBusy {
         session_id: String,
     },

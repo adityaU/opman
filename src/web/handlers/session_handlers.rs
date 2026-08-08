@@ -25,9 +25,10 @@ pub struct MessagePageQuery {
     pub before: Option<u64>,
 }
 
+/// Selects which runner answers a directory-scoped catalog request (models, commands).
 #[derive(serde::Deserialize, Default)]
-pub struct ProviderQuery {
-    /// Runtime runner whose model catalog should be returned.
+pub struct RunnerQuery {
+    /// Runtime runner whose catalog should be returned. Omitted means the default engine.
     pub runner: Option<String>,
 }
 
@@ -49,7 +50,7 @@ pub async fn get_session_messages(
     let dir = resolve_project_dir(&state).await?;
     if state
         .runner_registry
-        .has_or_bind_known_session(&session_id, &dir)
+        .has_known_session(&session_id, &dir)
         .await
     {
         let body = state
@@ -359,7 +360,7 @@ pub async fn abort_session(
     state.web_state.mark_turn_settled(&session_id).await;
     if state
         .runner_registry
-        .has_or_bind_known_session(&session_id, &dir)
+        .has_known_session(&session_id, &dir)
         .await
     {
         state
@@ -456,7 +457,7 @@ pub async fn delete_session(
     let dir = resolve_project_dir(&state).await?;
     if state
         .runner_registry
-        .has_or_bind_known_session(&session_id, &dir)
+        .has_known_session(&session_id, &dir)
         .await
         && state
             .runner_registry
@@ -509,7 +510,7 @@ pub async fn rename_session(
     let dir = resolve_project_dir(&state).await?;
     if state
         .runner_registry
-        .has_or_bind_known_session(&session_id, &dir)
+        .has_known_session(&session_id, &dir)
         .await
         && state
             .runner_registry
@@ -577,12 +578,11 @@ pub(crate) fn map_command_error(e: &anyhow::Error) -> WebError {
 pub async fn get_providers(
     State(state): State<ServerState>,
     _auth: AuthUser,
-    Query(query): Query<ProviderQuery>,
+    Query(query): Query<RunnerQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
     if let Some(name) = query.runner.as_deref() {
-        let runner = crate::runner::RunnerKind::parse(name)
-            .ok_or_else(|| WebError::BadRequest(format!("Unknown runner: {name}")))?;
+        let runner = parse_runner(name)?;
         let providers = state
             .runner_registry
             .providers(runner, &dir)
@@ -599,12 +599,27 @@ pub async fn get_providers(
     Ok(Json(providers))
 }
 
-/// GET /api/commands — list available slash commands.
+/// GET /api/commands — the slash commands the runner advertises for this directory.
+///
+/// Answered by the runner named in `?runner=`, because a slash command is executed by the
+/// agent and every agent has a different set: opencode's own command API, claude's
+/// `slash_commands`, and whatever an ACP agent reports in `available_commands_update`.
+/// Without a runner the request falls back to the default engine.
 pub async fn get_commands(
     State(state): State<ServerState>,
     _auth: AuthUser,
+    Query(query): Query<RunnerQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    if let Some(name) = query.runner.as_deref() {
+        let runner = parse_runner(name)?;
+        let commands = state
+            .runner_registry
+            .commands(runner, &dir)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        return Ok(Json(commands));
+    }
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     let cmds = client
@@ -612,6 +627,12 @@ pub async fn get_commands(
         .await
         .map_err(|e| WebError::Internal(format!("{e}")))?;
     Ok(Json(cmds))
+}
+
+/// Resolve a runner name from a query string, or reject the request.
+fn parse_runner(name: &str) -> WebResult<crate::runner::RunnerKind> {
+    crate::runner::RunnerKind::parse(name)
+        .ok_or_else(|| WebError::BadRequest(format!("Unknown runner: {name}")))
 }
 
 /// POST /api/permission/:id/reply — reply to a permission request.
@@ -775,3 +796,7 @@ mod session_handlers_maps_tests;
 #[cfg(test)]
 #[path = "session_handlers_upstream_tests.rs"]
 mod session_handlers_upstream_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_commands_tests.rs"]
+mod session_handlers_commands_tests;

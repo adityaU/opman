@@ -8,8 +8,8 @@ use axum::extract::{Path, State};
 use axum::Json;
 use serde_json::{json, Value};
 
-use super::routes::Engine;
 use super::attach::Prompt;
+use super::routes::Engine;
 use super::turn;
 use crate::claude_engine::{claude_cli, jsonl, PendingReply};
 
@@ -74,7 +74,10 @@ pub(super) async fn abort(State(engine): State<Engine>, Path(id): Path<String>) 
 /// agent's history first if this is the first read since a restart, which is the only way
 /// an old conversation comes back. Subagent rows have no ACP session of their own, so they
 /// come from the agent's on-disk transcript when the config says opman can read it.
-pub(super) async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+pub(super) async fn get_messages(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+) -> Json<Value> {
     let entry = engine.get_session(&id);
     let is_subagent = entry.as_ref().map(|e| e.is_subagent).unwrap_or(true);
     if is_subagent && engine.agent.subagent_transcripts {
@@ -145,7 +148,10 @@ pub(super) async fn question_reply(
     Json(json!({ "ok": owned }))
 }
 
-pub(super) async fn question_reject(State(engine): State<Engine>, Path(id): Path<String>) -> Json<Value> {
+pub(super) async fn question_reject(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+) -> Json<Value> {
     let owned = engine.resolve_pending(&id, PendingReply::Reject);
     if owned {
         emit_resolved(&engine, &id, "question.rejected");

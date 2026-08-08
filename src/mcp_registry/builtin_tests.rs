@@ -27,14 +27,25 @@ fn every_flag_adds_exactly_its_own_server() {
         terminal: true,
         ..BuiltinFlags::default()
     };
-    assert_eq!(names(flags), ["terminal", "skills", "kanban", "agent-manager"]);
+    assert_eq!(
+        names(flags),
+        ["terminal", "skills", "kanban", "agent-manager"]
+    );
 }
 
 #[test]
 fn all_flags_yield_every_builtin() {
     assert_eq!(
         names(BuiltinFlags::ALL),
-        ["terminal", "neovim", "time", "ui", "skills", "kanban", "agent-manager"]
+        [
+            "terminal",
+            "neovim",
+            "time",
+            "ui",
+            "skills",
+            "kanban",
+            "agent-manager"
+        ]
     );
 }
 
@@ -68,7 +79,10 @@ fn the_bridges_that_route_by_session_declare_the_session_variable() {
     // time and ui do not read it, so they do not carry it.
     for name in ["time", "ui"] {
         let spec = specs.iter().find(|s| s.name() == name).expect(name);
-        assert!(!spec.binds_session(), "{name} should not carry a session id");
+        assert!(
+            !spec.binds_session(),
+            "{name} should not carry a session id"
+        );
     }
 }
 

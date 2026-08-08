@@ -50,16 +50,19 @@ pub(super) fn prm_urls(resource: &Url) -> Vec<Url> {
 /// A client MUST support both discovery families, so this is a list rather than a choice.
 pub(super) fn as_urls(issuer: &Url) -> Vec<Url> {
     let path = issuer.path().trim_end_matches('/');
-    ["/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"]
-        .iter()
-        .flat_map(|suffix| {
-            [
-                issuer.join(&format!("{suffix}{path}")).ok(),
-                issuer.join(suffix).ok(),
-            ]
-        })
-        .flatten()
-        .collect()
+    [
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/openid-configuration",
+    ]
+    .iter()
+    .flat_map(|suffix| {
+        [
+            issuer.join(&format!("{suffix}{path}")).ok(),
+            issuer.join(suffix).ok(),
+        ]
+    })
+    .flatten()
+    .collect()
 }
 
 /// Canonical resource identifier: no fragment, no query, no trailing slash.
@@ -149,7 +152,6 @@ pub(super) async fn discover(
         "no usable authorization server metadata".to_string(),
     ))
 }
-
 
 #[cfg(test)]
 #[path = "discovery_tests.rs"]

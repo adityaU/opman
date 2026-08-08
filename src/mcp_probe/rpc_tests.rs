@@ -135,7 +135,10 @@ async fn a_command_that_does_not_exist_fails_at_spawn() {
         .await
         .expect_err("a missing binary is not a listing");
 
-    assert!(format!("{error:#}").contains("failed to launch"), "{error:#}");
+    assert!(
+        format!("{error:#}").contains("failed to launch"),
+        "{error:#}"
+    );
 }
 
 #[test]

@@ -1,102 +1,76 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchCommands } from "./api";
+import { OPMAN_SLASH_COMMANDS } from "./keybindings/commands";
+import { useKeymapContext } from "./keybindings/KeymapContext";
+import { evaluateWhen } from "./keybindings/when";
 import type { SlashCommand } from "./types";
 
 interface Props {
   filter: string;
-  onSelect: (command: string) => void;
+  onSelect: (command: SlashCommand) => void;
   onClose: () => void;
   sessionId: string | null;
-  /** Active engine backend ("opencode" | "claude-code"). */
-  backend?: string;
+  /** Runner serving this session — the one whose commands are offered. */
+  runner?: string;
 }
 
 /**
- * Built-in commands that are sent to the agent server and are specific to
- * opencode — they have no equivalent in the Claude engine, so they are hidden
- * when the backend is claude-code.
+ * The slash command list.
+ *
+ * Two sources, and neither is a table in this file. opman's own commands come from the
+ * command registry, so a `/name` cannot exist without also being in the palette, the
+ * cheatsheet and the keybindings view — and cannot rot when the surface behind it is
+ * renamed or removed. Everything the *agent* runs comes from the agent: opencode's command
+ * API, claude's `slash_commands`, an ACP agent's `available_commands_update`. Whichever
+ * runner is serving the session answers for itself, which is the only way a command opman
+ * has never heard of can be offered at all.
  */
-const OPENCODE_ONLY_COMMANDS = new Set(["undo", "redo", "fork", "share"]);
-
-/**
- * Built-in commands that are always available.
- * These are handled locally by the web UI or are built-in opencode
- * server commands that don't appear in the /command API listing.
- */
-const BUILTIN_COMMANDS: SlashCommand[] = [
-  // Session lifecycle
-  { name: "new", description: "Start a new session" },
-  { name: "cancel", description: "Cancel / abort the running session" },
-  { name: "copy", description: "Copy session transcript to clipboard" },
-  { name: "compact", description: "Compact conversation history" },
-  { name: "undo", description: "Undo last action" },
-  { name: "redo", description: "Redo last action" },
-  { name: "fork", description: "Fork current session" },
-  { name: "share", description: "Share session" },
-  { name: "clear", description: "Clear conversation" },
-  // Model / agent
-  { name: "model", description: "Change the AI model", args: "<model>" },
-  { name: "models", description: "List available models" },
-  { name: "agent", description: "Switch agent type", args: "<agent>" },
-  { name: "theme", description: "Change color theme", args: "<theme>" },
-  // Panel toggles
-  { name: "terminal", description: "Toggle terminal panel" },
-  { name: "neovim", description: "Toggle Neovim panel" },
-  { name: "git", description: "Toggle Git panel" },
-  { name: "split-view", description: "Toggle split view" },
-  { name: "debug", description: "Toggle debug panel" },
-  // Modal commands
-  { name: "keys", description: "Show keyboard shortcuts" },
-  { name: "todos", description: "Show session todos" },
-  { name: "sessions", description: "Search sessions across projects" },
-  { name: "context", description: "Send context to session" },
-  { name: "settings", description: "Open settings" },
-  { name: "watcher", description: "Open file watcher config" },
-  { name: "search", description: "Search current session" },
-  { name: "cross-search", description: "Search across all sessions" },
-  { name: "context-window", description: "View context window usage" },
-  { name: "diff-review", description: "Review pending diffs" },
-  { name: "auto-open", description: "Configure tool auto-open" },
-  // Assistant
-  { name: "memory", description: "Open session instructions" },
-  { name: "autonomy", description: "Adjust assistant autonomy" },
-  { name: "routines", description: "Manage assistant routines" },
-  // System
-  { name: "system", description: "Open system monitor (htop)" },
-  { name: "health", description: "View process health" },
-  { name: "notification-prefs", description: "Notification preferences" },
-];
-
-export function SlashCommandPopover({
-  filter,
-  onSelect,
-  onClose,
-  sessionId,
-  backend,
-}: Props) {
-  const [apiCommands, setApiCommands] = useState<SlashCommand[]>([]);
+export function SlashCommandPopover({ filter, onSelect, onClose, sessionId, runner }: Props) {
+  const [runnerCommands, setRunnerCommands] = useState<SlashCommand[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const { context, isRunnable } = useKeymapContext();
 
   useEffect(() => {
-    fetchCommands()
+    let live = true;
+    fetchCommands(runner)
       .then((cmds) => {
-        if (cmds.length > 0) setApiCommands(cmds);
+        // Not `if (cmds.length)`: an empty answer is an answer. A runner that advertises
+        // nothing must clear whatever the previous runner advertised, or its commands
+        // linger in the list and fail on send.
+        if (live) setRunnerCommands(cmds);
       })
-      .catch(() => {});
-  }, [sessionId]);
+      .catch(() => {
+        if (live) setRunnerCommands([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, [runner, sessionId]);
 
-  // Merge built-in + API commands, deduplicating by name (built-in wins).
-  // Under the Claude engine, drop opencode-only commands (the API list provides
-  // Claude's own slash commands instead).
+  /**
+   * opman's commands, minus the ones that cannot run right now.
+   *
+   * A command is offered only when a mounted surface has registered a handler for it and
+   * its `when` clause holds — the same two tests the keymap applies to a chord. Listing
+   * `/todos` with no session, and having it do nothing, is the failure this avoids.
+   */
+  const localCommands = useMemo(
+    () =>
+      OPMAN_SLASH_COMMANDS.filter(
+        (command) => isRunnable(command.id) && evaluateWhen(command.when, context),
+      ).map<SlashCommand>((command) => ({
+        name: command.slash.name,
+        description: command.title,
+      })),
+    [context, isRunnable],
+  );
+
+  // opman's own names win a collision: `/new` opens a session here rather than being
+  // forwarded to an agent that happens to use the same word for something else.
   const commands = useMemo(() => {
-    const isClaude = backend === "claude-code";
-    const builtins = isClaude
-      ? BUILTIN_COMMANDS.filter((c) => !OPENCODE_ONLY_COMMANDS.has(c.name))
-      : BUILTIN_COMMANDS;
-    const builtinNames = new Set(builtins.map((c) => c.name));
-    const apiOnly = apiCommands.filter((c) => !builtinNames.has(c.name));
-    return [...builtins, ...apiOnly];
-  }, [apiCommands, backend]);
+    const taken = new Set(localCommands.map((c) => c.name));
+    return [...localCommands, ...runnerCommands.filter((c) => !taken.has(c.name))];
+  }, [localCommands, runnerCommands]);
 
   const filtered = useMemo(() => {
     if (!filter) return commands;
@@ -124,7 +98,7 @@ export function SlashCommandPopover({
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         if (filtered[selectedIndex]) {
-          onSelect(filtered[selectedIndex].name);
+          onSelect(filtered[selectedIndex]);
         }
       } else if (e.key === "Escape") {
         onClose();
@@ -146,7 +120,7 @@ export function SlashCommandPopover({
           role="option"
           aria-selected={idx === selectedIndex}
           className={`composer-popover-row${idx === selectedIndex ? " is-cursor" : ""}`}
-          onClick={() => onSelect(cmd.name)}
+          onClick={() => onSelect(cmd)}
           onMouseEnter={() => setSelectedIndex(idx)}
         >
           {/* The slash belongs to the name: this is literally what gets typed,

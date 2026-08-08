@@ -11,7 +11,10 @@ fn env_guard() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 /// Write an executable `/bin/sh` script; return (path, tempdir keeping it alive).

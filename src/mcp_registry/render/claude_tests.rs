@@ -64,7 +64,10 @@ fn a_credential_bearing_remote_becomes_the_local_proxy() {
     assert_eq!(entry["command"], "/opman");
     assert_eq!(entry["args"][0], "mcp-proxy");
     assert_eq!(entry["args"][1], "r");
-    assert!(entry.get("url").is_none(), "the endpoint must not reach the runner");
+    assert!(
+        entry.get("url").is_none(),
+        "the endpoint must not reach the runner"
+    );
 }
 
 #[test]

@@ -65,6 +65,7 @@ pub(crate) async fn setup_web_server(
     app: &App,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     mcp: crate::mcp_registry::RegistryHandle,
+    acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
 ) -> (u16, Option<web::WebStateHandle>) {
     if enable_web {
         let (actual_port, wsh) = web::start_web_server(
@@ -78,6 +79,7 @@ pub(crate) async fn setup_web_server(
             app.nvim_registry.clone(),
             runner_registry,
             mcp,
+            acp,
         )
         .await;
         info!("Web UI available at http://localhost:{}", actual_port);

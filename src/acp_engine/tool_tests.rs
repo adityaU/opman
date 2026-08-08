@@ -63,7 +63,10 @@ fn the_opening_titles_name_becomes_the_part_tool() {
     ] {
         let mut part = tool_part();
         merge(&mut part, &opening(title, kind));
-        assert_eq!(part["tool"], title, "opening title {title} should name the tool");
+        assert_eq!(
+            part["tool"], title,
+            "opening title {title} should name the tool"
+        );
     }
 }
 

@@ -18,7 +18,10 @@ impl TempConfig {
     fn new() -> Self {
         let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().expect("tempdir");
-        std::env::set_var("OPMAN_KEYBINDINGS_CONFIG", dir.path().join("keybindings.json"));
+        std::env::set_var(
+            "OPMAN_KEYBINDINGS_CONFIG",
+            dir.path().join("keybindings.json"),
+        );
         Self { dir, _guard: guard }
     }
 
@@ -112,7 +115,11 @@ fn bindings_round_trip_through_save_and_load() {
 fn save_creates_the_config_directory() {
     let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     let dir = tempfile::tempdir().expect("tempdir");
-    let nested = dir.path().join("deeply").join("nested").join("keybindings.json");
+    let nested = dir
+        .path()
+        .join("deeply")
+        .join("nested")
+        .join("keybindings.json");
     std::env::set_var("OPMAN_KEYBINDINGS_CONFIG", &nested);
 
     let saved = save(&KeybindingsConfig::default());

@@ -75,7 +75,12 @@ const SERVERS: &[ServerSpec] = &[
         language: "python",
         command: "pyright-langserver",
         args: &["--stdio"],
-        roots: &["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"],
+        roots: &[
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "requirements.txt",
+        ],
     },
     ServerSpec {
         language: "go",
@@ -93,7 +98,11 @@ const SERVERS: &[ServerSpec] = &[
         language: "c",
         command: "clangd",
         args: &["--background-index"],
-        roots: &["compile_commands.json", "compile_flags.txt", "CMakeLists.txt"],
+        roots: &[
+            "compile_commands.json",
+            "compile_flags.txt",
+            "CMakeLists.txt",
+        ],
     },
     ServerSpec {
         language: "shellscript",

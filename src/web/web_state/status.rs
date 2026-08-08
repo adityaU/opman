@@ -280,7 +280,10 @@ fn mark_unseen_on_idle(
     if is_active {
         return;
     }
-    let count = state.unseen_sessions.entry(session_id.to_string()).or_insert(0);
+    let count = state
+        .unseen_sessions
+        .entry(session_id.to_string())
+        .or_insert(0);
     *count += 1;
     let _ = event_tx.send(WebEvent::SessionUnseen {
         session_id: session_id.to_string(),

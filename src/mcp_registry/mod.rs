@@ -69,7 +69,10 @@ impl McpRegistry {
         // A user entry that names a built-in either patches it (no transport of its own)
         // or replaces it outright. Anything else is a new server.
         for (name, entry) in &user.servers {
-            match builtins.iter().position(|spec| spec.name() == name.as_str()) {
+            match builtins
+                .iter()
+                .position(|spec| spec.name() == name.as_str())
+            {
                 Some(index) if !entry.defines_transport() => {
                     specs.extend(entry.patch(builtins.remove(index)));
                 }
@@ -111,12 +114,6 @@ impl McpRegistry {
         runner: &'a RunnerKind,
     ) -> impl Iterator<Item = &'a ServerSpec> + 'a {
         self.servers.iter().filter(move |spec| spec.admits(runner))
-    }
-
-    /// Whether any server offered to `runner` resolves differently once a session id
-    /// exists. Codex's post-`thread/start` re-send is gated on this.
-    pub fn binds_session(&self, runner: &RunnerKind) -> bool {
-        self.for_runner(runner).any(ServerSpec::binds_session)
     }
 
     pub fn flags(&self) -> BuiltinFlags {

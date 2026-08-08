@@ -122,9 +122,12 @@ impl Prompt {
             "sessionID": session_id,
             "text": self.text,
         })];
-        parts.extend(self.attachments.iter().enumerate().map(|(i, a)| {
-            a.message_part(message_id, session_id, i + 1)
-        }));
+        parts.extend(
+            self.attachments
+                .iter()
+                .enumerate()
+                .map(|(i, a)| a.message_part(message_id, session_id, i + 1)),
+        );
         parts
     }
 }

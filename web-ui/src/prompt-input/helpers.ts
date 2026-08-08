@@ -1,4 +1,5 @@
 import type { AgentInfo, ImageAttachment } from "../api";
+import type { SlashCommand } from "../types";
 
 // ── Agent colour helpers ────────────────────────────────────────
 
@@ -59,19 +60,15 @@ export const RUNNER_LABELS: Record<string, string> = {
   codex: "Codex",
 };
 
-/** Commands that execute immediately without needing args */
-export const NO_ARG_COMMANDS = new Set([
-  // Session lifecycle
-  "new", "cancel", "copy", "compact", "undo", "redo", "share", "fork", "clear",
-  // Panel toggles
-  "terminal", "neovim", "nvim", "git", "split-view", "debug",
-  // Modal openers
-  "models", "keys", "keybindings", "todos", "sessions", "context", "settings",
-  "watcher", "context-window", "diff-review", "search", "cross-search",
-  "notification-prefs", "memory", "autonomy", "routines",
-  "health", "process-health", "auto-open", "autoopen",
-  "system", "htop", "monitor",
-  // Quota / token commands
-  "gquota", "quota", "quota_status",
-  "tokens_today", "tokens_daily", "tokens_weekly", "tokens_monthly", "tokens_all", "tokens_session",
-]);
+/**
+ * Whether picking a command should leave the composer open for arguments.
+ *
+ * Asked of the command itself rather than of a list of names: an ACP agent states its
+ * argument hint, an opencode command's template says whether it interpolates any, and
+ * opman's own commands open a surface and take none. A name opman has never seen is
+ * therefore classified correctly by whatever its runner said about it.
+ */
+export function takesArguments(command: SlashCommand): boolean {
+  if (command.args) return true;
+  return /\$ARGUMENTS|\$\d/.test(command.template ?? "");
+}

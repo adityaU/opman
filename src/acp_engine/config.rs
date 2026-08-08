@@ -5,20 +5,28 @@
 //! slot it occupies) lives in one JSON file. The engine itself only speaks ACP.
 //!
 //! Resolution order, later winning per-agent:
-//! 1. the built-in defaults below (which ship the `claude` agent), then
-//! 2. `$OPMAN_ACP_CONFIG`, else `~/.config/opman/acp.json`.
+//! 1. the built-in defaults below (which ship the `claude` and `codex` agents), then
+//! 2. the user document in [`super::patch`].
 //!
 //! An entry present in both is merged field-by-field, so a user file that only sets
-//! `{"agents":{"claude":{"enabled":false}}}` keeps the default launch command.
+//! `{"agents":{"claude":{"enabled":false}}}` keeps the default launch command. This module
+//! owns the *resolved* shape — every field settled, nothing optional — which is all the
+//! engine ever reads.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+use super::patch::{load_document, AcpDocument};
 
 /// The npm package implementing Claude's ACP server. `@zed-industries/claude-code-acp`
 /// is the old name and is deprecated; this one is its rename.
 const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp@latest";
+
+/// The ACP adapter for Codex. The `codex` CLI speaks its own app-server JSON-RPC and no
+/// ACP, so the adapter is a separate package rather than a subcommand. As with Claude,
+/// the `@zed-industries/*` name is the deprecated one; this is its rename.
+const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp@latest";
 
 /// Environment variables stripped from every ACP child by default. Claude's adapter
 /// aborts `session/new` with "cannot be launched inside another Claude Code session"
@@ -32,7 +40,7 @@ const DEFAULT_ENV_REMOVE: &[&str] = &[
 /// What the client (opman) tells the agent it is willing to do on the agent's behalf.
 /// Off by default: an agent that cannot delegate file and terminal work uses its own
 /// built-in tools, which is the behaviour opman already renders.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ClientCaps {
     pub read_text_file: bool,
@@ -40,8 +48,12 @@ pub struct ClientCaps {
     pub terminal: bool,
 }
 
-/// One ACP server opman can drive.
-#[derive(Clone, Debug, Deserialize)]
+/// One ACP server opman can drive, with every field settled.
+///
+/// The user's file holds [`super::patch::AgentPatch`] instead, where a field may be absent.
+/// `PartialEq` is what lets the supervisor tell an edit that needs the agent restarted from
+/// one that changed nothing.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AgentConfig {
     /// Label for the engine picker. Defaults to the agent id.
@@ -111,63 +123,17 @@ impl AgentConfig {
     pub fn launchable(&self) -> bool {
         self.enabled && !self.command.is_empty()
     }
-
-    /// Overlay `other`'s explicitly-set fields onto self. Absent JSON fields arrive as
-    /// their `Default`, so "explicitly set" is approximated as "differs from default" —
-    /// which is what lets a partial user entry keep the built-in launch command.
-    fn overlay(&mut self, other: AgentConfig) {
-        let d = AgentConfig::default();
-        if !other.display_name.is_empty() {
-            self.display_name = other.display_name;
-        }
-        if !other.command.is_empty() {
-            self.command = other.command;
-        }
-        if !other.args.is_empty() {
-            self.args = other.args;
-        }
-        if !other.env.is_empty() {
-            self.env.extend(other.env);
-        }
-        if !other.env_remove.is_empty() {
-            self.env_remove = other.env_remove;
-        }
-        if !other.runner.is_empty() {
-            self.runner = other.runner;
-        }
-        if other.client_caps != d.client_caps {
-            self.client_caps = other.client_caps;
-        }
-        if other.inject_mcp != d.inject_mcp {
-            self.inject_mcp = other.inject_mcp;
-        }
-        if !other.default_mode.is_empty() {
-            self.default_mode = other.default_mode;
-        }
-        if !other.default_model.is_empty() {
-            self.default_model = other.default_model;
-        }
-        if other.modes_are_agents != d.modes_are_agents {
-            self.modes_are_agents = other.modes_are_agents;
-        }
-        if other.subagent_transcripts != d.subagent_transcripts {
-            self.subagent_transcripts = other.subagent_transcripts;
-        }
-        if other.enabled != d.enabled {
-            self.enabled = other.enabled;
-        }
-    }
 }
 
-/// The whole `acp.json` document.
+/// Every agent, built-ins included, with the user's overrides already applied.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct AcpConfig {
     pub agents: BTreeMap<String, AgentConfig>,
 }
 
-/// Built-in defaults. Claude ships configured so a fresh install needs no config file;
-/// the file exists to override it or to add other ACP servers.
+/// Built-in defaults. Claude and Codex ship configured so a fresh install needs no
+/// config file; the file exists to override them or to add other ACP servers.
 fn builtin() -> AcpConfig {
     let claude = AgentConfig {
         display_name: "Claude".to_string(),
@@ -184,8 +150,23 @@ fn builtin() -> AcpConfig {
         subagent_transcripts: true,
         ..AgentConfig::default()
     };
+    let codex = AgentConfig {
+        display_name: "Codex".to_string(),
+        command: node_runner(),
+        args: vec!["-y".to_string(), CODEX_ACP_PACKAGE.to_string()],
+        runner: "codex".to_string(),
+        // The adapter wraps the `codex` CLI, which brings its own file, shell and
+        // terminal tools — opman renders those from `tool_call` updates, as with Claude.
+        client_caps: ClientCaps::default(),
+        inject_mcp: true,
+        // No `default_mode`: Codex's ACP modes are approval policies
+        // (`read-only`/`agent`/`agent-full-access`), not agents, and the adapter already
+        // opens on `agent` — read, edit and run inside the workspace without prompting.
+        // Naming it here would only restate the agent's own default.
+        ..AgentConfig::default()
+    };
     AcpConfig {
-        agents: BTreeMap::from([("claude".to_string(), claude)]),
+        agents: BTreeMap::from([("claude".to_string(), claude), ("codex".to_string(), codex)]),
     }
 }
 
@@ -195,33 +176,24 @@ fn node_runner() -> String {
     std::env::var("OPMAN_ACP_NPX").unwrap_or_else(|_| "npx".to_string())
 }
 
-/// Path of the user config file, if one is configured or the default location exists.
-pub fn config_path() -> Option<PathBuf> {
-    if let Ok(explicit) = std::env::var("OPMAN_ACP_CONFIG") {
-        if !explicit.is_empty() {
-            return Some(PathBuf::from(explicit));
-        }
-    }
-    dirs::config_dir().map(|d| d.join("opman").join("acp.json"))
+/// Whether opman ships this agent, so removing its entry restores it rather than
+/// deleting it.
+pub fn is_builtin(id: &str) -> bool {
+    matches!(id, "claude" | "codex")
 }
 
 /// Built-in defaults with the user's file merged over them. A malformed or missing file
 /// is not fatal: opman still starts with the built-in agents.
 pub fn load() -> AcpConfig {
+    resolve(load_document())
+}
+
+/// Built-in defaults with `document` applied. Split from [`load`] so a caller holding an
+/// edited document can see what it resolves to without writing it first.
+pub fn resolve(document: AcpDocument) -> AcpConfig {
     let mut cfg = builtin();
-    let Some(path) = config_path() else {
-        return finish(cfg);
-    };
-    let Ok(raw) = std::fs::read_to_string(&path) else {
-        return finish(cfg);
-    };
-    match serde_json::from_str::<AcpConfig>(&raw) {
-        Ok(user) => {
-            for (id, entry) in user.agents {
-                cfg.agents.entry(id).or_default().overlay(entry);
-            }
-        }
-        Err(e) => tracing::warn!(path = %path.display(), "ignoring malformed ACP config: {e}"),
+    for (id, patch) in document.agents {
+        patch.apply(cfg.agents.entry(id).or_default());
     }
     finish(cfg)
 }

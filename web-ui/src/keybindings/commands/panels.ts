@@ -44,7 +44,7 @@ export const GIT_COMMANDS: readonly CommandDef[] = [
   { id: "git.switchRepo", title: "Switch Repository…", category: "Git", label: "repo" },
   { id: "git.createPr", title: "Create Pull Request…", category: "Git", when: "gitRepo", label: "pull request" },
   { id: "git.sendToReview", title: "Send Changes to AI Review", category: "Git", when: "gitRepo", label: "review" },
-  { id: "git.diffReview", title: "Diff Review Panel", category: "Git", when: "sessionActive", label: "diff review" },
+  { id: "git.diffReview", title: "Diff Review Panel", category: "Git", when: "sessionActive", label: "diff review", slash: { name: "diff-review", where: "opman" } },
   { id: "git.acceptChange", title: "Accept Reviewed Change", category: "Git", when: "diffReviewOpen", label: "accept" },
   { id: "git.revertChange", title: "Revert Reviewed Change", category: "Git", when: "diffReviewOpen", label: "revert" },
   { id: "git.back", title: "Go Back", category: "Git", when: "focus==git" },

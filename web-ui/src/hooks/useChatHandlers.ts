@@ -1,15 +1,17 @@
 import { useMemo, useRef } from "react";
 import type { ModalName } from "./useModalState";
-import type { PersonalMemoryItem, ImageAttachment } from "../api";
+import type { ImageAttachment } from "../api";
 import type { Message } from "../types";
 import {
   createHandleSend, createHandleAbort, createHandleAgentChange,
   createHandleCommand, createHandlePermissionReply, createHandleQuestionReply,
-  createHandleQuestionDismiss,
-  createHandleSelectSession, createHandleNewSession, createHandleSwitchProject,
-  createHandleModelSelected,
+  createHandleQuestionDismiss, createHandleCopyTranscript,
 } from "../chatLayoutHandlers";
 import type { HandlerDeps } from "../chatLayoutHandlers";
+import {
+  createHandleSelectSession, createHandleNewSession, createHandleSwitchProject,
+  createHandleModelSelected,
+} from "../chatSessionHandlers";
 
 /* ── Input types ───────────────────────────────────────── */
 
@@ -26,8 +28,6 @@ export interface ChatHandlerInputs {
   runnerSwitch: string | null;
   selectedEffort: string | null;
   selectedPermission: string;
-  sending: boolean;
-  activeMemoryItems: PersonalMemoryItem[];
   setSending: (v: boolean, sessionId?: string) => void;
   setSelectedModel: (m: any) => void;
   setSelectedAgent: (a: string) => void;
@@ -42,21 +42,13 @@ export interface ChatHandlerInputs {
   refreshMessages: (sessionId?: string | null, options?: { adoptView?: boolean }) => Promise<void>;
   clearPermission: (id: string) => void;
   clearQuestion: (id: string) => void;
-  setMobileSidebarOpen: (v: boolean) => void;
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string | null, projectIdx: number) => void;
-  openModal: (name: string) => void;
-  /** Signal that the next SSE session change is expected (for real session switches). */
-  expectSessionSwitch: () => void;
   /** Temporarily block background SSE-driven session adoption for non-switch actions. */
   blockSessionAdoption: (ms?: number) => void;
-  openMemoryAll: () => void;
-  toggleSidebar: () => void;
-  toggleTerminal: () => void;
-  toggleNeovim: () => void;
-  toggleGit: () => void;
-  toggleDebug: () => void;
+  /** Run a registered command by id — how a `/name` reaches its implementation. */
+  runCommandId: (id: string) => boolean;
   /** Read current messages at call-time (avoids including in memo deps). */
   getMessages: () => Message[];
 }
@@ -78,16 +70,6 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const projectIdxRef = useRef(inputs.activeProjectIndex);
   projectIdxRef.current = inputs.activeProjectIndex;
 
-  // Keep sending in a ref — handlers read at call-time so session switches
-  // don't stale-close over the wrong session's sending flag.
-  const sendingRef = useRef(inputs.sending);
-  sendingRef.current = inputs.sending;
-
-  // Keep activeMemoryItems in a ref — handlers read at call-time so freshly
-  // fetched memories are always used, even during the brief re-render window.
-  const memoryRef = useRef(inputs.activeMemoryItems);
-  memoryRef.current = inputs.activeMemoryItems;
-
   // Keep messages in a ref so /copy reads current messages without memo invalidation.
   const messagesRef = useRef(inputs.getMessages);
   messagesRef.current = inputs.getMessages;
@@ -103,8 +85,6 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     runnerSwitch: inputs.runnerSwitch,
     selectedEffort: inputs.selectedEffort,
     selectedPermission: inputs.selectedPermission,
-    get sending() { return sendingRef.current; },
-    get activeMemoryItems() { return memoryRef.current; },
     setSending: inputs.setSending,
     setSelectedModel: inputs.setSelectedModel,
     setSelectedAgent: inputs.setSelectedAgent,
@@ -118,35 +98,27 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     refreshMessages: inputs.refreshMessages,
     clearPermission: inputs.clearPermission,
     clearQuestion: inputs.clearQuestion,
-    setMobileSidebarOpen: inputs.setMobileSidebarOpen,
     closeMobileSidebarSilent: inputs.closeMobileSidebarSilent,
     setUrlSession: inputs.setUrlSession,
-    openModal: inputs.openModal,
-    expectSessionSwitch: inputs.expectSessionSwitch,
     blockSessionAdoption: inputs.blockSessionAdoption,
-    openMemoryAll: inputs.openMemoryAll,
-    toggleSidebar: inputs.toggleSidebar,
-    toggleTerminal: inputs.toggleTerminal,
-    toggleNeovim: inputs.toggleNeovim,
-    toggleGit: inputs.toggleGit,
-    toggleDebug: inputs.toggleDebug,
+    runCommandId: inputs.runCommandId,
     getMessages: () => messagesRef.current(),
   }), [
-    // activeSessionId, sending, activeMemoryItems intentionally omitted — read from refs via getters
+    // activeSessionId and activeProjectIndex intentionally omitted — read from refs via getters
     inputs.appState, inputs.selectedModel,
     inputs.selectedAgent, inputs.runnerForNewSession, inputs.runnerSwitch, inputs.selectedEffort, inputs.selectedPermission,
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent, inputs.clearRunnerChoice, inputs.bindRunnerChoice,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.clearOptimistic, inputs.refreshState, inputs.refreshMessages, inputs.clearPermission, inputs.clearQuestion,
-    inputs.setMobileSidebarOpen, inputs.closeMobileSidebarSilent, inputs.setUrlSession,
-    inputs.openModal, inputs.expectSessionSwitch, inputs.blockSessionAdoption, inputs.openMemoryAll, inputs.toggleSidebar, inputs.toggleTerminal, inputs.toggleNeovim,
-    inputs.toggleGit, inputs.toggleDebug,
+    inputs.closeMobileSidebarSilent, inputs.setUrlSession,
+    inputs.blockSessionAdoption, inputs.runCommandId,
   ]);
 
   const handleSend = useMemo(() => createHandleSend(deps), [deps]);
   const handleAbort = useMemo(() => createHandleAbort(deps), [deps]);
   const handleAgentChange = useMemo(() => createHandleAgentChange(deps), [deps]);
   const handleCommand = useMemo(() => createHandleCommand(deps), [deps]);
+  const handleCopyTranscript = useMemo(() => createHandleCopyTranscript(deps), [deps]);
   const handlePermissionReply = useMemo(() => createHandlePermissionReply(deps), [deps]);
   const handleQuestionReply = useMemo(() => createHandleQuestionReply(deps), [deps]);
   const handleQuestionDismiss = useMemo(() => createHandleQuestionDismiss(deps), [deps]);
@@ -156,7 +128,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
   const handleModelSelected = useMemo(() => createHandleModelSelected(deps), [deps]);
 
   return {
-    handleSend, handleAbort, handleAgentChange, handleCommand,
+    handleSend, handleAbort, handleAgentChange, handleCommand, handleCopyTranscript,
     handlePermissionReply, handleQuestionReply, handleQuestionDismiss,
     handleSelectSession,
     handleNewSession, handleSwitchProject, handleModelSelected,

@@ -40,7 +40,10 @@ fn transcript_is_fresh_false_for_backdated_file() {
 // ---- drive tests (execute loop bodies without a live claude) ----------
 
 fn engine() -> Arc<ClaudeEngine> {
-    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 // A tailer for a session that doesn't exist breaks out of its loop on the first tick.

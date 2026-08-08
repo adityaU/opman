@@ -110,7 +110,9 @@ impl Upstream {
             let values = if is_sse {
                 decode_sse(&body)
             } else {
-                serde_json::from_str::<Value>(&body).map(|v| vec![v]).unwrap_or_default()
+                serde_json::from_str::<Value>(&body)
+                    .map(|v| vec![v])
+                    .unwrap_or_default()
             };
             self.remember_protocol(&values);
             return Ok(values);

@@ -73,7 +73,10 @@ fn insertion(item: &Value) -> (String, bool) {
     if let Some(text) = item.get("insertText").and_then(Value::as_str) {
         return (text.to_string(), snippet);
     }
-    let label = item.get("label").and_then(Value::as_str).unwrap_or_default();
+    let label = item
+        .get("label")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     (label.to_string(), false)
 }
 
@@ -198,12 +201,18 @@ pub fn render_result(result: &Value) -> (Vec<Value>, bool) {
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default(),
-            map.get("isIncomplete").and_then(Value::as_bool).unwrap_or(false),
+            map.get("isIncomplete")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
         ),
         _ => (Vec::new(), false),
     };
 
-    let rendered: Vec<Value> = items.iter().take(MAX_ITEMS).filter_map(render_item).collect();
+    let rendered: Vec<Value> = items
+        .iter()
+        .take(MAX_ITEMS)
+        .filter_map(render_item)
+        .collect();
     (rendered, incomplete || items.len() > MAX_ITEMS)
 }
 

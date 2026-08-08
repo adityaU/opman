@@ -86,7 +86,10 @@ async fn a_call_without_arguments_does_not_fail_before_it_is_sent() {
     .expect_err("there is no manager listening");
 
     // It got as far as the socket, which is the point: the arguments parsed.
-    assert!(format!("{error:#}").contains("failed to connect"), "{error:#}");
+    assert!(
+        format!("{error:#}").contains("failed to connect"),
+        "{error:#}"
+    );
 }
 
 #[tokio::test]

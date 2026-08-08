@@ -2,9 +2,9 @@ import type { CommandDef } from "../types";
 
 /** Session lifecycle, navigation and the session-overview surfaces. */
 export const SESSION_COMMANDS: readonly CommandDef[] = [
-  { id: "session.new", title: "New Session", category: "Sessions", label: "new" },
+  { id: "session.new", title: "New Session", category: "Sessions", label: "new", slash: { name: "new", where: "opman" } },
   { id: "session.newInProject", title: "New Session in Project…", category: "Sessions", label: "new in project" },
-  { id: "session.switch", title: "Switch Session…", category: "Sessions", label: "switch" },
+  { id: "session.switch", title: "Switch Session…", category: "Sessions", label: "switch", slash: { name: "sessions", where: "opman" } },
   { id: "session.next", title: "Next Session", category: "Sessions" },
   { id: "session.previous", title: "Previous Session", category: "Sessions" },
   { id: "session.filterSidebar", title: "Filter Sessions", category: "Sessions", label: "filter" },
@@ -12,7 +12,7 @@ export const SESSION_COMMANDS: readonly CommandDef[] = [
   { id: "session.togglePin", title: "Pin or Unpin Session", category: "Sessions", when: "sessionActive", label: "pin" },
   { id: "session.close", title: "Close Session", category: "Sessions", when: "sessionActive", label: "close" },
   { id: "session.delete", title: "Delete Session", category: "Sessions", when: "sessionActive", label: "delete" },
-  { id: "session.fork", title: "Fork Session", category: "Sessions", when: "sessionActive", label: "fork" },
-  { id: "session.share", title: "Share Session", category: "Sessions", when: "sessionActive", label: "share" },
-  { id: "session.watcher", title: "Session Watcher", category: "Sessions", label: "watcher" },
+  { id: "session.fork", title: "Fork Session", category: "Sessions", when: "sessionActive", label: "fork", slash: { name: "fork", where: "runner" } },
+  { id: "session.share", title: "Share Session", category: "Sessions", when: "sessionActive", label: "share", slash: { name: "share", where: "runner" } },
+  { id: "session.watcher", title: "Session Watcher", category: "Sessions", label: "watcher", slash: { name: "watcher", where: "opman" } },
 ];

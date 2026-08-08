@@ -56,7 +56,9 @@ pub enum ParseError {
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NoFrontmatter => f.write_str("SKILL.md must start with a `---` frontmatter block"),
+            Self::NoFrontmatter => {
+                f.write_str("SKILL.md must start with a `---` frontmatter block")
+            }
             Self::Yaml(e) => write!(f, "invalid SKILL.md frontmatter: {e}"),
         }
     }
@@ -72,7 +74,10 @@ impl std::fmt::Display for ParseError {
 pub fn parse_skill_md(raw: &str, dir_name: &SkillName) -> Result<Skill, ParseError> {
     let body = raw
         .strip_prefix(DELIMITER)
-        .and_then(|rest| rest.strip_prefix('\n').or_else(|| rest.strip_prefix("\r\n")))
+        .and_then(|rest| {
+            rest.strip_prefix('\n')
+                .or_else(|| rest.strip_prefix("\r\n"))
+        })
         .ok_or(ParseError::NoFrontmatter)?;
     let (front, content) = split_at_close(body).ok_or(ParseError::NoFrontmatter)?;
     let front: Frontmatter = serde_yaml::from_str(front).map_err(ParseError::Yaml)?;
@@ -123,7 +128,10 @@ pub fn render_skill_md(draft: &SkillDraft<'_>) -> Result<String, serde_yaml::Err
         },
     };
     let yaml = serde_yaml::to_string(&front)?;
-    Ok(format!("{DELIMITER}\n{yaml}{DELIMITER}\n\n{}\n", draft.body.trim()))
+    Ok(format!(
+        "{DELIMITER}\n{yaml}{DELIMITER}\n\n{}\n",
+        draft.body.trim()
+    ))
 }
 
 #[cfg(test)]

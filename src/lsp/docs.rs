@@ -124,7 +124,12 @@ impl DocStore {
     /// recompute on save.
     pub fn notify_saved(&self, peer: &Peer, path: &Path) {
         let uri = path_to_uri(path);
-        if self.open.lock().map(|o| !o.contains_key(&uri)).unwrap_or(true) {
+        if self
+            .open
+            .lock()
+            .map(|o| !o.contains_key(&uri))
+            .unwrap_or(true)
+        {
             return;
         }
         let _ = peer.notify(

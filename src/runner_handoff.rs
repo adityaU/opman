@@ -135,7 +135,11 @@ pub fn render_transcript(body: &Value) -> String {
     if kept.is_empty() {
         let last = entries.last().expect("non-empty");
         let tail = last.text.len().saturating_sub(MAX_TRANSCRIPT);
-        kept.push(format!("--- {} ---\n{}", last.role, &last.text[floor_char(&last.text, tail)..]));
+        kept.push(format!(
+            "--- {} ---\n{}",
+            last.role,
+            &last.text[floor_char(&last.text, tail)..]
+        ));
     }
     kept.reverse();
 

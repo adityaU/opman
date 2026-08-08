@@ -1,5 +1,6 @@
 import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../types";
 import type { SessionStats, ClientPresence, ThemePair } from "../../api";
+import { ACP_AGENTS_CHANGED } from "../../api/acp";
 import { MCP_SERVERS_CHANGED } from "../../api/mcp";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
@@ -580,6 +581,14 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
   // the settings page can refetch without opening a second event stream.
   appSSE.addEventListener("mcp_servers_changed", () => {
     window.dispatchEvent(new CustomEvent(MCP_SERVERS_CHANGED));
+  });
+
+  // An ACP agent was added, edited or removed. Unlike an MCP edit this changes the set of
+  // *runners*, so the app state is refetched too — otherwise the engine picker would go on
+  // offering an agent that just stopped, or miss one that just started.
+  appSSE.addEventListener("acp_agents_changed", () => {
+    window.dispatchEvent(new CustomEvent(ACP_AGENTS_CHANGED));
+    ctx.refreshState();
   });
 
   // Toast notifications from TUI

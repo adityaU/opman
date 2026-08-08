@@ -44,7 +44,6 @@ use tokio::sync::mpsc;
 use tokio::sync::{broadcast, RwLock};
 use tokio::task::AbortHandle;
 
-
 use crate::config::Config;
 
 use super::db::Db;

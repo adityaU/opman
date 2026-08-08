@@ -42,6 +42,10 @@ pub(crate) fn test_server_state() -> ServerState {
 
     let mut web_state = WebStateHandle::new_test();
     web_state.set_editor_tx(editor_tx.clone());
+    let runner_registry = std::sync::Arc::new(crate::runner::RunnerRegistry::new(
+        crate::runner::RunnerKind::Opencode,
+        runners,
+    ));
 
     ServerState {
         web_state,
@@ -62,12 +66,22 @@ pub(crate) fn test_server_state() -> ServerState {
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
         internal_token: "test-internal-token".to_string(),
-        runner_registry: std::sync::Arc::new(crate::runner::RunnerRegistry::new(
-            crate::runner::RunnerKind::Opencode,
-            runners,
-        )),
+        acp: test_acp_supervisor(runner_registry.clone()),
+        runner_registry,
         mcp_logins: std::sync::Arc::default(),
     }
+}
+
+/// A supervisor owning no engines, for handlers that only need the field to exist.
+pub(crate) fn test_acp_supervisor(
+    registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+) -> std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor> {
+    std::sync::Arc::new(crate::acp_engine::supervisor::AcpSupervisor::adopt(
+        registry,
+        crate::mcp_registry::RegistryHandle::default(),
+        reqwest::Client::new(),
+        std::iter::empty(),
+    ))
 }
 
 /// Like [`test_server_state`] but with credentials set, for auth tests.

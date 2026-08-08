@@ -27,12 +27,6 @@ const PERMISSIONS: Record<string, { value: string; label: string }[]> = {
     { value: "plan", label: "Plan only" },
     { value: "bypassPermissions", label: "Bypass permissions" },
   ],
-  codex: [
-    { value: "on-request", label: "Ask when needed" },
-    { value: "never", label: "Never ask" },
-    { value: "on-failure", label: "Ask after failure" },
-    { value: "untrusted", label: "Untrusted only" },
-  ],
   opencode: [{ value: "default", label: "Default" }],
 };
 

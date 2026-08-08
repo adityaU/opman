@@ -13,7 +13,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tracing::debug;
 
-use super::{claude_cli, jsonl, models, ClaudeEngine};
+use super::{claude_cli, command_meta, jsonl, models, ClaudeEngine};
 
 type Engine = Arc<ClaudeEngine>;
 
@@ -579,73 +579,44 @@ async fn provider(State(engine): State<Engine>) -> Json<Value> {
     Json(models::provider_payload(&models))
 }
 
-/// Friendly descriptions for well-known claude built-in slash commands. Skills and
-/// custom commands (not listed here) fall back to a generic label.
-fn command_description(name: &str) -> &'static str {
-    match name {
-        "compact" => "Compact the conversation to save context",
-        "clear" => "Clear the conversation history",
-        "context" => "Show context window usage",
-        "init" => "Generate a CLAUDE.md for this project",
-        "review" => "Review the current changes",
-        "security-review" => "Security review of the pending changes",
-        "config" => "Open configuration",
-        "usage" => "Show usage and limits",
-        "usage-credits" => "Show usage credits",
-        "extra-usage" => "Show extra usage",
-        "insights" => "Show session insights",
-        "goal" => "Set or show the session goal",
-        "reload-skills" => "Reload skills",
-        "heapdump" => "Capture a heap dump (debug)",
-        "deep-research" => "Run a deep multi-source research report",
-        "code-review" => "Review the current diff for bugs and cleanups",
-        "simplify" => "Simplify the changed code",
-        "verify" => "Verify a change by running the app",
-        "debug" => "Investigate a hard bug",
-        "loop" => "Run a prompt on a recurring interval",
-        "schedule" => "Manage scheduled cloud agents",
-        "claude-api" => "Claude API / SDK reference",
-        "run" => "Launch and drive the project's app",
-        "batch" => "Batch-process a list of items",
-        "fewer-permission-prompts" => "Reduce permission prompts",
-        "update-config" => "Configure the Claude Code harness",
-        "design-sync" => "Sync design tokens",
-        "run-skill-generator" => "Generate a new skill",
-        "team-onboarding" => "Generate a team onboarding guide",
-        _ => "",
-    }
-}
-
 /// Fetch claude's init introspection (slash commands + agents) for a directory,
 /// caching it after the first (subprocess) call.
+///
+/// The descriptions are gathered in the same blocking hop as the introspection, so a cache
+/// hit answers both without touching the filesystem again.
 async fn init_for_dir(engine: &Engine, dir: &str) -> claude_cli::InitInfo {
     if let Some(info) = engine.cached_init(dir) {
         return info;
     }
     let d = dir.to_string();
-    let info = tokio::task::spawn_blocking(move || claude_cli::introspect(&d))
-        .await
-        .unwrap_or_default();
+    let info = tokio::task::spawn_blocking(move || {
+        let mut info = claude_cli::introspect(&d);
+        info.descriptions = command_meta::describe(&d);
+        info
+    })
+    .await
+    .unwrap_or_default();
     engine.set_cached_init(dir, info.clone());
     info
 }
 
+/// GET /command — the slash commands claude reports for this directory.
+///
+/// Names come from claude's own `system/init` event and descriptions from the command and
+/// skill files it reads, so a command opman has never heard of arrives fully labelled and a
+/// built-in it cannot see is simply absent.
 async fn command_list(State(engine): State<Engine>, headers: HeaderMap) -> Json<Value> {
     let dir = dir_header(&headers);
     if dir.is_empty() {
         return Json(Value::Array(vec![]));
     }
-    // Discover claude's slash commands for this directory (cached after first call).
-    let commands = init_for_dir(&engine, &dir).await.commands;
-    let arr: Vec<Value> = commands
+    let info = init_for_dir(&engine, &dir).await;
+    let arr: Vec<Value> = info
+        .commands
         .iter()
-        .map(|name| {
-            let desc = command_description(name);
-            if desc.is_empty() {
-                json!({ "name": name })
-            } else {
-                json!({ "name": name, "description": desc })
-            }
+        .map(|name| match command_meta::lookup(&info.descriptions, name) {
+            Some(description) => json!({ "name": name, "description": description }),
+            None => json!({ "name": name }),
         })
         .collect();
     Json(Value::Array(arr))

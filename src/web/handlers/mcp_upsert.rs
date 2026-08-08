@@ -61,7 +61,9 @@ pub(super) fn apply(
     if let Some(runners) = body.runners {
         target.runners = runners
             .iter()
-            .map(|raw| crate::runner::RunnerKind::parse(raw).ok_or(StatusCode::UNPROCESSABLE_ENTITY))
+            .map(|raw| {
+                crate::runner::RunnerKind::parse(raw).ok_or(StatusCode::UNPROCESSABLE_ENTITY)
+            })
             .collect::<Result<Vec<_>, _>>()?;
     }
     if let Some(kind) = body.r#type {

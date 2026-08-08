@@ -174,10 +174,7 @@ impl Remote {
 }
 
 /// Name/value pairs where an unresolvable value drops just that pair.
-fn resolve_pairs<'a>(
-    pairs: &'a [(Box<str>, Arg)],
-    at: Bind<'a>,
-) -> Vec<(&'a str, Cow<'a, str>)> {
+fn resolve_pairs<'a>(pairs: &'a [(Box<str>, Arg)], at: Bind<'a>) -> Vec<(&'a str, Cow<'a, str>)> {
     pairs
         .iter()
         .filter_map(|(name, value)| Some((name.as_ref(), resolve(value, at)?)))

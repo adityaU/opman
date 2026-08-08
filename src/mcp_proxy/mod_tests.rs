@@ -77,7 +77,9 @@ async fn an_unconfigured_server_says_so_rather_than_asking_for_a_login() {
         &[r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"x"}}"#],
     )
     .await;
-    let text = out[0]["result"]["content"][0]["text"].as_str().unwrap_or_default();
+    let text = out[0]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
     assert!(text.contains("not configured"));
 }
 
@@ -113,7 +115,10 @@ async fn resource_and_prompt_listings_are_valid_and_empty() {
 async fn malformed_input_is_answered_and_the_loop_survives() {
     let out = drive(
         DegradedReason::NotAuthenticated,
-        &["{ not json", r#"{"jsonrpc":"2.0","id":2,"method":"initialize","params":{}}"#],
+        &[
+            "{ not json",
+            r#"{"jsonrpc":"2.0","id":2,"method":"initialize","params":{}}"#,
+        ],
     )
     .await;
     assert_eq!(out.len(), 2);

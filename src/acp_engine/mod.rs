@@ -29,16 +29,18 @@ mod history;
 mod jsonrpc;
 mod mcp_servers;
 mod options;
+pub mod patch;
 mod render;
 mod routes;
 mod routes_meta;
 mod routes_turn;
 mod session;
 mod state;
+pub mod supervisor;
 mod tool;
 mod transcript;
-mod turn_state;
 mod turn;
+mod turn_state;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -118,7 +120,9 @@ pub struct AcpEngine {
         Mutex<HashMap<String, tokio::sync::oneshot::Sender<crate::claude_engine::PendingReply>>>,
     persist: Option<PathBuf>,
     url: Mutex<String>,
-    exe: PathBuf,
+    /// The task serving this engine's REST surface, so removing the agent frees its port
+    /// rather than leaving a listener bound to config that no longer exists.
+    serve: Mutex<Option<tokio::task::JoinHandle<()>>>,
     mcp: crate::mcp_registry::SharedRegistry,
 }
 
@@ -150,9 +154,21 @@ impl AcpEngine {
             pending: Mutex::new(HashMap::new()),
             persist,
             url: Mutex::new(String::new()),
-            exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("opman")),
+            serve: Mutex::new(None),
             mcp,
         }
+    }
+
+    /// Stop serving and kill every agent process this engine started.
+    ///
+    /// Sessions are left on disk: an agent removed from config and added back should find
+    /// its conversations, exactly as it would across a restart of opman.
+    pub async fn shutdown(&self) {
+        let serving = self.serve.lock().ok().and_then(|mut slot| slot.take());
+        if let Some(handle) = serving {
+            handle.abort();
+        }
+        self.conns.close_all().await;
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<EngineEvent> {
@@ -253,11 +269,14 @@ pub async fn start_embedded_server(
     info!(agent = %id, %url, "ACP engine ready");
 
     let label = id.to_string();
-    tokio::spawn(async move {
+    let serving = tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {
             tracing::error!(agent = %label, "ACP engine server error: {e}");
         }
     });
+    if let Ok(mut slot) = engine.serve.lock() {
+        *slot = Some(serving);
+    }
 
     let handle: ServerHandle = Arc::new(std::sync::Mutex::new(None));
     Ok((url, handle, engine))

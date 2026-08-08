@@ -78,7 +78,10 @@ impl LspServer {
             .spawn()
             .with_context(|| format!("failed to start {}", spec.command))?;
 
-        let stdin = child.stdin.take().context("language server stdin missing")?;
+        let stdin = child
+            .stdin
+            .take()
+            .context("language server stdin missing")?;
         let stdout = child
             .stdout
             .take()
@@ -151,7 +154,10 @@ async fn handshake(peer: Peer, root: PathBuf) -> Result<ServerCaps, Arc<anyhow::
     let caps = read_caps(&result);
     peer.notify("initialized", json!({})).map_err(Arc::new)?;
     // Some servers only apply defaults once told settings changed.
-    let _ = peer.notify("workspace/didChangeConfiguration", json!({ "settings": {} }));
+    let _ = peer.notify(
+        "workspace/didChangeConfiguration",
+        json!({ "settings": {} }),
+    );
     debug!(?root, "lsp: server initialized");
     Ok(caps)
 }

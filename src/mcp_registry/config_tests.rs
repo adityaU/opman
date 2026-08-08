@@ -52,19 +52,28 @@ fn headers_imply_a_credential_even_without_an_auth_field() {
 fn a_proxied_server_gets_a_default_ceiling() {
     let cfg = parse(r#"{"servers":{"a":{"url":"https://x/mcp","auth":"oauth"}}}"#);
     let spec = cfg.servers["a"].to_spec("a").expect("spec");
-    assert_eq!(spec.timeout_secs(), Some(crate::mcp_registry::PROXY_TIMEOUT_SECS));
+    assert_eq!(
+        spec.timeout_secs(),
+        Some(crate::mcp_registry::PROXY_TIMEOUT_SECS)
+    );
 }
 
 #[test]
 fn an_explicit_timeout_is_not_overridden() {
     let cfg = parse(r#"{"servers":{"a":{"url":"https://x/mcp","auth":"oauth","timeoutSecs":30}}}"#);
-    assert_eq!(cfg.servers["a"].to_spec("a").expect("spec").timeout_secs(), Some(30));
+    assert_eq!(
+        cfg.servers["a"].to_spec("a").expect("spec").timeout_secs(),
+        Some(30)
+    );
 }
 
 #[test]
 fn a_public_stdio_server_gets_no_ceiling() {
     let cfg = parse(r#"{"servers":{"a":{"command":"npx"}}}"#);
-    assert_eq!(cfg.servers["a"].to_spec("a").expect("spec").timeout_secs(), None);
+    assert_eq!(
+        cfg.servers["a"].to_spec("a").expect("spec").timeout_secs(),
+        None
+    );
 }
 
 #[test]
@@ -123,7 +132,7 @@ fn a_patch_can_narrow_which_runners_see_a_builtin() {
     let builtin = ServerSpec::stdio("time", "/opman", vec![Arg::lit("mcp-time")], Vec::new());
     let cfg = parse(r#"{"servers":{"time":{"runners":["codex"]}}}"#);
     let patched = cfg.servers["time"].patch(builtin).expect("still enabled");
-    assert!(patched.admits(&RunnerKind::Codex));
+    assert!(patched.admits(&RunnerKind::Acp("codex".to_string())));
     assert!(!patched.admits(&RunnerKind::Opencode));
 }
 

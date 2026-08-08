@@ -75,12 +75,7 @@ async fn busy_clears_the_session_error_state() {
         .error_sessions
         .insert("s1".into(), "boom".into());
     handle.set_session_running("s1", Running::Busy).await;
-    assert!(!handle
-        .inner
-        .read()
-        .await
-        .error_sessions
-        .contains_key("s1"));
+    assert!(!handle.inner.read().await.error_sessions.contains_key("s1"));
 }
 
 #[tokio::test]
@@ -208,7 +203,10 @@ async fn an_untracked_idle_still_counts_unseen() {
     let handle = WebStateHandle::new_test();
     assert!(!handle.set_session_running("x9", Running::Idle).await);
     handle.note_untracked_idle("x9").await;
-    assert_eq!(handle.inner.read().await.unseen_sessions.get("x9"), Some(&1));
+    assert_eq!(
+        handle.inner.read().await.unseen_sessions.get("x9"),
+        Some(&1)
+    );
 }
 
 #[tokio::test]
@@ -236,14 +234,15 @@ async fn a_sweep_that_finds_a_session_busy_cancels_its_watcher_timer() {
         .await;
     {
         let mut state = handle.inner.write().await;
-        let pending =
-            tokio::spawn(async { tokio::time::sleep(Duration::from_secs(3600)).await })
-                .abort_handle();
+        let pending = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(3600)).await })
+            .abort_handle();
         state.watcher_pending.insert("s1".into(), pending);
         state.watcher_idle_since.insert("s1".into(), Instant::now());
     }
 
-    handle.apply_status_sweep(&sweep(&["s1"], &["claude"])).await;
+    handle
+        .apply_status_sweep(&sweep(&["s1"], &["claude"]))
+        .await;
 
     let state = handle.inner.read().await;
     assert!(state.busy_sessions.contains("s1"));
@@ -266,7 +265,10 @@ async fn a_sweep_that_retires_a_session_emits_session_idle() {
             saw_idle = true;
         }
     }
-    assert!(saw_idle, "expected a SessionIdle event for the cleared session");
+    assert!(
+        saw_idle,
+        "expected a SessionIdle event for the cleared session"
+    );
 }
 
 #[tokio::test]

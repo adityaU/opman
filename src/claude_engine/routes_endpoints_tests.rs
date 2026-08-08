@@ -4,7 +4,10 @@ use crate::claude_engine::registry::SessionEntry;
 use axum::http::StatusCode;
 
 fn engine() -> Engine {
-    Arc::new(ClaudeEngine::new(None, crate::mcp_registry::RegistryHandle::default()))
+    Arc::new(ClaudeEngine::new(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ))
 }
 
 /// Local mirror of `crate::web::test_support::send_json` for the engine router.
@@ -146,16 +149,7 @@ fn save_attachments_no_parts_is_empty() {
 }
 
 #[test]
-fn command_and_agent_descriptions() {
-    assert_eq!(
-        command_description("compact"),
-        "Compact the conversation to save context"
-    );
-    assert_eq!(
-        command_description("verify"),
-        "Verify a change by running the app"
-    );
-    assert_eq!(command_description("totally-unknown"), "");
+fn agent_descriptions() {
     assert_eq!(
         agent_description("claude"),
         "Default agent for general tasks"
@@ -266,8 +260,8 @@ fn handle_control_command_agent_toast_path() {
     e.set_cached_init(
         "/d",
         claude_cli::InitInfo {
-            commands: vec![],
             agents: vec!["Explore".into()],
+            ..Default::default()
         },
     );
     assert!(handle_control_command(&e, &s.id, "/agent explore"));
@@ -505,8 +499,8 @@ async fn send_message_sets_model_agent_and_queues_when_busy() {
     e.set_cached_init(
         "/d",
         claude_cli::InitInfo {
-            commands: vec![],
             agents: vec!["Plan".into()],
+            ..Default::default()
         },
     );
     e.set_busy(&s.id, true); // occupied → the turn queues instead of spawning claude.
@@ -535,8 +529,8 @@ async fn prompt_async_applies_model_agent_and_effort() {
     e.set_cached_init(
         "/d",
         claude_cli::InitInfo {
-            commands: vec![],
             agents: vec!["Plan".into()],
+            ..Default::default()
         },
     );
     e.set_busy(&s.id, true); // occupied → the turn queues instead of spawning claude.
@@ -665,6 +659,11 @@ async fn command_and_agent_lists() {
         claude_cli::InitInfo {
             commands: vec!["compact".into(), "my-custom".into()],
             agents: vec!["claude".into(), "Explore".into()],
+            // Only `my-custom` has a definition file behind it; `compact` is a claude
+            // built-in, and opman has no prose of its own to put against it.
+            descriptions: [("my-custom".to_string(), "Do the custom thing".to_string())]
+                .into_iter()
+                .collect(),
         },
     );
 
@@ -692,13 +691,14 @@ async fn command_and_agent_lists() {
     let cmds = req("/command").await;
     let arr = cmds.as_array().unwrap();
     assert_eq!(arr.len(), 2);
+    // A command with a definition file carries that file's own description...
     assert!(arr
         .iter()
-        .any(|c| c["name"] == "compact" && c["description"] != ""));
-    // Unknown command has no description field.
+        .any(|c| c["name"] == "my-custom" && c["description"] == "Do the custom thing"));
+    // ...and one without carries no description at all.
     assert!(arr
         .iter()
-        .any(|c| c["name"] == "my-custom" && c.get("description").is_none()));
+        .any(|c| c["name"] == "compact" && c.get("description").is_none()));
 
     let agents = req("/agent").await;
     let arr = agents.as_array().unwrap();

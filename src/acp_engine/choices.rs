@@ -135,5 +135,4 @@ impl AcpEngine {
         let acp_session = params.get("sessionId").and_then(Value::as_str)?;
         self.acp_ids.lock().ok()?.get(acp_session).cloned()
     }
-
 }

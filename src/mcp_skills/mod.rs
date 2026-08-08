@@ -95,7 +95,10 @@ pub fn load_skills_from(root: &Path) -> BTreeMap<SkillName, Skill> {
 /// Renamed from `spawn_mcp_skills_server`, which started no server. Its loop also spun a
 /// core at 100% once the sender dropped: `recv` then returns `Err(Closed)` forever, and
 /// the old body ignored the error and looped.
-pub fn spawn_skills_reload_watcher(mut reload_rx: broadcast::Receiver<()>, registry: SkillsRegistry) {
+pub fn spawn_skills_reload_watcher(
+    mut reload_rx: broadcast::Receiver<()>,
+    registry: SkillsRegistry,
+) {
     tokio::spawn(async move {
         loop {
             match reload_rx.recv().await {

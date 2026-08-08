@@ -82,9 +82,11 @@ fn delivery_aliases_are_supported() {
     assert_eq!(mode("steer"), Some(Delivery::Immediate));
     assert_eq!(mode("next_turn"), Some(Delivery::Queued));
     assert_eq!(mode("next-turn"), Some(Delivery::Queued));
-    assert!(line(serde_json::json!({ "op": "send", "delivery": "later" }))
-        .delivery_mode()
-        .is_err());
+    assert!(
+        line(serde_json::json!({ "op": "send", "delivery": "later" }))
+            .delivery_mode()
+            .is_err()
+    );
 }
 
 /// No `delivery` at all means steer now, which is what a caller expecting a reply wants.

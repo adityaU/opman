@@ -112,7 +112,6 @@ pub(crate) fn parse_session_id_from_body(body: &serde_json::Value) -> Result<Str
         .ok_or_else(|| "No session ID in response".to_string())
 }
 
-
 /// Extract text content from a message Value.
 pub(super) fn extract_message_text(msg: &serde_json::Value) -> String {
     // Try parts array first

@@ -9,24 +9,24 @@ fn acp(id: &str) -> RunnerKind {
 #[test]
 fn an_empty_scope_admits_every_runner() {
     let scope = RunnerScope::default();
-    assert!(scope.admits(&RunnerKind::Codex));
+    assert!(scope.admits(&acp("codex")));
     assert!(scope.admits(&acp("gemini")));
 }
 
 #[test]
 fn an_allow_list_excludes_everything_else() {
-    let scope = RunnerScope::new(vec![RunnerKind::Codex], Vec::new());
-    assert!(scope.admits(&RunnerKind::Codex));
+    let scope = RunnerScope::new(vec![acp("codex")], Vec::new());
+    assert!(scope.admits(&acp("codex")));
     assert!(!scope.admits(&RunnerKind::Opencode));
 }
 
 #[test]
 fn a_deny_list_wins_over_an_allow_list() {
     let scope = RunnerScope::new(
-        vec![RunnerKind::Codex, RunnerKind::Opencode],
+        vec![acp("codex"), RunnerKind::Opencode],
         vec![RunnerKind::Opencode],
     );
-    assert!(scope.admits(&RunnerKind::Codex));
+    assert!(scope.admits(&acp("codex")));
     assert!(!scope.admits(&RunnerKind::Opencode));
 }
 

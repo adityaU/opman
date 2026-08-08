@@ -77,10 +77,7 @@ fn hover_reads_markup_content() {
 
 #[test]
 fn hover_reads_a_plain_string() {
-    assert_eq!(
-        hover_text(&json!({ "contents": "i32" })).unwrap(),
-        "i32"
-    );
+    assert_eq!(hover_text(&json!({ "contents": "i32" })).unwrap(), "i32");
 }
 
 #[test]

@@ -36,10 +36,7 @@ async fn routines_list_empty() {
 async fn routine_create_update_delete() {
     let h = WebStateHandle::new_test();
     let r = h
-        .create_routine(mk_create_routine(
-            "daily",
-            RoutineTrigger::Manual,
-        ))
+        .create_routine(mk_create_routine("daily", RoutineTrigger::Manual))
         .await;
     assert!(r.id.starts_with("routine-"));
     assert_eq!(r.name, "daily");
@@ -102,10 +99,7 @@ async fn routine_update_not_found() {
 async fn routine_update_scheduled_recomputes_next_run() {
     let h = WebStateHandle::new_test();
     let r = h
-        .create_routine(mk_create_routine(
-            "sched",
-            RoutineTrigger::Scheduled,
-        ))
+        .create_routine(mk_create_routine("sched", RoutineTrigger::Scheduled))
         .await;
     // enabled + Scheduled + cron_expr set → recompute_next_run_if_scheduled fires update.
     let upd = UpdateRoutineRequest {
@@ -140,16 +134,10 @@ async fn routine_update_scheduled_recomputes_next_run() {
 async fn routine_list_sorted_by_updated_desc() {
     let h = WebStateHandle::new_test();
     let a = h
-        .create_routine(mk_create_routine(
-            "a",
-            RoutineTrigger::Manual,
-        ))
+        .create_routine(mk_create_routine("a", RoutineTrigger::Manual))
         .await;
     let _b = h
-        .create_routine(mk_create_routine(
-            "b",
-            RoutineTrigger::Manual,
-        ))
+        .create_routine(mk_create_routine("b", RoutineTrigger::Manual))
         .await;
     {
         let mut s = h.inner.write().await;
@@ -165,10 +153,7 @@ async fn routine_list_sorted_by_updated_desc() {
 async fn record_run_completed_and_failed_updates_routine() {
     let h = WebStateHandle::new_test();
     let r = h
-        .create_routine(mk_create_routine(
-            "r",
-            RoutineTrigger::Manual,
-        ))
+        .create_routine(mk_create_routine("r", RoutineTrigger::Manual))
         .await;
 
     let run = h

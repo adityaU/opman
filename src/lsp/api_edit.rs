@@ -124,8 +124,10 @@ pub async fn format(
         resolved.spec.language,
         Some(&formatted),
     );
-    resolved.server.docs.notify_saved(&resolved.server.peer, file);
+    resolved
+        .server
+        .docs
+        .notify_saved(&resolved.server.peer, file);
 
     json!({ "available": true, "formatted": true, "content": formatted })
 }
-

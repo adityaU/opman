@@ -53,14 +53,19 @@ describe("command registry", () => {
     expect(duplicates.map((c) => c.id)).toEqual([]);
   });
 
-  it("binds every command that is not palette-only", () => {
+  // The point is reachability, not chords: a command may be reached by a key, by the
+  // palette, or by typing its slash in the composer, but a command reachable by none of
+  // the three is dead code that still shows up in the keybindings view.
+  it("makes every command reachable", () => {
     const host: Host = { platform: "linux", target: "web", browser: "chrome" };
     const bound = new Set<string>();
     for (const mode of MODES) {
       for (const binding of compose(host, mode).bindings) bound.add(binding.command);
     }
-    const unbound = COMMANDS.filter((c) => !c.paletteOnly && !bound.has(c.id)).map((c) => c.id);
-    expect(unbound).toEqual([]);
+    const unreachable = COMMANDS.filter(
+      (c) => !c.paletteOnly && !c.slash && !bound.has(c.id),
+    ).map((c) => c.id);
+    expect(unreachable).toEqual([]);
   });
 
   // Which-key only ever renders the continuations of a prefix, so a binding

@@ -62,10 +62,7 @@ fn session_info_shape() {
 /// empty registry makes it unconditional.
 #[test]
 fn mcp_config_none_when_nothing_is_offered() {
-    let engine = Arc::new(ClaudeEngine::new(
-        None,
-        RegistryHandle::default(),
-    ));
+    let engine = Arc::new(ClaudeEngine::new(None, RegistryHandle::default()));
     assert!(engine.mcp_config_json("/d", "ses1").is_none());
 }
 
@@ -173,6 +170,7 @@ fn resolve_agent_all_branches() {
         claude_cli::InitInfo {
             commands: vec![],
             agents: vec!["claude".into(), "Plan".into(), "Explore".into()],
+            ..Default::default()
         },
     );
     assert_eq!(e.resolve_agent(&s.id, "Plan"), "Plan"); // exact
@@ -193,6 +191,7 @@ fn set_agent_no_change_is_noop() {
         claude_cli::InitInfo {
             commands: vec![],
             agents: vec!["Plan".into()],
+            ..Default::default()
         },
     );
     e.set_agent(&s.id, "plan");
@@ -212,6 +211,7 @@ fn init_cache_roundtrip() {
         claude_cli::InitInfo {
             commands: vec!["compact".into()],
             agents: vec!["claude".into()],
+            ..Default::default()
         },
     );
     let got = e.cached_init("/d").unwrap();

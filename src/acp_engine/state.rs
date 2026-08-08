@@ -220,14 +220,22 @@ impl AcpEngine {
     }
 
     // ── helpers ──────────────────────────────────────────────────────
-    pub(super) fn with_discovered<T: Default>(&self, id: &str, f: impl FnOnce(&mut Discovered) -> T) -> T {
+    pub(super) fn with_discovered<T: Default>(
+        &self,
+        id: &str,
+        f: impl FnOnce(&mut Discovered) -> T,
+    ) -> T {
         let Ok(mut all) = self.discovered.lock() else {
             return T::default();
         };
         f(all.entry(id.to_string()).or_default())
     }
 
-    pub(super) fn read_discovered<T: Default>(&self, id: &str, f: impl FnOnce(&Discovered) -> T) -> T {
+    pub(super) fn read_discovered<T: Default>(
+        &self,
+        id: &str,
+        f: impl FnOnce(&Discovered) -> T,
+    ) -> T {
         self.discovered
             .lock()
             .ok()

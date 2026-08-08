@@ -124,6 +124,7 @@ impl Arg {
     }
 
     /// Whether resolving this depends on a session id existing.
+    #[cfg(test)]
     pub(crate) fn needs_session(&self) -> bool {
         match self {
             Self::SessionId => true,
@@ -200,10 +201,12 @@ impl ServerSpec {
 
     /// True when any part of this spec resolves differently once a session id exists.
     ///
-    /// Codex uses this to decide whether re-sending its config after `thread/start` is
-    /// worth a round trip. That decision used to be hard-coded to "is the agent-manager
-    /// socket set", which was only ever right because agent-manager was the sole
-    /// session-bound server.
+    /// Every runner opman drives now learns its session id before it is handed a server
+    /// list, so nothing re-sends on this at runtime. It stays as the one place that
+    /// knows where a session placeholder may hide, and the builtin specs are asserted
+    /// against it — "agent-manager routes by session" is a property of the definition,
+    /// not of any one renderer.
+    #[cfg(test)]
     pub(crate) fn binds_session(&self) -> bool {
         match &self.transport {
             Transport::Stdio(stdio) => {
@@ -211,9 +214,10 @@ impl ServerSpec {
                     || stdio.env.iter().any(|(_, value)| value.needs_session())
                     || stdio.cwd.as_ref().is_some_and(Arg::needs_session)
             }
-            Transport::Remote(remote) => {
-                remote.headers.iter().any(|(_, value)| value.needs_session())
-            }
+            Transport::Remote(remote) => remote
+                .headers
+                .iter()
+                .any(|(_, value)| value.needs_session()),
         }
     }
 

@@ -38,6 +38,9 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
         WebEvent::McpServersChanged => {
             Some(SseEvent::default().event("mcp_servers_changed").data(""))
         }
+        WebEvent::AcpAgentsChanged => {
+            Some(SseEvent::default().event("acp_agents_changed").data(""))
+        }
         WebEvent::SessionBusy { session_id } => Some(
             SseEvent::default()
                 .event("session_busy")

@@ -143,9 +143,9 @@ fn describe(skill: &Skill, auth: &dyn AuthLookup) -> String {
                 " Requires the \"{server}\" MCP server, which is not authenticated — \
                  the user must run `opman mcp login {server}`."
             ),
-            McpAuthState::NotConfigured => format!(
-                " Requires the \"{server}\" MCP server, which is not configured in opman."
-            ),
+            McpAuthState::NotConfigured => {
+                format!(" Requires the \"{server}\" MCP server, which is not configured in opman.")
+            }
             McpAuthState::Satisfied | McpAuthState::NotRequired | McpAuthState::Unknown => {
                 format!(" Uses the \"{server}\" MCP server.")
             }
@@ -172,10 +172,7 @@ pub fn dispatch_tool(store: &SkillStore, auth: &dyn AuthLookup, params: Option<&
                 .values()
                 .map(|s| json!({ "name": s.name, "title": s.title, "description": s.description }))
                 .collect();
-            text_result(
-                serde_json::to_string_pretty(&listing)
-                    .unwrap_or_else(|_| "[]".to_string()),
-            )
+            text_result(serde_json::to_string_pretty(&listing).unwrap_or_else(|_| "[]".to_string()))
         }
         "skill_load" => {
             let wanted = params

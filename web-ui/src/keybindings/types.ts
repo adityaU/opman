@@ -33,6 +33,21 @@ export type ChordSeq = readonly ChordStep[];
 export type CommandId = string;
 
 /**
+ * How a command is reachable by typing `/name` in the composer.
+ *
+ * `where` is the whole point of the field. `opman` commands are opman's own — a panel, a
+ * modal, a page — and are listed and run by the client. Commands the agent executes are
+ * never listed here at all: the runner reports those, because only the runner knows which
+ * ones it has. `where: "runner"` marks the few that opman *sends* on behalf of a keybinding,
+ * so a chord for "compact" reaches whichever agent the session is on.
+ */
+export interface SlashSpec {
+  /** The name typed after the slash, without it. */
+  readonly name: string;
+  readonly where: "opman" | "runner";
+}
+
+/**
  * A command is the unit everything else is generated from: the palette, the
  * cheatsheet, the which-key hints and the slash popover all read this registry.
  */
@@ -46,6 +61,8 @@ export interface CommandDef {
   readonly label?: string;
   /** Palette-only commands are reachable but never bound by default. */
   readonly paletteOnly?: boolean;
+  /** The `/name` that invokes this command from the composer, if it has one. */
+  readonly slash?: SlashSpec;
 }
 
 /**
