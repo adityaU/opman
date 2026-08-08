@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { browseFiles, readFile, docRead, classifyFile, type FileEntry } from "../../api";
-import type { OpenFileEntry, BreadcrumbEntry } from "../types";
+import type { OpenFileEntry, BreadcrumbEntry, FileOpenRequest } from "../types";
 import { isDocRenderType } from "../types";
 import { useFileActions, type FileActionsState } from "./useFileActions";
 
@@ -42,8 +42,7 @@ export interface FileExplorerState extends FileActionsState {
 
 export function useFileExplorer(
   projectPath: string | null | undefined,
-  openFilePath: string | null | undefined,
-  openLine: number | null | undefined,
+  open: FileOpenRequest | null | undefined,
   onError?: (msg: string) => void,
 ): FileExplorerState {
   const [currentPath, setCurrentPath]         = useState(".");
@@ -239,10 +238,14 @@ export function useFileExplorer(
     loadDirectory(".");
   }, [projectPath, loadDirectory]);
 
-  // External file open
+  // External file open. Keyed on `seq` as well as the path, so asking for the
+  // same file again after browsing away re-reveals it instead of no-oping.
+  const openPath = open?.path;
+  const openLine = open?.line;
+  const openSeq = open?.seq;
   useEffect(() => {
-    if (openFilePath) loadFile(openFilePath, openLine ?? undefined);
-  }, [openFilePath, openLine, loadFile]);
+    if (openPath) loadFile(openPath, openLine ?? undefined);
+  }, [openPath, openLine, openSeq, loadFile]);
 
   return {
     currentPath, entries, loadingDir,

@@ -25,8 +25,8 @@ export interface DesktopShellProps {
   readonly busySessions: ReadonlySet<string>;
   readonly chat: Omit<WorkspaceChatServices, "bindSession" | "setEngine">;
   readonly onError: (message: string) => void;
-  /** Receives the workspace's outward-facing actions once it has mounted. */
-  readonly onTargetingReady: (api: WorkspaceBridge) => void;
+  /** Receives the workspace's outward-facing actions, and null once it leaves. */
+  readonly onTargetingReady: (api: WorkspaceBridge | null) => void;
 }
 
 export const DesktopShell: React.FC<DesktopShellProps> = function DesktopShell({
@@ -46,7 +46,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = function DesktopShell({
   // a new function each render would re-publish on every keystroke.
   const readyRef = useRef(onTargetingReady);
   readyRef.current = onTargetingReady;
-  const targetingBridge = useCallback((api: WorkspaceBridge) => {
+  const targetingBridge = useCallback((api: WorkspaceBridge | null) => {
     readyRef.current(api);
   }, []);
 

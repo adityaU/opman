@@ -4,6 +4,11 @@ import { PaletteItem, CommandPaletteProps } from "./types";
  * Build the full palette item list from component props.
  * Extracted to keep the main component file under 300 lines.
  *
+ * No row carries a chord. `withLiveShortcuts` fills them in from the composed
+ * keymap, which is the only thing that knows the platform, the browser
+ * overrides, the user's own bindings and which mode they are in — a literal
+ * here was a second, slowly-diverging claim about the same keys.
+ *
  * A row that *navigates* — every settings section — does not call `onClose`.
  * `history.back()` is asynchronous, so closing this way and then pushing a URL let the
  * queued pop land on the page just pushed, bouncing the user back to their session.
@@ -39,28 +44,24 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       id: "new-session",
       category: "Sessions",
       label: "New Session",
-      shortcut: "Cmd+Shift+N",
       handler: () => { onClose(); onNewSession(); },
     },
     {
       id: "model-picker",
       category: "Core",
       label: "Choose Model",
-      shortcut: "Cmd+'",
       handler: () => { onOpenModelPicker(); },
     },
     {
       id: "toggle-sidebar",
       category: "Layout",
       label: "Toggle Sidebar",
-      shortcut: "Cmd+B",
       handler: () => { onClose(); onToggleSidebar(); },
     },
     {
       id: "toggle-terminal",
       category: "Layout",
       label: "Toggle Terminal",
-      shortcut: "Cmd+`",
       handler: () => { onClose(); onToggleTerminal(); },
     },
     {
@@ -68,7 +69,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Settings",
       label: "Keyboard Shortcuts",
       description: "See and rebind every shortcut",
-      shortcut: "?",
       handler: () => onOpenSettings("keybindings"),
     },
     {
@@ -76,7 +76,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Sessions",
       label: "Select Session",
       description: "Search across all projects",
-      shortcut: "Cmd+Shift+S",
       handler: () => { onClose(); onOpenSessionSelector(); },
     },
     {
@@ -84,7 +83,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Settings",
       label: "Settings",
       description: "Appearance, keybindings, MCP servers, skills",
-      shortcut: "Cmd+,",
       handler: () => onOpenSettings(),
     },
     {
@@ -113,7 +111,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Sessions",
       label: "Session Watcher",
       description: "Monitor and auto-continue sessions",
-      shortcut: "Cmd+Shift+W",
       handler: () => { onClose(); onOpenWatcher(); },
     },
     {
@@ -121,7 +118,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Analysis",
       label: "Context Window",
       description: "View token usage breakdown",
-      shortcut: "Cmd+Shift+C",
       handler: () => { onClose(); onOpenContextWindow(); },
     },
     {
@@ -129,7 +125,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Analysis",
       label: "Diff Review",
       description: "Review file changes made by AI",
-      shortcut: "Cmd+Shift+D",
       handler: () => { onClose(); onOpenDiffReview(); },
     },
     {
@@ -137,7 +132,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Search",
       label: "Search in Conversation",
       description: "Find text in the current session",
-      shortcut: "Cmd+F",
       handler: () => { onClose(); onOpenSearch(); },
     },
     {
@@ -145,7 +139,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Search",
       label: "Search All Sessions",
       description: "Search across all sessions in project",
-      shortcut: "Cmd+Shift+F",
       handler: () => { onClose(); onOpenCrossSearch(); },
     },
     {
@@ -153,7 +146,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Assistant",
       label: "Notification Preferences",
       description: "Configure session alerts",
-      shortcut: "\u2318\u21E7I",
       handler: () => { onClose(); onOpenNotificationPrefs?.(); },
     },
     {
@@ -161,7 +153,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Assistant",
       label: "Routines",
       description: "Manage recurring assistant workflows",
-      shortcut: "\u2318\u21E7R",
       handler: () => { onClose(); onOpenRoutines?.(); },
     },
     {
@@ -169,7 +160,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Assistant",
       label: "Autonomy",
       description: "Choose proactive assistant mode",
-      shortcut: "\u2318\u21E7J",
       handler: () => { onClose(); onOpenAutonomy?.(); },
     },
     {
@@ -177,7 +167,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
       category: "Assistant",
       label: "Session Instructions",
       description: "Standing guidance sent when a session opens",
-      shortcut: "\u2318\u21E7Y",
       handler: () => { onClose(); onOpenMemory?.(); },
     },
     {
@@ -204,7 +193,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
         category: "Sessions",
         label: "Todo Panel",
         description: "View session todos",
-        shortcut: "Cmd+Shift+T",
         handler: () => { onClose(); onOpenTodoPanel(); },
       },
       {
@@ -212,7 +200,6 @@ export function buildPaletteItems(props: CommandPaletteProps): PaletteItem[] {
         category: "Sessions",
         label: "Send Context",
         description: "Send context to the AI session",
-        shortcut: "Cmd+Shift+K",
         handler: () => { onClose(); onOpenContextInput(); },
       },
       {

@@ -22,7 +22,6 @@ export interface CommandDeps {
   readonly toggleEditor: () => void;
   readonly toggleGit: () => void;
   readonly toggleBoard: () => void;
-  readonly toggleDebug: () => void;
   readonly newSession: () => void;
   readonly abortSession: () => void;
   readonly copyTranscript: () => void;
@@ -88,7 +87,6 @@ export function buildCommandHandlers(deps: CommandDeps): Record<string, CommandH
     "chat.copyTranscript": deps.copyTranscript,
     "assistant.instructions": deps.openMemoryActive,
     "assistant.memories": deps.openMemoryAll,
-    "system.debugPanel": deps.toggleDebug,
     "system.refreshApp": deps.reloadApp,
   };
 

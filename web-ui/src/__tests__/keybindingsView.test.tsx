@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe("rows", () => {
   it("lists a row per bound chord and a row for every unbound command", () => {
-    const rows = buildRows(keymap(), HOST);
+    const rows = buildRows(keymap(), HOST, "normal");
     const sidebar = rows.filter((r) => r.command.id === "layout.toggleSidebar");
     expect(sidebar).toHaveLength(1);
     expect(sidebar[0].chord).toBe("Ctrl+B");
@@ -63,13 +63,13 @@ describe("rows", () => {
   });
 
   it("shows both chords of a command bound twice", () => {
-    const rows = buildRows(keymap(), HOST);
+    const rows = buildRows(keymap(), HOST, "normal");
     const palette = rows.filter((r) => r.command.id === "palette.commands").map((r) => r.chord);
-    expect(palette).toEqual(expect.arrayContaining(["Ctrl+Shift+P", "f1"]));
+    expect(palette).toEqual(expect.arrayContaining(["Ctrl+Shift+P", "F1"]));
   });
 
   it("filters by title, id, category and chord", () => {
-    const rows = buildRows(keymap(), HOST);
+    const rows = buildRows(keymap(), HOST, "normal");
     expect(filterRows(rows, { query: "toggle sidebar" })).toHaveLength(1);
     expect(filterRows(rows, { query: "layout.toggleSidebar" })).toHaveLength(1);
     expect(filterRows(rows, { query: "Ctrl+B" }).length).toBeGreaterThan(0);
@@ -79,13 +79,13 @@ describe("rows", () => {
   // Recording answers "what does this key do", which for a chord shared across
   // scopes is more than one thing — that is the answer, not a bug.
   it("answers what a recorded chord is bound to, in every scope", () => {
-    const rows = buildRows(keymap(), HOST);
+    const rows = buildRows(keymap(), HOST, "normal");
     const found = filterRows(rows, { query: "", chordId: "ctrl+b" });
     expect(found.map((r) => r.command.id)).toEqual(["layout.toggleSidebar", "doc.bold"]);
   });
 
   it("narrows to unbound commands", () => {
-    const rows = buildRows(keymap(), HOST);
+    const rows = buildRows(keymap(), HOST, "normal");
     const unbound = filterRows(rows, { query: "", onlyUnbound: true });
     expect(unbound.every((r) => r.source === "unbound")).toBe(true);
   });

@@ -1,0 +1,276 @@
+//! The catalogue table itself: every agent listed at
+//! <https://agentclientprotocol.com/get-started/agents>, in that page's order.
+//!
+//! Split from [`super::catalog`], which owns the types and the lookups. This file is data —
+//! adding a harness is one row here and nothing else — and keeping it apart is what makes
+//! that visible at a glance.
+
+use super::{row, Entry, Launch, CLAUDE_ACP_PACKAGE, CODEX_ACP_PACKAGE};
+
+/// The agents listed at <https://agentclientprotocol.com/get-started/agents>, in that
+/// page's order. Ids are the runner slots every persisted session is stored against, so
+/// they are stable: rename one and its sessions lose their engine.
+pub const ENTRIES: &[Entry] = &[
+    row(
+        "agentpool",
+        "AgentPool",
+        Launch::Uvx("agentpool@latest"),
+        &["serve-acp"],
+        "https://phil65.github.io/agentpool/advanced/acp-integration/",
+    ),
+    row(
+        "augment",
+        "Augment Code",
+        Launch::Bin("auggie"),
+        &["--acp"],
+        "https://docs.augmentcode.com/cli/acp",
+    ),
+    row(
+        "autodev",
+        "AutoDev",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/phodal/auto-dev",
+    ),
+    row(
+        "blackbox",
+        "Blackbox AI",
+        Launch::Undocumented,
+        &[],
+        "https://docs.blackbox.ai/features/blackbox-cli/introduction",
+    ),
+    row(
+        "bub",
+        "Bub",
+        Launch::Bin("bub-acp-server"),
+        &[],
+        "https://github.com/bubbuild/bub-contrib/tree/main/packages/bub-acp-server",
+    ),
+    // `claude` and `codex` are appended by `builtin()`.
+    row(
+        "cline",
+        "Cline",
+        Launch::Undocumented,
+        &[],
+        "https://cline.bot/",
+    ),
+    row(
+        "code-assistant",
+        "Code Assistant",
+        Launch::Bin("code-assistant"),
+        &["acp"],
+        "https://github.com/stippi/code-assistant#configuration",
+    ),
+    row(
+        "construct",
+        "Construct",
+        Launch::Bin("construct"),
+        &["acp"],
+        "https://github.com/construct-worlds/construct#acp-agent-client-protocol-server",
+    ),
+    row(
+        "crow-cli",
+        "crow-cli",
+        Launch::Undocumented,
+        &[],
+        "https://crow-ai.dev",
+    ),
+    // Cursor's CLI installs as `agent`, not `cursor`.
+    row(
+        "cursor",
+        "Cursor",
+        Launch::Bin("agent"),
+        &["acp"],
+        "https://cursor.com/docs/cli/acp",
+    ),
+    row(
+        "cagent",
+        "Docker cagent",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/docker/cagent",
+    ),
+    row(
+        "fast-agent",
+        "fast-agent",
+        Launch::Uvx("fast-agent-acp@latest"),
+        &[],
+        "https://fast-agent.ai/acp",
+    ),
+    row(
+        "factory-droid",
+        "Factory Droid",
+        Launch::Undocumented,
+        &[],
+        "https://factory.ai/",
+    ),
+    row(
+        "fount",
+        "fount",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/steve02081504/fount",
+    ),
+    row(
+        "gemini",
+        "Gemini CLI",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/google-gemini/gemini-cli",
+    ),
+    row(
+        "copilot",
+        "GitHub Copilot",
+        Launch::Bin("copilot"),
+        &["--acp"],
+        "https://github.com/features/copilot",
+    ),
+    row(
+        "goose",
+        "Goose",
+        Launch::Bin("goose"),
+        &["acp"],
+        "https://block.github.io/goose/docs/guides/acp-clients",
+    ),
+    row(
+        "hermes",
+        "Hermes Agent",
+        Launch::Bin("hermes"),
+        &["acp"],
+        "https://hermes-agent.nousresearch.com/docs/user-guide/features/acp",
+    ),
+    row(
+        "junie",
+        "Junie",
+        Launch::Undocumented,
+        &[],
+        "https://junie.jetbrains.com/",
+    ),
+    row(
+        "kimi",
+        "Kimi CLI",
+        Launch::Bin("kimi"),
+        &["acp"],
+        "https://github.com/MoonshotAI/kimi-cli",
+    ),
+    row(
+        "kiro",
+        "Kiro CLI",
+        Launch::Bin("kiro-cli"),
+        &["acp"],
+        "https://kiro.dev/docs/cli/acp/",
+    ),
+    row(
+        "localharness",
+        "localharness",
+        Launch::Bin("localharness"),
+        &["acp"],
+        "https://github.com/compusophy/localharness#quickstart",
+    ),
+    row(
+        "minion-code",
+        "Minion Code",
+        Launch::Bin("mcode"),
+        &["acp"],
+        "https://github.com/femto/minion-code",
+    ),
+    row(
+        "mistral-vibe",
+        "Mistral Vibe",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/mistralai/mistral-vibe",
+    ),
+    row(
+        "openclaw",
+        "OpenClaw",
+        Launch::Bin("openclaw"),
+        &["acp"],
+        "https://docs.openclaw.ai/cli/acp",
+    ),
+    row(
+        "opencode",
+        "OpenCode",
+        Launch::Bin("opencode"),
+        &["acp"],
+        "https://github.com/sst/opencode",
+    ),
+    row(
+        "openhands",
+        "OpenHands",
+        Launch::Bin("openhands"),
+        &["acp"],
+        "https://docs.openhands.dev/openhands/usage/run-openhands/acp",
+    ),
+    row(
+        "pi",
+        "Pi",
+        Launch::Npm("pi-acp"),
+        &[],
+        "https://github.com/svkozak/pi-acp",
+    ),
+    row(
+        "poolside",
+        "Poolside",
+        Launch::Bin("pool"),
+        &["acp"],
+        "https://github.com/poolsideai/pool",
+    ),
+    row(
+        "qoder",
+        "Qoder CLI",
+        Launch::Bin("qodercli"),
+        &["--acp"],
+        "https://docs.qoder.com/cli/acp",
+    ),
+    row(
+        "qwen-code",
+        "Qwen Code",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/QwenLM/qwen-code",
+    ),
+    row(
+        "sigit",
+        "siGit Code",
+        Launch::Bin("sigit"),
+        &["--acp"],
+        "https://github.com/getsigit/sigit",
+    ),
+    row(
+        "stakpak",
+        "Stakpak",
+        Launch::Bin("stakpak"),
+        &["acp"],
+        "https://github.com/stakpak/agent#agent-client-protocol-acp",
+    ),
+    row(
+        "stdio-bus",
+        "stdio Bus",
+        Launch::Undocumented,
+        &[],
+        "https://github.com/stdiobus/stdiobus",
+    ),
+    row(
+        "vtcode",
+        "VT Code",
+        Launch::Bin("vtcode"),
+        &["acp"],
+        "https://github.com/vinhnx/vtcode#zed-ide-integration-agent-client-protocol",
+    ),
+    // The two opman drives itself, on by default. Their extra fields are set in `tuned`.
+    row(
+        "claude",
+        "Claude",
+        Launch::Npm(CLAUDE_ACP_PACKAGE),
+        &[],
+        "https://github.com/zed-industries/claude-agent-acp",
+    ),
+    row(
+        "codex",
+        "Codex",
+        Launch::Npm(CODEX_ACP_PACKAGE),
+        &[],
+        "https://github.com/zed-industries/codex-acp",
+    ),
+];

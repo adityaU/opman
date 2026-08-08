@@ -36,6 +36,11 @@ pub struct Session {
 }
 
 /// opencode-shaped session object for REST responses and events.
+///
+/// `engine` carries the choices this session is configured with. They are already on the
+/// `Session` above and already on disk, so reporting them costs nothing — and without them
+/// the composer has no way to know what a session runs as and falls back to whatever the
+/// last session touched happened to use.
 pub fn session_info(s: &Session) -> Value {
     json!({
         "id": s.id,
@@ -46,7 +51,19 @@ pub fn session_info(s: &Session) -> Value {
         "parentID": s.parent_id,
         "directory": s.directory,
         "time": { "created": s.created, "updated": s.updated },
+        "engine": engine_choices(s),
     })
+}
+
+/// The engine choices, with the agent's own configured defaults standing in for anything
+/// the user has never picked — that is what the next turn will actually run as.
+fn engine_choices(s: &Session) -> crate::app::EngineChoices {
+    crate::app::EngineChoices::from_parts(
+        s.model.as_deref(),
+        s.agent.as_deref(),
+        s.effort.as_deref(),
+        s.permission_mode.as_deref(),
+    )
 }
 
 #[derive(Serialize, Deserialize)]

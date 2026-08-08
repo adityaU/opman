@@ -80,6 +80,50 @@ fn session_obj_shape() {
     assert_eq!(v["projectID"], "claude");
     assert_eq!(v["time"]["created"], 111);
     assert_eq!(v["time"]["updated"], 222);
+    // A session nobody has configured claims nothing, rather than claiming the empty
+    // string — which the composer would show as a selection matching no real model.
+    assert!(v["engine"]["model"].is_null());
+}
+
+/// The registry has always held these four; reporting them is what lets the composer
+/// show a session's own configuration instead of one shared by every claude session.
+#[test]
+fn session_obj_reports_the_engine_choices() {
+    let entry = SessionEntry {
+        id: "ses_1".into(),
+        model: Some("opus".into()),
+        agent: Some("Plan".into()),
+        effort: Some("high".into()),
+        permission_mode: Some("acceptEdits".into()),
+        ..Default::default()
+    };
+    let v = session_obj(&entry);
+    assert_eq!(v["engine"]["model"], "opus");
+    assert_eq!(v["engine"]["agent"], "Plan");
+    assert_eq!(v["engine"]["effort"], "high");
+    assert_eq!(v["engine"]["permissionMode"], "acceptEdits");
+}
+
+/// The configure route exists so a pick sticks without a send. Before it, choosing a
+/// model and then switching sessions recorded the choice nowhere.
+#[tokio::test]
+async fn engine_route_records_a_choice_with_no_turn() {
+    let e = engine();
+    let session = e.create_session("/tmp/proj", "", "t");
+    let (status, _) = send(
+        router(e.clone()),
+        "PATCH",
+        &format!("/session/{}/engine", session.id),
+        Some(serde_json::json!({ "model": "opus", "effort": "high" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let stored = e.get_session(&session.id).expect("session");
+    assert_eq!(stored.model.as_deref(), Some("opus"));
+    assert_eq!(stored.effort.as_deref(), Some("high"));
+    // Untouched fields stay untouched: one chip must not clear the others.
+    assert_eq!(stored.agent, None);
 }
 
 #[test]

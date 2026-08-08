@@ -1,6 +1,7 @@
 import React from "react";
 import { FileCode2, GitBranch, MessageSquare, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useChord } from "../keybindings/useChord";
 import type { PaneId, WidgetKind } from "./types";
 
 /**
@@ -32,6 +33,7 @@ export const EmptyPane: React.FC<EmptyPaneProps> = React.memo(function EmptyPane
   compact,
   onChoose,
 }) {
+  const openerChord = useChord("workspace.openWidget");
   return (
     <div className={`wsp-empty${compact ? " is-compact" : ""}`}>
       {/* One block, centred as a unit, left-aligned inside — so the label, the
@@ -52,9 +54,12 @@ export const EmptyPane: React.FC<EmptyPaneProps> = React.memo(function EmptyPane
             </button>
           ))}
         </div>
-        {!compact && (
+        {!compact && openerChord && (
           <p className="wsp-empty-hint">
-            <kbd>⌘K</kbd> <kbd>O</kbd> opens the full picker
+            {openerChord.split(" ").map((press, index) => (
+              <kbd key={`${press}-${index}`}>{press}</kbd>
+            ))}
+            <span>opens the full picker</span>
           </p>
         )}
       </div>

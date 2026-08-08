@@ -5,11 +5,12 @@ import { useProviders } from "./hooks/useProviders";
 import { useBookmarks } from "./hooks/useBookmarks";
 import { useModalState } from "./hooks/useModalState";
 import type { ModalName } from "./hooks/useModalState";
-import { usePanelState } from "./hooks/usePanelState";
+import { useSidebarState } from "./hooks/useSidebarState";
 import { useMobileState } from "./hooks/useMobileState";
 import { useVirtualKeyboard } from "./hooks/useVirtualKeyboard";
 import { useModelState } from "./hooks/useModelState";
 import { useRunnerConfig } from "./hooks/useRunnerConfig";
+import { useSessionEngine } from "./hooks/useSessionEngine";
 import { useAssistantState } from "./hooks/useAssistantState";
 import { useSessionRestore } from "./hooks/useSessionRestore";
 import { useSessionSelection } from "./hooks/useSessionSelection";
@@ -33,6 +34,7 @@ import { SettingsPage, useSettingsRoute } from "./settings-page";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
+import type { FileOpenRequest } from "./code-editor/types";
 import { StartupGate } from "./StartupGate";
 import { isMobileViewport } from "./hooks/useIsMobile";
 import { useWorkspaceShellProps } from "./workspace/useWorkspaceShellProps";
@@ -55,7 +57,7 @@ export function ChatLayout() {
     watcherStatus, subagentMessages, fileEditCount,
     mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
-    clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus,
+    clearMcpEditorOpen, clearMcpTerminalFocus,
     addOptimisticMessage, clearOptimistic, loadOlderMessages, beginSessionSwitch,
     isSessionBusy,
   } = sse;
@@ -157,15 +159,7 @@ export function ChatLayout() {
     [],
   );
   const providers = useProviders(currentRunner);
-  const currentSettings = runnerConfig.recall(currentRunner);
-  const setRunnerSetting = useCallback((patch: Partial<{ effort: string | null; permission: string }>) => {
-    runnerConfig.remember(currentRunner, patch);
-  }, [currentRunner, runnerConfig]);
   const { isBookmarked, toggleBookmark } = useBookmarks();
-
-  // Bumped each time the input's "Attach terminal" button is clicked, so the terminal
-  // panel opens a fresh `claude attach` tab for the active session.
-  const [terminalAttachNonce, setTerminalAttachNonce] = useState(0);
 
   // ── Settings page (its own route: /settings) ──
   const settings = useSettingsRoute();
@@ -257,69 +251,46 @@ export function ChatLayout() {
     }
   }, [crossSessionPermissions, crossSessionQuestions, subSessionIds, addToast, removeToast]);
 
-  // ── Panels ──
-  const panels = usePanelState({
-    initialPanels: { sidebar: true, terminal: false, editor: false, git: false },
-    mcpEditorOpenPath, mcpTerminalFocusId,
-    clearMcpEditorOpen, clearMcpTerminalFocus,
-  });
-
-  const setPanels = useCallback((p: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean }) => {
-    panels.sidebar.setOpen(p.sidebar);
-    panels.terminal.setOpen(p.terminal);
-    panels.editor.setOpen(p.editor);
-    panels.git.setOpen(p.git);
-  }, [panels]);
+  // ── Sidebar ──
+  const sidebar = useSidebarState(true);
 
   // ── Mobile ──
   const mobile = useMobileState();
   useVirtualKeyboard();
 
-  // ── Open a file in the editor from a tool-card path click ──
-  // Desktop: usePanelState auto-opens the editor when mcpEditorOpenPath is set.
-  // Mobile: the dock must be switched to the editor sheet explicitly.
-  const openFileInEditor = useCallback((path: string, line?: number | null) => {
-    openMcpEditor(path, line);
-    if (isMobileViewport() && mobile.activePanel !== "editor") {
-      mobile.togglePanel("editor");
-    }
-  }, [openMcpEditor, mobile]);
-
   // ── Model / Agent ──
   const model = useModelState(messages, providers, activeSessionId);
   const handleRunnerChange = useCallback((runner: string) => {
     setRunnerChoice({ sessionId: activeSessionId, runner, isSwitch: activeSessionId !== null });
-    // An explicit pick is also what the *next* session should open on.
+    // An explicit pick is also what the *next* session should open on. Restoring what this
+    // runner was last set to is `useSessionEngine`'s job — it re-applies on every runner
+    // change, so doing it here too would be a second answer to the same question.
     runnerConfig.rememberRunner(runner);
-    // Restore what this runner was last set to. An unknown or stale model is
-    // repaired against the runner's own catalogue in useEngineOptions, so a
-    // remembered value that no longer exists cannot strand the composer.
-    const remembered = runnerConfig.recall(runner);
-    model.setSelectedModel(remembered.model);
-    model.setSelectedAgent(remembered.agent);
-  }, [activeSessionId, model.setSelectedAgent, model.setSelectedModel, runnerConfig]);
+  }, [activeSessionId, runnerConfig]);
 
-  // Model and agent choices are recorded against the runner they were made in.
-  // Wrapped at the setter so every route — engine palette, model picker modal,
-  // agent picker, slash command — records the same way.
-  const selectModel = useCallback((next: { providerID: string; modelID: string } | null) => {
-    model.setSelectedModel(next);
-    if (next) runnerConfig.remember(currentRunner, { model: next });
-  }, [model.setSelectedModel, runnerConfig, currentRunner]);
-  const selectAgent = useCallback((next: string) => {
-    model.setSelectedAgent(next);
-    if (next) runnerConfig.remember(currentRunner, { agent: next });
-  }, [model.setSelectedAgent, runnerConfig, currentRunner]);
+  // What the last assistant turn actually ran under. The default runner reports no
+  // per-session configuration, so for its sessions this is the only record of one.
+  const transcriptModel = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const info = messages[i]?.info;
+      if (info?.role !== "assistant") continue;
+      const modelID = info.modelID ?? (typeof info.model === "string" ? info.model : info.model?.modelID);
+      const providerID = info.providerID ?? (typeof info.model === "object" ? info.model?.providerID : undefined);
+      if (modelID && providerID) return { providerID, modelID };
+    }
+    return null;
+  }, [messages]);
 
-  // A reload starts with nothing selected. Fill from what this runner was last
-  // set to rather than making the user pick again; only ever fills a blank, so
-  // it cannot overwrite a live choice or feed back into recording one.
-  useEffect(() => {
-    const remembered = runnerConfig.recall(currentRunner);
-    if (!model.selectedModel && remembered.model) model.setSelectedModel(remembered.model);
-    if (!model.selectedAgent && remembered.agent) model.setSelectedAgent(remembered.agent);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentRunner]);
+  // The composer's four controls, scoped to the session they describe. Every route into
+  // them — engine palette, model picker modal, agent picker, slash command — goes through
+  // these setters, so a change is recorded with the session's runner exactly once.
+  const sessionEngine = useSessionEngine({
+    activeSessionId, activeSession, currentRunner, runnerConfig, providers, transcriptModel,
+    selectedModel: model.selectedModel, setSelectedModel: model.setSelectedModel,
+    selectedAgent: model.selectedAgent, setSelectedAgent: model.setSelectedAgent,
+  });
+  const selectModel = sessionEngine.setModel;
+  const selectAgent = sessionEngine.setAgent;
   const selectedModelId = model.currentModel || model.defaultModelDisplay;
   const selectedModelInfo = Object.values(providers.all)
     .flatMap((provider) => Object.values(provider.models))
@@ -376,7 +347,7 @@ export function ChatLayout() {
     activeSessionId, activeProjectIndex, appState,
     selectedModel: model.selectedModel, selectedAgent: model.selectedAgent,
     runnerForNewSession: currentRunner, runnerSwitch,
-    selectedEffort: currentSettings.effort, selectedPermission: currentSettings.permission,
+    selectedEffort: sessionEngine.effort, selectedPermission: sessionEngine.permission,
     setSending: model.setSending, setSelectedModel: selectModel,
     setSelectedAgent: selectAgent, clearRunnerChoice, bindRunnerChoice,
     setMobileInputHidden: mobile.setInputHidden,
@@ -395,8 +366,7 @@ export function ChatLayout() {
     selectedModel: model.selectedModel,
     personalMemory: assistant.personalMemory,
     activeProjectIndex,
-    panels: { sidebar: panels.sidebar, terminal: panels.terminal, editor: panels.editor, git: panels.git },
-    setPanels, addToast,
+    addToast,
     setSearchMatchIds: modalState.setSearchMatchIds,
     setActiveSearchMatchId: modalState.setActiveSearchMatchId,
     setAutonomyMode: assistant.setAutonomyMode,
@@ -417,10 +387,10 @@ export function ChatLayout() {
       runner: currentRunner,
       model: model.selectedModel,
       agent: model.selectedAgent,
-      effort: currentSettings.effort,
-      permission: currentSettings.permission,
+      effort: sessionEngine.effort,
+      permission: sessionEngine.permission,
     }),
-    [currentRunner, currentSettings.effort, currentSettings.permission, model.selectedAgent, model.selectedModel],
+    [currentRunner, sessionEngine.effort, sessionEngine.permission, model.selectedAgent, model.selectedModel],
   );
 
   // Unfiltered, unlike `allPermissions`: that list is scoped to the active
@@ -434,7 +404,7 @@ export function ChatLayout() {
     [crossSessionPermissions, crossSessionQuestions, permissions, questions],
   );
 
-  const { workspaceProps, armTargeting, openKindHere } = useWorkspaceShellProps({
+  const { workspaceProps, armTargeting, openKindHere, openFileInWorkspace } = useWorkspaceShellProps({
     appState,
     busySessions,
     defaultEngine,
@@ -455,6 +425,43 @@ export function ChatLayout() {
     searchOpen: modalState.modals.searchBar,
     closeSearch: () => modalState.close("searchBar"),
   });
+
+  /**
+   * Reveal a file, from a tool-card path click or from the MCP editor-open
+   * event.
+   *
+   * On desktop the workspace answers: it reuses the files pane already on
+   * screen, or splits one in beside the pane you clicked from. Everywhere else
+   * — mobile, the board — there is one editor surface, and this is the request
+   * it reads. `seq` rises on every ask so clicking the same path twice, having
+   * browsed elsewhere in between, reveals it twice.
+   */
+  const [fileOpen, setFileOpen] = useState<FileOpenRequest | null>(null);
+  const openFileInEditor = useCallback(
+    (path: string, line?: number | null) => {
+      if (openFileInWorkspace(path, line ?? null)) return;
+      setFileOpen((previous) => ({ path, line: line ?? null, seq: (previous?.seq ?? 0) + 1 }));
+      if (isMobileViewport() && mobile.activePanel !== "editor") mobile.togglePanel("editor");
+    },
+    [mobile, openFileInWorkspace],
+  );
+
+  // The MCP `web_editor` tool asking for a file is the same request arriving
+  // over SSE, so it takes the same route. Cleared on arrival: it is an event,
+  // and a latched one would re-fire on the next unrelated render.
+  useEffect(() => {
+    if (!mcpEditorOpenPath) return;
+    openFileInEditor(mcpEditorOpenPath, mcpEditorOpenLine);
+    clearMcpEditorOpen();
+  }, [mcpEditorOpenPath, mcpEditorOpenLine, openFileInEditor, clearMcpEditorOpen]);
+
+  // Likewise for `web_terminal`: the shell it names lives in the workspace now,
+  // so all this can do is make sure a terminal is on screen.
+  useEffect(() => {
+    if (!mcpTerminalFocusId) return;
+    openKindHere("terminal");
+    clearMcpTerminalFocus();
+  }, [mcpTerminalFocusId, openKindHere, clearMcpTerminalFocus]);
 
   /**
    * Hand a chat to a pane instead of navigating. Reports false when it could
@@ -515,16 +522,14 @@ export function ChatLayout() {
     openModal: modalState.open,
     toggleModal: modalState.toggle,
     closeTopModal: modalState.closeTopModal,
-    toggleSidebar: panels.sidebar.toggle,
-    // The three panel chords survive the redesign, but on desktop they open
-    // that widget in the focused pane instead of toggling a panel that no
-    // longer exists. `openKindHere` reports false when the workspace is not
-    // mounted — on mobile, or on the board — and the old toggle runs instead.
-    toggleTerminal: () => { if (!openKindHere("terminal")) panels.terminal.toggle(); },
-    toggleEditor: () => { if (!openKindHere("files")) panels.editor.toggle(); },
-    toggleGit: () => { if (!openKindHere("git")) panels.git.toggle(); },
+    toggleSidebar: sidebar.toggle,
+    // The three panel chords open that widget in the focused pane. They no-op
+    // where the workspace is not mounted — on mobile, whose dock owns those
+    // surfaces, and on the board, which has no panes at all.
+    toggleTerminal: () => { openKindHere("terminal"); },
+    toggleEditor: () => { openKindHere("files"); },
+    toggleGit: () => { openKindHere("git"); },
     toggleBoard: openKanban,
-    toggleDebug: panels.debug.toggle,
     newSession: handleNewSessionOrTarget,
     abortSession: handlers.handleAbort,
     copyTranscript: handlers.handleCopyTranscript,
@@ -535,13 +540,12 @@ export function ChatLayout() {
   }));
 
   // Context keys read by `when` clauses. Every binding scoped to one of these
-  // is inert until the matching surface says it applies.
+  // is inert until the matching surface says it applies. The editor, terminal
+  // and git keys are published by the workspace instead: they describe the
+  // focused pane, which only the workspace can see.
   useWhenContext({
     sessionActive: Boolean(activeSessionId),
     sessionBusy: model.sending,
-    gitRepo: panels.git.open,
-    terminalOpen: panels.terminal.open,
-    editorOpen: panels.editor.open,
     boardOpen: isKanbanView,
   });
 
@@ -590,8 +594,6 @@ export function ChatLayout() {
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
-        terminalAttachNonce={terminalAttachNonce}
-        onAttachTerminal={() => { panels.terminal.setOpen(true); setTerminalAttachNonce((n) => n + 1); }}
         isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
         appState={appState} activeProject={activeProject} activeProjectIndex={activeProjectIndex}
         activeSessionId={activeSessionId}
@@ -604,24 +606,15 @@ export function ChatLayout() {
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
         handleModelSelected={handlers.handleModelSelected}
         selectedRunner={currentRunner} availableRunners={availableRunners}
-        supportedEfforts={effortOptions} effort={currentSettings.effort} permission={currentSettings.permission}
+        supportedEfforts={effortOptions} effort={sessionEngine.effort} permission={sessionEngine.permission}
         sending={model.sending} currentModel={model.currentModel}
         allPermissions={allPermissions} allQuestions={allQuestions}
         activeMemoryItems={assistant.activeMemoryItems}
-        mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
-         watcherStatus={watcherStatus} presenceClients={sse.presenceClients}
-         autonomyMode={assistant.autonomyMode} contextLimit={model.currentModelContextLimit}
-         backend={appState?.backend}
-         onOpenWatcher={openWatcher} onOpenContextWindow={openCtxWindow} onToggleSidebar={panels.sidebar.toggle}
-         toggleTerminal={panels.terminal.toggle} toggleNeovim={panels.editor.toggle} toggleGit={panels.git.toggle}
-        mcpAgentActivity={mcpAgentActivity} fileEditCount={fileEditCount}
-        sidebarOpen={panels.sidebar.open} terminalOpen={panels.terminal.open}
-        terminalMounted={panels.terminal.mounted} neovimOpen={panels.editor.open}
-        editorMounted={panels.editor.mounted} gitOpen={panels.git.open}
-         panelOrder={panels.panelOrder} reorderPanels={panels.reorderPanels}
-        gitMounted={panels.git.mounted} focusedPanel={panels.focused}
-        sidebarResize={panels.sidebar.resize} sidePanelResize={panels.sidePanel.resize}
-        terminalResize={panels.terminal.resize} searchBarOpen={modalState.modals.searchBar}
+        watcherStatus={watcherStatus} presenceClients={sse.presenceClients}
+        contextLimit={model.currentModelContextLimit}
+        onOpenWatcher={openWatcher} onOpenContextWindow={openCtxWindow} onToggleSidebar={sidebar.toggle}
+        sidebarOpen={sidebar.open} focusedPanel={sidebar.focused}
+        sidebarResize={sidebar.resize} searchBarOpen={modalState.modals.searchBar}
         searchMatchIds={modalState.searchMatchIds} activeSearchMatchId={modalState.activeSearchMatchId}
         mobileSidebarOpen={mobile.sidebarOpen} mobileInputHidden={mobile.inputHidden}
         isBookmarked={isBookmarked} toggleBookmark={toggleBookmark}
@@ -633,8 +626,8 @@ export function ChatLayout() {
         handleSelectSession={handleSelectSessionOrTarget} handleNewSession={handleNewSessionOrTarget}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
         handleRunnerChange={handleRunnerChange}
-        handleEffortChange={(effort) => setRunnerSetting({ effort })}
-        handlePermissionChange={(permission) => setRunnerSetting({ permission })}
+        handleEffortChange={sessionEngine.setEffort}
+        handlePermissionChange={sessionEngine.setPermission}
         handleSearchMatchesChanged={callbacks.handleSearchMatchesChanged}
         handleScrollDirection={mobile.handleScrollDirection}
         handlePromptContentChange={mobile.handlePromptContentChange}
@@ -642,10 +635,8 @@ export function ChatLayout() {
         openAddProject={openAddProject} openModelPicker={openModelPicker}
         openAgentPicker={openAgentPicker} openMemory={openMemoryActive}
         openCommandPalette={openCmdPalette} closeSearchBar={closeSearchBar}
-        debugOpen={panels.debug.open} closeDebug={panels.debug.close}
-        closeTerminal={panels.terminal.close} closeNeovim={panels.editor.close} closeGit={panels.git.close}
         closeMobileSidebar={mobile.closeSidebar} toggleMobileSidebar={mobile.toggleSidebar}
-        focusSidebar={panels.focusSidebar} focusChat={panels.focusChat} focusSide={panels.focusSide}
+        focusSidebar={sidebar.focusSidebar} focusChat={sidebar.focusChat}
         handlePanelError={callbacks.handlePanelError}
         sessionTaskLinks={sessionTaskLinks} onOpenKanbanTask={handleOpenKanbanTask}
         focusTaskId={focusTaskId} clearFocusTask={clearFocusTask}
@@ -661,7 +652,7 @@ export function ChatLayout() {
         onModelSelected={handlers.handleModelSelected} onAgentChange={handlers.handleAgentChange}
         onContextSubmit={callbacks.handleContextSubmit}
         onCompactContext={onCompactCtx} onAutonomyChange={callbacks.onAutonomyChange}
-        toggleSidebar={panels.sidebar.toggle} toggleTerminal={panels.terminal.toggle}
+        toggleSidebar={sidebar.toggle} toggleTerminal={() => openKindHere("terminal")}
         selectedModel={model.selectedModel} selectedAgent={model.selectedAgent}
         fileEditCount={fileEditCount}
         allPermissions={allPermissions} allQuestions={allQuestions}
@@ -681,8 +672,7 @@ export function ChatLayout() {
         dockCollapsed={mobile.dockCollapsed} expandDock={mobile.expandDock}
         onOpenCommandPalette={openCmdPalette}
         activeSessionId={activeSessionId} activeProject={activeProject}
-        mcpEditorOpenPath={mcpEditorOpenPath} mcpEditorOpenLine={mcpEditorOpenLine}
-        mcpAgentActivity={mcpAgentActivity}
+        fileOpen={fileOpen} mcpAgentActivity={mcpAgentActivity}
         onError={callbacks.handlePanelError} onSendToAI={handlers.handleSend}
         isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
       />

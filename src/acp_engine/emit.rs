@@ -41,12 +41,35 @@ impl Chunk {
 
 /// Append in place. Mutating the existing `String` avoids reallocating the whole accumulated
 /// text on every token, which matters when a long reply arrives one token at a time.
-pub(super) fn append_text(part: &mut Value, text: &str) {
-    if let Some(Value::String(existing)) = part.get_mut("text") {
-        existing.push_str(text);
-        return;
+pub(super) fn append_text(part: &mut Value, text: &str) -> Option<String> {
+    let Some(existing) = part.get("text").and_then(Value::as_str) else {
+        part["text"] = Value::String(text.to_string());
+        return Some(text.to_string());
+    };
+    let overlap = suffix_prefix_overlap(existing, text);
+    if overlap == text.len() {
+        return None;
     }
-    part["text"] = Value::String(text.to_string());
+    let delta = &text[overlap..];
+    let Some(Value::String(existing)) = part.get_mut("text") else {
+        return None;
+    };
+    existing.push_str(delta);
+    Some(delta.to_string())
+}
+
+/// Return the byte length of the largest suffix of existing that is a prefix of incoming.
+/// ACP chunks are normally disjoint, but a few providers resend a boundary when reconnecting.
+fn suffix_prefix_overlap(existing: &str, incoming: &str) -> usize {
+    let max = existing.len().min(incoming.len());
+    (0..=max)
+        .rev()
+        .find(|&size| {
+            existing.is_char_boundary(existing.len() - size)
+                && incoming.is_char_boundary(size)
+                && existing.ends_with(&incoming[..size])
+        })
+        .unwrap_or(0)
 }
 
 pub(super) fn part_id(part: &Value) -> String {

@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect } from "react";
 import { Pin, Pencil, Trash2, XCircle, SquareKanban } from "lucide-react";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
 import { isMobileViewport } from "../hooks/useIsMobile";
+import type { CommandId } from "../keybindings/types";
+import { useChordLabeller } from "../keybindings/useChord";
 
 // ── Types ────────────────────────────────────────────
 
@@ -94,6 +96,16 @@ export function SessionContextMenu({
 }: SessionContextMenuProps) {
   const mobile = isMobileViewport();
   const iconSz = mobile ? 16 : 12;
+  const chordFor = useChordLabeller();
+
+  /**
+   * The chord for a row, on desktop only. A touch sheet has no keyboard to
+   * teach, and the cap would only crowd the label.
+   */
+  const key = (command: CommandId) => {
+    const chord = mobile ? undefined : chordFor(command);
+    return chord ? <kbd className="sb-context-kbd">{chord}</kbd> : null;
+  };
 
   const displayTitle = !menu.sessionTitle
     ? menu.sessionId.slice(0, 16)
@@ -112,20 +124,24 @@ export function SessionContextMenu({
       <button className="sb-context-item" onClick={onPin}>
         <Pin size={iconSz} />
         {isPinned ? "Unpin" : "Pin to Top"}
+        {key("session.togglePin")}
       </button>
       <button className="sb-context-item" onClick={onRename}>
         <Pencil size={iconSz} />
         Rename
+        {key("session.rename")}
       </button>
       {isOpen && (
         <button className="sb-context-item" onClick={onRemoveOpen}>
           <XCircle size={iconSz} />
           Close Session
+          {key("session.close")}
         </button>
       )}
       <button className="sb-context-item sb-context-danger" onClick={onDelete}>
         <Trash2 size={iconSz} />
         Delete
+        {key("session.delete")}
       </button>
     </>
   );

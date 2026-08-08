@@ -70,6 +70,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/session/{session_id}/message",
             post(handlers::send_message),
         )
+        .route(
+            "/session/{session_id}/engine",
+            axum::routing::patch(handlers::set_session_engine),
+        )
         .route("/session/{session_id}/abort", post(handlers::abort_session))
         .route(
             "/session/{session_id}",
@@ -109,6 +113,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route(
             "/question/{request_id}/reply",
             post(handlers::reply_question),
+        )
+        .route(
+            "/question/{request_id}/reject",
+            post(handlers::reject_question),
         )
         .route("/pending", get(handlers::get_pending))
         // Session events SSE (proxied from opencode)
@@ -227,7 +235,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
         )
         .route("/mcp/servers/{name}/logout", post(handlers::logout_server))
         // ── ACP agents (the runners themselves) ──────────────────────
-        .route("/acp/agents", get(handlers::list_agents))
+        .route(
+            "/acp/agents",
+            get(handlers::list_agents).delete(handlers::reset_agents),
+        )
         .route(
             "/acp/agents/{id}",
             put(handlers::upsert_agent).delete(handlers::delete_agent),
@@ -286,8 +297,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
 
     let api_routes = api_routes.merge(kanban_upload);
 
-    // Internal Kanban API (loopback + shared token; no JWT auth extractor).
+    // Internal loopback API for opman's own stdio MCP servers (shared token; no JWT auth
+    // extractor). `/ask` holds its request open for as long as the user takes to answer.
     let internal_routes = Router::new()
+        .route("/ask", post(handlers::internal_ask))
         .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
         .route(
             "/kanban/task/{task_id}/status",

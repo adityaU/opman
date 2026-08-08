@@ -227,7 +227,7 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
   // arrive from a child after the first render, and because the callbacks that
   // close over it must not change identity when they do.
   const bridgeRef = useRef<WorkspaceBridge | null>(null);
-  const onTargetingReady = useCallback((api: WorkspaceBridge) => {
+  const onTargetingReady = useCallback((api: WorkspaceBridge | null) => {
     bridgeRef.current = api;
   }, []);
 
@@ -244,6 +244,13 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
     return true;
   }, []);
 
+  /** Returns false when the workspace is not mounted — mobile, or the board. */
+  const openFileInWorkspace = useCallback((path: string, line: number | null) => {
+    if (!bridgeRef.current) return false;
+    bridgeRef.current.openFile(path, line);
+    return true;
+  }, []);
+
   return useMemo(
     () => ({
       workspaceProps: {
@@ -257,8 +264,9 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
       },
       armTargeting,
       openKindHere,
+      openFileInWorkspace,
     }),
-    [armTargeting, openKindHere, chat, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
+    [armTargeting, openKindHere, openFileInWorkspace, chat, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
   );
 }
 

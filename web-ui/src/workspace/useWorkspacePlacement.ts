@@ -1,9 +1,18 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { formatTime } from "../sidebar/formatTime";
 import { EMPTY_DRAFT, type OpenerDraft, type StepId } from "./opener/steps";
+import { nextFileOpenSeq, planFileOpen } from "./fileOpen";
 import { findPane } from "./tree";
 import { paneByOrdinal } from "./nav";
-import { WIDGET_KINDS, type Node, type PaneId, type PaneNode, type WidgetKind, type WidgetState } from "./types";
+import {
+  WIDGET_KINDS,
+  type FileOpenRequest,
+  type Node,
+  type PaneId,
+  type PaneNode,
+  type WidgetKind,
+  type WidgetState,
+} from "./types";
 import type { OpenerChoice } from "./opener/WidgetOpener";
 import type { WorkspaceAction } from "./reducer";
 import type { TargetRequest } from "./target/useTargeting";
@@ -113,12 +122,31 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
 
   // The shell's "open a files/terminal/git pane here" commands land in the
   // focused pane, which the caller does not know. A ref keeps the published
-  // bridge callback stable while the focused pane moves under it.
-  const openHere = useRef({ onOpenWidgetKind, focusedPaneId });
-  openHere.current = { onOpenWidgetKind, focusedPaneId };
+  // bridge callbacks stable while the focused pane moves under them.
+  const openHere = useRef({ onOpenWidgetKind, focusedPaneId, panes, projects });
+  openHere.current = { onOpenWidgetKind, focusedPaneId, panes, projects };
   const openKindHere = useCallback((kind: WidgetKind) => {
     openHere.current.onOpenWidgetKind(openHere.current.focusedPaneId, kind);
   }, []);
+
+  /**
+   * Reveal a file, asked for from outside the workspace — a path clicked in a
+   * tool card, or an MCP editor-open event. `planFileOpen` decides where it
+   * goes; this only carries the answer to the reducer.
+   */
+  const openFileHere = useCallback(
+    (path: string, line: number | null) => {
+      const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
+      const open: FileOpenRequest = { path, line, seq: nextFileOpenSeq() };
+      const plan = planFileOpen(open, paneList, focused, projectList);
+      if (plan.action === "place") {
+        place(plan.widget, plan.pane);
+        return;
+      }
+      dispatch({ type: "splitPane", pane: plan.pane, dir: "row", widget: plan.widget });
+    },
+    [dispatch, place],
+  );
 
   const choicesFor = useCallback(
     (step: StepId, draft: OpenerDraft): readonly OpenerChoice[] => {
@@ -177,6 +205,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     onOpenerDone,
     onOpenWidgetKind,
     openKindHere,
+    openFileHere,
     armOrPlace,
     resolveTarget,
     resolveTargetByOrdinal,
@@ -204,7 +233,7 @@ function widgetFor(kind: WidgetKind, projectPath: string): WidgetState {
     case "chat":
       return { kind: "chat", projectPath, sessionId: null, engine: null };
     case "files":
-      return { kind: "files", projectPath, filePath: null };
+      return { kind: "files", projectPath, open: null };
     case "terminal":
       return { kind: "terminal", projectPath, ptyIds: [] };
     case "git":

@@ -358,6 +358,7 @@ pub async fn abort_session(
     // Drop the dispatch grace first: an abort that lands inside it must not be
     // outlived by the mark that was holding the session running.
     state.web_state.mark_turn_settled(&session_id).await;
+    clear_asked_questions(&state, &session_id, &dir).await;
     if state
         .runner_registry
         .has_known_session(&session_id, &dir)
@@ -536,6 +537,12 @@ pub async fn rename_session(
 }
 
 /// POST /api/session/:id/command — execute a slash command.
+///
+/// A slash command is a turn, so it routes the way a turn routes: to the runner that owns
+/// the session. `GET /api/commands` already answers per runner, and offering a runner's own
+/// vocabulary while executing it against the default engine is how a listed command comes
+/// back "session not found". Only sessions opman has no binding for fall through to the
+/// raw upstream call.
 pub async fn execute_command(
     State(state): State<ServerState>,
     _auth: AuthUser,
@@ -543,6 +550,40 @@ pub async fn execute_command(
     Json(req): Json<ExecuteCommandRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+
+    // Same binding-before-routing rule as `send_message`: recording the session's runner
+    // first keeps a command from being answered by the default engine.
+    if let Some(kind) = state
+        .web_state
+        .session_runner(&session_id)
+        .await
+        .and_then(|label| RunnerKind::parse(&label))
+    {
+        state
+            .runner_registry
+            .ensure_binding(&session_id, kind, &dir)
+            .await;
+    }
+    if state.runner_registry.has_binding(&session_id).await {
+        let result = state
+            .runner_registry
+            .execute_command(
+                &session_id,
+                &dir,
+                crate::runner::SlashCommand::new(
+                    &req.command,
+                    &req.arguments,
+                    req.model.as_deref(),
+                ),
+            )
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        // A command is a turn: mark it dispatched so the session reads as running for the
+        // beat before the runner reports the turn it just accepted.
+        state.web_state.mark_turn_dispatched(&session_id).await;
+        return Ok(Json(result));
+    }
+
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     let result = client
@@ -661,16 +702,23 @@ pub async fn reply_permission(
 }
 
 /// POST /api/question/:id/reply — reply to a question.
+///
+/// The local registry is asked first: a question raised through the `ask` MCP server is
+/// held by this process, and fanning it out to the engines would find no owner and then
+/// fail against the upstream server.
 pub async fn reply_question(
     State(state): State<ServerState>,
     _auth: AuthUser,
     axum::extract::Path(request_id): axum::extract::Path<String>,
     Json(req): Json<QuestionReplyRequest>,
 ) -> WebResult<impl IntoResponse> {
+    let Err(answers) = state.ask_pending.resolve(&request_id, req.answers) else {
+        return Ok(StatusCode::OK);
+    };
     let dir = resolve_project_dir(&state).await?;
     if state
         .runner_registry
-        .reply_question(&request_id, &req.answers)
+        .reply_question(&request_id, &answers)
         .await
         .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
     {
@@ -679,9 +727,52 @@ pub async fn reply_question(
     let base = base_url().to_string();
     let client = ApiClient::with_client(state.http_client.clone());
     client
-        .reply_question(&base, &dir, &request_id, &req.answers)
+        .reply_question(&base, &dir, &request_id, &answers)
         .await
         .map_err(|e| WebError::Internal(format!("{e}")))?;
+    Ok(StatusCode::OK)
+}
+
+/// Take down any question the `ask` server raised for a session that is being aborted.
+///
+/// The engines already do this for their own prompts; a locally-held question has to be
+/// cleared here because nothing else knows about it. Leaving one up would invite the user
+/// to answer into a turn that has already unwound — and the asker is being killed with the
+/// turn, so nothing would receive the answer.
+async fn clear_asked_questions(state: &ServerState, session_id: &str, dir: &str) {
+    for id in state.ask_pending.clear_session(session_id) {
+        state
+            .web_state
+            .publish_event(
+                &serde_json::json!({
+                    "type": "question.rejected",
+                    "properties": { "id": id, "requestID": id, "sessionID": session_id },
+                }),
+                dir,
+            )
+            .await;
+    }
+}
+
+/// POST /api/question/:id/reject — dismiss a question without answering it.
+///
+/// The frontend has always called this; until now nothing served it, so dismissing a card
+/// left the asker blocked. Rejecting is best-effort by design: a card the user dismisses
+/// after its asker already gave up still has to disappear, so an id nobody owns is a
+/// success, not a 404.
+pub async fn reject_question(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Path(request_id): axum::extract::Path<String>,
+) -> WebResult<impl IntoResponse> {
+    if state.ask_pending.dismiss(&request_id) {
+        return Ok(StatusCode::OK);
+    }
+    state
+        .runner_registry
+        .reject_question(&request_id)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
     Ok(StatusCode::OK)
 }
 
@@ -800,3 +891,7 @@ mod session_handlers_upstream_tests;
 #[cfg(test)]
 #[path = "session_handlers_commands_tests.rs"]
 mod session_handlers_commands_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_question_tests.rs"]
+mod session_handlers_question_tests;

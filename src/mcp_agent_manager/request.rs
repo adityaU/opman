@@ -35,6 +35,15 @@ pub(super) struct ManagerRequest {
     pub(super) message: Option<String>,
     #[serde(default)]
     pub(super) delivery: Option<String>,
+    /// Narrows `agent_runner_options` to models whose id or provider contains this.
+    #[serde(default)]
+    pub(super) filter: Option<String>,
+    /// Seconds `agent_wait` will watch before giving up.
+    #[serde(default)]
+    pub(super) timeout: Option<u64>,
+    /// The MCP server named by an `mcp_auth_required` notice.
+    #[serde(default)]
+    pub(super) server: Option<String>,
 }
 
 /// What the caller is asking for. One variant per tool, so the match in `mod.rs` is
@@ -45,6 +54,13 @@ pub(super) enum Op {
     Start,
     Progress,
     Options,
+    Abort,
+    List,
+    Wait,
+    /// Not a tool. The MCP proxy writes this to the same socket when a server it fronts
+    /// needs the user to log in ([`crate::mcp_proxy`]), and it went unhandled long enough
+    /// that every such notice came back "unknown agent manager operation".
+    AuthRequired,
 }
 
 impl ManagerRequest {
@@ -54,6 +70,10 @@ impl ManagerRequest {
             "start" => Ok(Op::Start),
             "progress" => Ok(Op::Progress),
             "options" => Ok(Op::Options),
+            "abort" => Ok(Op::Abort),
+            "list" => Ok(Op::List),
+            "wait" => Ok(Op::Wait),
+            "mcp_auth_required" => Ok(Op::AuthRequired),
             other => anyhow::bail!("unknown agent manager operation: {other}"),
         }
     }

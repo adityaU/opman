@@ -7,6 +7,9 @@ import { UsageInfoButton } from "./UsagePopover";
 import { QueuePill } from "./QueueControls";
 export { AtMentionPopover } from "./AtMentionPopover";
 import { EngineChip } from "../engine-picker/EngineChip";
+import { useOptionalKeymapContext } from "../keybindings/KeymapContext";
+import type { CommandId } from "../keybindings/types";
+import { useChordLabeller } from "../keybindings/useChord";
 
 // ── SelectorChips ───────────────────────────────────────────────
 
@@ -178,13 +181,40 @@ export function DragOverlay() {
 
 // ── HintBar ─────────────────────────────────────────────────────
 
+/**
+ * The keys are read from the composed keymap rather than written out, so the
+ * row cannot claim Cmd on a Linux machine or Enter after someone has rebound
+ * send — and in vim mode it names the vim chord.
+ */
+interface ComposerHint {
+  readonly command: CommandId;
+  readonly label: string;
+  /** Shown when nothing is bound — for keys the composer reads as text. */
+  readonly literal?: string;
+}
+
+const COMPOSER_HINTS: readonly ComposerHint[] = [
+  { command: "chat.send", label: "Send" },
+  { command: "chat.newline", label: "Newline" },
+  { command: "chat.slashCommands", label: "Commands", literal: "/" },
+  { command: "chat.attachImage", label: "Attach image" },
+];
+
 export function HintBar() {
+  const chordFor = useChordLabeller();
+  const keymap = useOptionalKeymapContext();
+  // Pasting an image is the operating system's key, not one of ours — it has
+  // no command to look up, only a platform to spell it for.
+  const paste = keymap?.host.platform === "mac" ? "⌘V" : "Ctrl+V";
   return (
     <div className="prompt-hints">
-      <span><kbd>Enter</kbd> Send</span>
-      <span><kbd>Shift+Enter</kbd> Newline</span>
-      <span><kbd>/</kbd> Commands</span>
-      <span><kbd>{navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+V</kbd> Paste image</span>
+      {COMPOSER_HINTS.map(({ command, label, literal }) => {
+        const chord = chordFor(command) ?? literal;
+        return chord ? (
+          <span key={command}><kbd>{chord}</kbd> {label}</span>
+        ) : null;
+      })}
+      <span><kbd>{paste}</kbd> Paste image</span>
     </div>
   );
 }

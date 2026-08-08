@@ -25,11 +25,6 @@ export interface TerminalPanelProps {
   visible?: boolean;
   /** MCP: whether an AI agent is currently using terminal tools */
   mcpAgentActive?: boolean;
-  /** Bumped each time the user requests a fresh attach tab (e.g. the input's
-   *  "Attach terminal" button). On change, a new tab of `attachKind` is created. */
-  attachNonce?: number;
-  /** Kind to create when `attachNonce` changes (defaults to "claude-attach"). */
-  attachKind?: PtyKind;
   /** Which shell renders the panel. Mobile adds the on-screen key bar, because
    *  a soft keyboard has no Esc, Tab, Ctrl or arrows. */
   layout?: "desktop" | "mobile";

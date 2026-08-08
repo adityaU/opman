@@ -1,6 +1,6 @@
-import { displayChord } from "../keybindings/chord";
 import type { Keymap } from "../keybindings/matcher";
-import type { Platform } from "../keybindings/types";
+import type { Host, Mode } from "../keybindings/types";
+import { chordLabel } from "../keybindings/useChord";
 import type { PaletteItem } from "./types";
 
 /**
@@ -44,20 +44,19 @@ const PALETTE_TO_COMMAND: Readonly<Record<string, string>> = {
 };
 
 /**
- * Replace each item's shortcut with its live chord.
+ * Give each item the chord that is bound to it right now.
  *
- * An item whose command is unbound loses its shortcut entirely, which is the
- * honest rendering: the row still runs, it just has no key.
+ * An item whose command is unbound has no shortcut, which is the honest
+ * rendering: the row still runs, it just has no key.
  */
 export function withLiveShortcuts(
   items: readonly PaletteItem[],
   keymap: Keymap,
-  platform: Platform,
+  host: Host,
+  mode: Mode,
 ): PaletteItem[] {
-  return items.map((item) => {
-    const command = PALETTE_TO_COMMAND[item.id];
-    if (!command) return item;
-    const [binding] = keymap.chordsFor(command);
-    return { ...item, shortcut: binding ? displayChord(binding.seq, platform) : undefined };
-  });
+  return items.map((item) => ({
+    ...item,
+    shortcut: chordLabel(keymap, host, mode, PALETTE_TO_COMMAND[item.id]),
+  }));
 }

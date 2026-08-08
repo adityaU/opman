@@ -97,17 +97,108 @@ fn current_reads_the_selected_config_option_value() {
 }
 
 #[test]
-fn offers_accepts_only_values_the_agent_reported() {
+fn a_value_the_agent_never_reported_has_no_channel() {
     let s = setup();
-    // `bypassPermissions` exists only in the `modes` block, not in configOptions — the
-    // reason `offers` consults modes as well. Missing it would make opman reject the very
-    // mode it wants to start Claude in.
-    assert!(offers(&s, MODE, "bypassPermissions"));
-    assert!(offers(&s, MODE, "acceptEdits"));
-    assert!(offers(&s, MODEL, "sonnet"));
     // The guard that stops opman pushing a value the agent would error on.
-    assert!(!offers(&s, MODE, "nonsense"));
-    assert!(!offers(&s, MODEL, "nonsense"));
+    assert_eq!(channel_for(&s, MODE, "nonsense"), None);
+    assert_eq!(channel_for(&s, MODEL, "nonsense"), None);
+    assert_eq!(channel_for(&s, "nope", "anything"), None);
+}
+
+/// Modes published the spec's way are set the spec's way. This is the bug the `Channel` enum
+/// exists for: every choice used to go out as `session/set_config_option`, which an agent
+/// serving `session/set_mode` answers with "method not found" — leaving a mode picker that
+/// changed nothing and said nothing.
+#[test]
+fn spec_modes_are_set_with_set_mode() {
+    let s = setup();
+    // `bypassPermissions` exists only in the `modes` block, which is also why the channel
+    // has to consult it: missing it would reject the very mode opman starts Claude in.
+    assert_eq!(
+        channel_for(&s, MODE, "bypassPermissions"),
+        Some(Channel::Mode)
+    );
+    assert_eq!(channel_for(&s, MODE, "acceptEdits"), Some(Channel::Mode));
+    assert_eq!(Channel::Mode.method(), "session/set_mode");
+}
+
+/// With no `modes` block the same value is a config option, and goes out generically.
+#[test]
+fn config_only_modes_fall_back_to_the_generic_setter() {
+    let s = setup_without("modes");
+    assert_eq!(channel_for(&s, MODE, "acceptEdits"), Some(Channel::Config));
+    assert_eq!(channel_for(&s, MODEL, "sonnet"), Some(Channel::Config));
+}
+
+/// Claude reports no `models` block at all, so its models are set generically even though its
+/// modes are not — the two halves of one reply can use different channels.
+#[test]
+fn models_and_modes_can_use_different_channels() {
+    let s = setup();
+    assert_eq!(channel_for(&s, MODE, "acceptEdits"), Some(Channel::Mode));
+    assert_eq!(channel_for(&s, MODEL, "sonnet"), Some(Channel::Config));
+}
+
+#[test]
+fn spec_models_are_set_with_set_model() {
+    let mut s = setup();
+    s["models"] = json!({
+        "currentModelId": "gpt-5",
+        "availableModels": [{ "modelId": "gpt-5", "name": "GPT-5" }],
+    });
+    assert_eq!(channel_for(&s, MODEL, "gpt-5"), Some(Channel::Model));
+    assert_eq!(Channel::Model.method(), "session/set_model");
+}
+
+/// Each method names the value its own way; sending a `configId` to `set_mode` would be a
+/// request the agent cannot read.
+#[test]
+fn each_channel_names_its_value_the_way_its_method_expects() {
+    assert_eq!(
+        Channel::Mode.params("s1", MODE, "acceptEdits"),
+        json!({ "sessionId": "s1", "modeId": "acceptEdits" })
+    );
+    assert_eq!(
+        Channel::Model.params("s1", MODEL, "sonnet"),
+        json!({ "sessionId": "s1", "modelId": "sonnet" })
+    );
+    assert_eq!(
+        Channel::Config.params("s1", EFFORT, "high"),
+        json!({ "sessionId": "s1", "configId": "effort", "value": "high" })
+    );
+}
+
+/// `session/set_mode` and `session/set_model` answer with nothing, so what the agent accepted
+/// has to be written down here — otherwise the next sync compares against a stale current
+/// value and pushes the same choice again on every turn.
+#[test]
+fn a_spec_choice_is_recorded_because_its_reply_carries_nothing() {
+    let mut s = setup();
+    assert_eq!(selected(&s, MODE).as_deref(), Some("default"));
+    note_current(&mut s, Channel::Mode, "acceptEdits");
+    assert_eq!(selected(&s, MODE).as_deref(), Some("acceptEdits"));
+}
+
+/// The generic channel's reply carries the whole reconciled list, so there is nothing here to
+/// write down and nothing to overwrite.
+#[test]
+fn the_generic_channel_records_nothing_itself() {
+    let mut s = setup();
+    note_current(&mut s, Channel::Config, "sonnet");
+    assert_eq!(selected(&s, MODEL).as_deref(), Some("opus[1m]"));
+}
+
+/// What "current" means depends on where the agent published the option.
+#[test]
+fn selected_reads_whichever_place_the_agent_used() {
+    // Claude: mode from the `modes` block, model from configOptions.
+    assert_eq!(selected(&setup(), MODE).as_deref(), Some("default"));
+    assert_eq!(selected(&setup(), MODEL).as_deref(), Some("opus[1m]"));
+    assert_eq!(selected(&setup(), EFFORT).as_deref(), Some("medium"));
+
+    let mut spec = setup();
+    spec["models"] = json!({ "currentModelId": "gpt-5", "availableModels": [] });
+    assert_eq!(selected(&spec, MODEL).as_deref(), Some("gpt-5"));
 }
 
 #[test]

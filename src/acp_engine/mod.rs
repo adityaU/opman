@@ -18,18 +18,23 @@
 //! [`routes`] the opencode-compatible REST + SSE surface.
 
 mod attach;
+pub mod catalog;
 mod choices;
 mod client;
 pub mod config;
 mod conn;
 mod conn_options;
+mod content;
 mod discovered;
 mod emit;
+mod handshake;
 mod history;
 mod jsonrpc;
 mod mcp_servers;
 mod options;
 pub mod patch;
+mod pending;
+mod question;
 mod render;
 mod routes;
 mod routes_meta;
@@ -37,8 +42,11 @@ mod routes_turn;
 mod session;
 mod state;
 pub mod supervisor;
+mod terminal;
+mod terminal_io;
 mod tool;
 mod transcript;
+mod transcript_replay;
 mod turn;
 mod turn_state;
 
@@ -116,8 +124,9 @@ pub struct AcpEngine {
     /// Raw event channel for in-process consumers, bypassing HTTP SSE buffering (which
     /// batches frames and would undo the point of per-token streaming).
     raw_events: broadcast::Sender<String>,
-    pending:
-        Mutex<HashMap<String, tokio::sync::oneshot::Sender<crate::claude_engine::PendingReply>>>,
+    pending: pending::Pendings,
+    /// Commands the agent asked opman to run, for as long as it keeps reading them.
+    terminals: terminal::Registry,
     persist: Option<PathBuf>,
     url: Mutex<String>,
     /// The task serving this engine's REST surface, so removing the agent frees its port
@@ -151,7 +160,8 @@ impl AcpEngine {
             conns: ConnMap::default(),
             events,
             raw_events,
-            pending: Mutex::new(HashMap::new()),
+            pending: pending::Pendings::default(),
+            terminals: terminal::Registry::default(),
             persist,
             url: Mutex::new(String::new()),
             serve: Mutex::new(None),

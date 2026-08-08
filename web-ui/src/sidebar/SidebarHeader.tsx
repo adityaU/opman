@@ -14,6 +14,7 @@ import {
   PanelLeft, LayoutGrid, Search, Plus, X, ChevronDown, GitBranch, FolderPlus, Check,
 } from "lucide-react";
 import type { ProjectInfo } from "../api";
+import { KeyHint } from "../keybindings/hint/KeyHint";
 
 interface Props {
   projects: ProjectInfo[];
@@ -106,46 +107,53 @@ export function SidebarHeader({
       </div>
 
       <div className="sb-header-actions">
-        <button
-          type="button"
-          className={`sb-icon-btn${searchVisible ? " sb-icon-btn-active" : ""}`}
-          onClick={onToggleSearch}
-          title="Filter sessions"
-          aria-label="Filter sessions"
-          aria-pressed={searchVisible}
-        >
-          <Search size={14} />
-        </button>
-        {onToggleKanban && (
+        <KeyHint label="Filter sessions" command="session.filterSidebar">
           <button
             type="button"
-            className={`sb-icon-btn${isKanbanView ? " sb-icon-btn-active" : ""}`}
-            onClick={onToggleKanban}
-            title={isKanbanView ? "Back to chat" : "Open Kanban board"}
-            aria-label="Toggle Kanban board"
-            aria-pressed={isKanbanView}
+            className={`sb-icon-btn${searchVisible ? " sb-icon-btn-active" : ""}`}
+            onClick={onToggleSearch}
+            aria-label="Filter sessions"
+            aria-pressed={searchVisible}
           >
-            <LayoutGrid size={14} />
+            <Search size={14} />
           </button>
+        </KeyHint>
+        {onToggleKanban && (
+          <KeyHint
+            label={isKanbanView ? "Back to chat" : "Open Kanban board"}
+            command="layout.toggleBoard"
+          >
+            <button
+              type="button"
+              className={`sb-icon-btn${isKanbanView ? " sb-icon-btn-active" : ""}`}
+              onClick={onToggleKanban}
+              aria-label="Toggle Kanban board"
+              aria-pressed={isKanbanView}
+            >
+              <LayoutGrid size={14} />
+            </button>
+          </KeyHint>
         )}
-        <button
-          type="button"
-          className="sb-icon-btn sb-new-btn"
-          onClick={onNewSession}
-          title="New session"
-          aria-label="New session"
-        >
-          <Plus size={14} />
-        </button>
-        <button
-          type="button"
-          className="sb-icon-btn sb-collapse-btn"
-          onClick={onToggleSidebar}
-          title="Hide sidebar (Cmd+B)"
-          aria-label="Hide sidebar"
-        >
-          <PanelLeft size={14} />
-        </button>
+        <KeyHint label="New session" command="session.new">
+          <button
+            type="button"
+            className="sb-icon-btn sb-new-btn"
+            onClick={onNewSession}
+            aria-label="New session"
+          >
+            <Plus size={14} />
+          </button>
+        </KeyHint>
+        <KeyHint label="Hide sidebar" command="layout.toggleSidebar">
+          <button
+            type="button"
+            className="sb-icon-btn sb-collapse-btn"
+            onClick={onToggleSidebar}
+            aria-label="Hide sidebar"
+          >
+            <PanelLeft size={14} />
+          </button>
+        </KeyHint>
         <button type="button" className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar">
           <X size={14} />
         </button>

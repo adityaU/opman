@@ -141,7 +141,7 @@ pub enum Presence {
     Always,
     /// The loopback descriptor `~/.config/opman/internal.json` exists, i.e. the web
     /// server is up. Bind-time so a runner picks the server up mid-run.
-    KanbanDescriptor,
+    LoopbackDescriptor,
     /// The named variable is set in opman's own environment.
     Env(Box<str>),
 }
@@ -150,9 +150,7 @@ impl Presence {
     pub(crate) fn met(&self) -> bool {
         match self {
             Self::Always => true,
-            Self::KanbanDescriptor => dirs::config_dir()
-                .map(|dir| dir.join("opman").join("internal.json").is_file())
-                .unwrap_or(false),
+            Self::LoopbackDescriptor => crate::loopback::is_available(),
             Self::Env(name) => std::env::var_os(name.as_ref()).is_some(),
         }
     }
@@ -244,6 +242,13 @@ impl ServerSpec {
 
     pub(crate) fn with_presence(mut self, presence: Presence) -> Self {
         self.presence = presence;
+        self
+    }
+
+    /// Raise this server's per-call ceiling. Only the renderers that have somewhere to put
+    /// it emit it; ACP's schema has no timeout field at all.
+    pub(crate) fn with_timeout(mut self, secs: u32) -> Self {
+        self.timeout_secs = Some(secs);
         self
     }
 }

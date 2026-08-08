@@ -140,16 +140,16 @@ fn partial_user_entry_keeps_the_builtin_launch_command() {
 #[test]
 fn new_agent_entry_gets_id_derived_defaults() {
     let _guard = ENV_LOCK.lock().unwrap();
-    let (cfg, _dir) = load_with(r#"{"agents":{"gemini":{"command":"gemini-acp"}}}"#);
-    let (_, gemini) = cfg
+    let (cfg, _dir) = load_with(r#"{"agents":{"homegrown":{"command":"homegrown-acp"}}}"#);
+    let (_, homegrown) = cfg
         .active()
-        .find(|(id, _)| *id == "gemini")
+        .find(|(id, _)| *id == "homegrown")
         .expect("config-declared agent should be active");
     // Adding an ACP server is meant to be a one-line config edit, so the label and the
     // runner slot both fall back to the agent id.
-    assert_eq!(gemini.display_name, "gemini");
-    assert_eq!(gemini.runner, "gemini");
-    assert_eq!(gemini.command, "gemini-acp");
+    assert_eq!(homegrown.display_name, "homegrown");
+    assert_eq!(homegrown.runner, "homegrown");
+    assert_eq!(homegrown.command, "homegrown-acp");
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn empty_command_is_not_launchable() {
     };
     assert!(!entry.launchable());
     assert!(AgentConfig {
-        command: "gemini-acp".to_string(),
+        command: "homegrown-acp".to_string(),
         ..entry
     }
     .launchable());

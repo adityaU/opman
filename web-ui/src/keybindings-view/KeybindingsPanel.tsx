@@ -27,7 +27,7 @@ export function KeybindingsPanel() {
   const [recording, setRecording] = useState(false);
   const [editing, setEditing] = useState<{ command: CommandDef; previous?: string }>();
 
-  const rows = useMemo(() => buildRows(keymap, host), [keymap, host]);
+  const rows = useMemo(() => buildRows(keymap, host, mode), [keymap, host, mode]);
   const visible = useMemo(() => filterRows(rows, filters), [rows, filters]);
 
   /**
@@ -164,6 +164,7 @@ export function KeybindingsPanel() {
           previous={editing.previous}
           keymap={keymap}
           host={host}
+          mode={mode}
           onCancel={() => setEditing(undefined)}
           onCommit={(chord) => {
             const previous = keymap

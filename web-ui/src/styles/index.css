@@ -66,6 +66,7 @@
 @import './settings-page-3.css';
 @import './settings-page-4.css';
 @import './settings-page-5.css';
+@import './settings-page-6.css';
 @import './sidebar-1.css';
 @import './sidebar-2.css';
 @import './sidebar-3.css';
@@ -96,7 +97,6 @@
 @import './a2ui-2.css';
 @import './a2ui-3.css';
 @import './a2ui-4.css';
-@import './debug-panel.css';
 @import './codex-polish.css';
 @import './engine-picker.css';
 @import './composer-popover.css';
@@ -104,7 +104,6 @@
 @import './modern-shell.css';
 @import './git-shell-polish.css';
 @import './floating-shell-polish.css';
-@import './panel-layout.css';
 @import './mobile-shell.css';
 @import './mobile-header.css';
 @import './theme-polish.css';
@@ -126,3 +125,5 @@
 /* Last: the unified floating-surface contract wins on order, not !important. */
 @import './modal-shell.css';
 @import './modal-content.css';
+/* After the shell, because the hint sizes down the popover surface it borrows. */
+@import './key-hint.css';

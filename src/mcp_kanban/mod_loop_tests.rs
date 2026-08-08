@@ -1,5 +1,5 @@
-//! Wave-2 coverage: stdio read-loop, `load_internal_from`, and the
-//! `tools/call` route against a synchronous mock HTTP server.
+//! Wave-2 coverage: stdio read-loop and the `tools/call` route against a synchronous
+//! mock HTTP server. Descriptor parsing belongs to `crate::loopback` and is tested there.
 use super::*;
 use serde_json::json;
 use std::io::{Read, Write};
@@ -72,48 +72,6 @@ impl MockHttp {
             client: reqwest::Client::new(),
         }
     }
-}
-
-// ── load_internal_from ───────────────────────────────────────────────────────
-
-#[test]
-fn load_internal_from_valid() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":"http://127.0.0.1:9","token":"abc"}"#).unwrap();
-    let got = load_internal_from(&p).unwrap();
-    assert_eq!(got.url, "http://127.0.0.1:9");
-    assert_eq!(got.token, "abc");
-}
-
-#[test]
-fn load_internal_from_missing_file() {
-    let p = std::path::Path::new("/tmp/opman-kanban-nonexistent-xyz.json");
-    assert!(load_internal_from(p).is_none());
-}
-
-#[test]
-fn load_internal_from_malformed_json() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, "{ not json").unwrap();
-    assert!(load_internal_from(&p).is_none());
-}
-
-#[test]
-fn load_internal_from_missing_url_field() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"token":"abc"}"#).unwrap();
-    assert!(load_internal_from(&p).is_none());
-}
-
-#[test]
-fn load_internal_from_url_not_string() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":123,"token":"abc"}"#).unwrap();
-    assert!(load_internal_from(&p).is_none());
 }
 
 // ── tools/call route with a live (mocked) internal API ───────────────────────

@@ -59,6 +59,7 @@ impl super::WebStateHandle {
                                 .get(&s.id)
                                 .cloned()
                                 .unwrap_or_else(|| inner.default_runner.clone()),
+                            engine: s.engine.clone(),
                         })
                         .collect(),
                     git_branch: p.git_branch.clone(),
@@ -166,6 +167,24 @@ impl super::WebStateHandle {
             .map(|s| (s.id.clone(), s.title.clone()))
             .collect();
         Some((project.path.clone(), project.name.clone(), sessions))
+    }
+
+    /// The most recently updated session in a directory.
+    ///
+    /// The fallback for an asker whose runner could not tell it which session it belongs
+    /// to — OpenCode's MCP config is process-wide, so `${session}` has nothing to resolve
+    /// against and the env var never gets set. Newest-in-directory is the same guess the
+    /// claude hook makes, and for the only case that reaches it (one agent, mid-turn, in
+    /// one project) it is the session that asked.
+    pub async fn newest_session_in(&self, directory: &str) -> Option<String> {
+        let inner = self.inner.read().await;
+        inner
+            .projects
+            .iter()
+            .flat_map(|project| project.sessions.iter())
+            .filter(|session| session.directory == directory)
+            .max_by_key(|session| session.time.updated)
+            .map(|session| session.id.clone())
     }
 
     /// Get the current theme pair (dark + light) if set.

@@ -5,6 +5,7 @@ import {
   Pen, Square, Type, Eraser, Undo2, Copy, X,
   Minus, Plus,
 } from "lucide-react";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 type Tool = "pen" | "rect" | "text" | "eraser";
 
@@ -76,9 +77,11 @@ export function MarkupToolbar({
       <div className="markup-toolbar-sep" />
 
       <div className="markup-toolbar-group">
-        <button className="markup-tool-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Cmd+Z)">
-          <Undo2 size={15} />
-        </button>
+        <KeyHint label="Undo stroke" command="markup.undo">
+          <button className="markup-tool-btn" onClick={onUndo} disabled={!canUndo} aria-label="Undo stroke">
+            <Undo2 size={15} />
+          </button>
+        </KeyHint>
       </div>
 
       <span className="markup-toolbar-spacer" />
@@ -87,9 +90,11 @@ export function MarkupToolbar({
         <button className="markup-action-btn markup-save" onClick={onSave} disabled={saving || !canSave} title="Copy to clipboard">
           {saved ? "Copied!" : saving ? "Saving..." : <><Copy size={13} /> Copy</>}
         </button>
-        <button className="markup-action-btn markup-cancel" onClick={onClose} title="Cancel (Esc)">
-          <X size={13} /> Cancel
-        </button>
+        <KeyHint label="Cancel" command="markup.cancel">
+          <button className="markup-action-btn markup-cancel" onClick={onClose}>
+            <X size={13} /> Cancel
+          </button>
+        </KeyHint>
       </div>
     </div>
   );

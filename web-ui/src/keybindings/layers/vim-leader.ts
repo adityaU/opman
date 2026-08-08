@@ -204,7 +204,6 @@ const UI = namespace("u", "ui", [
   { key: "v", command: "system.toggleVimMode", label: "vim mode" },
   { key: "m", command: "system.monitor", label: "monitor" },
   { key: "h", command: "system.processHealth", label: "health" },
-  { key: "d", command: "system.debugPanel", label: "debug" },
   { key: "r", command: "system.refreshApp", label: "reload" },
   { key: "s", command: "system.mcpServers", label: "mcp servers" },
   { key: "k", command: "system.skills", label: "skills" },

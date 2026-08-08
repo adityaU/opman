@@ -59,72 +59,6 @@ html.flat-theme .pr-branch-picker {
     --floating-surface: color-mix(in srgb, var(--theme-elevated) 94%, var(--color-bg));
     --floating-shadow: 0 22px 54px color-mix(in srgb, var(--color-bg) 72%, transparent), 0 5px 16px color-mix(in srgb, var(--color-bg) 42%, transparent)
 }
-.right-panel-stack { gap: 10px; padding: 4px 4px 8px 0; overscroll-behavior: contain; scrollbar-gutter: stable }
-.right-panel-card {
-    position: relative;
-    border-color: var(--floating-border);
-    border-radius: var(--floating-radius);
-    background: var(--floating-surface);
-    box-shadow: 0 14px 32px color-mix(in srgb, var(--color-bg) 38%, transparent), inset 0 1px 0 color-mix(in srgb, var(--color-text) 6%, transparent);
-    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base), opacity var(--transition-base)
-}
-.right-panel-card::before {
-    content: "";
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
-    left: -1px;
-    width: 2px;
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-primary) 68%, transparent), transparent);
-    opacity: 0;
-    transition: opacity var(--transition-base);
-    pointer-events: none
-}
-.right-panel-card:hover,
-.right-panel-card:focus-within {
-    border-color: color-mix(in srgb, var(--color-primary) 38%, var(--floating-border));
-    box-shadow: 0 18px 38px color-mix(in srgb, var(--color-bg) 48%, transparent), inset 0 1px 0 color-mix(in srgb, var(--color-primary) 10%, transparent)
-}
-.right-panel-card:hover::before,
-.right-panel-card:focus-within::before { opacity: 1 }
-.right-panel-card .side-panel-header {
-    min-height: 42px;
-    padding: 0 10px 0 13px;
-    gap: 8px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 5%, transparent), transparent 72%);
-    border-bottom-color: color-mix(in srgb, var(--color-border-subtle) 82%, transparent);
-    cursor: grab;
-    user-select: none
-}
-.right-panel-card .side-panel-header:active { cursor: grabbing }
-.right-panel-card .side-panel-header > svg { color: var(--color-primary); opacity: .9 }
-.right-panel-card .side-panel-header > span:not(.mcp-agent-indicator) {
-    flex: 1;
-    min-width: 0;
-    color: var(--color-text);
-    font-size: var(--font-size-xs);
-    font-weight: 650;
-    letter-spacing: .01em
-}
-.right-panel-card .side-panel-close {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid transparent;
-    border-radius: var(--radius);
-    color: var(--color-text-muted);
-    background: transparent;
-    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast)
-}
-.right-panel-card .side-panel-close:hover {
-    color: var(--color-text);
-    background: color-mix(in srgb, var(--color-text) 8%, transparent);
-    border-color: var(--color-border-subtle)
-}
-.right-panel-card .side-panel-body { border-radius: calc(var(--floating-radius) - 1px)}
 .modal-backdrop,
 .search-modal-backdrop {
     background: color-mix(in srgb, var(--color-bg) 66%, transparent);
@@ -170,16 +104,7 @@ html.flat-theme {
     --floating-border: var(--color-border-subtle);
     --floating-shadow: 0 12px 28px var(--black-20)
 }
-html.flat-theme .right-panel-card,
-html.flat-theme .health-modal,
-html.flat-theme .todo-panel-modal,
-html.flat-theme .ctx-window-modal,
-html.flat-theme .diff-review-modal,
-html.flat-theme .command-palette,
-html.flat-theme .session-selector-modal,
-html.flat-theme .watcher-modal,
-html.flat-theme .cross-session-search-modal,
-html.flat-theme .context-input-modal { background: var(--floating-surface); box-shadow: var(--floating-shadow) }
+html.flat-theme .health-modal,html.flat-theme .todo-panel-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .command-palette,html.flat-theme .session-selector-modal,html.flat-theme .watcher-modal,html.flat-theme .cross-session-search-modal,html.flat-theme .context-input-modal{ background: var(--floating-surface); box-shadow: var(--floating-shadow) }
 html.flat-theme .modal-backdrop,
 html.flat-theme .search-modal-backdrop { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px) }
 @keyframes floating-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
@@ -201,9 +126,6 @@ html.flat-theme .search-modal-backdrop { backdrop-filter: blur(8px); -webkit-bac
     .context-input-modal { animation: none }
 }
 @media (max-width: 768px) {
-    .right-panel-stack { padding: 0 }
-    .right-panel-card::before { display: none }
-    .right-panel-card .side-panel-header { min-height: 48px }
     .health-modal,
     .todo-panel-modal,
     .ctx-window-modal,

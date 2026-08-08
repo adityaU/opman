@@ -162,8 +162,9 @@ async fn session_events_stream_lagged_emits_lagged_frame() {
     .await
     .unwrap()
     .into_response();
-    // raw_sse_tx capacity is 256 → overflow to force Lagged → "lagged" frame.
-    for i in 0..400 {
+    // Overflow the raw event channel to force Lagged → "lagged" frame. The bound is the
+    // production one (`WebStateHandle::new`), since the harness shares its sender.
+    for i in 0..2400 {
         let _ = rtx.send(format!("evt{i}"));
     }
     let s = collect_frames(resp.into_body(), 3, 300).await;

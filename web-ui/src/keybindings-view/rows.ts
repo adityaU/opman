@@ -1,7 +1,7 @@
 import { displayChord } from "../keybindings/chord";
 import { COMMANDS, CATEGORY_ORDER } from "../keybindings/commands";
 import type { Keymap } from "../keybindings/matcher";
-import type { BindingSource, CommandDef, Host, ResolvedBinding } from "../keybindings/types";
+import type { BindingSource, CommandDef, Host, Mode, ResolvedBinding } from "../keybindings/types";
 
 /**
  * Rows for the keybindings table.
@@ -33,7 +33,7 @@ function categoryRank(category: string): number {
   return index < 0 ? CATEGORY_ORDER.length : index;
 }
 
-export function buildRows(keymap: Keymap, host: Host): BindingRow[] {
+export function buildRows(keymap: Keymap, host: Host, mode: Mode): BindingRow[] {
   const rows: BindingRow[] = [];
 
   for (const command of COMMANDS) {
@@ -47,7 +47,7 @@ export function buildRows(keymap: Keymap, host: Host): BindingRow[] {
         id: `${command.id}::${binding.id}`,
         command,
         binding,
-        chord: displayChord(binding.seq, host.platform),
+        chord: displayChord(binding.seq, host.platform, mode),
         source: binding.source,
       });
     }

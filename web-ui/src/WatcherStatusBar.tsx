@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { WatcherStatus } from "./hooks/useSSE";
 import { Eye } from "lucide-react";
+import { KeyHint } from "./keybindings/hint/KeyHint";
 
 interface Props {
   watcherStatus: WatcherStatus | null;
@@ -79,14 +80,12 @@ export function WatcherStatusIndicator({ watcherStatus, onClick }: Props) {
   }
 
   return (
-    <button
-      className="watcher-status-indicator"
-      onClick={onClick}
-      title="Session Watcher (Cmd+Shift+W)"
-    >
-      <span className={dotClass} />
-      <Eye size={11} />
-      <span className="watcher-status-label">{label}</span>
-    </button>
+    <KeyHint label="Session watcher" command="session.watcher">
+      <button className="watcher-status-indicator" onClick={onClick}>
+        <span className={dotClass} />
+        <Eye size={11} />
+        <span className="watcher-status-label">{label}</span>
+      </button>
+    </KeyHint>
   );
 }

@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from "react";
-import { Plus, X } from "lucide-react";
-import type { AcpAgent } from "../../api/acp";
+import React, { useCallback, useMemo, useState } from "react";
+import { Plus, Trash2, X } from "lucide-react";
 import { AgentForm } from "./AgentForm";
-import { AgentRow } from "./AgentRow";
-import { useAcpAgents } from "./useAcpAgents";
+import { AgentList } from "./AgentList";
+import { useAcpAgents, WHOLE_CONFIG } from "./useAcpAgents";
 
 /**
  * ACP agents: the engines opman can drive.
@@ -12,6 +11,11 @@ import { useAcpAgents } from "./useAcpAgents";
  * uses. An agent declared here appears in the engine picker as soon as it starts, without
  * restarting opman — so the list has to say whether each one is actually running, not only
  * whether it is configured.
+ *
+ * opman now ships the protocol's whole published agent list, which is why the section is in
+ * two parts. The top list is what opman is actually driving; the catalogue below it is the
+ * rest, declared but off, folded away so thirty rows of "not running" do not read as thirty
+ * problems. Turning one on is the same toggle either way.
  */
 
 export interface AgentsSectionProps {
@@ -24,8 +28,16 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
   const state = useAcpAgents(onError);
   const [editing, setEditing] = useState<Editing>({ kind: "none" });
   const [confirming, setConfirming] = useState<string>();
+  const [resetting, setResetting] = useState(false);
 
   const close = useCallback(() => setEditing({ kind: "none" }), []);
+  const edit = useCallback(
+    (id: string) =>
+      setEditing((current) =>
+        current.kind === "agent" && current.id === id ? { kind: "none" } : { kind: "agent", id },
+      ),
+    [],
+  );
 
   const remove = useCallback(
     async (id: string) => {
@@ -36,7 +48,35 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
     [state],
   );
 
-  const editingAgent = (agent: AcpAgent) => editing.kind === "agent" && editing.id === agent.id;
+  const reset = useCallback(async () => {
+    setResetting(false);
+    setConfirming(undefined);
+    setEditing({ kind: "none" });
+    await state.resetConfig();
+  }, [state]);
+
+  // An agent is either something opman is driving or something it merely knows about, and
+  // the two want different prominence. `customized` is also what says the file has anything
+  // in it — with no entries there is nothing for a reset to undo.
+  const { live, catalogue, customized } = useMemo(
+    () => ({
+      live: state.agents.filter((agent) => agent.enabled),
+      catalogue: state.agents.filter((agent) => !agent.enabled),
+      customized: state.agents.some((agent) => agent.customized),
+    }),
+    [state.agents],
+  );
+
+  const openId = editing.kind === "agent" ? editing.id : undefined;
+  const listProps = {
+    state,
+    editing: openId,
+    onEdit: edit,
+    onCloseForm: close,
+    confirming,
+    onConfirm: setConfirming,
+    onRemove: remove,
+  };
 
   return (
     <div className="stg-stack">
@@ -46,21 +86,58 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
             <h3 className="stg-card-title">Declared agents</h3>
             <p className="stg-card-note">
               Any server speaking the Agent Client Protocol can be an engine here — opman
-              ships Claude and Codex and speaks only ACP to both. Adding one takes effect
-              immediately: it becomes a runner you can start a session in, and removing one
-              stops its processes.
+              ships every agent the protocol publishes and speaks only ACP to all of them.
+              Enabling one takes effect immediately: it becomes a runner you can start a
+              session in or hand an open session over to, and disabling one stops its
+              processes.
             </p>
           </div>
-          <button
-            type="button"
-            className="stg-btn is-primary"
-            onClick={() => setEditing(editing.kind === "new" ? { kind: "none" } : { kind: "new" })}
-            aria-expanded={editing.kind === "new"}
-          >
-            <Plus size={13} aria-hidden="true" />
-            Add agent
-          </button>
+          <div className="stg-card-actions">
+            <button
+              type="button"
+              className="stg-btn is-primary"
+              onClick={() => setEditing(editing.kind === "new" ? { kind: "none" } : { kind: "new" })}
+              aria-expanded={editing.kind === "new"}
+            >
+              <Plus size={13} aria-hidden="true" />
+              Add agent
+            </button>
+            <button
+              type="button"
+              className="stg-btn is-danger"
+              onClick={() => setResetting((open) => !open)}
+              disabled={!customized || state.busy === WHOLE_CONFIG}
+              aria-expanded={resetting}
+              title={
+                customized
+                  ? "Delete acp.json and restore every agent to how opman ships it"
+                  : "Nothing to reset — acp.json overrides nothing"
+              }
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              Reset config
+            </button>
+          </div>
         </div>
+
+        {resetting && (
+          <p className="stg-confirm">
+            <span>
+              Delete <code>acp.json</code>? Every agent goes back to how opman ships it —
+              your commands, environment and enabled/disabled choices are all discarded, and
+              agents you declared yourself disappear along with their runners. Sessions stay
+              on disk.
+            </span>
+            <span className="stg-confirm-actions">
+              <button type="button" className="stg-btn is-danger" onClick={reset}>
+                Delete config
+              </button>
+              <button type="button" className="stg-btn" onClick={() => setResetting(false)}>
+                Keep
+              </button>
+            </span>
+          </p>
+        )}
 
         {editing.kind === "new" && (
           <AgentForm saving={state.busy !== undefined} onSubmit={state.save} onCancel={close} />
@@ -88,71 +165,35 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
 
         {state.loading ? (
           <p className="stg-hint">Loading…</p>
-        ) : state.agents.length === 0 ? (
-          <div className="stg-empty">
-            <p>No ACP agents.</p>
-            <p className="stg-hint">
-              Even opman's built-ins are config entries, so an empty list means the config
-              file has disabled them all.
-            </p>
-          </div>
         ) : (
-          <ul className="stg-rows">
-            {state.agents.map((agent) => (
-              <React.Fragment key={agent.id}>
-                <AgentRow
-                  agent={agent}
-                  busy={state.busy === agent.id}
-                  editing={editingAgent(agent)}
-                  onToggle={() => state.toggle(agent)}
-                  onEdit={() =>
-                    setEditing(editingAgent(agent) ? { kind: "none" } : { kind: "agent", id: agent.id })
-                  }
-                  onRemove={() => setConfirming(agent.id)}
-                />
-                {confirming === agent.id && (
-                  <li className="stg-confirm">
-                    <span>
-                      {agent.builtin ? (
-                        <>
-                          Discard your changes to <strong>{agent.displayName}</strong> and
-                          restore opman's own definition?
-                        </>
-                      ) : (
-                        <>
-                          Remove <strong>{agent.displayName}</strong> from{" "}
-                          <code>acp.json</code>? Its processes are killed and the runner
-                          disappears. Sessions already in it stay on disk.
-                        </>
-                      )}
-                    </span>
-                    <span className="stg-confirm-actions">
-                      <button
-                        type="button"
-                        className={agent.builtin ? "stg-btn is-primary" : "stg-btn is-danger"}
-                        onClick={() => remove(agent.id)}
-                      >
-                        {agent.builtin ? "Restore" : "Remove"}
-                      </button>
-                      <button type="button" className="stg-btn" onClick={() => setConfirming(undefined)}>
-                        Keep
-                      </button>
-                    </span>
-                  </li>
-                )}
-                {editingAgent(agent) && (
-                  <li className="stg-row-form">
-                    <AgentForm
-                      agent={agent}
-                      saving={state.busy === agent.id}
-                      onSubmit={state.save}
-                      onCancel={close}
-                    />
-                  </li>
-                )}
-              </React.Fragment>
-            ))}
-          </ul>
+          <>
+            {live.length === 0 ? (
+              <div className="stg-empty">
+                <p>No agents enabled.</p>
+                <p className="stg-hint">
+                  Even opman's own two are config entries, so an empty list means they have
+                  been turned off. Enable one from the catalogue below.
+                </p>
+              </div>
+            ) : (
+              <AgentList agents={live} {...listProps} />
+            )}
+
+            {catalogue.length > 0 && (
+              <details className="stg-fold">
+                <summary className="stg-fold-head">
+                  Available harnesses
+                  <span className="stg-tag">{catalogue.length}</span>
+                </summary>
+                <p className="stg-hint">
+                  Declared but off. Where a harness does not document its ACP launch command,
+                  opman ships no command rather than a guessed one — open the row's docs link,
+                  then fill the command in and enable it.
+                </p>
+                <AgentList agents={catalogue} {...listProps} />
+              </details>
+            )}
+          </>
         )}
       </section>
     </div>

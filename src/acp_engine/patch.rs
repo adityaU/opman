@@ -126,6 +126,20 @@ pub fn save_document(document: &AcpDocument) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Delete the file outright, returning whether there was one to delete.
+///
+/// Not the same as writing an empty document: an absent file is the state a fresh install
+/// is in, so this is what "reset every agent to how opman ships it" means. A missing file
+/// is success, because the caller asked for it to be gone and it is.
+pub fn delete_document() -> anyhow::Result<bool> {
+    let path = config_path().ok_or_else(|| anyhow::anyhow!("no config directory"))?;
+    match std::fs::remove_file(&path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
 #[cfg(test)]
 #[path = "patch_tests.rs"]
 mod patch_tests;

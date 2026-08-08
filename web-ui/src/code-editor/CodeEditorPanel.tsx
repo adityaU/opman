@@ -17,9 +17,9 @@ import { DesktopLayout } from "./components/DesktopLayout";
 import { MobileLayout } from "./components/MobileLayout";
 
 export default function CodeEditorPanel({
-  focused, openFilePath, openLine, projectPath, sessionId, onError, layout,
+  focused, open, projectPath, sessionId, onError, layout,
 }: CodeEditorPanelProps) {
-  const explorer = useFileExplorer(projectPath, openFilePath, openLine, onError);
+  const explorer = useFileExplorer(projectPath, open, onError);
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Derive the active open file entry

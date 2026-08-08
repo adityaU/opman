@@ -114,7 +114,7 @@ describe("WhichKeyPanel", () => {
 
       expect(screen.getByText("+git")).toBeTruthy();
       expect(screen.getByText("+sessions")).toBeTruthy();
-      expect(document.querySelector(".which-key-crumb")?.textContent).toBe("space");
+      expect(document.querySelector(".which-key-crumb")?.textContent).toBe("Space");
     });
   });
 

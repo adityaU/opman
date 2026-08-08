@@ -66,6 +66,10 @@ quick-xml = "0.37"
 
 [dev-dependencies]
 tempfile = "3"
+# `start_paused` runtimes, so tests of timeouts and poll loops assert the real constants
+# instead of shrinking them for the test or waiting out the wall clock. Dev-only under
+# resolver 2, so the shipped binary keeps the untouched tokio feature set.
+tokio = { version = "1", features = ["test-util"] }
 
 # vt100's visible_rows() has a usize subtraction that wraps when scrollback_offset > rows_len.
 # In release mode this is correct (wrapping gives usize::MAX, take(usize::MAX) takes all rows).

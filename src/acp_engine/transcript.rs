@@ -13,31 +13,34 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use super::attach::Prompt;
 use super::emit::{append_text, new_tool_part, part_id, Chunk, Emit};
 use crate::claude_engine::jsonl::MsgOut;
 
 /// The rendered conversation for one opman session.
+///
+/// Fields are `pub(super)` rather than private because the replay half of this type lives in
+/// [`super::transcript_replay`]: history and live folding pull on the same state, and one
+/// file holding both would be too long to read as either story.
 #[derive(Default)]
 pub struct Transcript {
-    session_id: String,
-    messages: Vec<MsgOut>,
+    pub(super) session_id: String,
+    pub(super) messages: Vec<MsgOut>,
     /// message id → index in `messages`.
-    index: HashMap<String, usize>,
+    pub(super) index: HashMap<String, usize>,
     /// ACP `toolCallId` → (message index, part index).
-    tools: HashMap<String, (usize, usize)>,
+    pub(super) tools: HashMap<String, (usize, usize)>,
     /// The assistant message currently receiving updates.
-    live: Option<String>,
+    pub(super) live: Option<String>,
     /// Index of the open streaming part within `live`, and its kind, so consecutive
     /// chunks of the same kind append instead of creating a part per token.
-    open: Option<(usize, Chunk)>,
-    user_turn: u64,
-    assistant_turn: u64,
-    model: String,
-    /// Prompts set aside for the duration of a replay — see [`Self::begin_replay`].
-    held: Vec<MsgOut>,
+    pub(super) open: Option<(usize, Chunk)>,
+    pub(super) user_turn: u64,
+    pub(super) assistant_turn: u64,
+    pub(super) model: String,
+    /// Prompts set aside for the duration of a replay — see `begin_replay`.
+    pub(super) held: Vec<MsgOut>,
     /// Whether the frames arriving are a `session/load` replay rather than a live turn.
-    replaying: bool,
+    pub(super) replaying: bool,
 }
 
 impl Transcript {
@@ -56,81 +59,6 @@ impl Transcript {
         if !model.is_empty() {
             self.model = model.to_string();
         }
-    }
-
-    /// Hand history back to the agent: `session/load` is about to replay the conversation,
-    /// so what is rendered now would double.
-    ///
-    /// The trailing user messages are held rather than dropped. They are the prompt that
-    /// triggered this connection — opman rendered it optimistically, the agent has not
-    /// received it, and so the replay will not contain it. Clearing it outright is what
-    /// made a first message after a restart vanish from the transcript.
-    ///
-    /// Turn counters keep counting: the ids they generate must not collide with the ones
-    /// already handed to the held messages and broadcast to the client.
-    pub fn begin_replay(&mut self) {
-        let split = self
-            .messages
-            .iter()
-            .rposition(|m| m.info["role"] != "user")
-            .map_or(0, |last| last + 1);
-        self.held = self.messages.split_off(split);
-        self.messages.clear();
-        self.index.clear();
-        self.tools.clear();
-        self.live = None;
-        self.open = None;
-        self.replaying = true;
-    }
-
-    /// The replay is over: settle the last replayed message and put the held prompts back
-    /// at the end, where they belong in time. They are not re-emitted — the client has
-    /// rendered them since the moment they were typed.
-    pub fn end_replay(&mut self, out: &mut Vec<Emit>) {
-        self.replaying = false;
-        self.finish_turn(out);
-        for message in std::mem::take(&mut self.held) {
-            if let Some(id) = message.info["id"].as_str() {
-                self.index.insert(id.to_string(), self.messages.len());
-            }
-            self.messages.push(message);
-        }
-    }
-
-    /// A user prompt. opman renders the prompt it sent optimistically, but the agent also
-    /// replays user messages on `session/load`, so this is what rebuilds history.
-    pub fn user_message(&mut self, prompt: &Prompt, out: &mut Vec<Emit>) -> String {
-        // Replayed history is finished business, so a user turn ends the assistant turn
-        // before it outright. Live, it only detaches: an agent that accepts a follow-up
-        // mid-turn is still generating, and stamping it complete would settle tools that
-        // are genuinely running.
-        if self.replaying {
-            self.finish_turn(out);
-        }
-        self.user_turn += 1;
-        let mid = format!("msg_user_{}_{}", self.session_id, self.user_turn);
-        let info = json!({
-            "role": "user",
-            "id": mid,
-            "sessionID": self.session_id,
-            "time": { "created": super::now_ms() },
-        });
-        // The attachments ride along as `file` parts, so the user's own bubble shows what
-        // they sent rather than only the words that came with it.
-        let parts = prompt.message_parts(&mid, &self.session_id);
-        self.index.insert(mid.clone(), self.messages.len());
-        self.messages.push(MsgOut {
-            info: info.clone(),
-            parts: parts.clone(),
-        });
-        // A user turn closes any assistant message that was still streaming.
-        self.live = None;
-        self.open = None;
-        out.push(Emit::Message(info));
-        for part in parts {
-            out.push(Emit::Part(part));
-        }
-        mid
     }
 
     /// Fold one streamed content chunk into the live assistant message.
@@ -154,12 +82,14 @@ impl Transcript {
         if let Some((part_idx, open_kind)) = self.open {
             if open_kind == kind {
                 if let Some(part) = self.messages[idx].parts.get_mut(part_idx) {
-                    append_text(part, text);
+                    let Some(delta) = append_text(part, text) else {
+                        return;
+                    };
                     out.push(Emit::Delta {
                         session_id: self.session_id.clone(),
                         message_id: mid,
                         part_id: part_id(part),
-                        delta: text.to_string(),
+                        delta,
                     });
                     return;
                 }
@@ -176,6 +106,43 @@ impl Transcript {
         });
         self.messages[idx].parts.push(part.clone());
         self.open = Some((part_idx, kind));
+        out.push(Emit::Part(part));
+    }
+
+    /// A block from the agent that is not prose — an image, a sound, an embedded blob — as a
+    /// `file` part on the live assistant message. The timeline already renders these for a
+    /// user's attachments, so an agent's arrive with no frontend change.
+    pub fn file(
+        &mut self,
+        message_id: Option<&str>,
+        file: &super::content::Rendered,
+        out: &mut Vec<Emit>,
+    ) {
+        let super::content::Rendered::File {
+            mime,
+            filename,
+            url,
+        } = file
+        else {
+            return;
+        };
+        let mid = self.ensure_assistant(message_id, out);
+        let Some(&idx) = self.index.get(&mid) else {
+            return;
+        };
+        let part_idx = self.messages[idx].parts.len();
+        let part = json!({
+            "type": "file",
+            "id": format!("{mid}:{part_idx}"),
+            "messageID": mid,
+            "sessionID": self.session_id,
+            "mime": mime,
+            "filename": filename,
+            "url": url,
+        });
+        self.messages[idx].parts.push(part.clone());
+        // Prose after a file starts a new part, exactly as it does after a tool call.
+        self.open = None;
         out.push(Emit::Part(part));
     }
 

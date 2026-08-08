@@ -5,8 +5,9 @@
    The workspace used to be its own visual dialect — flush tmux cells on the
    raw canvas, hairline gutters, a 44px rail with its own surface and border.
    It is now built from the same parts as the rest of the app: `--panel-inset`
-   is the one gap, panes are cards (see workspace-2.css) on the same recipe as
-   `.right-panel-card`, and the rail borrows `.stg-rail-item`'s states.
+   is the one gap, panes are cards (see workspace-2.css) on the recipe the
+   right-hand panel stack used to own, and the rail borrows `.stg-rail-item`'s
+   states.
 
    That means the rail owns no surface of its own. The panes are inset cards,
    so the canvas shows through between them and behind the rail — a border or

@@ -22,6 +22,7 @@ import {
   DEFAULT_CHROME,
   WIDGET_KINDS,
   type ChromeState,
+  type FileOpenRequest,
   type Node,
   type PaneId,
   type PaneEngine,
@@ -190,6 +191,20 @@ function parseEngine(value: unknown): PaneEngine | null {
   };
 }
 
+/**
+ * The file a files pane was last asked to reveal. Without a path there is no
+ * request, so a half-written entry restores as "no file" rather than as a jump
+ * to nowhere.
+ */
+function parseFileOpen(value: unknown): FileOpenRequest | null {
+  if (!isRecord(value) || typeof value.path !== "string" || !value.path) return null;
+  return {
+    path: value.path,
+    line: typeof value.line === "number" ? value.line : null,
+    seq: typeof value.seq === "number" ? value.seq : 0,
+  };
+}
+
 function parseWidget(value: unknown): WidgetState | null {
   if (!isRecord(value)) return null;
   const kind = value.kind;
@@ -206,11 +221,7 @@ function parseWidget(value: unknown): WidgetState | null {
         engine: parseEngine(value.engine),
       };
     case "files":
-      return {
-        kind: "files",
-        projectPath,
-        filePath: typeof value.filePath === "string" ? value.filePath : null,
-      };
+      return { kind: "files", projectPath, open: parseFileOpen(value.open) };
     case "terminal":
       return {
         kind: "terminal",

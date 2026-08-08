@@ -264,6 +264,24 @@
     background: var(--white-8)
 }
 
+/* The chord sits at the trailing edge, quiet: it is a thing to learn, not a
+   second label competing with the action's own. */
+.sb-context-kbd {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs)
+}
+
+.sb-context-item.sb-context-danger .sb-context-kbd {
+    color: var(--color-text-muted)
+}
+
 .sb-context-item.sb-context-danger {
     color: var(--color-error)
 }

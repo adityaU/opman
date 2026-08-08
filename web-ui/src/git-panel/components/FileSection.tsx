@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Plus, Minus, Trash2 } from "lucide-react";
 import type { GitFileEntry, GitView } from "../types";
 import type { GitSelection } from "../useGitSelection";
 import { statusColor, statusLabel } from "../utils";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 interface Props {
   title: string;
@@ -73,21 +74,24 @@ export function FileSection({
 
           {variant === "unstaged" ? (
             <div className="git-file-actions">
-              <button
-                className="git-file-action"
-                onClick={(e) => { e.stopPropagation(); onDiscard?.([file.path]); }}
-                title="Discard changes"
-                aria-label={`Discard changes to ${file.path}`}
-              >
-                <Trash2 size={11} />
-              </button>
-              <button
-                className="git-file-action"
-                onClick={(e) => { e.stopPropagation(); onFileAction([file.path]); }}
-                title="Stage" aria-label={`Stage ${file.path}`}
-              >
-                <Plus size={11} />
-              </button>
+              <KeyHint label="Discard changes" command="git.discard">
+                <button
+                  className="git-file-action"
+                  onClick={(e) => { e.stopPropagation(); onDiscard?.([file.path]); }}
+                  aria-label={`Discard changes to ${file.path}`}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </KeyHint>
+              <KeyHint label="Stage file" command="git.stageFile">
+                <button
+                  className="git-file-action"
+                  onClick={(e) => { e.stopPropagation(); onFileAction([file.path]); }}
+                  aria-label={`Stage ${file.path}`}
+                >
+                  <Plus size={11} />
+                </button>
+              </KeyHint>
             </div>
           ) : (
             <button

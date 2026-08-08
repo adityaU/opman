@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
-import { mapToSortedArray, mergeMessage } from "../hooks/sse/messageMap";
+import { applyPartDelta, mapToSortedArray, mergeMessage } from "../hooks/sse/messageMap";
 
 const message = (id: string, parts: Message["parts"]): Message => ({
   info: { role: "assistant", messageID: id },
@@ -39,5 +39,26 @@ describe("mergeMessage", () => {
     ]);
 
     expect(mapToSortedArray(map)).toHaveLength(1);
+  });
+});
+
+
+describe("applyPartDelta", () => {
+  it("trims a repeated chunk boundary", () => {
+    const map = new Map<string, Message>([
+      ["assistant-1", message("assistant-1", [{ id: "text-1", type: "text", text: "what sur" }])],
+    ]);
+
+    expect(applyPartDelta(map, "session-1", "assistant-1", "text-1", "text", "what surfaced it")).toBe(true);
+    expect(map.get("assistant-1")?.parts[0]?.text).toBe("what surfaced it");
+  });
+
+  it("ignores an identical repeated delta", () => {
+    const map = new Map<string, Message>([
+      ["assistant-1", message("assistant-1", [{ id: "text-1", type: "text", text: "already" }])],
+    ]);
+
+    expect(applyPartDelta(map, "session-1", "assistant-1", "text-1", "text", "already")).toBe(false);
+    expect(map.get("assistant-1")?.parts[0]?.text).toBe("already");
   });
 });

@@ -25,10 +25,14 @@ fn web_session_info_serialize_with_rename() {
             updated: 2,
         },
         runner: "opencode".into(),
+        engine: crate::app::EngineChoices::from_parts(Some("opus"), None, Some("high"), None),
     };
     let v = serde_json::to_value(&info).unwrap();
     assert_eq!(v["id"], "s");
     assert_eq!(v["parentID"], "par"); // renamed field
+                                      // The composer reads the session's configuration off this row, so it has to be on it.
+    assert_eq!(v["engine"]["model"], "opus");
+    assert_eq!(v["engine"]["effort"], "high");
     assert_eq!(v["directory"], "/d");
     assert_eq!(v["time"]["created"], 1);
     let _ = info.clone();
@@ -69,6 +73,7 @@ fn web_project_info_serialize() {
                 updated: 0,
             },
             runner: "claude".into(),
+            engine: crate::app::EngineChoices::default(),
         }],
         git_branch: "main".into(),
         busy_sessions: vec!["s".into()],

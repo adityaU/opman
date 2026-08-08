@@ -24,11 +24,11 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   // Memoize on the values that actually change the item list, not the
   // whole props object (which gets a new reference every render).
-  const { keymap, host } = useKeymapContext();
+  const { keymap, host, mode } = useKeymapContext();
   const items = useMemo(
-    () => withLiveShortcuts(buildPaletteItems(props), keymap, host.platform),
+    () => withLiveShortcuts(buildPaletteItems(props), keymap, host, mode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, keymap, host.platform],
+    [sessionId, keymap, host, mode],
   );
   const filtered = useMemo(() => filterItems(items, query), [items, query]);
   const grouped = useMemo(() => groupItems(filtered), [filtered]);

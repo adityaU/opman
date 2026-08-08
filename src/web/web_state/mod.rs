@@ -199,6 +199,21 @@ impl WebStateHandle {
         sse_handler::handle_web_sse_event(self, data, project_dir).await;
     }
 
+    /// Publish an event opman raised itself, on the path an upstream one would have taken.
+    ///
+    /// Both halves matter and neither is optional: the broadcast is what an open browser
+    /// sees now, and the state pass is what `GET /api/pending` replays after a reload. A
+    /// question raised through the `ask` MCP server has no upstream stream to arrive on,
+    /// so it comes through here instead — and is then indistinguishable from an
+    /// engine-emitted one, which is why the frontend needs no special case.
+    pub async fn publish_event(&self, event: &serde_json::Value, project_dir: &str) {
+        let Ok(data) = serde_json::to_string(event) else {
+            return;
+        };
+        let _ = self.raw_sse_tx.send(data.clone());
+        sse_handler::handle_web_sse_event(self, &data, project_dir).await;
+    }
+
     /// Every configured project directory, as the runners address them.
     pub async fn project_directories(&self) -> Vec<String> {
         let inner = self.inner.read().await;

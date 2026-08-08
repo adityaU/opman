@@ -2,12 +2,11 @@ import React from "react";
 import type { ProjectInfo, SessionStats, ClientPresence } from "./api";
 import type { WatcherStatus, SSEConnectionStatus } from "./hooks/useSSE";
 import { WatcherStatusIndicator } from "./WatcherStatusBar";
+import { KeyHint } from "./keybindings/hint/KeyHint";
 import {
   PanelLeft,
-  Terminal,
   Command,
   GitBranch,
-  FileCode,
   Zap,
   DollarSign,
   Users,
@@ -20,9 +19,6 @@ interface Props {
   stats: SessionStats | null;
   connectionStatus?: SSEConnectionStatus;
   sidebarOpen: boolean;
-  terminalOpen: boolean;
-  neovimOpen: boolean;
-  gitOpen: boolean;
   watcherStatus: WatcherStatus | null;
   /** Connected clients for presence tracking. */
   presenceClients?: ClientPresence[];
@@ -30,9 +26,6 @@ interface Props {
   onToggleSidebar: () => void;
   sessionTitle?: string | null;
   showSidebarToggle?: boolean;
-  onToggleTerminal: () => void;
-  onToggleNeovim: () => void;
-  onToggleGit: () => void;
   onOpenCommandPalette: () => void;
   onOpenWatcher: () => void;
   onOpenContextWindow: () => void;
@@ -49,18 +42,12 @@ export const StatusBar = React.memo(function StatusBar({
   stats,
   connectionStatus,
   sidebarOpen,
-  terminalOpen,
-  neovimOpen,
-  gitOpen,
   watcherStatus,
   presenceClients,
   contextLimit,
   onToggleSidebar,
   sessionTitle,
   showSidebarToggle = false,
-  onToggleTerminal,
-  onToggleNeovim,
-  onToggleGit,
   onOpenCommandPalette,
   onOpenWatcher,
   onOpenContextWindow,
@@ -86,14 +73,11 @@ export const StatusBar = React.memo(function StatusBar({
       {/* Left section */}
       <div className="status-bar-left">
         {showSidebarToggle && (
-          <button
-            className="status-bar-btn"
-            onClick={onToggleSidebar}
-            title="Show sidebar (Cmd+B)"
-            aria-label="Show sidebar"
-          >
-            <PanelLeft size={13} />
-          </button>
+          <KeyHint label="Show sidebar" command="layout.toggleSidebar">
+            <button className="status-bar-btn" onClick={onToggleSidebar} aria-label="Show sidebar">
+              <PanelLeft size={13} />
+            </button>
+          </KeyHint>
         )}
         {sessionTitle && <span className="chat-header-title" title={sessionTitle}>{sessionTitle}</span>}
 
@@ -147,35 +131,39 @@ export const StatusBar = React.memo(function StatusBar({
              ("336.1K / 1.0M 34%") wrapped mid-fraction and asked the reader to
              divide two abbreviated numbers to learn the one thing it was
              reporting. The exact figures live in the popover this opens. */
-          <button
-            className={`status-bar-tokens status-bar-tokens-btn ${contextColorClass}`}
-            title={contextLimit
-              ? `${totalTokens.toLocaleString()} of ${contextLimit.toLocaleString()} tokens used (${contextPct}%) — click for the breakdown`
-              : `${totalTokens.toLocaleString()} tokens used — click for the breakdown`}
-            onClick={onOpenContextWindow}
+          <KeyHint
+            command="chat.contextWindow"
+            label={contextLimit
+              ? `${totalTokens.toLocaleString()} of ${contextLimit.toLocaleString()} tokens used (${contextPct}%)`
+              : `${totalTokens.toLocaleString()} tokens used`}
           >
-            <Zap size={11} className="status-bar-tokens-icon" />
-            {contextPct !== null ? (
-              <>
-                <span
-                  className="status-bar-ctx-meter"
-                  role="meter"
-                  aria-valuenow={contextPct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Context window used"
-                >
+            <button
+              className={`status-bar-tokens status-bar-tokens-btn ${contextColorClass}`}
+              onClick={onOpenContextWindow}
+            >
+              <Zap size={11} className="status-bar-tokens-icon" />
+              {contextPct !== null ? (
+                <>
                   <span
-                    className="status-bar-ctx-fill"
-                    style={{ transform: `scaleX(${Math.min(100, contextPct) / 100})` }}
-                  />
-                </span>
-                <span className="status-bar-ctx-pct">{contextPct}%</span>
-              </>
-            ) : (
-              <span className="status-bar-ctx-pct">{formatTokens(totalTokens)}</span>
-            )}
-          </button>
+                    className="status-bar-ctx-meter"
+                    role="meter"
+                    aria-valuenow={contextPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Context window used"
+                  >
+                    <span
+                      className="status-bar-ctx-fill"
+                      style={{ transform: `scaleX(${Math.min(100, contextPct) / 100})` }}
+                    />
+                  </span>
+                  <span className="status-bar-ctx-pct">{contextPct}%</span>
+                </>
+              ) : (
+                <span className="status-bar-ctx-pct">{formatTokens(totalTokens)}</span>
+              )}
+            </button>
+          </KeyHint>
         )}
         {stats && stats.cost > 0 && (
           <span className="status-bar-cost">
@@ -184,41 +172,11 @@ export const StatusBar = React.memo(function StatusBar({
           </span>
         )}
 
-        <button
-          className={`status-bar-btn ${neovimOpen ? "active" : ""}`}
-          onClick={onToggleNeovim}
-          title="Toggle Editor (Cmd+Shift+E)"
-          aria-label="Toggle editor"
-        >
-          <FileCode size={13} />
-        </button>
-
-        <button
-          className={`status-bar-btn ${gitOpen ? "active" : ""}`}
-          onClick={onToggleGit}
-          title="Toggle Git (Cmd+Shift+G)"
-          aria-label="Toggle git"
-        >
-          <GitBranch size={13} />
-        </button>
-
-        <button
-          className={`status-bar-btn ${terminalOpen ? "active" : ""}`}
-          onClick={onToggleTerminal}
-          title="Toggle Terminal (Cmd+`)"
-          aria-label="Toggle terminal"
-        >
-          <Terminal size={13} />
-        </button>
-
-        <button
-          className="status-bar-btn"
-          onClick={onOpenCommandPalette}
-          title="Command Palette (Cmd+Shift+P)"
-          aria-label="Command palette"
-        >
-          <Command size={13} />
-        </button>
+        <KeyHint label="Command palette" command="palette.commands">
+          <button className="status-bar-btn" onClick={onOpenCommandPalette} aria-label="Command palette">
+            <Command size={13} />
+          </button>
+        </KeyHint>
       </div>
     </div>
   );

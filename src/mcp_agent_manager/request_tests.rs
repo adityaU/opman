@@ -16,12 +16,17 @@ fn an_unknown_operation_is_named_in_the_error() {
 }
 
 #[test]
-fn the_four_operations_map_to_their_variants() {
+fn every_operation_maps_to_its_variant() {
     for (text, expected) in [
         ("send", Op::Send),
         ("start", Op::Start),
         ("progress", Op::Progress),
         ("options", Op::Options),
+        ("abort", Op::Abort),
+        ("list", Op::List),
+        ("wait", Op::Wait),
+        // Written to this socket by the MCP proxy, not by any tool.
+        ("mcp_auth_required", Op::AuthRequired),
     ] {
         let parsed = line(serde_json::json!({ "op": text }))
             .op()

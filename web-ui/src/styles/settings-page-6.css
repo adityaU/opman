@@ -1,0 +1,68 @@
+/* ── Settings: the folded group ───────────────────────────────────────
+   A card whose list has a long tail — the ACP catalogue is thirty-odd
+   harnesses opman knows but is not driving — puts the tail behind a
+   summary. It is the same rows underneath, so nothing here restyles them;
+   the fold only has to read as a heading you can open, not as a control
+   that does something. */
+
+.stg-fold {
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.stg-fold-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--transition-fast);
+}
+
+.stg-fold-head::-webkit-details-marker {
+    display: none;
+}
+
+/* The disclosure triangle, drawn rather than inherited, so it turns with the
+   fold and sits on the text baseline in both themes. */
+.stg-fold-head::before {
+    content: "";
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid currentColor;
+    transition: transform var(--transition-fast);
+}
+
+.stg-fold[open] > .stg-fold-head::before {
+    transform: rotate(90deg);
+}
+
+.stg-fold-head:hover,
+.stg-fold[open] > .stg-fold-head {
+    color: var(--color-text);
+}
+
+.stg-fold-head:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.stg-fold > .stg-hint {
+    margin: var(--space-2) 0 var(--space-3);
+    max-width: 68ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stg-fold-head,
+    .stg-fold-head::before {
+        transition: none;
+    }
+}

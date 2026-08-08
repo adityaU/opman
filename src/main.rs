@@ -15,9 +15,11 @@ mod event_loop;
 mod event_mouse;
 mod input;
 mod integrations;
+mod loopback;
 mod lsp;
 mod mcp;
 mod mcp_agent_manager;
+mod mcp_ask;
 mod mcp_kanban;
 mod mcp_neovim;
 mod mcp_oauth;
@@ -119,6 +121,11 @@ async fn main() -> Result<()> {
         }
         Some(Commands::McpKanban) => {
             return mcp_kanban::run_mcp_kanban_bridge()
+                .await
+                .map_err(Into::into);
+        }
+        Some(Commands::McpAsk { project_path }) => {
+            return mcp_ask::run_mcp_ask_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
                 .await
                 .map_err(Into::into);
         }

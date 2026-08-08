@@ -6,6 +6,7 @@
 //! existence checks and three separate socket-env checks — into one declaration each.
 
 use super::spec::{Arg, Presence, ServerSpec};
+use super::PROXY_TIMEOUT_SECS;
 
 /// The environment variable the terminal, neovim, and agent-manager bridges read to
 /// route back to the session that launched them.
@@ -40,7 +41,7 @@ impl BuiltinFlags {
 
 /// Names opman ships. The settings page marks these as toggleable but not removable:
 /// deleting the config entry only restores the built-in.
-pub const BUILTIN_NAMES: [&str; 7] = [
+pub const BUILTIN_NAMES: [&str; 8] = [
     "terminal",
     "neovim",
     "time",
@@ -48,6 +49,7 @@ pub const BUILTIN_NAMES: [&str; 7] = [
     "skills",
     "kanban",
     "agent-manager",
+    "ask",
 ];
 
 pub fn is_builtin(name: &str) -> bool {
@@ -56,13 +58,13 @@ pub fn is_builtin(name: &str) -> bool {
 
 /// opman's servers for these flags, in stable order.
 ///
-/// `terminal`/`neovim`/`time`/`ui` appear only when flagged. `kanban` and
+/// `terminal`/`neovim`/`time`/`ui` appear only when flagged. `kanban`, `ask` and
 /// `agent-manager` are unconditional but carry a [`Presence`] that is re-checked at
 /// bind — which is what preserves the Claude engine's ability to pick up kanban after
 /// the web server writes `internal.json` partway through a run.
 pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
     let session = || (SESSION_ENV.into(), Arg::SessionId);
-    let mut specs = Vec::with_capacity(6);
+    let mut specs = Vec::with_capacity(BUILTIN_NAMES.len());
 
     if flags.terminal {
         specs.push(ServerSpec::stdio(
@@ -106,7 +108,21 @@ pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
     ));
     specs.push(
         ServerSpec::stdio("kanban", exe, vec![Arg::lit("mcp-kanban")], Vec::new())
-            .with_presence(Presence::KanbanDescriptor),
+            .with_presence(Presence::LoopbackDescriptor),
+    );
+    // Asking the user a question is the one thing no harness exposes the same way — ACP
+    // has no primitive for it and Claude's ACP adapter disables its own tool outright.
+    // Routing it through MCP is what makes it work identically on every runner. The
+    // timeout is the proxy's: the call is held open for as long as the human takes.
+    specs.push(
+        ServerSpec::stdio(
+            "ask",
+            exe,
+            vec![Arg::lit("mcp-ask"), Arg::Dir],
+            vec![session()],
+        )
+        .with_presence(Presence::LoopbackDescriptor)
+        .with_timeout(PROXY_TIMEOUT_SECS),
     );
     specs.push(
         ServerSpec::stdio(

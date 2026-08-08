@@ -38,18 +38,21 @@ export function buildRowActions(
   if (dir && h.onCreateFile) {
     list.push({
       key: "new-file", label: "New file", icon: <FilePlus size={13} />,
+      command: "explorer.newFile",
       run: () => cb.startCreate(entry.path, "file"),
     });
   }
   if (dir && h.onCreateDir) {
     list.push({
       key: "new-dir", label: "New folder", icon: <FolderPlus size={13} />,
+      command: "explorer.newFolder",
       run: () => cb.startCreate(entry.path, "dir"),
     });
   }
   if (h.onRename) {
     list.push({
-      key: "rename", label: "Rename", icon: <Pencil size={13} />, hint: "F2",
+      key: "rename", label: "Rename", icon: <Pencil size={13} />,
+      command: "explorer.rename",
       run: () => cb.startRename(entry.path, dir),
     });
   }
@@ -58,7 +61,8 @@ export function buildRowActions(
   if (reload) {
     list.push({
       key: "reload", label: dir ? "Reload folder" : "Reload file",
-      icon: <RefreshCw size={13} />, run: () => reload(entry.path),
+      icon: <RefreshCw size={13} />, command: "explorer.reload",
+      run: () => reload(entry.path),
     });
   }
 
@@ -66,7 +70,8 @@ export function buildRowActions(
   if (download) {
     list.push({
       key: "download", label: dir ? "Download as zip" : "Download",
-      icon: <Download size={13} />, run: () => download(entry.path),
+      icon: <Download size={13} />, command: "explorer.download",
+      run: () => download(entry.path),
     });
   }
 
@@ -74,7 +79,8 @@ export function buildRowActions(
   if (remove) {
     list.push({
       key: "delete", label: dir ? "Delete folder" : "Delete file",
-      icon: <Trash2 size={13} />, danger: true, hint: "Del",
+      icon: <Trash2 size={13} />, danger: true,
+      command: "explorer.delete",
       run: () => cb.startDelete(entry.path, dir),
     });
   }

@@ -1,0 +1,63 @@
+/* ── Hover hint ────────────────────────────────────────────────────────
+   The tooltip that names a control and shows the key that runs it.
+
+   It borrows `.modal-popover-surface` rather than inventing a surface, so it
+   picks up the glassy/flat split, the radius token and the entry animation
+   every other floating thing in the app already has. Only the things a hint
+   needs differently live here: it is small, it never takes the pointer, and
+   the key caps read as the same object as the which-key panel's. */
+
+.khint {
+    position: fixed;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: 22rem;
+    padding: var(--space-1-5) var(--space-2);
+    /* A hint is never a target. Letting it take the pointer would let it
+       cover the button that opened it and flicker between the two. */
+    pointer-events: none;
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    /* Placed in a layout effect; until then it is measured, not seen. */
+    transition: opacity .09s ease-out;
+}
+
+.khint-label {
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.khint-keys {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* One cap per press — `Ctrl+K Ctrl+Z` is two keys, and reads as two. */
+.khint-key {
+    padding: 0 4px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--shell-radius-control);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+html.flat-theme .khint-key {
+    background: var(--color-bg-element);
+    border-color: var(--color-border-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .khint {
+        animation: none;
+        transition: none;
+    }
+}

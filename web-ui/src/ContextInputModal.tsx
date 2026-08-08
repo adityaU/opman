@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { FileText, X } from "lucide-react";
+import { useOptionalKeymapContext } from "./keybindings/KeymapContext";
 
 interface Props {
   onClose: () => void;
@@ -11,6 +12,7 @@ export function ContextInputModal({ onClose, onSubmit }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const primary = useOptionalKeymapContext()?.host.platform === "mac" ? "⌘" : "Ctrl";
 
   useFocusTrap(modalRef);
 
@@ -90,10 +92,12 @@ export function ContextInputModal({ onClose, onSubmit }: Props) {
 
         {/* Footer */}
         <div className="context-input-footer">
+          {/* The textarea takes both Ctrl and Cmd; the strip names whichever
+              one this machine's user actually reaches for. */}
           <div className="context-input-hints">
             <kbd>Enter</kbd> Newline
-            <kbd>Cmd+Enter</kbd> Submit
-            <kbd>Cmd+D</kbd> Submit
+            <kbd>{primary}+Enter</kbd> Submit
+            <kbd>{primary}+D</kbd> Submit
             <kbd>Esc</kbd> Cancel
           </div>
           <button

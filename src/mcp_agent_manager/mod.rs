@@ -11,6 +11,9 @@
 
 mod bridge;
 mod dispatch;
+#[cfg(test)]
+mod fake_runner;
+mod ops;
 mod options;
 mod queue;
 mod request;
@@ -27,7 +30,6 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 
 use crate::runner::RunnerRegistry;
-use dispatch::Dispatch;
 use queue::QueuedMessage;
 use request::{ManagerRequest, Op};
 
@@ -107,11 +109,17 @@ async fn handle_socket_connection(mut stream: UnixStream, state: ManagerState) -
 }
 
 async fn handle_manager_request(state: &ManagerState, request: ManagerRequest) -> Result<Value> {
+    let op = request.op()?;
+    // Handled before the directory check: this one comes from the MCP proxy rather than a
+    // tool call, and carries no project.
+    if op == Op::AuthRequired {
+        tracing::info!(server = ?request.server, "mcp server needs the user to log in");
+        return Ok(json!({ "acknowledged": true }));
+    }
     let directory = request
         .directory
         .as_deref()
         .context("agent manager requires a project directory")?;
-    let op = request.op()?;
     let source = request.source_session.clone().unwrap_or_default();
     let runner = request.runner_kind()?;
     let delivery = request.delivery_mode()?;
@@ -153,8 +161,20 @@ async fn handle_manager_request(state: &ManagerState, request: ManagerRequest) -
         }
         Op::Options => {
             let kind = runner.unwrap_or_else(|| state.registry.default_kind());
-            options::runner_options(&state.registry, kind, directory).await
+            options::runner_options(&state.registry, kind, directory, request.filter.as_deref())
+                .await
         }
+        Op::Abort => {
+            let target = resolve_target(state, request.target.as_deref(), &source).await?;
+            ops::abort(state, &target, directory).await
+        }
+        Op::List => ops::list(state, directory).await,
+        Op::Wait => {
+            let target = resolve_target(state, request.target.as_deref(), &source).await?;
+            ops::wait(state, &target, directory, request.timeout).await
+        }
+        // Answered above, before the project directory this arm cannot supply.
+        Op::AuthRequired => Ok(json!({ "acknowledged": true })),
     }
 }
 
@@ -245,3 +265,19 @@ async fn resolve_target(
 fn new_id(prefix: &str) -> String {
     format!("{prefix}_{}", rand::random::<u128>())
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
+#[cfg(test)]
+#[path = "live_support.rs"]
+mod live_support;
+
+#[cfg(test)]
+#[path = "live_tests.rs"]
+mod live;
+
+#[cfg(test)]
+#[path = "live_options_tests.rs"]
+mod live_options;

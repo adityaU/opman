@@ -107,11 +107,55 @@ pub(super) fn definitions() -> Value {
             "name": "agent_runner_options",
             "description": "List the models and the reasoning efforts each one supports. \
                             Call this before agent_send or agent_start: both require a \
-                            model and an effort, and this is what says which are valid.",
+                            model and an effort, and this is what says which are valid. \
+                            Only connected providers are listed; use 'filter' to reach a \
+                            model behind one that is not.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "runner": runner_field("Runner to describe. Omit for the default runner."),
+                    "filter": {
+                        "type": "string",
+                        "description": "Substring matched against each model id and \
+                                        provider id, e.g. 'haiku' or 'luna'. Searches every \
+                                        provider, not just the connected ones.",
+                    },
+                },
+            },
+        },
+        {
+            "name": "agent_list",
+            "description": "List the agent sessions in this project — id, title, runner, \
+                            whether each is busy, and how many messages are queued for it. \
+                            Use this to address an agent you did not start yourself.",
+            "inputSchema": { "type": "object", "properties": {} },
+        },
+        {
+            "name": "agent_wait",
+            "description": "Block until an agent finishes its current turn, then return \
+                            what it said. This is how you get a reply: agent_send and \
+                            agent_start hand the message over and return before the target \
+                            has answered.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "agent_id": { "type": "string", "description": "Agent id, or 'parent'. Omit to wait on the parent." },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Seconds to wait. Defaults to 300, capped at 1800. \
+                                        Running out is reported as timed_out, not an error.",
+                    },
+                },
+            },
+        },
+        {
+            "name": "agent_abort",
+            "description": "Stop the turn an agent is currently running. The session and \
+                            its transcript survive; only the turn in flight is cancelled.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "agent_id": { "type": "string", "description": "Agent id, or 'parent'. Omit to abort the parent." },
                 },
             },
         },

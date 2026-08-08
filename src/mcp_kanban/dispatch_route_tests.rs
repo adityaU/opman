@@ -1,6 +1,5 @@
-//! Wave-3 breadth coverage for the kanban MCP `mod.rs`: `load_internal_from`
-//! edge cases, `Internal` clone, and the `tools/call` route driven against a
-//! synchronous mock HTTP server for every tool + its argument-validation
+//! Wave-3 breadth coverage for the kanban MCP `mod.rs`: the `tools/call` route driven
+//! against a synchronous mock HTTP server for every tool + its argument-validation
 //! branches (internal present and absent).
 use super::*;
 use serde_json::json;
@@ -83,51 +82,6 @@ async fn call(internal: &Internal, name: &str, args: serde_json::Value) -> Strin
         .as_str()
         .unwrap()
         .to_string()
-}
-
-// ── load_internal_from edge cases ────────────────────────────────────────────
-
-#[test]
-fn load_internal_from_token_not_string() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":"http://x","token":42}"#).unwrap();
-    assert!(load_internal_from(&p).is_none());
-}
-
-#[test]
-fn load_internal_from_missing_token_field() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":"http://x"}"#).unwrap();
-    assert!(load_internal_from(&p).is_none());
-}
-
-#[test]
-fn load_internal_from_empty_strings_are_accepted() {
-    // Empty strings are still valid `as_str()` values → Some.
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(&p, r#"{"url":"","token":""}"#).unwrap();
-    let got = load_internal_from(&p).unwrap();
-    assert_eq!(got.url, "");
-    assert_eq!(got.token, "");
-}
-
-#[test]
-fn load_internal_from_extra_fields_ignored() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let p = dir.path().join("internal.json");
-    std::fs::write(
-        &p,
-        r#"{"url":"http://x","token":"t","pid":99,"extra":true}"#,
-    )
-    .unwrap();
-    let got = load_internal_from(&p).unwrap();
-    assert_eq!(got.url, "http://x");
-    // `Internal` derives Clone.
-    let cloned = got.clone();
-    assert_eq!(cloned.token, "t");
 }
 
 // ── every tool: success path via mock ────────────────────────────────────────

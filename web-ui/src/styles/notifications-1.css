@@ -222,18 +222,18 @@
     box-shadow: 0 12px 40px var(--black-14),0 4px 14px var(--black-8)
 }
 
-.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.terminal-panel-header,.side-panel-header,.mobile-panel-header {
+.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.terminal-panel-header,.mobile-panel-header{
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent);
     border-bottom-color: var(--color-border)
 }
 
-.notification-prefs-header button,.ctx-window-refresh,.ctx-window-close,.diff-review-view-toggle,.diff-review-refresh,.diff-review-close,.pr-description-modal-close,.git-back-btn,.git-back-dropdown-btn,.git-panel-refresh,.mobile-cmd-btn,.side-panel-close {
+.notification-prefs-header button,.ctx-window-refresh,.ctx-window-close,.diff-review-view-toggle,.diff-review-refresh,.diff-review-close,.pr-description-modal-close,.git-back-btn,.git-back-dropdown-btn,.git-panel-refresh,.mobile-cmd-btn{
     border-radius: var(--radius);
     border: 1px solid transparent;
     transition: background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast)
 }
 
-.notification-prefs-header button:hover,.ctx-window-refresh:hover,.ctx-window-close:hover,.diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover,.pr-description-modal-close:hover,.git-back-btn:hover,.git-back-dropdown-btn:hover,.git-panel-refresh:hover,.mobile-cmd-btn:hover,.side-panel-close:hover {
+.notification-prefs-header button:hover,.ctx-window-refresh:hover,.ctx-window-close:hover,.diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover,.pr-description-modal-close:hover,.git-back-btn:hover,.git-back-dropdown-btn:hover,.git-panel-refresh:hover,.mobile-cmd-btn:hover{
     background: var(--color-surface-hover);
     border-color: var(--color-border);
     transform: translateY(-1px)

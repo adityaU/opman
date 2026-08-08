@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronDown } from "lucide-react";
 import type { GitView, GitTab } from "../types";
 import { breadcrumbLabel } from "../utils";
 import { useOutsideClick } from "../hooks/useOutsideClick";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 interface Props {
   viewStack: GitView[];
@@ -23,7 +24,7 @@ export function BreadcrumbNav({ viewStack, tab, breadcrumbDropdown, setBreadcrum
     <>
       {viewStack.length > 1 && (
         <div className="git-breadcrumb-back" ref={dropdownRef}>
-          <button className="git-back-btn" onClick={popView} title="Go back" aria-label="Go back"><ChevronLeft size={14} /></button>
+          <KeyHint label="Go back" command="git.back"><button className="git-back-btn" onClick={popView} aria-label="Go back"><ChevronLeft size={14} /></button></KeyHint>
           {viewStack.length > 2 && (
             <button className="git-back-dropdown-btn" onClick={() => setBreadcrumbDropdown(!breadcrumbDropdown)} title="Jump to..." aria-label="Jump to previous view"><ChevronDown size={10} /></button>
           )}

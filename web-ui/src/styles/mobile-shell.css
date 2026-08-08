@@ -37,24 +37,6 @@
     .message-turn {
         border: 1px solid var(--color-border-subtle)
     }
-    .right-panel-stack {
-        display: flex !important;
-        gap: 8px;
-        padding: 8px;
-        background: var(--color-bg)
-    }
-    .right-panel-card {
-        border: 1px solid var(--color-border-subtle);
-        border-radius: var(--radius-md);
-        box-shadow: none
-    }
-    .right-panel-card .side-panel-header {
-        min-height: 40px;
-        background: var(--theme-surface-2)
-    }
-    html.flat-theme .right-panel-stack {
-        background: var(--color-bg)
-    }
 }
 @media (max-width: 768px) {
     .chat-sidebar .sb-header {

@@ -87,24 +87,11 @@ pub(super) async fn dispatch_tool(internal: Option<&Internal>, params: Option<Va
 }
 
 async fn get(internal: &Internal, path: &str) -> String {
-    let res = internal
-        .client
-        .get(format!("{}{}", internal.url, path))
-        .header("x-internal-token", &internal.token)
-        .send()
-        .await;
-    handle(res).await
+    handle(internal.get(path).send().await).await
 }
 
 async fn post(internal: &Internal, path: &str, body: Value) -> String {
-    let res = internal
-        .client
-        .post(format!("{}{}", internal.url, path))
-        .header("x-internal-token", &internal.token)
-        .json(&body)
-        .send()
-        .await;
-    handle(res).await
+    handle(internal.post(path).json(&body).send().await).await
 }
 
 async fn handle(res: Result<reqwest::Response, reqwest::Error>) -> String {

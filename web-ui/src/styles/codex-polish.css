@@ -82,9 +82,6 @@ html::after { opacity: .18; background-size: 48px 48px; }
 .chat-status-bar { height: 30px; padding: 0 12px; border-top: 1px solid var(--codex-border-soft); background: var(--codex-surface); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .status-bar-btn { width: 24px; height: 22px; border-radius: var(--radius); }
 .status-bar-btn:hover { background: var(--codex-hover); }
-.side-panel { background: var(--codex-surface); border-left: 1px solid var(--codex-border-soft); }
-.side-panel-header { min-height: 40px; padding: 0 12px; background: transparent; border-bottom: 1px solid var(--codex-border-soft); }
-.side-panel-section + .side-panel-section { border-top-color: var(--codex-border-soft); }
 
 .modal-backdrop, .sb-modal-overlay, .sidebar-mobile-overlay { background: color-mix(in srgb, var(--color-bg) 68%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .theme-selector, .sb-modal, .sb-context-menu, .prompt-chip-dropdown, .prompt-at-popover, .slash-popover, .usage-popover { background: var(--codex-surface-raised); border: 1px solid var(--codex-border); box-shadow: var(--codex-shadow); backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -93,7 +90,7 @@ html::after { opacity: .18; background-size: 48px 48px; }
 .theme-card, .theme-mode-option { border-color: var(--codex-border-soft); background: transparent; border-radius: var(--radius); }
 .theme-card:hover, .theme-mode-option:hover { background: var(--codex-hover); border-color: var(--codex-border); }
 
-html:not(.flat-theme) .chat-sidebar, html:not(.flat-theme) .prompt-input-wrapper, html:not(.flat-theme) .chat-status-bar, html:not(.flat-theme) .side-panel, html:not(.flat-theme) .theme-selector, html:not(.flat-theme) .sb-modal, html:not(.flat-theme) .sb-context-menu, html:not(.flat-theme) .prompt-chip-dropdown, html:not(.flat-theme) .prompt-at-popover, html:not(.flat-theme) .slash-popover, html:not(.flat-theme) .usage-popover {
+html:not(.flat-theme) .chat-sidebar,html:not(.flat-theme) .prompt-input-wrapper,html:not(.flat-theme) .chat-status-bar,html:not(.flat-theme) .theme-selector,html:not(.flat-theme) .sb-modal,html:not(.flat-theme) .sb-context-menu,html:not(.flat-theme) .prompt-chip-dropdown,html:not(.flat-theme) .prompt-at-popover,html:not(.flat-theme) .slash-popover,html:not(.flat-theme) .usage-popover{
   backdrop-filter: blur(24px) saturate(1.25);
   -webkit-backdrop-filter: blur(24px) saturate(1.25);
   background: color-mix(in srgb, var(--color-bg-panel) 72%, transparent);

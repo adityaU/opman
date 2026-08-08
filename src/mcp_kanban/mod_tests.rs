@@ -101,7 +101,7 @@ async fn route_unknown_method() {
 fn load_internal_does_not_panic() {
     // Reads ~/.config/opman/internal.json if present; returns None otherwise.
     // Either outcome is acceptable — we only assert it does not panic.
-    let _ = load_internal();
+    let _ = Internal::load();
 }
 
 #[tokio::test]

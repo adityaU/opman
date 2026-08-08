@@ -105,7 +105,7 @@ export function toWidget(draft: OpenerDraft): WidgetState | null {
     case "chat":
       return { kind: "chat", projectPath, sessionId: draft.sessionId ?? null, engine: null };
     case "files":
-      return { kind: "files", projectPath, filePath: null };
+      return { kind: "files", projectPath, open: null };
     case "terminal":
       return { kind: "terminal", projectPath, ptyIds: [] };
     case "git":

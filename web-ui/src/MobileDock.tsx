@@ -1,5 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { MessageCircle, GitBranch, FileCode, Terminal, PenSquare, Command, Menu, LayoutGrid } from "lucide-react";
+import type { FileOpenRequest } from "./code-editor/types";
+
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
 const GitPanel = lazy(() => import("./git-panel"));
@@ -15,8 +17,8 @@ interface MobileDockProps {
   onOpenCommandPalette: () => void;
   activeSessionId: string | null;
   activeProject: any;
-  mcpEditorOpenPath: string | null;
-  mcpEditorOpenLine: number | null;
+  /** File the app has been asked to reveal, from a tool card or the MCP tool. */
+  fileOpen: FileOpenRequest | null;
   mcpAgentActivity: Map<string, any>;
   onError: (msg: string) => void;
   onSendToAI: (text: string, images?: any[]) => Promise<boolean>;
@@ -31,7 +33,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
     activePanel, panelsMounted, togglePanel, inputHidden, handleComposeButtonTap,
     dockCollapsed, expandDock,
     onOpenCommandPalette,
-    activeSessionId, activeProject, mcpEditorOpenPath, mcpEditorOpenLine,
+    activeSessionId, activeProject, fileOpen,
     mcpAgentActivity, onError, onSendToAI, isKanbanView, onToggleKanban,
   } = props;
 
@@ -126,7 +128,7 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
             </button>
           </div>
           <Suspense fallback={null}>
-            <CodeEditorPanel layout="mobile" focused={activePanel === "editor"} openFilePath={mcpEditorOpenPath} openLine={mcpEditorOpenLine} projectPath={activeProject?.path} sessionId={activeSessionId} onError={onError} />
+            <CodeEditorPanel layout="mobile" focused={activePanel === "editor"} open={fileOpen} projectPath={activeProject?.path} sessionId={activeSessionId} onError={onError} />
           </Suspense>
         </div>
       )}

@@ -72,6 +72,41 @@ pub trait Runner: Send + Sync {
         directory: &'a str,
         body: Value,
     ) -> RunnerFuture<'a, Value>;
+    /// Record what a session should run as, without sending a turn.
+    ///
+    /// The send path already applies these, which is enough for a choice the user makes
+    /// and then acts on. It is not enough for one they make and leave: nothing was sent,
+    /// so nothing was recorded, and the choice is gone by the time they come back to the
+    /// session. A runner with no way to be configured out of band answers `false`, and
+    /// its sessions keep the old behaviour of picking the change up on the next turn.
+    fn configure<'a>(
+        &'a self,
+        _session_id: &'a str,
+        _directory: &'a str,
+        _choices: &'a crate::app::EngineChoices,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async { Ok(false) })
+    }
+    /// Run one of the runner's own slash commands against one of its sessions.
+    ///
+    /// The counterpart to `commands`: only the runner holding the transcript can execute a
+    /// name it advertised. A runner that lists commands but cannot run them is a
+    /// contradiction, so the default refuses loudly rather than reporting a success the
+    /// user would see as a dropped command.
+    fn execute_command<'a>(
+        &'a self,
+        _session_id: &'a str,
+        _directory: &'a str,
+        _command: SlashCommand<'a>,
+    ) -> RunnerFuture<'a, Value> {
+        let kind = self.kind();
+        Box::pin(async move {
+            bail!(
+                "{} runner cannot execute slash commands",
+                kind.display_name()
+            )
+        })
+    }
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()>;
     fn rename<'a>(&'a self, _session_id: &'a str, _title: &'a str) -> RunnerFuture<'a, bool> {
         Box::pin(async { Ok(false) })
@@ -91,6 +126,12 @@ pub trait Runner: Send + Sync {
         _request_id: &'a str,
         _answers: &'a [Vec<String>],
     ) -> RunnerFuture<'a, bool> {
+        Box::pin(async { Ok(false) })
+    }
+    /// Dismiss a question without answering it. The counterpart to
+    /// [`Self::reply_question`], not a variant of it: the asker is told nobody answered
+    /// rather than being handed an empty selection it would read as a choice.
+    fn reject_question<'a>(&'a self, _request_id: &'a str) -> RunnerFuture<'a, bool> {
         Box::pin(async { Ok(false) })
     }
 }
@@ -118,6 +159,38 @@ pub fn running_session_ids(status: &Value) -> HashSet<String> {
         .filter(|(_, entry)| is_running_status(entry))
         .map(|(id, _)| id.clone())
         .collect()
+}
+
+/// A slash command on its way to a runner.
+///
+/// Borrowed end to end: the name and arguments already live in the request body, and a
+/// command is forwarded verbatim, so there is nothing here worth owning a copy of.
+#[derive(Clone, Copy, Debug)]
+pub struct SlashCommand<'a> {
+    pub name: &'a str,
+    pub arguments: &'a str,
+    /// Only opencode reads this; the claude adapter and ACP agents pick their own model.
+    pub model: Option<&'a str>,
+}
+
+impl<'a> SlashCommand<'a> {
+    pub fn new(name: &'a str, arguments: &'a str, model: Option<&'a str>) -> Self {
+        Self {
+            name,
+            arguments,
+            model,
+        }
+    }
+
+    /// The wire body every opencode-contract engine accepts. `model` is omitted rather
+    /// than sent as null: the engines that ignore it reject an unexpected null outright.
+    fn to_body(self) -> Value {
+        let mut body = json!({ "command": self.name, "arguments": self.arguments });
+        if let (Some(model), Some(object)) = (self.model, body.as_object_mut()) {
+            object.insert("model".to_string(), Value::String(model.to_string()));
+        }
+        body
+    }
 }
 
 /// A session a runner just allocated. The directory is not carried back: the caller
@@ -238,6 +311,27 @@ impl Runner for HttpRunner {
         })
     }
 
+    fn configure<'a>(
+        &'a self,
+        session_id: &'a str,
+        directory: &'a str,
+        choices: &'a crate::app::EngineChoices,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            // An engine that does not serve this route answers 404, which reads as "cannot
+            // be configured out of band" — the same as not implementing the method at all.
+            let response = self
+                .client
+                .patch(format!("{}/session/{}/engine", self.base_url, session_id))
+                .header("x-opencode-directory", directory)
+                .header("Accept", "application/json")
+                .json(choices)
+                .send()
+                .await;
+            Ok(response.is_ok_and(|response| response.status().is_success()))
+        })
+    }
+
     fn messages<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, Value> {
         Box::pin(async move {
             self.json_request(
@@ -346,6 +440,26 @@ impl Runner for HttpRunner {
         })
     }
 
+    /// Every engine speaking the opencode contract exposes `POST /session/{id}/command`
+    /// with the same `{ command, arguments }` body, so one implementation serves opencode,
+    /// the claude adapter and every ACP agent alike.
+    fn execute_command<'a>(
+        &'a self,
+        session_id: &'a str,
+        directory: &'a str,
+        command: SlashCommand<'a>,
+    ) -> RunnerFuture<'a, Value> {
+        Box::pin(async move {
+            self.json_request(
+                self.client
+                    .post(format!("{}/session/{}/command", self.base_url, session_id))
+                    .header("x-opencode-directory", directory)
+                    .json(&command.to_body()),
+            )
+            .await
+        })
+    }
+
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()> {
         Box::pin(async move {
             self.json_request(
@@ -386,6 +500,16 @@ impl Runner for HttpRunner {
             self.try_reply(
                 &format!("{}/question/{}/reply", self.base_url, request_id),
                 json!({ "answers": answers }),
+            )
+            .await
+        })
+    }
+
+    fn reject_question<'a>(&'a self, request_id: &'a str) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.try_reply(
+                &format!("{}/question/{}/reject", self.base_url, request_id),
+                json!({}),
             )
             .await
         })
@@ -439,6 +563,14 @@ impl Runner for AcpRunner {
     ) -> RunnerFuture<'a, Vec<crate::app::SessionInfo>> {
         self.http.sessions(directory)
     }
+    fn configure<'a>(
+        &'a self,
+        session_id: &'a str,
+        directory: &'a str,
+        choices: &'a crate::app::EngineChoices,
+    ) -> RunnerFuture<'a, bool> {
+        self.http.configure(session_id, directory, choices)
+    }
     fn messages<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, Value> {
         self.http.messages(session_id, directory)
     }
@@ -461,6 +593,14 @@ impl Runner for AcpRunner {
         body: Value,
     ) -> RunnerFuture<'a, Value> {
         self.http.send_message(session_id, directory, body)
+    }
+    fn execute_command<'a>(
+        &'a self,
+        session_id: &'a str,
+        directory: &'a str,
+        command: SlashCommand<'a>,
+    ) -> RunnerFuture<'a, Value> {
+        self.http.execute_command(session_id, directory, command)
     }
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()> {
         self.http.abort(session_id, directory)
@@ -485,6 +625,9 @@ impl Runner for AcpRunner {
     ) -> RunnerFuture<'a, bool> {
         self.http.reply_question(request_id, answers)
     }
+    fn reject_question<'a>(&'a self, request_id: &'a str) -> RunnerFuture<'a, bool> {
+        self.http.reject_question(request_id)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -492,6 +635,17 @@ struct Binding {
     runner: RunnerKind,
     physical_id: String,
     directory: String,
+}
+
+/// Which runners a session sweep asks.
+///
+/// Two callers with genuinely different needs: the web state merges the default runner's
+/// own session list with the rest and must not double-count it, while an agent asking
+/// "who else is here" has no other source and needs every runner.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SessionScope {
+    ExceptDefault,
+    All,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -714,9 +868,23 @@ impl RunnerRegistry {
         futures::future::join_all(probes).await
     }
 
+    /// Sessions of every runner but the default one.
+    ///
+    /// The default runner's sessions arrive over its own session list, which the caller
+    /// already fetched, so asking here as well would list them twice.
     pub async fn sessions(
         &self,
         directory: &str,
+    ) -> Result<Vec<(RunnerKind, crate::app::SessionInfo)>> {
+        self.sessions_in(directory, SessionScope::ExceptDefault)
+            .await
+    }
+
+    /// Sessions of the runners named by `scope`.
+    pub async fn sessions_in(
+        &self,
+        directory: &str,
+        scope: SessionScope,
     ) -> Result<Vec<(RunnerKind, crate::app::SessionInfo)>> {
         let directory = ProjectDirectory::new(directory)
             .map_err(|error| anyhow::anyhow!("invalid project directory: {error}"))?;
@@ -726,7 +894,7 @@ impl RunnerRegistry {
         let mut all = Vec::new();
         let runners = self.snapshot();
         for (kind, runner) in runners.iter() {
-            if kind == &self.default {
+            if scope == SessionScope::ExceptDefault && kind == &self.default {
                 continue;
             }
             let Ok(sessions) = runner.sessions(directory).await else {
@@ -896,6 +1064,48 @@ impl RunnerRegistry {
         })
     }
 
+    /// Run a slash command on the runner that owns this session.
+    ///
+    /// Routed exactly like a message, and for the same reason: `/compact` typed at a claude
+    /// session must reach the engine holding that transcript. Sending it to whichever engine
+    /// happens to be the default asks a stranger about a session it has never seen.
+    pub async fn execute_command(
+        &self,
+        session_id: &str,
+        directory: &str,
+        command: SlashCommand<'_>,
+    ) -> Result<Value> {
+        let (session_id, directory) = validate_location(session_id, directory)?;
+        let directory = directory
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
+        let binding = self.binding(session_id.as_str(), directory).await;
+        self.runner(&binding.runner)?
+            .execute_command(&binding.physical_id, &binding.directory, command)
+            .await
+    }
+
+    /// Record a session's engine choices with the runner that owns it.
+    ///
+    /// Reports whether the runner took them: the default engine has no such route, and a
+    /// caller that treated a `false` as an error would surface a failure for a session
+    /// that is working exactly as it always has.
+    pub async fn configure(
+        &self,
+        session_id: &str,
+        directory: &str,
+        choices: &crate::app::EngineChoices,
+    ) -> Result<bool> {
+        let (session_id, directory) = validate_location(session_id, directory)?;
+        let directory = directory
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
+        let binding = self.binding(session_id.as_str(), directory).await;
+        self.runner(&binding.runner)?
+            .configure(&binding.physical_id, &binding.directory, choices)
+            .await
+    }
+
     pub async fn abort(&self, session_id: &str, directory: &str) -> Result<()> {
         let (session_id, directory) = validate_location(session_id, directory)?;
         let directory = directory
@@ -953,6 +1163,16 @@ impl RunnerRegistry {
         }
         Ok(false)
     }
+
+    pub async fn reject_question(&self, request_id: &str) -> Result<bool> {
+        let runners = self.snapshot();
+        for runner in runners.values() {
+            if runner.reject_question(request_id).await? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 fn validate_location(session_id: &str, directory: &str) -> Result<(SessionId, ProjectDirectory)> {
@@ -991,503 +1211,5 @@ fn recent_progress_messages(body: &Value, limit: usize) -> Vec<Value> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    async fn serve(app: axum::Router) -> String {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}", listener.local_addr().unwrap());
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-        url
-    }
-
-    /// Runners agree on the `/session/status` envelope but not on the word for
-    /// "still going", and a retry is the same unfinished turn.
-    #[test]
-    fn running_status_accepts_every_runners_wording() {
-        for kind in ["busy", "retry", "active"] {
-            assert!(
-                is_running_status(&json!({ "type": kind })),
-                "{kind} should read as running"
-            );
-        }
-        assert!(!is_running_status(&json!({ "type": "idle" })));
-        assert!(!is_running_status(&json!({})));
-        assert!(!is_running_status(&Value::Null));
-    }
-
-    #[test]
-    fn running_session_ids_keeps_only_the_running_entries() {
-        let status = json!({
-            "a": { "type": "busy" },
-            "b": { "type": "idle" },
-            "c": { "type": "retry" },
-        });
-        let ids = running_session_ids(&status);
-        assert_eq!(ids.len(), 2);
-        assert!(ids.contains("a") && ids.contains("c"));
-        assert!(running_session_ids(&json!([])).is_empty());
-    }
-
-    /// The union across runners is the point: asking only the default runner is
-    /// what left every other runner's sessions stuck.
-    #[tokio::test]
-    async fn status_all_reports_each_runner_separately() {
-        let opencode = serve(axum::Router::new().route(
-            "/session/status",
-            axum::routing::get(|| async { axum::Json(json!({ "s1": { "type": "busy" } })) }),
-        ))
-        .await;
-        let client = reqwest::Client::new();
-        let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
-        runners.insert(
-            RunnerKind::Opencode,
-            Arc::new(HttpRunner::new(
-                RunnerKind::Opencode,
-                opencode,
-                client.clone(),
-            )),
-        );
-        // Nothing listens here, so this runner cannot answer.
-        runners.insert(
-            RunnerKind::ClaudeCode,
-            Arc::new(HttpRunner::new(
-                RunnerKind::ClaudeCode,
-                "http://127.0.0.1:1",
-                client,
-            )),
-        );
-        let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
-
-        let reported: HashMap<String, Option<HashSet<String>>> =
-            registry.status_all("/project").await.into_iter().collect();
-        assert_eq!(reported.len(), 2);
-        assert_eq!(
-            reported["opencode"].as_ref().map(HashSet::len),
-            Some(1),
-            "the reachable runner reports its running session"
-        );
-        assert!(
-            reported["claude-code"].is_none(),
-            "an unreachable runner reports nothing, not an empty set"
-        );
-    }
-
-    /// A reply is owned by exactly one engine. `ok:false`, transport errors, and
-    /// missing routes must all read as "not ours" so the registry fan-out reaches
-    /// the engine that actually raised the request.
-    #[tokio::test]
-    async fn http_runner_reply_routes_by_ownership() {
-        use axum::routing::post;
-        let owner = axum::Router::new().route(
-            "/permission/{id}/reply",
-            post(|| async { axum::Json(json!({ "ok": true })) }),
-        );
-        let stranger = axum::Router::new().route(
-            "/permission/{id}/reply",
-            post(|| async { axum::Json(json!({ "ok": false })) }),
-        );
-        let client = reqwest::Client::new();
-        let owning = HttpRunner::new(RunnerKind::Claude, serve(owner).await, client.clone());
-        let other = HttpRunner::new(
-            RunnerKind::ClaudeCode,
-            serve(stranger).await,
-            client.clone(),
-        );
-        // No such route at all (native opencode shape) → not ours, not an error.
-        let no_route = HttpRunner::new(
-            RunnerKind::Opencode,
-            serve(axum::Router::new()).await,
-            client.clone(),
-        );
-        // Dead port → transport error also reads as not-ours.
-        let dead = HttpRunner::new(RunnerKind::Opencode, "http://127.0.0.1:9", client);
-
-        assert!(owning.reply_permission("p1", "once").await.unwrap());
-        assert!(!other.reply_permission("p1", "once").await.unwrap());
-        assert!(!no_route.reply_permission("p1", "once").await.unwrap());
-        assert!(!dead.reply_permission("p1", "once").await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn http_runner_question_reply_posts_answers() {
-        use axum::routing::post;
-        let app = axum::Router::new().route(
-            "/question/{id}/reply",
-            post(|axum::Json(b): axum::Json<Value>| async move {
-                let good = b["answers"][0][0] == "A" && b["answers"][1][0] == "B";
-                axum::Json(json!({ "ok": good }))
-            }),
-        );
-        let runner = HttpRunner::new(RunnerKind::Claude, serve(app).await, reqwest::Client::new());
-        let answers = vec![vec!["A".to_string()], vec!["B".to_string()]];
-        assert!(runner.reply_question("q1", &answers).await.unwrap());
-    }
-
-    #[test]
-    fn parses_runner_names() {
-        assert_eq!(
-            RunnerKind::parse("claude-code"),
-            Some(RunnerKind::ClaudeCode)
-        );
-        assert_eq!(RunnerKind::parse("nope"), None);
-        // Codex is no longer a compile-time runner: it reaches opman as the ACP agent
-        // `acp.json` declares, so its label parses only once that config registered it.
-        register_acp_runners(["codex".to_string()]);
-        assert_eq!(
-            RunnerKind::parse("codex"),
-            Some(RunnerKind::Acp("codex".to_string()))
-        );
-    }
-
-    /// Sends must go to `prompt_async`, not `/message`.
-    ///
-    /// `POST /session/{id}/message` only responds once the assistant has
-    /// finished, so awaiting it holds the caller's request open for the whole
-    /// turn — a long turn then reads as a hang and dies on the client or tunnel
-    /// timeout. This test stands up a server that would block forever on
-    /// `/message`: if the endpoint ever regresses, it hangs instead of passing.
-    #[tokio::test]
-    async fn send_message_uses_the_non_blocking_prompt_endpoint() {
-        use std::sync::Arc as StdArc;
-        use tokio::sync::Mutex as AsyncMutex;
-
-        let hits: StdArc<AsyncMutex<Vec<String>>> = StdArc::new(AsyncMutex::new(vec![]));
-        let seen = hits.clone();
-        let app = axum::Router::new()
-            .route(
-                "/session/{id}/prompt_async",
-                axum::routing::post(
-                    move |axum::extract::Path(id): axum::extract::Path<String>| {
-                        let seen = seen.clone();
-                        async move {
-                            seen.lock().await.push(format!("prompt_async:{id}"));
-                            axum::Json(json!({ "ok": true }))
-                        }
-                    },
-                ),
-            )
-            .route(
-                "/session/{id}/message",
-                axum::routing::post(|| async {
-                    // Stand in for the streaming endpoint: never responds.
-                    std::future::pending::<()>().await;
-                    axum::Json(json!({}))
-                }),
-            );
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let base = format!("http://{}", listener.local_addr().unwrap());
-        tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let runner = HttpRunner::new(RunnerKind::Opencode, base, reqwest::Client::new());
-        let body = json!({ "parts": [{ "type": "text", "text": "hi" }] });
-        let out = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            runner.send_message("s1", "/project", body),
-        )
-        .await
-        .expect("send_message hit the blocking /message endpoint")
-        .expect("send should succeed");
-
-        assert_eq!(out["ok"], true);
-        assert_eq!(hits.lock().await.as_slice(), ["prompt_async:s1"]);
-    }
-
-    /// The OpenCode body rewrite must survive the endpoint change: runner-only
-    /// controls are stripped and `effort` becomes `variant`.
-    #[tokio::test]
-    async fn opencode_send_strips_runner_controls_and_maps_effort() {
-        use std::sync::Arc as StdArc;
-        use tokio::sync::Mutex as AsyncMutex;
-
-        let seen: StdArc<AsyncMutex<Option<Value>>> = StdArc::new(AsyncMutex::new(None));
-        let sink = seen.clone();
-        let app = axum::Router::new().route(
-            "/session/{id}/prompt_async",
-            axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
-                let sink = sink.clone();
-                async move {
-                    *sink.lock().await = Some(body);
-                    axum::Json(json!({ "ok": true }))
-                }
-            }),
-        );
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let base = format!("http://{}", listener.local_addr().unwrap());
-        tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let runner = HttpRunner::new(RunnerKind::Opencode, base, reqwest::Client::new());
-        runner
-            .send_message(
-                "s1",
-                "/project",
-                json!({
-                    "parts": [{ "type": "text", "text": "hi" }],
-                    "effort": "high",
-                    "permission": "default",
-                    "runner": "opencode",
-                    "agent": "claude",
-                }),
-            )
-            .await
-            .expect("send should succeed");
-
-        let body = seen.lock().await.clone().expect("body was forwarded");
-        assert_eq!(body["variant"], "high");
-        assert!(body.get("effort").is_none());
-        assert!(body.get("permission").is_none());
-        assert!(body.get("runner").is_none());
-        // "claude" is an opman-side label, not an OpenCode agent.
-        assert!(body.get("agent").is_none());
-    }
-
-    struct MockRunner {
-        kind: RunnerKind,
-        prefix: &'static str,
-        next: AtomicUsize,
-        sessions: RwLock<HashMap<String, Value>>,
-    }
-
-    impl Runner for MockRunner {
-        fn kind(&self) -> RunnerKind {
-            self.kind.clone()
-        }
-        fn create_session<'a>(
-            &'a self,
-            _directory: &'a str,
-            title: &'a str,
-        ) -> RunnerFuture<'a, RunnerSession> {
-            Box::pin(async move {
-                let id = format!(
-                    "{}_{}",
-                    self.prefix,
-                    self.next.fetch_add(1, Ordering::Relaxed)
-                );
-                self.sessions.write().await.insert(id.clone(), json!([]));
-                Ok(RunnerSession {
-                    id,
-                    title: title.to_string(),
-                })
-            })
-        }
-        fn messages<'a>(
-            &'a self,
-            session_id: &'a str,
-            _directory: &'a str,
-        ) -> RunnerFuture<'a, Value> {
-            Box::pin(async move {
-                Ok(self
-                    .sessions
-                    .read()
-                    .await
-                    .get(session_id)
-                    .cloned()
-                    .unwrap_or(json!([])))
-            })
-        }
-        fn send_message<'a>(
-            &'a self,
-            session_id: &'a str,
-            _directory: &'a str,
-            body: Value,
-        ) -> RunnerFuture<'a, Value> {
-            Box::pin(async move {
-                self.sessions
-                    .write()
-                    .await
-                    .entry(session_id.to_string())
-                    .or_insert(json!([]));
-                Ok(body)
-            })
-        }
-        fn abort<'a>(&'a self, _session_id: &'a str, _directory: &'a str) -> RunnerFuture<'a, ()> {
-            Box::pin(async { Ok(()) })
-        }
-    }
-
-    #[tokio::test]
-    async fn switching_runner_creates_a_handoff_session_with_summary(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let old = Arc::new(MockRunner {
-            kind: RunnerKind::Opencode,
-            prefix: "old",
-            next: AtomicUsize::new(1),
-            sessions: RwLock::new(HashMap::new()),
-        });
-        old.sessions.write().await.insert(
-            "logical".into(),
-            json!([
-                { "info": { "role": "user" }, "parts": [{ "text": "Fix the parser" }] },
-                { "info": { "role": "assistant" }, "parts": [{ "text": "I found the parser" }] }
-            ]),
-        );
-        let new = Arc::new(MockRunner {
-            kind: RunnerKind::ClaudeCode,
-            prefix: "new",
-            next: AtomicUsize::new(1),
-            sessions: RwLock::new(HashMap::new()),
-        });
-        let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
-        runners.insert(RunnerKind::Opencode, old.clone());
-        runners.insert(RunnerKind::ClaudeCode, new.clone());
-        let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
-        let outcome = registry
-            .send_message(
-                "logical",
-                "/project",
-                Some(RunnerKind::ClaudeCode),
-                json!({
-                    "parts": [{ "type": "text", "text": "Now add a regression test" }]
-                }),
-            )
-            .await?;
-        assert!(outcome.switched);
-        assert_eq!(outcome.runner, RunnerKind::ClaudeCode);
-        assert!(outcome.session_id.starts_with("new_"));
-        let handoff = outcome.response["parts"][0]["text"]
-            .as_str()
-            .ok_or("handoff response did not contain text")?;
-        assert!(handoff.contains("Fix the parser"));
-        Ok(())
-    }
-
-    fn two_runner_registry() -> (Arc<MockRunner>, Arc<MockRunner>, RunnerRegistry) {
-        let default = Arc::new(MockRunner {
-            kind: RunnerKind::ClaudeCode,
-            prefix: "cc",
-            next: AtomicUsize::new(1),
-            sessions: RwLock::new(HashMap::new()),
-        });
-        let other = Arc::new(MockRunner {
-            kind: RunnerKind::Claude,
-            prefix: "cp",
-            next: AtomicUsize::new(1),
-            sessions: RwLock::new(HashMap::new()),
-        });
-        let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
-        runners.insert(RunnerKind::ClaudeCode, default.clone());
-        runners.insert(RunnerKind::Claude, other.clone());
-        let registry = RunnerRegistry::new(RunnerKind::ClaudeCode, runners);
-        (default, other, registry)
-    }
-
-    /// The follow-up turn of an ordinary conversation must land in the same
-    /// session. A send that names no runner is not a switch request, so it stays
-    /// on whatever runner the session is bound to.
-    #[tokio::test]
-    async fn sends_without_a_requested_runner_stay_on_the_bound_runner(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_default, other, registry) = two_runner_registry();
-        let created = registry
-            .create_session(RunnerKind::Claude, "/project", "chat")
-            .await?;
-
-        for turn in ["first", "second"] {
-            let outcome = registry
-                .send_message(
-                    &created.id,
-                    "/project",
-                    None,
-                    json!({ "parts": [{ "type": "text", "text": turn }] }),
-                )
-                .await?;
-            assert!(!outcome.switched, "turn {turn} forked the session");
-            assert_eq!(outcome.session_id, created.id);
-            assert_eq!(outcome.runner, RunnerKind::Claude);
-        }
-        // The default runner never saw the conversation.
-        assert!(other.sessions.read().await.contains_key(&created.id));
-        Ok(())
-    }
-
-    /// Naming the runner the session already uses is not a switch either — the
-    /// UI may legitimately restate it on a new session's first turn.
-    #[tokio::test]
-    async fn restating_the_bound_runner_is_not_a_switch() -> Result<(), Box<dyn std::error::Error>>
-    {
-        let (_default, _other, registry) = two_runner_registry();
-        let created = registry
-            .create_session(RunnerKind::Claude, "/project", "chat")
-            .await?;
-        let outcome = registry
-            .send_message(
-                &created.id,
-                "/project",
-                Some(RunnerKind::Claude),
-                json!({ "parts": [{ "type": "text", "text": "hi" }] }),
-            )
-            .await?;
-        assert!(!outcome.switched);
-        assert_eq!(outcome.session_id, created.id);
-        Ok(())
-    }
-
-    /// Bindings are in-memory, so a session opman learned about from somewhere
-    /// else (its runner label, the session poller) has none. Without adopting
-    /// it, the blind default-runner fallback turns its next turn into a handoff.
-    #[tokio::test]
-    async fn ensure_binding_adopts_a_session_without_handing_it_off(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_default, other, registry) = two_runner_registry();
-        other
-            .sessions
-            .write()
-            .await
-            .insert("orphan".into(), json!([]));
-
-        registry
-            .ensure_binding("orphan", RunnerKind::Claude, "/project")
-            .await;
-        let outcome = registry
-            .send_message(
-                "orphan",
-                "/project",
-                None,
-                json!({ "parts": [{ "type": "text", "text": "resume" }] }),
-            )
-            .await?;
-        assert!(!outcome.switched);
-        assert_eq!(outcome.runner, RunnerKind::Claude);
-        assert_eq!(outcome.session_id, "orphan");
-
-        // Adoption never overrides an established binding.
-        registry
-            .ensure_binding("orphan", RunnerKind::ClaudeCode, "/project")
-            .await;
-        assert_eq!(registry.runner_for("orphan").await, RunnerKind::Claude);
-        Ok(())
-    }
-
-    /// Without adoption the same send is read as "switch to the default runner"
-    /// and forks the conversation — the regression this pair of tests guards.
-    #[tokio::test]
-    async fn an_unadopted_session_still_hands_off_when_a_runner_is_named(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_default, other, registry) = two_runner_registry();
-        other
-            .sessions
-            .write()
-            .await
-            .insert("orphan".into(), json!([]));
-        let outcome = registry
-            .send_message(
-                "orphan",
-                "/project",
-                Some(RunnerKind::Claude),
-                json!({ "parts": [{ "type": "text", "text": "resume" }] }),
-            )
-            .await?;
-        assert!(outcome.switched);
-        assert_ne!(outcome.session_id, "orphan");
-        Ok(())
-    }
-}
+#[path = "runner_tests.rs"]
+mod tests;

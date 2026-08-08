@@ -8,8 +8,14 @@ use super::*;
 
 #[test]
 fn ids_are_held_to_the_shape_the_loader_accepts() {
-    assert_eq!(validate_id(" gemini ").ok().as_deref(), Some("gemini"));
-    assert_eq!(validate_id("opencode-acp").ok().as_deref(), Some("opencode-acp"));
+    assert_eq!(
+        validate_id(" homegrown ").ok().as_deref(),
+        Some("homegrown")
+    );
+    assert_eq!(
+        validate_id("opencode-acp").ok().as_deref(),
+        Some("opencode-acp")
+    );
     // An id becomes a runner label, a provider id and a session-file name.
     assert!(validate_id("../escape").is_err());
     assert!(validate_id("Upper").is_err());
@@ -20,11 +26,18 @@ fn ids_are_held_to_the_shape_the_loader_accepts() {
 #[test]
 fn a_view_reports_env_by_name_only() {
     let entry = AgentConfig {
-        command: "gemini-acp".to_string(),
+        command: "homegrown-acp".to_string(),
         env: std::collections::BTreeMap::from([("API_KEY".to_string(), "secret".to_string())]),
         ..AgentConfig::default()
     };
-    let row = view("gemini", &entry, Liveness { customized: true, ..Liveness::default() });
+    let row = view(
+        "homegrown",
+        &entry,
+        Liveness {
+            customized: true,
+            ..Liveness::default()
+        },
+    );
     assert_eq!(row.env_names, vec!["API_KEY".to_string()]);
     // The serialized row is what reaches the browser; the value must not be in it.
     let json = serde_json::to_string(&row).expect("serialize");
@@ -34,17 +47,37 @@ fn a_view_reports_env_by_name_only() {
 #[test]
 fn a_launchable_agent_is_one_with_a_command_and_the_switch_on() {
     let disabled = AgentConfig {
-        command: "gemini-acp".to_string(),
+        command: "homegrown-acp".to_string(),
         enabled: false,
         ..AgentConfig::default()
     };
-    assert!(!view("gemini", &disabled, Liveness { customized: true, ..Liveness::default() }).launchable);
+    assert!(
+        !view(
+            "homegrown",
+            &disabled,
+            Liveness {
+                customized: true,
+                ..Liveness::default()
+            }
+        )
+        .launchable
+    );
 
     let ready = AgentConfig {
         enabled: true,
         ..disabled
     };
-    assert!(view("gemini", &ready, Liveness { customized: true, ..Liveness::default() }).launchable);
+    assert!(
+        view(
+            "homegrown",
+            &ready,
+            Liveness {
+                customized: true,
+                ..Liveness::default()
+            }
+        )
+        .launchable
+    );
 }
 
 #[test]
@@ -53,7 +86,27 @@ fn builtins_are_marked_so_the_page_offers_restore_rather_than_delete() {
         command: "npx".to_string(),
         ..AgentConfig::default()
     };
-    assert!(view("claude", &entry, Liveness { running: true, ..Liveness::default() }).builtin);
-    assert!(view("codex", &entry, Liveness { running: true, ..Liveness::default() }).builtin);
-    assert!(!view("gemini", &entry, Liveness::default()).builtin);
+    assert!(
+        view(
+            "claude",
+            &entry,
+            Liveness {
+                running: true,
+                ..Liveness::default()
+            }
+        )
+        .builtin
+    );
+    assert!(
+        view(
+            "codex",
+            &entry,
+            Liveness {
+                running: true,
+                ..Liveness::default()
+            }
+        )
+        .builtin
+    );
+    assert!(!view("homegrown", &entry, Liveness::default()).builtin);
 }

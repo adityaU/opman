@@ -1,4 +1,4 @@
-import type { ChordSeq, ChordStep, Platform } from "./types";
+import type { ChordSeq, ChordStep, Mode, Platform } from "./types";
 
 /**
  * Chord parsing and normalization.
@@ -225,18 +225,66 @@ const SYMBOLS: Readonly<Record<string, string>> = {
   meta: "⌘",
 };
 
-/** Human-readable form for the cheatsheet and the keybindings view. */
-export function displayStep(s: ChordStep, platform: Platform): string {
+/** Named keys the parser folds to a word, spelled the way a key cap reads. */
+const KEY_LABELS: Readonly<Record<string, string>> = {
+  space: "Space",
+  enter: "Enter",
+  escape: "Esc",
+  tab: "Tab",
+  backspace: "Backspace",
+  delete: "Del",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+  home: "Home",
+  end: "End",
+  pageup: "PgUp",
+  pagedown: "PgDn",
+};
+
+/**
+ * A step vim notation writes as the bare character it is: no modifier but
+ * Shift, and a single printable key. `]` and `h` are two of these; `Ctrl+\` and
+ * Enter are not.
+ */
+function isVimLiteral(s: ChordStep): boolean {
+  return !s.ctrl && !s.alt && !s.meta && s.key.length === 1;
+}
+
+/**
+ * Human-readable form for the cheatsheet, the keybindings view and every
+ * shortcut shown next to a control.
+ *
+ * `mode` matters because the two keymaps are read differently. Vim writes a
+ * literal run as the characters themselves and carries Shift in the case of the
+ * letter, so `]h` and `E` are how those chords appear in the layer that defines
+ * them — rendering them as "] H" and "Shift+E" would name keys the user's own
+ * config does not.
+ */
+export function displayStep(s: ChordStep, platform: Platform, mode: Mode = "normal"): string {
+  if (mode === "vim" && isVimLiteral(s)) return s.shift ? s.key.toUpperCase() : s.key;
+
   const mac = platform === "mac";
   const parts: string[] = [];
   if (s.ctrl) parts.push(mac ? SYMBOLS.ctrl : "Ctrl");
   if (s.shift) parts.push(mac ? SYMBOLS.shift : "Shift");
   if (s.alt) parts.push(mac ? SYMBOLS.alt : "Alt");
   if (s.meta) parts.push(mac ? SYMBOLS.meta : "Meta");
-  parts.push(s.key.length === 1 ? s.key.toUpperCase() : s.key);
+  parts.push(KEY_LABELS[s.key] ?? s.key.toUpperCase());
   return mac ? parts.join("") : parts.join("+");
 }
 
-export function displayChord(seq: ChordSeq, platform: Platform): string {
-  return seq.map((s) => displayStep(s, platform)).join(" ");
+/**
+ * Steps are separated by a space, except that a run of vim literals closes up:
+ * the leader sequence for "open terminal" reads `Space ot`, which is what the
+ * layer authored and what a vim user would type into their own config.
+ */
+export function displayChord(seq: ChordSeq, platform: Platform, mode: Mode = "normal"): string {
+  return seq.reduce((text, step, index) => {
+    const glyph = displayStep(step, platform, mode);
+    if (index === 0) return glyph;
+    const joined = mode === "vim" && isVimLiteral(step) && isVimLiteral(seq[index - 1]);
+    return joined ? text + glyph : `${text} ${glyph}`;
+  }, "");
 }

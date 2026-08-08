@@ -22,13 +22,70 @@ pub struct Choice {
     pub description: String,
 }
 
-/// Whether the agent offers `value` for `option_id`. Checked before sending, so opman never
-/// pushes a mode or model the agent would reject.
-pub fn offers(setup: &Value, option_id: &str, value: &str) -> bool {
-    if option_id == MODE && mode_ids(setup).iter().any(|m| m.id == value) {
-        return true;
+/// Which request sets a choice on the agent.
+///
+/// ACP has three ways of publishing the same idea and each is set by its own method, so where
+/// a value was found is also what decides how to send it. This is an enum rather than the
+/// boolean it replaced because the boolean made every caller assume `set_config_option`:
+/// an agent publishing the spec's `modes` answered that with "method not found", opman logged
+/// it at debug, and the picker silently changed nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Channel {
+    /// `session/set_mode`, for the spec's `modes.availableModes`.
+    Mode,
+    /// `session/set_model`, for the spec's `models.availableModels`.
+    Model,
+    /// `session/set_config_option`, for the generic `configOptions` list.
+    Config,
+}
+
+impl Channel {
+    pub const fn method(self) -> &'static str {
+        match self {
+            Self::Mode => "session/set_mode",
+            Self::Model => "session/set_model",
+            Self::Config => "session/set_config_option",
+        }
     }
-    choices(setup, option_id).iter().any(|c| c.id == value)
+
+    /// The request body. The three methods name the same value differently.
+    pub fn params(self, acp_session: &str, option_id: &str, value: &str) -> Value {
+        match self {
+            Self::Mode => json!({ "sessionId": acp_session, "modeId": value }),
+            Self::Model => json!({ "sessionId": acp_session, "modelId": value }),
+            Self::Config => {
+                json!({ "sessionId": acp_session, "configId": option_id, "value": value })
+            }
+        }
+    }
+}
+
+/// How to set `value` for `option_id`, or `None` when the agent never offered it. Checked
+/// before sending, so opman never pushes a mode or model the agent would reject.
+pub fn channel_for(setup: &Value, option_id: &str, value: &str) -> Option<Channel> {
+    let spec = match option_id {
+        MODE => spec_modes(setup).map(|listed| (Channel::Mode, listed)),
+        MODEL => spec_models(setup).map(|listed| (Channel::Model, listed)),
+        _ => None,
+    };
+    // Publishing it the spec's way settles the question: that method is the one the agent
+    // is guaranteed to answer, even where it also mirrors the value into `configOptions`.
+    if let Some((channel, listed)) = spec {
+        return listed.iter().any(|c| c.id == value).then_some(channel);
+    }
+    config_channel(setup, option_id, value)
+}
+
+/// The generic channel, when the agent lists this value as a config option.
+///
+/// Also the fallback for an agent that publishes the spec's `modes` or `models` without
+/// implementing the method that sets them — a combination that exists in the wild, and one
+/// only the agent's own "method not found" can reveal.
+pub fn config_channel(setup: &Value, option_id: &str, value: &str) -> Option<Channel> {
+    choices(setup, option_id)
+        .iter()
+        .any(|c| c.id == value)
+        .then_some(Channel::Config)
 }
 
 /// The values for one `configOptions` entry.
@@ -61,17 +118,24 @@ pub fn current(setup: &Value, option_id: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// The spec's own mode list, or `None` when the agent does not publish one. Distinct from an
+/// empty list, which is an agent saying it has no modes at all.
+fn spec_modes(setup: &Value) -> Option<Vec<Choice>> {
+    let listed = setup.get("modes")?.get("availableModes")?.as_array()?;
+    Some(listed.iter().map(choice_from_mode).collect())
+}
+
+/// The spec's own model list. Claude reports `models: null` and a full `configOptions` entry
+/// instead, which is why absence has to fall through rather than mean "no models".
+fn spec_models(setup: &Value) -> Option<Vec<Choice>> {
+    let listed = setup.get("models")?.get("availableModels")?.as_array()?;
+    Some(listed.iter().map(choice_from_model).collect())
+}
+
 /// Permission modes: the spec's `modes.availableModes` first, falling back to the `mode`
 /// config option for agents that only expose it that way.
 pub fn mode_ids(setup: &Value) -> Vec<Choice> {
-    let listed = setup
-        .get("modes")
-        .and_then(|m| m.get("availableModes"))
-        .and_then(Value::as_array);
-    if let Some(modes) = listed {
-        return modes.iter().map(choice_from_mode).collect();
-    }
-    choices(setup, MODE)
+    spec_modes(setup).unwrap_or_else(|| choices(setup, MODE))
 }
 
 /// The mode the agent says it is in.
@@ -84,17 +148,49 @@ pub fn current_mode(setup: &Value) -> Option<String> {
         .or_else(|| current(setup, MODE))
 }
 
-/// Models: the experimental `models.availableModels` first, else the `model` config option.
-/// Claude reports null for the former and a full list in the latter, so both are needed.
+/// Models: the spec's `models.availableModels` first, else the `model` config option.
 pub fn models(setup: &Value) -> Vec<Choice> {
-    let listed = setup
+    spec_models(setup).unwrap_or_else(|| choices(setup, MODEL))
+}
+
+/// The model the agent says it is on.
+pub fn current_model(setup: &Value) -> Option<String> {
+    setup
         .get("models")
-        .and_then(|m| m.get("availableModels"))
-        .and_then(Value::as_array);
-    if let Some(models) = listed {
-        return models.iter().map(choice_from_model).collect();
+        .and_then(|m| m.get("currentModelId"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| current(setup, MODEL))
+}
+
+/// What the agent currently has selected for `option_id`, whichever way it publishes it.
+/// This is what makes a re-sync a no-op when nothing moved.
+pub fn selected(setup: &Value, option_id: &str) -> Option<String> {
+    match option_id {
+        MODE => current_mode(setup),
+        MODEL => current_model(setup),
+        other => current(setup, other),
     }
-    choices(setup, MODEL)
+}
+
+/// Record a choice the agent accepted on a channel whose reply carries no state.
+/// `session/set_mode` and `session/set_model` answer with nothing at all, so without this the
+/// next sync would compare against a stale `currentModeId` and push the same value again.
+pub fn note_current(setup: &mut Value, channel: Channel, value: &str) {
+    let (group, key) = match channel {
+        Channel::Mode => ("modes", "currentModeId"),
+        Channel::Model => ("models", "currentModelId"),
+        Channel::Config => return,
+    };
+    let Some(object) = setup.as_object_mut() else {
+        return;
+    };
+    let entry = object.entry(group.to_string()).or_insert_with(|| json!({}));
+    // An agent that published `modes: null` is not on this channel in the first place, so a
+    // non-object here means the caller picked the wrong one; leave it rather than clobber it.
+    if let Some(group) = entry.as_object_mut() {
+        group.insert(key.to_string(), Value::String(value.to_string()));
+    }
 }
 
 /// Model catalog in the opencode `/provider` shape, so the engine picker renders an ACP

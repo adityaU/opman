@@ -7,7 +7,7 @@
  * instead of squeezing between two fixed gutters.
  */
 import React from "react";
-import { ArrowUp, Loader2, Paperclip, Square, SquareTerminal } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, Square } from "lucide-react";
 import { RUNNER_LABELS } from "./helpers";
 
 // ── ComposerField ───────────────────────────────────────────────
@@ -60,13 +60,11 @@ interface ComposerActionsProps {
   onSlashClick: () => void;
   onSubmit: () => void;
   onAbort: () => void;
-  /** Claude engine only: open an interactive terminal attached to this session. */
-  onAttachTerminal?: () => void;
 }
 
 export function ComposerActions({
   disabled, isBusy, isSending, hasContent,
-  onAttachClick, onSlashClick, onSubmit, onAbort, onAttachTerminal,
+  onAttachClick, onSlashClick, onSubmit, onAbort,
 }: ComposerActionsProps) {
   return (
     <div className="composer-actions">
@@ -81,13 +79,6 @@ export function ComposerActions({
         aria-label="Attach an image">
         <Paperclip size={14} />
       </button>
-      {onAttachTerminal && (
-        <button type="button" className="composer-icon-btn" onClick={onAttachTerminal}
-          disabled={disabled} title="Open the claude CLI attached to this session"
-          aria-label="Attach terminal">
-          <SquareTerminal size={14} />
-        </button>
-      )}
       {isBusy && (
         <button type="button" className="composer-stop" onClick={onAbort}
           title="Stop generating" aria-label="Stop generating">

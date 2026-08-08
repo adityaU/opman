@@ -2,6 +2,7 @@ import {
   ChevronLeft, Save, RotateCcw, Loader2,
   Code2, Eye, AlertCircle, Wand2, Info, ArrowRightCircle,
 } from "lucide-react";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 import type { FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode } from "../types";
 import { isPreviewableRenderType, isBinaryRenderType } from "../types";
 
@@ -67,27 +68,37 @@ export function EditorToolbar({
           <span className={`code-editor-lsp-pill ${lspAvailable ? "active" : "inactive"}`}>
             <AlertCircle size={12} /> {activeDiagnostics.length} issues
           </span>
-          <button className="code-editor-action" onClick={handleHover} title="Hover info at cursor">
-            {lspBusy === "hover" ? <Loader2 size={13} className="spin" /> : <Info size={13} />}
-          </button>
-          <button className="code-editor-action" onClick={handleDefinition} title="Go to definition">
-            {lspBusy === "definition" ? <Loader2 size={13} className="spin" /> : <ArrowRightCircle size={13} />}
-          </button>
-          <button className="code-editor-action" onClick={handleFormatWithLsp} title="Format with LSP">
-            {lspBusy === "format" ? <Loader2 size={13} className="spin" /> : <Wand2 size={13} />}
-          </button>
+          <KeyHint label="Hover info at cursor" command="lsp.hover">
+            <button className="code-editor-action" onClick={handleHover} aria-label="Hover info at cursor">
+              {lspBusy === "hover" ? <Loader2 size={13} className="spin" /> : <Info size={13} />}
+            </button>
+          </KeyHint>
+          <KeyHint label="Go to definition" command="lsp.goToDefinition">
+            <button className="code-editor-action" onClick={handleDefinition} aria-label="Go to definition">
+              {lspBusy === "definition" ? <Loader2 size={13} className="spin" /> : <ArrowRightCircle size={13} />}
+            </button>
+          </KeyHint>
+          <KeyHint label="Format with LSP" command="lsp.format">
+            <button className="code-editor-action" onClick={handleFormatWithLsp} aria-label="Format with LSP">
+              {lspBusy === "format" ? <Loader2 size={13} className="spin" /> : <Wand2 size={13} />}
+            </button>
+          </KeyHint>
         </div>
       )}
 
       {saveStatus === "saved" && <span className="code-editor-save-status">Saved</span>}
       {isModified && (
         <>
-          <button className="code-editor-action" onClick={handleRevert} title="Revert changes" aria-label="Revert changes">
-            <RotateCcw size={13} />
-          </button>
-          <button className="code-editor-action code-editor-save" onClick={handleSave} disabled={saving} title="Save (Cmd+S)" aria-label="Save file">
-            {saving ? <Loader2 size={13} className="spin" /> : <Save size={13} />}
-          </button>
+          <KeyHint label="Revert changes" command="editor.revert">
+            <button className="code-editor-action" onClick={handleRevert} aria-label="Revert changes">
+              <RotateCcw size={13} />
+            </button>
+          </KeyHint>
+          <KeyHint label="Save file" command="editor.save">
+            <button className="code-editor-action code-editor-save" onClick={handleSave} disabled={saving} aria-label="Save file">
+              {saving ? <Loader2 size={13} className="spin" /> : <Save size={13} />}
+            </button>
+          </KeyHint>
         </>
       )}
     </div>

@@ -1,0 +1,27 @@
+Ask the user a multiple-choice question and block until they answer.
+
+This is the only way to reach the user mid-turn. Writing a question into your normal reply ends the turn and stops your work; this tool keeps the turn alive, renders a real choice card in opman, and returns what the user picked so you can carry on in the same turn.
+
+Use it when you genuinely cannot proceed correctly without a decision only the user can make:
+- A fork with materially different outcomes (which database, which of two files to edit, migrate vs rewrite).
+- A missing fact you cannot derive from the code, the repo, or the conversation.
+- Confirmation before something hard to reverse (dropping data, force-pushing, deleting files, contacting an external service).
+
+Do NOT use it to:
+- Ask permission for ordinary work the user already asked for — just do it.
+- Ask a question you can answer yourself by reading a file or running a command.
+- Report progress, or announce what you are about to do.
+- Re-ask something already answered in this conversation.
+
+Ask at the moment the answer is needed, not up front, and batch questions that must be decided together into a single call (up to four) rather than making the user answer four cards in a row.
+
+Arguments:
+- `questions` — 1 to 4 question objects, each with:
+  - `question` (required) — the question in full, as a sentence. The user may be reading this without the surrounding context, so make it self-contained.
+  - `header` (required) — a 12-character-or-less label for the card tab, e.g. "Database", "Scope", "Overwrite?".
+  - `options` (required) — 2 to 4 choices, each `{ "label": "...", "description": "..." }`. `label` is the button text (keep it short); `description` is one line explaining what picking it means. Make the options genuinely distinct, and order them with the one you would recommend first.
+  - `multiSelect` (optional, default false) — set true when several options can legitimately be chosen at once.
+
+The user can always type free text instead of picking one of your options, so treat the returned strings as their words rather than as a closed set.
+
+Returns the selected answers per question, in the order asked. If the user dismisses the card or does not answer, you are told so — in that case pick the most reasonable default, say which default you picked and why, and continue rather than asking again.

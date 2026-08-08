@@ -27,7 +27,6 @@ pub(crate) fn noop_pty_handle() -> WebPtyHandle {
 /// [`crate::process_health::HealthHandle::new`] spawns a watchdog task.
 pub(crate) fn test_server_state() -> ServerState {
     let (event_tx, _) = broadcast::channel::<WebEvent>(256);
-    let (raw_sse_tx, _) = broadcast::channel::<String>(256);
     let (reload_tx, _) = broadcast::channel::<()>(4);
     let (editor_tx, _) = broadcast::channel::<EditorEvent>(64);
     let mut runners = std::collections::HashMap::new();
@@ -42,6 +41,11 @@ pub(crate) fn test_server_state() -> ServerState {
 
     let mut web_state = WebStateHandle::new_test();
     web_state.set_editor_tx(editor_tx.clone());
+    // The same channel on both, as in production: `WebStateHandle::new` is handed the
+    // server's sender, so an event published through the web state is what the `/api`
+    // stream serves. A second channel here would let a test pass against plumbing that
+    // does not exist.
+    let raw_sse_tx = web_state.raw_sse_tx.clone();
     let runner_registry = std::sync::Arc::new(crate::runner::RunnerRegistry::new(
         crate::runner::RunnerKind::Opencode,
         runners,
@@ -66,6 +70,7 @@ pub(crate) fn test_server_state() -> ServerState {
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
         internal_token: "test-internal-token".to_string(),
+        ask_pending: std::sync::Arc::default(),
         acp: test_acp_supervisor(runner_registry.clone()),
         runner_registry,
         mcp_logins: std::sync::Arc::default(),
@@ -82,6 +87,43 @@ pub(crate) fn test_acp_supervisor(
         reqwest::Client::new(),
         std::iter::empty(),
     ))
+}
+
+/// A session row for tests, with the fields nothing under test cares about filled in.
+///
+/// Six test modules each had their own copy of this literal, so every field added to
+/// [`crate::app::SessionInfo`] broke all six in the same way. One constructor means the
+/// next field is added once.
+pub(crate) fn test_session(
+    id: &str,
+    parent: &str,
+    dir: &str,
+    updated: u64,
+) -> crate::app::SessionInfo {
+    crate::app::SessionInfo {
+        id: id.into(),
+        title: format!("title-{id}"),
+        parent_id: parent.into(),
+        directory: dir.into(),
+        time: crate::app::SessionTime {
+            created: 1,
+            updated,
+        },
+        engine: crate::app::EngineChoices::default(),
+    }
+}
+
+/// Like [`test_server_state`] but with projects, for handlers that resolve a directory or
+/// look sessions up in one. Re-points the raw SSE sender at the replacement web state, so
+/// the two halves stay the single channel they are in production.
+pub(crate) fn test_server_state_with_projects(
+    projects: Vec<(String, std::path::PathBuf)>,
+) -> ServerState {
+    let mut state = test_server_state();
+    let web_state = WebStateHandle::new_test_with_projects(projects);
+    state.raw_sse_tx = web_state.raw_sse_tx.clone();
+    state.web_state = web_state;
+    state
 }
 
 /// Like [`test_server_state`] but with credentials set, for auth tests.

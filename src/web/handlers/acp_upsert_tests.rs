@@ -66,7 +66,11 @@ fn clearing_every_variable_drops_the_env_field() {
         env: Some(BTreeMap::from([("ONLY".to_string(), "v".to_string())])),
         ..AgentPatch::default()
     };
-    apply(&mut target, body(serde_json::json!({ "envUnset": ["ONLY"] }))).expect("apply");
+    apply(
+        &mut target,
+        body(serde_json::json!({ "envUnset": ["ONLY"] })),
+    )
+    .expect("apply");
     assert_eq!(target.env, None);
 }
 
@@ -74,7 +78,11 @@ fn clearing_every_variable_drops_the_env_field() {
 fn a_malformed_runner_slot_is_refused() {
     let mut target = AgentPatch::default();
     // The slot is a label every persisted session is stored against.
-    assert!(apply(&mut target, body(serde_json::json!({ "runner": "../escape" }))).is_err());
+    assert!(apply(
+        &mut target,
+        body(serde_json::json!({ "runner": "../escape" }))
+    )
+    .is_err());
     assert!(apply(&mut target, body(serde_json::json!({ "runner": "Upper" }))).is_err());
     // Empty means "use the agent id", which the loader fills in.
     assert!(apply(&mut target, body(serde_json::json!({ "runner": "" }))).is_ok());

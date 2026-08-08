@@ -9,6 +9,7 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use super::attach::Prompt;
+use super::choices;
 use super::routes::Engine;
 use super::turn;
 use crate::claude_engine::{claude_cli, jsonl, PendingReply};
@@ -20,28 +21,27 @@ pub(super) async fn send_message(
     Path(id): Path<String>,
     body: Json<Value>,
 ) -> Json<Value> {
-    if let Some(model) = body
-        .get("model")
-        .and_then(|m| m.get("modelID"))
-        .and_then(Value::as_str)
-    {
-        engine.set_model(&id, model);
-    }
-    if let Some(agent) = body.get("agent").and_then(Value::as_str) {
-        engine.set_agent(&id, agent);
-    }
-    if let Some(effort) = body.get("effort").and_then(Value::as_str) {
-        engine.set_effort(&id, effort);
-    }
-    if let Some(permission) = body.get("permission").and_then(Value::as_str) {
-        engine.set_permission_mode(&id, permission);
-    }
+    engine.apply_choices(&id, &choices::from_send_body(&body.0));
     // An attachment with no words is still a turn, so emptiness is judged on the whole
     // prompt rather than on its text.
     let prompt = Prompt::from_body(&body.0);
     if !prompt.is_empty() {
         tokio::spawn(turn::prompt(engine, id, prompt));
     }
+    Json(json!({ "ok": true }))
+}
+
+/// PATCH /session/{id}/engine — record what a session should run as, with no turn.
+///
+/// The composer's chips write here the moment they are touched. Without it a choice only
+/// reaches the engine on the next send, so picking a model and switching away loses it —
+/// and the session comes back configured as whatever it last actually ran.
+pub(super) async fn set_engine(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+    body: Json<crate::app::EngineChoices>,
+) -> Json<Value> {
+    engine.apply_choices(&id, &body.0);
     Json(json!({ "ok": true }))
 }
 

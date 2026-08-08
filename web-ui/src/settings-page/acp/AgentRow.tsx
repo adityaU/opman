@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { BookOpen, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import type { AcpAgent } from "../../api/acp";
 import { originOf, statusOf } from "./status";
 
@@ -68,6 +68,21 @@ export function AgentRow({ agent, busy, editing, onToggle, onEdit, onRemove }: A
             <span key={fact}>{fact}</span>
           ))}
         </div>
+
+        {/* A catalogued agent whose upstream docs never state the launch command ships with
+            none, so the docs link is the only thing that can move it forward. Say so where
+            the missing command is, rather than leaving the row looking broken. */}
+        {agent.builtin && !agent.command && agent.docs && (
+          <p className="stg-row-caveat">
+            <BookOpen size={11} aria-hidden="true" />
+            opman could not find a documented ACP command for this one, and will not guess at
+            a binary to spawn under its name.{" "}
+            <a href={agent.docs} target="_blank" rel="noreferrer noopener">
+              Check its documentation
+            </a>
+            , then edit the row to add the command.
+          </p>
+        )}
 
         {agent.slotTaken && (
           <p className="stg-row-caveat">

@@ -6,6 +6,7 @@ mod background_sse;
 mod background_sse_slack;
 mod completions;
 mod context_input;
+mod engine_choices;
 pub mod helpers;
 #[cfg(test)]
 mod helpers_tests;
@@ -38,6 +39,7 @@ mod watcher_types;
 // ── Re-exports ──────────────────────────────────────────────────────
 pub use background_event::BackgroundEvent;
 pub use context_input::ContextInputState;
+pub use engine_choices::{Choice, EngineChoices};
 pub use helpers::{diff_snapshot_lines, read_full_terminal_buffer};
 pub use session_selector_types::{ServerStatus, SessionSelectorEntry, SessionSelectorState};
 pub use slack_types::PendingSlackMessage;

@@ -9,6 +9,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
+import { KeyHint } from "../keybindings/hint/KeyHint";
 import { TabInfo, PtyKind, KIND_LABELS, ALL_PTY_KINDS } from "./types";
 
 // ── Tab Bar ────────────────────────────────────────────
@@ -73,29 +74,29 @@ export function TabBar({
             <span className="term-tab-label">{tab.label}</span>
           )}
           {tabs.length > 1 && (
-            <button
-              className="term-tab-close"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCloseTab(tab.id);
-              }}
-              title="Close tab"
-            >
-              <X size={10} />
-            </button>
+            <KeyHint label="Close tab" command="terminal.closeTab">
+              <button
+                className="term-tab-close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseTab(tab.id);
+                }}
+                aria-label="Close tab"
+              >
+                <X size={10} />
+              </button>
+            </KeyHint>
           )}
         </div>
       ))}
       </div>
 
       <div className="term-tab-new-wrapper">
-        <button
-          className="term-tab-new"
-          onClick={() => onToggleKindMenu()}
-          title="New terminal tab"
-        >
-          <Plus size={12} />
-        </button>
+        <KeyHint label="New terminal tab" command="terminal.newTab">
+          <button className="term-tab-new" onClick={() => onToggleKindMenu()} aria-label="New terminal tab">
+            <Plus size={12} />
+          </button>
+        </KeyHint>
         {kindMenuOpen && (
           <div className="term-kind-menu">
             {ALL_PTY_KINDS.map((k) => (
@@ -142,28 +143,31 @@ export function HeaderActions({
           <span className="mcp-agent-dot" />
         </span>
       )}
-      <button
-        onClick={onToggleSearch}
-        title="Find (Cmd+F)"
-        aria-label="Search in terminal"
-        className={searchOpen ? "active" : ""}
+      <KeyHint label="Find in terminal" command="terminal.find" placement="top">
+        <button
+          onClick={onToggleSearch}
+          aria-label="Search in terminal"
+          className={searchOpen ? "active" : ""}
+        >
+          <Search size={14} />
+        </button>
+      </KeyHint>
+      <KeyHint
+        label={expanded ? "Minimize terminal" : "Maximize terminal"}
+        placement="top"
       >
-        <Search size={14} />
-      </button>
-      <button
-        onClick={onToggleExpand}
-        title="Toggle size"
-        aria-label={expanded ? "Minimize terminal" : "Maximize terminal"}
-      >
-        {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-      </button>
-      <button
-        onClick={onHidePanel}
-        title="Hide terminal panel"
-        aria-label="Hide terminal panel"
-      >
-        <X size={14} />
-      </button>
+        <button
+          onClick={onToggleExpand}
+          aria-label={expanded ? "Minimize terminal" : "Maximize terminal"}
+        >
+          {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+      </KeyHint>
+      <KeyHint label="Hide terminal panel" command="layout.toggleTerminal" placement="top">
+        <button onClick={onHidePanel} aria-label="Hide terminal panel">
+          <X size={14} />
+        </button>
+      </KeyHint>
     </div>
   );
 }
@@ -209,15 +213,21 @@ export function SearchBar({
           }
         }}
       />
-      <button className="term-search-nav" onClick={onSearchPrev} title="Previous match (Shift+Enter)">
-        <ChevronUp size={14} />
-      </button>
-      <button className="term-search-nav" onClick={onSearchNext} title="Next match (Enter)">
-        <ChevronDown size={14} />
-      </button>
-      <button className="term-search-close" onClick={onClose} title="Close search">
-        <X size={12} />
-      </button>
+      <KeyHint label="Previous match" command="terminal.findPrevious" placement="top">
+        <button className="term-search-nav" onClick={onSearchPrev} aria-label="Previous match">
+          <ChevronUp size={14} />
+        </button>
+      </KeyHint>
+      <KeyHint label="Next match" command="terminal.findNext" placement="top">
+        <button className="term-search-nav" onClick={onSearchNext} aria-label="Next match">
+          <ChevronDown size={14} />
+        </button>
+      </KeyHint>
+      <KeyHint label="Close search" chord="Esc" placement="top">
+        <button className="term-search-close" onClick={onClose} aria-label="Close search">
+          <X size={12} />
+        </button>
+      </KeyHint>
     </div>
   );
 }

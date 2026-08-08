@@ -7,10 +7,11 @@
 
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use tracing::debug;
 
 use super::jsonrpc::Peer;
+use super::options::Channel;
 use super::AcpEngine;
 
 /// Push opman's choices onto a session that has just been created or loaded. Best-effort: an
@@ -23,10 +24,19 @@ pub(super) async fn apply_defaults(
     setup: &Value,
 ) {
     for (option, value) in engine.desired_options(session_id) {
-        if !super::options::offers(setup, &option, &value) {
+        let Some(channel) = super::options::channel_for(setup, &option, &value) else {
             continue;
-        }
-        push(engine, peer, session_id, acp_session, &option, &value).await;
+        };
+        push(
+            engine,
+            peer,
+            session_id,
+            acp_session,
+            channel,
+            &option,
+            &value,
+        )
+        .await;
     }
 }
 
@@ -46,30 +56,94 @@ pub(super) async fn sync(
         // Re-read per option: each push folds the agent's reply back in, so a later option
         // is compared against the state the earlier one left behind.
         let setup = engine.session_setup(session_id);
-        if super::options::current(&setup, &option).as_deref() == Some(value.as_str()) {
+        if super::options::selected(&setup, &option).as_deref() == Some(value.as_str()) {
             continue;
         }
-        if !super::options::offers(&setup, &option, &value) {
+        let Some(channel) = super::options::channel_for(&setup, &option, &value) else {
             continue;
-        }
-        push(engine, peer, session_id, acp_session, &option, &value).await;
+        };
+        push(
+            engine,
+            peer,
+            session_id,
+            acp_session,
+            channel,
+            &option,
+            &value,
+        )
+        .await;
     }
 }
 
-/// Send one `session/set_config_option` and fold the agent's reply back into the stored
-/// setup, so the next comparison sees what the agent actually settled on rather than what
+/// Send one choice on the channel the agent publishes it on, and fold the outcome back into
+/// the stored setup so the next comparison sees what the agent settled on rather than what
 /// opman asked for.
+///
+/// A "method not found" is treated as a wrong guess rather than a failure: publishing the
+/// spec's `modes` without serving `session/set_mode` happens, and where the same value is also
+/// a config option that is where the agent really wants it.
 async fn push(
     engine: &Arc<AcpEngine>,
     peer: &Peer,
     session_id: &str,
     acp_session: &str,
+    channel: Channel,
     option: &str,
     value: &str,
 ) {
-    let params = json!({ "sessionId": acp_session, "configId": option, "value": value });
-    match peer.request("session/set_config_option", params).await {
-        Ok(reply) => engine.merge_config_list(session_id, &reply),
-        Err(e) => debug!(session = %session_id, %option, "acp set_config_option failed: {e}"),
+    let failure = match send(
+        engine,
+        peer,
+        session_id,
+        acp_session,
+        channel,
+        option,
+        value,
+    )
+    .await
+    {
+        Ok(()) => return,
+        Err(failure) => failure,
+    };
+    let setup = engine.session_setup(session_id);
+    let fallback = (channel != Channel::Config && super::jsonrpc::unimplemented(&failure))
+        .then(|| super::options::config_channel(&setup, option, value))
+        .flatten();
+    let Some(fallback) = fallback else {
+        debug!(session = %session_id, %option, method = channel.method(), "acp set failed: {failure}");
+        return;
+    };
+    if let Err(failure) = send(
+        engine,
+        peer,
+        session_id,
+        acp_session,
+        fallback,
+        option,
+        value,
+    )
+    .await
+    {
+        debug!(session = %session_id, %option, method = fallback.method(), "acp set failed: {failure}");
     }
 }
+
+async fn send(
+    engine: &Arc<AcpEngine>,
+    peer: &Peer,
+    session_id: &str,
+    acp_session: &str,
+    channel: Channel,
+    option: &str,
+    value: &str,
+) -> anyhow::Result<()> {
+    let reply = peer
+        .request(channel.method(), channel.params(acp_session, option, value))
+        .await?;
+    engine.note_selected(session_id, channel, option, value, &reply);
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "conn_options_tests.rs"]
+mod conn_options_tests;

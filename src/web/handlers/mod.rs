@@ -9,6 +9,7 @@
 mod acp_handlers;
 mod acp_upsert;
 mod agents_handlers;
+mod ask_internal;
 mod auth_handlers;
 mod common;
 mod context_handlers;
@@ -39,6 +40,7 @@ mod project_handlers;
 mod pty_handlers;
 mod routines_handlers;
 mod search_handlers;
+mod session_engine;
 mod session_handlers;
 mod skills_handlers;
 mod state_handlers;
@@ -67,12 +69,16 @@ pub use project_handlers::{
 
 pub use pty_handlers::{pty_activity, pty_kill, pty_list, pty_resize, pty_write, spawn_pty};
 
+pub use session_engine::set_session_engine;
+
 pub use session_handlers::{
     a2ui_callback, abort_session, clear_session_queue, delete_session, execute_command,
     get_commands, get_pending, get_providers, get_session_messages, get_session_queue,
-    mark_session_seen, remove_session_queue_item, rename_session, reply_permission, reply_question,
-    send_message,
+    mark_session_seen, reject_question, remove_session_queue_item, rename_session,
+    reply_permission, reply_question, send_message,
 };
+
+pub use ask_internal::internal_ask;
 
 pub use git_handlers::{
     git_commit, git_diff, git_discard, git_log, git_stage, git_status, git_unstage,
@@ -122,7 +128,7 @@ pub use routines_handlers::{
 
 pub use system_handlers::get_system_stats;
 
-pub use acp_handlers::{delete_agent, list_agents, set_agent_enabled};
+pub use acp_handlers::{delete_agent, list_agents, reset_agents, set_agent_enabled};
 pub use acp_upsert::upsert_agent;
 pub use mcp_handlers::{delete_server, list_servers, set_enabled};
 pub use mcp_login::{finish_login, logout_server, start_login};

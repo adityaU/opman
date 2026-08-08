@@ -49,6 +49,14 @@ export interface AcpAgent {
   enabled: boolean;
   /** opman ships this one. Removing its entry restores the default rather than deleting it. */
   builtin: boolean;
+  /**
+   * Where opman read this agent's launch command from.
+   *
+   * Empty for an agent the user declared. For a catalogued one whose upstream docs never
+   * state the command, opman ships the row with no command at all — this link is then the
+   * only thing the row can offer, and filling the command in is what turns it on.
+   */
+  docs: string;
   /** The user's file has an entry for it. */
   customized: boolean;
   /** An engine is running and the runner slot is served. */
@@ -118,6 +126,7 @@ export async function fetchAcpAgents(): Promise<AcpAgent[]> {
     subagentTranscripts: false,
     enabled: true,
     builtin: false,
+    docs: "",
     customized: false,
     running: false,
     launchable: false,
@@ -155,4 +164,15 @@ export async function setAcpAgentEnabled(id: string, enabled: boolean): Promise<
  */
 export async function deleteAcpAgent(id: string): Promise<AcpWriteResult> {
   return apiFetch<AcpWriteResult>(agent(id), { method: "DELETE" });
+}
+
+/**
+ * Delete `acp.json` and put every agent back to how opman ships it.
+ *
+ * The per-agent Remove drops one entry; this drops the file. Both mean "stop overriding",
+ * at the two scopes the file actually has — and the whole-file one is the only way to undo
+ * a config that has gone wrong without first working out what is in it.
+ */
+export async function resetAcpConfig(): Promise<AcpWriteResult> {
+  return apiFetch<AcpWriteResult>("/acp/agents", { method: "DELETE" });
 }

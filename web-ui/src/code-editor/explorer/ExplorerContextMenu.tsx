@@ -10,12 +10,15 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { CommandId } from "../../keybindings/types";
+import { useChordLabeller } from "../../keybindings/useChord";
 
 export interface MenuAction {
   key: string;
   label: string;
   icon: React.ReactNode;
-  hint?: string;
+  /** The command this row runs; its live chord is shown against the label. */
+  command?: CommandId;
   danger?: boolean;
   run: () => void;
 }
@@ -32,6 +35,7 @@ const MARGIN = 8;
 
 export function ExplorerContextMenu({ x, y, title, actions, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const chordFor = useChordLabeller();
   const [pos, setPos] = useState({ left: x, top: y });
   const [active, setActive] = useState(0);
 
@@ -100,20 +104,23 @@ export function ExplorerContextMenu({ x, y, title, actions, onClose }: Props) {
       onKeyDown={onKeyDown}
     >
       <div className="xpl-ctx-title" title={title}>{title}</div>
-      {actions.map((action, index) => (
-        <button
-          key={action.key}
-          type="button"
-          role="menuitem"
-          className={`xpl-ctx-item${action.danger ? " is-danger" : ""}${index === active ? " is-active" : ""}`}
-          onMouseEnter={() => setActive(index)}
-          onClick={() => { action.run(); onClose(); }}
-        >
-          {action.icon}
-          <span className="xpl-ctx-label">{action.label}</span>
-          {action.hint && <kbd className="xpl-ctx-hint">{action.hint}</kbd>}
-        </button>
-      ))}
+      {actions.map((action, index) => {
+        const chord = chordFor(action.command);
+        return (
+          <button
+            key={action.key}
+            type="button"
+            role="menuitem"
+            className={`xpl-ctx-item${action.danger ? " is-danger" : ""}${index === active ? " is-active" : ""}`}
+            onMouseEnter={() => setActive(index)}
+            onClick={() => { action.run(); onClose(); }}
+          >
+            {action.icon}
+            <span className="xpl-ctx-label">{action.label}</span>
+            {chord && <kbd className="xpl-ctx-hint">{chord}</kbd>}
+          </button>
+        );
+      })}
     </div>,
     document.body,
   );

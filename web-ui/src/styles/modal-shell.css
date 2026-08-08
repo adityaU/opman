@@ -115,39 +115,6 @@ html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdro
     background: color-mix(in srgb, var(--color-bg) 76%, transparent);
 }
 
-/* ── Right-hand dockable cards ────────────────────────────────────── */
-
-/* No inset of its own: `.chat-content` already pays 12px/14px for all three
-   columns, so any padding here makes the right column start lower and end
-   higher than the sidebar and the transcript beside it. */
-.right-panel-stack {
-    gap: var(--panel-inset, 10px);
-    padding: 0;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-}
-
-.right-panel-card {
-    position: relative;
-    border: 1px solid var(--modal-border);
-    border-radius: var(--modal-radius);
-    background: var(--modal-surface);
-    box-shadow:
-        0 14px 30px color-mix(in srgb, var(--color-bg) 40%, transparent),
-        var(--modal-rim);
-    transition:
-        border-color var(--transition-base),
-        box-shadow var(--transition-base);
-}
-
-.right-panel-card:hover,
-.right-panel-card:focus-within {
-    border-color: color-mix(in srgb, var(--color-primary) 34%, var(--modal-border));
-    box-shadow:
-        0 18px 38px color-mix(in srgb, var(--color-bg) 50%, transparent),
-        var(--modal-rim);
-}
-
 /* ── Reduced motion ───────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -170,8 +137,6 @@ html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdro
         border-bottom: 0;
         animation: modal-sheet-in .26s cubic-bezier(.22, 1, .36, 1) both;
     }
-
-    .right-panel-stack { padding: 0 }
 
     @keyframes modal-sheet-in {
         from { opacity: 0; transform: translateY(18px) }

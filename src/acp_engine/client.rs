@@ -14,6 +14,7 @@ use futures::future::BoxFuture;
 use serde_json::{json, Value};
 
 use super::jsonrpc::Handler;
+use super::terminal;
 use super::AcpEngine;
 use crate::claude_engine::PendingReply;
 
@@ -42,6 +43,11 @@ impl Handler for Client {
                 "session/request_permission" => request_permission(&self.engine, &params).await,
                 "fs/read_text_file" => read_text_file(&self.engine, &params),
                 "fs/write_text_file" => write_text_file(&self.engine, &params),
+                "terminal/create" => terminal::create(&self.engine, &params).await,
+                "terminal/output" => terminal::output(&self.engine, &params),
+                "terminal/wait_for_exit" => terminal::wait_for_exit(&self.engine, &params).await,
+                "terminal/kill" => terminal::kill(&self.engine, &params),
+                "terminal/release" => terminal::release(&self.engine, &params),
                 // Anything else is a capability opman never advertised. Say so plainly:
                 // a clear error lets the agent fall back to its own tools, where silence
                 // would hang the turn.
@@ -75,6 +81,16 @@ async fn request_permission(engine: &Arc<AcpEngine>, params: &Value) -> Result<V
         .cloned()
         .unwrap_or_default();
     let tool = tool_label(&tool_call);
+    let dir = engine
+        .get_session(&session_id)
+        .map(|s| s.directory)
+        .unwrap_or_default();
+
+    // An agent with no other way to reach the user puts its question here. Rendering that
+    // as "allow this tool?" would ask the user to approve a question rather than answer it.
+    if let Some(questions) = super::question::from_tool_call(&tool, &tool_call) {
+        return Ok(super::question::ask(engine, &session_id, &dir, questions, &options).await);
+    }
 
     // A tool the user already blessed for this session never asks twice.
     if engine.is_always_allowed(&session_id, &tool) {
@@ -84,10 +100,6 @@ async fn request_permission(engine: &Arc<AcpEngine>, params: &Value) -> Result<V
     }
 
     let request_id = super::rand_id("perm");
-    let dir = engine
-        .get_session(&session_id)
-        .map(|s| s.directory)
-        .unwrap_or_default();
     engine.emit(
         &dir,
         "permission.asked",
@@ -100,7 +112,7 @@ async fn request_permission(engine: &Arc<AcpEngine>, params: &Value) -> Result<V
         }),
     );
 
-    let rx = engine.register_pending(&request_id);
+    let rx = engine.register_pending(&request_id, &session_id);
     let reply = match tokio::time::timeout(PERMISSION_TIMEOUT, rx).await {
         Ok(Ok(PendingReply::Permission(reply))) => reply,
         // Timed out or dismissed. Clear the waiter so a late answer cannot resolve a

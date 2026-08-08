@@ -208,7 +208,10 @@ fn retire(
         }
         stale.push(id.clone());
     }
-    let retired = stale.into_iter().filter_map(|id| live.remove(&id)).collect();
+    let retired = stale
+        .into_iter()
+        .filter_map(|id| live.remove(&id))
+        .collect();
     (retired, deferred)
 }
 

@@ -98,7 +98,12 @@ async fn a_named_runner_answers_with_its_own_commands() {
     let (status, body) = scope_base_url(
         // The default engine is still opencode; naming a runner must override it.
         opencode.clone(),
-        send_json(test_router(state), "GET", "/api/commands?runner=claude", None),
+        send_json(
+            test_router(state),
+            "GET",
+            "/api/commands?runner=claude",
+            None,
+        ),
     )
     .await;
 

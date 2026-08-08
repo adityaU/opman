@@ -70,7 +70,11 @@ fn namespaced_name_falls_back_to_the_bare_definition() {
 #[test]
 fn a_command_with_no_file_has_no_description() {
     let dir = TempDir::new().expect("tempdir");
-    write(dir.path(), ".claude/commands/deploy.md", &frontmatter("Ship"));
+    write(
+        dir.path(),
+        ".claude/commands/deploy.md",
+        &frontmatter("Ship"),
+    );
 
     let found = describe(dir.path().to_str().expect("utf-8 path"));
 

@@ -161,11 +161,6 @@
         height: 2.5rem
     }
 
-    /* Hide desktop-only elements */
-    .side-panel {
-        display: none!important
-    }
-
     .prompt-hints,.message-timeline-shortcuts,.chat-status-bar {
         display: none
     }

@@ -15,16 +15,7 @@ fn init_base_url() {
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
-    crate::app::SessionInfo {
-        id: id.into(),
-        title: format!("title-{id}"),
-        parent_id: String::new(),
-        directory: dir.into(),
-        time: crate::app::SessionTime {
-            created: 1,
-            updated: 2,
-        },
-    }
+    crate::web::test_support::test_session(id, "", dir, 2)
 }
 
 // ── max_context_from_providers: "all" shape ─────────────────────────

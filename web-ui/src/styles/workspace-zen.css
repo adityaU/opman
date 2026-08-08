@@ -49,7 +49,7 @@ html[data-wsp-zen] .wsp-head:focus-within {
    focused one. It keeps its border and radius: the pane is still a surface
    sitting on the canvas, --panel-inset away from every edge. */
 html[data-wsp-zen] .wsp-pane.is-focused {
-    border-color: color-mix(in srgb, var(--pane-tint) 18%, var(--color-border-subtle));
+    border-color: var(--codex-border-soft);
     box-shadow: var(--modal-rim)
 }
 

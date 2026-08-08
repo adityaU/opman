@@ -1,8 +1,8 @@
 /* ── Workspace: pane header and project badge ──────────────────────────
    (The empty pane's own styles are in workspace-6.css, split off for size.)
 
-   The header is `.side-panel-header` for a pane: `--theme-surface-2`, a
-   bottom hairline, 30px tall. It was 22px with 11px italic text and 12px
+   The header is the app's panel-header recipe applied to a pane:
+   `--theme-surface-2`, a bottom hairline, 30px tall. It was 22px with 11px italic text and 12px
    icons — dense enough that it read as a debug strip rather than as the
    chrome of a panel, and nothing else in the app is built at that scale.
 

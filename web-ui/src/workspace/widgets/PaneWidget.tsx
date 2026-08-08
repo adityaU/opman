@@ -70,7 +70,7 @@ function renderWidget(
           layout="desktop"
           focused={focused}
           projectPath={widget.projectPath}
-          openFilePath={widget.filePath}
+          open={widget.open}
           onError={onError}
         />
       );

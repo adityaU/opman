@@ -9,7 +9,6 @@ use std::sync::Arc;
 use serde_json::json;
 
 use super::{now_ms, rand_id, AcpEngine, Discovered, Session};
-use crate::claude_engine::PendingReply;
 
 impl AcpEngine {
     // ── registry ─────────────────────────────────────────────────────
@@ -205,20 +204,6 @@ impl AcpEngine {
         !busy
     }
 
-    // ── pending permission requests ──────────────────────────────────
-    pub fn register_pending(&self, id: &str) -> tokio::sync::oneshot::Receiver<PendingReply> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        if let Ok(mut pending) = self.pending.lock() {
-            pending.insert(id.to_string(), tx);
-        }
-        rx
-    }
-
-    pub fn resolve_pending(&self, id: &str, reply: PendingReply) -> bool {
-        let tx = self.pending.lock().ok().and_then(|mut p| p.remove(id));
-        tx.map(|tx| tx.send(reply).is_ok()).unwrap_or(false)
-    }
-
     // ── helpers ──────────────────────────────────────────────────────
     pub(super) fn with_discovered<T: Default>(
         &self,
@@ -244,6 +229,8 @@ impl AcpEngine {
     }
 
     fn forget_derived(&self, id: &str) {
+        // A deleted session's commands have nobody left to report to.
+        self.terminals.release_session(id);
         if let Ok(mut all) = self.transcripts.lock() {
             all.remove(id);
         }

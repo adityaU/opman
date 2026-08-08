@@ -65,6 +65,13 @@ pub struct WebSessionInfo {
     /// Runner used for the most recent turn in this session.
     #[serde(default)]
     pub runner: String,
+    /// Model, agent, effort and permission mode, as this session's runner reports them.
+    ///
+    /// Carried on the session row rather than fetched per selection: the client already
+    /// re-reads this list on every state change, so switching sessions costs no request
+    /// and the composer never renders a stale configuration while one is in flight.
+    #[serde(default)]
+    pub engine: crate::app::EngineChoices,
 }
 
 #[derive(Serialize, Clone)]
@@ -130,8 +137,13 @@ pub struct ServerState {
     /// Process health monitoring handle.
     pub health: crate::process_health::HealthHandle,
     /// Shared secret guarding the loopback-only `/internal/*` API used by the
-    /// Kanban MCP server. Written to `~/.config/opman/internal.json` at startup.
+    /// Kanban and ask MCP servers. Written to `~/.config/opman/internal.json` at startup.
     pub internal_token: String,
+    /// Questions raised through the `ask` MCP server and waiting on a human. Held here
+    /// rather than in an engine because the asker is a child of the runner, not of any
+    /// engine: the request that waits and the reply that answers it only meet in the web
+    /// server.
+    pub ask_pending: std::sync::Arc<crate::web::ask_pending::AskPending>,
     /// Common runtime runner registry used by session handlers.
     pub runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     /// The live ACP engines. Reconcilable against `acp.json`, so the settings page can add,

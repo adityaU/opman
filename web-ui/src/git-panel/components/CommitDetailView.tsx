@@ -2,6 +2,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import type { GitShowResponse } from "../types";
 import { statusColor, statusLabel, formatRelativeTime, splitDiffByFile, parseUnifiedDiff, isLightAppearance } from "../utils";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 interface Props {
   commitDetail: GitShowResponse | null;
@@ -42,12 +43,16 @@ export function CommitDetailView({
           <div className="git-commit-files-summary">
             <span>{commitDetail.files.length} file{commitDetail.files.length !== 1 ? "s" : ""} changed</span>
             <div className="git-commit-expand-controls">
-              <button className="git-commit-expand-btn" onClick={expandAllFiles} title="Expand all files">
-                Expand all
-              </button>
-              <button className="git-commit-expand-btn" onClick={collapseAllFiles} title="Collapse all files">
-                Collapse all
-              </button>
+              <KeyHint label="Expand all files" command="git.expandAll">
+                <button className="git-commit-expand-btn" onClick={expandAllFiles} aria-label="Expand all files">
+                  Expand all
+                </button>
+              </KeyHint>
+              <KeyHint label="Collapse all files" command="git.collapseAll">
+                <button className="git-commit-expand-btn" onClick={collapseAllFiles} aria-label="Collapse all files">
+                  Collapse all
+                </button>
+              </KeyHint>
             </div>
           </div>
         )}

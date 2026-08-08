@@ -11,13 +11,6 @@ export interface ChatCallbackInputs {
   selectedModel: any;
   personalMemory: PersonalMemoryItem[];
   activeProjectIndex: number;
-  panels: {
-    sidebar: { open: boolean };
-    terminal: { open: boolean };
-    editor: { open: boolean };
-    git: { open: boolean };
-  };
-  setPanels: (p: { sidebar: boolean; terminal: boolean; editor: boolean; git: boolean }) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
   setSearchMatchIds: (ids: Set<string>) => void;
   setActiveSearchMatchId: (id: string | null) => void;

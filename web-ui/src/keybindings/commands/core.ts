@@ -43,7 +43,6 @@ export const SYSTEM_COMMANDS: readonly CommandDef[] = [
   { id: "system.toggleVimMode", title: "Toggle Vim Mode", category: "System", label: "vim mode" },
   { id: "system.monitor", title: "System Monitor", category: "System", label: "monitor", slash: { name: "system", where: "opman" } },
   { id: "system.processHealth", title: "Process Health", category: "System", label: "health", slash: { name: "health", where: "opman" } },
-  { id: "system.debugPanel", title: "Toggle Debug Panel", category: "System", label: "debug", slash: { name: "debug", where: "opman" } },
   { id: "system.refreshApp", title: "Reload Application", category: "System", label: "reload" },
 ];
 

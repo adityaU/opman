@@ -73,7 +73,7 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
   if (!pending || (!elapsed && !revealed)) return null;
   if (groups.length === 0) return null;
 
-  const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform)).join(" ");
+  const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform, mode)).join(" ");
 
   return (
     <div className="which-key modal-popover-surface" role="dialog" aria-label="Keybinding hints">
@@ -90,7 +90,7 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
             <ul className="which-key-entries">
               {group.entries.map((entry) => (
                 <li className="which-key-entry" key={`${group.group}-${entry.label}-${entry.key.key}`}>
-                  <kbd className="which-key-key">{displayStep(entry.key, host.platform)}</kbd>
+                  <kbd className="which-key-key">{displayStep(entry.key, host.platform, mode)}</kbd>
                   <span
                     className={entry.isPrefix ? "which-key-label is-prefix" : "which-key-label"}
                   >
@@ -117,7 +117,7 @@ export function PendingChordStrip({ listener }: WhichKeyPanelProps) {
   const { pending } = listener;
   if (!pending || mode === "vim") return null;
 
-  const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform)).join(" ");
+  const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform, mode)).join(" ");
   return (
     <div className="which-key-strip" role="status">
       <kbd>{breadcrumb}</kbd>

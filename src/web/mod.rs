@@ -32,6 +32,7 @@
 //! - `static_files` — Embedded React frontend serving
 //! - `pty_manager` — Independent web-owned PTY instances
 
+pub(crate) mod ask_pending;
 mod auth;
 pub(crate) mod db;
 mod error;
@@ -183,6 +184,7 @@ pub async fn start_web_server(
         editor_tx,
         health: crate::process_health::HealthHandle::new(),
         internal_token: internal_token.clone(),
+        ask_pending: std::sync::Arc::default(),
         runner_registry,
         acp,
         mcp_logins: std::sync::Arc::default(),

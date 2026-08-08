@@ -12,12 +12,13 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { KeyHint } from "../keybindings/hint/KeyHint";
 import { ProjectBadge } from "./ProjectBadge";
 import type { PaneId, WidgetKind, WidgetState } from "./types";
 
 /**
  * The toolbar above a pane, on the same recipe as every other panel header in
- * the app (`.side-panel-header`).
+ * the app.
  *
  * Everything here is also a command, so the header is a convenience rather than
  * the only route — which is what lets it be switched off entirely (zen mode)
@@ -126,54 +127,65 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
       )}
 
       <span className="wsp-head-actions">
-        <button
-          type="button"
-          className="wsp-head-btn"
-          onClick={() => onSplit(paneId, "row")}
-          aria-label="Split pane right"
-          title="Split right"
-        >
-          <Columns2 size={13} />
-        </button>
-        <button
-          type="button"
-          className="wsp-head-btn"
-          onClick={() => onSplit(paneId, "col")}
-          aria-label="Split pane down"
-          title="Split down"
-        >
-          <Rows2 size={13} />
-        </button>
-        <button
-          type="button"
-          className={`wsp-head-btn wsp-head-btn-zen${zen ? " is-on" : ""}`}
-          onClick={onToggleZen}
-          aria-pressed={zen}
-          aria-label={zen ? "Leave Zen" : "Zen: fill the screen with this pane"}
-          title={zen ? "Leave Zen (Esc)" : "Zen — fill the screen (⌘K ⌘Z)"}
-        >
-          {zen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </button>
-        <button
-          type="button"
-          className="wsp-head-btn"
-          onClick={openMenu}
-          aria-haspopup="menu"
-          aria-label="Pane menu"
-          title="Pane menu"
-        >
-          <MoreHorizontal size={13} />
-        </button>
-        {canClose && (
+        <KeyHint label="Split right" command="workspace.splitRight">
           <button
             type="button"
-            className="wsp-head-btn wsp-head-btn-close"
-            onClick={() => onClose(paneId)}
-            aria-label="Close pane"
-            title="Close pane"
+            className="wsp-head-btn"
+            onClick={() => onSplit(paneId, "row")}
+            aria-label="Split pane right"
           >
-            <X size={13} />
+            <Columns2 size={13} />
           </button>
+        </KeyHint>
+        <KeyHint label="Split down" command="workspace.splitDown">
+          <button
+            type="button"
+            className="wsp-head-btn"
+            onClick={() => onSplit(paneId, "col")}
+            aria-label="Split pane down"
+          >
+            <Rows2 size={13} />
+          </button>
+        </KeyHint>
+        {/* Leaving Zen is Escape, which is a mode exit rather than a binding of
+            its own, so it is the one chord here written out by hand. */}
+        <KeyHint
+          label={zen ? "Leave Zen" : "Zen — fill the screen"}
+          command={zen ? undefined : "workspace.toggleZen"}
+          chord={zen ? "Esc" : undefined}
+        >
+          <button
+            type="button"
+            className={`wsp-head-btn wsp-head-btn-zen${zen ? " is-on" : ""}`}
+            onClick={onToggleZen}
+            aria-pressed={zen}
+            aria-label={zen ? "Leave Zen" : "Zen: fill the screen with this pane"}
+          >
+            {zen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+        </KeyHint>
+        <KeyHint label="Pane menu" command="workspace.paneMenu">
+          <button
+            type="button"
+            className="wsp-head-btn"
+            onClick={openMenu}
+            aria-haspopup="menu"
+            aria-label="Pane menu"
+          >
+            <MoreHorizontal size={13} />
+          </button>
+        </KeyHint>
+        {canClose && (
+          <KeyHint label="Close pane" command="workspace.closePane">
+            <button
+              type="button"
+              className="wsp-head-btn wsp-head-btn-close"
+              onClick={() => onClose(paneId)}
+              aria-label="Close pane"
+            >
+              <X size={13} />
+            </button>
+          </KeyHint>
         )}
       </span>
     </div>

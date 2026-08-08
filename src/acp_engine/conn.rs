@@ -20,11 +20,8 @@ use tracing::debug;
 
 use super::attach::PromptCaps;
 use super::client::Client;
-use super::jsonrpc::Peer;
+use super::jsonrpc::{self, Peer};
 use super::AcpEngine;
-
-/// The ACP revision opman speaks.
-const PROTOCOL_VERSION: u64 = 1;
 
 /// A live ACP server bound to one opman session.
 pub struct Conn {
@@ -120,16 +117,15 @@ pub(super) async fn probe_capabilities(engine: &Arc<AcpEngine>) -> Result<Value>
         .take()
         .context("acp probe child has no stdout")?;
     let peer = Peer::new(stdin, stdout, Client::new(engine.clone()));
-    let init = peer
-        .request("initialize", initialize_params(engine))
+    let negotiated = super::handshake::negotiate(engine, &peer)
         .await
-        .context("ACP `initialize` failed during capability probe")?;
+        .context("ACP handshake failed during capability probe")?;
     // Whether old sessions can be reopened is answered here, before any of them is opened:
     // a history read must not have to spawn a child just to discover the agent cannot help.
-    engine.note_load_capable(init_supports_load(&init));
+    engine.note_load_capable(negotiated.loads);
     // No MCP servers: the probe never runs a turn, and starting opman's own servers for a
     // session that is about to be discarded is pure cost.
-    let (_, setup) = new_session(&peer, &dir, json!([])).await?;
+    let (_, setup) = open_session(&peer, &negotiated.init, &dir, &json!([])).await?;
     // `kill_on_drop` handles the child, but waiting keeps it from lingering as a zombie
     // until the engine is dropped.
     let _ = child.start_kill();
@@ -151,26 +147,33 @@ async fn establish(engine: &Arc<AcpEngine>, session_id: &str) -> Result<Conn> {
     let stdout = child.stdout.take().context("acp child has no stdout")?;
     let peer = Peer::new(stdin, stdout, Client::new(engine.clone()));
 
-    let init = peer
-        .request("initialize", initialize_params(engine))
-        .await
-        .context("ACP `initialize` failed")?;
-    let steering = advertises_steering(&init);
-    let prompt_caps = PromptCaps::from_initialize(&init);
-    // Which remote MCP transports this agent can dial for itself. Must be read before
-    // any session is created, since it decides whether a remote server reaches the
-    // agent directly or through opman's local proxy.
-    let mcp_caps = super::mcp_servers::McpCaps::from_initialize(&init);
-    engine.note_load_capable(init_supports_load(&init));
+    // Which remote MCP transports this agent can dial for itself must be known before any
+    // session is created: it decides whether a remote server reaches the agent directly or
+    // through opman's local proxy.
+    let negotiated = super::handshake::negotiate(engine, &peer).await?;
+    let (steering, prompt_caps) = (negotiated.steering, negotiated.prompt_caps);
+    engine.note_load_capable(negotiated.loads);
 
     // Resume the prior conversation when the agent supports it; otherwise start clean.
     let resume = session
         .acp_session
-        .filter(|_| init_supports_load(&init))
+        .filter(|_| negotiated.loads)
         .filter(|id| !id.is_empty());
+    let servers = engine.mcp_servers(&dir, session_id, negotiated.mcp_caps);
     let (acp_session, setup) = match resume {
-        Some(prior) => load_session(engine, &peer, session_id, &dir, &prior, mcp_caps).await?,
-        None => new_session(&peer, &dir, engine.mcp_servers(&dir, session_id, mcp_caps)).await?,
+        Some(prior) => {
+            load_session(
+                engine,
+                &peer,
+                session_id,
+                &dir,
+                &prior,
+                &negotiated,
+                &servers,
+            )
+            .await?
+        }
+        None => open_session(&peer, &negotiated.init, &dir, &servers).await?,
     };
 
     engine.bind_acp_session(session_id, &acp_session);
@@ -185,11 +188,34 @@ async fn establish(engine: &Arc<AcpEngine>, session_id: &str) -> Result<Conn> {
     })
 }
 
-async fn new_session(peer: &Peer, dir: &str, mcp: Value) -> Result<(String, Value)> {
+/// Open a session, logging in first if that is what the agent is holding out for.
+///
+/// ACP puts authentication behind a specific rejection rather than a capability flag: the
+/// agent answers `session/new` with `auth_required` and expects the client to call
+/// `authenticate` and try again. Retrying exactly once is the whole protocol — a second
+/// refusal after a successful login is a real failure, not a loop to keep running.
+async fn open_session(
+    peer: &Peer,
+    init: &Value,
+    dir: &str,
+    mcp: &Value,
+) -> Result<(String, Value)> {
+    match new_session(peer, dir, mcp).await {
+        Err(refused) if jsonrpc::needs_auth(&refused) => {
+            let method = super::handshake::authenticate(peer, init).await?;
+            debug!(%method, "acp: authenticated, retrying session/new");
+            new_session(peer, dir, mcp)
+                .await
+                .context("ACP `session/new` failed after authenticating")
+        }
+        outcome => outcome.context("ACP `session/new` failed"),
+    }
+}
+
+async fn new_session(peer: &Peer, dir: &str, mcp: &Value) -> Result<(String, Value)> {
     let result = peer
         .request("session/new", json!({ "cwd": dir, "mcpServers": mcp }))
-        .await
-        .context("ACP `session/new` failed")?;
+        .await?;
     let id = result
         .get("sessionId")
         .and_then(Value::as_str)
@@ -206,14 +232,15 @@ async fn load_session(
     session_id: &str,
     dir: &str,
     prior: &str,
-    caps: super::mcp_servers::McpCaps,
+    negotiated: &super::handshake::Negotiated,
+    servers: &Value,
 ) -> Result<(String, Value)> {
     engine.bind_acp_session(session_id, prior);
     engine.begin_replay(session_id);
     let params = json!({
         "sessionId": prior,
         "cwd": dir,
-        "mcpServers": engine.mcp_servers(dir, session_id, caps),
+        "mcpServers": servers,
     });
     let outcome = peer.request("session/load", params).await;
     let emits = engine.end_replay(session_id);
@@ -225,50 +252,9 @@ async fn load_session(
             // conversation instead of failing every future prompt.
             debug!(session = %session_id, "acp session/load failed, starting fresh: {e}");
             engine.forget_acp_session(session_id);
-            new_session(peer, dir, engine.mcp_servers(dir, session_id, caps)).await
+            open_session(peer, &negotiated.init, dir, servers).await
         }
     }
-}
-
-fn initialize_params(engine: &Arc<AcpEngine>) -> Value {
-    let caps = &engine.agent.client_caps;
-    json!({
-        "protocolVersion": PROTOCOL_VERSION,
-        "clientCapabilities": {
-            "fs": {
-                "readTextFile": caps.read_text_file,
-                "writeTextFile": caps.write_text_file,
-            },
-            "terminal": caps.terminal,
-        },
-        "clientInfo": { "name": "opman", "version": env!("CARGO_PKG_VERSION") },
-    })
-}
-
-fn init_supports_load(init: &Value) -> bool {
-    init.get("agentCapabilities")
-        .and_then(|c| c.get("loadSession"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
-}
-
-/// Whether a prompt may be sent while a turn is running. Both spellings seen in the wild:
-/// a top-level `_meta.steering` marker and a per-agent `promptQueueing` flag.
-fn advertises_steering(init: &Value) -> bool {
-    let steering = init
-        .get("_meta")
-        .and_then(|m| m.get("steering"))
-        .and_then(|s| s.get("supported"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let queueing = init
-        .get("agentCapabilities")
-        .and_then(|c| c.get("_meta"))
-        .and_then(|m| m.get("claudeCode"))
-        .and_then(|c| c.get("promptQueueing"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    steering || queueing
 }
 
 fn spawn(engine: &Arc<AcpEngine>, dir: &str, session_id: &str) -> Result<Child> {

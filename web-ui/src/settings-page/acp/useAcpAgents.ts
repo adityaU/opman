@@ -3,6 +3,7 @@ import {
   ACP_AGENTS_CHANGED,
   deleteAcpAgent,
   fetchAcpAgents,
+  resetAcpConfig,
   saveAcpAgent,
   setAcpAgentEnabled,
   type AcpAgent,
@@ -33,7 +34,17 @@ export interface AcpAgentsState {
   readonly toggle: (agent: AcpAgent) => Promise<void>;
   readonly save: (id: string, draft: AcpAgentDraft) => Promise<boolean>;
   readonly remove: (id: string) => Promise<void>;
+  /** Delete `acp.json` outright, putting every agent back to how opman ships it. */
+  readonly resetConfig: () => Promise<void>;
 }
+
+/**
+ * The `busy` marker for a write that is not about one agent.
+ *
+ * `busy` is an agent id so a row can show its own spinner. Agent ids are validated to
+ * lowercase letters, digits and dashes, so this can never collide with one.
+ */
+export const WHOLE_CONFIG = "*";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -135,7 +146,29 @@ export function useAcpAgents(onError: (message: string) => void): AcpAgentsState
     [write],
   );
 
+  const resetConfig = useCallback(async () => {
+    await write(WHOLE_CONFIG, resetAcpConfig);
+    // `describe` speaks in terms of runners starting and stopping, and a reset of a config
+    // that only tweaked a running agent stops nothing — which would leave the page silent
+    // about a destructive action. Say what happened to the file either way.
+    if (alive.current) {
+      setNotice((changes) => changes ?? "acp.json deleted. Every agent is back to how opman ships it.");
+    }
+  }, [write]);
+
   const dismissNotice = useCallback(() => setNotice(undefined), []);
 
-  return { agents, loading, error, busy, notice, dismissNotice, refresh, toggle, save, remove };
+  return {
+    agents,
+    loading,
+    error,
+    busy,
+    notice,
+    dismissNotice,
+    refresh,
+    toggle,
+    save,
+    remove,
+    resetConfig,
+  };
 }

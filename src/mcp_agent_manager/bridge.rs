@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 
 use super::request::ManagerRequest;
 use super::{tools, SESSION_ENV, SOCKET_ENV};
@@ -56,7 +57,11 @@ where
 {
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
+    let mut calls = JoinSet::new();
     loop {
+        // Reap whatever has already answered, so the set does not grow for the life of a
+        // long session.
+        while calls.try_join_next().is_some() {}
         line.clear();
         if reader.read_line(&mut line).await? == 0 {
             break;
@@ -75,8 +80,21 @@ where
                 continue;
             }
         };
-        dispatch_rpc(request, &stdout, &socket, source.as_deref(), &project_path).await;
+        dispatch_rpc(
+            request,
+            &stdout,
+            &socket,
+            source.as_deref(),
+            &project_path,
+            &mut calls,
+        )
+        .await;
     }
+    // A call still in flight when the input ends is owed an answer. Returning here drops
+    // the tasks that would have written it, and the agent that made the call waits on a
+    // response that no longer has anywhere to come from — a tool that never returns, with
+    // nothing in any log to say why.
+    while calls.join_next().await.is_some() {}
     Ok(())
 }
 
@@ -86,6 +104,7 @@ async fn dispatch_rpc<W>(
     socket: &Arc<PathBuf>,
     source: Option<&str>,
     project_path: &Path,
+    calls: &mut JoinSet<()>,
 ) where
     W: AsyncWrite + Unpin + Send + 'static,
 {
@@ -110,13 +129,14 @@ async fn dispatch_rpc<W>(
             .await
         }
         // Spawned, not awaited: a steer to a busy agent can sit for a whole turn, and
-        // blocking here would stall every later request on this one stdio pipe.
+        // blocking here would stall every later request on this one stdio pipe. Tracked in
+        // `calls` so the loop can still wait for it before it goes away.
         "tools/call" => {
             let socket = socket.clone();
             let stdout = stdout.clone();
             let source = source.map(str::to_string);
             let directory = project_path.to_string_lossy().into_owned();
-            tokio::spawn(async move {
+            calls.spawn(async move {
                 let result = call_tool(&socket, request.params, source.as_deref(), &directory).await;
                 let response = match result {
                     Ok(value) => json!({ "jsonrpc": "2.0", "id": request.id, "result": {
@@ -179,6 +199,9 @@ fn to_request(
             "agent_start" => "start",
             "agent_progress" => "progress",
             "agent_runner_options" => "options",
+            "agent_list" => "list",
+            "agent_wait" => "wait",
+            "agent_abort" => "abort",
             other => anyhow::bail!("unknown tool: {other}"),
         }
         .into(),
@@ -196,6 +219,9 @@ fn to_request(
         title: text("title"),
         message: text("message"),
         delivery: text("delivery"),
+        filter: text("filter"),
+        timeout: args.get("timeout").and_then(Value::as_u64),
+        server: None,
     })
 }
 
@@ -224,3 +250,7 @@ async fn exchange(socket: &Path, request: &ManagerRequest) -> Result<Value> {
 #[cfg(test)]
 #[path = "bridge_tests.rs"]
 mod bridge_tests;
+
+#[cfg(test)]
+#[path = "bridge_rpc_tests.rs"]
+mod bridge_rpc_tests;

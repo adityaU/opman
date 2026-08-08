@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { PanelRightClose, Plus } from "lucide-react";
+import { KeyHint } from "../keybindings/hint/KeyHint";
 import type { WindowId, WorkspaceWindow } from "./types";
 
 /**
@@ -19,8 +20,6 @@ import type { WindowId, WorkspaceWindow } from "./types";
  * dot per window costs effectively zero. The spine is itself the button that
  * brings the rail back, so hiding it is never a one-way door for the mouse.
  */
-
-const TOGGLE_HINT = "⌘K L";
 
 interface WindowRailProps {
   readonly windows: readonly WorkspaceWindow[];
@@ -66,24 +65,20 @@ export const WindowRail: React.FC<WindowRailProps> = React.memo(function WindowR
 
   if (!expanded) {
     return (
-      <button
-        type="button"
-        className="wsp-spine"
-        onClick={onToggle}
-        aria-label={`Show windows (${TOGGLE_HINT})`}
-        title={`Show windows (${TOGGLE_HINT})`}
-      >
-        {windows.map((window) => (
-          <span
-            key={window.id}
-            className={
-              "wsp-spine-dot" +
-              (window.id === activeWindowId ? " is-active" : "") +
-              (busyWindows.has(window.id) ? " is-busy" : "")
-            }
-          />
-        ))}
-      </button>
+      <KeyHint label="Show windows" command="workspace.toggleRail" placement="left">
+        <button type="button" className="wsp-spine" onClick={onToggle} aria-label="Show windows">
+          {windows.map((window) => (
+            <span
+              key={window.id}
+              className={
+                "wsp-spine-dot" +
+                (window.id === activeWindowId ? " is-active" : "") +
+                (busyWindows.has(window.id) ? " is-busy" : "")
+              }
+            />
+          ))}
+        </button>
+      </KeyHint>
     );
   }
 
@@ -93,15 +88,11 @@ export const WindowRail: React.FC<WindowRailProps> = React.memo(function WindowR
     // buttons. The arrow-key handler stays out here so it catches them from
     // anywhere in the rail.
     <div className="wsp-rail" onKeyDown={onKeyDown}>
-      <button
-        type="button"
-        className="wsp-rail-toggle"
-        onClick={onToggle}
-        aria-label={`Hide windows (${TOGGLE_HINT})`}
-        title={`Hide windows (${TOGGLE_HINT})`}
-      >
-        <PanelRightClose size={14} />
-      </button>
+      <KeyHint label="Hide windows" command="workspace.toggleRail" placement="left">
+        <button type="button" className="wsp-rail-toggle" onClick={onToggle} aria-label="Hide windows">
+          <PanelRightClose size={14} />
+        </button>
+      </KeyHint>
 
       <div
         className="wsp-rail-list"
@@ -136,15 +127,11 @@ export const WindowRail: React.FC<WindowRailProps> = React.memo(function WindowR
         })}
       </div>
 
-      <button
-        type="button"
-        className="wsp-rail-add"
-        onClick={onNewWindow}
-        aria-label="New window"
-        title="New window"
-      >
-        <Plus size={14} />
-      </button>
+      <KeyHint label="New window" command="workspace.newWindow" placement="left">
+        <button type="button" className="wsp-rail-add" onClick={onNewWindow} aria-label="New window">
+          <Plus size={14} />
+        </button>
+      </KeyHint>
     </div>
   );
 });

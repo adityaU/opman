@@ -12,12 +12,12 @@ fn names(flags: BuiltinFlags) -> Vec<String> {
 }
 
 /// `skills` is unflagged: skills reaching no runner at all is the bug this fixes.
-/// `kanban` and `agent-manager` are unconditional in the list and gated at bind time.
+/// `kanban`, `ask` and `agent-manager` are unconditional in the list and gated at bind time.
 #[test]
 fn no_flags_still_yields_the_unflagged_servers() {
     assert_eq!(
         names(BuiltinFlags::default()),
-        ["skills", "kanban", "agent-manager"]
+        ["skills", "kanban", "ask", "agent-manager"]
     );
 }
 
@@ -29,7 +29,7 @@ fn every_flag_adds_exactly_its_own_server() {
     };
     assert_eq!(
         names(flags),
-        ["terminal", "skills", "kanban", "agent-manager"]
+        ["terminal", "skills", "kanban", "ask", "agent-manager"]
     );
 }
 
@@ -44,6 +44,7 @@ fn all_flags_yield_every_builtin() {
             "ui",
             "skills",
             "kanban",
+            "ask",
             "agent-manager"
         ]
     );
@@ -55,7 +56,26 @@ fn kanban_is_gated_on_the_loopback_descriptor_at_bind_time() {
     // web server starts, without restarting opman.
     let specs = servers("/opman", BuiltinFlags::default());
     let kanban = specs.iter().find(|s| s.name() == "kanban").expect("kanban");
-    assert_eq!(kanban.presence, Presence::KanbanDescriptor);
+    assert_eq!(kanban.presence, Presence::LoopbackDescriptor);
+}
+
+/// The question server is the one built-in whose call is held open by a human, so it needs
+/// both halves of the timeout story: the loopback it dials and a ceiling far above the
+/// 60s a silent call gets by default.
+#[test]
+fn ask_is_gated_on_the_loopback_and_carries_a_long_ceiling() {
+    let specs = servers("/opman", BuiltinFlags::default());
+    let ask = specs.iter().find(|s| s.name() == "ask").expect("ask");
+    assert_eq!(ask.presence, Presence::LoopbackDescriptor);
+    assert_eq!(ask.timeout_secs(), Some(PROXY_TIMEOUT_SECS));
+    // It routes by session, and takes the project directory as the fallback for a runner
+    // whose config is process-wide and cannot supply one.
+    assert!(ask.binds_session());
+    let Transport::Stdio(stdio) = ask.transport() else {
+        panic!("ask should be stdio");
+    };
+    assert_eq!(stdio.args[0], Arg::lit("mcp-ask"));
+    assert_eq!(stdio.args[1], Arg::Dir);
 }
 
 #[test]
@@ -72,7 +92,7 @@ fn agent_manager_is_gated_on_the_socket_variable() {
 #[test]
 fn the_bridges_that_route_by_session_declare_the_session_variable() {
     let specs = servers("/opman", BuiltinFlags::ALL);
-    for name in ["terminal", "neovim", "agent-manager"] {
+    for name in ["terminal", "neovim", "agent-manager", "ask"] {
         let spec = specs.iter().find(|s| s.name() == name).expect(name);
         assert!(spec.binds_session(), "{name} should carry the session id");
     }
@@ -93,6 +113,7 @@ fn the_project_bridges_take_the_directory_positionally() {
         ("terminal", "mcp"),
         ("neovim", "mcp-nvim"),
         ("agent-manager", "mcp-agent-manager"),
+        ("ask", "mcp-ask"),
     ] {
         let spec = specs.iter().find(|s| s.name() == name).expect(name);
         let Transport::Stdio(stdio) = spec.transport() else {

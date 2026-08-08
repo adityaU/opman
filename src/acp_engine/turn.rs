@@ -144,5 +144,15 @@ pub async fn abort(engine: Arc<AcpEngine>, session_id: &str) {
             engine.conns.close(session_id).await;
         }
     }
+    // The agent cancels its outstanding permission requests along with the turn, so a prompt
+    // still on screen has nothing left to answer — and answering it would reply into a turn
+    // that has already unwound.
+    for request_id in engine.clear_session_pending(session_id) {
+        engine.emit(
+            "",
+            "permission.replied",
+            json!({ "id": request_id, "requestID": request_id, "sessionID": session_id }),
+        );
+    }
     engine.set_busy(session_id, false);
 }

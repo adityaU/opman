@@ -1,6 +1,21 @@
-import { apiFetch, apiPost } from "./client";
+import { apiFetch, apiPatch, apiPost } from "./client";
 
 // ── Types ─────────────────────────────────────────────
+
+/**
+ * What a session is configured to run as, as its runner reports it.
+ *
+ * Not opman's to store: every runner already keeps these per session and persists them,
+ * because each has to reproduce the same configuration when it resumes a conversation.
+ * A field is absent when the session has never had that choice made — which a runner
+ * answers with its own current default, and is not the same as being pinned to one.
+ */
+export interface EngineChoices {
+  model?: string;
+  agent?: string;
+  effort?: string;
+  permissionMode?: string;
+}
 
 export interface SessionInfo {
   id: string;
@@ -9,6 +24,7 @@ export interface SessionInfo {
   directory: string;
   time: { created: number; updated: number };
   runner?: string;
+  engine?: EngineChoices;
 }
 
 export interface ProjectInfo {
@@ -144,6 +160,28 @@ export async function fetchThemePair(): Promise<ThemePair | null> {
 // ── Themes ────────────────────────────────────────────
 
 /** Theme preview with both dark and light color sets. */
+/**
+ * Tell the session's runner what it should run as, without sending a turn.
+ *
+ * A send already carries these, which covers a choice the user makes and then acts on.
+ * This covers the one they make and leave: nothing was sent, so without it the pick was
+ * never recorded anywhere and the session came back configured as it last ran.
+ *
+ * Only the fields present are applied — one chip's change must not clear the other three.
+ * `accepted` is false for a runner with no way to be configured out of band; that is not
+ * an error, the choice simply applies with the next turn as it always did.
+ */
+export async function setSessionEngine(
+  sessionId: string,
+  choices: EngineChoices,
+): Promise<boolean> {
+  const result = await apiPatch<{ accepted?: boolean }>(
+    `/session/${sessionId}/engine`,
+    choices,
+  );
+  return result?.accepted === true;
+}
+
 export interface ThemePreview {
   name: string;
   dark: ThemeColors;

@@ -34,6 +34,34 @@ fn consecutive_chunks_append_and_emit_deltas() {
     }
 }
 
+/// A reconnecting provider may resend the tail of the previous chunk. The overlap belongs to
+/// text already rendered and must not appear twice in the transcript or in the SSE delta.
+#[test]
+fn overlapping_chunks_append_only_the_new_suffix() {
+    let mut t = Transcript::new("ses1");
+    let mut out = Vec::new();
+    t.chunk(Chunk::Text, Some("m1"), "what sur", &mut out);
+    t.chunk(Chunk::Text, Some("m1"), "what surfaced it", &mut out);
+
+    assert_eq!(text_of(&t, 0, 0), "what surfaced it");
+    match out.last() {
+        Some(Emit::Delta { delta, .. }) => assert_eq!(delta, "faced it"),
+        other => panic!("expected an overlap-trimmed delta, got {other:?}"),
+    }
+}
+
+#[test]
+fn an_identical_repeated_chunk_is_ignored() {
+    let mut t = Transcript::new("ses1");
+    let mut out = Vec::new();
+    t.chunk(Chunk::Text, Some("m1"), "already", &mut out);
+    out.clear();
+    t.chunk(Chunk::Text, Some("m1"), "already", &mut out);
+
+    assert_eq!(text_of(&t, 0, 0), "already");
+    assert!(out.is_empty());
+}
+
 /// Reasoning and text are different part types, so a switch must open a new part rather
 /// than appending thinking into the visible reply.
 #[test]

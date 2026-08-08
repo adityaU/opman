@@ -20,35 +20,12 @@ struct McpRequest {
     id: serde_json::Value,
 }
 
-/// Resolved internal API descriptor (`~/.config/opman/internal.json`).
-#[derive(Clone)]
-pub(crate) struct Internal {
-    pub url: String,
-    pub token: String,
-    pub client: reqwest::Client,
-}
-
-fn load_internal() -> Option<Internal> {
-    let path = dirs::config_dir()?.join("opman").join("internal.json");
-    load_internal_from(&path)
-}
-
-/// Parse an `internal.json` descriptor from a specific path. Extracted so the
-/// parsing/validation logic is testable without depending on the real config
-/// directory. Returns `None` if the file is missing, malformed, or lacks the
-/// required `url`/`token` string fields.
-pub(crate) fn load_internal_from(path: &std::path::Path) -> Option<Internal> {
-    let content = std::fs::read_to_string(path).ok()?;
-    let v: serde_json::Value = serde_json::from_str(&content).ok()?;
-    Some(Internal {
-        url: v.get("url")?.as_str()?.to_string(),
-        token: v.get("token")?.as_str()?.to_string(),
-        client: reqwest::Client::new(),
-    })
-}
+/// Resolved internal API descriptor (`~/.config/opman/internal.json`), shared with every
+/// other stdio server that dials back into the web server.
+pub(crate) use crate::loopback::Loopback as Internal;
 
 pub async fn run_mcp_kanban_bridge() -> anyhow::Result<()> {
-    let internal = load_internal();
+    let internal = Internal::load();
     run_kanban_bridge(internal, tokio::io::stdin(), tokio::io::stdout()).await
 }
 

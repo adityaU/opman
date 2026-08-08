@@ -7,6 +7,7 @@ import { TargetOverlay } from "./target/TargetOverlay";
 import { useTargeting, type TargetRequest, type TargetSlot } from "./target/useTargeting";
 import { WidgetOpener } from "./opener/WidgetOpener";
 import { paneMenuItems } from "./paneMenuItems";
+import { useWhenContext } from "../keybindings/useCommand";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useWorkspacePlacement } from "./useWorkspacePlacement";
 import { useWorkspaceWidgets } from "./useWorkspaceWidgets";
@@ -33,6 +34,8 @@ import { WorkspaceChatProvider, type WorkspaceChatServices } from "./widgets/Wor
 export interface WorkspaceBridge {
   readonly arm: (request: TargetRequest) => void;
   readonly openKindHere: (kind: WidgetKind) => void;
+  /** Reveal a file: in the files pane already open, or in a new split. */
+  readonly openFile: (path: string, line: number | null) => void;
 }
 
 export interface WorkspaceProject {
@@ -58,7 +61,7 @@ export interface DesktopWorkspaceProps {
    * sidebar session click, and the surviving `layout.toggle*` chords. One
    * registrant per command id: two would race on mount order.
    */
-  readonly targetingBridge?: (api: WorkspaceBridge) => void;
+  readonly targetingBridge?: (api: WorkspaceBridge | null) => void;
 }
 
 export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function DesktopWorkspace({
@@ -78,6 +81,19 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   const [renaming, setRenaming] = useState<WindowId | null>(null);
 
   const paneList = useMemo(() => panes(activeWindow.root), [activeWindow.root]);
+
+  // The panel keybindings — terminal tabs, git actions, editor navigation — are
+  // each scoped to the surface they act on. That surface is whichever pane has
+  // focus, so this is the only place that can answer for them.
+  const focusedKind = useMemo(
+    () => paneList.find((pane) => pane.id === activeWindow.focusedPaneId)?.widget?.kind ?? null,
+    [activeWindow.focusedPaneId, paneList],
+  );
+  useWhenContext({
+    editorOpen: focusedKind === "files",
+    terminalOpen: focusedKind === "terminal",
+    gitRepo: focusedKind === "git",
+  });
 
   const { chatServices, renderWidget } = useWorkspaceWidgets({ state, dispatch, chat, onError });
 
@@ -115,10 +131,14 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   // tree, and one function is a smaller contract than a provider. In an effect,
   // not in render — publishing during render is a side effect, and under
   // StrictMode's double invocation it would run twice per commit.
-  const { armOrPlace, openKindHere } = placement;
+  const { armOrPlace, openKindHere, openFileHere } = placement;
   useEffect(() => {
-    targetingBridge?.({ arm: armOrPlace, openKindHere });
-  }, [armOrPlace, openKindHere, targetingBridge]);
+    targetingBridge?.({ arm: armOrPlace, openKindHere, openFile: openFileHere });
+    // Withdrawn on unmount, so the shell's callers fall back rather than
+    // dispatching into a reducer that is no longer on screen — which is what
+    // the board switching the whole workspace out does.
+    return () => targetingBridge?.(null);
+  }, [armOrPlace, openFileHere, openKindHere, targetingBridge]);
 
   /** Open the inline field. The commit goes through `commitRename`. */
   const renameWindow = useCallback(

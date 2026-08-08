@@ -196,6 +196,25 @@ impl ClaudeEngine {
             .unwrap_or_else(|| self.default_mode.clone())
     }
 
+    /// Apply every choice the caller made, leaving the ones it did not alone.
+    ///
+    /// Shared by the send path and the configure route so the two cannot disagree about
+    /// which controls a session honours — permission mode used to be applied by neither.
+    pub fn apply_choices(&self, session_id: &str, choices: &crate::app::EngineChoices) {
+        if let Some(model) = choices.model.as_deref() {
+            self.set_model(session_id, model);
+        }
+        if let Some(agent) = choices.agent.as_deref() {
+            self.set_agent(session_id, agent);
+        }
+        if let Some(effort) = choices.effort.as_deref() {
+            self.set_effort(session_id, effort);
+        }
+        if let Some(mode) = choices.permission_mode.as_deref() {
+            self.set_permission_mode(session_id, mode);
+        }
+    }
+
     /// Set a session's permission mode at runtime; returns the new mode.
     pub fn set_permission_mode(&self, session_id: &str, mode: &str) {
         let dir = {

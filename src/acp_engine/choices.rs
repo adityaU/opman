@@ -7,9 +7,43 @@
 
 use serde_json::{json, Value};
 
+use crate::app::EngineChoices;
+
 use super::{options, AcpEngine};
 
+/// The choices carried by a send body.
+///
+/// A turn names them per-field (`model.modelID`, `permission`) while the configure route
+/// sends an [`EngineChoices`] object. Reading both into the same type means the two paths
+/// cannot drift on which fields they honour.
+pub fn from_send_body(body: &Value) -> EngineChoices {
+    EngineChoices::from_parts(
+        body.get("model")
+            .and_then(|model| model.get("modelID"))
+            .and_then(Value::as_str),
+        body.get("agent").and_then(Value::as_str),
+        body.get("effort").and_then(Value::as_str),
+        body.get("permission").and_then(Value::as_str),
+    )
+}
+
 impl AcpEngine {
+    /// Apply every choice the caller made, leaving the ones it did not alone.
+    pub fn apply_choices(&self, id: &str, choices: &EngineChoices) {
+        if let Some(model) = choices.model.as_deref() {
+            self.set_model(id, model);
+        }
+        if let Some(agent) = choices.agent.as_deref() {
+            self.set_agent(id, agent);
+        }
+        if let Some(effort) = choices.effort.as_deref() {
+            self.set_effort(id, effort);
+        }
+        if let Some(mode) = choices.permission_mode.as_deref() {
+            self.set_permission_mode(id, mode);
+        }
+    }
+
     // ── engine choices ───────────────────────────────────────────────
     pub fn set_model(&self, id: &str, model: &str) {
         if model.is_empty() {

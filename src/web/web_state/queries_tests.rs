@@ -3,18 +3,7 @@ use crate::web::types::*;
 use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 
-fn sess(id: &str, parent: &str, dir: &str, updated: u64) -> crate::app::SessionInfo {
-    crate::app::SessionInfo {
-        id: id.into(),
-        title: format!("title-{id}"),
-        parent_id: parent.into(),
-        directory: dir.into(),
-        time: crate::app::SessionTime {
-            created: 1,
-            updated,
-        },
-    }
-}
+use crate::web::test_support::test_session as sess;
 
 #[tokio::test]
 async fn get_state_reflects_indicator_sets() {

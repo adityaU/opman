@@ -6,6 +6,7 @@ import {
 import type { GitFileEntry, GitView } from "../types";
 import type { GitSelection } from "../useGitSelection";
 import { FileSection } from "./FileSection";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 interface Props {
   loading: boolean;
@@ -65,26 +66,28 @@ export function ChangesListView({
       {/* AI action buttons */}
       {onSendToAI && (
         <div className="git-ai-actions">
-          <button className="git-ai-button" onClick={handleAIReview}
-            disabled={aiReviewLoading || (staged.length === 0 && unstaged.length === 0)}
-            title="Send all changes to AI for code review"
-          >
-            {aiReviewLoading ? <Loader2 size={12} className="spin" /> : <MessageSquare size={12} />}
-            Review Changes
-          </button>
-          <button className="git-ai-button" onClick={handleAICommitMsg}
-            disabled={aiCommitMsgLoading || staged.length === 0}
-            title="Generate a commit message from staged changes"
-          >
-            {aiCommitMsgLoading ? <Loader2 size={12} className="spin" /> : <FileEdit size={12} />}
-            Write Commit Msg
-          </button>
-          <button className="git-ai-button" onClick={openPRBranchPicker}
-            disabled={aiPrLoading} title="Draft a PR description from branch changes"
-          >
-            {aiPrLoading ? <Loader2 size={12} className="spin" /> : <GitPullRequest size={12} />}
-            Draft PR
-          </button>
+          <KeyHint label="Send all changes to AI for code review" command="git.sendToReview">
+            <button className="git-ai-button" onClick={handleAIReview}
+              disabled={aiReviewLoading || (staged.length === 0 && unstaged.length === 0)}
+            >
+              {aiReviewLoading ? <Loader2 size={12} className="spin" /> : <MessageSquare size={12} />}
+              Review Changes
+            </button>
+          </KeyHint>
+          <KeyHint label="Generate a commit message from staged changes" command="git.generateCommitMessage">
+            <button className="git-ai-button" onClick={handleAICommitMsg}
+              disabled={aiCommitMsgLoading || staged.length === 0}
+            >
+              {aiCommitMsgLoading ? <Loader2 size={12} className="spin" /> : <FileEdit size={12} />}
+              Write Commit Msg
+            </button>
+          </KeyHint>
+          <KeyHint label="Draft a PR description from branch changes" command="git.createPr">
+            <button className="git-ai-button" onClick={openPRBranchPicker} disabled={aiPrLoading}>
+              {aiPrLoading ? <Loader2 size={12} className="spin" /> : <GitPullRequest size={12} />}
+              Draft PR
+            </button>
+          </KeyHint>
         </div>
       )}
 

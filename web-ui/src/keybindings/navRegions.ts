@@ -34,23 +34,13 @@ export interface ShellRegion {
 
 const LIST_STOP = "[data-list-item][tabindex='0']";
 
-/**
- * The desktop shell, outside in. `.right-panel-stack` and `.wsp-rail` never
- * appear together — the first is the pre-workspace layout, the second the
- * workspace one — so their relative order is nominal.
- */
+/** The desktop shell, outside in: the sidebar, the pane tree, the window rail. */
 export const SHELL_REGIONS: readonly ShellRegion[] = [
   {
     id: "sidebar",
     side: "before",
     selector: ".chat-sidebar",
     entry: [LIST_STOP, "[data-list-item]", ".sb-session", ".sb-project-header"],
-  },
-  {
-    id: "panels",
-    side: "after",
-    selector: ".right-panel-stack",
-    entry: [LIST_STOP, "[data-list-item]", ".right-panel-tab-trigger", "button"],
   },
   {
     id: "rail",

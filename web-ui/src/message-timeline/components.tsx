@@ -2,6 +2,8 @@ import React from "react";
 import { FolderOpen, Cpu, Loader2, CircleSlash } from "lucide-react";
 import { EXAMPLE_PROMPTS } from "./types";
 import { OpmanMark } from "../OpmanMark";
+import type { CommandId } from "../keybindings/types";
+import { useChordLabeller } from "../keybindings/useChord";
 
 /**
  * Placeholder for a turn that is under way but has produced nothing visible
@@ -85,24 +87,24 @@ export function MessageShimmer() {
   );
 }
 
-/** True on macOS-family platforms, where the modifier key is ⌘ rather than Ctrl. */
-const IS_MAC = /Mac|iPhone|iPad/.test(
-  typeof navigator !== "undefined" ? navigator.platform : "",
-);
+/**
+ * The three keys worth learning on day one.
+ *
+ * Named as commands, not as chords: this is the first thing a new user reads,
+ * so it is the last place that should be guessing at their platform or their
+ * keymap mode.
+ */
+const WELCOME_SHORTCUTS: readonly { readonly command: CommandId; readonly label: string }[] = [
+  { command: "session.new", label: "Start a session" },
+  { command: "palette.commands", label: "Command palette" },
+  { command: "engine.model", label: "Switch model" },
+];
 
 /** Welcome screen when no session is selected — the product's front door. */
 export function WelcomeEmpty() {
-  const shortcuts: Array<[string, string]> = IS_MAC
-    ? [
-        ["Start a session", "⌘⇧N"],
-        ["Command palette", "⌘⇧P"],
-        ["Switch model", "⌘'"],
-      ]
-    : [
-        ["Start a session", "Ctrl+Shift+N"],
-        ["Command palette", "Ctrl+Shift+P"],
-        ["Switch model", "Ctrl+'"],
-      ];
+  const chordFor = useChordLabeller();
+  const shortcuts = WELCOME_SHORTCUTS.map(({ command, label }) => [label, chordFor(command)] as const)
+    .filter((entry): entry is readonly [string, string] => entry[1] !== undefined);
   return (
     <div className="message-timeline-empty">
       <div className="message-timeline-welcome home-welcome">
@@ -122,6 +124,29 @@ export function WelcomeEmpty() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+const SESSION_SHORTCUTS: readonly { readonly command: CommandId; readonly label: string }[] = [
+  { command: "engine.model", label: "Model Picker" },
+  { command: "layout.toggleEditor", label: "Editor" },
+  { command: "layout.toggleGit", label: "Git" },
+];
+
+/** The chord strip under a fresh session's prompt cards. */
+function SessionShortcutRow() {
+  const chordFor = useChordLabeller();
+  return (
+    <div className="message-timeline-shortcuts">
+      {SESSION_SHORTCUTS.map(({ command, label }) => {
+        const chord = chordFor(command);
+        return chord ? (
+          <span key={command}>
+            <kbd>{chord}</kbd> {label}
+          </span>
+        ) : null;
+      })}
     </div>
   );
 }
@@ -173,11 +198,7 @@ export function NewSessionEmpty({
           ))}
         </div>
 
-        <div className="message-timeline-shortcuts">
-          <kbd>Cmd&apos;</kbd> Model Picker
-          <kbd>Cmd+Shift+E</kbd> Editor
-          <kbd>Cmd+Shift+G</kbd> Git
-        </div>
+        <SessionShortcutRow />
       </div>
     </div>
   );

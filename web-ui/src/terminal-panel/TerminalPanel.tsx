@@ -13,8 +13,6 @@ export function TerminalPanel({
   onClose,
   visible = true,
   mcpAgentActive = false,
-  attachNonce,
-  attachKind = "claude-attach",
   layout = "desktop",
   restoreIds,
   onTabsChanged,
@@ -83,15 +81,6 @@ export function TerminalPanel({
     searchPrev,
     closeSearch,
   } = useTerminalSearch(activeTabId, runtimesRef);
-
-  // Open a fresh attach tab whenever the caller bumps `attachNonce` (the input's
-  // "Attach terminal" button). Skip the initial render so it doesn't fire spuriously.
-  const lastAttachNonce = useRef<number | undefined>(attachNonce);
-  useEffect(() => {
-    if (attachNonce === undefined || attachNonce === lastAttachNonce.current) return;
-    lastAttachNonce.current = attachNonce;
-    createTab(attachKind);
-  }, [attachNonce, attachKind, createTab]);
 
   const handleHidePanel = useCallback(() => onClose(), [onClose]);
 

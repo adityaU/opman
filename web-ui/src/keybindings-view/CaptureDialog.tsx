@@ -3,7 +3,7 @@ import { displayChord, formatChord, stepFromEvent } from "../keybindings/chord";
 import { reservedOwner } from "../keybindings/host";
 import { isPrefixOf } from "../keybindings/chord";
 import type { Keymap } from "../keybindings/matcher";
-import type { ChordStep, CommandDef, Host } from "../keybindings/types";
+import type { ChordStep, CommandDef, Host, Mode } from "../keybindings/types";
 import { conflictsFor } from "./rows";
 
 /**
@@ -17,6 +17,7 @@ export interface CaptureDialogProps {
   readonly previous?: string;
   readonly keymap: Keymap;
   readonly host: Host;
+  readonly mode: Mode;
   readonly onCommit: (chord: string) => void;
   readonly onCancel: () => void;
 }
@@ -33,6 +34,7 @@ function checkChord(
   steps: readonly ChordStep[],
   keymap: Keymap,
   host: Host,
+  mode: Mode,
   command: CommandDef,
 ): Warning[] {
   if (steps.length === 0) return [];
@@ -44,7 +46,7 @@ function checkChord(
     if (owner) {
       warnings.push({
         kind: "reserved",
-        text: `${displayChord([step], host.platform)} is taken by ${owner} and will never reach the app.`,
+        text: `${displayChord([step], host.platform, mode)} is taken by ${owner} and will never reach the app.`,
       });
     }
   }
@@ -60,7 +62,7 @@ function checkChord(
   if (prefixOf) {
     warnings.push({
       kind: "prefix",
-      text: `${displayChord(steps, host.platform)} is the start of ${displayChord(prefixOf.seq, host.platform)}, so it cannot also run a command.`,
+      text: `${displayChord(steps, host.platform, mode)} is the start of ${displayChord(prefixOf.seq, host.platform, mode)}, so it cannot also run a command.`,
     });
   }
 
@@ -70,7 +72,7 @@ function checkChord(
   if (startsWith) {
     warnings.push({
       kind: "prefix",
-      text: `${displayChord(startsWith.seq, host.platform)} already runs ${startsWith.command}, so this chord would never complete.`,
+      text: `${displayChord(startsWith.seq, host.platform, mode)} already runs ${startsWith.command}, so this chord would never complete.`,
     });
   }
 
@@ -82,6 +84,7 @@ export function CaptureDialog({
   previous,
   keymap,
   host,
+  mode,
   onCommit,
   onCancel,
 }: CaptureDialogProps) {
@@ -110,7 +113,7 @@ export function CaptureDialog({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, []);
 
-  const warnings = checkChord(steps, keymap, host, command);
+  const warnings = checkChord(steps, keymap, host, mode, command);
   const blocking = warnings.some((w) => w.kind === "reserved" || w.kind === "prefix");
 
   return (
@@ -127,7 +130,7 @@ export function CaptureDialog({
           ) : (
             steps.map((step, index) => (
               <kbd className="kbv-chip" key={`${index}-${step.key}`}>
-                {displayChord([step], host.platform)}
+                {displayChord([step], host.platform, mode)}
               </kbd>
             ))
           )}

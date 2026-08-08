@@ -13,6 +13,10 @@
  * be passed where a `PaneId` belongs.
  */
 
+import type { FileOpenRequest } from "../code-editor/types";
+
+export type { FileOpenRequest };
+
 // ── Ids ─────────────────────────────────────────────────
 
 declare const paneBrand: unique symbol;
@@ -69,7 +73,12 @@ export type WidgetState =
       /** Null until the pane's engine is changed away from the shell's. */
       readonly engine: PaneEngine | null;
     }
-  | { readonly kind: "files"; readonly projectPath: string; readonly filePath: string | null }
+  /**
+   * `open` is the last file the pane was asked to reveal, carried on the widget
+   * so a reload comes back to it. Browsing inside the panel does not write here
+   * — this is the request, not the panel's cursor.
+   */
+  | { readonly kind: "files"; readonly projectPath: string; readonly open: FileOpenRequest | null }
   /**
    * `ptyIds` are the pane's terminal tabs. PTYs live in the server process and
    * outlive a browser refresh, so remembering their ids is the whole of what it

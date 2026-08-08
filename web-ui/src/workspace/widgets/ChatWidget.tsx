@@ -46,7 +46,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
 }) {
   const services = useWorkspaceChat();
   const view = useSessionView(sessionId);
-  const controls = usePaneEngine(paneId, engine);
+  const controls = usePaneEngine(paneId, engine, sessionId);
   const [sending, setSending] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [matches, setMatches] = useState<SearchMatches>(NO_MATCHES);

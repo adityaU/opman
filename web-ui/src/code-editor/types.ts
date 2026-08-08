@@ -29,14 +29,31 @@ export interface BreadcrumbEntry {
   label: string;
 }
 
+// ── External open requests ──────────────────────────────
+
+/**
+ * "Show me this file" from outside the panel — a tool-card path click, or the
+ * MCP editor-open event.
+ *
+ * The three fields travel together because a line without a path means nothing,
+ * and because the request has to be able to repeat: clicking the same path
+ * twice, with the user having browsed elsewhere in between, is two requests.
+ * `seq` is what makes the second one distinguishable from the first.
+ */
+export interface FileOpenRequest {
+  readonly path: string;
+  /** 1-based line to jump to, or null to open at the top. */
+  readonly line: number | null;
+  /** Monotonic per request, so a repeat of the same path still re-reveals it. */
+  readonly seq: number;
+}
+
 // ── Component props ─────────────────────────────────────
 
 export interface CodeEditorPanelProps {
   focused?: boolean;
-  /** External file path to open (e.g. from chat tool calls) */
-  openFilePath?: string | null;
-  /** Optional line to jump to when opening or navigating a file */
-  openLine?: number | null;
+  /** File to reveal, set by whoever mounts the panel. */
+  open?: FileOpenRequest | null;
   /** Project path — when this changes, the editor resets to the new project root */
   projectPath?: string | null;
   /** Active session used for editor LSP integration */

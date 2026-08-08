@@ -112,8 +112,13 @@
     --shadow-md: 0 6px 20px var(--black-20), 0 2px 6px var(--black-10);
     --shadow-lg: 0 12px 40px var(--black-25), 0 4px 12px var(--black-12);
     --sidebar-width: 280px;
-    --right-panel-width: 500px;
     --status-bar-height: 28px;
+    /* One inset for the whole desktop shell: `.chat-content` pays it on all
+       four sides and as its column gap, the resize handle's negative margin is
+       derived from it, and the workspace uses it for the rail gap and every
+       gutter. One number separates every surface from every other surface and
+       from the viewport, so widening the shell is a single edit here. */
+    --panel-inset: 12px;
     --chat-max-width: 860px;
     /* Workspace panes. The header matches the app's other panel headers; the
        lightness and chroma are tokens (not hashed) because only the hue is

@@ -118,6 +118,13 @@ pub struct SessionInfo {
     pub directory: String,
     #[serde(default)]
     pub time: SessionTime,
+    /// What this session is configured to run as, straight from its runner.
+    ///
+    /// Nested rather than flattened: it is a separate fact with its own owner, and the
+    /// default runner does not report it at all, so a session list from upstream simply
+    /// arrives without the key.
+    #[serde(default)]
+    pub engine: crate::app::EngineChoices,
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]

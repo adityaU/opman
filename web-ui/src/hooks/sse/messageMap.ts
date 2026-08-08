@@ -212,14 +212,26 @@ export function applyPartDelta(
     return true;
   }
 
-  // Append delta to the field (usually "text")
+  // Append delta to the field (usually "text"). A reconnect can deliver a delta whose
+  // beginning overlaps the text already present from a full history snapshot.
   const current = (part as unknown as Record<string, unknown>)[field];
+  const appended = typeof current === "string" ? appendNonOverlapping(current, delta) : delta;
+  if (!appended) return false;
   (part as unknown as Record<string, unknown>)[field] =
-    typeof current === "string" ? current + delta : delta;
+    typeof current === "string" ? current + appended : appended;
 
   // Create new references for React change detection
   map.set(messageID, { ...msg, parts: [...msg.parts] });
   return true;
+}
+
+/** Remove a repeated chunk boundary without touching legitimate non-overlapping text. */
+function appendNonOverlapping(existing: string, incoming: string): string {
+  const max = Math.min(existing.length, incoming.length);
+  for (let size = max; size >= 0; size--) {
+    if (existing.endsWith(incoming.slice(0, size))) return incoming.slice(size);
+  }
+  return incoming;
 }
 
 /** Remove a message from the map. */

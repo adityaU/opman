@@ -19,7 +19,7 @@ impl AcpEngine {
     /// Capability lookup across every source, newest first: a live session's own reply, then
     /// the startup probe. A live session wins because the user may have changed the mode or
     /// model since startup.
-    fn from_any_session<T, F>(&self, read: F) -> T
+    fn any_session<T, F>(&self, read: F) -> T
     where
         T: Default + IsEmpty,
         F: Fn(&Value) -> T,
@@ -79,6 +79,28 @@ impl AcpEngine {
         }
     }
 
+    /// Record a choice the agent just accepted, from whichever channel set it.
+    ///
+    /// The three set methods answer differently: `session/set_config_option` returns the whole
+    /// reconciled list, while the spec's two return nothing at all. Folding both back here is
+    /// what keeps a later sync from re-pushing a value the agent is already on.
+    pub fn note_selected(
+        &self,
+        id: &str,
+        channel: options::Channel,
+        option: &str,
+        value: &str,
+        reply: &Value,
+    ) {
+        match channel {
+            options::Channel::Config => self.merge_config_list(id, reply),
+            spec => self.with_discovered(id, |d| options::note_current(&mut d.setup, spec, value)),
+        }
+        if option == options::MODE {
+            self.note_mode(id, value);
+        }
+    }
+
     /// Replace the stored `configOptions` with a fresher list — the reply to
     /// `session/set_config_option` carries the whole array, already reconciled by the agent.
     pub fn merge_config_list(&self, id: &str, reply: &Value) {
@@ -119,17 +141,17 @@ impl AcpEngine {
 
     /// The models the agent offers.
     pub fn models(&self) -> Vec<options::Choice> {
-        self.from_any_session(options::models)
+        self.any_session(options::models)
     }
 
     /// The model the agent currently has selected, for the picker's default.
     pub fn current_model(&self) -> Option<String> {
-        self.from_any_session(|setup| options::current(setup, options::MODEL))
+        self.any_session(options::current_model)
     }
 
     /// The permission modes the agent offers, for the engine picker.
     pub fn modes(&self) -> Vec<options::Choice> {
-        self.from_any_session(options::mode_ids)
+        self.any_session(options::mode_ids)
     }
 }
 

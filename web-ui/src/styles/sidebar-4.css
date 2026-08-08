@@ -133,10 +133,6 @@
     animation: dot-pulse 1.5s ease-in-out infinite
 }
 
-.side-panel-header .mcp-agent-indicator {
-    margin-right: auto
-}
-
 .sb-header,.sb-add-project {
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 35%,transparent),transparent)
 }

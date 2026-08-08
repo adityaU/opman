@@ -5,6 +5,7 @@
  */
 import { useCallback, useRef } from "react";
 import { File } from "lucide-react";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 import type { DocData, OpenFileEntry } from "../types";
 
 interface Props {
@@ -54,9 +55,15 @@ export function DocumentEditor({ path, docData, setOpenFiles }: Props) {
   return (
     <div className="document-viewer document-viewer-editable">
       <div className="document-toolbar">
-        <button className="doc-toolbar-btn" title="Bold (Ctrl+B)" onClick={() => execCommand("bold")}>B</button>
-        <button className="doc-toolbar-btn doc-toolbar-italic" title="Italic (Ctrl+I)" onClick={() => execCommand("italic")}>I</button>
-        <button className="doc-toolbar-btn doc-toolbar-underline" title="Underline (Ctrl+U)" onClick={() => execCommand("underline")}>U</button>
+        <KeyHint label="Bold" command="doc.bold">
+          <button className="doc-toolbar-btn" onClick={() => execCommand("bold")}>B</button>
+        </KeyHint>
+        <KeyHint label="Italic" command="doc.italic">
+          <button className="doc-toolbar-btn doc-toolbar-italic" onClick={() => execCommand("italic")}>I</button>
+        </KeyHint>
+        <KeyHint label="Underline" command="doc.underline">
+          <button className="doc-toolbar-btn doc-toolbar-underline" onClick={() => execCommand("underline")}>U</button>
+        </KeyHint>
         <button className="doc-toolbar-btn doc-toolbar-strike" title="Strikethrough" onClick={() => execCommand("strikeThrough")}>S</button>
         <span className="doc-toolbar-sep" />
         <button className="doc-toolbar-btn" title="Heading 1" onClick={() => execCommand("formatBlock", "h1")}>H1</button>

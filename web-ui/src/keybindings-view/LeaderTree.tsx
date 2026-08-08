@@ -42,7 +42,7 @@ function buildNamespaces(keymap: Keymap, host: Host): Namespace[] {
     // A leader chord is three steps: leader, namespace, leaf. Two steps is a
     // leaf hanging directly off the leader.
     if (binding.seq.length === 3) {
-      const key = displayStep(binding.seq[1], host.platform);
+      const key = displayStep(binding.seq[1], host.platform, "vim");
       const bucket = byPrefix.get(key);
       if (bucket) bucket.push(binding);
       else byPrefix.set(key, [binding]);
@@ -92,7 +92,7 @@ export function LeaderTree({ keymap, host, leaderLabel }: LeaderTreeProps) {
             {namespace.leaves.map((leaf) => (
               <li className="kbv-leaf" key={leaf.id}>
                 <kbd className="kbv-chip">
-                  {displayStep(leaf.seq[leaf.seq.length - 1], host.platform)}
+                  {displayStep(leaf.seq[leaf.seq.length - 1], host.platform, "vim")}
                 </kbd>
                 <span className="kbv-leaf-label">{labelFor(leaf)}</span>
                 <code className="kbv-leaf-command">{leaf.command}</code>

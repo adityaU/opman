@@ -49,7 +49,11 @@ fn config_with(id: &str, entry: AgentConfig) -> AcpConfig {
 #[test]
 fn an_unchanged_agent_is_left_running() {
     let mut live = live_with("gemini", agent("gemini-acp"));
-    let (retired, deferred) = retire(&mut live, &config_with("gemini", agent("gemini-acp")), &unpinned());
+    let (retired, deferred) = retire(
+        &mut live,
+        &config_with("gemini", agent("gemini-acp")),
+        &unpinned(),
+    );
     // Restarting on every save would kill a turn in flight for no reason.
     assert!(retired.is_empty());
     assert!(deferred.is_empty());
@@ -59,7 +63,11 @@ fn an_unchanged_agent_is_left_running() {
 #[test]
 fn an_edited_agent_is_retired_so_it_can_be_restarted() {
     let mut live = live_with("gemini", agent("gemini-acp"));
-    let (retired, _) = retire(&mut live, &config_with("gemini", agent("other-acp")), &unpinned());
+    let (retired, _) = retire(
+        &mut live,
+        &config_with("gemini", agent("other-acp")),
+        &unpinned(),
+    );
     // The launch command is fixed when the child spawns, so a new one means a new process.
     assert_eq!(retired.len(), 1);
     assert!(live.is_empty());
@@ -107,11 +115,17 @@ async fn reconciling_installs_and_uninstalls_the_runner() {
         .reconcile(&config_with("gemini", agent("/bin/true")))
         .await;
     assert_eq!(added.added, vec![slot.clone()]);
-    assert!(registry.has(&slot), "the agent must be selectable as a runner");
+    assert!(
+        registry.has(&slot),
+        "the agent must be selectable as a runner"
+    );
 
     let removed = supervisor.reconcile(&AcpConfig::default()).await;
     assert_eq!(removed.removed, vec![slot.clone()]);
-    assert!(!registry.has(&slot), "a deleted agent must stop being offered");
+    assert!(
+        !registry.has(&slot),
+        "a deleted agent must stop being offered"
+    );
 }
 
 /// An ACP agent must not be able to take a slot another engine serves — `opencode` and
@@ -142,7 +156,9 @@ async fn an_occupied_slot_is_reported_rather_than_seized() {
         runner: "opencode".to_string(),
         ..agent("/bin/true")
     };
-    let changes = supervisor.reconcile(&config_with("squatter", squatter)).await;
+    let changes = supervisor
+        .reconcile(&config_with("squatter", squatter))
+        .await;
     assert_eq!(changes.blocked, vec!["squatter".to_string()]);
     assert!(changes.added.is_empty());
 }
@@ -154,8 +170,15 @@ async fn an_occupied_slot_is_reported_rather_than_seized() {
 fn the_default_runners_agent_is_spared_and_reported() {
     let mut live = live_with("gemini", agent("gemini-acp"));
     let pinned = RunnerKind::Acp("gemini".to_string());
-    let (retired, deferred) = retire(&mut live, &config_with("gemini", agent("other-acp")), &pinned);
+    let (retired, deferred) = retire(
+        &mut live,
+        &config_with("gemini", agent("other-acp")),
+        &pinned,
+    );
     assert!(retired.is_empty());
     assert_eq!(deferred, vec!["gemini".to_string()]);
-    assert!(live.contains_key("gemini"), "it must keep running on the old definition");
+    assert!(
+        live.contains_key("gemini"),
+        "it must keep running on the old definition"
+    );
 }

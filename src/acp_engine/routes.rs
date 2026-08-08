@@ -11,14 +11,14 @@ use std::time::Duration;
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use axum::response::sse::{Event, KeepAlive, Sse};
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde_json::{json, Value};
 
 use super::routes_meta::{agent_list, command_list, provider};
 use super::routes_turn::{
     abort, get_messages, get_todos, permission_reply, question_reject, question_reply,
-    send_message, session_command,
+    send_message, session_command, set_engine,
 };
 use super::{session_info, AcpEngine};
 
@@ -45,6 +45,7 @@ pub fn router(engine: Engine) -> Router {
             get(get_messages).post(send_message),
         )
         .route("/session/{id}/prompt_async", post(send_message))
+        .route("/session/{id}/engine", patch(set_engine))
         .route("/session/{id}/abort", post(abort))
         .route("/session/{id}/todo", get(get_todos))
         .route("/session/{id}/command", post(session_command))

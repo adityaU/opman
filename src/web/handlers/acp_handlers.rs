@@ -15,6 +15,7 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::acp_engine::catalog;
 use crate::acp_engine::config::{self, AgentConfig, ClientCaps};
 use crate::acp_engine::patch::{self, AcpDocument};
 use crate::acp_engine::supervisor::AcpChanges;
@@ -46,6 +47,10 @@ pub struct AgentView {
     pub enabled: bool,
     /// opman ships this agent, so removing its entry restores it rather than deleting it.
     pub builtin: bool,
+    /// Where opman read this agent's launch command from. Empty for an agent the user
+    /// declared themselves; for a catalogue entry opman could not find a documented
+    /// command it is the only thing the row can offer, so the page links it.
+    pub docs: String,
     /// The user's file has an entry for it.
     pub customized: bool,
     /// An engine is running and the runner slot is served.
@@ -93,6 +98,7 @@ fn view(id: &str, entry: &AgentConfig, live: Liveness) -> AgentView {
         subagent_transcripts: entry.subagent_transcripts,
         enabled: entry.enabled,
         builtin: config::is_builtin(id),
+        docs: catalog::docs_for(id).unwrap_or_default().to_string(),
         customized,
         running,
         launchable: entry.launchable(),
@@ -141,12 +147,23 @@ pub async fn list_agents(
 /// would answer prompts into a channel no browser is reading.
 pub(super) async fn commit(
     state: &ServerState,
-    document: &AcpDocument,
+    mut document: AcpDocument,
 ) -> Result<AcpChanges, StatusCode> {
-    patch::save_document(document).map_err(|error| {
+    // An entry that overrides nothing is noise the next reader has to look past, and for a
+    // built-in it is also a lie: the row would show as edited for a patch saying nothing.
+    document.agents.retain(|_, patch| !patch.is_empty());
+    patch::save_document(&document).map_err(|error| {
         tracing::error!("failed to write acp.json: {error}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+    Ok(adopt(state).await)
+}
+
+/// Re-read the file and make the running engines match it, then tell the browsers.
+///
+/// Split from [`commit`] because the file is not always written on the way in: deleting it
+/// is also a change the running set has to follow.
+async fn adopt(state: &ServerState) -> AcpChanges {
     let changes = state.acp.reload().await;
     for kind in &changes.added {
         let Some(receiver) = state.runner_registry.event_receiver_for(kind) else {
@@ -160,7 +177,27 @@ pub(super) async fn commit(
         );
     }
     let _ = state.event_tx.send(WebEvent::AcpAgentsChanged);
-    Ok(changes)
+    changes
+}
+
+/// Delete `acp.json` and put every agent back to how opman ships it.
+///
+/// The per-agent Remove drops one entry; this drops the file. Both mean the same thing —
+/// "stop overriding" — but at the two scopes the file actually has, and the whole-file one
+/// is the only way to undo a config that has become a mess without knowing what is in it.
+pub async fn reset_agents(
+    _auth: AuthUser,
+    State(state): State<ServerState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let existed = patch::delete_document().map_err(|error| {
+        tracing::error!("failed to delete acp.json: {error}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let changes = adopt(&state).await;
+    Ok(outcome(
+        if existed { "reset" } else { "unchanged" },
+        &changes,
+    ))
 }
 
 /// What a write did, so the page can say "added" or "this slot is taken" rather than
@@ -192,7 +229,7 @@ pub async fn set_agent_enabled(
     let id = validate_id(&id)?;
     let mut document = patch::load_document();
     document.agents.entry(id).or_default().enabled = Some(body.enabled);
-    let changes = commit(&state, &document).await?;
+    let changes = commit(&state, document).await?;
     Ok(outcome("saved", &changes))
 }
 
@@ -208,7 +245,7 @@ pub async fn delete_agent(
     if document.agents.remove(&id).is_none() {
         return Err(StatusCode::NOT_FOUND);
     }
-    let changes = commit(&state, &document).await?;
+    let changes = commit(&state, document).await?;
     Ok(outcome("deleted", &changes))
 }
 

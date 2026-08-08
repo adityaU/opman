@@ -136,7 +136,7 @@ pub async fn upsert_agent(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let changes = commit(&state, &document).await?;
+    let changes = commit(&state, document).await?;
     Ok(outcome("saved", &changes))
 }
 

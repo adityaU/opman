@@ -38,6 +38,7 @@ pub fn router(engine: Engine) -> Router {
             get(get_messages).post(send_message),
         )
         .route("/session/{id}/prompt_async", post(prompt_async))
+        .route("/session/{id}/engine", axum::routing::patch(set_engine))
         .route("/session/{id}/abort", post(abort))
         .route("/session/{id}/todo", get(get_todos))
         .route("/session/{id}/queue", get(get_queue).delete(clear_queue))
@@ -69,6 +70,9 @@ fn dir_header(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+/// `engine` reports what the session is configured to run as. The registry has held these
+/// four values, persisted, since the session was created; not reporting them is what left
+/// the composer guessing from a per-runner default shared by every session.
 fn session_obj(entry: &super::registry::SessionEntry) -> Value {
     json!({
         "id": entry.id,
@@ -79,7 +83,25 @@ fn session_obj(entry: &super::registry::SessionEntry) -> Value {
         "parentID": entry.parent_id,
         "directory": entry.directory,
         "time": { "created": entry.created, "updated": entry.updated },
+        "engine": crate::app::EngineChoices::from_parts(
+            entry.model.as_deref(),
+            entry.agent.as_deref(),
+            entry.effort.as_deref(),
+            entry.permission_mode.as_deref(),
+        ),
     })
+}
+
+/// The engine choices carried by a send body, in the shape the configure route uses.
+fn send_body_choices(body: &Value) -> crate::app::EngineChoices {
+    crate::app::EngineChoices::from_parts(
+        body.get("model")
+            .and_then(|model| model.get("modelID"))
+            .and_then(Value::as_str),
+        body.get("agent").and_then(Value::as_str),
+        body.get("effort").and_then(Value::as_str),
+        body.get("permission").and_then(Value::as_str),
+    )
 }
 
 fn extract_text(body: &Value) -> String {
@@ -425,21 +447,10 @@ async fn get_messages(State(engine): State<Engine>, Path(id): Path<String>) -> J
 /// must honour the same controls. Keeping the body here means a selected model
 /// or agent can't silently apply on one route and be dropped on the other.
 fn apply_controls_and_dispatch(engine: Engine, id: String, body: &Value) {
-    // The web UI may include a selected model `{ providerID, modelID }`.
-    if let Some(model_id) = body
-        .get("model")
-        .and_then(|m| m.get("modelID"))
-        .and_then(|s| s.as_str())
-    {
-        engine.set_model(&id, model_id);
-    }
-    // The kanban launch (and agent mentions) may include a selected agent.
-    if let Some(agent) = body.get("agent").and_then(|a| a.as_str()) {
-        engine.set_agent(&id, agent);
-    }
-    if let Some(effort) = body.get("effort").and_then(|e| e.as_str()) {
-        engine.set_effort(&id, effort);
-    }
+    // A send names its controls per-field — a selected model as `{ providerID, modelID }`
+    // from the composer, an agent from a kanban launch or an `@` mention, and the
+    // permission mode the client attaches to every turn.
+    engine.apply_choices(&id, &send_body_choices(body));
     let attachments = save_attachments(body, &id);
     let text = with_attachments(extract_text(body), &attachments);
     dispatch_turn(engine, id, text);
@@ -452,6 +463,20 @@ async fn send_message(
 ) -> Json<Value> {
     debug!(session = %id, "claude engine: send_message");
     apply_controls_and_dispatch(engine, id, &body.0);
+    Json(json!({ "ok": true }))
+}
+
+/// PATCH /session/{id}/engine — record what a session should run as, with no turn.
+///
+/// The composer writes here as soon as a chip is touched, so a choice the user makes and
+/// then walks away from is still theirs when they come back. Until this existed a choice
+/// only reached the registry on the next send.
+async fn set_engine(
+    State(engine): State<Engine>,
+    Path(id): Path<String>,
+    body: Json<crate::app::EngineChoices>,
+) -> Json<Value> {
+    engine.apply_choices(&id, &body.0);
     Json(json!({ "ok": true }))
 }
 
@@ -614,10 +639,12 @@ async fn command_list(State(engine): State<Engine>, headers: HeaderMap) -> Json<
     let arr: Vec<Value> = info
         .commands
         .iter()
-        .map(|name| match command_meta::lookup(&info.descriptions, name) {
-            Some(description) => json!({ "name": name, "description": description }),
-            None => json!({ "name": name }),
-        })
+        .map(
+            |name| match command_meta::lookup(&info.descriptions, name) {
+                Some(description) => json!({ "name": name, "description": description }),
+                None => json!({ "name": name }),
+            },
+        )
         .collect();
     Json(Value::Array(arr))
 }

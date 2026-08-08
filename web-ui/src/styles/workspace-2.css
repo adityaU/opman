@@ -1,20 +1,24 @@
 /* ── Workspace: the pane card, the tree, the gutters ───────────────────
    A pane is a panel card. The app already had exactly one container for
-   "a dockable widget with a header" — `.right-panel-card` + `.side-panel-header`,
+   "a dockable widget with a header" — the right-hand panel stack's card,
    spaced by `--panel-inset` — and the workspace had quietly grown a second
    one: flush cells painted on `--color-bg`, separated by a 1px hairline, with
    a full-perimeter accent outline for focus. Side by side, two panes read as
    one continuous field with a red rectangle drawn on part of it.
 
-   So the pane takes the card recipe verbatim: `--theme-surface-1`, a subtle
+   So the pane took the card recipe verbatim, and now owns it outright — the
+   stack it came from is gone: `--theme-surface-1`, a subtle
    border, `--radius`, one grounded shadow, and `--modal-rim` for the glass
    sheen — which is already `none` under `html.flat-theme`, so flat comes out
    correct without a second rule.
 
-   Project identity moved from a 2px rail down the left edge into the card's
-   own border. A 2px stripe against a 6px corner radius has nowhere good to
-   end, and the border reaches all four sides for free, survives zen mode, and
-   costs no element and no layout. */
+   The edge is the sidebar's edge, `--codex-border-soft`, and nothing else. It
+   used to carry the hashed project hue mixed 18% into the hairline, which put
+   a different border colour on every pane and none of them matched the one
+   long edge already on screen — the sidebar's. Two surfaces of the same kind
+   reading as two different materials costs more than per-project identity
+   gains, and identity is still carried where it is actually legible: the
+   project badge and the header accent, which keep `--pane-hue`. */
 
 /* ── Pane ────────────────────────────────────────────────────────── */
 
@@ -26,9 +30,10 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    /* The hashed project hue, resolved once. */
-    --pane-tint: oklch(var(--pane-l) var(--pane-c) var(--pane-hue, 250));
-    border: 1px solid color-mix(in srgb, var(--pane-tint) 18%, var(--color-border-subtle));
+    /* Same hairline as `.chat-sidebar`, so a pane and the sidebar read as one
+       material. Flat needs no override: the token already resolves against
+       `--color-border-subtle`, which each theme sets for itself. */
+    border: 1px solid var(--codex-border-soft);
     border-radius: var(--radius);
     background: var(--theme-surface-1);
     /* Resting panes sit flush on the canvas with nothing but the glass sheen.
@@ -36,19 +41,6 @@
     box-shadow: var(--modal-rim);
     outline: none;
     transition: border-color var(--transition-base), box-shadow var(--transition-base)
-}
-
-/* Flat firms the edge, since it has no sheen to separate card from canvas. */
-html.flat-theme .wsp-pane {
-    border-color: color-mix(in srgb, var(--pane-tint) 18%, var(--color-border))
-}
-
-/* An empty pane has no project, so it has no colour to show. Reading the
-   inline style is how the pane knows: Pane.tsx sets --pane-hue only when a
-   widget is mounted, and there is no other way to branch on a custom
-   property's absence in CSS. */
-.wsp-pane:not([style*="--pane-hue"]) {
-    --pane-tint: var(--color-border-subtle)
 }
 
 .wsp-pane:focus-visible {

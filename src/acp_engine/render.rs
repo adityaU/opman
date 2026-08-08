@@ -10,6 +10,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use super::attach::Prompt;
+use super::content::{self, Rendered};
 use super::emit::{Chunk, Emit};
 use super::AcpEngine;
 
@@ -33,21 +34,23 @@ pub fn apply(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
     }
 }
 
-/// Text arriving from the agent. The turn is marked busy here rather than on the prompt
+/// Content arriving from the agent. The turn is marked busy here rather than on the prompt
 /// call: an agent that streams is working, whatever its bookkeeping says.
+///
+/// Prose streams into the open part; anything else becomes a part of its own, because an
+/// image has no meaningful "append" and would end the streaming run anyway.
 fn chunk(engine: &Arc<AcpEngine>, session_id: &str, update: &Value, kind: Chunk) {
-    let Some(text) = update
-        .get("content")
-        .and_then(|c| c.get("text"))
-        .and_then(Value::as_str)
-    else {
+    let Some(rendered) = update.get("content").and_then(content::render) else {
         return;
     };
     let message_id = update.get("messageId").and_then(Value::as_str);
     mark_working(engine, session_id);
     let emits = engine.with_transcript(session_id, |t| {
         let mut out = Vec::new();
-        t.chunk(kind, message_id, text, &mut out);
+        match &rendered {
+            Rendered::Text(text) => t.chunk(kind, message_id, text, &mut out),
+            file => t.file(message_id, file, &mut out),
+        }
         out
     });
     broadcast(engine, session_id, emits);
@@ -67,11 +70,7 @@ fn mark_working(engine: &Arc<AcpEngine>, session_id: &str) {
 /// which is what rebuilds history after a restart. During a live turn opman has already
 /// rendered the prompt it sent, so echoes outside a replay would duplicate it.
 fn user_chunk(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
-    let Some(text) = update
-        .get("content")
-        .and_then(|c| c.get("text"))
-        .and_then(Value::as_str)
-    else {
+    let Some(Rendered::Text(text)) = update.get("content").and_then(content::render) else {
         return;
     };
     if !engine.is_replaying(session_id) {
@@ -87,6 +86,8 @@ fn user_chunk(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
 
 fn tool(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
     mark_working(engine, session_id);
+    let resolved = resolve_terminals(engine, update);
+    let update = resolved.as_ref().unwrap_or(update);
     let emits = engine.with_transcript(session_id, |t| {
         let mut out = Vec::new();
         t.tool_upsert(update, &mut out);
@@ -94,6 +95,41 @@ fn tool(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
     });
     broadcast(engine, session_id, emits);
     register_subagent(engine, session_id, update);
+}
+
+/// Swap `{ "type": "terminal" }` tool content for the text that terminal has produced.
+///
+/// ACP lets a tool call point at a terminal instead of carrying its output, which is how a
+/// long command shows progress while the call is still open. [`super::tool`] reads content
+/// blocks and knows nothing about terminals, so the substitution happens here — once, against
+/// the live buffer — and everything downstream sees an ordinary content block.
+///
+/// Returns `None` when there was nothing to swap, so the common call pays no clone.
+fn resolve_terminals(engine: &Arc<AcpEngine>, update: &Value) -> Option<Value> {
+    let content = update.get("content")?.as_array()?;
+    let terminal_id = |block: &Value| {
+        (block.get("type").and_then(Value::as_str)? == "terminal")
+            .then(|| block.get("terminalId")?.as_str())
+            .flatten()
+            .map(str::to_string)
+    };
+    if !content.iter().any(|block| terminal_id(block).is_some()) {
+        return None;
+    }
+    let resolved: Vec<Value> = content
+        .iter()
+        .map(
+            |block| match terminal_id(block).and_then(|id| engine.terminals.text(&id)) {
+                Some(text) => {
+                    json!({ "type": "content", "content": { "type": "text", "text": text } })
+                }
+                None => block.clone(),
+            },
+        )
+        .collect();
+    let mut update = update.clone();
+    update["content"] = Value::Array(resolved);
+    Some(update)
 }
 
 /// A `Task` tool call launches a subagent. ACP has no notion of child sessions, so opman

@@ -10,6 +10,8 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { CommandId } from "../keybindings/types";
+import { useChordLabeller } from "../keybindings/useChord";
 
 /**
  * The pane header's overflow menu.
@@ -60,7 +62,8 @@ function groupItems(items: readonly PaneMenuItem[]): PaneMenuItem[][] {
 export interface PaneMenuItem {
   readonly id: string;
   readonly label: string;
-  readonly shortcut?: string;
+  /** The command this row runs. Its live chord is shown beside the label. */
+  readonly command?: CommandId;
   readonly danger?: boolean;
   readonly disabled?: boolean;
   readonly run: () => void;
@@ -74,6 +77,7 @@ interface PaneMenuProps {
 
 export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anchor, onClose }) {
   const ref = useRef<HTMLDivElement>(null);
+  const chordFor = useChordLabeller();
   const groups = useMemo(() => groupItems(items), [items]);
   // Arrow order is taken from the grouped order, not from the raw list, so the
   // cursor can never walk the rows in a sequence the eye does not see.
@@ -131,6 +135,7 @@ export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anch
           {group.map((item) => {
             const index = enabled.indexOf(item);
             const Icon = ROW_ICON[item.id];
+            const chord = chordFor(item.command);
             return (
               <button
                 key={item.id}
@@ -152,7 +157,7 @@ export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anch
                   {Icon && <Icon size={13} />}
                 </span>
                 <span className="wsp-menu-label">{item.label}</span>
-                {item.shortcut && <kbd className="wsp-menu-kbd">{item.shortcut}</kbd>}
+                {chord && <kbd className="wsp-menu-kbd">{chord}</kbd>}
               </button>
             );
           })}

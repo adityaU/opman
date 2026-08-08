@@ -39,16 +39,7 @@ fn theme() -> WebThemePair {
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {
-    crate::app::SessionInfo {
-        id: id.into(),
-        title: format!("title-{id}"),
-        parent_id: String::new(),
-        directory: dir.into(),
-        time: crate::app::SessionTime {
-            created: 1,
-            updated: 2,
-        },
-    }
+    crate::web::test_support::test_session(id, "", dir, 2)
 }
 
 // Serialize + redirect config file access to a throwaway temp dir so

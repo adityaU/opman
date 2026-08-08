@@ -26,6 +26,44 @@ impl super::WebStateHandle {
         let _ = self.event_tx.send(WebEvent::StateChanged);
     }
 
+    /// Merge engine choices into the session row the client reads.
+    ///
+    /// The runner is the owner of these values and the poller re-reads them from it; this
+    /// only closes the gap until the next poll, so a chip the user just moved does not
+    /// snap back to its old value while the change is in flight. Absent fields are left
+    /// alone: a caller changing the model must not clear the effort.
+    pub async fn apply_session_engine(
+        &self,
+        session_id: &str,
+        choices: &crate::app::EngineChoices,
+    ) {
+        {
+            let mut inner = self.inner.write().await;
+            let Some(session) = inner
+                .projects
+                .iter_mut()
+                .flat_map(|project| project.sessions.iter_mut())
+                .find(|session| session.id == session_id)
+            else {
+                return;
+            };
+            let engine = &mut session.engine;
+            if choices.model.is_some() {
+                engine.model.clone_from(&choices.model);
+            }
+            if choices.agent.is_some() {
+                engine.agent.clone_from(&choices.agent);
+            }
+            if choices.effort.is_some() {
+                engine.effort.clone_from(&choices.effort);
+            }
+            if choices.permission_mode.is_some() {
+                engine.permission_mode.clone_from(&choices.permission_mode);
+            }
+        }
+        let _ = self.event_tx.send(WebEvent::StateChanged);
+    }
+
     /// Record that a session has been given its session instructions.
     ///
     /// Returns `true` the first time it is called for a session, so the caller

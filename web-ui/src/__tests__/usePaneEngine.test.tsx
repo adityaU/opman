@@ -14,6 +14,16 @@ import {
 } from "../workspace/widgets/WorkspaceChatContext";
 import type { PaneEngine } from "../workspace/types";
 
+// The pane resolves a session's bare model id against this catalogue. Stubbed so the
+// tests do not depend on a network fetch settling mid-assertion.
+vi.mock("../hooks/useProviders", () => ({
+  useProviders: () => ({ all: [{ id: "zen", models: { "big-pickle": {} } }] }),
+}));
+vi.mock("../api", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>("../api");
+  return { ...actual, setSessionEngine: vi.fn().mockResolvedValue(true) };
+});
+
 const SHELL: PaneEngine = {
   runner: "opencode",
   model: { providerID: "zen", modelID: "big-pickle" },
@@ -22,12 +32,20 @@ const SHELL: PaneEngine = {
   permission: "default",
 };
 
-function harness(own: PaneEngine | null, setEngine = vi.fn()) {
-  const services = { defaultEngine: SHELL, setEngine } as unknown as WorkspaceChatServices;
+function harness(
+  own: PaneEngine | null,
+  setEngine = vi.fn(),
+  session?: { id: string; runner?: string; engine?: Record<string, string> },
+) {
+  const appState = session
+    ? { projects: [{ sessions: [session] }] }
+    : { projects: [] };
+  const services = { appState, defaultEngine: SHELL, setEngine } as unknown as WorkspaceChatServices;
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <WorkspaceChatProvider value={services}>{children}</WorkspaceChatProvider>
   );
-  return { ...renderHook(() => usePaneEngine("p1", own), { wrapper }), setEngine };
+  const sessionId = session?.id ?? null;
+  return { ...renderHook(() => usePaneEngine("p1", own, sessionId), { wrapper }), setEngine };
 }
 
 describe("usePaneEngine", () => {
@@ -76,6 +94,29 @@ describe("usePaneEngine", () => {
     act(() => result.current.setRunner(SHELL.runner));
     expect(setEngine).not.toHaveBeenCalled();
     expect(result.current.switchRunner).toBe(false);
+  });
+
+  it("shows the bound session's configuration before the shell's", () => {
+    // Two panes on two sessions must not show the same engine just because neither has
+    // been configured by hand — that is the bug, in its workspace form.
+    const { result } = harness(null, vi.fn(), {
+      id: "ses_a",
+      runner: "opencode",
+      engine: { agent: "plan", effort: "high", permissionMode: "acceptEdits" },
+    });
+    expect(result.current.engine.agent).toBe("plan");
+    expect(result.current.engine.effort).toBe("high");
+    expect(result.current.engine.permission).toBe("acceptEdits");
+  });
+
+  it("keeps the pane's own engine ahead of the session's", () => {
+    const own: PaneEngine = { ...SHELL, agent: "explore" };
+    const { result } = harness(own, vi.fn(), {
+      id: "ses_a",
+      runner: "opencode",
+      engine: { agent: "plan" },
+    });
+    expect(result.current.engine.agent).toBe("explore");
   });
 
   it("keeps the rest of the engine when one field changes", () => {

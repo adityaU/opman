@@ -41,12 +41,6 @@
         background: var(--color-bg);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
     }
-    .side-panel {
-        border: 1px solid var(--color-border-subtle);
-        border-radius: var(--radius);
-        background: var(--theme-surface-1);
-        box-shadow: 0 12px 32px color-mix(in srgb, var(--black-40) 14%, transparent)
-    }
     /* The handle sits inside the column gap rather than adding to it: pull it
        back by half its own width plus half the gap, and the sidebar ends up
        exactly one --panel-inset from the workspace with the grab target
@@ -77,10 +71,7 @@
         box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 8%, transparent)
     }
 }
-html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),
-html.flat-theme .chat-main,
-html.flat-theme .side-panel,
-html.flat-theme .chat-status-bar {
+html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),html.flat-theme .chat-main,html.flat-theme .chat-status-bar{
     box-shadow: none
 }
 @media (max-width: 768px) {
@@ -190,37 +181,16 @@ html.flat-theme .chat-status-bar {
 html.flat-theme .tool-run-summary {
     background: var(--theme-surface-1)
 }
-/* One compact radius scale keeps cards and controls visually related. */
-.codex-radius-normalized,
-.sb-icon-btn,
-.sidebar-close-btn,
-.sb-search,
-.sb-project-header,
-.sb-session,
-.sb-add-project-btn,
-.message-turn,
-.message-action-btn,
-.prompt-input-wrapper,
-.prompt-chip,
-.usage-info-btn,
-.chat-status-bar,
-.side-panel,
-.theme-card,
-.theme-mode-option {
+
+.codex-radius-normalized,.sb-icon-btn,.sidebar-close-btn,.sb-search,.sb-project-header,.sb-session,.sb-add-project-btn,.message-turn,.message-action-btn,.prompt-input-wrapper,.prompt-chip,.usage-info-btn,.chat-status-bar,.theme-card,.theme-mode-option{
     border-radius: var(--radius-md)}
 .chat-content > div:first-child:has(.chat-sidebar),
 .chat-main {
     border-radius: var(--radius-lg)}
-html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),
-html.flat-theme .chat-main,
-html.flat-theme .side-panel,
-html.flat-theme .chat-status-bar {
+html.flat-theme .chat-content > div:first-child:has(.chat-sidebar),html.flat-theme .chat-main,html.flat-theme .chat-status-bar{
     border-radius: var(--radius-lg)}
 @media (max-width: 768px) {
-    .chat-content > div:first-child:has(.chat-sidebar),
-    .chat-main,
-    .side-panel,
-    .chat-status-bar {
+    .chat-content > div:first-child:has(.chat-sidebar),.chat-main,.chat-status-bar{
         border-radius: 0}
 }
 /* UI copy uses Poppins; technical content stays legible in IBM Plex Mono. */

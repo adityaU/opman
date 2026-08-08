@@ -7,12 +7,15 @@ fn request(name: &str, args: serde_json::Value) -> Result<ManagerRequest> {
 }
 
 #[test]
-fn the_four_tools_map_to_the_four_operations() {
+fn every_tool_maps_to_its_operation() {
     for (tool, op) in [
         ("agent_send", "send"),
         ("agent_start", "start"),
         ("agent_progress", "progress"),
         ("agent_runner_options", "options"),
+        ("agent_list", "list"),
+        ("agent_wait", "wait"),
+        ("agent_abort", "abort"),
     ] {
         let parsed = request(tool, json!({})).expect("a known tool");
         assert_eq!(parsed.op, op, "{tool}");
@@ -60,6 +63,24 @@ fn either_spelling_of_the_target_is_accepted() {
 
     let asked = request("agent_progress", json!({ "agent_id": "ses_b" })).expect("valid");
     assert_eq!(asked.target.as_deref(), Some("ses_b"));
+}
+
+/// `timeout` is the one numeric argument, so it is the one that a `Value::as_str` reader
+/// would silently drop — leaving every wait on the 300-second default.
+#[test]
+fn the_wait_timeout_survives_as_a_number() {
+    let parsed =
+        request("agent_wait", json!({ "agent_id": "ses_a", "timeout": 45 })).expect("valid");
+
+    assert_eq!(parsed.timeout, Some(45));
+    assert_eq!(parsed.target.as_deref(), Some("ses_a"));
+}
+
+#[test]
+fn a_model_filter_is_forwarded_for_the_options_tool() {
+    let parsed = request("agent_runner_options", json!({ "filter": "haiku" })).expect("valid");
+
+    assert_eq!(parsed.filter.as_deref(), Some("haiku"));
 }
 
 #[test]

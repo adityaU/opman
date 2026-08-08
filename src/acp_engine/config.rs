@@ -17,16 +17,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::catalog;
 use super::patch::{load_document, AcpDocument};
-
-/// The npm package implementing Claude's ACP server. `@zed-industries/claude-code-acp`
-/// is the old name and is deprecated; this one is its rename.
-const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp@latest";
-
-/// The ACP adapter for Codex. The `codex` CLI speaks its own app-server JSON-RPC and no
-/// ACP, so the adapter is a separate package rather than a subcommand. As with Claude,
-/// the `@zed-industries/*` name is the deprecated one; this is its rename.
-const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp@latest";
 
 /// Environment variables stripped from every ACP child by default. Claude's adapter
 /// aborts `session/new` with "cannot be launched inside another Claude Code session"
@@ -132,54 +124,22 @@ pub struct AcpConfig {
     pub agents: BTreeMap<String, AgentConfig>,
 }
 
-/// Built-in defaults. Claude and Codex ship configured so a fresh install needs no
-/// config file; the file exists to override them or to add other ACP servers.
+/// Built-in defaults: [`catalog::ENTRIES`], resolved. Every harness opman knows is
+/// declared here and only the two it is developed against are enabled, so a fresh install
+/// needs no config file and still starts nothing it did not start before.
 fn builtin() -> AcpConfig {
-    let claude = AgentConfig {
-        display_name: "Claude".to_string(),
-        command: node_runner(),
-        args: vec!["-y".to_string(), CLAUDE_ACP_PACKAGE.to_string()],
-        runner: "claude".to_string(),
-        // Claude's adapter is a full agent: it owns its file and terminal tools, and
-        // opman renders those tool calls directly from `tool_call` updates.
-        client_caps: ClientCaps::default(),
-        inject_mcp: true,
-        default_mode: "bypassPermissions".to_string(),
-        // Claude's ACP sessionId is the UUID of the transcript it writes under
-        // `~/.claude/projects`, which is where its subagent conversations live.
-        subagent_transcripts: true,
-        ..AgentConfig::default()
-    };
-    let codex = AgentConfig {
-        display_name: "Codex".to_string(),
-        command: node_runner(),
-        args: vec!["-y".to_string(), CODEX_ACP_PACKAGE.to_string()],
-        runner: "codex".to_string(),
-        // The adapter wraps the `codex` CLI, which brings its own file, shell and
-        // terminal tools — opman renders those from `tool_call` updates, as with Claude.
-        client_caps: ClientCaps::default(),
-        inject_mcp: true,
-        // No `default_mode`: Codex's ACP modes are approval policies
-        // (`read-only`/`agent`/`agent-full-access`), not agents, and the adapter already
-        // opens on `agent` — read, edit and run inside the workspace without prompting.
-        // Naming it here would only restate the agent's own default.
-        ..AgentConfig::default()
-    };
     AcpConfig {
-        agents: BTreeMap::from([("claude".to_string(), claude), ("codex".to_string(), codex)]),
+        agents: catalog::ENTRIES
+            .iter()
+            .map(|entry| (entry.id.to_string(), entry.config()))
+            .collect(),
     }
-}
-
-/// How to run an npm-published ACP server. Overridable for offline installs that have
-/// the package vendored (`OPMAN_ACP_NPX=/path/to/claude-agent-acp`, no args needed).
-fn node_runner() -> String {
-    std::env::var("OPMAN_ACP_NPX").unwrap_or_else(|_| "npx".to_string())
 }
 
 /// Whether opman ships this agent, so removing its entry restores it rather than
 /// deleting it.
 pub fn is_builtin(id: &str) -> bool {
-    matches!(id, "claude" | "codex")
+    catalog::is_builtin(id)
 }
 
 /// Built-in defaults with the user's file merged over them. A malformed or missing file

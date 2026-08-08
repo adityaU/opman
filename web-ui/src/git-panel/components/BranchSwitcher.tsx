@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { GitBranch, ChevronDown, Check, Loader2, RefreshCw } from "lucide-react";
 import { useOutsideClick } from "../hooks/useOutsideClick";
+import { KeyHint } from "../../keybindings/hint/KeyHint";
 
 interface Props {
   branch: string;
@@ -48,14 +49,16 @@ export function BranchSwitcher({
 
   return (
     <div className="git-panel-branch" ref={ref}>
-      <button
-        className="git-branch-toggle" onClick={toggle}
-        title="Switch branch" aria-label="Switch branch" disabled={checkingOut}
-      >
-        <GitBranch size={13} />
-        <span>{checkingOut ? "Switching..." : branch || "..."}</span>
-        <ChevronDown size={10} className={showDropdown ? "rotated" : ""} />
-      </button>
+      <KeyHint label="Switch branch" command="git.switchBranch">
+        <button
+          className="git-branch-toggle" onClick={toggle}
+          aria-label="Switch branch" disabled={checkingOut}
+        >
+          <GitBranch size={13} />
+          <span>{checkingOut ? "Switching..." : branch || "..."}</span>
+          <ChevronDown size={10} className={showDropdown ? "rotated" : ""} />
+        </button>
+      </KeyHint>
 
       {showDropdown && (
         <div className="git-branch-dropdown">
@@ -97,14 +100,16 @@ export function BranchSwitcher({
         </div>
       )}
 
-      <button
-        className="git-panel-refresh"
-        onClick={() => { if (tab === "changes") refreshStatus(); else refreshLog(); }}
-        title="Refresh" aria-label="Refresh"
-        disabled={loading || logLoading}
-      >
-        <RefreshCw size={12} className={loading || logLoading ? "spin" : ""} />
-      </button>
+      <KeyHint label="Refresh" command="git.refresh">
+        <button
+          className="git-panel-refresh"
+          onClick={() => { if (tab === "changes") refreshStatus(); else refreshLog(); }}
+          aria-label="Refresh"
+          disabled={loading || logLoading}
+        >
+          <RefreshCw size={12} className={loading || logLoading ? "spin" : ""} />
+        </button>
+      </KeyHint>
     </div>
   );
 }

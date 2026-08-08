@@ -45,7 +45,6 @@ interface Props {
   /** Active engine backend ("opencode" | "claude-code"). */
   backend?: string;
   /** Open an interactive terminal attached to this session's claude CLI agent. */
-  onAttachTerminal?: () => void;
   /** Session token/cost stats, shown via the pill row's usage info button. */
   stats?: SessionStats | null;
 }
@@ -55,7 +54,7 @@ export function PromptInput({
   selectedModel = null, onModelSelected,
   isBusy, isSending, disabled, sessionId, currentModel,
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
-  backend, onAttachTerminal, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
+  backend, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
 }: Props) {
   const [text, setText] = useState("");
@@ -233,10 +232,7 @@ export function PromptInput({
             hasContent={hasContent}
             onAttachClick={() => attach.fileInputRef.current?.click()}
             onSlashClick={handleSlashClick}
-            onSubmit={handleSubmit} onAbort={onAbort}
-            onAttachTerminal={
-              backend === "claude-code" && sessionId && onAttachTerminal ? onAttachTerminal : undefined
-            } />
+            onSubmit={handleSubmit} onAbort={onAbort} />
         </div>
       </div>
     </div>
