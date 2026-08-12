@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { formatTime } from "../sidebar/formatTime";
-import { EMPTY_DRAFT, type OpenerDraft, type StepId } from "./opener/steps";
+import { EMPTY_DRAFT, toWidget, type OpenerDraft, type StepId } from "./opener/steps";
 import { nextFileOpenSeq, planFileOpen } from "./fileOpen";
 import { findPane } from "./tree";
 import { paneByOrdinal } from "./nav";
@@ -11,6 +11,7 @@ import {
   type PaneId,
   type PaneNode,
   type WidgetKind,
+  type WidgetForPane,
   type WidgetState,
 } from "./types";
 import type { OpenerChoice } from "./opener/WidgetOpener";
@@ -56,6 +57,11 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     [dispatch],
   );
 
+  const widgetForRequest = useCallback(
+    (request: TargetRequest, pane: PaneId) => request.widgetForPane?.(pane) ?? request.widget,
+    [],
+  );
+
   /**
    * Ask which pane — unless the question has only one answer.
    *
@@ -67,18 +73,18 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
    */
   const armOrPlace = useCallback(
     (request: TargetRequest) => {
-      if (panes.length === 1) place(request.widget, panes[0].id);
+      if (panes.length === 1) place(widgetForRequest(request, panes[0].id), panes[0].id);
       else targeting.arm(request);
     },
-    [panes, place, targeting],
+    [panes, place, targeting, widgetForRequest],
   );
 
   const resolveTarget = useCallback(
     (pane: PaneId) => {
       const request = targeting.take();
-      if (request) place(request.widget, pane);
+      if (request) place(widgetForRequest(request, pane), pane);
     },
-    [place, targeting],
+    [place, targeting, widgetForRequest],
   );
 
   const resolveTargetByOrdinal = useCallback(
@@ -92,14 +98,24 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   const resolveTargetSplit = useCallback(
     (dir: "row" | "col") => {
       const request = targeting.take();
-      if (request) dispatch({ type: "splitPane", pane: focusedPaneId, dir, widget: request.widget });
+      if (request) dispatch({
+        type: "splitPane",
+        pane: focusedPaneId,
+        dir,
+        widget: request.widget,
+        widgetForPane: request.widgetForPane,
+      });
     },
     [dispatch, focusedPaneId, targeting],
   );
 
   const resolveTargetNewWindow = useCallback(() => {
     const request = targeting.take();
-    if (request) dispatch({ type: "newWindow", widget: request.widget });
+    if (request) dispatch({
+      type: "newWindow",
+      widget: request.widget,
+      widgetForPane: request.widgetForPane,
+    });
   }, [dispatch, targeting]);
 
   /**
@@ -110,7 +126,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   const onOpenWidgetKind = useCallback(
     (pane: PaneId, kind: WidgetKind) => {
       if (projects.length === 1) {
-        place(widgetFor(kind, projects[0].path), pane);
+        place(widgetFor(kind, projects[0].path, pane), pane);
         return;
       }
       dispatch({ type: "focusPane", pane });
@@ -168,13 +184,20 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   );
 
   const onOpenerDone = useCallback(
-    (widget: WidgetState) => {
+    (draft: OpenerDraft) => {
       setOpener(null);
+      if (!draft.kind || !draft.projectPath) return;
+      const createWidget: WidgetForPane = (pane) => {
+        const widget = toWidget(draft, pane);
+        if (!widget) throw new Error("Incomplete widget opener draft");
+        return widget;
+      };
+      const widget = createWidget(focusedPaneId);
       // Straight into the focused pane when it is empty; otherwise ask where,
       // rather than silently replacing something the user is looking at.
       const focused = panes.find((pane) => pane.id === focusedPaneId);
       if (focused && !focused.widget) place(widget, focused.id);
-      else armOrPlace({ widget, label: describeWidget(widget, projects) });
+      else armOrPlace({ widget, widgetForPane: createWidget, label: describeWidget(widget, projects) });
     },
     [armOrPlace, focusedPaneId, panes, place, projects],
   );
@@ -228,12 +251,12 @@ const KIND_LABEL: Readonly<Record<WidgetKind, string>> = {
   git: "Git",
 };
 
-function widgetFor(kind: WidgetKind, projectPath: string): WidgetState {
+function widgetFor(kind: WidgetKind, projectPath: string, paneId: PaneId): WidgetState {
   switch (kind) {
     case "chat":
       return { kind: "chat", projectPath, sessionId: null, engine: null };
     case "files":
-      return { kind: "files", projectPath, open: null };
+      return { kind: "files", projectPath, sessionId: paneId, open: null };
     case "terminal":
       return { kind: "terminal", projectPath, ptyIds: [] };
     case "git":

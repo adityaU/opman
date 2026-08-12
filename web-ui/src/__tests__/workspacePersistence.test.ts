@@ -1,13 +1,9 @@
-/**
- * Persistence is where a bad byte can cost the user their whole desk, so these
- * tests are mostly about what happens when the stored value is wrong.
- */
+/** Persistence is total: malformed state repairs the affected branch. */
 import { describe, it, expect } from "vitest";
 import { loadWorkspace, saveWorkspace } from "../workspace/persistence";
 import { emptyWorkspace, workspaceReducer } from "../workspace/reducer";
 import { paneCount, paneIds } from "../workspace/tree";
 import type { Workspace } from "../workspace/types";
-
 function store(value?: string): Pick<Storage, "getItem" | "setItem"> {
   let held = value;
   return {
@@ -38,12 +34,27 @@ function populated(): Workspace {
   return workspaceReducer(state, { type: "toggleChrome", level: "rail" });
 }
 
+function withWidget(widget: unknown) {
+  return {
+    windows: [{
+      id: "w1", name: "1", root: { type: "leaf", id: "p1", widget }, focusedPaneId: "p1",
+    }],
+    activeWindowId: "w1",
+  };
+}
 describe("round trip", () => {
   it("restores the tree, the widgets, the focus and the chrome", () => {
     const original = populated();
     const storage = store();
     saveWorkspace(original, storage);
     expect(loadWorkspace(storage)).toEqual(original);
+  });
+
+  it("repairs version 1 editor widgets that predate their pane identity", () => {
+    const files = loadWorkspace(stored(withWidget({ kind: "files", projectPath: "/repo" })));
+    expect(files.windows[0].root).toMatchObject({
+      widget: { kind: "files", projectPath: "/repo", sessionId: "p1" },
+    });
   });
 });
 
@@ -64,36 +75,12 @@ describe("a hostile or stale store", () => {
   });
 
   it("drops a widget whose kind it does not know, keeping the pane", () => {
-    const state = loadWorkspace(
-      stored({
-        windows: [
-          {
-            id: "w1",
-            name: "1",
-            root: { type: "leaf", id: "p1", widget: { kind: "hologram", projectPath: "/x" } },
-            focusedPaneId: "p1",
-          },
-        ],
-        activeWindowId: "w1",
-      }),
-    );
+    const state = loadWorkspace(stored(withWidget({ kind: "hologram", projectPath: "/x" })));
     expect(state.windows[0].root).toMatchObject({ type: "leaf", widget: null });
   });
 
   it("drops a widget with no project rather than rendering a pane pointed nowhere", () => {
-    const state = loadWorkspace(
-      stored({
-        windows: [
-          {
-            id: "w1",
-            name: "1",
-            root: { type: "leaf", id: "p1", widget: { kind: "git" } },
-            focusedPaneId: "p1",
-          },
-        ],
-        activeWindowId: "w1",
-      }),
-    );
+    const state = loadWorkspace(stored(withWidget({ kind: "git" })));
     expect(state.windows[0].root).toMatchObject({ widget: null });
   });
 

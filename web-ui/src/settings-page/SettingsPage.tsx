@@ -3,8 +3,10 @@ import { ArrowLeft } from "lucide-react";
 import type { ThemeColors } from "../api";
 import type { Appearance } from "../utils/appearance";
 import type { ThemeMode } from "../theme-selector/persistence";
+import type { EditorEngine } from "../editor-engine/preference";
 import { KeybindingsPanel } from "../keybindings-view/KeybindingsPanel";
 import { AppearanceSection } from "./AppearanceSection";
+import { EditorSection } from "./EditorSection";
 import { SECTIONS } from "./sections";
 import type { SettingsSection } from "./useSettingsRoute";
 
@@ -23,7 +25,7 @@ const SkillsSection = lazy(() =>
 /**
  * Settings: one destination for how opman is configured.
  *
- * Five editors — appearance, keybindings, ACP agents, MCP servers, skills — reached by a
+ * Six editors — appearance, editor, keybindings, ACP agents, MCP servers, skills — reached by a
  * rail rather than a stack of modals. What lives here is configuration; what opman
  * *remembers* (routines, session instructions, memory) is content and keeps its own
  * surfaces.
@@ -39,6 +41,8 @@ export interface SettingsPageProps {
   readonly themeMode: ThemeMode;
   readonly onThemeModeChange: (mode: ThemeMode) => void;
   readonly onThemeApplied: (colors: ThemeColors) => void;
+  readonly editorEngine: EditorEngine;
+  readonly onEditorEngineChange: (engine: EditorEngine) => void;
   readonly onError: (message: string) => void;
   /** Runner slots on offer, so an MCP server can be scoped to any of them. */
   readonly runners: readonly string[];
@@ -102,6 +106,12 @@ export function SettingsPage(props: SettingsPageProps) {
                   themeMode={props.themeMode}
                   onThemeModeChange={props.onThemeModeChange}
                   onThemeApplied={props.onThemeApplied}
+                />
+              )}
+              {section === "editor" && (
+                <EditorSection
+                  engine={props.editorEngine}
+                  onEngineChange={props.onEditorEngineChange}
                 />
               )}
               {section === "keybindings" && <KeybindingsPanel />}

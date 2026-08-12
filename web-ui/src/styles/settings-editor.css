@@ -1,0 +1,120 @@
+/* Editor preference tiles. Every surface is a semantic token so glassy and flat
+   themes inherit the same states without a second palette. */
+
+.stg-editor-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--panel-inset);
+}
+
+.stg-editor-option {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    color: var(--color-text-muted);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--transition-fast), border-color var(--transition-fast),
+        color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stg-editor-option:hover {
+    border-color: var(--color-border-active);
+    background: var(--theme-surface-hover);
+    color: var(--color-text);
+}
+
+.stg-editor-option:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.stg-editor-option.is-selected {
+    border-color: var(--color-primary);
+    background: var(--theme-primary-soft);
+    color: var(--color-text);
+    box-shadow: var(--shadow-md);
+}
+
+.stg-editor-option:disabled {
+    border-color: var(--modal-hairline);
+    background: var(--theme-surface-2);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.62;
+    box-shadow: none;
+}
+
+.stg-editor-option-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--color-primary);
+}
+
+.stg-editor-option-copy {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.stg-editor-option-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.stg-editor-option-description {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+}
+
+.stg-editor-radio {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 50%;
+}
+
+.stg-editor-option.is-selected .stg-editor-radio {
+    border-color: var(--color-primary);
+}
+
+.stg-editor-option.is-selected .stg-editor-radio::after {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    content: "";
+}
+
+.stg-editor-unavailable {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border-left: 2px solid var(--color-warning);
+    background: var(--theme-warning-soft);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+    .stg-editor-options {
+        grid-template-columns: 1fr;
+    }
+}

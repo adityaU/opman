@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 30_000,
   retries: 0,
+  workers: process.env.OPMAN_E2E_NVIM === "1" ? 1 : undefined,
   use: {
     baseURL: "http://localhost:5199",
     headless: true,
@@ -12,10 +13,12 @@ export default defineConfig({
     serviceWorkers: "block",
   },
   webServer: {
-    command: "npx vite --port 5199 --strictPort",
+    command: process.env.OPMAN_E2E_NVIM === "1"
+      ? "node tests/nvim-editor/serve.mjs"
+      : "npx vite --port 5199 --strictPort",
     port: 5199,
     reuseExistingServer: true,
-    timeout: 15_000,
+    timeout: process.env.OPMAN_E2E_NVIM === "1" ? 60_000 : 15_000,
   },
   projects: [
     {

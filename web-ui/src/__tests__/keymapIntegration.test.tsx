@@ -41,6 +41,12 @@ function Surface({
   return <textarea data-testid="composer" />;
 }
 
+function MarkedSurface({ onCommand }: { onCommand: Record<string, () => void> }) {
+  useCommands(onCommand);
+  useWhenContext({});
+  return <div data-nvim-capture="true"><span data-testid="nvim-surface" tabIndex={0} /></div>;
+}
+
 describe("keymap dispatch", () => {
   it("runs a command from a single chord", async () => {
     const toggleSidebar = vi.fn();
@@ -48,6 +54,20 @@ describe("keymap dispatch", () => {
 
     await userEvent.keyboard("{Control>}b{/Control}");
     expect(toggleSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not run an app command from a claimed Neovim target", async () => {
+    const toggleSidebar = vi.fn();
+    render(
+      <KeymapProvider config={DEFAULT_CONFIG} host={HOST}>
+        <Listener />
+        <MarkedSurface onCommand={{ "layout.toggleSidebar": toggleSidebar }} />
+      </KeymapProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("nvim-surface"));
+    await userEvent.keyboard("{Control>}b{/Control}");
+    expect(toggleSidebar).not.toHaveBeenCalled();
   });
 
   it("waits for the second step, then runs", async () => {

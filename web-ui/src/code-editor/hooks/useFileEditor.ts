@@ -5,7 +5,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
+import type { Extension } from "@codemirror/state";
 import { loadLanguageExtension, editorThemeExtension } from "../theme";
+import { nvimFoldMirrorExtension } from "../fold-sync";
 import type { OpenFileEntry, EditorViewMode } from "../types";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
@@ -64,7 +66,7 @@ export function useFileEditor(
 
   // Build extensions
   const extensions = useMemo(() => {
-    const exts = [EditorView.lineWrapping, ...editorThemeExtension];
+    const exts: Extension[] = [EditorView.lineWrapping, ...editorThemeExtension, nvimFoldMirrorExtension];
     if (languageExtension) exts.push(languageExtension);
     return exts;
   }, [languageExtension]);

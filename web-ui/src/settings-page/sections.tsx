@@ -1,9 +1,9 @@
 import React from "react";
-import { Bot, Keyboard, Palette, Plug, Sparkles } from "lucide-react";
+import { Bot, Code2, Keyboard, Palette, Plug, Sparkles } from "lucide-react";
 import type { SettingsSection } from "./useSettingsRoute";
 
 /**
- * The five things settings configures.
+ * The six things settings configures.
  *
  * Configuration only. Routines, session instructions and memory are content — they keep
  * their own surfaces, because the question "what does opman remember" is not the same
@@ -24,6 +24,12 @@ export const SECTIONS: readonly SectionMeta[] = [
     label: "Appearance",
     summary: "Theme, light or dark, glassy or flat",
     icon: <Palette size={15} />,
+  },
+  {
+    id: "editor",
+    label: "Editor",
+    summary: "CodeMirror or Neovim, on this device",
+    icon: <Code2 size={15} />,
   },
   {
     id: "keybindings",

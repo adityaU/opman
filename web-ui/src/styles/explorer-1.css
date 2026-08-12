@@ -43,6 +43,26 @@
     pointer-events: auto;
 }
 
+/* Desktop owns the editor width as a sibling. The mobile browser uses the
+   separate `.xplm` drawer path and never receives these overrides. */
+.code-editor-desktop {
+    flex-direction: row;
+}
+
+.code-editor-desktop > .xpl {
+    position: relative;
+    inset: auto;
+    height: 100%;
+    flex: 0 0 auto;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.code-editor-desktop > .xpl:not(.is-open) {
+    display: none;
+}
+
 .xpl-resize {
     position: absolute;
     right: -3px;
@@ -216,4 +236,3 @@
     flex-shrink: 0;
     color: var(--color-text-muted);
 }
-

@@ -45,6 +45,10 @@ export default defineConfig({
             return "editor";
           }
           if (id.includes("/src/code-editor/")) return "editor";
+          // Neovim binding/overlays run top-level CodeMirror calls
+          // (`StateEffect.define()`), so they must share the editor chunk —
+          // a separate chunk deadlocks on the circular chunk import (TDZ).
+          if (id.includes("/src/nvim/")) return "editor";
 
           // Terminal (xterm)
           if (id.includes("node_modules/@xterm/")) return "terminal";
@@ -84,7 +88,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:9090",
+      "/api": {
+        target: process.env.OPMAN_E2E_BACKEND ?? "http://127.0.0.1:9090",
+        ws: true,
+      },
     },
   },
 });

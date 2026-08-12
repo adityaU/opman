@@ -76,7 +76,13 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
   const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform, mode)).join(" ");
 
   return (
-    <div className="which-key modal-popover-surface" role="dialog" aria-label="Keybinding hints">
+    <div
+      className="which-key modal-popover-surface"
+      role="dialog"
+      aria-label="Keybinding hints"
+      aria-live="polite"
+      tabIndex={-1}
+    >
       <div className="which-key-head">
         <span className="which-key-crumb">{breadcrumb}</span>
         <span className="which-key-hint">

@@ -107,6 +107,7 @@ export class Keymap {
     return this.extensions(pending).filter((b) => isLive(b, ctx));
   }
 
+
   /** Chords bound to a command, for the palette and the cheatsheet. */
   chordsFor(command: CommandId): ResolvedBinding[] {
     return this.bindings.filter((b) => b.command === command);

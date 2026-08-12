@@ -5,6 +5,7 @@
  * and delegates rendering to DesktopLayout or MobileLayout.
  */
 import { useEffect, useCallback, useMemo, useRef } from "react";
+import type { EditorView, ViewUpdate } from "@codemirror/view";
 import type { CodeEditorPanelProps, FileRenderType } from "./types";
 import type { FileReadResponse } from "./types";
 import { fileDownloadUrl, dirDownloadUrl, triggerDownload } from "../api";
@@ -15,10 +16,20 @@ import { useEditorCommands } from "./useEditorCommands";
 import { useEditorLsp } from "./hooks/useEditorLsp";
 import { DesktopLayout } from "./components/DesktopLayout";
 import { MobileLayout } from "./components/MobileLayout";
+import { shouldAttachNeovim } from "./surface";
+import { useOptionalKeymapContext } from "../keybindings/KeymapContext";
+import { useEditorEngine } from "../editor-engine/preference";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { useNvimEditBinding } from "../nvim/edit/useNvimEditBinding";
+import type { IdleReason } from "../nvim/edit/decorations";
 
 export default function CodeEditorPanel({
   focused, open, projectPath, sessionId, onError, layout,
 }: CodeEditorPanelProps) {
+  const keymap = useOptionalKeymapContext();
+  const isMobile = useIsMobile();
+  const [editorEngine] = useEditorEngine(keymap?.mode ?? "normal");
+
   const explorer = useFileExplorer(projectPath, open, onError);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -26,6 +37,7 @@ export default function CodeEditorPanel({
   const activeEntry = explorer.openFiles.find((f) => f.path === explorer.activeFilePath) ?? null;
 
   const editor = useFileEditor(explorer.activeFilePath, activeEntry);
+  const isDesktop = layout ? layout === "desktop" : editor.isDesktop;
 
   const openFile: FileReadResponse | null = activeEntry
     ? { path: activeEntry.path, content: activeEntry.content, language: activeEntry.language }
@@ -43,7 +55,7 @@ export default function CodeEditorPanel({
 
   // LSP lives inside the editor: hover tooltips, ⌘-click / F12 to definition,
   // ⇧⌥F to format, diagnostics underlined in place.
-  const lspExtensions = useEditorLsp({
+  const { extensions: lspExtensions, runAction } = useEditorLsp({
     enabled: lsp.lspAvailable,
     activeFilePath: explorer.activeFilePath,
     activeDiagnostics: lsp.activeDiagnostics,
@@ -53,11 +65,40 @@ export default function CodeEditorPanel({
     format: lsp.handleFormatWithLsp,
     completeAt: lsp.completeAt,
     triggerCharacters: lsp.triggerCharacters,
+    referencesAt: lsp.referencesAt,
+    renameAt: lsp.renameAt,
+    jumpTo: lsp.jumpTo,
+  });
+
+  const attachNvim = shouldAttachNeovim(layout, editorEngine, isMobile)
+    && editor.activeView === "code" && explorer.activeFilePath !== null;
+  const handleNvimBufferDetached = useCallback(() => {
+    const path = explorer.activeFilePath;
+    if (path) explorer.closeFile(path);
+  }, [explorer.activeFilePath, explorer.closeFile]);
+  const idleReason: IdleReason = editorEngine !== "neovim"
+    ? "engine-codemirror"
+    : isMobile || layout === "mobile"
+      ? "mobile-surface"
+      : editor.activeView !== "code"
+        ? "not-code-surface"
+        : explorer.activeFilePath === null
+          ? "no-file"
+          : !sessionId
+            ? "no-session"
+            : "disabled";
+  const nvimBinding = useNvimEditBinding({
+    enabled: attachNvim,
+    path: explorer.activeFilePath,
+    sessionId,
+    idleReason,
+    onBufferDetached: handleNvimBufferDetached,
+    onAction: runAction,
   });
 
   const extensions = useMemo(
-    () => [...editor.extensions, ...lspExtensions],
-    [editor.extensions, lspExtensions],
+    () => [...editor.extensions, ...lspExtensions, ...nvimBinding],
+    [editor.extensions, lspExtensions, nvimBinding],
   );
 
   useEditorCommands({
@@ -76,14 +117,31 @@ export default function CodeEditorPanel({
     if (!pending || pending.path !== explorer.activeFilePath || editor.activeView !== "code") return;
     editor.jumpToLine(pending.line);
     explorer.pendingJumpRef.current = null;
-  }, [explorer.activeFilePath, editor.activeView, editor.jumpToLine, currentContent]);
+  }, [explorer.activeFilePath, explorer.pendingJumpVersion, editor.activeView, editor.jumpToLine, currentContent]);
 
   // CodeMirror callbacks
-  const onCreateEditor = useCallback((view: any) => {
+  const onCreateEditor = useCallback((view: EditorView) => {
     editor.editorViewRef.current = view;
+    view.requestMeasure();
   }, [editor.editorViewRef]);
 
-  const onUpdate = useCallback((update: any) => {
+  // The desktop explorer is a flex sibling, so dragging it changes the
+  // editor's width without changing the panel's own box. Keep CodeMirror's
+  // line wrapping and sticky gutter in sync with that sibling reflow.
+  useEffect(() => {
+    if (!isDesktop || typeof ResizeObserver === "undefined") return;
+    const panel = editorRef.current;
+    const editorMain = panel?.querySelector<HTMLElement>(".code-editor-main");
+    if (!editorMain) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      editor.editorViewRef.current?.requestMeasure();
+    });
+    resizeObserver.observe(editorMain);
+    return () => resizeObserver.disconnect();
+  }, [editor.editorViewRef, isDesktop]);
+
+  const onUpdate = useCallback((update: ViewUpdate) => {
     const pos = update.state.selection.main.head;
     const line = update.state.doc.lineAt(pos);
     editor.setCursorLine(line.number);
@@ -163,8 +221,6 @@ export default function CodeEditorPanel({
   // An explicit `layout` wins: the mount site knows which shell it lives in,
   // and trusting the viewport instead is what let the mobile sheet render the
   // desktop editor.
-  const isDesktop = layout ? layout === "desktop" : editor.isDesktop;
-
   if (isDesktop) {
     return (
       <DesktopLayout

@@ -50,6 +50,7 @@ export interface DesktopWorkspaceProps {
   readonly describe: (widget: WidgetState | null) => PaneContext;
   readonly busySessions: ReadonlySet<string>;
   readonly onError: (message: string) => void;
+  readonly activeSessionId: string | null;
   /**
    * App-level chat services. `bindSession` is supplied here rather than by the
    * shell: only the workspace can write a lazily-created session back onto the
@@ -70,6 +71,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   describe,
   busySessions,
   onError,
+  activeSessionId,
   chat,
   targetingBridge,
 }) {

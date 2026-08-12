@@ -18,6 +18,7 @@ import type { PaneEngine, WidgetState } from "./types";
 
 export interface WorkspaceShellDeps {
   readonly appState: AppState | null;
+  readonly activeSessionId: string | null;
   readonly busySessions: ReadonlySet<string>;
   /** The shell composer's engine — what a pane that has not chosen one uses. */
   readonly defaultEngine: PaneEngine;
@@ -258,6 +259,7 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
         sessionsFor,
         describe,
         busySessions: deps.busySessions,
+        activeSessionId: deps.activeSessionId,
         chat,
         onError: (message: string) => latest.current.onError(message),
         onTargetingReady,
@@ -266,7 +268,7 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
       openKindHere,
       openFileInWorkspace,
     }),
-    [armTargeting, openKindHere, openFileInWorkspace, chat, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
+    [armTargeting, openKindHere, openFileInWorkspace, chat, deps.activeSessionId, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
   );
 }
 

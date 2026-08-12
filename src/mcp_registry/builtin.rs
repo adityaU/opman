@@ -13,7 +13,7 @@ use super::PROXY_TIMEOUT_SECS;
 const SESSION_ENV: &str = "OPENCODE_SESSION_ID";
 /// Set by opman before any runner is spawned; its presence is what says the in-process
 /// agent-manager listener exists to talk to.
-const MANAGER_SOCKET: &str = "OPMAN_AGENT_MANAGER_SOCKET";
+const MANAGER_SOCKET: &str = crate::mcp_agent_manager::SOCKET_ENV;
 
 /// Which of opman's own servers the user asked for. Replaces the `(bool, bool, bool,
 /// bool)` tuple that used to be threaded through four call sites and rebuilt inline in a

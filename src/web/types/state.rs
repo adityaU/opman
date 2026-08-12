@@ -1,10 +1,12 @@
 //! App state snapshot and shared server state types.
 
 use serde::Serialize;
+use std::sync::Arc;
 use tokio::sync::broadcast;
 
 use crate::mcp::NvimSocketRegistry;
 use crate::mcp_skills::SkillsRegistry;
+use crate::nvim_ui::NvimUiPool;
 
 use super::super::pty_manager::WebPtyHandle;
 use super::super::web_state::WebStateHandle;
@@ -116,6 +118,8 @@ pub struct ServerState {
     pub http_client: reqwest::Client,
     /// Shared neovim socket registry, still used by the terminal and MCP tools.
     pub nvim_registry: NvimSocketRegistry,
+    /// Lazy embedded Neovim processes used by the browser UI.
+    pub nvim_ui: Arc<NvimUiPool>,
     /// Running language servers for the file editor's LSP features. Started on
     /// demand per (project root, language); no Neovim session required.
     pub lsp: std::sync::Arc<crate::lsp::LspPool>,

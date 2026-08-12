@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { PaneId, WidgetState } from "../types";
+import type { PaneId, WidgetForPane, WidgetState } from "../types";
 
 /**
  * Pane targeting: "open this — but where?"
@@ -16,6 +16,8 @@ import type { PaneId, WidgetState } from "../types";
 
 export interface TargetRequest {
   readonly widget: WidgetState;
+  /** Used by staged widgets whose destination pane is not known while choosing them. */
+  readonly widgetForPane?: WidgetForPane;
   /** What the chip names, e.g. a session title. */
   readonly label: string;
 }

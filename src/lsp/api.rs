@@ -76,20 +76,25 @@ pub async fn diagnostics(
     content: Option<&str>,
 ) -> Value {
     let Some((resolved, _)) = prepare(pool, file, project_dir, content).await else {
-        return unavailable(&[("diagnostics", json!([]))]);
+        return unavailable(&[("diagnostics", json!([])), ("published", json!(false))]);
     };
     let uri = path_to_uri(file);
 
     // Only the first ask for a file waits; after that whatever the server last
     // said is the truth, including "nothing wrong".
-    let raw = match resolved.server.diags.get(&uri) {
-        Some(found) => found,
+    // "No diagnostics" and "the server has not spoken yet" look identical on
+    // the wire unless we say which one it is, and a cold server would leave the
+    // editor showing a confidently empty list forever.
+    let (raw, published) = match resolved.server.diags.get(&uri) {
+        Some(found) => (found, true),
         None => {
-            resolved
+            let waited = resolved
                 .server
                 .diags
                 .wait_for(&uri, FIRST_PUBLISH_WAIT)
-                .await
+                .await;
+            let published = resolved.server.diags.get(&uri).is_some();
+            (waited, published)
         }
     };
 
@@ -100,7 +105,7 @@ pub async fn diagnostics(
         .filter_map(|diag| render_diagnostic(diag, file, &text, encoding))
         .collect();
 
-    json!({ "available": true, "diagnostics": diagnostics })
+    json!({ "available": true, "diagnostics": diagnostics, "published": published })
 }
 
 /// Map an LSP diagnostic into the `{file, lnum, col, severity, message, source}`

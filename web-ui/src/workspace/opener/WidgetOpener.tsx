@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { FolderGit2, LayoutGrid, MessagesSquare, Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { advance, currentStep, EMPTY_DRAFT, isComplete, retreat, toWidget, type OpenerChoice, type OpenerDraft, type StepId } from "./steps";
+import { advance, currentStep, EMPTY_DRAFT, isComplete, retreat, type OpenerChoice, type OpenerDraft, type StepId } from "./steps";
 import { Crumbs, RowBody, rowClass } from "./rows";
-import type { WidgetState } from "../types";
 
 /**
  * The staged widget picker: kind → project → session.
@@ -30,7 +29,7 @@ export interface WidgetOpenerProps {
    * one, so re-asking it would throw away the click the user just made.
    */
   readonly initialDraft?: OpenerDraft;
-  readonly onDone: (widget: WidgetState) => void;
+  readonly onDone: (draft: OpenerDraft) => void;
   readonly onCancel: () => void;
 }
 
@@ -85,8 +84,7 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
   // A finished draft resolves on the next tick rather than mid-render.
   useEffect(() => {
     if (!isComplete(draft)) return;
-    const widget = toWidget(draft);
-    if (widget) onDone(widget);
+    onDone(draft);
   }, [draft, onDone]);
 
   useEffect(() => setCursor(0), [step, filter]);

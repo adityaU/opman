@@ -4,6 +4,7 @@ import { useKeymapContext } from "./KeymapContext";
 import type { Keymap, MatchContext } from "./matcher";
 import type { ChordStep } from "./types";
 import { whenEvaluator } from "./when";
+import { nvimOwnsKey } from "../nvim/capture";
 
 /**
  * The live keyboard listener.
@@ -104,15 +105,26 @@ export function useKeymapListener(): KeymapListenerState {
 
     function onKeyDown(event: KeyboardEvent) {
       if (MODIFIER_KEYS.has(event.key.toLowerCase())) return;
+      // Neovim is a keyboard surface of its own, so while one of its editors
+      // holds focus every key belongs to it, including chords the app would
+      // otherwise claim. The way back out is the binding's release-focus chord
+      // (Ctrl+Shift+Escape), which blurs the editor; do not preventDefault or
+      // stopPropagation because the binding's document listener still needs the event.
+      if (nvimOwnsKey(event.target)) {
+        clearTimer();
+        setPending(undefined);
+        setRevealed(false);
+        return;
+      }
 
       const { keymap: map, mode: current, context: ctx, runCommand: run } = latest.current;
       const steps = latest.current.pending?.steps ?? [];
 
       // `textInput` is read from the event target rather than from the
       // published context, and then handed to the `when` evaluator as a context
-      // key of its own. That is what lets a binding opt *out* of the insert
-      // guard it would otherwise pass on the strength of its modifier —
-      // `ctrl+h` must not fire while a shell is waiting for a Backspace.
+      // key of its own. That lets a binding opt out of the insert guard it would
+      // otherwise pass on the strength of its modifier — `ctrl+h` must not fire
+      // while a shell is waiting for a Backspace.
       const textInput = isTextInput(event.target);
       const matchContext: MatchContext = {
         mode: current,
@@ -143,7 +155,8 @@ export function useKeymapListener(): KeymapListenerState {
         }
       }
 
-      const result = map.match(steps, stepFromEvent(event), matchContext);
+      const step = stepFromEvent(event);
+      const result = map.match(steps, step, matchContext);
 
       if (result.type === "none") {
         // Only swallow the key if it was continuing a chord: an unbound key with

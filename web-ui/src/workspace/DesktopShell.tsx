@@ -25,6 +25,7 @@ export interface DesktopShellProps {
   readonly busySessions: ReadonlySet<string>;
   readonly chat: Omit<WorkspaceChatServices, "bindSession" | "setEngine">;
   readonly onError: (message: string) => void;
+  readonly activeSessionId: string | null;
   /** Receives the workspace's outward-facing actions, and null once it leaves. */
   readonly onTargetingReady: (api: WorkspaceBridge | null) => void;
 }
@@ -40,6 +41,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = function DesktopShell({
   busySessions,
   chat,
   onError,
+  activeSessionId,
   onTargetingReady,
 }) {
   // Stable identity: `DesktopWorkspace` publishes through this in an effect, so
@@ -73,6 +75,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = function DesktopShell({
         busySessions={busySessions}
         chat={chat}
         onError={onError}
+        activeSessionId={activeSessionId}
         targetingBridge={targetingBridge}
       />
     </div>

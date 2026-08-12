@@ -40,6 +40,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::task::JoinSet;
 
 use crate::mcp;
 
@@ -78,8 +79,10 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
         Arc::new(tokio::sync::Mutex::new(tokio::io::stdout()));
     let mut reader = BufReader::new(stdin);
     let mut line = String::new();
+    let mut calls = JoinSet::new();
 
     loop {
+        while calls.try_join_next().is_some() {}
         line.clear();
         let n = match reader.read_line(&mut line).await {
             Ok(n) => n,
@@ -145,7 +148,7 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
                 let out = Arc::clone(&stdout);
                 let id = req.id.clone();
                 let params = req.params;
-                tokio::spawn(async move {
+                calls.spawn(async move {
                     let result = handle_tool_call(&sock, params, sid.as_deref()).await;
                     let response = match result {
                         Ok(content) => serde_json::json!({
@@ -176,6 +179,8 @@ pub async fn run_mcp_neovim_bridge(project_path: PathBuf) -> anyhow::Result<()> 
             }
         }
     }
+
+    while calls.join_next().await.is_some() {}
 
     Ok(())
 }

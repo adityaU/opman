@@ -38,6 +38,7 @@ import type { FileOpenRequest } from "./code-editor/types";
 import { StartupGate } from "./StartupGate";
 import { isMobileViewport } from "./hooks/useIsMobile";
 import { useWorkspaceShellProps } from "./workspace/useWorkspaceShellProps";
+import { useEditorEngine } from "./editor-engine/preference";
 
 export function ChatLayout() {
   // Latches once the app has painted for the first time; see the startup gate
@@ -46,7 +47,9 @@ export function ChatLayout() {
 
   // A `/name` in the composer resolves to a command id and runs through the same registry
   // as its chord, so the two can never drift into separate implementations.
-  const { runCommand } = useKeymapContext();
+  const keymap = useKeymapContext();
+  const { runCommand } = keymap;
+  const [editorEngine, setEditorEngine] = useEditorEngine(keymap.mode);
 
   // ── Core SSE state ──
   const sse = useSSE();
@@ -406,6 +409,7 @@ export function ChatLayout() {
 
   const { workspaceProps, armTargeting, openKindHere, openFileInWorkspace } = useWorkspaceShellProps({
     appState,
+    activeSessionId,
     busySessions,
     defaultEngine,
     availableRunners,
@@ -581,6 +585,8 @@ export function ChatLayout() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onThemeApplied={callbacks.handleThemeApplied}
+          editorEngine={editorEngine}
+          onEditorEngineChange={setEditorEngine}
           onError={(message) => addToast(message, "error")}
           runners={availableRunners}
         />

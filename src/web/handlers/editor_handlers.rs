@@ -85,6 +85,45 @@ pub async fn editor_lsp_definition(
     ))
 }
 
+pub async fn editor_lsp_references(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(query): Json<EditorLspQuery>,
+) -> WebResult<impl IntoResponse> {
+    let (file, project_dir) = editor_target(&state, &query.path).await?;
+    Ok(Json(
+        crate::lsp::api_refactor::references(
+            &state.lsp,
+            &file,
+            &project_dir,
+            query.line.unwrap_or(1),
+            query.col.unwrap_or(1),
+            query.content.as_deref(),
+        )
+        .await,
+    ))
+}
+
+pub async fn editor_lsp_rename(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(query): Json<EditorLspQuery>,
+) -> WebResult<impl IntoResponse> {
+    let (file, project_dir) = editor_target(&state, &query.path).await?;
+    Ok(Json(
+        crate::lsp::api_refactor::rename(
+            &state.lsp,
+            &file,
+            &project_dir,
+            query.line.unwrap_or(1),
+            query.col.unwrap_or(1),
+            query.new_name.as_deref().unwrap_or_default(),
+            query.content.as_deref(),
+        )
+        .await,
+    ))
+}
+
 pub async fn editor_lsp_format(
     State(state): State<ServerState>,
     _auth: AuthUser,

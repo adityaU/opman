@@ -1,16 +1,13 @@
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
-use tower_http::compression::CompressionLayer;
 
-use super::handlers;
-use super::mcp_ws;
-use super::request_log;
-use super::sse;
-use super::static_files;
-use super::types::ServerState;
+use super::super::handlers;
+use super::super::mcp_ws;
+use super::super::nvim_ws;
+use super::super::sse;
 
-pub(super) fn build_router(state: ServerState) -> Router {
+pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
     let api_routes = Router::new()
         // Auth
         .route("/auth/login", post(handlers::login))
@@ -47,6 +44,8 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/pty/list", get(handlers::pty_list))
         .route("/pty/activity", get(handlers::pty_activity))
         .route("/pty/stream", get(sse::terminal_stream))
+        .route("/nvim", post(handlers::proxy_nvim))
+        .route("/nvim/ui", get(nvim_ws::websocket_handler))
         // App events SSE
         .route("/events", get(sse::events_stream))
         // ── Context Window ───────────────────────────────────────────
@@ -172,6 +171,11 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/editor/lsp/completion",
             post(handlers::editor_lsp_completion),
         )
+        .route(
+            "/editor/lsp/references",
+            post(handlers::editor_lsp_references),
+        )
+        .route("/editor/lsp/rename", post(handlers::editor_lsp_rename))
         .route("/editor/lsp/format", post(handlers::editor_lsp_format))
         // ── Session Watcher ──────────────────────────────────────────
         .route("/watchers", get(handlers::list_watchers))
@@ -296,54 +300,5 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .layer(DefaultBodyLimit::max(220 * 1024 * 1024));
 
     let api_routes = api_routes.merge(kanban_upload);
-
-    // Internal loopback API for opman's own stdio MCP servers (shared token; no JWT auth
-    // extractor). `/ask` holds its request open for as long as the user takes to answer.
-    let internal_routes = Router::new()
-        .route("/ask", post(handlers::internal_ask))
-        .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
-        .route(
-            "/kanban/task/{task_id}/status",
-            post(handlers::internal_set_status),
-        )
-        .route(
-            "/kanban/task/{task_id}/note",
-            post(handlers::internal_add_note),
-        )
-        .route(
-            "/kanban/task/{task_id}/complete",
-            post(handlers::internal_complete),
-        )
-        .route(
-            "/kanban/task/{task_id}/query",
-            post(handlers::internal_query_tasks),
-        )
-        .route(
-            "/kanban/task/{task_id}/board",
-            get(handlers::internal_board_overview),
-        )
-        .route(
-            "/kanban/task/{task_id}/notes",
-            post(handlers::internal_read_notes),
-        );
-
-    // Public (unauthenticated) API routes — outside the main api_routes
-    // so they don't go through the auth extractor.
-    let public_routes = Router::new().route("/public/bootstrap", get(handlers::public_bootstrap));
-
-    Router::new()
-        .route("/health", get(handlers::health))
-        .nest("/api", public_routes.merge(api_routes))
-        .nest("/internal", internal_routes)
-        .fallback(static_files::serve_react)
-        .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
-        .layer(CompressionLayer::new().gzip(true))
-        // Outermost, so it also logs body-limit/auth rejections and sees the
-        // request future get dropped when a client disconnects mid-request.
-        .layer(axum::middleware::from_fn(request_log::log_requests))
-        .with_state(state)
+    api_routes
 }
-
-#[cfg(test)]
-#[path = "routes_tests.rs"]
-mod routes_tests;

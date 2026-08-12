@@ -6,6 +6,7 @@
 
 use super::fake_runner::{Harness, DIR};
 use super::*;
+use tokio::net::UnixListener;
 
 #[tokio::test]
 async fn every_operation_needs_a_project_except_the_auth_notice() {

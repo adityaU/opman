@@ -40,7 +40,7 @@ import {
 export type ChromeLevel = keyof ChromeState;
 
 export type WorkspaceAction =
-  | { type: "splitPane"; pane: PaneId; dir: SplitDir; widget?: WidgetState | null; before?: boolean }
+  | { type: "splitPane"; pane: PaneId; dir: SplitDir; widget?: WidgetState | null; widgetForPane?: (pane: PaneId) => WidgetState; before?: boolean }
   | { type: "closePane"; pane: PaneId }
   | { type: "closeOthers"; pane: PaneId }
   | { type: "setWidget"; pane: PaneId; widget: WidgetState | null }
@@ -53,7 +53,7 @@ export type WorkspaceAction =
   | { type: "resize"; split: SplitId; index: number; delta: number }
   | { type: "equalize" }
   | { type: "toggleZoom" }
-  | { type: "newWindow"; widget?: WidgetState | null }
+  | { type: "newWindow"; widget?: WidgetState | null; widgetForPane?: (pane: PaneId) => WidgetState }
   | { type: "closeWindow"; window: WindowId }
   | { type: "renameWindow"; window: WindowId; name: string }
   | { type: "activateWindow"; window: WindowId }
@@ -124,7 +124,11 @@ export function workspaceReducer(state: Workspace, action: WorkspaceAction): Wor
 
     case "newWindow": {
       const created = emptyWindow(nextWindowName(state), action.widget ?? null);
-      return { ...state, windows: [...state.windows, created], activeWindowId: created.id };
+      const root = action.widgetForPane && created.root.type === "leaf"
+        ? { ...created.root, widget: action.widgetForPane(created.root.id) }
+        : created.root;
+      const window = root === created.root ? created : { ...created, root };
+      return { ...state, windows: [...state.windows, window], activeWindowId: window.id };
     }
 
     case "closeWindow":
@@ -158,8 +162,9 @@ export function workspaceReducer(state: Workspace, action: WorkspaceAction): Wor
 function reduceWindow(window: WorkspaceWindow, action: WorkspaceAction): WorkspaceWindow {
   switch (action.type) {
     case "splitPane": {
-      const created = newPane(action.widget ?? null);
-      const root = splitPane(window.root, action.pane, action.dir, created, action.before);
+      const created = newPane(action.widgetForPane ? null : action.widget ?? null);
+      const pane = action.widgetForPane ? { ...created, widget: action.widgetForPane(created.id) } : created;
+      const root = splitPane(window.root, action.pane, action.dir, pane, action.before);
       if (root === window.root) return window;
       // A split un-zooms: the point of splitting is to see both.
       return { ...window, root, focusedPaneId: created.id, zoomedPaneId: null };

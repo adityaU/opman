@@ -9,7 +9,7 @@ use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-use super::nvim_handler::handle_nvim_op_blocking;
+use super::nvim_handler::handle_nvim_request;
 use super::types::{NvimSocketRegistry, PendingSocketRequest, SocketRequest, SocketResponse};
 
 /// Update MCP activity timestamp.
@@ -252,7 +252,7 @@ async fn handle_connection(
             let response = {
                 let req = request;
                 let sock = nvim_socket;
-                tokio::task::spawn_blocking(move || handle_nvim_op_blocking(&sock, &req))
+                tokio::task::spawn_blocking(move || handle_nvim_request(&sock, &req))
                     .await
                     .unwrap_or_else(|e| SocketResponse::err(format!("Task join error: {}", e)))
             };

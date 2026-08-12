@@ -62,6 +62,7 @@
 @import './search.css';
 @import './session-1.css';
 @import './settings-page.css';
+@import './settings-editor.css';
 @import './settings-page-2.css';
 @import './settings-page-3.css';
 @import './settings-page-4.css';
@@ -76,6 +77,9 @@
 @import './startup-gate.css';
 @import './terminal-panel-1.css';
 @import './terminal-panel-2.css';
+@import './nvim-overlays.css';
+@import './nvim-overlays-2.css';
+@import './nvim-folds.css';
 @import './terminal-mobile.css';
 @import './theme-selector.css';
 @import './todo-panel.css';

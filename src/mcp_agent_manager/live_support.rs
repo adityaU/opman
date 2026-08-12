@@ -42,14 +42,15 @@ pub(super) fn directory() -> String {
 
 /// The socket of the opman these tests should talk to.
 ///
-/// Named by the environment inside a runner child; discovered from `/tmp` when the test is
-/// run from a shell. Sockets are PID-scoped and a dead opman leaves its file behind, so the
-/// newest is the live one.
+/// Named by the environment inside a runner child; discovered from the runtime socket
+/// directory when the test is run from a shell. Graceful shutdown removes dead sockets, so
+/// the only remaining matching file is the live one.
 fn socket() -> Option<PathBuf> {
     if let Ok(path) = std::env::var(super::SOCKET_ENV) {
         return Some(PathBuf::from(path));
     }
-    let mut found: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(std::env::temp_dir())
+    let directory = super::socket_path().parent()?.to_path_buf();
+    let found: Vec<PathBuf> = std::fs::read_dir(directory)
         .ok()?
         .flatten()
         .map(|entry| entry.path())
@@ -60,10 +61,10 @@ fn socket() -> Option<PathBuf> {
                     name.starts_with("opman-agent-manager-") && name.ends_with(".sock")
                 })
         })
-        .filter_map(|path| Some((path.metadata().ok()?.modified().ok()?, path)))
         .collect();
-    found.sort_by(|a, b| b.0.cmp(&a.0));
-    found.into_iter().next().map(|(_, path)| path)
+    (found.len() == 1)
+        .then(|| found.into_iter().next())
+        .flatten()
 }
 
 /// One request over the socket, in the bridge's own framing.

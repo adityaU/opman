@@ -1,0 +1,58 @@
+[
+  [
+    "cmdline_hide",
+    [
+      1,
+      false
+    ]
+  ],
+  [
+    "msg_show",
+    [
+      "emsg",
+      [
+        [
+          25,
+          "E15: Invalid expression: \"\\\"fixture\\\"\"",
+          6
+        ]
+      ],
+      false,
+      true,
+      false,
+      1,
+      "typed_cmd"
+    ]
+  ],
+  [
+    "win_viewport",
+    [
+      2,
+      {
+        "ext_type": 1,
+        "data_hex": "cd03e8"
+      },
+      0,
+      2,
+      0,
+      4,
+      1,
+      0
+    ]
+  ],
+  [
+    "mode_change",
+    [
+      "normal",
+      0
+    ]
+  ],
+  [
+    "mouse_on",
+    []
+  ],
+  [
+    "flush",
+    []
+  ]
+]

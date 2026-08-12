@@ -18,7 +18,7 @@ mod transport;
 // Preserve the flat `crate::nvim_rpc::*` API that the rest of the codebase uses.
 
 // transport (core RPC)
-pub use transport::nvim_command;
+pub use transport::{nvim_command, nvim_input};
 
 // buffer operations
 pub use buffer::{

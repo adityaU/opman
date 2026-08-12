@@ -119,8 +119,8 @@ export function DesktopLayout(p: Props) {
 
   return (
     <div className="code-editor-panel code-editor-desktop" ref={p.editorRef} data-surface="editor">
-      {/* Pinned it sits in the flow and the editor shrinks beside it;
-          unpinned it overlays and withdraws on its own. */}
+      {/* An open explorer reserves its measured track; collapsing it removes
+          that track so the editor reclaims the space. */}
       <div
         className={`xpl${showExplorer ? " is-open" : ""}${chrome.pinned ? " is-pinned" : ""}`}
         style={{ width: chrome.width }}
@@ -226,9 +226,8 @@ export function DesktopLayout(p: Props) {
       </div>
 
       {/* Editor area */}
-      {/* The explorer is an overlay, so while it is open its own collapse
-          control is the one on screen; showing a second, mirrored control
-          underneath it only put a button on top of the filename. */}
+      {/* While open, the explorer owns its collapse control. The expand
+          control only appears after its track has been removed. */}
       <div className={`code-editor-main${showExplorer ? "" : " has-expand"}`}>
         {!showExplorer && (
           <button

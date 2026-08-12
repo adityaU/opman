@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::task::JoinSet;
 
 use super::tool_defs::mcp_tool_definitions;
 use super::tools::handle_tool_call;
@@ -64,7 +65,9 @@ where
     let mut reader = BufReader::new(reader);
 
     let mut line = String::new();
+    let mut calls = JoinSet::new();
     loop {
+        while calls.try_join_next().is_some() {}
         line.clear();
         let n = match reader.read_line(&mut line).await {
             Ok(n) => n,
@@ -110,7 +113,7 @@ where
                 let out = Arc::clone(&stdout);
                 let id = rpc_req.id.clone();
                 let params = rpc_req.params;
-                tokio::spawn(async move {
+                calls.spawn(async move {
                     let result = handle_tool_call(&sock, params, sid.as_deref()).await;
                     let response = tool_call_response(result, &id);
                     write_jsonrpc_stdout(&out, &response).await;
@@ -125,6 +128,8 @@ where
             }
         }
     }
+
+    while calls.join_next().await.is_some() {}
 
     Ok(())
 }

@@ -145,7 +145,8 @@ function parseNode(value: unknown): Node | null {
   if (!isRecord(value) || typeof value.id !== "string") return null;
 
   if (value.type === "leaf") {
-    return { type: "leaf", id: asPaneId(value.id), widget: parseWidget(value.widget) };
+    const id = asPaneId(value.id);
+    return { type: "leaf", id, widget: parseWidget(value.widget, id) };
   }
   if (value.type !== "split" || !Array.isArray(value.children)) return null;
   if (value.dir !== "row" && value.dir !== "col") return null;
@@ -205,7 +206,7 @@ function parseFileOpen(value: unknown): FileOpenRequest | null {
   };
 }
 
-function parseWidget(value: unknown): WidgetState | null {
+function parseWidget(value: unknown, paneId: PaneId): WidgetState | null {
   if (!isRecord(value)) return null;
   const kind = value.kind;
   if (typeof kind !== "string" || !WIDGET_KINDS.includes(kind as WidgetKind)) return null;
@@ -221,7 +222,12 @@ function parseWidget(value: unknown): WidgetState | null {
         engine: parseEngine(value.engine),
       };
     case "files":
-      return { kind: "files", projectPath, open: parseFileOpen(value.open) };
+      return {
+        kind: "files",
+        projectPath,
+        sessionId: typeof value.sessionId === "string" && value.sessionId ? value.sessionId : paneId,
+        open: parseFileOpen(value.open),
+      };
     case "terminal":
       return {
         kind: "terminal",

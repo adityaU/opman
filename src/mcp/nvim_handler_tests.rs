@@ -11,7 +11,11 @@ fn bad_socket() -> PathBuf {
 }
 
 fn run(req: SocketRequest) -> SocketResponse {
-    handle_nvim_op_blocking(&bad_socket(), &req)
+    let op = match req.op.parse() {
+        Ok(op) => op,
+        Err(_) => return SocketResponse::err(format!("Unknown nvim operation: {}", req.op)),
+    };
+    super::handle_nvim_op_blocking(&bad_socket(), op, &req)
 }
 
 fn op(name: &str) -> SocketRequest {
@@ -90,6 +94,20 @@ fn nvim_command_error() {
     req.command = Some("echo hi".into());
     let r = run(req);
     assert!(r.error.unwrap().contains("Neovim command failed"));
+}
+
+#[test]
+fn nvim_input_missing() {
+    let r = run(op("nvim_input"));
+    assert!(r.error.unwrap().contains("Missing 'input' for nvim_input"));
+}
+
+#[test]
+fn nvim_input_connect_error() {
+    let mut req = op("nvim_input");
+    req.input = Some("<C-s>".into());
+    let r = run(req);
+    assert!(r.error.unwrap().contains("Neovim input failed"));
 }
 
 #[test]

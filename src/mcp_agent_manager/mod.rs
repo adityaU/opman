@@ -11,6 +11,7 @@
 
 mod bridge;
 mod dispatch;
+mod endpoint;
 #[cfg(test)]
 mod fake_runner;
 mod ops;
@@ -26,7 +27,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
 use crate::runner::RunnerRegistry;
@@ -34,8 +35,9 @@ use queue::QueuedMessage;
 use request::{ManagerRequest, Op};
 
 pub use bridge::run_bridge;
+pub use endpoint::socket_path;
 
-const SOCKET_ENV: &str = "OPMAN_AGENT_MANAGER_SOCKET";
+pub(crate) const SOCKET_ENV: &str = "OPMAN_AGENT_MANAGER_SOCKET";
 const SESSION_ENV: &str = "OPENCODE_SESSION_ID";
 
 #[derive(Clone)]
@@ -48,14 +50,7 @@ struct ManagerState {
 /// Start the in-process manager endpoint and return its child-visible socket path.
 pub fn spawn(registry: Arc<RunnerRegistry>) -> Result<PathBuf> {
     let path = socket_path();
-    let _ = std::fs::remove_file(&path);
-    let listener = std::os::unix::net::UnixListener::bind(&path)
-        .with_context(|| format!("failed to bind agent manager socket at {}", path.display()))?;
-    listener
-        .set_nonblocking(true)
-        .context("failed to configure agent manager socket")?;
-    let listener =
-        UnixListener::from_std(listener).context("failed to initialize agent manager socket")?;
+    let endpoint = endpoint::Endpoint::bind(path.clone())?;
     let state = ManagerState {
         registry,
         parents: Arc::new(Mutex::new(HashMap::new())),
@@ -64,29 +59,48 @@ pub fn spawn(registry: Arc<RunnerRegistry>) -> Result<PathBuf> {
     let worker_state = state.clone();
     tokio::spawn(async move { queue::worker(worker_state).await });
     tokio::spawn(async move {
+        let mut endpoint = endpoint;
+        let mut ticker = tokio::time::interval(endpoint::SUPERVISOR_INTERVAL);
         loop {
-            let (stream, _) = match listener.accept().await {
-                Ok(value) => value,
-                Err(error) => {
-                    tracing::warn!(%error, "agent manager socket accept failed");
-                    continue;
+            if !endpoint.is_bound() {
+                ticker.tick().await;
+                endpoint = endpoint::supervise(endpoint);
+                continue;
+            }
+
+            let parts = match endpoint.take_bound() {
+                Some(parts) => parts,
+                None => {
+                    tracing::error!("agent manager endpoint lost its listener");
+                    return;
                 }
             };
-            let state = state.clone();
-            tokio::spawn(async move {
-                if let Err(error) = handle_socket_connection(stream, state).await {
-                    tracing::debug!(%error, "agent manager request failed");
+            let (identity, listener) = parts.split();
+            tokio::select! {
+                result = listener.accept() => {
+                    endpoint = endpoint::Endpoint::from_parts(identity, listener);
+                    let (stream, _) = match result {
+                        Ok(value) => value,
+                        Err(error) => {
+                            tracing::warn!(%error, "agent manager socket accept failed");
+                            continue;
+                        }
+                    };
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        if let Err(error) = handle_socket_connection(stream, state).await {
+                            tracing::debug!(%error, "agent manager request failed");
+                        }
+                    });
                 }
-            });
+                _ = ticker.tick() => {
+                    endpoint = endpoint::Endpoint::from_parts(identity, listener);
+                    endpoint = endpoint::supervise(endpoint);
+                }
+            }
         }
     });
     Ok(path)
-}
-
-/// Stable per-process path used to pass the endpoint to runner processes that are started
-/// before the registry itself has been assembled.
-pub fn socket_path() -> PathBuf {
-    std::env::temp_dir().join(format!("opman-agent-manager-{}.sock", std::process::id()))
 }
 
 async fn handle_socket_connection(mut stream: UnixStream, state: ManagerState) -> Result<()> {

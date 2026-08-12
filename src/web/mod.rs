@@ -39,6 +39,7 @@ mod error;
 mod handlers;
 pub mod keybindings;
 mod mcp_ws;
+mod nvim_ws;
 pub mod pty_manager;
 mod request_log;
 mod routes;
@@ -160,6 +161,8 @@ pub async fn start_web_server(
     // started lazily on the first request for a file and reaped when idle.
     let lsp_pool = std::sync::Arc::new(crate::lsp::LspPool::new());
     crate::lsp::reaper::spawn(lsp_pool.clone());
+    let nvim_ui = std::sync::Arc::new(crate::nvim_ui::NvimUiPool::new(nvim_registry.clone()));
+    crate::nvim_ui::reaper::spawn(nvim_ui.clone());
 
     let shared_state = ServerState {
         web_state,
@@ -175,6 +178,7 @@ pub async fn start_web_server(
             .build()
             .unwrap_or_else(|_| reqwest::Client::new()),
         nvim_registry,
+        nvim_ui,
         lsp: lsp_pool,
         skills_registry,
         mcp,

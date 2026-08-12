@@ -12,6 +12,10 @@ use super::pty_manager::WebPtyHandle;
 use super::types::{EditorEvent, ServerState, WebEvent};
 use super::web_state::WebStateHandle;
 
+#[path = "test_support_config.rs"]
+mod test_support_config;
+pub(crate) use test_support_config::ConfigRedirect;
+
 /// A `WebPtyHandle` whose manager thread is never started. Any spawn command
 /// sent through it fails fast with "PTY manager not running", which is exactly
 /// what handler tests that don't exercise PTYs expect.
@@ -46,6 +50,7 @@ pub(crate) fn test_server_state() -> ServerState {
     // stream serves. A second channel here would let a test pass against plumbing that
     // does not exist.
     let raw_sse_tx = web_state.raw_sse_tx.clone();
+    let nvim_registry = crate::mcp::new_nvim_socket_registry();
     let runner_registry = std::sync::Arc::new(crate::runner::RunnerRegistry::new(
         crate::runner::RunnerKind::Opencode,
         runners,
@@ -60,7 +65,8 @@ pub(crate) fn test_server_state() -> ServerState {
         raw_sse_tx,
         pty_mgr: noop_pty_handle(),
         http_client: reqwest::Client::new(),
-        nvim_registry: crate::mcp::new_nvim_socket_registry(),
+        nvim_registry: nvim_registry.clone(),
+        nvim_ui: std::sync::Arc::new(crate::nvim_ui::NvimUiPool::new(nvim_registry)),
         lsp: std::sync::Arc::new(crate::lsp::LspPool::new()),
         skills_registry: crate::mcp_skills::SkillsRegistry::default(),
         mcp: crate::mcp_registry::RegistryHandle::default(),
@@ -126,6 +132,18 @@ pub(crate) fn test_server_state_with_projects(
     state
 }
 
+pub(crate) fn test_server_state_with_projects_and_nvim_config(
+    projects: Vec<(String, std::path::PathBuf)>,
+    config: crate::nvim_ui::spawn::ConfigSource,
+) -> ServerState {
+    let mut state = test_server_state_with_projects(projects);
+    state.nvim_ui = std::sync::Arc::new(crate::nvim_ui::NvimUiPool::with_config(
+        state.nvim_registry.clone(),
+        config,
+    ));
+    state
+}
+
 /// Like [`test_server_state`] but with credentials set, for auth tests.
 pub(crate) fn test_server_state_with_auth(username: &str, password: &str) -> ServerState {
     let mut state = test_server_state();
@@ -137,69 +155,6 @@ pub(crate) fn test_server_state_with_auth(username: &str, password: &str) -> Ser
 /// Build the production router around a test [`ServerState`].
 pub(crate) fn test_router(state: ServerState) -> axum::Router {
     super::routes::build_router(state)
-}
-
-/// Point `mcp.json` and the OAuth token store at a temp directory.
-///
-/// Both, always: the MCP handlers read the config *and* the credential store to answer a
-/// single listing, so redirecting only one of them still leaves a test writing into the
-/// developer's real `~/.config/opman`.
-pub(crate) struct ConfigRedirect {
-    _tmp: tempfile::TempDir,
-    previous: Vec<(&'static str, Option<std::ffi::OsString>)>,
-    /// Shares the lock the other env-mutating tests use, so a second mutex cannot
-    /// reintroduce the race this exists to prevent.
-    _guard: std::sync::MutexGuard<'static, ()>,
-}
-
-impl ConfigRedirect {
-    pub(crate) fn new() -> Self {
-        let guard = crate::claude_engine::claude_cli::ENV_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let tmp = tempfile::TempDir::new().expect("temp dir");
-        let vars = [
-            ("OPMAN_MCP_CONFIG", tmp.path().join("mcp.json")),
-            // What `dirs::config_dir` reads, and therefore what moves the token store.
-            ("XDG_CONFIG_HOME", tmp.path().to_path_buf()),
-        ];
-        let previous = vars
-            .iter()
-            .map(|(key, value)| {
-                let prior = std::env::var_os(key);
-                std::env::set_var(key, value);
-                (*key, prior)
-            })
-            .collect();
-        Self {
-            _tmp: tmp,
-            previous,
-            _guard: guard,
-        }
-    }
-
-    /// The `mcp.json` as it stands on disk right now.
-    pub(crate) fn document(&self) -> crate::mcp_registry::config::McpConfig {
-        crate::mcp_registry::config::load()
-    }
-
-    /// Write one server into the redirected `mcp.json`.
-    pub(crate) fn declare(&self, name: &str, entry: crate::mcp_registry::config::ServerConfig) {
-        let mut document = self.document();
-        document.servers.insert(name.to_string(), entry);
-        crate::mcp_registry::config::save(&document).expect("save mcp.json");
-    }
-}
-
-impl Drop for ConfigRedirect {
-    fn drop(&mut self) {
-        for (key, prior) in self.previous.drain(..) {
-            match prior {
-                Some(value) => std::env::set_var(key, value),
-                None => std::env::remove_var(key),
-            }
-        }
-    }
 }
 
 /// Run `fut` with a per-task opencode base-URL override in effect, so any

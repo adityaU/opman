@@ -67,6 +67,8 @@ pub struct EditorLspQuery {
     /// answer `.` with a short member list and a bare request with everything
     /// in scope, so this changes the result materially.
     pub trigger: Option<String>,
+    /// The identifier a rename should introduce. Ignored by every other query.
+    pub new_name: Option<String>,
 }
 
 #[derive(Deserialize)]

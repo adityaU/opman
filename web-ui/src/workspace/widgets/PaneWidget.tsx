@@ -4,12 +4,10 @@ import type { PaneId, PaneNode, WidgetState } from "../types";
 /**
  * Renders a pane's widget.
  *
- * Three of the four drop straight in — the editor, git and terminal panels were
- * already parameterised by `projectPath`, so they were multi-instance long
- * before anything asked them to be. Chat is the one that needed work, and that
- * work went into the SSE layer rather than here: `ChatWidget` reads its session
- * through the subscription store, so two of them stream side by side without
- * knowing about each other.
+ * Existing widgets drop straight in — the editor, git and terminal panels were
+ * already parameterised by `projectPath`, and chat owns its session. Neovim is
+ * likewise pane-local: its session comes from the widget rather than the
+ * globally focused chat session.
  *
  * Lazy, matching how the old side panel loaded these: a workspace restored with
  * four panes should not block first paint on four bundles.
@@ -70,6 +68,7 @@ function renderWidget(
           layout="desktop"
           focused={focused}
           projectPath={widget.projectPath}
+          sessionId={widget.sessionId}
           open={widget.open}
           onError={onError}
         />

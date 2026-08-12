@@ -1,0 +1,51 @@
+/* CodeMirror owns the visible gutter in the Neovim path. Neovim's fold state
+   is mirrored by nvimFoldMirrorExtension; the wire currently has no fold
+   ranges to paint directly. */
+
+.cm-editor .cm-gutters,
+.cm-editor .cm-gutter,
+.cm-editor .cm-foldGutter,
+.cm-editor .cm-gutterElement {
+    visibility: visible !important;
+    opacity: 1;
+}
+
+.cm-editor .cm-foldGutter .cm-gutterElement {
+    min-height: 1.25rem;
+}
+
+.cm-editor:has(.cm-nvim-status-panel) .cm-foldGutter .cm-gutterElement {
+    min-width: 1.4rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.cm-opman-fold-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+}
+
+.cm-opman-fold-marker svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.cm-editor:has(.cm-nvim-status-panel) .cm-foldGutter .cm-gutterElement:hover {
+    color: var(--color-primary);
+    background: var(--theme-surface-hover, var(--color-bg-hover));
+}
+
+.cm-editor:has(.cm-nvim-status-panel) .cm-foldGutter .cm-gutterElement:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cm-editor:has(.cm-nvim-status-panel) .cm-foldGutter .cm-gutterElement {
+        transition: none;
+    }
+}

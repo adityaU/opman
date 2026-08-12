@@ -101,14 +101,17 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
   const reportError = useCallback((message: string) => latest.current.onError(message), []);
 
   const renderWidget = useCallback(
-    (widget: WidgetState, pane: PaneNode, focused: boolean) =>
-      React.createElement(PaneWidget, {
+    (widget: WidgetState, pane: PaneNode, focused: boolean) => {
+      // Session-bearing widgets keep their session on the widget. Never derive
+      // it from the globally focused chat session: panes may be independent.
+      return React.createElement(PaneWidget, {
         widget,
         pane,
         focused,
         onError: reportError,
         onPtyIdsChanged,
-      }),
+      });
+    },
     [onPtyIdsChanged, reportError],
   );
 

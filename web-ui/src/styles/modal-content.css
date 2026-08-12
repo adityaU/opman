@@ -27,7 +27,7 @@
 
 /* Selection is a tint plus an accent label, not a coloured edge bar. */
 :is(.model-picker-item, .agent-picker-item, .command-palette-item,
-    .session-selector-item):is(.active, .selected, [aria-selected="true"]) {
+    .session-selector-item, .nvim-popupmenu-item):is(.active, .selected, [aria-selected="true"]) {
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     color: var(--color-primary);
 }
@@ -43,7 +43,9 @@
 
                                                                            
 
-.modal-dialog-surface :focus-visible{
+.modal-dialog-surface :focus-visible,
+.nvim-popupmenu-overlay :focus-visible,
+.nvim-float-surface :focus-visible{
     outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
     outline-offset: 2px;
     border-radius: var(--radius);

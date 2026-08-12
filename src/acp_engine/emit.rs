@@ -62,7 +62,11 @@ pub(super) fn append_text(part: &mut Value, text: &str) -> Option<String> {
 /// ACP chunks are normally disjoint, but a few providers resend a boundary when reconnecting.
 fn suffix_prefix_overlap(existing: &str, incoming: &str) -> usize {
     let max = existing.len().min(incoming.len());
-    (0..=max)
+    // A one-byte boundary is too ambiguous for token streams: adjacent
+    // chunks such as `Hel` + `lo` commonly share a character by coincidence.
+    // Reconnect overlap is a meaningful repeated fragment, so require at
+    // least two bytes and keep the full-string duplicate case above.
+    (2..=max)
         .rev()
         .find(|&size| {
             existing.is_char_boundary(existing.len() - size)

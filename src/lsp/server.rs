@@ -46,6 +46,8 @@ pub struct ServerCaps {
     pub definition: bool,
     pub formatting: bool,
     pub completion: bool,
+    pub references: bool,
+    pub rename: bool,
     /// Characters that should re-query completions mid-word — `.` and `:` for
     /// Rust, `.` and `"` for JSON. The editor cannot guess these per language.
     pub trigger_characters: Vec<String>,
@@ -244,6 +246,8 @@ fn read_caps(result: &Value) -> ServerCaps {
         definition: claims("definitionProvider"),
         formatting: claims("documentFormattingProvider"),
         completion: completion_provider.is_some(),
+        references: claims("referencesProvider"),
+        rename: claims("renameProvider"),
         trigger_characters,
         encoding: PositionEncoding::from_server(
             caps.and_then(|c| c.get("positionEncoding"))

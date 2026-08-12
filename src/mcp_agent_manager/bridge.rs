@@ -4,6 +4,7 @@
 //! manager, which is where the required model and effort are actually enforced — the bridge
 //! must not second-guess a contract it would then have to keep in step.
 
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -228,7 +229,7 @@ fn to_request(
 async fn exchange(socket: &Path, request: &ManagerRequest) -> Result<Value> {
     let mut stream = UnixStream::connect(socket)
         .await
-        .with_context(|| format!("failed to connect to agent manager at {}", socket.display()))?;
+        .map_err(|error| connection_error(socket, error))?;
     stream
         .write_all(serde_json::to_string(request)?.as_bytes())
         .await?;
@@ -245,6 +246,28 @@ async fn exchange(socket: &Path, request: &ManagerRequest) -> Result<Value> {
             .to_string());
     }
     Ok(response.get("data").cloned().unwrap_or(Value::Null))
+}
+
+fn connection_error(socket: &Path, error: io::Error) -> anyhow::Error {
+    let (kind, remedy) = match error.kind() {
+        io::ErrorKind::NotFound => (
+            "ENOENT: the socket file is missing; restart opman or let its supervisor rebind it",
+            "the manager listener may still be alive but orphaned from its pathname",
+        ),
+        io::ErrorKind::ConnectionRefused => (
+            "ECONNREFUSED: the socket file is stale and no manager is listening",
+            "remove the stale socket or restart opman",
+        ),
+        io::ErrorKind::PermissionDenied => (
+            "EACCES: the socket cannot be accessed by this client",
+            "check XDG_RUNTIME_DIR ownership and permissions",
+        ),
+        _ => ("unknown socket error", "inspect the underlying OS error"),
+    };
+    anyhow::anyhow!(
+        "failed to connect to agent manager at {}: {kind} ({error}); {remedy}",
+        socket.display()
+    )
 }
 
 #[cfg(test)]

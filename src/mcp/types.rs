@@ -48,6 +48,8 @@ pub struct SocketRequest {
     #[serde(default)]
     pub command: Option<String>, // for "run" op and "nvim_command" / "nvim_eval"
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>, // for "nvim_input"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>, // for "new" and "rename" ops
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait: Option<bool>, // for "run" op: wait for output to settle

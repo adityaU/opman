@@ -38,6 +38,7 @@ export interface FileExplorerState extends FileActionsState {
   breadcrumbs: BreadcrumbEntry[];
   // Jump to line support
   pendingJumpRef: React.MutableRefObject<{ path: string; line: number } | null>;
+  pendingJumpVersion: number;
 }
 
 export function useFileExplorer(
@@ -61,6 +62,13 @@ export function useFileExplorer(
   const [saveStatus, setSaveStatus]           = useState<"saved" | "modified" | null>(null);
 
   const pendingJumpRef = useRef<{ path: string; line: number } | null>(null);
+  const [pendingJumpVersion, setPendingJumpVersion] = useState(0);
+  const openFilesRef = useRef(openFiles);
+  const loadGenerationRef = useRef(0);
+
+  useEffect(() => {
+    openFilesRef.current = openFiles;
+  }, [openFiles]);
 
   // Derived
   const activeEntry = openFiles.find((f) => f.path === activeFilePath) ?? null;
@@ -122,11 +130,15 @@ export function useFileExplorer(
   // ── File loading ──────────────────────────────────────
 
   const loadFile = useCallback(async (path: string, line?: number | null) => {
-    const existing = openFiles.find((f) => f.path === path);
+    const generation = ++loadGenerationRef.current;
+    const existing = openFilesRef.current.find((f) => f.path === path);
     if (existing) {
       setActiveFilePath(path);
       setSaveStatus(existing.editedContent !== null ? "modified" : null);
-      if (line) pendingJumpRef.current = { path, line };
+      if (line) {
+        pendingJumpRef.current = { path, line };
+        setPendingJumpVersion((version) => version + 1);
+      }
       return;
     }
 
@@ -145,17 +157,21 @@ export function useFileExplorer(
         language = resp.language;
       }
       const entry: OpenFileEntry = { path, content, language, renderType, editedContent: null, docData, editedDocData: null };
-      setOpenFiles((prev) => [...prev, entry]);
+      if (generation !== loadGenerationRef.current) return;
+      setOpenFiles((prev) => prev.some((file) => file.path === path) ? prev : [...prev, entry]);
       setActiveFilePath(path);
       setSaveStatus(null);
-      if (line) pendingJumpRef.current = { path, line };
+      if (line) {
+        pendingJumpRef.current = { path, line };
+        setPendingJumpVersion((version) => version + 1);
+      }
     } catch (err) {
       console.error("Failed to read file:", err);
       onError?.("Failed to read file");
     } finally {
       setLoadingFile(false);
     }
-  }, [openFiles, onError]);
+  }, [onError]);
 
   const closeFile = useCallback((path: string) => {
     setOpenFiles((prev) => {
@@ -255,7 +271,7 @@ export function useFileExplorer(
     loadingFile, loadFile, closeFile,
     saveStatus, setSaveStatus, saving, handleSave, handleRevert,
     editedContent, setOpenFiles, onEditorChange,
-    breadcrumbs, pendingJumpRef,
+    breadcrumbs, pendingJumpRef, pendingJumpVersion,
     ...actions,
   };
 }

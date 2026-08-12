@@ -35,6 +35,7 @@ mod mcp_login_state;
 mod mcp_tools_handlers;
 mod mcp_upsert;
 mod memory_handlers;
+mod nvim_handlers;
 mod presence_handlers;
 mod project_handlers;
 mod pty_handlers;
@@ -103,7 +104,7 @@ pub use download_handlers::{download_dir, download_file};
 
 pub use editor_handlers::{
     editor_lsp_completion, editor_lsp_definition, editor_lsp_diagnostics, editor_lsp_format,
-    editor_lsp_hover,
+    editor_lsp_hover, editor_lsp_references, editor_lsp_rename,
 };
 
 pub use context_handlers::{get_context_window, get_session_todos, update_session_todos};
@@ -119,6 +120,7 @@ pub use memory_handlers::{
     create_personal_memory, delete_personal_memory, get_autonomy_settings, list_active_memory,
     list_personal_memory, update_autonomy_settings, update_personal_memory,
 };
+pub use nvim_handlers::proxy_nvim;
 
 pub use presence_handlers::{deregister_presence, get_presence, register_presence};
 

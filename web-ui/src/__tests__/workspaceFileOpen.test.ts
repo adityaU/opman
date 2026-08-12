@@ -23,9 +23,10 @@ const chat = (projectPath: string): WidgetState => ({
   sessionId: null,
   engine: null,
 });
-const files = (projectPath: string, open: FileOpenRequest | null = null): WidgetState => ({
+const files = (projectPath: string, open: FileOpenRequest | null = null, sessionId = "pane-files"): WidgetState => ({
   kind: "files",
   projectPath,
+  sessionId,
   open,
 });
 
@@ -86,7 +87,7 @@ describe("planFileOpen", () => {
     expect(planFileOpen(open, panes, asPaneId("a"), PROJECTS)).toEqual({
       action: "split",
       pane: asPaneId("a"),
-      widget: files(REPO, open),
+      widget: files(REPO, open, "a"),
     });
   });
 
@@ -97,7 +98,7 @@ describe("planFileOpen", () => {
     expect(planFileOpen(open, panes, asPaneId("b"), PROJECTS)).toEqual({
       action: "place",
       pane: asPaneId("b"),
-      widget: files(REPO, open),
+      widget: files(REPO, open, "b"),
     });
   });
 
@@ -108,7 +109,7 @@ describe("planFileOpen", () => {
     expect(planFileOpen(open, panes, asPaneId("a"), PROJECTS)).toEqual({
       action: "split",
       pane: asPaneId("a"),
-      widget: files(OTHER, open),
+      widget: files(OTHER, open, "a"),
     });
   });
 
@@ -119,7 +120,7 @@ describe("planFileOpen", () => {
     expect(planFileOpen(open, panes, asPaneId("a"), PROJECTS)).toEqual({
       action: "split",
       pane: asPaneId("a"),
-      widget: files(OTHER, open),
+      widget: files(OTHER, open, "a"),
     });
   });
 });

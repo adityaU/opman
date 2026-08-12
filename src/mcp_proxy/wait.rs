@@ -117,7 +117,7 @@ fn timed_out(name: &ServerName) -> String {
 /// environment inheritance, so a proxy the user wired into a runner's own config by hand
 /// simply will not have it. The tool text above stays the load-bearing path.
 fn notify_parent(name: &ServerName) {
-    let Ok(socket) = std::env::var("OPMAN_AGENT_MANAGER_SOCKET") else {
+    let Ok(socket) = std::env::var(crate::mcp_agent_manager::SOCKET_ENV) else {
         return;
     };
     let payload = json!({ "op": "mcp_auth_required", "server": name.as_str() }).to_string();

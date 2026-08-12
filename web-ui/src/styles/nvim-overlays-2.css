@@ -1,0 +1,182 @@
+.nvim-popupmenu-overlay {
+    z-index: 5;
+    width: min(38rem, calc(100% - var(--panel-inset) * 2));
+    max-height: min(18rem, calc(100% - var(--panel-inset) * 2));
+    overflow: hidden;
+    padding: var(--space-1);
+    border-color: var(--modal-border);
+    border-radius: var(--popover-radius);
+    background: var(--modal-surface);
+    box-shadow: var(--popover-shadow), var(--modal-rim);
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur);
+    animation: none;
+    pointer-events: none
+}
+
+.nvim-popupmenu-list {
+    max-height: min(14rem, 55vh);
+    overflow: auto;
+    scrollbar-width: thin
+}
+
+.nvim-popupmenu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 26px;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.4
+}
+
+.nvim-popupmenu-item.is-selected {
+    background: var(--theme-select);
+    box-shadow: inset 0 0 0 1px var(--theme-select-ring);
+    color: var(--color-text)
+}
+
+.nvim-popupmenu-kind {
+    min-width: 2.5rem;
+    padding: 1px var(--space-1);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    color: var(--color-accent);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-align: center
+}
+
+.nvim-popupmenu-word {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.nvim-popupmenu-menu {
+    min-width: 0;
+    margin-left: auto;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.nvim-popupmenu-info,
+.nvim-popupmenu-empty {
+    padding: var(--space-2);
+    border-top: 1px solid var(--color-border-subtle);
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-2xs);
+    line-height: 1.4
+}
+
+.nvim-popupmenu-info {
+    max-height: 4.2em;
+    overflow: auto;
+    white-space: pre-wrap
+}
+
+.nvim-statusline-overlay {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--pane-head-h);
+    padding: 0 var(--space-3);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    font-size: var(--font-size-2xs);
+    pointer-events: none
+}
+
+.nvim-statusline-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase
+}
+
+.nvim-statusline-mode-short {
+    padding: 1px var(--space-1);
+    border: 1px solid currentColor;
+    border-radius: var(--radius);
+    font-size: var(--font-size-2xs)
+}
+
+.nvim-statusline-mode[data-mode="insert"],
+.nvim-statusline-mode[data-mode^="insert_"] { color: var(--color-success) }
+.nvim-statusline-mode[data-mode="visual"],
+.nvim-statusline-mode[data-mode^="visual_"] { color: var(--color-accent) }
+.nvim-statusline-mode[data-mode="replace"],
+.nvim-statusline-mode[data-mode^="replace_"] { color: var(--color-warning) }
+.nvim-statusline-mode[data-mode="terminal"] { color: var(--color-info) }
+
+.nvim-statusline-showmode,
+.nvim-statusline-showcmd,
+.nvim-statusline-title,
+.nvim-statusline-connection,
+.nvim-statusline-ruler {
+    overflow: hidden;
+    color: var(--color-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.nvim-statusline-showcmd {
+    max-width: 20%;
+    font-family: var(--font-mono)
+}
+
+.nvim-statusline-title {
+    min-width: 0;
+    flex: 1;
+    font-family: var(--font-mono)
+}
+
+.nvim-statusline-connection {
+    max-width: 22%;
+    color: var(--color-info)
+}
+
+.nvim-statusline-connection[data-connection="error"] { color: var(--color-error) }
+.nvim-statusline-connection[data-connection="pending"] { color: var(--color-warning) }
+
+.nvim-statusline-ruler {
+    flex: 0 0 auto;
+    color: var(--color-text)
+}
+
+html.flat-theme .nvim-tabline-overlay,
+html.flat-theme .nvim-messages-overlay,
+html.flat-theme .nvim-cmdline-overlay,
+html.flat-theme .nvim-popupmenu-overlay,
+html.flat-theme .nvim-statusline-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--theme-surface-1);
+    box-shadow: var(--shadow-sm)
+}
+
+html.flat-theme .nvim-popupmenu-overlay {
+    box-shadow: var(--popover-shadow)
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nvim-buffer-tab,
+    .nvim-popupmenu-overlay { transition: none; animation: none }
+}

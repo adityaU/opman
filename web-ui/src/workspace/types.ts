@@ -78,7 +78,13 @@ export type WidgetState =
    * so a reload comes back to it. Browsing inside the panel does not write here
    * — this is the request, not the panel's cursor.
    */
-  | { readonly kind: "files"; readonly projectPath: string; readonly open: FileOpenRequest | null }
+  | {
+      readonly kind: "files";
+      readonly projectPath: string;
+      /** The pane-local Neovim pool key used when this surface enters Vim mode. */
+      readonly sessionId: string;
+      readonly open: FileOpenRequest | null;
+    }
   /**
    * `ptyIds` are the pane's terminal tabs. PTYs live in the server process and
    * outlive a browser refresh, so remembering their ids is the whole of what it
@@ -86,7 +92,10 @@ export type WidgetState =
    * shell instead of spawning a fresh one and losing the scrollback.
    */
   | { readonly kind: "terminal"; readonly projectPath: string; readonly ptyIds: readonly string[] }
-  | { readonly kind: "git"; readonly projectPath: string };
+  | { readonly kind: "git"; readonly projectPath: string }
+
+/** Build a widget once its destination pane — and therefore its identity — is known. */
+export type WidgetForPane = (pane: PaneId) => WidgetState;
 
 // ── Tree ────────────────────────────────────────────────
 

@@ -121,3 +121,28 @@ async fn a_call_without_a_tool_name_is_refused() {
 
     assert!(format!("{error}").contains("missing tool name"), "{error}");
 }
+
+#[tokio::test]
+async fn missing_and_dead_socket_files_have_distinct_connect_diagnostics() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let missing = directory.path().join("missing.sock");
+    let request: ManagerRequest =
+        serde_json::from_value(json!({ "op": "list", "directory": "/work" })).expect("request");
+    let missing_error = exchange(&missing, &request)
+        .await
+        .expect_err("missing socket");
+    assert!(
+        format!("{missing_error:#}").contains("ENOENT"),
+        "{missing_error:#}"
+    );
+
+    let dead = directory.path().join("dead.sock");
+    let listener = std::os::unix::net::UnixListener::bind(&dead).expect("dead socket");
+    drop(listener);
+    let refused_error = exchange(&dead, &request).await.expect_err("dead socket");
+    assert!(
+        format!("{refused_error:#}").contains("ECONNREFUSED"),
+        "{refused_error:#}"
+    );
+    assert_ne!(format!("{missing_error:#}"), format!("{refused_error:#}"));
+}

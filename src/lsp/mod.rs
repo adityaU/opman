@@ -19,6 +19,7 @@
 
 pub mod api;
 pub mod api_edit;
+pub mod api_refactor;
 pub mod completion;
 pub mod convert;
 pub mod detect;

@@ -159,6 +159,7 @@ function FileContent({
   const renderEditor = () => (
     <CodeMirror
       value={currentContent}
+      autoFocus
       onChange={onEditorChange}
       onCreateEditor={onCreateEditor}
       onUpdate={onUpdate}
@@ -168,7 +169,9 @@ function FileContent({
         lineNumbers: true,
         highlightActiveLineGutter: true,
         highlightActiveLine: true,
-        foldGutter: true,
+        // The shared editor extension installs the themed fold gutter and
+        // keeps its initial spacer visible in the Neovim surface.
+        foldGutter: false,
         bracketMatching: true,
         closeBrackets: true,
         autocompletion: true,

@@ -9,6 +9,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { createLspExtensions, pushDiagnostics, type LspBridge } from "../lsp/editorLsp";
+import { useCallback } from "react";
 import type { EditorLspDiagnostic } from "../types";
 
 interface Args {
@@ -21,29 +22,40 @@ interface Args {
   format: () => Promise<void>;
   completeAt: LspBridge["completeAt"];
   triggerCharacters: () => string[];
+  referencesAt: LspBridge["referencesAt"];
+  renameAt: LspBridge["renameAt"];
+  jumpTo: LspBridge["jumpTo"];
 }
 
 export function useEditorLsp({
   enabled, activeFilePath, activeDiagnostics, editorViewRef,
   hoverAt, definitionAt, format, completeAt, triggerCharacters,
+  referencesAt, renameAt, jumpTo,
 }: Args) {
   const bridge = useRef<LspBridge>({
-    enabled, hoverAt, definitionAt, format, completeAt, triggerCharacters,
+    enabled, diagnostics: () => activeDiagnostics, hoverAt, definitionAt, format, completeAt, triggerCharacters,
+    referencesAt, renameAt, jumpTo,
   });
 
   // Refresh the handles in place rather than rebuilding the extensions.
   bridge.current.enabled = enabled;
+  bridge.current.diagnostics = () => activeDiagnostics;
   bridge.current.hoverAt = hoverAt;
   bridge.current.definitionAt = definitionAt;
   bridge.current.format = format;
   bridge.current.completeAt = completeAt;
   bridge.current.triggerCharacters = triggerCharacters;
+  bridge.current.referencesAt = referencesAt;
+  bridge.current.renameAt = renameAt;
+  bridge.current.jumpTo = jumpTo;
 
-  const extensions = useMemo(() => createLspExtensions(bridge), []);
+  const actions = useRef<{ run: (name: string) => void }>({ run: () => {} });
+  const extensions = useMemo(() => createLspExtensions(bridge, actions.current), []);
+  const runAction = useCallback((name: string) => actions.current.run(name), []);
 
   useEffect(() => {
     pushDiagnostics(editorViewRef.current, enabled ? activeDiagnostics : []);
   }, [activeDiagnostics, activeFilePath, enabled, editorViewRef]);
 
-  return extensions;
+  return { extensions, runAction };
 }

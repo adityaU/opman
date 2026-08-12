@@ -13,9 +13,11 @@
  * what you are typing; narrowing its truncated list converges on nothing.
  */
 import {
-  autocompletion, snippetCompletion,
+  autocompletion, completionStatus, moveCompletionSelection, snippetCompletion, startCompletion,
   type Completion, type CompletionContext, type CompletionResult,
 } from "@codemirror/autocomplete";
+import { Prec } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
 import { markdownElement } from "./lspMarkdown";
 import type { LspBridgeRef } from "./editorLsp";
 
@@ -65,9 +67,8 @@ function toCompletion(item: LspCompletionItem, index: number, total: number): Co
 
 export function lspCompletionExtension(bridge: LspBridgeRef) {
   const source = async (context: CompletionContext): Promise<CompletionResult | null> => {
-    if (!bridge.current.enabled) return null;
-
     const word = context.matchBefore(WORD_BEFORE);
+    if (context.explicit) return documentCompletions(context, word);
     const triggers = bridge.current.triggerCharacters();
     const charBefore = context.state.sliceDoc(Math.max(0, context.pos - 1), context.pos);
     const isTrigger = triggers.includes(charBefore);
@@ -82,7 +83,10 @@ export function lspCompletionExtension(bridge: LspBridgeRef) {
       context.pos - line.from + 1,
       isTrigger ? charBefore : undefined,
     );
-    if (!response || !response.available || response.items.length === 0) return null;
+    if (!response || !response.available || response.items.length === 0) {
+      if (!context.explicit) return null;
+      return documentCompletions(context, word);
+    }
 
     const total = response.items.length;
     return {
@@ -94,7 +98,21 @@ export function lspCompletionExtension(bridge: LspBridgeRef) {
     };
   };
 
-  return autocompletion({
+  // Ctrl-N / Ctrl-P are how Vim asks for completion, and the editor is in
+  // insert mode when they arrive — so they belong to CodeMirror, not Neovim.
+  const vimKeys = keymap.of([
+    { key: "Ctrl-n", run: (view) => step(view, true) },
+    { key: "Ctrl-p", run: (view) => step(view, false) },
+  ]);
+  const vimCompletionKeys = EditorView.domEventHandlers({
+    keydown(event, view) {
+      if (event.key.toLowerCase() !== "n" || !event.ctrlKey || event.altKey || event.metaKey) return false;
+      event.preventDefault();
+      return step(view, true);
+    },
+  });
+
+  return [vimCompletionKeys, Prec.highest(vimKeys), autocompletion({
     override: [source],
     activateOnTyping: true,
     closeOnBlur: true,
@@ -102,5 +120,22 @@ export function lspCompletionExtension(bridge: LspBridgeRef) {
     icons: true,
     defaultKeymap: true,
     tooltipClass: () => "cm-lsp-complete",
-  });
+  })];
+}
+
+function documentCompletions(
+  context: CompletionContext,
+  word: { readonly from: number; readonly to: number } | null,
+): CompletionResult | null {
+  const values = new Set<string>();
+  const source = context.state.doc.toString();
+  for (const match of source.matchAll(/[A-Za-z_$][\w$]*/g)) values.add(match[0]);
+  const options = [...values].map((label) => ({ label, type: "text" } satisfies Completion));
+  if (options.length === 0) return null;
+  return { from: word?.from ?? context.pos, options };
+}
+
+function step(view: EditorView, forward: boolean): boolean {
+  if (completionStatus(view.state) === null) return startCompletion(view);
+  return moveCompletionSelection(forward)(view);
 }

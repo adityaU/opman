@@ -16,10 +16,6 @@ import {
   fetchProviders,
   parseOpenCodeEvent,
   classifyFile,
-  fetchGitDiff,
-  fetchGitLog,
-  searchMessages,
-  rawFileUrl,
 } from "../api";
 
 // ── Mock sessionStorage ────────────────────────────────
@@ -68,9 +64,9 @@ describe("Token management", () => {
     expect(getToken()).toBeNull();
   });
 
-  it("setToken / getToken round-trips", () => {
+  it("setToken does not expose the HttpOnly cookie", () => {
     setToken("abc123");
-    expect(getToken()).toBe("abc123");
+    expect(getToken()).toBeNull();
   });
 
   it("clearToken removes the token", () => {
@@ -111,24 +107,22 @@ describe("verifyToken", () => {
   });
 
   it("returns true when server verifies", async () => {
-    setToken("valid_token");
+    storage.set("opman_token", "valid_token");
     mockFetch({ ok: true });
     const result = await verifyToken();
     expect(result).toBe(true);
-    expect(fetch).toHaveBeenCalledWith("/api/auth/verify", expect.objectContaining({
-      headers: { Authorization: "Bearer valid_token" },
-    }));
+    expect(fetch).toHaveBeenCalledWith("/api/auth/verify", { credentials: "same-origin" });
   });
 
   it("returns false when server rejects", async () => {
-    setToken("expired_token");
+    storage.set("opman_token", "expired_token");
     mockFetch({ ok: false, status: 401 });
     const result = await verifyToken();
     expect(result).toBe(false);
   });
 
   it("returns false on network error", async () => {
-    setToken("some_token");
+    storage.set("opman_token", "some_token");
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("network"));
     const result = await verifyToken();
     expect(result).toBe(false);
@@ -141,22 +135,20 @@ describe("verifyToken", () => {
 
 describe("apiFetch (via fetchAppState)", () => {
   it("attaches auth header and returns parsed JSON", async () => {
-    setToken("my_token");
+    storage.set("opman_token", "my_token");
     const mockState = { projects: [], active_project: 0, panels: {}, focused: "chat" };
     mockFetch({ ok: true, json: () => Promise.resolve(mockState) });
 
     const state = await fetchAppState();
     expect(state).toEqual(mockState);
-    expect(fetch).toHaveBeenCalledWith("/api/state", expect.objectContaining({
-      headers: expect.objectContaining({
-        Authorization: "Bearer my_token",
-        "Content-Type": "application/json",
-      }),
-    }));
+    expect(fetch).toHaveBeenCalledWith("/api/state", {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+    });
   });
 
   it("clears token and throws on 401", async () => {
-    setToken("old_token");
+    storage.set("opman_token", "old_token");
     mockFetch({ ok: false, status: 401 });
     await expect(fetchAppState()).rejects.toThrow("Unauthorized");
     expect(getToken()).toBeNull();
@@ -295,48 +287,5 @@ describe("classifyFile", () => {
     ["noext", "code"],
   ])("classifies %s as %s", (path, expected) => {
     expect(classifyFile(path)).toBe(expected);
-  });
-});
-
-// ═══════════════════════════════════════════════════════
-// URL building (fetchGitDiff, fetchGitLog, rawFileUrl, searchMessages)
-// ═══════════════════════════════════════════════════════
-
-describe("URL building", () => {
-  it("fetchGitDiff builds correct query string", async () => {
-    mockFetch({ ok: true, json: () => Promise.resolve({ diff: "..." }) });
-    await fetchGitDiff("src/main.rs", true);
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/git/diff?file=src%2Fmain.rs&staged=true"),
-      expect.anything(),
-    );
-  });
-
-  it("fetchGitDiff with no args has no query string", async () => {
-    mockFetch({ ok: true, json: () => Promise.resolve({ diff: "" }) });
-    await fetchGitDiff();
-    expect(fetch).toHaveBeenCalledWith("/api/git/diff", expect.anything());
-  });
-
-  it("fetchGitLog includes limit", async () => {
-    mockFetch({ ok: true, json: () => Promise.resolve({ commits: [] }) });
-    await fetchGitLog(50);
-    expect(fetch).toHaveBeenCalledWith("/api/git/log?limit=50", expect.anything());
-  });
-
-  it("rawFileUrl includes path and token", () => {
-    setToken("tok");
-    const url = rawFileUrl("src/foo.rs");
-    expect(url).toContain("path=src%2Ffoo.rs");
-    expect(url).toContain("token=tok");
-  });
-
-  it("searchMessages builds correct query", async () => {
-    mockFetch({ ok: true, json: () => Promise.resolve({ query: "test", results: [], total: 0 }) });
-    await searchMessages(0, "hello world", 10);
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/project/0/search?q=hello+world&limit=10"),
-      expect.anything(),
-    );
   });
 });

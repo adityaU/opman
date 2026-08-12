@@ -10,7 +10,7 @@
  * when a fourth widget arrives.
  */
 
-import { WIDGET_KINDS, type WidgetKind, type WidgetState } from "../types";
+import { WIDGET_KINDS, type PaneId, type WidgetKind, type WidgetState } from "../types";
 
 export type StepId = "kind" | "project" | "session";
 
@@ -97,7 +97,7 @@ export function retreat(draft: OpenerDraft): OpenerDraft {
  * downstream: a terminal literally cannot carry the session id the draft may
  * still be holding from an abandoned chat branch.
  */
-export function toWidget(draft: OpenerDraft): WidgetState | null {
+export function toWidget(draft: OpenerDraft, paneId?: PaneId): WidgetState | null {
   const { kind, projectPath } = draft;
   if (kind === null || projectPath === null || !isComplete(draft)) return null;
 
@@ -105,7 +105,7 @@ export function toWidget(draft: OpenerDraft): WidgetState | null {
     case "chat":
       return { kind: "chat", projectPath, sessionId: draft.sessionId ?? null, engine: null };
     case "files":
-      return { kind: "files", projectPath, open: null };
+      return paneId ? { kind: "files", projectPath, sessionId: paneId, open: null } : null;
     case "terminal":
       return { kind: "terminal", projectPath, ptyIds: [] };
     case "git":

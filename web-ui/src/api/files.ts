@@ -204,7 +204,7 @@ export async function fetchEditorDiagnostics(
   path: string,
   sessionId: string,
   content?: string
-): Promise<{ diagnostics: EditorLspDiagnostic[]; available: boolean }> {
+): Promise<{ diagnostics: EditorLspDiagnostic[]; available: boolean; published: boolean }> {
   return apiPost("/editor/lsp/diagnostics", { path, session_id: sessionId, content });
 }
 
@@ -226,6 +226,36 @@ export async function fetchEditorDefinition(
   content?: string
 ): Promise<{ locations: EditorDefinitionLocation[]; available: boolean }> {
   return apiPost("/editor/lsp/definition", { path, session_id: sessionId, line, col, content });
+}
+
+export interface EditorReferenceLocation {
+  file: string;
+  lnum: number;
+  col: number;
+  text: string;
+}
+
+export async function fetchEditorReferences(
+  path: string,
+  sessionId: string,
+  line: number,
+  col: number,
+  content?: string
+): Promise<{ locations: EditorReferenceLocation[]; available: boolean }> {
+  return apiPost("/editor/lsp/references", { path, session_id: sessionId, line, col, content });
+}
+
+export async function renameEditorSymbol(
+  path: string,
+  sessionId: string,
+  line: number,
+  col: number,
+  newName: string,
+  content?: string
+): Promise<{ renamed: boolean; files: string[]; available: boolean }> {
+  return apiPost("/editor/lsp/rename", {
+    path, session_id: sessionId, line, col, content, new_name: newName,
+  });
 }
 
 export interface EditorCompletionItem {

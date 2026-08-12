@@ -72,7 +72,7 @@ export function planFileOpen(
     return { action: "place", pane: existing.id, widget: { ...existing.widget, open } };
   }
 
-  const widget: WidgetState = { kind: "files", projectPath, open };
+  const widget: WidgetState = { kind: "files", projectPath, sessionId: focusedPaneId, open };
   // An empty pane is a slot already waiting; splitting it would leave the empty
   // half behind.
   if (focused && !focused.widget) return { action: "place", pane: focused.id, widget };

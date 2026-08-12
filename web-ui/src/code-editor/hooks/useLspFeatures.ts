@@ -4,15 +4,22 @@ import {
   fetchEditorDefinition,
   fetchEditorHover,
   fetchEditorCompletion,
+  fetchEditorReferences,
+  renameEditorSymbol,
   formatEditorFile,
   type EditorLspDiagnostic,
   type EditorCompletionResponse,
+  type EditorReferenceLocation,
 } from "../../api";
 import type { OpenFileEntry } from "../types";
 import { isBinaryRenderType } from "../types";
 
 /** Quiet period after the last edit before diagnostics are re-requested. */
 const DIAGNOSTIC_DEBOUNCE_MS = 450;
+/** A cold server publishes nothing for a while; keep asking rather than
+ *  reporting a confidently clean file. */
+const COLD_POLL_MS = 700;
+const COLD_POLL_LIMIT = 14;
 
 export interface LspState {
   diagnostics: EditorLspDiagnostic[];
@@ -35,6 +42,12 @@ export interface LspState {
   ) => Promise<EditorCompletionResponse | null>;
   /** Trigger characters the active server reported, e.g. `.` and `:`. */
   triggerCharacters: () => string[];
+  /** Every use of the symbol at a position. */
+  referencesAt: (line: number, col: number) => Promise<readonly EditorReferenceLocation[]>;
+  /** Rename the symbol at a position across the project. */
+  renameAt: (line: number, col: number, name: string) => Promise<boolean>;
+  /** Open a file at a line — how a reference row navigates. */
+  jumpTo: (file: string, line: number) => void;
 }
 
 export function useLspFeatures(
@@ -64,19 +77,26 @@ export function useLspFeatures(
       return;
     }
     let cancelled = false;
-    const timer = setTimeout(() => {
-      fetchEditorDiagnostics(activeEntry.path, sessionId, currentContent)
+    let attempts = 0;
+    let timer = setTimeout(ask, DIAGNOSTIC_DEBOUNCE_MS);
+    function ask(): void {
+      fetchEditorDiagnostics(activeEntry!.path, sessionId!, currentContent)
         .then((resp) => {
           if (cancelled) return;
           setDiagnostics(resp.diagnostics ?? []);
           setLspAvailable(resp.available);
+          // `published: false` means the server has not spoken about this file
+          // yet — which is not the same as the file being clean.
+          if (!resp.available || resp.published !== false || attempts >= COLD_POLL_LIMIT) return;
+          attempts += 1;
+          timer = setTimeout(ask, COLD_POLL_MS);
         })
         .catch(() => {
           if (cancelled) return;
           setDiagnostics([]);
           setLspAvailable(false);
         });
-    }, DIAGNOSTIC_DEBOUNCE_MS);
+    }
     return () => { cancelled = true; clearTimeout(timer); };
   }, [activeEntry, sessionId, currentContent]);
 
@@ -110,7 +130,7 @@ export function useLspFeatures(
       setLspAvailable(resp.available);
       const first = resp.locations?.[0];
       if (!first) { onError?.("No definition found here"); return false; }
-      await loadFile(first.file, first.lnum);
+      await loadFile(locationPath(first.file, activeFilePath), first.lnum);
       return true;
     } catch {
       onError?.("Definition lookup unavailable");
@@ -118,7 +138,7 @@ export function useLspFeatures(
     } finally {
       setLspBusy(null);
     }
-  }, [activeEntry, sessionId, currentContent, loadFile, onError]);
+  }, [activeEntry, activeFilePath, sessionId, currentContent, loadFile, onError]);
 
   // The server's trigger characters arrive with each completion response;
   // holding them in a ref keeps the CodeMirror extension stable while still
@@ -139,6 +159,36 @@ export function useLspFeatures(
   }, [activeEntry, sessionId, currentContent]);
 
   const triggerCharacters = useCallback(() => triggersRef.current, []);
+
+  const referencesAt = useCallback(async (line: number, col: number): Promise<readonly EditorReferenceLocation[]> => {
+    if (!activeEntry || !sessionId) return [];
+    try {
+      const resp = await fetchEditorReferences(activeEntry.path, sessionId, line, col, currentContent);
+      setLspAvailable(resp.available);
+      return resp.locations ?? [];
+    } catch {
+      return [];
+    }
+  }, [activeEntry, sessionId, currentContent]);
+
+  const renameAt = useCallback(async (line: number, col: number, name: string) => {
+    if (!activeEntry || !sessionId) return false;
+    try {
+      const resp = await renameEditorSymbol(activeEntry.path, sessionId, line, col, name, currentContent);
+      setLspAvailable(resp.available);
+      if (!resp.renamed) { onError?.("Nothing to rename here"); return false; }
+      // The rename wrote through opman, so the open buffer is now behind disk.
+      await loadFile(activeEntry.path, null);
+      return true;
+    } catch {
+      onError?.("Rename unavailable");
+      return false;
+    }
+  }, [activeEntry, sessionId, currentContent, loadFile, onError]);
+
+  const jumpTo = useCallback((file: string, line: number) => {
+    void loadFile(locationPath(file, activeFilePath), line);
+  }, [activeFilePath, loadFile]);
 
   const handleHover = useCallback(async () => {
     if (!activeEntry || !sessionId) return;
@@ -161,14 +211,14 @@ export function useLspFeatures(
       const resp = await fetchEditorDefinition(activeEntry.path, sessionId, cursorLine, cursorCol, currentContent);
       setLspAvailable(resp.available);
       const first = resp.locations?.[0];
-      if (first) await loadFile(first.file, first.lnum);
+      if (first) await loadFile(locationPath(first.file, activeFilePath), first.lnum);
       else onError?.("No definition found at cursor");
     } catch {
       onError?.("Definition lookup unavailable");
     } finally {
       setLspBusy(null);
     }
-  }, [activeEntry, sessionId, cursorLine, cursorCol, currentContent, loadFile, onError]);
+  }, [activeEntry, activeFilePath, sessionId, cursorLine, cursorCol, currentContent, loadFile, onError]);
 
   const handleFormatWithLsp = useCallback(async () => {
     if (!activeEntry || !sessionId) return;
@@ -197,5 +247,12 @@ export function useLspFeatures(
     lspAvailable, lspBusy,
     handleHover, handleDefinition, handleFormatWithLsp,
     hoverAt, definitionAt, completeAt, triggerCharacters,
+    referencesAt, renameAt, jumpTo,
   };
+}
+
+function locationPath(path: string, activePath: string | null): string {
+  const normalizedActive = activePath?.replace(/^\.\//, "");
+  if (!normalizedActive || path === activePath || path.endsWith(`/${normalizedActive}`)) return activePath ?? path;
+  return path;
 }

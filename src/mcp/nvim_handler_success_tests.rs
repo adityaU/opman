@@ -11,12 +11,17 @@ use rmpv::Value;
 use std::collections::HashMap;
 use std::io::Write;
 use std::os::unix::net::UnixListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 static SOCK_SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn invoke(socket: &Path, request: &SocketRequest) -> super::SocketResponse {
+    let op: crate::mcp::NvimOp = request.op.parse().expect("known test operation");
+    super::handle_nvim_op_blocking(socket, op, request)
+}
 
 /// A mock neovim msgpack-RPC server. Replies to `nvim_get_mode` with a normal
 /// (non-`r?`) mode so `dismiss_confirm_prompts` returns immediately, and to
@@ -125,7 +130,7 @@ fn nvim_command_success() {
     let mock = start_mock(HashMap::new());
     let mut req = op("nvim_command");
     req.command = Some("echo hi".into());
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("Command executed: echo hi"));
 }
@@ -135,7 +140,7 @@ fn nvim_open_success_no_line() {
     let mock = start_mock(HashMap::new());
     let mut req = op("nvim_open");
     req.file_path = Some("/tmp/whatever.rs".into());
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     let o = r.output.unwrap();
     assert!(o.contains("Opened /tmp/whatever.rs"));
@@ -148,7 +153,7 @@ fn nvim_open_success_with_line() {
     let mut req = op("nvim_open");
     req.file_path = Some("/tmp/whatever.rs".into());
     req.line = Some(7);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r
         .output
@@ -166,7 +171,7 @@ fn nvim_info_success() {
     );
     replies.insert("nvim_buf_line_count".into(), Value::from(10i64));
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_info"));
+    let r = invoke(&mock.path, &op("nvim_info"));
     assert!(r.ok, "err: {:?}", r.error);
     let o = r.output.unwrap();
     assert!(o.contains("Buffer: /tmp/x.rs"));
@@ -183,7 +188,7 @@ fn nvim_buffers_success() {
     );
     replies.insert("nvim_buf_get_name".into(), Value::from("/tmp/a.rs"));
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_buffers"));
+    let r = invoke(&mock.path, &op("nvim_buffers"));
     assert!(r.ok, "err: {:?}", r.error);
     let o = r.output.unwrap();
     assert!(o.contains("Buffer 1: /tmp/a.rs"));
@@ -195,7 +200,7 @@ fn nvim_buffers_empty_success() {
     let mut replies = HashMap::new();
     replies.insert("nvim_list_bufs".into(), Value::Array(vec![]));
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_buffers"));
+    let r = invoke(&mock.path, &op("nvim_buffers"));
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("No named buffers loaded"));
 }
@@ -210,7 +215,7 @@ fn nvim_read_success() {
         Value::Array(vec![Value::from("alpha"), Value::from("beta")]),
     );
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_read"));
+    let r = invoke(&mock.path, &op("nvim_read"));
     assert!(r.ok, "err: {:?}", r.error);
     let o = r.output.unwrap();
     assert!(o.contains("1: alpha"));
@@ -230,7 +235,7 @@ fn nvim_read_explicit_range_success() {
     let mut req = op("nvim_read");
     req.line = Some(4);
     req.end_line = Some(5);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     // start = 4 → line label begins at 4.
     assert!(r.output.unwrap().contains("4: only"));
@@ -244,7 +249,7 @@ fn nvim_diff_success() {
         Value::from("@@ -1 +1 @@\n-old\n+new"),
     );
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_diff"));
+    let r = invoke(&mock.path, &op("nvim_diff"));
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("@@"));
 }
@@ -254,7 +259,7 @@ fn nvim_write_all_success() {
     let mock = start_mock(HashMap::new());
     let mut req = op("nvim_write");
     req.all = Some(true);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("All buffers saved"));
 }
@@ -264,7 +269,7 @@ fn nvim_write_current_buffer_success() {
     let mut replies = HashMap::new();
     replies.insert("nvim_buf_get_name".into(), Value::from("/tmp/s.rs"));
     let mock = start_mock(replies);
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_write"));
+    let r = invoke(&mock.path, &op("nvim_write"));
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("Saved: /tmp/s.rs"));
 }
@@ -272,7 +277,7 @@ fn nvim_write_current_buffer_success() {
 #[test]
 fn nvim_undo_success() {
     let mock = start_mock(HashMap::new());
-    let r = handle_nvim_op_blocking(&mock.path, &op("nvim_undo"));
+    let r = invoke(&mock.path, &op("nvim_undo"));
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("undo x1"));
 }
@@ -282,92 +287,10 @@ fn nvim_undo_redo_success() {
     let mock = start_mock(HashMap::new());
     let mut req = op("nvim_undo");
     req.count = Some(-2);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
+    let r = invoke(&mock.path, &req);
     assert!(r.ok, "err: {:?}", r.error);
     assert!(r.output.unwrap().contains("redo x2"));
 }
 
-#[test]
-fn nvim_eval_success() {
-    let mut replies = HashMap::new();
-    replies.insert("nvim_exec_lua".into(), Value::from("42"));
-    let mock = start_mock(replies);
-    let mut req = op("nvim_eval");
-    req.command = Some("return 42".into());
-    let r = handle_nvim_op_blocking(&mock.path, &req);
-    assert!(r.ok, "err: {:?}", r.error);
-    assert!(r.output.unwrap().contains("42"));
-}
-
-#[test]
-fn lsp_ops_success() {
-    // Every LSP op funnels through a single nvim_exec_lua → value_to_string →
-    // Ok(...), so any canned exec_lua string drives the ok-arm. buf=0 and
-    // line/col=None keep each to one RPC call.
-    for opname in [
-        "nvim_diagnostics",
-        "nvim_definition",
-        "nvim_references",
-        "nvim_hover",
-        "nvim_symbols",
-        "nvim_code_actions",
-        "nvim_format",
-        "nvim_signature",
-    ] {
-        let mut replies = HashMap::new();
-        replies.insert("nvim_exec_lua".into(), Value::from("[]"));
-        let mock = start_mock(replies);
-        let r = handle_nvim_op_blocking(&mock.path, &op(opname));
-        assert!(r.ok, "{opname} should succeed, err: {:?}", r.error);
-    }
-}
-
-#[test]
-fn nvim_diagnostics_buf_only_success() {
-    let mut replies = HashMap::new();
-    replies.insert("nvim_exec_lua".into(), Value::from("[]"));
-    let mock = start_mock(replies);
-    let mut req = op("nvim_diagnostics");
-    req.buf_only = Some(true);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
-    assert!(r.ok, "err: {:?}", r.error);
-}
-
-#[test]
-fn nvim_symbols_workspace_success() {
-    let mut replies = HashMap::new();
-    replies.insert("nvim_exec_lua".into(), Value::from("[]"));
-    let mock = start_mock(replies);
-    let mut req = op("nvim_symbols");
-    req.query = Some("Foo".into());
-    req.workspace = Some(true);
-    let r = handle_nvim_op_blocking(&mock.path, &req);
-    assert!(r.ok, "err: {:?}", r.error);
-}
-
-#[test]
-fn nvim_rename_success() {
-    let mut replies = HashMap::new();
-    replies.insert("nvim_exec_lua".into(), Value::from("renamed"));
-    let mock = start_mock(replies);
-    let mut req = op("nvim_rename");
-    req.new_name = Some("Bar".into());
-    let r = handle_nvim_op_blocking(&mock.path, &req);
-    assert!(r.ok, "err: {:?}", r.error);
-}
-
-#[test]
-fn nvim_edit_single_success() {
-    let mut replies = HashMap::new();
-    replies.insert("nvim_buf_get_name".into(), Value::from("/tmp/e.rs"));
-    let mock = start_mock(replies);
-    let mut req = op("nvim_edit_and_save");
-    req.line = Some(1);
-    req.end_line = Some(2);
-    req.new_text = Some("hello\nworld".into());
-    let r = handle_nvim_op_blocking(&mock.path, &req);
-    assert!(r.ok, "err: {:?}", r.error);
-    let o = r.output.unwrap();
-    assert!(o.contains("Replaced lines 1-2"));
-    assert!(o.contains("Saved: /tmp/e.rs"));
-}
+#[path = "nvim_handler_success_extra_tests.rs"]
+mod extra;

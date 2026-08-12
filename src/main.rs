@@ -30,7 +30,9 @@ mod mcp_skills;
 mod mcp_time;
 mod mcp_ui;
 mod mouse_handler;
+pub(crate) mod nvim_edit;
 mod nvim_rpc;
+mod nvim_ui;
 mod preflight;
 mod process_health;
 mod pty;
@@ -177,7 +179,7 @@ async fn main() -> Result<()> {
     // serve inherits its environment and later launches the MCP child.
     let agent_manager_socket = mcp_agent_manager::socket_path();
     std::env::set_var(
-        "OPMAN_AGENT_MANAGER_SOCKET",
+        mcp_agent_manager::SOCKET_ENV,
         agent_manager_socket.to_string_lossy().as_ref(),
     );
 
@@ -413,7 +415,7 @@ async fn main() -> Result<()> {
     let agent_manager_socket = mcp_agent_manager::spawn(runner_registry.clone())
         .context("Failed to start agent manager MCP")?;
     std::env::set_var(
-        "OPMAN_AGENT_MANAGER_SOCKET",
+        mcp_agent_manager::SOCKET_ENV,
         agent_manager_socket.to_string_lossy().as_ref(),
     );
 
