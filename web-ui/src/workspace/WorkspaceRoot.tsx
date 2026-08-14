@@ -175,6 +175,15 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
     [dispatch],
   );
   const onNewWindow = useCallback(() => dispatch({ type: "newWindow" }), [dispatch]);
+  const onCloseWindow = useCallback(
+    (id: WindowId) => withViewTransition(() => dispatch({ type: "closeWindow", window: id })),
+    [dispatch],
+  );
+  const onReorderWindow = useCallback(
+    (id: WindowId, before: WindowId | null) =>
+      dispatch({ type: "reorderWindow", window: id, before }),
+    [dispatch],
+  );
   const onToggleRail = useCallback(
     () => dispatch({ type: "toggleChrome", level: "rail" }),
     [dispatch],
@@ -226,6 +235,8 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
         onActivate={onActivate}
         onNewWindow={onNewWindow}
         onRename={onRenameWindow}
+        onClose={onCloseWindow}
+        onReorder={onReorderWindow}
         onToggle={onToggleRail}
       />
     </div>

@@ -20,6 +20,7 @@ import { parseOutline, actionableCount } from "../tool-call/browserOutline";
 import { planBrowserOpen } from "../workspace/browserOpen";
 import { browserIdForProject } from "../api/browser";
 import { asPaneId, type PaneNode } from "../workspace/types";
+import { EMPTY_HISTORY, recordTarget } from "../workspace/history";
 
 const OUTLINE = `main
  h1 "Welcome"
@@ -151,9 +152,10 @@ describe("revealing an agent's browser", () => {
     type: "leaf",
     id: asPaneId(id),
     widget,
+    history: recordTarget(EMPTY_HISTORY, widget),
   });
   const browser = (project: string) =>
-    ({ kind: "browser", projectPath: project, browserId: browserIdForProject(project), url: null }) as const;
+    ({ kind: "browser", projectPath: project, browserId: browserIdForProject(project), url: null, reveal: 0 }) as const;
 
   it("reuses the pane already showing that project's browser", () => {
     const panes = [

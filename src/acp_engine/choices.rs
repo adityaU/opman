@@ -88,6 +88,24 @@ impl AcpEngine {
         }
     }
 
+    /// Adopt the mode an opening `session/new` / `session/load` reply reports, without
+    /// overwriting a choice opman already holds.
+    ///
+    /// The agent names the mode *it* starts in, which is not an answer to what the session was
+    /// configured to run as. Recording it as a change erased the user's pick moments before
+    /// [`super::conn_options::apply_defaults`] read it back — so a session opened in `plan` was
+    /// pushed the agent's own mode instead, for the whole conversation.
+    pub fn adopt_mode(&self, id: &str, mode: &str) {
+        let held = self.get_session(id).and_then(|s| match self.agent.modes_are_agents {
+            true => s.agent,
+            false => s.permission_mode,
+        });
+        if held.is_some() {
+            return;
+        }
+        self.note_mode(id, mode);
+    }
+
     /// Record a mode the *agent* reports, without emitting a toast (the user did not ask).
     /// Which field it lands in depends on what this agent's modes are: writing `build` into
     /// a session's permission mode is the confusion `modes_are_agents` exists to avoid.

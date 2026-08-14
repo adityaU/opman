@@ -224,6 +224,8 @@ fn to_request(
         filter: text("filter"),
         timeout: args.get("timeout").and_then(Value::as_u64),
         server: None,
+        offset: args.get("offset").and_then(Value::as_u64),
+        limit: args.get("limit").and_then(Value::as_u64),
     })
 }
 

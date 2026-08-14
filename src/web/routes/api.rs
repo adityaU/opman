@@ -14,6 +14,7 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/auth/verify", get(handlers::verify))
         // State
         .route("/state", get(handlers::get_state))
+        .route("/sessions", get(handlers::get_session_page))
         .route(
             "/session/{session_id}/stats",
             get(handlers::get_session_stats),
@@ -158,6 +159,34 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/git/pull", post(handlers::git_pull))
         .route("/git/stash", post(handlers::git_stash))
         .route("/git/gitignore", post(handlers::git_gitignore))
+        // Branch lifecycle
+        .route("/git/branch/create", post(handlers::git_branch_create))
+        .route("/git/branch/delete", post(handlers::git_branch_delete))
+        .route("/git/branch/rename", post(handlers::git_branch_rename))
+        // Remotes
+        .route("/git/sync-status", get(handlers::git_sync_status))
+        .route("/git/fetch", post(handlers::git_fetch))
+        .route("/git/push", post(handlers::git_push))
+        // Worktrees
+        .route("/git/worktrees", get(handlers::git_worktrees))
+        .route("/git/worktree/add", post(handlers::git_worktree_add))
+        .route("/git/worktree/remove", post(handlers::git_worktree_remove))
+        .route("/git/worktree/prune", post(handlers::git_worktree_prune))
+        // History rewriting and integration
+        .route(
+            "/git/operation",
+            get(handlers::git_operation_status).post(handlers::git_operation),
+        )
+        .route("/git/merge", post(handlers::git_merge))
+        .route("/git/rebase", post(handlers::git_rebase))
+        .route("/git/reset", post(handlers::git_reset))
+        .route("/git/revert", post(handlers::git_revert))
+        .route("/git/cherry-pick", post(handlers::git_cherry_pick))
+        // Tags and attribution
+        .route("/git/tags", get(handlers::git_tags))
+        .route("/git/tag", post(handlers::git_tag_create))
+        .route("/git/tag/delete", post(handlers::git_tag_delete))
+        .route("/git/blame", get(handlers::git_blame))
         // ── File browsing / editing ──────────────────────────────────
         .route("/agents", get(handlers::get_agents))
         .route("/files", get(handlers::browse_files))

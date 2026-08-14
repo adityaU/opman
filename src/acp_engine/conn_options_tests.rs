@@ -226,3 +226,27 @@ async fn a_new_sessions_chosen_mode_is_pushed_when_its_connection_opens() {
 
     assert_eq!(calls(&log), vec!["session/set_mode acceptEdits"]);
 }
+
+/// Opening the connection reads the agent's `session/new` reply, which names the mode the
+/// *agent* starts in. Storing that as the session's mode erased the user's pick a moment
+/// before `apply_defaults` read it back, so the session ran the agent's mode instead.
+#[tokio::test]
+async fn the_agents_opening_mode_does_not_replace_a_chosen_one() {
+    let (engine, session_id) = engine();
+    engine.set_permission_mode(&session_id, "acceptEdits");
+
+    engine.merge_session_setup(&session_id, &setup());
+
+    assert_eq!(engine.effective_mode(&session_id), "acceptEdits");
+}
+
+/// A session nobody has configured still takes the agent's word for where it starts — that
+/// is the only answer available, and the picker should show what is actually running.
+#[tokio::test]
+async fn the_agents_opening_mode_fills_an_unconfigured_session() {
+    let (engine, session_id) = engine();
+
+    engine.merge_session_setup(&session_id, &setup());
+
+    assert_eq!(engine.effective_mode(&session_id), "default");
+}

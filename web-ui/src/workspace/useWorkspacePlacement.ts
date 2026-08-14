@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../sidebar/formatTime";
-import { createShell, loadShells } from "../terminal-panel/useShells";
+import { createShell } from "../terminal-panel/useShells";
 import type { PtySession } from "../api";
 import { EMPTY_DRAFT, toWidget, type OpenerDraft, type StepId } from "./opener/steps";
 import { browserIdForProject } from "../api/browser";
 import { planBrowserOpen } from "./browserOpen";
-import { nextFileOpenSeq, planFileOpen, projectForFile } from "./fileOpen";
+import { nextRevealSeq, planFileOpen, projectForFile } from "./fileOpen";
+import type { DropEdge } from "./move";
 import { findPane } from "./tree";
+import { withViewTransition } from "./viewTransition";
 import { paneByOrdinal } from "./nav";
 import {
   WIDGET_KINDS,
@@ -17,11 +19,13 @@ import {
   type WidgetKind,
   type WidgetForPane,
   type WidgetState,
+  type WindowId,
 } from "./types";
 import type { OpenerChoice } from "./opener/WidgetOpener";
 import type { WorkspaceAction } from "./reducer";
 import type { TargetRequest } from "./target/useTargeting";
 import type { WorkspaceProject } from "./DesktopWorkspace";
+import type { ShellLabels } from "./useShellLabels";
 
 /**
  * Choosing what to open, and choosing where it goes.
@@ -46,18 +50,27 @@ export interface PlacementDeps {
   readonly root: Node;
   readonly focusedPaneId: PaneId;
   readonly panes: readonly PaneNode[];
+  /**
+   * The running shells, from the cache the pane menu also reads. Passed in
+   * rather than fetched here: both surfaces name the same shells, and two
+   * fetches could name them differently.
+   */
+  readonly shells: ShellLabels;
 }
 
 export function useWorkspacePlacement(deps: PlacementDeps) {
-  const { dispatch, focusedPaneId, panes, projects, root, sessionsFor, targeting } = deps;
+  const { dispatch, focusedPaneId, panes, projects, root, sessionsFor, shells, targeting } = deps;
 
   const [opener, setOpener] = useState<{ draft: OpenerDraft } | null>(null);
   // Kept apart from `targeting`: the targeting commands (1-9, s/v, n) are gated
   // on it, and a pointer drag must not arm a keymap the user cannot see.
   const [dragSource, setDragSource] = useState<PaneId | null>(null);
 
+  // Every route through this hook is the user pointing a pane at something, so
+  // all of it records: the opener, a tool-card file link, a dropped target, a
+  // session picked in the sidebar.
   const place = useCallback(
-    (widget: WidgetState, pane: PaneId) => dispatch({ type: "setWidget", pane, widget }),
+    (widget: WidgetState, pane: PaneId) => dispatch({ type: "openWidget", pane, widget }),
     [dispatch],
   );
 
@@ -164,7 +177,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   const openFileHere = useCallback(
     (path: string, line: number | null) => {
       const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
-      const open: FileOpenRequest = { path, line, seq: nextFileOpenSeq() };
+      const open: FileOpenRequest = { path, line, seq: nextRevealSeq() };
       const plan = planFileOpen(open, paneList, focused, projectList);
       if (plan.action === "place") {
         place(plan.widget, plan.pane);
@@ -187,7 +200,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   const openFileWhere = useCallback(
     (path: string, line: number | null, label: string) => {
       const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
-      const open: FileOpenRequest = { path, line, seq: nextFileOpenSeq() };
+      const open: FileOpenRequest = { path, line, seq: nextRevealSeq() };
       const projectPath = projectForFile(path, projectList, undefined)
         || paneList.find((pane) => pane.id === focused)?.widget?.projectPath
         || "";
@@ -216,24 +229,12 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     [dispatch, place],
   );
 
-  /**
-   * The shells the opener can offer, refreshed each time it opens.
-   *
-   * Fetched rather than derived from the layout: a shell is workspace-wide and
-   * may have been started by another pane, by an agent, or in another browser
-   * tab, so the only honest list is the server's.
-   */
-  const [shells, setShells] = useState<readonly PtySession[]>([]);
+  // Re-read the shells each time the opener opens, so the list it offers is
+  // what is running now rather than what was running last time.
+  const refreshShells = shells.refresh;
   useEffect(() => {
-    if (!opener) return;
-    let mounted = true;
-    void loadShells(true).then((running) => {
-      if (mounted) setShells(running);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [opener]);
+    if (opener) refreshShells();
+  }, [opener, refreshShells]);
 
   const choicesFor = useCallback(
     (step: StepId, draft: OpenerDraft): readonly OpenerChoice[] => {
@@ -244,7 +245,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
         return projects.map((p) => ({ value: p.path, label: p.name, hint: p.path }));
       }
       if (step === "shell") {
-        return shellChoices(shells, draft.projectPath);
+        return shellChoices(shells.shells, draft.projectPath);
       }
       // Recency-sorted by `sessionsFor`; "New session" is pinned above it
       // because it is the answer to a different question than "which one".
@@ -287,9 +288,31 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     [armOrPlace, focusedPaneId, panes, place, projects],
   );
 
+  /**
+   * A pane dropped on another pane. The edge decides which drop it is; the
+   * reducer owns both, so this only has to end the gesture.
+   *
+   * Through a view transition, for the reason `WorkspaceRoot` gives for closing
+   * a pane: an edge drop re-seats one pane and leaves its old siblings growing
+   * into the space, and there is no element left to animate once React has
+   * moved it.
+   */
   const dropWidget = useCallback(
-    (pane: PaneId) => {
-      if (dragSource) dispatch({ type: "swapWidgets", from: dragSource, to: pane });
+    (pane: PaneId, edge: DropEdge) => {
+      if (dragSource) {
+        withViewTransition(() =>
+          dispatch({ type: "dropPane", pane: dragSource, target: pane, edge }),
+        );
+      }
+      setDragSource(null);
+    },
+    [dispatch, dragSource],
+  );
+
+  /** The same drag, let go over another window — or over "new window". */
+  const dropOnWindow = useCallback(
+    (window: WindowId | "new") => {
+      if (dragSource) dispatch({ type: "movePaneToWindow", pane: dragSource, window });
       setDragSource(null);
     },
     [dispatch, dragSource],
@@ -325,6 +348,7 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     setDragSource,
     endDrag,
     dropWidget,
+    dropOnWindow,
     draggedLabel,
   };
 }
@@ -357,6 +381,7 @@ function widgetFor(kind: WidgetKind, projectPath: string, paneId: PaneId): Widge
         projectPath,
         browserId: browserIdForProject(projectPath),
         url: null,
+        reveal: 0,
       };
   }
 }

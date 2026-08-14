@@ -11,10 +11,12 @@
 //! only the actionable and structural nodes, each tagged `[ref=eN]`, which the model
 //! clicks by. That is typically 1–2 KB, and it stays constant as pages grow.
 
+mod binary;
 mod cdp;
 mod chrome;
 mod input;
 mod pool;
+mod profile;
 mod screencast;
 mod tab;
 mod types;

@@ -41,7 +41,7 @@ describe("panes", () => {
 
   it("empties the last pane instead of leaving a window with none", () => {
     const state = run(emptyWorkspace(), {
-      type: "setWidget",
+      type: "openWidget",
       pane: firstPane(emptyWorkspace()),
       widget: chat("/a"),
     });
@@ -208,7 +208,7 @@ describe("swapWidgets", () => {
   it("swaps two panes' widgets and focuses the drop target", () => {
     let state = emptyWorkspace();
     const first = firstPane(state);
-    state = run(state, { type: "setWidget", pane: first, widget: chat("/a") });
+    state = run(state, { type: "openWidget", pane: first, widget: chat("/a") });
     state = run(state, { type: "splitPane", pane: first, dir: "row", widget: git("/b") });
     const [left, right] = paneIds(active(state).root);
 

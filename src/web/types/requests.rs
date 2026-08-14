@@ -33,6 +33,10 @@ pub struct NewSessionRequest {
     pub project_idx: usize,
     #[serde(default)]
     pub runner: Option<crate::runner::RunnerKind>,
+    /// What the composer is set to, so the session starts on it rather than on the engine's
+    /// own default. A session created without it is configured by its first send.
+    #[serde(default)]
+    pub engine: crate::app::EngineChoices,
 }
 
 /// Response from creating a new session.

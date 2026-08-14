@@ -8,27 +8,16 @@
  */
 
 import { uuid } from "../utils/uuid";
-import { cyclePane, neighbour, paneByOrdinal } from "./nav";
-import {
-  equalize,
-  findPane,
-  newPane,
-  onlyPane,
-  paneCount,
-  paneIds,
-  removePane,
-  resizeSplit,
-  setWidget,
-  splitPane,
-  swapPanes,
-  swapWidgets,
-} from "./tree";
+import type { DropEdge } from "./move";
+import { emptyWindow, reduceWindow } from "./reducerWindow";
+import { findPane, newPane, paneCount, splitPane } from "./tree";
 import {
   asWindowId,
   DEFAULT_CHROME,
   type ChromeState,
   type Direction,
   type PaneId,
+  type PaneNode,
   type SplitDir,
   type SplitId,
   type WidgetState,
@@ -43,13 +32,36 @@ export type WorkspaceAction =
   | { type: "splitPane"; pane: PaneId; dir: SplitDir; widget?: WidgetState | null; widgetForPane?: (pane: PaneId) => WidgetState; before?: boolean }
   | { type: "closePane"; pane: PaneId }
   | { type: "closeOthers"; pane: PaneId }
-  | { type: "setWidget"; pane: PaneId; widget: WidgetState | null }
+  /**
+   * Point a pane somewhere. Recorded in the pane's trail.
+   *
+   * Split from `amendWidget` rather than carrying a `record` flag, so that every
+   * caller has to say which of the two it is and a new one cannot default into
+   * the wrong answer. The pair replaced a single `setWidget`, which was doing
+   * both jobs and therefore recording a per-pane engine change as a place the
+   * user had been.
+   */
+  | { type: "openWidget"; pane: PaneId; widget: WidgetState | null }
+  /** Add detail to the place a pane is already on. Never recorded. */
+  | { type: "amendWidget"; pane: PaneId; widget: WidgetState | null }
+  /**
+   * Walk a pane's trail. `seq` is minted by the caller — the reducer stays pure
+   * — and re-arms the entry so a panel that has already handled it acts again.
+   */
+  | { type: "historyStep"; pane: PaneId; step: 1 | -1; seq: number }
+  | { type: "historyJump"; pane: PaneId; index: number; seq: number }
   | { type: "focusPane"; pane: PaneId }
   | { type: "focusDirection"; dir: Direction }
   | { type: "focusOrdinal"; ordinal: number }
   | { type: "cycleFocus"; step: 1 | -1 }
   | { type: "movePane"; dir: Direction }
   | { type: "swapWidgets"; from: PaneId; to: PaneId }
+  /**
+   * A dropped pane. `edge` says which of the two drops it was — a centre drop
+   * trades the two widgets, an edge drop re-seats the pane on that side of the
+   * target and lets its old siblings spread into the space.
+   */
+  | { type: "dropPane"; pane: PaneId; target: PaneId; edge: DropEdge }
   | { type: "resize"; split: SplitId; index: number; delta: number }
   | { type: "equalize" }
   | { type: "toggleZoom" }
@@ -57,6 +69,12 @@ export type WorkspaceAction =
   | { type: "closeWindow"; window: WindowId }
   | { type: "renameWindow"; window: WindowId; name: string }
   | { type: "activateWindow"; window: WindowId }
+  /**
+   * Move a window in the rail. `before` is the window it lands in front of, or
+   * null for the end of the rail — an anchor rather than an index, because the
+   * only thing the drag knows is which chip the pointer is over.
+   */
+  | { type: "reorderWindow"; window: WindowId; before: WindowId | null }
   | { type: "stepWindow"; step: 1 | -1 }
   | { type: "movePaneToWindow"; pane: PaneId; window: WindowId | "new" }
   | { type: "toggleChrome"; level: ChromeLevel }
@@ -65,10 +83,7 @@ export type WorkspaceAction =
 
 // ── Seeds ───────────────────────────────────────────────
 
-export function emptyWindow(name: string, widget: WidgetState | null = null): WorkspaceWindow {
-  const root = newPane(widget);
-  return { id: asWindowId(uuid()), name, root, focusedPaneId: root.id, zoomedPaneId: null };
-}
+export { emptyWindow };
 
 export function emptyWorkspace(): Workspace {
   const first = emptyWindow("1");
@@ -131,6 +146,9 @@ export function workspaceReducer(state: Workspace, action: WorkspaceAction): Wor
       return { ...state, windows: [...state.windows, window], activeWindowId: window.id };
     }
 
+    case "reorderWindow":
+      return reorderWindow(state, action.window, action.before);
+
     case "closeWindow":
       return closeWindow(state, action.window);
 
@@ -153,96 +171,6 @@ export function workspaceReducer(state: Workspace, action: WorkspaceAction): Wor
   }
 }
 
-// ── Window-local actions ────────────────────────────────
-
-/**
- * Actions that never cross a window boundary. Split out so the top-level
- * switch stays about the workspace and this one stays about a single tree.
- */
-function reduceWindow(window: WorkspaceWindow, action: WorkspaceAction): WorkspaceWindow {
-  switch (action.type) {
-    case "splitPane": {
-      const created = newPane(action.widgetForPane ? null : action.widget ?? null);
-      const pane = action.widgetForPane ? { ...created, widget: action.widgetForPane(created.id) } : created;
-      const root = splitPane(window.root, action.pane, action.dir, pane, action.before);
-      if (root === window.root) return window;
-      // A split un-zooms: the point of splitting is to see both.
-      return { ...window, root, focusedPaneId: created.id, zoomedPaneId: null };
-    }
-
-    case "closePane": {
-      const root = removePane(window.root, action.pane);
-      if (root === window.root) return window;
-      // The last pane is emptied rather than removed; closing the window is a
-      // separate, explicit action and should never happen by accident.
-      if (root === null) return { ...emptyWindow(window.name), id: window.id };
-      return refocus({ ...window, root, zoomedPaneId: null }, window.focusedPaneId);
-    }
-
-    case "closeOthers": {
-      const root = onlyPane(window.root, action.pane);
-      return { ...window, root, focusedPaneId: action.pane, zoomedPaneId: null };
-    }
-
-    case "setWidget": {
-      const root = setWidget(window.root, action.pane, action.widget);
-      return root === window.root ? window : { ...window, root, focusedPaneId: action.pane };
-    }
-
-    // Re-focusing the pane that already has focus must return the *same*
-    // window. Every pane claims focus on `focusin`, and a window switch fires
-    // one — so a new object here rebuilds the window on arrival and re-renders
-    // the tree `WindowView`'s memo exists to leave alone.
-    case "focusPane":
-      if (action.pane === window.focusedPaneId) return window;
-      return findPane(window.root, action.pane) ? { ...window, focusedPaneId: action.pane } : window;
-
-    case "focusDirection": {
-      const next = neighbour(window.root, window.focusedPaneId, action.dir);
-      return next ? { ...window, focusedPaneId: next } : window;
-    }
-
-    case "focusOrdinal": {
-      const next = paneByOrdinal(window.root, action.ordinal);
-      return next ? { ...window, focusedPaneId: next } : window;
-    }
-
-    case "cycleFocus": {
-      const next = cyclePane(window.root, window.focusedPaneId, action.step);
-      return next ? { ...window, focusedPaneId: next } : window;
-    }
-
-    case "movePane": {
-      const target = neighbour(window.root, window.focusedPaneId, action.dir);
-      if (!target) return window;
-      return { ...window, root: swapPanes(window.root, window.focusedPaneId, target) };
-    }
-
-    case "swapWidgets": {
-      const root = swapWidgets(window.root, action.from, action.to);
-      // Focus follows the widget the user just dropped, not the pane it left.
-      return root === window.root ? window : { ...window, root, focusedPaneId: action.to };
-    }
-
-    case "resize": {
-      const root = resizeSplit(window.root, action.split, action.index, action.delta);
-      return root === window.root ? window : { ...window, root };
-    }
-
-    case "equalize":
-      return { ...window, root: equalize(window.root) };
-
-    case "toggleZoom": {
-      if (window.zoomedPaneId) return { ...window, zoomedPaneId: null };
-      if (paneCount(window.root) < 2) return window;
-      return { ...window, zoomedPaneId: window.focusedPaneId };
-    }
-
-    default:
-      return window;
-  }
-}
-
 // ── Helpers ─────────────────────────────────────────────
 
 function mapWindow(
@@ -258,19 +186,31 @@ function mapActive(state: Workspace, replace: (w: WorkspaceWindow) => WorkspaceW
   return mapWindow(state, state.activeWindowId, replace);
 }
 
-/** Keep the focus on a live pane after a removal, preferring the nearest one. */
-function refocus(window: WorkspaceWindow, previous: PaneId): WorkspaceWindow {
-  if (findPane(window.root, previous)) return { ...window, focusedPaneId: previous };
-  const remaining = paneIds(window.root);
-  return { ...window, focusedPaneId: remaining[0] };
-}
-
 function nextWindowName(state: Workspace): string {
   const used = new Set(state.windows.map((w) => w.name));
   for (let n = 1; n <= state.windows.length + 1; n += 1) {
     if (!used.has(String(n))) return String(n);
   }
   return String(state.windows.length + 1);
+}
+
+/**
+ * Rail order is the `windows` array's order, so a reorder is a splice and
+ * nothing else — the trees, the focus and the active window are untouched, and
+ * the layout is persisted as a whole, so the new order outlives the tab.
+ *
+ * A drop that would not move the window returns the same state, so a click that
+ * ends as a one-pixel drag never rebuilds the workspace.
+ */
+function reorderWindow(state: Workspace, moving: WindowId, before: WindowId | null): Workspace {
+  if (before === moving) return state;
+  const from = state.windows.findIndex((w) => w.id === moving);
+  if (from < 0) return state;
+
+  const rest = state.windows.filter((w) => w.id !== moving);
+  const at = before === null ? rest.length : rest.findIndex((w) => w.id === before);
+  if (at < 0 || at === from) return state;
+  return { ...state, windows: [...rest.slice(0, at), state.windows[from], ...rest.slice(at)] };
 }
 
 function closeWindow(state: Workspace, id: WindowId): Workspace {
@@ -289,6 +229,10 @@ function closeWindow(state: Workspace, id: WindowId): Workspace {
  * Detach a pane from the active window and land it in another, or in a new
  * one. The widget travels; the pane node itself is re-created, because the
  * destination tree owns its own ids.
+ *
+ * The trail travels with the widget, for the reason `swapWidgets` gives: a pane
+ * moved to another window is the same job continued somewhere else, and its
+ * history is part of that job rather than of the frame it left behind.
  */
 function movePaneToWindow(state: Workspace, pane: PaneId, target: WindowId | "new"): Workspace {
   const source = state.windows.find((w) => w.id === state.activeWindowId);
@@ -297,9 +241,17 @@ function movePaneToWindow(state: Workspace, pane: PaneId, target: WindowId | "ne
   if (!moving || paneCount(source.root) < 2) return state;
 
   const detached = reduceWindow(source, { type: "closePane", pane });
+  const reseat = (): PaneNode => ({ ...newPane(moving.widget), history: moving.history });
 
   if (target === "new") {
-    const created = emptyWindow(nextWindowName(state), moving.widget);
+    const seat = reseat();
+    const created: WorkspaceWindow = {
+      id: asWindowId(uuid()),
+      name: nextWindowName(state),
+      root: seat,
+      focusedPaneId: seat.id,
+      zoomedPaneId: null,
+    };
     return {
       ...state,
       windows: [...state.windows.map((w) => (w.id === source.id ? detached : w)), created],
@@ -310,7 +262,7 @@ function movePaneToWindow(state: Workspace, pane: PaneId, target: WindowId | "ne
   const windows = state.windows.map((w) => {
     if (w.id === source.id) return detached;
     if (w.id !== target) return w;
-    const created = newPane(moving.widget);
+    const created = reseat();
     return { ...w, root: splitPane(w.root, w.focusedPaneId, "row", created), focusedPaneId: created.id };
   });
   return { ...state, windows, activeWindowId: target };

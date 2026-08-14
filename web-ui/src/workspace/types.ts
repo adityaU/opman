@@ -14,6 +14,7 @@
  */
 
 import type { FileOpenRequest } from "../code-editor/types";
+import type { PaneHistory } from "./history";
 
 export type { FileOpenRequest };
 
@@ -113,12 +114,20 @@ export type WidgetState =
    * you are watching" true rather than approximately true.
    *
    * `url` is where the pane was last, saved so a reload comes back to it.
+   *
+   * `reveal` is how a *backwards* move is told apart from that. The tab keeps
+   * its own page and treats `url` as a starting point only — which is what makes
+   * reopening a browser pick up an agent's work in progress — so writing an
+   * earlier URL back changes nothing on its own. Stepping through the pane's
+   * history bumps this counter, and the panel navigates when it rises. Same
+   * idiom, and the same reason for it, as `seq` on a file open request.
    */
   | {
       readonly kind: "browser";
       readonly projectPath: string;
       readonly browserId: string;
       readonly url: string | null;
+      readonly reveal: number;
     }
 
 /** Build a widget once its destination pane — and therefore its identity — is known. */
@@ -133,6 +142,17 @@ export interface PaneNode {
   readonly id: PaneId;
   /** An empty pane shows the inline widget opener rather than nothing. */
   readonly widget: WidgetState | null;
+  /**
+   * Everywhere this pane has been pointed, and where in that trail it is now.
+   *
+   * Kept beside the widget rather than derived from it, because the past is not
+   * recoverable from the present. `history.ts` owns the operations and states
+   * the invariant tying the two fields together; the one rule for code that
+   * moves a widget between panes — `swapWidgets`, `movePaneToWindow` — is that
+   * the trail goes with it, or a pane ends up on a widget its own history
+   * disagrees with.
+   */
+  readonly history: PaneHistory;
 }
 
 /**
@@ -164,9 +184,10 @@ export interface WorkspaceWindow {
 /**
  * The hideable chrome the workspace owns.
  *
- * The sidebar is deliberately absent: `usePanelState` already owns it and
- * `mod+b` already toggles it, and a second copy here would be a second source
- * of truth for one boolean — the kind that drifts and then disagrees.
+ * The sidebar is deliberately absent: `useSidebarState` already owns it,
+ * `mod+b` already toggles it and it persists itself under its own key, and a
+ * second copy here would be a second source of truth for one boolean — the
+ * kind that drifts and then disagrees.
  */
 export interface ChromeState {
   readonly rail: boolean;

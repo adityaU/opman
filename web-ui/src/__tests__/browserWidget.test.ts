@@ -31,13 +31,14 @@ function withBrowser(url: string | null = "https://example.com/"): Workspace {
   const state = emptyWorkspace();
   const pane = paneIds(state.windows[0].root)[0];
   return workspaceReducer(state, {
-    type: "setWidget",
+    type: "openWidget",
     pane,
     widget: {
       kind: "browser",
       projectPath: "/repo",
       browserId: browserIdForProject("/repo"),
       url,
+      reveal: 0,
     },
   });
 }
@@ -59,6 +60,7 @@ describe("browser widget", () => {
       projectPath: "/repo",
       browserId: "proj:/repo",
       url: "https://example.com/",
+      reveal: 0,
     });
   });
 
@@ -108,6 +110,7 @@ describe("browser widget", () => {
       projectPath: "/repo",
       browserId: "proj:/repo",
       url: null,
+      reveal: 0,
     });
   });
 

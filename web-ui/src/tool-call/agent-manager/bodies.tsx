@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { str } from "../tcUtils";
 import { MetaChip, OpenSessionLink } from "./atoms";
-import { agentRows, runnerOptions, shortId } from "./model";
+import { agentRows, hiddenAgentCount, runnerOptions, shortId } from "./model";
 
 /**
  * The shape-specific half of each card.
@@ -52,6 +52,9 @@ export function StartBody({
 
 export function ListBody({ output }: { output: Record<string, unknown> }) {
   const rows = agentRows(output);
+  // `agent_list` is paged, so the card says what it is not showing rather than
+  // reading as the project's whole roster.
+  const hidden = hiddenAgentCount(output, rows.length);
   if (rows.length === 0) {
     return (
       <div className="am-card-muted">
@@ -75,6 +78,11 @@ export function ListBody({ output }: { output: Record<string, unknown> }) {
           <OpenSessionLink sessionId={row.id} label={row.title} />
         </div>
       ))}
+      {hidden > 0 && (
+        <div className="am-card-muted">
+          {hidden} older {hidden === 1 ? "session" : "sessions"} not shown
+        </div>
+      )}
     </div>
   );
 }

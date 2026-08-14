@@ -89,7 +89,7 @@
 }
 
 @media print {
-    .chat-sidebar,.chat-status-bar,.terminal-panel,.prompt-input-container,.permission-dock,.question-dock {
+    .chat-sidebar,.chat-status-bar,.terminal-panel,.prompt-input-container,.dock-panel {
         display: none
     }
 }

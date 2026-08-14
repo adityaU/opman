@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type { ProjectInfo } from "./api";
 import {
   Plus,
@@ -23,6 +23,7 @@ import { loadPinnedSessions, savePinnedSessions } from "./sidebar/pinnedSessions
 import { loadOpenSessions, pruneOpenSessions, saveOpenSessions } from "./sidebar/openSessions";
 import type { SessionTaskLink } from "./sidebar/useSessionTaskLinks";
 import { useListNav } from "./keybindings/useListNav";
+import { useSessionPages } from "./sidebar/useSessionPages";
 
 interface Props {
   projects: ProjectInfo[];
@@ -87,7 +88,6 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   const [expandedSubagents, setExpandedSubagents] = useState<string | null>(null);
   // Only one kanban task-group card can be open at a time, sidebar-wide.
   const [expandedKanbanTask, setExpandedKanbanTask] = useState<string | null>(null);
-  const [showMore, setShowMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
   const toggleSearch = useCallback(() => {
@@ -113,15 +113,6 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   // ── Open sessions ─────────────────────────────────
   const [openSessions, setOpenSessions] = useState<Set<string>>(loadOpenSessions);
 
-  useEffect(() => {
-    setOpenSessions((current) => {
-      const fresh = pruneOpenSessions(current, projects);
-      if (fresh.size === current.size && [...fresh].every((id) => current.has(id))) return current;
-      saveOpenSessions(fresh);
-      return fresh;
-    });
-  }, [projects]);
-
   const removeOpenSession = useCallback((sessionId: string) => {
     setOpenSessions((prev) => {
       const next = new Set(prev);
@@ -130,6 +121,32 @@ export const ChatSidebar = React.memo(function ChatSidebar({
       return next;
     });
   }, []);
+
+  // ── Server-side session paging ────────────────────
+  // Pinned and open rows are the two things the server cannot know to keep on the
+  // first page, so they are what the hook re-fetches by id.
+  const keepIds = useMemo(
+    () => new Set([...pinnedSessions, ...openSessions]),
+    [pinnedSessions, openSessions],
+  );
+  const {
+    projects: pagedProjects,
+    project: pagedProject,
+    remaining: remainingSessions,
+    loading: loadingMore,
+    loadMore,
+  } = useSessionPages(projects, activeProject, keepIds);
+
+  // Pruned against the paged list, never the raw one: a session that is merely
+  // older than the first page is not a session that no longer exists.
+  useEffect(() => {
+    setOpenSessions((current) => {
+      const fresh = pruneOpenSessions(current, pagedProjects);
+      if (fresh.size === current.size && [...fresh].every((id) => current.has(id))) return current;
+      saveOpenSessions(fresh);
+      return fresh;
+    });
+  }, [pagedProjects]);
 
   // ── Context menu ──────────────────────────────────
   const { contextMenu, setContextMenu, handleContextMenu } = useContextMenu();
@@ -157,7 +174,6 @@ export const ChatSidebar = React.memo(function ChatSidebar({
     setExpandedProject((prev) => (prev === index ? null : index));
     setExpandedSubagents(null);
     setExpandedKanbanTask(null);
-    setShowMore(false);
   }, []);
 
   const toggleSubagents = useCallback((sessionId: string) => {
@@ -231,7 +247,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
       <div className="sb-list">
         {/* Open Sessions section */}
         <OpenSessionsSection
-          projects={projects}
+          projects={pagedProjects}
           openSessions={openSessions}
           activeSessionId={activeSessionId}
           isSessionBusy={isSessionBusy}
@@ -246,12 +262,13 @@ export const ChatSidebar = React.memo(function ChatSidebar({
           sessionTaskLinks={sessionTaskLinks}
         />
 
-        {projects.filter((_, idx) => idx === activeProject).map((project, offset) => {
+        {pagedProjects.filter((_, idx) => idx === activeProject).map((_project, offset) => {
           const idx = activeProject + offset;
+          if (!pagedProject) return null;
           return (
           <ProjectNode
-            key={project.path}
-            project={project}
+            key={pagedProject.path}
+            project={pagedProject}
             listedAbove={openSessions}
             chromeless
             index={idx}
@@ -261,7 +278,8 @@ export const ChatSidebar = React.memo(function ChatSidebar({
             isSessionBusy={isSessionBusy}
             busyKey={busyKey}
             expandedSubagents={expandedSubagents}
-            showMore={showMore && expandedProject === idx}
+            remainingSessions={remainingSessions}
+            loadingMore={loadingMore}
             searchQuery={searchQuery.toLowerCase()}
             onToggleExpand={() => toggleProjectExpand(idx)}
             onSelectSession={handleSelectSession}
@@ -276,7 +294,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
               }
             }}
             onToggleSubagents={toggleSubagents}
-            onShowMore={() => setShowMore(true)}
+            onShowMore={loadMore}
             onContextMenu={handleContextMenu}
             renameTarget={renameTarget}
             renameValue={renameValue}

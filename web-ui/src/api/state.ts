@@ -32,9 +32,18 @@ export interface ProjectInfo {
   path: string;
   index: number;
   active_session: string | null;
+  /** The newest page only — `session_count` is the total. */
   sessions: SessionInfo[];
+  /** Total top-level sessions in the project, however many were sent. */
+  session_count?: number;
   git_branch: string;
   busy_sessions: string[];
+}
+
+/** One page of a project's sessions, from `/api/sessions`. */
+export interface SessionPage {
+  sessions: SessionInfo[];
+  session_count: number;
 }
 
 export interface AppState {
@@ -129,6 +138,25 @@ export async function verifyToken(): Promise<boolean> {
 
 export async function fetchAppState(): Promise<AppState> {
   return apiFetch<AppState>("/state");
+}
+
+/**
+ * Sessions beyond the first page, or — when `ids` is given — exactly those
+ * sessions whatever their age, which is how pinned and open rows older than the
+ * first page stay in the sidebar.
+ */
+export async function fetchSessionPage(
+  project: number,
+  page: { offset: number; limit: number } | { ids: string[] },
+): Promise<SessionPage> {
+  const params = new URLSearchParams({ project: String(project) });
+  if ("ids" in page) {
+    params.set("ids", page.ids.join(","));
+  } else {
+    params.set("offset", String(page.offset));
+    params.set("limit", String(page.limit));
+  }
+  return apiFetch<SessionPage>(`/sessions?${params}`);
 }
 
 export async function fetchSessionStats(

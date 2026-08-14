@@ -1,8 +1,60 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use super::super::types::*;
+use super::session_page::{slice_sessions, SessionSlice, SESSION_PAGE};
+use super::WebStateInner;
+
+/// Map a stored session onto its wire shape, resolving the runner that owns it.
+fn web_session(session: &crate::app::SessionInfo, inner: &WebStateInner) -> WebSessionInfo {
+    WebSessionInfo {
+        id: session.id.clone(),
+        title: session.title.clone(),
+        parent_id: session.parent_id.clone(),
+        directory: session.directory.clone(),
+        time: WebSessionTime {
+            created: session.time.created,
+            updated: session.time.updated,
+        },
+        runner: inner
+            .session_runners
+            .get(&session.id)
+            .cloned()
+            .unwrap_or_else(|| inner.default_runner.clone()),
+        engine: session.engine.clone(),
+    }
+}
 
 impl super::WebStateHandle {
+    /// A page of one project's sessions, for the sidebar's "show more".
+    ///
+    /// `ids`, when non-empty, overrides paging and returns exactly those sessions —
+    /// how the client re-hydrates pinned or open rows that are older than page one.
+    pub async fn session_slice(
+        &self,
+        project: usize,
+        offset: usize,
+        limit: usize,
+        ids: &[String],
+    ) -> Option<WebSessionPage> {
+        let inner = self.inner.read().await;
+        let sessions = &inner.projects.get(project)?.sessions;
+        let slice = if ids.is_empty() {
+            SessionSlice::Page { offset, limit }
+        } else {
+            SessionSlice::Ids(ids)
+        };
+        let sliced = slice_sessions(sessions, slice, &HashSet::new());
+        Some(WebSessionPage {
+            sessions: sliced
+                .sessions
+                .into_iter()
+                .map(|s| web_session(s, &inner))
+                .collect(),
+            session_count: sliced.total,
+        })
+    }
+
     // ── Queries ─────────────────────────────────────────────────────
 
     /// Build a complete `WebAppState` snapshot for the `/api/state` endpoint.
@@ -37,31 +89,36 @@ impl super::WebStateHandle {
                     .filter(|s| inner.unseen_sessions.contains_key(&s.id))
                     .map(|s| s.id.clone())
                     .collect();
+                // A session the user needs to see — active, running, failed, waiting
+                // on input, or unread — stays on the first page however old it is.
+                let mut keep: HashSet<&str> = busy
+                    .iter()
+                    .chain(&errors)
+                    .chain(&inputs)
+                    .chain(&unseen)
+                    .map(String::as_str)
+                    .collect();
+                keep.extend(p.active_session.as_deref());
+                let page = slice_sessions(
+                    &p.sessions,
+                    SessionSlice::Page {
+                        offset: 0,
+                        limit: SESSION_PAGE,
+                    },
+                    &keep,
+                );
+
                 WebProjectInfo {
                     name: p.name.clone(),
                     path: p.path.to_string_lossy().to_string(),
                     index: i,
                     active_session: p.active_session.clone(),
-                    sessions: p
+                    sessions: page
                         .sessions
-                        .iter()
-                        .map(|s| WebSessionInfo {
-                            id: s.id.clone(),
-                            title: s.title.clone(),
-                            parent_id: s.parent_id.clone(),
-                            directory: s.directory.clone(),
-                            time: WebSessionTime {
-                                created: s.time.created,
-                                updated: s.time.updated,
-                            },
-                            runner: inner
-                                .session_runners
-                                .get(&s.id)
-                                .cloned()
-                                .unwrap_or_else(|| inner.default_runner.clone()),
-                            engine: s.engine.clone(),
-                        })
+                        .into_iter()
+                        .map(|s| web_session(s, &inner))
                         .collect(),
+                    session_count: page.total,
                     git_branch: p.git_branch.clone(),
                     busy_sessions: busy,
                     error_sessions: errors,

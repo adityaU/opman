@@ -30,6 +30,7 @@ mod mutations;
 mod presence;
 mod queries;
 pub(super) mod scheduler;
+mod session_page;
 mod sse;
 mod sse_handler;
 mod status;

@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlignHorizontalDistributeCenter,
   AppWindow,
+  ArrowLeft,
+  ArrowRight,
   Columns2,
   CopyX,
+  History,
   Maximize2,
   Rows2,
   X,
@@ -30,6 +33,8 @@ import { useChordLabeller } from "../keybindings/useChord";
  * that run the same command should not look like two different commands.
  */
 const ROW_ICON: Readonly<Record<string, LucideIcon>> = {
+  back: ArrowLeft,
+  forward: ArrowRight,
   "split-right": Columns2,
   "split-down": Rows2,
   zoom: Maximize2,
@@ -39,8 +44,17 @@ const ROW_ICON: Readonly<Record<string, LucideIcon>> = {
   close: X,
 };
 
-/** Make one pane two → resize what exists → move it elsewhere → end it. */
+/**
+ * Where the pane has been → make one pane two → resize what exists → move it
+ * elsewhere → end it → where else it has been.
+ *
+ * Recent rows are matched by prefix rather than listed, because there is one per
+ * entry in the pane's trail and their ids carry the index to jump to.
+ */
+const RECENT_PREFIX = "recent:";
+
 const SECTIONS: readonly (readonly string[])[] = [
+  ["back", "forward"],
   ["split-right", "split-down"],
   ["zoom", "equalize"],
   ["to-window"],
@@ -50,13 +64,20 @@ const SECTIONS: readonly (readonly string[])[] = [
 /**
  * Anything the caller adds that this file has not been taught about still gets
  * rendered — in its original order, in a trailing section — so a new action can
- * never silently vanish from the menu because its id was not listed above.
+ * never silently vanish from the menu because its id was not listed above. The
+ * recent rows land there deliberately rather than by accident, which is why they
+ * are the last thing `paneMenuItems` returns.
  */
 function groupItems(items: readonly PaneMenuItem[]): PaneMenuItem[][] {
   const known = new Set(SECTIONS.flat());
   const groups = SECTIONS.map((ids) => items.filter((item) => ids.includes(item.id)));
   groups.push(items.filter((item) => !known.has(item.id)));
   return groups.filter((group) => group.length > 0);
+}
+
+/** History rows are named by what they are, not by an icon per row. */
+function iconFor(id: string): LucideIcon | undefined {
+  return id.startsWith(RECENT_PREFIX) ? History : ROW_ICON[id];
 }
 
 export interface PaneMenuItem {
@@ -83,7 +104,34 @@ export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anch
   // cursor can never walk the rows in a sequence the eye does not see.
   const enabled = useMemo(() => groups.flat().filter((item) => !item.disabled), [groups]);
   const [cursor, setCursor] = useState(0);
-  const box = anchor.getBoundingClientRect();
+
+  /**
+   * Anchored below-right of the button, then nudged back on screen.
+   *
+   * Measured rather than assumed. This used to clamp against a hard-coded number
+   * tracking `.wsp-menu`'s min-width, which was already a guess and became a
+   * wrong one as soon as the menu grew a history section: a pane at the right
+   * edge showing "Back to some-long-name.ts" ran off the viewport, and twelve
+   * rows on a short window ran off the bottom. Flipping above the button when
+   * there is no room below is what a menu at the bottom of the screen needs.
+   */
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const button = anchor.getBoundingClientRect();
+    const menu = node.getBoundingClientRect();
+    const margin = 8;
+
+    const left = Math.max(margin, Math.min(button.left, window.innerWidth - menu.width - margin));
+    const below = button.bottom + 4;
+    const fitsBelow = below + menu.height + margin <= window.innerHeight;
+    const top = fitsBelow
+      ? below
+      : Math.max(margin, Math.min(button.top - menu.height - 4, window.innerHeight - menu.height - margin));
+
+    node.style.left = `${left}px`;
+    node.style.top = `${top}px`;
+  }, [anchor, items]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -121,10 +169,9 @@ export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anch
       role="menu"
       aria-label="Pane actions"
       className="modal-popover-surface wsp-menu"
-      // Anchored below-right of the button, clamped so a pane at the right
-      // edge of the screen does not push the menu off it. The number tracks
-      // `.wsp-menu`'s min-width — the sections widened the surface.
-      style={{ top: box.bottom + 4, left: Math.min(box.left, window.innerWidth - 242) }}
+      // Placed off screen for one frame so it can be measured before it is
+      // seen; the layout effect above puts it where it belongs.
+      style={{ top: -9999, left: -9999 }}
       onKeyDown={onKeyDown}
     >
       {groups.map((group) => (
@@ -134,7 +181,7 @@ export const PaneMenu: React.FC<PaneMenuProps> = function PaneMenu({ items, anch
         <div key={group[0].id} className="wsp-menu-group" role="group">
           {group.map((item) => {
             const index = enabled.indexOf(item);
-            const Icon = ROW_ICON[item.id];
+            const Icon = iconFor(item.id);
             const chord = chordFor(item.command);
             return (
               <button

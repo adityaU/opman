@@ -12,7 +12,8 @@ import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
   DragOverlay, AtMentionPopover,
 } from "./components";
-import { ComposerField, ComposerActions, ComposerProgress } from "./ComposerBar";
+import { ComposerField, ComposerActions } from "./ComposerBar";
+import { SessionLine } from "./SessionLine";
 
 interface Props {
   onSend: (text: string, images?: ImageAttachment[], fileContext?: string) => Promise<boolean>;
@@ -47,8 +48,10 @@ interface Props {
   /** Open an interactive terminal attached to this session's claude CLI agent. */
   /** Session token/cost stats, shown via the pill row's usage info button. */
   stats?: SessionStats | null;
-  /** Latest live runner progress title, shown above the composer instead of in history. */
+  /** Latest live runner progress title, shown on the composer's session line. */
   progressText?: string | null;
+  /** Name of the session this composer writes to; editable in place. */
+  sessionTitle?: string | null;
 }
 
 export function PromptInput({
@@ -58,7 +61,7 @@ export function PromptInput({
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
   backend, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
-  progressText = null,
+  progressText = null, sessionTitle = null,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -135,10 +138,15 @@ export function PromptInput({
       return;
     }
     if (e.key === "/" && text === "") setShowSlash(true);
+    // Escape closes whatever the composer has open, and once nothing is open it
+    // drops focus so the shell keys work again.
     if (e.key === "Escape") {
-      if (showSlash) setShowSlash(false);
+      if (showSlash) { setShowSlash(false); return; }
+      if (atMention.showAtPopover) return; // the popover's own handler owns it
+      e.preventDefault();
+      e.currentTarget.blur();
     }
-  }, [handleSubmit, text, showSlash]);
+  }, [handleSubmit, text, showSlash, atMention.showAtPopover]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -215,7 +223,7 @@ export function PromptInput({
           onClear={queue.clearAll} onClose={() => setShowQueue(false)} />
       )}
       <div className="prompt-input-wrapper">
-        {progressText && <ComposerProgress text={progressText} />}
+        <SessionLine title={sessionTitle} sessionId={sessionId} busy={isBusy} progressText={progressText} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />
         <FileMentionPills fileMentions={fileMention.fileMentions} onRemove={fileMention.removeFileMention} />

@@ -41,7 +41,7 @@
 }
 
 .permission-detail-label svg {
-    color: var(--color-warning);
+    color: var(--dock-accent, var(--color-warning));
     flex: 0 0 auto
 }
 

@@ -11,6 +11,7 @@ vi.mock("../api", () => ({ ptySessions: (...args: unknown[]) => ptySessions(...a
 
 const { useTerminalActivity } = await import("../workspace/useTerminalActivity");
 import { asPaneId, asWindowId, type WorkspaceWindow } from "../workspace/types";
+import { EMPTY_HISTORY } from "../workspace/history";
 
 const terminalWindow = (name: string, paneId: string, ptyId: string | null): WorkspaceWindow => ({
   id: asWindowId(`w-${name}`),
@@ -21,6 +22,7 @@ const terminalWindow = (name: string, paneId: string, ptyId: string | null): Wor
     type: "leaf",
     id: asPaneId(paneId),
     widget: { kind: "terminal", projectPath: "/repo", ptyId },
+    history: EMPTY_HISTORY,
   },
 });
 
@@ -33,6 +35,7 @@ const chatWindow = (paneId: string): WorkspaceWindow => ({
     type: "leaf",
     id: asPaneId(paneId),
     widget: { kind: "chat", projectPath: "/repo", sessionId: "s1", engine: null },
+    history: EMPTY_HISTORY,
   },
 });
 

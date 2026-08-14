@@ -19,6 +19,13 @@ export interface BrowserPanelProps {
   /** The project this browser belongs to; browsers are per project. */
   readonly project: string;
   readonly url: string | null;
+  /**
+   * Raised by the owner to mean "go to `url` now", which the URL alone cannot
+   * say — the tab keeps its own page, so an earlier URL written back looks like
+   * nothing happened. Stepping through the pane's history is the one thing that
+   * raises it.
+   */
+  readonly reveal: number;
   readonly focused: boolean;
   /** Persist the current URL on the widget so a reload comes back to it. */
   readonly onUrlChanged: (url: string) => void;
@@ -28,10 +35,11 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
   paneId,
   project,
   url,
+  reveal,
   focused,
   onUrlChanged,
 }) {
-  const pane = useBrowserPane(paneId, project, url, onUrlChanged);
+  const pane = useBrowserPane(paneId, project, url, reveal, onUrlChanged);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const { resize } = pane;
 

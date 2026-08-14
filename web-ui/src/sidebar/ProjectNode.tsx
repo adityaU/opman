@@ -11,8 +11,7 @@ import { SessionRow } from "./SessionRow";
 import { TaskGroupNode, type TaskGroup } from "./TaskGroupNode";
 import { formatTime } from "./formatTime";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
-
-const MAX_VISIBLE_SESSIONS = 8;
+import { groupSessions } from "./sessionGroups";
 
 export interface ProjectNodeProps {
   project: ProjectInfo;
@@ -35,7 +34,10 @@ export interface ProjectNodeProps {
    */
   chromeless?: boolean;
   expandedSubagents: string | null;
-  showMore: boolean;
+  /** Top-level sessions the server holds that have not been fetched yet. */
+  remainingSessions: number;
+  /** A "show more" fetch is in flight. */
+  loadingMore: boolean;
   searchQuery: string;
   onToggleExpand: () => void;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
@@ -81,7 +83,8 @@ export function ProjectNode({
   isSessionBusy,
   busyKey,
   expandedSubagents,
-  showMore,
+  remainingSessions,
+  loadingMore,
   searchQuery,
   onToggleExpand,
   onSelectSession,
@@ -120,12 +123,9 @@ export function ProjectNode({
       }
     }
 
-    parents.sort((a, b) => {
-      const ap = pinnedSessions.has(a.id) ? 1 : 0;
-      const bp = pinnedSessions.has(b.id) ? 1 : 0;
-      if (ap !== bp) return bp - ap;
-      return b.time.updated - a.time.updated;
-    });
+    // Recency only: pinned rows are lifted out by `groupSessions`, which holds them
+    // above the date headings rather than sorting them to the top of one.
+    parents.sort((a, b) => b.time.updated - a.time.updated);
 
     let active = false;
     for (const s of project.sessions) {
@@ -180,11 +180,17 @@ export function ProjectNode({
     return { taskGroups: Array.from(byTask.values()), ungroupedParents: ungrouped };
   }, [filteredParents, sessionTaskLinks]);
 
-  const visibleParents = showMore
-    ? ungroupedParents
-    : ungroupedParents.slice(0, MAX_VISIBLE_SESSIONS);
-  const hasMore = ungroupedParents.length > MAX_VISIBLE_SESSIONS && !showMore;
+  // Bucketed against the render's own clock rather than a ticking one: the
+  // headings only need to be right when the list changes, and re-grouping every
+  // minute would rebuild every row for a boundary that moves once a day.
+  const { pinned, groups } = useMemo(
+    () => groupSessions(ungroupedParents, Date.now(), pinnedSessions),
+    [ungroupedParents, pinnedSessions],
+  );
   const isEmpty = taskGroups.length === 0 && ungroupedParents.length === 0;
+  // Searching filters what is loaded; offering "show more" mid-search would look
+  // like the search itself was paginated.
+  const hasMore = remainingSessions > 0 && !searchQuery;
 
   const renderSession = (session: SessionInfo) => {
     const subagents = childrenMap.get(session.id) || [];
@@ -270,7 +276,9 @@ export function ProjectNode({
             {project.git_branch}
           </span>
         )}
-        <span className="sb-project-count">{parentSessions.length}</span>
+        <span className="sb-project-count">
+          {project.session_count ?? parentSessions.length}
+        </span>
       </button>
       )}
 
@@ -293,17 +301,30 @@ export function ProjectNode({
             />
           ))}
 
-          {isEmpty ? (
+          {isEmpty && (
             <div className="sb-empty">
               {searchQuery ? "No matching sessions" : "No sessions yet"}
             </div>
-          ) : (
-            visibleParents.map(renderSession)
           )}
 
+          {pinned.map(renderSession)}
+
+          {groups.map((group) => (
+            <React.Fragment key={group.bucket}>
+              <div className="sb-session-bucket" role="presentation">
+                {group.label}
+              </div>
+              {group.sessions.map(renderSession)}
+            </React.Fragment>
+          ))}
+
           {hasMore && (
-            <button className="sb-show-more" onClick={onShowMore}>
-              Show {ungroupedParents.length - MAX_VISIBLE_SESSIONS} more
+            <button
+              className="sb-show-more"
+              onClick={onShowMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading…" : `Show ${remainingSessions} more`}
             </button>
           )}
         </div>

@@ -59,6 +59,7 @@ fn web_panel_visibility_serialize() {
 #[test]
 fn web_project_info_serialize() {
     let proj = WebProjectInfo {
+        session_count: 0,
         name: "proj".into(),
         path: "/p".into(),
         index: 2,
@@ -95,6 +96,7 @@ fn web_project_info_serialize() {
 #[test]
 fn web_project_info_none_active_session() {
     let proj = WebProjectInfo {
+        session_count: 0,
         name: "p".into(),
         path: "/p".into(),
         index: 0,

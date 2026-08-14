@@ -17,7 +17,8 @@ import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 
 import type { SSEState, SessionStatus, WatcherStatus, SSEConnectionStatus } from "./types";
-import { SESSION_IDLE } from "./types";
+import { SESSION_BUSY, SESSION_IDLE } from "./types";
+import { withBusy, withStatus } from "./statusWrites";
 import { type MessageMap, mapToSortedArray, getMessageTime, mergeMessage } from "./messageMap";
 import {
   createOptimisticId, purgeOptimistic, retainOptimistic, reconcileOptimistic,
@@ -63,8 +64,9 @@ export function useSSE(): SSEState {
   const [busySessions, setBusySessions] = useState<Set<string>>(new Set());
   const busySessionsRef = useRef<Set<string>>(new Set());
   useEffect(() => { busySessionsRef.current = busySessions; }, [busySessions]);
-  const [sessionStatuses, setSessionStatuses] = useState<Record<string, SessionStatus>>({});
-  const sessionStatusesRef = useRef<Record<string, SessionStatus>>({});
+  const [sessionStatuses, setSessionStatuses] =
+    useState<Readonly<Record<string, SessionStatus>>>({});
+  const sessionStatusesRef = useRef<Readonly<Record<string, SessionStatus>>>({});
   useEffect(() => { sessionStatusesRef.current = sessionStatuses; }, [sessionStatuses]);
   const [permissions, setPermissions] = useState<PermissionRequest[]>([]);
   const [questions, setQuestions] = useState<QuestionRequest[]>([]);
@@ -271,6 +273,35 @@ export function useSSE(): SSEState {
   }, [publishOne]);
 
   /**
+   * The one place a session's running status is written.
+   *
+   * Status arrives on three paths — the app stream, the session stream, and the
+   * state snapshot — and each of them has to do the same four things: update the
+   * refs *synchronously* (the publish below reads them, and a ref synced by an
+   * effect is a frame behind), keep the busy set in step, re-point the active
+   * session's status, and wake that session's panes. A pane reads its status
+   * through `useSessionView`, so without the publish it keeps whatever status it
+   * had when it mounted — which is why the spinner and the stop button only
+   * appeared after a reload.
+   */
+  const applySessionStatus = useCallback((sid: string, status: SessionStatus) => {
+    if (!sid) return;
+    const statuses = withStatus(sessionStatusesRef.current, sid, status);
+    if (statuses === sessionStatusesRef.current) return;
+    sessionStatusesRef.current = statuses;
+    setSessionStatuses(statuses);
+
+    const busy = withBusy(busySessionsRef.current, sid, status.type !== "idle");
+    if (busy !== busySessionsRef.current) {
+      busySessionsRef.current = busy;
+      setBusySessions(busy);
+    }
+
+    if (sid === activeSessionRef.current) setSessionStatus(status);
+    notifySession(sid);
+  }, [notifySession]);
+
+  /**
    * Load a session someone just started watching but nobody has opened.
    *
    * Its transcript goes into the same LRU cache the event handler already
@@ -375,46 +406,26 @@ export function useSSE(): SSEState {
         for (const sid of p.busy_sessions) busyNow.add(sid);
       }
       const retired = (sid: string) => known.has(sid) && !busyNow.has(sid);
-      setBusySessions((prev) => {
-        const next = new Set(busyNow);
-        for (const sid of prev) if (!retired(sid)) next.add(sid);
-        if (prev.size === next.size && [...next].every((sid) => prev.has(sid))) return prev;
-        return next;
-      });
-      // Seed sessionStatuses from busy_sessions (server only reports busy IDs — no retry detail here)
-      setSessionStatuses((prev) => {
-        let changed = false;
-        const next = { ...prev };
-        for (const sid of busyNow) {
-          if (!next[sid] || next[sid].type === "idle") {
-            next[sid] = { type: "busy" };
-            changed = true;
-          }
-        }
-        for (const sid of Object.keys(next)) {
-          if (!retired(sid)) continue;
-          delete next[sid];
-          changed = true;
-        }
-        return changed ? next : prev;
-      });
-      // The claude adapters report progress only through app state — they emit
-      // no session_busy/session_idle events — so the active session's status has
-      // to be recomputed here as well. Without this the composer keeps offering
-      // Send and the transcript claims idle for the whole turn.
-      const activeSid = activeSessionRef.current;
-      if (activeSid) {
-        const isBusy = busyNow.has(activeSid);
-        setSessionStatus((prev) => {
-          if (!isBusy) return retired(activeSid) ? SESSION_IDLE : prev;
-          // Keep any richer busy detail an SSE event already supplied.
-          return prev.type === "idle" ? { type: "busy" } : prev;
-        });
+      // The snapshot reports who is busy, never why, so a session already
+      // carrying richer detail (a retry, with its attempt and clock) keeps it.
+      // The claude adapters report progress *only* through app state — they emit
+      // no session_busy/session_idle events — so this is the whole status path
+      // for them, active session included.
+      for (const sid of busyNow) {
+        if (sessionStatusesRef.current[sid]) continue;
+        applySessionStatus(sid, SESSION_BUSY);
       }
+      for (const sid of Object.keys(sessionStatusesRef.current)) {
+        if (retired(sid)) applySessionStatus(sid, SESSION_IDLE);
+      }
+      // A status set only on the active session — never through the map — has
+      // no entry above to retire it, so the composer would keep its stop button.
+      const activeSid = activeSessionRef.current;
+      if (activeSid && retired(activeSid)) setSessionStatus(SESSION_IDLE);
     } catch (e) {
       console.error("Failed to fetch state:", e);
     }
-  }, []);
+  }, [applySessionStatus]);
 
   /** Update a single session's metadata in the local app state without a full refresh.
    *  This avoids active_session drift that causes unwanted session switches. */
@@ -937,7 +948,7 @@ export function useSSE(): SSEState {
 
     const appSSECtx: Parameters<typeof setupAppSSEListeners>[1] = {
       activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
-      setBusySessions, setSessionStatus, setSessionStatuses, setStats, setWatcherStatus,
+      applySessionStatus, setStats, setWatcherStatus,
       setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId, setMcpBrowserOpen,
       setMcpAgentActivity, setPresenceClients,
     };
@@ -982,7 +993,7 @@ export function useSSE(): SSEState {
         handleOpenCodeEvent(
           { activeSessionRef, messageMapRef, subagentMapsRef, sessionCacheRef,
             flushMessages, flushSubagentMessages, notifySession, dropSession,
-            refreshState, updateSessionMeta, setStats, setSessionStatus, setBusySessions, setSessionStatuses, setPermissions, setQuestions,
+            refreshState, updateSessionMeta, setStats, setSessionStatus, applySessionStatus, setPermissions, setQuestions,
             setCrossSessionPermissions, setCrossSessionQuestions, setFileEditCount, resolvedQuestionIdsRef },
           event,
         );
@@ -1029,7 +1040,8 @@ export function useSSE(): SSEState {
       if (expectSwitchTimerRef.current) { clearTimeout(expectSwitchTimerRef.current); expectSwitchTimerRef.current = null; }
       if (blockSessionAdoptionTimerRef.current) { clearTimeout(blockSessionAdoptionTimerRef.current); blockSessionAdoptionTimerRef.current = null; }
     };
-  }, [refreshState, updateSessionMeta, refreshMessages, hydratePending, flushMessages, flushSubagentMessages]);
+  }, [refreshState, updateSessionMeta, refreshMessages, hydratePending, flushMessages,
+      flushSubagentMessages, applySessionStatus]);
 
   /** Signal that a user-initiated session switch is expected (call before selectSession/newSession).
    *  Clears any optimistic override so the UI falls back to server state. */

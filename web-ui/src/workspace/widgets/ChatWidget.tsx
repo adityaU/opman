@@ -113,6 +113,18 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
     [services.questions, sessionId],
   );
 
+  // The pane's own session name, for its composer's dateline. Searched across
+  // projects rather than in the pane's own project only: a pane can be showing
+  // a subagent session that lives under a different root.
+  const sessionTitle = useMemo(() => {
+    if (!sessionId) return null;
+    for (const project of services.appState?.projects ?? []) {
+      const found = project.sessions?.find((session) => session.id === sessionId);
+      if (found) return found.title || null;
+    }
+    return null;
+  }, [services.appState, sessionId]);
+
   const searchOpen = focused && services.searchOpen;
   const closeSearch = useCallback(() => {
     setMatches(NO_MATCHES);
@@ -185,6 +197,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
         sessionId={sessionId}
         stats={view.stats}
         progressText={activeProgressText(view.messages, busy)}
+        sessionTitle={sessionTitle}
         currentModel={controls.engine.model?.modelID ?? null}
         selectedModel={controls.engine.model}
         onModelSelected={controls.setModel}

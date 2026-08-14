@@ -5,7 +5,7 @@ import { useRememberedShell } from "./terminal-panel/useRememberedShell";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
-const GitPanel = lazy(() => import("./git-panel"));
+const GitPanel = lazy(() => import("./git"));
 
 interface MobileDockProps {
   activePanel: "opencode" | "git" | "editor" | "terminal" | null;

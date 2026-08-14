@@ -14,6 +14,7 @@ use std::time::Duration;
 use anyhow::Result;
 use serde_json::{json, Value};
 
+use super::request::Page;
 use super::ManagerState;
 use crate::runner::SessionScope;
 
@@ -35,16 +36,26 @@ pub(super) async fn abort(state: &ManagerState, target: &str, directory: &str) -
     Ok(json!({ "agent_id": target, "aborted": true }))
 }
 
-/// Every session in the project, with the runner that owns it and whether it is busy.
-pub(super) async fn list(state: &ManagerState, directory: &str) -> Result<Value> {
-    let sessions = state
+/// One page of the project's sessions, newest first, with the runner that owns each
+/// and whether it is busy.
+///
+/// Paged rather than whole: a long-lived project runs to hundreds of sessions, and an
+/// agent that only wants to address a peer it did not start pays for all of them in
+/// context on every call. `count` is the project total, so a caller that needs an older
+/// agent knows to ask for the next page.
+pub(super) async fn list(state: &ManagerState, directory: &str, page: Page) -> Result<Value> {
+    let mut sessions = state
         .registry
         .sessions_in(directory, SessionScope::All)
         .await?;
+    let count = sessions.len();
+    sessions.sort_unstable_by(|(_, a), (_, b)| b.time.updated.cmp(&a.time.updated));
     let running = running_ids(state, directory).await;
     let queues = state.queues.lock().await;
     let agents: Vec<Value> = sessions
         .iter()
+        .skip(page.offset)
+        .take(page.limit)
         .map(|(kind, session)| {
             json!({
                 "agent_id": session.id,
@@ -55,7 +66,12 @@ pub(super) async fn list(state: &ManagerState, directory: &str) -> Result<Value>
             })
         })
         .collect();
-    Ok(json!({ "agents": agents, "count": agents.len() }))
+    Ok(json!({
+        "agents": agents,
+        "returned": agents.len(),
+        "offset": page.offset,
+        "count": count,
+    }))
 }
 
 /// Block until the target finishes its turn, then hand back what it said.

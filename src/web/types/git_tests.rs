@@ -89,20 +89,6 @@ fn git_stage_unstage_requests() {
 }
 
 #[test]
-fn git_commit_request_and_response() {
-    let r: GitCommitRequest = serde_json::from_value(json!({"message": "msg"})).unwrap();
-    assert_eq!(r.message, "msg");
-    assert_eq!(r.repo, "");
-    let resp = GitCommitResponse {
-        hash: "h".into(),
-        message: "msg".into(),
-    };
-    let v = serde_json::to_value(&resp).unwrap();
-    assert_eq!(v["hash"], "h");
-    assert_eq!(v["message"], "msg");
-}
-
-#[test]
 fn git_discard_request() {
     let r: GitDiscardRequest = serde_json::from_value(json!({"files": ["a"]})).unwrap();
     assert_eq!(r.files, vec!["a".to_string()]);
@@ -129,42 +115,6 @@ fn git_show_query_response_and_file() {
     let v = serde_json::to_value(&resp).unwrap();
     assert_eq!(v["hash"], "abc");
     assert_eq!(v["files"][0]["status"], "M");
-}
-
-#[test]
-fn git_branches_response() {
-    let resp = GitBranchesResponse {
-        current: "main".into(),
-        local: vec!["main".into(), "dev".into()],
-        remote: vec!["origin/main".into()],
-    };
-    let v = serde_json::to_value(&resp).unwrap();
-    assert_eq!(v["current"], "main");
-    assert_eq!(v["local"].as_array().unwrap().len(), 2);
-    assert_eq!(v["remote"][0], "origin/main");
-}
-
-#[test]
-fn git_checkout_request_and_response_skip() {
-    let r: GitCheckoutRequest = serde_json::from_value(json!({"branch": "dev"})).unwrap();
-    assert_eq!(r.branch, "dev");
-    assert_eq!(r.repo, "");
-
-    let ok = GitCheckoutResponse {
-        branch: "dev".into(),
-        success: true,
-        message: None,
-    };
-    let v = serde_json::to_value(&ok).unwrap();
-    assert!(v.get("message").is_none());
-    assert_eq!(v["success"], true);
-
-    let fail = GitCheckoutResponse {
-        branch: "dev".into(),
-        success: false,
-        message: Some("error".into()),
-    };
-    assert_eq!(serde_json::to_value(&fail).unwrap()["message"], "error");
 }
 
 #[test]
@@ -231,97 +181,4 @@ fn git_repo_scope_default_and_value() {
     assert_eq!(s.repo, "");
     let s2: GitRepoScope = serde_json::from_value(json!({"repo": "sub"})).unwrap();
     assert_eq!(s2.repo, "sub");
-}
-
-#[test]
-fn git_pull_request_and_response() {
-    let r: GitPullRequest = serde_json::from_value(json!({})).unwrap();
-    assert_eq!(r.remote, "");
-    assert_eq!(r.branch, "");
-    assert_eq!(r.repo, "");
-    let r2: GitPullRequest =
-        serde_json::from_value(json!({"remote": "origin", "branch": "main", "repo": "r"})).unwrap();
-    assert_eq!(r2.remote, "origin");
-
-    let resp = GitPullResponse {
-        success: true,
-        output: "up to date".into(),
-    };
-    let v = serde_json::to_value(&resp).unwrap();
-    assert_eq!(v["success"], true);
-    assert_eq!(v["output"], "up to date");
-}
-
-#[test]
-fn git_stash_request_default_action() {
-    let r: GitStashRequest = serde_json::from_value(json!({})).unwrap();
-    assert_eq!(r.action, "push");
-    assert_eq!(r.message, "");
-    assert_eq!(r.stash_ref, "");
-    assert_eq!(r.repo, "");
-    let r2: GitStashRequest = serde_json::from_value(json!({
-        "action": "pop", "message": "m", "stash_ref": "stash@{0}", "repo": "r"
-    }))
-    .unwrap();
-    assert_eq!(r2.action, "pop");
-    assert_eq!(r2.stash_ref, "stash@{0}");
-}
-
-#[test]
-fn stash_action_default_helper() {
-    assert_eq!(stash_action_default(), "push");
-}
-
-#[test]
-fn git_stash_entry_and_response_skip_empty() {
-    let empty = GitStashResponse {
-        success: true,
-        output: "ok".into(),
-        entries: vec![],
-    };
-    let v = serde_json::to_value(&empty).unwrap();
-    assert!(v.get("entries").is_none(), "empty entries skipped");
-
-    let full = GitStashResponse {
-        success: true,
-        output: "listed".into(),
-        entries: vec![GitStashEntry {
-            index: 0,
-            reference: "stash@{0}".into(),
-            message: "wip".into(),
-        }],
-    };
-    let v = serde_json::to_value(&full).unwrap();
-    assert_eq!(v["entries"][0]["reference"], "stash@{0}");
-    assert_eq!(v["entries"][0]["index"], 0);
-}
-
-#[test]
-fn git_ignore_request_default_action() {
-    let r: GitIgnoreRequest = serde_json::from_value(json!({})).unwrap();
-    assert_eq!(r.action, "list");
-    assert!(r.patterns.is_empty());
-    assert_eq!(r.repo, "");
-    let r2: GitIgnoreRequest = serde_json::from_value(json!({
-        "action": "add", "patterns": ["*.log"], "repo": "r"
-    }))
-    .unwrap();
-    assert_eq!(r2.action, "add");
-    assert_eq!(r2.patterns, vec!["*.log".to_string()]);
-}
-
-#[test]
-fn gitignore_action_default_helper() {
-    assert_eq!(gitignore_action_default(), "list");
-}
-
-#[test]
-fn git_ignore_response() {
-    let resp = GitIgnoreResponse {
-        success: true,
-        content: "*.log\n".into(),
-    };
-    let v = serde_json::to_value(&resp).unwrap();
-    assert_eq!(v["success"], true);
-    assert_eq!(v["content"], "*.log\n");
 }

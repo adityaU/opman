@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useGitSelection } from "../git-panel/useGitSelection";
+import { useGitSelection } from "../git/state/useGitSelection";
 import { useBoardSelection } from "../kanban/useBoardSelection";
-import type { GitFileEntry } from "../git-panel/types";
+import type { GitFileEntry } from "../git/types";
 import type { Lane, Task } from "../api/kanban";
 
 const file = (path: string): GitFileEntry => ({ path, status: "M" }) as GitFileEntry;

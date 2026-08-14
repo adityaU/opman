@@ -1,7 +1,10 @@
 import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useChordLabeller } from "../../keybindings/useChord";
-import type { PaneId } from "../types";
+import { DropSlot } from "./DropSlot";
+import { WindowDropStrip, type WindowDropTarget } from "./WindowDropStrip";
+import type { DropEdge } from "../move";
+import type { PaneId, WindowId } from "../types";
 import type { TargetSlot } from "./useTargeting";
 
 /**
@@ -27,9 +30,13 @@ export type TargetInteraction =
   | { readonly kind: "pick"; readonly onPick: (pane: PaneId) => void }
   | {
       readonly kind: "drop";
-      /** The pane the widget is being dragged out of; it cannot receive itself. */
+      /** The pane being dragged; it cannot receive itself. */
       readonly source: PaneId;
-      readonly onDrop: (pane: PaneId) => void;
+      /** Where in the target pane it landed — an edge moves it, the middle swaps. */
+      readonly onDrop: (pane: PaneId, edge: DropEdge) => void;
+      /** The other windows it can be sent to, drawn down the rail's edge. */
+      readonly windows: readonly WindowDropTarget[];
+      readonly onDropWindow: (target: WindowId | "new") => void;
     };
 
 interface TargetOverlayProps {
@@ -55,7 +62,6 @@ export const TargetOverlay: React.FC<TargetOverlayProps> = function TargetOverla
   onCancel,
 }) {
   const rects = usePaneRects(slots);
-  const [over, setOver] = useState<PaneId | null>(null);
 
   return createPortal(
     <div
@@ -71,49 +77,41 @@ export const TargetOverlay: React.FC<TargetOverlayProps> = function TargetOverla
         onCancel();
       }}
     >
-      {rects.map(({ slot, top, left, width, height }) => {
-        const source = interaction.kind === "drop" && interaction.source === slot.paneId;
-        return (
+      {rects.map(({ slot, ...rect }) =>
+        interaction.kind === "drop" ? (
+          <DropSlot
+            key={slot.paneId}
+            slot={slot}
+            rect={rect}
+            source={interaction.source === slot.paneId}
+            onDrop={interaction.onDrop}
+          />
+        ) : (
           <button
             key={slot.paneId}
             type="button"
-            className={
-              "wsp-target-slot" +
-              (slot.focused ? " is-focused" : "") +
-              (source ? " is-source" : "") +
-              (over === slot.paneId ? " is-over" : "")
-            }
-            style={{ top, left, width, height }}
+            className={"wsp-target-slot" + (slot.focused ? " is-focused" : "")}
+            style={rect}
             onClick={(event) => {
               event.stopPropagation();
-              if (interaction.kind === "pick") interaction.onPick(slot.paneId);
-            }}
-            onDragOver={(event) => {
-              if (source) return;
-              // preventDefault is what marks the element as a drop target.
-              event.preventDefault();
-              setOver(slot.paneId);
-            }}
-            onDragLeave={() => setOver((current) => (current === slot.paneId ? null : current))}
-            onDrop={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setOver(null);
-              if (interaction.kind === "drop" && !source) interaction.onDrop(slot.paneId);
-              else onCancel();
+              interaction.onPick(slot.paneId);
             }}
             aria-label={`Open in pane ${slot.ordinal}`}
           >
             <span className="wsp-target-number">{slot.ordinal}</span>
           </button>
-        );
-      })}
+        ),
+      )}
+
+      {interaction.kind === "drop" && (
+        <WindowDropStrip windows={interaction.windows} onDrop={interaction.onDropWindow} />
+      )}
 
       <div className="wsp-target-chip" role="status">
         <span className="wsp-target-chip-label">{label}</span>
         <span className="wsp-target-chip-keys">
           {interaction.kind === "pick" ? <PickKeys slots={slots} /> : (
-            <>drop on a pane to swap · <kbd>esc</kbd> cancels</>
+            <>edge moves · middle swaps · <kbd>esc</kbd> cancels</>
           )}
         </span>
       </div>

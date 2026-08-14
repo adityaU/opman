@@ -8,6 +8,7 @@
  */
 
 import { uuid } from "../utils/uuid";
+import { EMPTY_HISTORY, recordTarget } from "./history";
 import {
   asPaneId,
   asSplitId,
@@ -24,7 +25,8 @@ import {
 // ── Construction ────────────────────────────────────────
 
 export function newPane(widget: WidgetState | null = null): PaneNode {
-  return { type: "leaf", id: asPaneId(uuid()), widget };
+  const id = asPaneId(uuid());
+  return { type: "leaf", id, widget, history: recordTarget(EMPTY_HISTORY, widget) };
 }
 
 /** Even sizes for `count` children. The last absorbs the rounding error. */
@@ -99,10 +101,6 @@ export function mapPane(node: Node, id: PaneId, replace: (pane: PaneNode) => Nod
   const children = node.children.map((child) => mapPane(child, id, replace));
   if (children.every((child, i) => child === node.children[i])) return node;
   return { ...node, children };
-}
-
-export function setWidget(node: Node, id: PaneId, widget: WidgetState | null): Node {
-  return mapPane(node, id, (pane) => (pane.widget === widget ? pane : { ...pane, widget }));
 }
 
 /**
@@ -222,6 +220,11 @@ export function swapPanes(root: Node, a: PaneId, b: PaneId): Node {
  * the key every `data-pane-id` lookup uses, so moving it would make pane 1
  * suddenly be over on the right.
  *
+ * The trail travels with the widget. A pane is a frame; the history belongs to
+ * the thing being dragged, and leaving it behind would strand each pane on a
+ * widget its own history disagrees with — breaking `history.ts`'s invariant for
+ * both panes at once.
+ *
  * One traversal, for the same reason `swapPanes` is one.
  */
 export function swapWidgets(root: Node, a: PaneId, b: PaneId): Node {
@@ -232,8 +235,8 @@ export function swapWidgets(root: Node, a: PaneId, b: PaneId): Node {
 
   const substitute = (node: Node): Node => {
     if (node.type === "leaf") {
-      if (node.id === a) return { ...paneA, widget: paneB.widget };
-      if (node.id === b) return { ...paneB, widget: paneA.widget };
+      if (node.id === a) return { ...paneA, widget: paneB.widget, history: paneB.history };
+      if (node.id === b) return { ...paneB, widget: paneA.widget, history: paneA.history };
       return node;
     }
     return { ...node, children: node.children.map(substitute) };

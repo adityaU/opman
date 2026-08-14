@@ -144,8 +144,24 @@ pub(super) fn definitions() -> Value {
             "name": "agent_list",
             "description": "List the agent sessions in this project — id, title, runner, \
                             whether each is busy, and how many messages are queued for it. \
-                            Use this to address an agent you did not start yourself.",
-            "inputSchema": { "type": "object", "properties": {} },
+                            Use this to address an agent you did not start yourself. \
+                            Returns the 20 most recently active by default, plus 'count', \
+                            the project total; raise 'offset' to reach older ones.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "offset": {
+                        "type": "integer",
+                        "description": "How far into the newest-first list to start. \
+                                        Defaults to 0.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "How many agents to return. Defaults to 20, capped \
+                                        at 100.",
+                    },
+                },
+            },
         },
         {
             "name": "agent_wait",

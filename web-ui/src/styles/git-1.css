@@ -1,0 +1,295 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Git panel, part 1 — tokens, shell, masthead, section nav.
+
+   The panel is not a container of its own: the workspace pane it lives in
+   is already the card (workspace-2.css), so `.gitp` paints no surface and
+   draws no border. Everything below is rows and hairlines on that card —
+   there is no second box language here.
+
+   Width is answered with a container query, not a viewport one. The panel
+   can be 280px wide inside a 3000px window, so only its own inline size
+   can decide whether the nav spells its tabs out.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* The two portalled surfaces are not descendants of `.gitp`, so they would
+   otherwise resolve none of these — and a `var(…, fallback)` there would
+   silently pin a colour that does not follow the theme. They declare the
+   same block instead. */
+.gitp,
+.gitp-popover,
+.gitp-confirm {
+    /* One row height for every scannable line in the panel. */
+    --gitp-row-h: 26px;
+    --gitp-pad: var(--space-3);
+    /* The only edge in the panel. Everything else is separated by space. */
+    --gitp-hair: color-mix(in srgb, var(--color-border-subtle) 82%, transparent);
+    /* Neutral fills derived from the text colour, so they invert with the
+       appearance instead of assuming a dark canvas. */
+    --gitp-fill: color-mix(in srgb, var(--color-text) 5%, transparent);
+    --gitp-fill-hover: color-mix(in srgb, var(--color-text) 9%, transparent);
+    --gitp-fill-active: color-mix(in srgb, var(--color-text) 13%, transparent);
+    /* Selection and current-state. The accent means "this one", nothing else. */
+    --gitp-sel: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    --gitp-sel-hover: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.gitp {
+    container-type: inline-size;
+    container-name: gitp;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: transparent;
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+}
+
+/* Flat swaps the translucent fills for opaque ones on the panel surface, so
+   nothing depends on a blur that is switched off. */
+html.flat-theme :is(.gitp, .gitp-popover, .gitp-confirm) {
+    --gitp-fill: var(--color-bg-element);
+    --gitp-fill-hover: var(--theme-surface-hover);
+    --gitp-fill-active: var(--theme-surface-3);
+    --gitp-hair: var(--color-border-subtle);
+}
+
+.gitp-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ── Failure to read the repository at all ──────────────────────────── */
+
+.gitp-fatal {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: var(--gitp-pad);
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 9%, transparent);
+}
+
+.gitp-fatal-title { color: var(--color-error); font-size: var(--font-size-sm); font-weight: 600 }
+
+.gitp-fatal-detail {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    overflow-wrap: anywhere;
+}
+
+/* ── Skeleton ───────────────────────────────────────────────────────
+   Shape-matched rows, not a spinner: the panel keeps its geometry while
+   data lands, so nothing jumps under the pointer. */
+
+.gitp-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--gitp-pad);
+}
+
+.gitp-skeleton-row {
+    height: var(--gitp-row-h);
+    border-radius: var(--radius);
+    background: linear-gradient(90deg,
+        var(--gitp-fill) 0%, var(--gitp-fill-hover) 50%, var(--gitp-fill) 100%);
+    background-size: 300% 100%;
+    animation: gitp-shimmer 1.4s ease-in-out infinite;
+}
+
+.gitp-skeleton-row:nth-child(2) { width: 82% }
+.gitp-skeleton-row:nth-child(3) { width: 91% }
+.gitp-skeleton-row:nth-child(4) { width: 68% }
+.gitp-skeleton-row:nth-child(5) { width: 87% }
+
+@keyframes gitp-shimmer {
+    from { background-position: 100% 0 }
+    to { background-position: -100% 0 }
+}
+
+/* ── Masthead ───────────────────────────────────────────────────────
+   Which repository, which branch, how far from the remote, and the three
+   commands that change that distance. It never scrolls away. */
+
+.gitp-header {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--gitp-pad);
+    border-bottom: 1px solid var(--gitp-hair);
+}
+
+.gitp-header-identity,
+.gitp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.gitp-repo-trigger,
+.gitp-branch-trigger {
+    display: flex; align-items: center; gap: var(--space-1);
+    min-width: 0;
+    height: var(--gitp-row-h);
+    padding: 0 var(--space-1-5);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-repo-trigger:hover:not(:disabled),
+.gitp-branch-trigger:hover:not(:disabled) { background: var(--gitp-fill) }
+
+.gitp-repo-trigger:active:not(:disabled),
+.gitp-branch-trigger:active:not(:disabled),
+.gitp-repo-trigger[aria-expanded="true"],
+.gitp-branch-trigger[aria-expanded="true"] { background: var(--gitp-fill-active) }
+
+.gitp-repo-trigger:disabled,
+.gitp-branch-trigger:disabled { opacity: .5; cursor: default }
+
+.gitp-repo-name,
+.gitp-branch-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gitp-branch-trigger .gitp-branch-name { font-weight: 600 }
+
+/* Detached HEAD is a warning, not a branch name: committing here loses work
+   silently, so the one line everyone looks at has to say so. */
+.gitp-branch-trigger[data-detached] .gitp-branch-name,
+.gitp-branch-name[data-detached],
+.gitp-branch-warn { color: var(--color-warning) }
+
+.gitp-sync-state {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs); font-variant-numeric: tabular-nums;
+}
+
+.gitp-sync-count,
+.gitp-sync-noupstream { display: inline-flex; align-items: center; gap: 2px }
+
+.gitp-sync-noupstream { color: var(--color-warning) }
+
+/* Fetch / Pull / Push are one decision, so they are one segmented control —
+   which is also what keeps this row from wrapping into soup at 280px. */
+.gitp-sync-group {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--gitp-hair);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.gitp-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: 24px;
+    padding: 0 var(--space-2);
+    border: 0;
+    border-left: 1px solid var(--gitp-hair);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-sync-btn:first-child { border-left: 0 }
+.gitp-sync-btn:hover:not(:disabled) { background: var(--gitp-fill); color: var(--color-text) }
+.gitp-sync-btn:active:not(:disabled) { background: var(--gitp-fill-active) }
+.gitp-sync-btn:disabled { opacity: .45; cursor: default }
+
+/* Publishing a branch with no upstream is the one sync action that is a
+   decision rather than a refresh, so it is the one that carries the accent. */
+.gitp-sync-btn[data-publish] { color: var(--color-primary); font-weight: 600 }
+
+/* ── Section nav ────────────────────────────────────────────────────── */
+
+.gitp-nav {
+    flex-shrink: 0;
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-1);
+    padding: var(--space-1-5) var(--gitp-pad);
+    border-bottom: 1px solid var(--gitp-hair);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.gitp-nav::-webkit-scrollbar { display: none }
+
+.gitp-nav-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    flex: 1 1 auto;
+    min-width: 0;
+    height: var(--gitp-row-h);
+    padding: 0 var(--space-2);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--font-size-2xs);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-nav-tab:hover:not([data-selected]) { background: var(--gitp-fill); color: var(--color-text) }
+.gitp-nav-tab:active { background: var(--gitp-fill-active) }
+
+.gitp-nav-tab[data-selected] {
+    background: var(--gitp-sel);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.gitp-nav-label { overflow: hidden; text-overflow: ellipsis }
+.gitp-nav-count { font-variant-numeric: tabular-nums; opacity: .8 }
+
+/* ── Narrow: labels go, controls stay ───────────────────────────────── */
+
+@container gitp (max-width: 420px) {
+    .gitp-nav-label,
+    .gitp-sync-btn-label { display: none }
+    .gitp-nav-tab { flex: 1 1 0 }
+    .gitp-sync-btn { padding: 0 var(--space-1-5) }
+}
+
+@container gitp (max-width: 320px) {
+    .gitp { --gitp-pad: var(--space-2) }
+    .gitp-repo-name { display: none }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gitp-skeleton-row { animation: none }
+}

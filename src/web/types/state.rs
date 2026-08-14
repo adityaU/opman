@@ -43,7 +43,11 @@ pub struct WebProjectInfo {
     pub path: String,
     pub index: usize,
     pub active_session: Option<String>,
+    /// The newest page of sessions, not the whole list. `session_count` is the
+    /// total; the sidebar asks `/api/sessions` for older pages on demand.
     pub sessions: Vec<WebSessionInfo>,
+    /// Total top-level sessions in this project, however many were sent.
+    pub session_count: usize,
     pub git_branch: String,
     pub busy_sessions: Vec<String>,
     /// Sessions that have encountered an error.
@@ -52,6 +56,14 @@ pub struct WebProjectInfo {
     pub input_sessions: Vec<String>,
     /// Sessions with unseen activity (completed or errored while not viewed).
     pub unseen_sessions: Vec<String>,
+}
+
+/// One page of a project's sessions, from `/api/sessions`.
+#[derive(Serialize, Clone)]
+pub struct WebSessionPage {
+    pub sessions: Vec<WebSessionInfo>,
+    /// Total top-level sessions in the project, so the client knows how many remain.
+    pub session_count: usize,
 }
 
 #[derive(Serialize, Clone)]

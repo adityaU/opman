@@ -177,6 +177,10 @@ const WINDOW = namespace("w", "window", [
   { key: "o", command: "workspace.closeOtherPanes", label: "only" },
   { key: "z", command: "workspace.zoomPane", label: "zoom" },
   { key: "=", command: "workspace.equalize", label: "equalize" },
+  // The jumplist's own `ctrl+o`/`ctrl+i` cannot come here — `o` is "only" — so
+  // the pane's trail takes the prev/next pair, leaving `[`/`]` to step windows.
+  { key: ",", command: "workspace.historyBack", label: "back" },
+  { key: ".", command: "workspace.historyForward", label: "forward" },
   { key: "p", command: "workspace.openWidget", label: "pick widget" },
   { key: "m", command: "workspace.paneMenu", label: "menu" },
   { key: "T", command: "workspace.movePaneToNewWindow", label: "to new window" },

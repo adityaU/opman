@@ -222,18 +222,18 @@
     box-shadow: 0 12px 40px var(--black-14),0 4px 14px var(--black-8)
 }
 
-.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.mobile-panel-header{
+.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.mobile-panel-header{
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent);
     border-bottom-color: var(--color-border)
 }
 
-.notification-prefs-header button,.ctx-window-refresh,.ctx-window-close,.diff-review-view-toggle,.diff-review-refresh,.diff-review-close,.pr-description-modal-close,.git-back-btn,.git-back-dropdown-btn,.git-panel-refresh,.mobile-cmd-btn{
+.notification-prefs-header button,.ctx-window-refresh,.ctx-window-close,.diff-review-view-toggle,.diff-review-refresh,.diff-review-close,.pr-description-modal-close,.mobile-cmd-btn{
     border-radius: var(--radius);
     border: 1px solid transparent;
     transition: background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast)
 }
 
-.notification-prefs-header button:hover,.ctx-window-refresh:hover,.ctx-window-close:hover,.diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover,.pr-description-modal-close:hover,.git-back-btn:hover,.git-back-dropdown-btn:hover,.git-panel-refresh:hover,.mobile-cmd-btn:hover{
+.notification-prefs-header button:hover,.ctx-window-refresh:hover,.ctx-window-close:hover,.diff-review-view-toggle:hover,.diff-review-refresh:hover,.diff-review-close:hover,.pr-description-modal-close:hover,.mobile-cmd-btn:hover{
     background: var(--color-surface-hover);
     border-color: var(--color-border);
     transform: translateY(-1px)
@@ -243,21 +243,21 @@
     padding: 14px
 }
 
-.notification-prefs-permission,.notification-prefs-item,.ctx-category,.diff-review-file-list,.diff-review-file-actions,.git-ai-actions,.git-commit-form,.git-section,.git-log-entry,.git-diff-header,.git-commit-meta,.git-commit-file-accordion,.pr-description-stats,.pr-description-commits {
+.notification-prefs-permission,.notification-prefs-item,.ctx-category,.diff-review-file-list,.diff-review-file-actions,.pr-description-stats,.pr-description-commits{
     border-radius: var(--radius);
     border: 1px solid var(--color-border-subtle);
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface-hover) 50%,transparent),transparent 55%),var(--color-surface)
 }
 
-.notification-prefs-permission,.notification-prefs-item,.git-ai-actions,.git-commit-form,.git-section,.git-log-entry,.git-diff-header,.git-commit-meta,.git-commit-file-accordion,.pr-description-stats,.pr-description-commits {
+.notification-prefs-permission,.notification-prefs-item,.pr-description-stats,.pr-description-commits{
     padding: 12px 14px
 }
 
-.notification-prefs-item,.git-log-entry,.git-commit-file-accordion,.ctx-category,.diff-review-file-item {
+.notification-prefs-item,.ctx-category,.diff-review-file-item{
     transition: transform var(--transition-fast),border-color var(--transition-fast),background var(--transition-fast),box-shadow var(--transition-fast)
 }
 
-.notification-prefs-item:hover,.git-log-entry:hover,.git-commit-file-accordion:hover,.ctx-category:hover,.diff-review-file-item:hover {
+.notification-prefs-item:hover,.ctx-category:hover,.diff-review-file-item:hover{
     transform: translateY(-1px);
     border-color: var(--color-border)
 }
@@ -273,7 +273,7 @@
     margin-bottom: 0
 }
 
-.notification-prefs-status,.notification-prefs-badge,.diff-review-badge,.diff-review-pending-badge,.git-tab-badge {
+.notification-prefs-status,.notification-prefs-badge,.diff-review-badge,.diff-review-pending-badge{
     border-radius: var(--radius);
     box-shadow: inset 0 .5px var(--white-3)
 }

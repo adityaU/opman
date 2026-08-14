@@ -14,7 +14,7 @@ import type { PaneId, PaneNode, WidgetState } from "../types";
  */
 
 const CodeEditorPanel = lazy(() => import("../../code-editor"));
-const GitPanel = lazy(() => import("../../git-panel"));
+const GitPanel = lazy(() => import("../../git"));
 const TerminalPanel = lazy(() =>
   import("../../TerminalPanel").then((m) => ({ default: m.TerminalPanel })),
 );
@@ -31,31 +31,37 @@ export interface PaneWidgetProps {
   readonly onPtyIdChanged: (pane: PaneId, ptyId: string | null) => void;
   /** Persist a browser pane's current URL so a reload comes back to it. */
   readonly onBrowserUrlChanged: (pane: PaneId, url: string) => void;
+  /**
+   * Report which file a files pane is on, so the pane's history knows where it
+   * has been. The panel's own cursor, not the request it was handed — clicking
+   * around the tree is how a pane usually reaches a file.
+   */
+  readonly onActiveFileChanged: (pane: PaneId, path: string | null) => void;
 }
 
-export const PaneWidget: React.FC<PaneWidgetProps> = React.memo(function PaneWidget({
+export const PaneWidget: React.FC<PaneWidgetProps> = React.memo(function PaneWidget(props) {
+  return (
+    <Suspense fallback={<div className="wsp-widget-loading" aria-busy="true" />}>
+      {renderWidget(props)}
+    </Suspense>
+  );
+});
+
+/**
+ * Takes the props whole rather than as positional arguments. There are five
+ * write-backs now, all of the same `(pane, value)` shape, and a positional list
+ * of five same-shaped callbacks is a list two of them can be swapped in without
+ * the compiler noticing.
+ */
+function renderWidget({
   widget,
   pane,
   focused,
   onError,
   onPtyIdChanged,
   onBrowserUrlChanged,
-}) {
-  return (
-    <Suspense fallback={<div className="wsp-widget-loading" aria-busy="true" />}>
-      {renderWidget(widget, pane, focused, onError, onPtyIdChanged, onBrowserUrlChanged)}
-    </Suspense>
-  );
-});
-
-function renderWidget(
-  widget: WidgetState,
-  pane: PaneNode,
-  focused: boolean,
-  onError: (message: string) => void,
-  onPtyIdChanged: (pane: PaneId, ptyId: string | null) => void,
-  onBrowserUrlChanged: (pane: PaneId, url: string) => void,
-): React.ReactNode {
+  onActiveFileChanged,
+}: PaneWidgetProps): React.ReactNode {
   switch (widget.kind) {
     case "chat":
       return (
@@ -77,6 +83,7 @@ function renderWidget(
           sessionId={widget.sessionId}
           open={widget.open}
           onError={onError}
+          onActiveFileChanged={(path) => onActiveFileChanged(pane.id, path)}
         />
       );
 
@@ -103,6 +110,7 @@ function renderWidget(
           paneId={widget.browserId}
           project={widget.projectPath}
           url={widget.url}
+          reveal={widget.reveal}
           focused={focused}
           onUrlChanged={(url) => onBrowserUrlChanged(pane.id, url)}
         />

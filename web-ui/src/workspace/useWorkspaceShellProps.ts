@@ -6,6 +6,8 @@ import type { PaneContext } from "./WorkspaceRoot";
 import type { WorkspaceBridge, WorkspaceProject } from "./DesktopWorkspace";
 import type { TargetRequest } from "./target/useTargeting";
 import type { WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
+import { basename } from "../utils/path";
+import { targetLabel } from "./history";
 import type { PaneEngine, WidgetState } from "./types";
 
 /**
@@ -121,7 +123,15 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
       const projectName = project?.name ?? basename(widget.projectPath);
 
       if (widget.kind !== "chat") {
-        return { projectName, subtitle: null, busy: false };
+        // The header has always claimed to show "session title, file name,
+        // terminal tab or branch" and only ever showed the first. `targetLabel`
+        // is the same answer the pane's history rows use, so a file named in a
+        // Recent row and the same file named in the header agree — and a shell,
+        // which needs a lookup this function cannot do, still says "Shell"
+        // rather than nothing. Git is the one kind left out: its label is "Git",
+        // which the kind chip beside it already says.
+        const subtitle = widget.kind === "git" ? null : targetLabel(widget);
+        return { projectName, subtitle, busy: false };
       }
       const session = ((project?.sessions ?? []) as { id: string; title?: string }[]).find(
         (candidate) => candidate.id === widget.sessionId,
@@ -154,7 +164,15 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
           return { ok: false, sessionId: null };
         }
         try {
-          sid = (await newSession(index, engine.runner || null)).session_id;
+          // Create it on the pane's own configuration — see `newSession`.
+          sid = (
+            await newSession(index, engine.runner || null, {
+              ...(engine.model ? { model: engine.model.modelID } : {}),
+              ...(engine.agent ? { agent: engine.agent } : {}),
+              ...(engine.effort ? { effort: engine.effort } : {}),
+              ...(engine.permission ? { permissionMode: engine.permission } : {}),
+            })
+          ).session_id;
         } catch {
           latest.current.onError("Failed to create session");
           return { ok: false, sessionId: null };
@@ -288,9 +306,4 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
     }),
     [armTargeting, openKindHere, openFileInWorkspace, openFileWhereInWorkspace, openBrowserInWorkspace, chat, deps.activeSessionId, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
   );
-}
-
-function basename(path: string): string {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
 }

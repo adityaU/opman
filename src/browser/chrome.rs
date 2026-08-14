@@ -6,30 +6,36 @@
 //! remote-allow-origins — because the socket is bound to loopback on an ephemeral port
 //! that only this process ever learns.
 
-use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 
+use super::profile::{self, Owner};
+
 /// How long to wait for Chromium to print its websocket banner before giving up.
 const BANNER_TIMEOUT: Duration = Duration::from_secs(20);
 
-/// Candidate binaries, in preference order. Playwright's bundled build is tried last:
-/// it is the most likely to exist on a dev box but the most likely to be pruned.
-const CANDIDATES: [&str; 5] = [
-    "chromium",
-    "chromium-browser",
-    "google-chrome",
-    "google-chrome-stable",
-    "brave-browser",
-];
+/// How long a browser already on the profile has to publish its DevTools port before it
+/// is declared unusable — it takes the profile lock a moment before writing the file.
+const ADOPT_GRACE: Duration = Duration::from_secs(5);
+const ADOPT_POLL: Duration = Duration::from_millis(100);
 
-/// A launched browser process and the DevTools endpoint it is listening on.
+/// A browser process and the DevTools endpoint it is listening on.
 pub struct Chrome {
-    child: Child,
+    process: Process,
     ws_url: String,
+}
+
+/// How this process relates to the browser. Adopting one it did not start is normal —
+/// see [`super::profile`] — and the difference decides who may kill it.
+enum Process {
+    /// Launched here. Dropping the handle kills it.
+    Owned(Child),
+    /// Already running on the profile when we got here, so not ours to end: another
+    /// opman may be driving it, and if nobody is, the next launch adopts it again.
+    Adopted(u32),
 }
 
 impl Chrome {
@@ -37,7 +43,7 @@ impl Chrome {
         &self.ws_url
     }
 
-    /// Launch a headless Chromium and read back its websocket endpoint.
+    /// Get a browser for a profile directory: the one already on it, or a new one.
     ///
     /// Sandboxed first. Hosts that disable unprivileged user namespaces — Ubuntu 23.10+
     /// under AppArmor, and most containers — make Chromium's sandbox impossible to start,
@@ -45,13 +51,22 @@ impl Chrome {
     /// feature working and not existing; doing it *only* there is what keeps the sandbox
     /// on every host that can honour it.
     pub async fn launch(user_data_dir: &std::path::Path) -> anyhow::Result<Self> {
-        let binary = find_binary()
+        if let Some(adopted) = Self::adopt(user_data_dir).await? {
+            return Ok(adopted);
+        }
+
+        let binary = super::binary::find()
             .ok_or_else(|| anyhow::anyhow!("no Chromium or Chrome binary found on PATH"))?;
 
         let first = match Self::spawn(&binary, user_data_dir, Sandbox::Enabled).await {
             Ok(chrome) => return Ok(chrome),
             Err(error) => error,
         };
+
+        // Whoever won the race owns the profile now; a second attempt only loses it again.
+        if matches!(first, LaunchError::ProfileLocked) {
+            return Err(first.into());
+        }
 
         // A snap-confined Chromium dies without printing anything at all, so the retry
         // cannot be conditioned on recognising the sandbox message — only on the
@@ -69,6 +84,46 @@ impl Chrome {
         Self::spawn(&binary, user_data_dir, Sandbox::Disabled)
             .await
             .map_err(Into::into)
+    }
+
+    /// Join the browser already on this profile, if there is one; clear its leftovers if
+    /// there is not. `None` means the profile is ours to launch into.
+    ///
+    /// A browser found mid-startup holds the lock before it has written the port file, so
+    /// a live holder without an endpoint is given [`ADOPT_GRACE`] to publish one.
+    async fn adopt(user_data_dir: &std::path::Path) -> anyhow::Result<Option<Self>> {
+        let deadline = std::time::Instant::now() + ADOPT_GRACE;
+        loop {
+            match profile::owner(user_data_dir) {
+                Owner::Live {
+                    pid,
+                    ws_url: Some(ws_url),
+                } => {
+                    tracing::info!(pid, "adopting the chromium already holding the profile");
+                    return Ok(Some(Self {
+                        process: Process::Adopted(pid),
+                        ws_url,
+                    }));
+                }
+                Owner::Live { pid, ws_url: None } if std::time::Instant::now() >= deadline => {
+                    return Err(anyhow::anyhow!(
+                        "chromium (pid {pid}) is holding {} but is not serving DevTools; \
+                         quit it and reopen the pane",
+                        user_data_dir.display()
+                    ))
+                }
+                Owner::Live { .. } => tokio::time::sleep(ADOPT_POLL).await,
+                // The common case after a hard restart: the last browser is gone but its
+                // claim on the profile is not, and Chromium refuses to start on a claimed
+                // profile.
+                Owner::Stale => {
+                    tracing::info!("clearing a stale profile lock left by a previous browser");
+                    profile::release(user_data_dir);
+                    return Ok(None);
+                }
+                Owner::Free => return Ok(None),
+            }
+        }
     }
 
     async fn spawn(
@@ -105,23 +160,33 @@ impl Chrome {
             .ok_or_else(|| LaunchError::Spawn(binary.display().to_string(), "no stderr".into()))?;
 
         match tokio::time::timeout(BANNER_TIMEOUT, read_ws_url(stderr)).await {
-            Ok(Ok(ws_url)) => Ok(Self { child, ws_url }),
+            Ok(Ok(ws_url)) => Ok(Self {
+                process: Process::Owned(child),
+                ws_url,
+            }),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(LaunchError::Timeout),
         }
     }
 
     /// Ask the process to exit. Dropping also kills it, but an explicit close lets the
-    /// pool report failures instead of swallowing them in a destructor.
-    pub async fn shutdown(mut self) {
-        let _ = self.child.start_kill();
-        let _ = self.child.wait().await;
+    /// pool report failures instead of swallowing them in a destructor. An adopted
+    /// browser is left running: it was up before this process and its tabs outlive it.
+    pub async fn shutdown(self) {
+        let Process::Owned(mut child) = self.process else {
+            return;
+        };
+        let _ = child.start_kill();
+        let _ = child.wait().await;
     }
 
     /// Whether the process is still running. A crashed Chromium must be relaunched
     /// rather than reconnected, so the pool checks this before handing out a tab.
     pub fn is_alive(&mut self) -> bool {
-        matches!(self.child.try_wait(), Ok(None))
+        match &mut self.process {
+            Process::Owned(child) => matches!(child.try_wait(), Ok(None)),
+            Process::Adopted(pid) => profile::pid_alive(*pid),
+        }
     }
 }
 
@@ -148,6 +213,7 @@ impl Sandbox {
 enum LaunchError {
     Spawn(String, String),
     SandboxUnavailable,
+    ProfileLocked,
     Exited,
     Timeout,
 }
@@ -161,6 +227,9 @@ impl From<LaunchError> for anyhow::Error {
             LaunchError::SandboxUnavailable => {
                 anyhow::anyhow!("chromium could not start its sandbox, and neither could it start without one")
             }
+            LaunchError::ProfileLocked => anyhow::anyhow!(
+                "another chromium claimed the browser profile while this one was starting"
+            ),
             LaunchError::Exited => {
                 anyhow::anyhow!("chromium exited before printing a DevTools endpoint")
             }
@@ -181,12 +250,19 @@ where
     const MARKER: &str = "DevTools listening on ";
     /// The fatal line a host with user namespaces disabled prints instead.
     const NO_SANDBOX: &str = "No usable sandbox";
+    /// What Chromium says when the profile is already claimed. It aborts right after.
+    const SINGLETON: &str = "ProcessSingleton";
 
     let mut lines = BufReader::new(stderr).lines();
     let mut sandbox_failed = false;
+    let mut profile_locked = false;
     while let Ok(Some(line)) = lines.next_line().await {
         if line.contains(NO_SANDBOX) {
             sandbox_failed = true;
+            continue;
+        }
+        if line.contains(SINGLETON) {
+            profile_locked = true;
             continue;
         }
         let Some(idx) = line.find(MARKER) else {
@@ -197,79 +273,13 @@ where
             return Ok(url.to_string());
         }
     }
-    Err(if sandbox_failed {
-        LaunchError::SandboxUnavailable
-    } else {
-        LaunchError::Exited
+    // Order matters: a locked profile aborts the launch before the sandbox is ever tried,
+    // so it is the more specific explanation when both lines appeared.
+    Err(match (profile_locked, sandbox_failed) {
+        (true, _) => LaunchError::ProfileLocked,
+        (false, true) => LaunchError::SandboxUnavailable,
+        (false, false) => LaunchError::Exited,
     })
-}
-
-/// First usable browser binary, or `None` if the host has none.
-///
-/// Snap-packaged builds are deliberately last. Snap confinement limits file access to
-/// `~/snap/<name>`, so a snap Chromium cannot create the profile directory opman hands it
-/// and aborts on startup — it is a working browser for a person and a broken one for
-/// automation. Playwright's cached build, when present, is a plain unconfined binary and
-/// is the better default here even though it is not on `PATH`.
-fn find_binary() -> Option<PathBuf> {
-    let on_path: Vec<PathBuf> = CANDIDATES.iter().filter_map(|name| which(name)).collect();
-
-    on_path
-        .iter()
-        .find(|path| !is_snap(path))
-        .cloned()
-        .or_else(playwright_chromium)
-        .or_else(|| on_path.into_iter().next())
-}
-
-/// Whether a binary is a snap, either by living under `/snap` or by being the shell shim
-/// Ubuntu installs at `/usr/bin/chromium-browser` that execs one.
-fn is_snap(path: &std::path::Path) -> bool {
-    if path.starts_with("/snap") {
-        return true;
-    }
-    // Only the head matters — the shim is a few lines, and a real ELF's first bytes will
-    // not contain the marker.
-    let mut head = [0_u8; 512];
-    let Ok(mut file) = std::fs::File::open(path) else {
-        return false;
-    };
-    let Ok(read) = std::io::Read::read(&mut file, &mut head) else {
-        return false;
-    };
-    String::from_utf8_lossy(&head[..read]).contains("/snap/bin/")
-}
-
-/// Minimal `which`: scan `PATH` for an executable entry. Avoids shelling out.
-fn which(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).find_map(|dir| {
-        let candidate = dir.join(name);
-        candidate.is_file().then_some(candidate)
-    })
-}
-
-/// Playwright caches builds as `~/.cache/ms-playwright/chromium-<rev>/chrome-linux/chrome`.
-/// Revisions sort lexically close enough to numerically for "pick the newest" to hold,
-/// and any of them works, so an imperfect pick is still a working browser.
-fn playwright_chromium() -> Option<PathBuf> {
-    let root = dirs::cache_dir()?.join("ms-playwright");
-    let mut builds: Vec<PathBuf> = std::fs::read_dir(root)
-        .ok()?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with("chromium-"))
-        })
-        .collect();
-    builds.sort();
-    builds
-        .into_iter()
-        .rev()
-        .map(|dir| dir.join("chrome-linux").join("chrome"))
-        .find(|exe| exe.is_file())
 }
 
 #[cfg(test)]

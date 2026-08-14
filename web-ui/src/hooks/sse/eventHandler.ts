@@ -5,7 +5,7 @@ import { MCP_SERVERS_CHANGED } from "../../api/mcp";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } from "./types";
-import { SESSION_IDLE } from "./types";
+import { SESSION_BUSY, SESSION_IDLE } from "./types";
 import type { CachedSession } from "./useSSE";
 import { formatPermissionDescription, deriveQuestionTitle, transformQuestionInfo } from "./transforms";
 import { type MessageMap, upsertMessageInfo, upsertPart, applyPartDelta, removeMessage, removePart } from "./messageMap";
@@ -29,8 +29,8 @@ export interface EventHandlerContext {
   updateSessionMeta: (sessionInfo: Record<string, unknown>) => void;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
   setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
-  setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
-  setSessionStatuses: React.Dispatch<React.SetStateAction<Record<string, SessionStatus>>>;
+  /** The one writer for a session's running status — see `useSSE`. */
+  applySessionStatus: (sessionId: string, status: SessionStatus) => void;
   setPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
   setQuestions: React.Dispatch<React.SetStateAction<QuestionRequest[]>>;
   setCrossSessionPermissions: React.Dispatch<React.SetStateAction<PermissionRequest[]>>;
@@ -39,6 +39,32 @@ export interface EventHandlerContext {
   /** Ids of questions the user already resolved — suppresses re-adds from a re-delivered
    *  question.asked so answered questions can't reappear. */
   resolvedQuestionIdsRef: { current: Set<string> };
+}
+
+/** How long a retry with no clock of its own is assumed to wait. */
+const RETRY_FALLBACK_MS = 5000;
+
+/** A retry status, filling in whatever detail the runner left out. */
+function parseRetry(obj: Record<string, unknown>): SessionStatus {
+  return {
+    type: "retry",
+    attempt: typeof obj.attempt === "number" ? obj.attempt : 1,
+    message: typeof obj.message === "string" ? obj.message : "Retrying…",
+    next: typeof obj.next === "number" ? obj.next : Date.now() + RETRY_FALLBACK_MS,
+  };
+}
+
+/** Read a `session.status` payload, which runners send either as an object with
+ *  its detail or as a bare type string. Anything unrecognised means idle. */
+function parseStatus(raw: unknown): SessionStatus {
+  if (typeof raw === "string") {
+    if (raw === "busy") return SESSION_BUSY;
+    return raw === "retry" ? parseRetry({}) : SESSION_IDLE;
+  }
+  if (!raw || typeof raw !== "object") return SESSION_IDLE;
+  const obj = raw as Record<string, unknown>;
+  if (obj.type === "busy") return SESSION_BUSY;
+  return obj.type === "retry" ? parseRetry(obj) : SESSION_IDLE;
 }
 
 /** Get or create a subagent message map. */
@@ -271,61 +297,10 @@ function dispatchOpenCodeEvent(
     }
 
     case "session.status": {
+      // A status that names no session can speak for nobody — the stream sends
+      // one per session and the active one is not implied.
       const sid = props.sessionID as string | undefined;
-      const rawStatus = props.status;
-
-      // Parse into a full SessionStatus object (idle | busy | retry)
-      let parsed: SessionStatus = SESSION_IDLE;
-      if (rawStatus && typeof rawStatus === "object") {
-        const obj = rawStatus as Record<string, unknown>;
-        const t = obj.type as string | undefined;
-        if (t === "busy") {
-          parsed = { type: "busy" };
-        } else if (t === "retry") {
-          parsed = {
-            type: "retry",
-            attempt: typeof obj.attempt === "number" ? obj.attempt : 1,
-            message: typeof obj.message === "string" ? obj.message : "Retrying…",
-            next: typeof obj.next === "number" ? obj.next : Date.now() + 5000,
-          };
-        }
-      } else if (typeof rawStatus === "string") {
-        if (rawStatus === "busy") parsed = { type: "busy" };
-        else if (rawStatus === "retry") parsed = { type: "retry", attempt: 1, message: "Retrying…", next: Date.now() + 5000 };
-      }
-
-      const isBusy = parsed.type !== "idle";
-
-      // Update sessionStatuses map
-      if (sid) {
-        ctx.setSessionStatuses((prev) => {
-          if (!isBusy) {
-            if (!prev[sid]) return prev;
-            const next = { ...prev };
-            delete next[sid];
-            return next;
-          }
-          const existing = prev[sid];
-          // Avoid re-render if status hasn't meaningfully changed
-          if (existing && existing.type === parsed.type) {
-            if (parsed.type === "busy") return prev;
-            if (parsed.type === "retry" && existing.type === "retry"
-              && existing.attempt === parsed.attempt && existing.next === parsed.next) return prev;
-          }
-          return { ...prev, [sid]: parsed };
-        });
-
-        // Keep busySessions in sync
-        if (isBusy) {
-          ctx.setBusySessions((prev) => prev.has(sid) ? prev : new Set([...prev, sid]));
-        } else {
-          ctx.setBusySessions((prev) => { if (!prev.has(sid)) return prev; const next = new Set(prev); next.delete(sid); return next; });
-        }
-      }
-
-      if (sid === ctx.activeSessionRef.current) {
-        ctx.setSessionStatus(parsed);
-      }
+      if (sid) ctx.applySessionStatus(sid, parseStatus(props.status));
       break;
     }
 
@@ -450,9 +425,8 @@ export interface AppSSEContext {
   refreshState: () => void;
   touchEvent: () => void;
   recoverAfterReconnect: () => void;
-  setBusySessions: React.Dispatch<React.SetStateAction<Set<string>>>;
-  setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
-  setSessionStatuses: React.Dispatch<React.SetStateAction<Record<string, SessionStatus>>>;
+  /** The one writer for a session's running status — see `useSSE`. */
+  applySessionStatus: (sessionId: string, status: SessionStatus) => void;
   setStats: React.Dispatch<React.SetStateAction<SessionStats | null>>;
   setWatcherStatus: React.Dispatch<React.SetStateAction<WatcherStatus | null>>;
   setMcpEditorOpenPath: React.Dispatch<React.SetStateAction<string | null>>;
@@ -485,24 +459,10 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
 
   appSSE.addEventListener("state_changed", () => { ctx.touchEvent(); ctx.refreshState(); });
   appSSE.addEventListener("session_busy", (e: MessageEvent) => {
-    const sid = e.data;
-    ctx.setBusySessions((prev) => prev.has(sid) ? prev : new Set([...prev, sid]));
-    ctx.setSessionStatuses((prev) => {
-      if (prev[sid]?.type === "busy") return prev;
-      return { ...prev, [sid]: { type: "busy" } };
-    });
-    if (sid === ctx.activeSessionRef.current) ctx.setSessionStatus({ type: "busy" });
+    ctx.applySessionStatus(e.data as string, SESSION_BUSY);
   });
   appSSE.addEventListener("session_idle", (e: MessageEvent) => {
-    const sid = e.data;
-    ctx.setBusySessions((prev) => { if (!prev.has(sid)) return prev; const next = new Set(prev); next.delete(sid); return next; });
-    ctx.setSessionStatuses((prev) => {
-      if (!prev[sid]) return prev;
-      const next = { ...prev };
-      delete next[sid];
-      return next;
-    });
-    if (sid === ctx.activeSessionRef.current) ctx.setSessionStatus(SESSION_IDLE);
+    ctx.applySessionStatus(e.data as string, SESSION_IDLE);
   });
   appSSE.addEventListener("stats_updated", (e: MessageEvent) => {
     try {

@@ -1,0 +1,297 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Git panel, part 2 — primitives, sections, and every kind of row.
+
+   A row is a row: no border, no fill at rest, no card around it. Hierarchy
+   comes from weight, colour and the space between two lines. Row actions
+   reveal on hover but are never removed from the tab order — hover is a
+   hint, not a gate.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Primitives ─────────────────────────────────────────────────────── */
+
+.gitp-icon { width: 14px; height: 14px; flex-shrink: 0 }
+.gitp-icon-caret { width: 12px; height: 12px; color: var(--color-text-muted) }
+.gitp-spin { animation: gitp-spin 1s linear infinite }
+
+@keyframes gitp-spin { to { transform: rotate(360deg) } }
+
+.gitp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%) }
+
+.gitp-mono,
+.gitp-mono-inline,
+.gitp-mono-block,
+.gitp code { font-family: var(--font-mono); font-size: var(--font-size-2xs) }
+
+.gitp-mono-inline,
+.gitp code { padding: 1px 4px; border-radius: var(--radius); background: var(--gitp-fill) }
+
+.gitp-mono-block {
+    margin-top: var(--space-1-5);
+    padding: var(--space-2);
+    max-height: 220px;
+    overflow: auto;
+    border-radius: var(--radius);
+    background: var(--gitp-fill);
+    color: var(--color-text-muted);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+.gitp-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: var(--space-1);
+    height: var(--gitp-row-h); padding: 0 var(--space-2);
+    border: 1px solid var(--gitp-hair); border-radius: var(--radius);
+    background: transparent; color: var(--color-text);
+    font: inherit; font-size: var(--font-size-2xs);
+    white-space: nowrap; cursor: pointer;
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-btn:hover:not(:disabled) { background: var(--gitp-fill); border-color: var(--color-border) }
+.gitp-btn:active:not(:disabled) { background: var(--gitp-fill-active) }
+.gitp-btn:disabled,
+.gitp-icon-btn:disabled { opacity: .42; cursor: default }
+
+.gitp-btn-primary {
+    border-color: transparent;
+    background: var(--color-primary);
+    color: var(--color-on-accent); font-weight: 600;
+}
+
+.gitp-btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 86%, var(--color-text));
+    border-color: transparent;
+}
+
+.gitp-btn-primary:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 76%, var(--color-bg));
+}
+
+/* Quiet is the row-level action: no edge until it is wanted. */
+.gitp-btn-quiet { border-color: transparent; color: var(--color-text-muted) }
+.gitp-btn-quiet:hover:not(:disabled) { border-color: transparent; color: var(--color-text) }
+
+.gitp-btn-danger {
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+    background: transparent; color: var(--color-error);
+}
+
+.gitp-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    border-color: var(--color-error);
+}
+
+.gitp-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; flex-shrink: 0; padding: 0;
+    border: 0; border-radius: var(--radius);
+    background: transparent; color: var(--color-text-muted);
+    cursor: pointer;
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-icon-btn:hover:not(:disabled) { background: var(--gitp-fill-hover); color: var(--color-text) }
+.gitp-icon-btn:active:not(:disabled) { background: var(--gitp-fill-active) }
+
+.gitp-icon-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 16%, transparent);
+    color: var(--color-error);
+}
+
+.gitp :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
+    outline-offset: -1px;
+    border-radius: var(--radius);
+}
+
+.gitp-input {
+    flex: 1; min-width: 0;
+    height: var(--gitp-row-h); padding: 0 var(--space-2);
+    border: 1px solid var(--gitp-hair); border-radius: var(--radius);
+    background: var(--gitp-fill); color: var(--color-text);
+    font: inherit; font-size: var(--font-size-2xs);
+    transition: var(--transition-interactive-fast);
+}
+
+.gitp-input::placeholder { color: var(--color-text-muted) }
+.gitp-input:hover:not(:disabled) { border-color: var(--color-border) }
+.gitp-input:disabled { opacity: .5; cursor: default }
+.gitp-input-narrow { flex: 0 1 40% }
+
+.gitp-input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: var(--gitp-fill-hover);
+}
+
+.gitp-toggle {
+    display: inline-flex; align-items: center; gap: var(--space-1-5);
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+    cursor: pointer; user-select: none;
+}
+
+.gitp-toggle:hover { color: var(--color-text) }
+.gitp-toggle input { accent-color: var(--color-primary); cursor: pointer }
+.gitp-toggle:has(input:disabled) { opacity: .45; cursor: default }
+
+.gitp-badge {
+    display: inline-flex; align-items: center;
+    height: 15px; padding: 0 5px;
+    border-radius: var(--radius); background: var(--gitp-fill-hover);
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+    line-height: 1; white-space: nowrap;
+}
+
+.gitp-badge-current {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary);
+}
+
+.gitp-badge-locked,
+.gitp-badge-prunable {
+    background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+    color: var(--color-warning);
+}
+
+.gitp-badge-worktree {
+    max-width: 140px;
+    overflow: hidden; text-overflow: ellipsis;
+    background: color-mix(in srgb, var(--color-info) 16%, transparent);
+    color: var(--color-info);
+}
+
+.gitp-count,
+.gitp-group-count { color: var(--color-text-muted); font-variant-numeric: tabular-nums; font-weight: 400 }
+
+/* ── Sections, lists, forms ─────────────────────────────────────────── */
+
+.gitp-changes,
+.gitp-branches,
+.gitp-worktrees,
+.gitp-stashes,
+.gitp-history,
+.gitp-commit-detail {
+    display: flex; flex-direction: column;
+    gap: var(--space-3); min-width: 0; padding: var(--gitp-pad);
+}
+
+.gitp-section,
+.gitp-file-group { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0 }
+
+.gitp-section-title,
+.gitp-group-title {
+    display: flex; align-items: center; gap: var(--space-1-5);
+    margin: 0;
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+
+.gitp-group-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0 }
+.gitp-section-action { margin-left: auto; text-transform: none; letter-spacing: 0 }
+.gitp-list { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; min-width: 0 }
+.gitp-file-list { display: flex; flex-direction: column; min-width: 0 }
+.gitp-create { display: flex; flex-direction: column; gap: var(--space-2) }
+
+.gitp-create-fields,
+.gitp-create-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap }
+
+.gitp-create-controls { justify-content: flex-end }
+.gitp-create-controls .gitp-toggle { margin-right: auto }
+.gitp-filter { display: flex; align-items: center; gap: var(--space-1-5); min-width: 0 }
+.gitp-filter-icon { flex-shrink: 0; color: var(--color-text-muted) }
+
+.gitp-filter-hidden {
+    flex-shrink: 0; color: var(--color-text-muted); font-size: var(--font-size-2xs);
+}
+
+/* ── One row shape, five kinds of content ───────────────────────────── */
+
+.gitp-file-row,
+.gitp-branch-row,
+.gitp-worktree-row,
+.gitp-stash-row,
+.gitp-detail-file {
+    display: flex; align-items: center; gap: var(--space-1);
+    min-width: 0;
+    padding: var(--space-1) var(--space-1-5);
+    border-radius: var(--radius); transition: background var(--transition-fast);
+}
+
+.gitp-file-row:hover,
+.gitp-branch-row:hover,
+.gitp-worktree-row:hover,
+.gitp-stash-row:hover,
+.gitp-branch-row:focus-within,
+.gitp-worktree-row:focus-within,
+.gitp-stash-row:focus-within { background: var(--gitp-fill) }
+
+.gitp-file-row[data-selected] { background: var(--gitp-sel) }
+.gitp-file-row[data-selected]:hover { background: var(--gitp-sel-hover) }
+
+/* The accent marks "you are here" and nothing else. */
+.gitp-branch-row[data-current] .gitp-branch-name,
+.gitp-worktree-row[data-current] .gitp-worktree-path { color: var(--color-primary); font-weight: 600 }
+.gitp-branch-current { flex-shrink: 0; color: var(--color-primary) }
+
+.gitp-row-actions,
+.gitp-file-actions,
+.gitp-group-actions {
+    display: flex; align-items: center; gap: var(--space-1);
+    flex-shrink: 0; margin-left: auto;
+}
+
+/* Revealed by hover, restored by focus, never removed: `display: none` here
+   would take the controls out of the tab order for keyboard users. */
+.gitp-file-actions { opacity: 0; transition: opacity var(--transition-fast) }
+
+.gitp-file-row:hover .gitp-file-actions,
+.gitp-file-row:focus-within .gitp-file-actions,
+.gitp-file-row[data-selected] .gitp-file-actions { opacity: 1 }
+
+@media (hover: none) { .gitp-file-actions { opacity: 1 } }
+
+/* ── Row interiors: a strong first line, a quiet second ─────────────── */
+
+.gitp-branch-main,
+.gitp-worktree-main,
+.gitp-stash-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0 }
+
+.gitp-branch-line,
+.gitp-worktree-line,
+.gitp-stash-line { display: flex; align-items: center; gap: var(--space-1-5); min-width: 0 }
+
+.gitp-branch-sub,
+.gitp-worktree-sub,
+.gitp-stash-sub {
+    display: flex; align-items: center; gap: var(--space-2);
+    min-width: 0;
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+}
+
+.gitp-branch-name,
+.gitp-worktree-path,
+.gitp-stash-message,
+.gitp-branch-subject,
+.gitp-worktree-branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+
+.gitp-branch-subject { flex: 1 }
+.gitp-branch-age,
+.gitp-stash-age { flex-shrink: 0; margin-left: auto; font-variant-numeric: tabular-nums }
+.gitp-branch-upstream,
+.gitp-worktree-head,
+.gitp-stash-hash { flex-shrink: 0; color: var(--color-text-muted) }
+.gitp-stash-ref { flex-shrink: 0; color: var(--color-primary) }
+.gitp-branch-rename { height: 22px; max-width: 220px }
+
+/* Ahead and behind are directions, not severities: they read as the neutral
+   distance they are, and only the arrow tells them apart. */
+.gitp-branch-track {
+    display: inline-flex; align-items: center; gap: var(--space-1);
+    flex-shrink: 0;
+    font-size: var(--font-size-2xs); font-variant-numeric: tabular-nums;
+}
+
+.gitp-branch-ahead,
+.gitp-branch-behind { display: inline-flex; align-items: center; gap: 1px }
+.gitp-branch-ahead { color: var(--color-success) }
+.gitp-branch-behind { color: var(--color-info) }

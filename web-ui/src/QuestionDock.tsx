@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import type { QuestionRequest } from "./types";
-import { HelpCircle, Send, X, ExternalLink } from "lucide-react";
+import type { QuestionRequest, QuestionItem } from "./types";
+import { HelpCircle, Send } from "lucide-react";
+import { DockCard, DockTabs, type DockTab } from "./dock/DockCard";
+import { useClampedTab } from "./dock/useClampedTab";
+import { QuestionField } from "./dock/QuestionField";
 
 interface Props {
   questions: QuestionRequest[];
@@ -12,297 +15,200 @@ interface Props {
   onGoToSession?: (sessionId: string) => void;
 }
 
-export const QuestionDock = React.memo(function QuestionDock({ questions, activeSessionId, onReply, onDismiss, onGoToSession }: Props) {
-  const [activeTab, setActiveTab] = useState(0);
+export const QuestionDock = React.memo(function QuestionDock({
+  questions,
+  activeSessionId,
+  onReply,
+  onDismiss,
+  onGoToSession,
+}: Props) {
+  const [activeTab, setActiveTab] = useClampedTab(questions.length);
 
-  // Clamp activeTab when questions list changes
-  useEffect(() => {
-    if (activeTab >= questions.length) {
-      setActiveTab(Math.max(0, questions.length - 1));
-    }
-  }, [questions.length, activeTab]);
+  const tabs = useMemo<DockTab[]>(
+    () =>
+      questions.map((request, index) => ({
+        id: request.id,
+        label: request.title || `Question ${index + 1}`,
+        icon: <HelpCircle size={12} />,
+        badge: !!activeSessionId && request.sessionID !== activeSessionId ? "sub" : undefined,
+      })),
+    [questions, activeSessionId],
+  );
 
   if (questions.length === 0) return null;
-
-  const showTabs = questions.length > 1;
-  const activeQ = questions[Math.min(activeTab, questions.length - 1)];
+  const active = questions[activeTab];
+  if (!active) return null;
 
   return (
-    <div className="question-dock" role="region" aria-label="Questions">
-      {showTabs && (
-        <div className="dock-tabs dock-tabs--question">
-          {questions.map((q, idx) => (
-            <button
-              key={q.id}
-              className={`dock-tab dock-tab--question ${idx === activeTab ? "dock-tab--active" : ""}`}
-              onClick={() => setActiveTab(idx)}
-              aria-selected={idx === activeTab}
-              role="tab"
-            >
-              <HelpCircle size={12} />
-              <span className="dock-tab-label">
-                {q.title || `Question ${idx + 1}`}
-              </span>
-              {!!activeSessionId && q.sessionID !== activeSessionId && (
-                <span className="dock-tab-badge">sub</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-      {activeQ && (
-        <QuestionCard
-          key={activeQ.id}
-          question={activeQ}
-          isCrossSession={!!activeSessionId && activeQ.sessionID !== activeSessionId}
-          onReply={onReply}
-          onDismiss={onDismiss}
-          onGoToSession={onGoToSession}
-        />
-      )}
+    <div className="dock-panel dock-panel--question" role="region" aria-label="Questions">
+      <DockTabs tabs={tabs} active={activeTab} onSelect={setActiveTab} kind="question" label="Pending questions" />
+      <QuestionCard
+        key={active.id}
+        request={active}
+        isCrossSession={!!activeSessionId && active.sessionID !== activeSessionId}
+        onReply={onReply}
+        onDismiss={onDismiss}
+        onGoToSession={onGoToSession}
+      />
     </div>
   );
 });
 
+/** True when this question has something to send: a chosen option or typed text. */
+function isAnswered(question: QuestionItem, answer: readonly string[], custom: string): boolean {
+  if (question.type === "text") return (answer[0] || "").trim().length > 0;
+  return answer.length > 0 || custom.trim().length > 0;
+}
+
 function QuestionCard({
-  question,
+  request,
   isCrossSession,
   onReply,
   onDismiss,
   onGoToSession,
 }: {
-  question: QuestionRequest;
+  request: QuestionRequest;
   isCrossSession: boolean;
   onReply: (requestId: string, answers: string[][]) => void;
   onDismiss: (requestId: string) => void;
   onGoToSession?: (sessionId: string) => void;
 }) {
-  const [answers, setAnswers] = useState<string[][]>(
-    question.questions.map(() => [])
-  );
-  /** Custom free-text values for questions with custom=true */
-  const [customTexts, setCustomTexts] = useState<string[]>(
-    question.questions.map(() => "")
-  );
+  const items = request.questions;
+  const [answers, setAnswers] = useState<string[][]>(() => items.map(() => []));
+  /** Free-text values for questions that also accept a custom answer. */
+  const [customTexts, setCustomTexts] = useState<string[]>(() => items.map(() => ""));
+  const [current, setCurrent] = useClampedTab(items.length);
   const cardRef = useRef<HTMLDivElement>(null);
-  const firstInputRef = useRef<HTMLInputElement | null>(null);
-  const firstButtonRef = useRef<HTMLButtonElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
-  const handleDismiss = useCallback(() => {
-    onDismiss(question.id);
-  }, [question.id, onDismiss]);
+  const handleDismiss = useCallback(() => onDismiss(request.id), [request.id, onDismiss]);
 
-  // Auto-focus the first interactive element (or card itself) when mounted
+  // Focus the first control of the visible question so the keyboard works right away.
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (firstButtonRef.current) {
-        firstButtonRef.current.focus();
-      } else if (firstInputRef.current) {
-        firstInputRef.current.focus();
-      } else {
-        cardRef.current?.focus();
-      }
+      const target = buttonRef.current || inputRef.current || cardRef.current;
+      target?.focus();
     }, 50);
     return () => clearTimeout(timer);
-  }, [question.id]);
+  }, [request.id, current]);
 
-  // Global Escape handler — dismisses even when focus is outside the card
+  // Escape has to work even when focus sits outside the card.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        handleDismiss();
-      }
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      handleDismiss();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleDismiss]);
 
+  const answeredFlags = useMemo(
+    () => items.map((question, index) => isAnswered(question, answers[index] || [], customTexts[index] || "")),
+    [items, answers, customTexts],
+  );
+  const answeredCount = answeredFlags.filter(Boolean).length;
+  const hasAnswer = answeredCount === items.length;
+
   const handleSubmit = useCallback(() => {
-    // Merge selected options with custom text where applicable
-    const finalAnswers = question.questions.map((q, idx) => {
-      const selected = answers[idx] || [];
-      const customText = customTexts[idx]?.trim();
-      // If user typed custom text, use that (it takes priority when no option selected)
-      if (customText && selected.length === 0) {
-        return [customText];
-      }
-      // If user typed custom text AND selected options (multi-select), merge
-      if (customText && selected.length > 0) {
-        return [...selected, customText];
-      }
-      return selected;
+    // A typed answer wins on single-select; on multi-select it joins the chosen options.
+    const finalAnswers = items.map((_, index) => {
+      const selected = answers[index] || [];
+      const custom = customTexts[index]?.trim();
+      if (!custom) return selected;
+      return selected.length === 0 ? [custom] : [...selected, custom];
     });
-    onReply(question.id, finalAnswers);
-  }, [question.id, answers, customTexts, onReply, question.questions]);
+    onReply(request.id, finalAnswers);
+  }, [request.id, items, answers, customTexts, onReply]);
 
-  const updateAnswer = (qIdx: number, value: string[]) => {
-    setAnswers((prev) => {
-      const next = [...prev];
-      next[qIdx] = value;
-      return next;
-    });
-  };
+  const updateAnswer = useCallback((index: number, value: string[]) => {
+    setAnswers((previous) => previous.map((entry, position) => (position === index ? value : entry)));
+  }, []);
 
-  const updateCustomText = (qIdx: number, value: string) => {
-    setCustomTexts((prev) => {
-      const next = [...prev];
-      next[qIdx] = value;
-      return next;
-    });
-  };
+  const updateCustomText = useCallback((index: number, value: string) => {
+    setCustomTexts((previous) => previous.map((entry, position) => (position === index ? value : entry)));
+  }, []);
 
-  /** True when every sub-question has at least one answer (selected option or custom text). */
-  const hasAnswer = useMemo(() => {
-    return question.questions.every((q, idx) => {
-      const selected = answers[idx] || [];
-      const customText = customTexts[idx]?.trim();
-      if (q.type === "text") return (selected[0] || "").trim().length > 0;
-      return selected.length > 0 || (customText ? customText.length > 0 : false);
-    });
-  }, [question.questions, answers, customTexts]);
-
-  // Handle Enter to submit (only when answered) and Escape to dismiss
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
+    (event: React.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
         handleDismiss();
         return;
       }
-      if (e.key === "Enter" && hasAnswer) {
-        e.preventDefault();
-        handleSubmit();
-      }
+      if (event.key !== "Enter" || !hasAnswer) return;
+      event.preventDefault();
+      handleSubmit();
     },
-    [handleSubmit, handleDismiss, hasAnswer]
+    [handleSubmit, handleDismiss, hasAnswer],
+  );
+
+  const tabs = useMemo<DockTab[]>(
+    () =>
+      items.map((question, index) => ({
+        id: `${request.id}-${index}`,
+        label: question.header || `Q${index + 1}`,
+        done: answeredFlags[index],
+      })),
+    [items, request.id, answeredFlags],
+  );
+
+  const question = items[current];
+  const multi = items.length > 1;
+  const footer = (
+    <>
+      {multi && (
+        <span className="dock-progress" aria-live="polite">
+          {answeredCount} of {items.length} answered
+        </span>
+      )}
+      <button
+        type="button"
+        className="dock-btn dock-btn--submit"
+        onClick={handleSubmit}
+        disabled={!hasAnswer}
+        aria-label="Submit answers"
+      >
+        <Send size={14} />
+        Submit
+      </button>
+    </>
   );
 
   return (
-    <div className="question-card" ref={cardRef} tabIndex={-1} onKeyDown={handleKeyDown}>
-      <div className="question-header">
-        <HelpCircle size={16} className="question-icon" />
-        <span className="question-title">{question.title || "Question"}</span>
-        {isCrossSession && <span className="question-badge-subagent">subagent</span>}
-        {question.sessionID && onGoToSession && (
-          <button
-            className="dock-session-link"
-            onClick={(e) => { e.stopPropagation(); onGoToSession(question.sessionID); }}
-            title={`Go to session ${question.sessionID.slice(0, 8)}`}
-            aria-label="Go to session"
-          >
-            <ExternalLink size={11} />
-            <span>{question.sessionID.slice(0, 8)}</span>
-          </button>
-        )}
-        <span className="question-hint">Enter = submit &middot; Esc = dismiss</span>
-        <button
-          className="question-dismiss-btn"
-          onClick={handleDismiss}
-          aria-label="Dismiss question"
-          title="Dismiss (Esc)"
-        >
-          <X size={14} />
-        </button>
-      </div>
-      <div className="question-body">
-        {question.questions.map((q, idx) => (
-          <div key={idx} className="question-item">
-            <label className="question-label">{q.text}</label>
-            {q.type === "select" && q.options ? (
-              <>
-                <div className="question-options" role="listbox" aria-label={q.text}>
-                  {q.options.map((opt, optIdx) => {
-                    const selected = answers[idx]?.includes(opt);
-                    const desc = q.optionDescriptions?.[optIdx];
-                    return (
-                      <button
-                        key={opt}
-                        ref={idx === 0 && optIdx === 0 ? firstButtonRef : undefined}
-                        className={`question-option ${selected ? "selected" : ""}`}
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => {
-                          if (q.multiple) {
-                            updateAnswer(
-                              idx,
-                              selected
-                                ? answers[idx].filter((a) => a !== opt)
-                                : [...(answers[idx] || []), opt]
-                            );
-                          } else {
-                            // Clear custom text when selecting a predefined option
-                            updateCustomText(idx, "");
-                            updateAnswer(idx, [opt]);
-                          }
-                        }}
-                      >
-                        <span className="question-option-label">{opt}</span>
-                        {desc && <span className="question-option-desc">{desc}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Custom free-text input when custom is enabled (default) */}
-                {q.custom !== false && (
-                  <input
-                    ref={idx === 0 ? firstInputRef : undefined}
-                    type="text"
-                    className="question-text-input question-custom-input"
-                    value={customTexts[idx] || ""}
-                    onChange={(e) => {
-                      updateCustomText(idx, e.target.value);
-                      // Clear selected options when typing custom text
-                      if (e.target.value) updateAnswer(idx, []);
-                    }}
-                    placeholder="Type your own answer..."
-                    aria-label={`Custom answer for: ${q.text}`}
-                  />
-                )}
-              </>
-            ) : q.type === "confirm" ? (
-              <div className="question-options" role="group" aria-label={q.text}>
-                <button
-                  ref={idx === 0 ? firstButtonRef : undefined}
-                  className={`question-option ${answers[idx]?.[0] === "yes" ? "selected" : ""}`}
-                  onClick={() => updateAnswer(idx, ["yes"])}
-                  aria-pressed={answers[idx]?.[0] === "yes"}
-                >
-                  Yes
-                </button>
-                <button
-                  className={`question-option ${answers[idx]?.[0] === "no" ? "selected" : ""}`}
-                  onClick={() => updateAnswer(idx, ["no"])}
-                  aria-pressed={answers[idx]?.[0] === "no"}
-                >
-                  No
-                </button>
-              </div>
-            ) : (
-              <input
-                ref={idx === 0 ? firstInputRef : undefined}
-                type="text"
-                className="question-text-input"
-                value={answers[idx]?.[0] || ""}
-                onChange={(e) => updateAnswer(idx, [e.target.value])}
-                placeholder="Type your answer..."
-                aria-label={q.text}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="question-actions">
-        <button
-          className="question-submit-btn"
-          onClick={handleSubmit}
-          disabled={!hasAnswer}
-          aria-label="Submit answers"
-        >
-          <Send size={14} />
-          Submit
-        </button>
-      </div>
-    </div>
+    <DockCard
+      kind="question"
+      icon={<HelpCircle size={16} />}
+      title={request.title || "Question"}
+      subtitle={multi ? `${items.length} questions` : undefined}
+      isCrossSession={isCrossSession}
+      sessionId={request.sessionID}
+      onGoToSession={onGoToSession}
+      hint="Enter = submit · Esc = dismiss"
+      onDismiss={handleDismiss}
+      dismissLabel="Dismiss question"
+      tabs={tabs}
+      activeTab={current}
+      onSelectTab={setCurrent}
+      footer={footer}
+      cardRef={cardRef}
+      onKeyDown={handleKeyDown}
+    >
+      {question && (
+        <div className="dock-field">
+          <label className="dock-field-label">{question.text}</label>
+          <QuestionField
+            question={question}
+            answer={answers[current] || []}
+            customText={customTexts[current] || ""}
+            onAnswer={(value) => updateAnswer(current, value)}
+            onCustomText={(value) => updateCustomText(current, value)}
+            buttonRef={buttonRef}
+            inputRef={inputRef}
+          />
+        </div>
+      )}
+    </DockCard>
   );
 }

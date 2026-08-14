@@ -38,6 +38,43 @@ pub async fn get_state(
     Ok(Json(app_state))
 }
 
+/// How the sidebar asks for sessions beyond the first page.
+#[derive(serde::Deserialize)]
+pub struct SessionPageQuery {
+    #[serde(default)]
+    project: usize,
+    #[serde(default)]
+    offset: usize,
+    limit: Option<usize>,
+    /// Comma-separated ids. When present, paging is bypassed and exactly these
+    /// sessions come back — how pinned or open rows older than page one are kept.
+    ids: Option<String>,
+}
+
+/// GET /api/sessions?project=&offset=&limit= — one page of a project's sessions.
+pub async fn get_session_page(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    axum::extract::Query(query): axum::extract::Query<SessionPageQuery>,
+) -> WebResult<impl IntoResponse> {
+    const MAX_LIMIT: usize = 200;
+    let limit = query.limit.unwrap_or(20).clamp(1, MAX_LIMIT);
+    let ids: Vec<String> = query
+        .ids
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+        .collect();
+    state
+        .web_state
+        .session_slice(query.project, query.offset, limit, &ids)
+        .await
+        .map(Json)
+        .ok_or(WebError::NotFound("project"))
+}
+
 pub async fn get_session_stats(
     State(state): State<ServerState>,
     _auth: AuthUser,

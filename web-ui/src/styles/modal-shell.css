@@ -39,7 +39,7 @@
 
                                                                          
 
-.modal-dialog-surface{
+:is(.modal-dialog-surface, .gitp-confirm){
     border: 1px solid var(--modal-border);
     border-radius: var(--modal-radius);
     background: var(--modal-surface);
@@ -50,13 +50,7 @@
     animation: modal-surface-in .24s cubic-bezier(.22, 1, .36, 1) both;
 }
 
-.modal-popover-surface,
-:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
-    .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
-    .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-    .mobile-explorer-actions-dropdown,
-    .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-    .prompt-queue-panel, .which-key) {
+.modal-popover-surface{
     border: 1px solid var(--modal-border);
     border-radius: var(--popover-radius);
     background: var(--modal-surface);
@@ -73,7 +67,7 @@
    rises, so opening reads as one gesture instead of two effects. */
 
 :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
-    .kanban-modal-overlay) {
+    .kanban-modal-overlay, .gitp-confirm-backdrop) {
     background: color-mix(in srgb, var(--color-bg) 64%, transparent);
     backdrop-filter: blur(16px) saturate(1.12);
     -webkit-backdrop-filter: blur(16px) saturate(1.12);
@@ -109,7 +103,7 @@ html.flat-theme {
 }
 
 html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop,
-    .routines-confirm-overlay, .kanban-modal-overlay) {
+    .routines-confirm-overlay, .kanban-modal-overlay, .gitp-confirm-backdrop) {
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     background: color-mix(in srgb, var(--color-bg) 76%, transparent);
@@ -119,12 +113,7 @@ html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdro
 
 @media (prefers-reduced-motion: reduce) {
     :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdrop, .routines-confirm-overlay,
-        .kanban-modal-overlay),.modal-dialog-surface,.modal-popover-surface,:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
-        .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
-        .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-        .mobile-explorer-actions-dropdown,
-        .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-        .prompt-queue-panel){
+        .kanban-modal-overlay, .gitp-confirm-backdrop),.modal-dialog-surface,.modal-popover-surface,:is(.gitp-confirm, .gitp-confirm-backdrop){
         animation: none;
     }
 }
@@ -132,7 +121,7 @@ html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdro
 /* ── Mobile: dialogs become bottom sheets ─────────────────────────── */
 
 @media (max-width: 768px) {
-    .modal-dialog-surface{
+    :is(.modal-dialog-surface, .gitp-confirm){
         border-radius: var(--radius) var(--radius) 0 0;
         border-bottom: 0;
         animation: modal-sheet-in .26s cubic-bezier(.22, 1, .36, 1) both;

@@ -31,6 +31,12 @@ export const BASE_WORKSPACE: readonly BindingSpec[] = [
   { key: "mod+k z", command: "workspace.zoomPane" },
   { key: "mod+k =", command: "workspace.equalize" },
 
+  // The pane's own trail. `mod+[` / `mod+]` alone belong to the browser's
+  // history and to the editor's indent, so both go under the `mod+k` prefix
+  // where the rest of the pane vocabulary already lives.
+  { key: "mod+k [", command: "workspace.historyBack" },
+  { key: "mod+k ]", command: "workspace.historyForward" },
+
   // Focus.
   ...FOCUS_ORDINALS,
   { key: "mod+k mod+left", command: "workspace.focusLeft" },

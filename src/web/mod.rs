@@ -37,6 +37,7 @@ mod auth;
 mod browser_sse;
 pub(crate) mod db;
 mod error;
+pub(crate) mod git;
 mod handlers;
 pub mod keybindings;
 mod editor_ws;

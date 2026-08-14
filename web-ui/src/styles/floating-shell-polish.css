@@ -1,53 +1,14 @@
-/* Shared contract for menus, popovers, dialogs, and other floating surfaces. */
-.git-branch-dropdown,
-.git-repo-dropdown,
-.git-breadcrumb-dropdown,
-.prompt-runner-menu,
-.usage-popover,
-.slash-popover,
-.prompt-at-popover,
-.prompt-chip-dropdown,
-.sb-modal,
-.sb-context-menu,
-.command-palette,
-.command-palette-panel,
-.pr-description-modal,
-.pr-branch-picker {
+
+.prompt-runner-menu,.usage-popover,.slash-popover,.prompt-at-popover,.prompt-chip-dropdown,.sb-modal,.sb-context-menu,.command-palette,.command-palette-panel,.pr-description-modal,.pr-branch-picker{
     border: 1px solid var(--color-border);
     box-shadow: 0 14px 32px color-mix(in srgb, var(--color-bg) 58%, transparent)
 }
 
-.git-branch-dropdown,
-.git-repo-dropdown,
-.git-breadcrumb-dropdown,
-.prompt-runner-menu,
-.usage-popover,
-.slash-popover,
-.prompt-at-popover,
-.prompt-chip-dropdown,
-.sb-modal,
-.sb-context-menu,
-.command-palette,
-.command-palette-panel,
-.pr-description-modal,
-.pr-branch-picker {
+.prompt-runner-menu,.usage-popover,.slash-popover,.prompt-at-popover,.prompt-chip-dropdown,.sb-modal,.sb-context-menu,.command-palette,.command-palette-panel,.pr-description-modal,.pr-branch-picker{
     outline: 0
 }
 
-html.flat-theme .git-branch-dropdown,
-html.flat-theme .git-repo-dropdown,
-html.flat-theme .git-breadcrumb-dropdown,
-html.flat-theme .prompt-runner-menu,
-html.flat-theme .usage-popover,
-html.flat-theme .slash-popover,
-html.flat-theme .prompt-at-popover,
-html.flat-theme .prompt-chip-dropdown,
-html.flat-theme .sb-modal,
-html.flat-theme .sb-context-menu,
-html.flat-theme .command-palette,
-html.flat-theme .command-palette-panel,
-html.flat-theme .pr-description-modal,
-html.flat-theme .pr-branch-picker {
+html.flat-theme .prompt-runner-menu,html.flat-theme .usage-popover,html.flat-theme .slash-popover,html.flat-theme .prompt-at-popover,html.flat-theme .prompt-chip-dropdown,html.flat-theme .sb-modal,html.flat-theme .sb-context-menu,html.flat-theme .command-palette,html.flat-theme .command-palette-panel,html.flat-theme .pr-description-modal,html.flat-theme .pr-branch-picker{
     box-shadow: 0 10px 24px var(--black-20)
 }
 

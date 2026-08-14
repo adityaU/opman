@@ -146,6 +146,9 @@ const WINDOW_PREFIX = vim(
     { key: "ctrl+w w", command: "workspace.cyclePane", label: "cycle" },
     { key: "ctrl+w c", command: "workspace.closePane", label: "close" },
     { key: "ctrl+w o", command: "workspace.closeOtherPanes", label: "only" },
+    // vim's own jumplist keys, which is what a pane's trail is.
+    { key: "ctrl+w ctrl+o", command: "workspace.historyBack", label: "back" },
+    { key: "ctrl+w ctrl+i", command: "workspace.historyForward", label: "forward" },
     { key: "ctrl+w z", command: "workspace.zoomPane", label: "zoom" },
     { key: "ctrl+w =", command: "workspace.equalize", label: "equalize" },
     { key: "ctrl+w T", command: "workspace.movePaneToNewWindow", label: "to new window" },

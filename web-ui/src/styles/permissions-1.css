@@ -1,17 +1,21 @@
-/* ── Permission & Question docks ─────────────────────────── */
+/* ── Dock cards: one shell for permission + question requests ───────────── */
 
-.permission-dock,.question-dock {
+.dock-panel {
     flex-shrink: 0;
-    padding: var(--space-2) var(--space-4)
+    padding: var(--space-2) var(--space-4);
+    min-height: 0
 }
 
-/* ── Dock tabs (shown when multiple pending items) ──────── */
+.dock-panel--question { --dock-accent: var(--color-info) }
+.dock-panel--permission { --dock-accent: var(--color-warning) }
+
+/* ── Request tabs (one per pending request) ─────────────────────────────── */
 
 .dock-tabs {
     display: flex;
     gap: var(--space-1);
     max-width: var(--chat-max-width);
-    margin: 0 auto var(--space-2);
+    margin: 0 auto calc(var(--space-1) * -1 + 2px);
     padding: 0 var(--space-1);
     overflow-x: auto;
     scrollbar-width: none
@@ -43,18 +47,9 @@
 }
 
 .dock-tab--active {
-    color: var(--color-text);
-    background: var(--color-surface)
-}
-
-.dock-tab--permission.dock-tab--active {
-    border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
-    color: var(--color-warning)
-}
-
-.dock-tab--question.dock-tab--active {
-    border-color: color-mix(in srgb, var(--color-info) 32%, var(--color-border));
-    color: var(--color-info)
+    background: var(--color-surface);
+    color: var(--dock-accent);
+    border-color: color-mix(in srgb, var(--dock-accent) 32%, var(--color-border))
 }
 
 .dock-tab-label {
@@ -76,12 +71,18 @@
     line-height: 1.5
 }
 
-.permission-card,.question-card {
+/* ── The card ──────────────────────────────────────────────────────────── */
+
+.dock-card {
+    display: flex;
+    flex-direction: column;
     max-width: var(--chat-max-width);
+    max-height: min(56dvh, 560px);
     margin: 0 auto var(--space-2);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    outline: none;
+    border: 1px solid color-mix(in srgb, var(--dock-accent) 32%, var(--color-border));
     background: linear-gradient(180deg,
         color-mix(in srgb, var(--color-surface) 72%, transparent),
         transparent),
@@ -89,77 +90,53 @@
     box-shadow: 0 8px 28px var(--black-14), 0 2px 8px var(--black-10)
 }
 
-.permission-card {
-    border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border))
-}
-
-.question-card {
-    border-color: color-mix(in srgb, var(--color-info) 32%, var(--color-border))
-}
-
-.permission-header,.question-header {
+.dock-card-head {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-shrink: 0;
     padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--color-border-subtle);
-    font-size: var(--font-size-sm);
-    font-weight: 600
+    background: color-mix(in srgb, var(--dock-accent) 6%, var(--color-surface))
 }
 
-.permission-header {
-    align-items: stretch;
-    justify-content: space-between;
-    gap: var(--space-3)
+.dock-card-icon {
+    display: inline-flex;
+    color: var(--dock-accent);
+    flex-shrink: 0
 }
 
-.permission-header-main,.permission-header-meta {
+.dock-card-heading {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
     min-width: 0
 }
 
-.permission-header-meta {
-    justify-content: flex-end;
-    flex-wrap: wrap
+.dock-card-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--dock-accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
 }
 
-.permission-subtitle {
-    margin-top: 2px;
-    color: var(--color-text-muted);
+.dock-card-subtitle {
+    margin-top: 1px;
     font-size: var(--font-size-2xs);
-    font-weight: 500
+    font-weight: 500;
+    color: var(--color-text-muted)
 }
 
-.permission-header {
-    background: color-mix(in srgb, var(--color-warning) 6%, var(--color-surface))
-}
-
-.question-header {
-    background: color-mix(in srgb, var(--color-info) 6%, var(--color-surface))
-}
-
-.permission-icon {
-    color: var(--color-warning);
-    flex-shrink: 0
-}
-
-.question-icon {
-    color: var(--color-info);
-    flex-shrink: 0
-}
-
-.permission-title {
-    color: var(--color-warning)
-}
-
-.question-title {
-    color: var(--color-info)
-}
-
-.permission-hint,.question-hint {
+.dock-card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin-left: auto;
+    min-width: 0
+}
+
+.dock-card-hint {
     font-size: var(--font-size-2xs);
     font-weight: 500;
     color: var(--color-text-muted);
@@ -171,7 +148,7 @@
     letter-spacing: .02em
 }
 
-.permission-badge-subagent,.question-badge-subagent {
+.dock-card-badge {
     font-size: var(--font-size-2xs);
     font-weight: 600;
     color: var(--color-accent);
@@ -181,207 +158,17 @@
     border-radius: var(--radius-sm);
     white-space: nowrap;
     text-transform: uppercase;
-    letter-spacing: .04em
+    letter-spacing: .04em;
+    flex-shrink: 0
 }
 
-/* ── Session link in dock headers ─────────────────────────── */
-
-.dock-session-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 1px 7px;
-    font-size: var(--font-size-2xs);
-    font-weight: 500;
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    background: var(--color-bg-element);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color .15s, background .15s, border-color .15s;
-    line-height: 1.5
-}
-
-.dock-session-link:hover {
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border))
-}
-
-.dock-session-link:active {
-    filter: brightness(.94)
-}
-
-.permission-body,.question-body {
-    padding: var(--space-3) var(--space-4)
-}
-
-.permission-tool {
-    font-weight: 600;
-    color: var(--color-accent);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    margin-bottom: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-    border-radius: var(--radius-sm);
-    display: inline-block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom
-}
-
-.permission-desc {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-2);
-    line-height: 1.5
-}
-
-.permission-args {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-text);
-    max-height: 160px;
-    overflow: auto;
-    white-space: pre-wrap;
-    line-height: 1.6;
-    margin: 0
-}
-
-.permission-actions,.question-actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-surface) 40%, transparent)
-}
-
-.permission-btn,.question-submit-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    min-height: 36px;
-    padding: 7px 14px;
-    border-radius: var(--radius);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid transparent;
-    justify-content: center;
-    transition: var(--transition-interactive)
-}
-
-.permission-btn-allow {
-    background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
-    color: var(--color-success);
-    border-color: color-mix(in srgb, var(--color-success) 28%, var(--color-border))
-}
-
-.permission-btn-always {
-    background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-surface));
-    color: var(--color-secondary);
-    border-color: color-mix(in srgb, var(--color-secondary) 28%, var(--color-border))
-}
-
-.permission-btn-reject {
-    background: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
-    color: var(--color-error);
-    border-color: color-mix(in srgb, var(--color-error) 28%, var(--color-border))
-}
-
-.permission-btn:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.06)
-}
-
-.permission-btn:active {
-    transform: translateY(0);
-    filter: brightness(.96)
-}
-
-@media (max-width: 640px) {
-    .permission-dock,.question-dock {
-        padding: var(--space-2) var(--space-2)
-    }
-
-    .permission-card,.question-card {
-        border-radius: var(--radius-md)}
-
-    .permission-header {
-        display: block;
-        padding: 12px 14px
-    }
-
-    .permission-header-meta {
-        justify-content: flex-start;
-        margin-top: 10px
-    }
-
-    .permission-hint {
-        white-space: normal;
-        line-height: 1.35
-    }
-
-    .permission-body {
-        padding: 12px 14px
-    }
-
-    .permission-actions {
-        grid-template-columns: 1fr 1fr;
-        padding: 10px 12px;
-        gap: 8px
-    }
-
-    .permission-btn {
-        min-height: 44px;
-        padding: 8px 10px
-    }
-
-    .permission-btn-reject {
-        grid-column: 1 / -1
-    }
-}
-
-.question-submit-btn {
-    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
-    color: var(--color-primary);
-    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border))
-}
-
-.question-submit-btn:disabled {
-    opacity: .4;
-    cursor: not-allowed;
-    transform: none;
-    filter: none
-}
-
-.question-submit-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.06)
-}
-
-.question-submit-btn:active:not(:disabled) {
-    transform: translateY(0);
-    filter: brightness(.96)
-}
-
-.question-dismiss-btn {
+.dock-card-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     padding: 0;
-    margin-left: var(--space-2);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-sm);
     background: var(--color-bg-element);
@@ -391,109 +178,62 @@
     transition: color .15s, background .15s, border-color .15s
 }
 
-.question-dismiss-btn:hover {
+.dock-card-close:hover {
     color: var(--color-error);
     background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
     border-color: color-mix(in srgb, var(--color-error) 30%, var(--color-border))
 }
 
-.question-dismiss-btn:active {
-    filter: brightness(.94)
-}
+.dock-card-close:active { filter: brightness(.94) }
 
-.question-item {
-    margin-bottom: var(--space-3)
-}
+/* ── Sub-question tabs, inside the card ────────────────────────────────── */
 
-.question-item:last-child {
-    margin-bottom: 0
-}
-
-.question-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-    margin-bottom: var(--space-2);
-    font-weight: 500;
-    line-height: 1.5
-}
-
-.question-options {
+.dock-card-tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2)
-}
-
-.question-option {
-    min-height: 36px;
-    padding: 7px 16px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    color: var(--color-text);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition-interactive);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left
-}
-
-.question-option:hover {
-    border-color: var(--color-border-active);
-    background: var(--color-bg-hover);
-    transform: translateY(-1px)
-}
-
-.question-option.selected {
-    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
-    color: var(--color-primary);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent)
-}
-
-.question-text-input {
-    width: 100%;
-    min-height: 38px;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text);
-    font-size: var(--font-size-sm);
-    outline: none;
-    transition: border-color var(--transition-base)
-}
-
-.question-text-input:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 12%, transparent)
-}
-
-.question-custom-input {
-    margin-top: var(--space-2)
-}
-
-.question-option-label {
-    font-weight: 500
-}
-
-.question-option-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    margin-top: 2px;
-    line-height: 1.4
-}
-
-.question-option.selected .question-option-desc {
-    color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text-muted))
-}
-
-.permission-patterns {
-    display: flex;
-    flex-wrap: wrap;
     gap: var(--space-1);
-    margin-bottom: var(--space-2)
+    flex-shrink: 0;
+    padding: var(--space-2) var(--space-4) 0;
+    overflow-x: auto;
+    scrollbar-width: none
 }
+
+.dock-card-tabs::-webkit-scrollbar { display: none }
+
+.dock-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 11px;
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: var(--transition-interactive)
+}
+
+.dock-subtab:hover {
+    color: var(--color-text);
+    background: var(--color-bg-hover)
+}
+
+.dock-subtab--active {
+    color: var(--dock-accent);
+    background: color-mix(in srgb, var(--dock-accent) 12%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--dock-accent) 38%, var(--color-border))
+}
+
+.dock-subtab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-border-active);
+    flex-shrink: 0
+}
+
+.dock-subtab--done .dock-subtab-dot { background: var(--color-success) }

@@ -1,0 +1,262 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Git panel, part 4 — popovers, the confirm dialog, the operation banner,
+   refusals, and empty states.
+
+   The two floating surfaces here own no material of their own. The dialog
+   joins the shared contract by name (`modal-shell.css` lists
+   `.gitp-confirm` and `.gitp-confirm-backdrop`), and the popover borrows
+   the same recipe at the popover scale. Neither sets its own radius,
+   shadow or blur; this file only lays out what is inside them.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Popover ────────────────────────────────────────────────────────
+   Surface, radius, shadow and blur come from the popover scale in
+   `modal-shell.css`, which lists `.gitp-popover`. Top, left and width are
+   set inline by `Popover.tsx` against the trigger's rect, so nothing here
+   may touch them either. */
+
+.gitp-popover {
+    position: fixed;
+    z-index: var(--z-modal);
+    display: flex; flex-direction: column;
+    max-height: min(60vh, 420px);
+    padding: var(--space-1);
+    color: var(--color-text);
+    font-family: var(--font-sans); font-size: var(--font-size-xs);
+}
+
+.gitp-popover-filter {
+    display: flex; align-items: center; gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--modal-hairline);
+    color: var(--color-text-muted);
+}
+
+.gitp-popover-input {
+    flex: 1; min-width: 0;
+    border: 0; background: none; outline: none;
+    color: var(--color-text); font: inherit; font-size: var(--font-size-xs);
+}
+
+.gitp-popover-input::placeholder { color: var(--color-text-muted) }
+.gitp-popover-scroll { flex: 1; min-height: 0; overflow-y: auto }
+.gitp-popover-list { list-style: none; margin: 0; padding: 0 }
+
+.gitp-popover-group {
+    padding: var(--space-1-5) var(--space-2) var(--space-1);
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+
+.gitp-popover-row {
+    display: flex; align-items: center; gap: var(--space-1-5);
+    width: 100%;
+    padding: var(--space-1) var(--space-1-5);
+    border: 0; border-radius: var(--radius);
+    background: none; color: var(--color-text);
+    font: inherit; font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.gitp-popover-row:hover:not(:disabled) { background: var(--gitp-fill-hover) }
+.gitp-popover-row:disabled { opacity: .5; cursor: default }
+
+.gitp-popover-row[data-selected] {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    color: var(--color-primary);
+}
+
+.gitp-popover-check {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.gitp-popover-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0 }
+
+.gitp-popover-title,
+.gitp-popover-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+
+.gitp-popover-sub { color: var(--color-text-muted); font-size: var(--font-size-2xs) }
+.gitp-popover-lock { flex-shrink: 0; color: var(--color-text-muted) }
+
+.gitp-popover-count {
+    flex-shrink: 0;
+    padding: 0 5px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-primary);
+    font-size: var(--font-size-2xs); font-variant-numeric: tabular-nums;
+}
+
+.gitp-popover-empty {
+    padding: var(--space-3) var(--space-2);
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+    text-align: center;
+}
+
+/* ── Confirm dialog ─────────────────────────────────────────────────
+   Surface, shadow and animation come from `modal-shell.css`; the backdrop
+   still needs its own geometry, which is not part of that contract. */
+
+.gitp-confirm-backdrop {
+    position: fixed; inset: 0;
+    z-index: var(--z-modal);
+    display: grid; place-items: center;
+    padding: var(--space-4);
+}
+
+.gitp-confirm {
+    display: flex; flex-direction: column;
+    gap: var(--space-3);
+    width: min(440px, 100%);
+    max-height: min(80vh, 620px);
+    padding: var(--modal-pad-x);
+    color: var(--color-text);
+    font-family: var(--font-sans); font-size: var(--font-size-xs);
+}
+
+.gitp-confirm-header { display: flex; align-items: center; gap: var(--space-2) }
+.gitp-confirm-icon { flex-shrink: 0; color: var(--color-warning) }
+.gitp-confirm-title { margin: 0; font-size: var(--font-size-base); font-weight: 600 }
+
+.gitp-confirm-body {
+    display: flex; flex-direction: column; gap: var(--space-2);
+    min-height: 0; overflow-y: auto;
+    color: var(--color-text-muted); line-height: 1.5;
+}
+
+.gitp-confirm-text { overflow-wrap: anywhere }
+.gitp-confirm-note { color: var(--color-warning) }
+
+.gitp-confirm-list {
+    display: flex; flex-direction: column; gap: 2px;
+    list-style: none; margin: 0;
+    padding: var(--space-2);
+    max-height: 180px; overflow-y: auto;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    font-size: var(--font-size-2xs);
+}
+
+.gitp-confirm-typed { display: flex; flex-direction: column; gap: var(--space-1) }
+.gitp-confirm-typed-label { color: var(--color-text) }
+.gitp-confirm-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2) }
+
+/* ── Operation banner ───────────────────────────────────────────────
+   The loudest thing on the panel when it is present, because while a merge
+   or rebase is in flight almost every other control is a mistake. Presence
+   comes from the full-width tinted band, the icon and the heading — four
+   redundant warning cues would only be one of them wearing a costume. */
+
+.gitp-op {
+    flex-shrink: 0;
+    display: flex; flex-direction: column; gap: var(--space-2);
+    padding: var(--space-3) var(--gitp-pad);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+.gitp-op-head { display: flex; align-items: flex-start; gap: var(--space-2) }
+.gitp-op-icon { color: var(--color-warning) }
+.gitp-op-title { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.gitp-op-name { color: var(--color-warning); font-size: var(--font-size-sm) }
+
+.gitp-op-meta {
+    display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+}
+
+.gitp-op-conflicts { display: flex; flex-direction: column; gap: var(--space-1) }
+
+.gitp-op-conflicts-title {
+    color: var(--color-error); font-size: var(--font-size-2xs); font-weight: 600;
+}
+
+.gitp-op-conflict-list {
+    display: flex; flex-direction: column; gap: 1px;
+    list-style: none; margin: 0; padding: 0;
+    max-height: 128px; overflow-y: auto;
+}
+
+.gitp-op-conflict {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--color-text);
+    font-family: var(--font-mono); font-size: var(--font-size-2xs);
+}
+
+.gitp-op-clear { color: var(--color-success); font-size: var(--font-size-2xs) }
+.gitp-op-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap }
+
+/* ── Refusals ───────────────────────────────────────────────────────
+   The failure code picks the semantic colour. On a soft tint the text is
+   the semantic colour itself — `--color-on-accent` belongs to solid fills
+   only, and would be invisible here. */
+
+.gitp-result {
+    --gitp-result-color: var(--color-error);
+
+    flex-shrink: 0;
+    display: flex; align-items: flex-start; gap: var(--space-2);
+    padding: var(--space-2) var(--gitp-pad);
+    border-bottom: 1px solid color-mix(in srgb, var(--gitp-result-color) 34%, transparent);
+    background: color-mix(in srgb, var(--gitp-result-color) 10%, transparent);
+}
+
+.gitp-result[data-failure="auth_required"],
+.gitp-result[data-failure="rejected"],
+.gitp-result[data-failure="dirty_tree"],
+.gitp-result[data-failure="locked"] { --gitp-result-color: var(--color-warning) }
+
+.gitp-result[data-failure="not_found"] { --gitp-result-color: var(--color-info) }
+
+.gitp-result[data-failure="conflict"],
+.gitp-result[data-failure="failed"] { --gitp-result-color: var(--color-error) }
+
+.gitp-result-icon { margin-top: 1px; color: var(--gitp-result-color) }
+.gitp-result-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0 }
+
+.gitp-result-headline {
+    color: var(--gitp-result-color);
+    font-size: var(--font-size-xs); font-weight: 600;
+}
+
+.gitp-result-hint { color: var(--color-text-muted); font-size: var(--font-size-2xs); line-height: 1.5 }
+.gitp-result-output { display: flex; flex-direction: column }
+.gitp-result-dismiss { margin-top: -2px }
+
+.gitp-disclosure {
+    display: inline-flex; align-items: center; gap: var(--space-1);
+    align-self: flex-start;
+    margin-top: var(--space-1);
+    padding: 0;
+    border: 0; background: none;
+    color: var(--color-text-muted);
+    font: inherit; font-size: var(--font-size-2xs);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.gitp-disclosure:hover { color: var(--color-text) }
+
+/* ── Empty states ───────────────────────────────────────────────────
+   Empty is a chance to explain the section, not a place to report zero. */
+
+.gitp-empty {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3) var(--space-1-5);
+    color: var(--color-text-muted); font-size: var(--font-size-2xs);
+}
+
+.gitp-empty-rich,
+.gitp-changes > .gitp-empty,
+.gitp-body > .gitp-empty {
+    flex-direction: column; align-items: flex-start; gap: var(--space-1-5);
+    padding: var(--space-4) var(--gitp-pad);
+}
+
+.gitp-empty-title { color: var(--color-text); font-size: var(--font-size-sm); font-weight: 600 }
+.gitp-empty-body { max-width: 52ch; font-size: var(--font-size-2xs); line-height: 1.6 }
+.gitp-empty-body strong { color: var(--color-text); font-weight: 600 }

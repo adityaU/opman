@@ -14,11 +14,11 @@ import {
   panes,
   removePane,
   resizeSplit,
-  setWidget,
   splitPane,
   swapPanes,
   swapWidgets,
 } from "../workspace/tree";
+import { openWidget } from "../workspace/paneTarget";
 import { neighbour, cyclePane, paneByOrdinal, ordinalOfPane } from "../workspace/nav";
 import { MIN_PANE_FRACTION, type Node, type PaneId, type SplitNode, type WidgetState } from "../workspace/types";
 
@@ -165,7 +165,7 @@ describe("equalize and swap", () => {
     const leaf = newPane();
     let root: Node = splitPane(leaf, leaf.id, "row", newPane());
     const [a, b] = paneIds(root);
-    root = setWidget(root, a, chat("/a"));
+    root = openWidget(root, a, chat("/a"));
     root = swapPanes(root, a, b);
     expect(paneIds(root)).toEqual([b, a]);
     expect(findPane(root, a)?.widget).toEqual(chat("/a"));

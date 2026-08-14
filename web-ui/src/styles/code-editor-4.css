@@ -94,7 +94,7 @@ code[class*=language-],pre[class*=language-] {
     opacity: .5
 }
 
-html.flat-theme .liquid-glass,html.flat-theme .liquid-glass:hover,html.flat-theme .liquid-glass-floating,html.flat-theme .login-box,html.flat-theme .chat-sidebar,html.flat-theme .prompt-input-wrapper,html.flat-theme .prompt-input-wrapper:focus-within,html.flat-theme .prompt-chip-dropdown,html.flat-theme .prompt-at-popover,html.flat-theme .slash-popover,html.flat-theme .usage-popover,html.flat-theme .modal-backdrop,html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .agent-picker,html.flat-theme .theme-selector,html.flat-theme .permission-card,html.flat-theme .question-card,html.flat-theme .terminal-overlay,html.flat-theme .chat-status-bar,html.flat-theme .toast,html.flat-theme .mobile-dock,html.flat-theme .mobile-status-pill,html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-theme .session-selector-modal,html.flat-theme .context-input-modal,html.flat-theme .settings-modal,html.flat-theme .watcher-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .cross-session-search-modal,html.flat-theme .sb-modal-overlay,html.flat-theme .sb-modal,html.flat-theme .memory-overlay,html.flat-theme .autonomy-overlay,html.flat-theme .routines-overlay,html.flat-theme .add-project-overlay,html.flat-theme .pr-description-modal-overlay,html.flat-theme .search-modal-backdrop,html.flat-theme .search-modal,html.flat-theme .sysm-overlay,html.flat-theme .sysm-modal{
+html.flat-theme .liquid-glass,html.flat-theme .liquid-glass:hover,html.flat-theme .liquid-glass-floating,html.flat-theme .login-box,html.flat-theme .chat-sidebar,html.flat-theme .prompt-input-wrapper,html.flat-theme .prompt-input-wrapper:focus-within,html.flat-theme .prompt-chip-dropdown,html.flat-theme .prompt-at-popover,html.flat-theme .slash-popover,html.flat-theme .usage-popover,html.flat-theme .modal-backdrop,html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .agent-picker,html.flat-theme .theme-selector,html.flat-theme .dock-card,html.flat-theme .terminal-overlay,html.flat-theme .chat-status-bar,html.flat-theme .toast,html.flat-theme .mobile-dock,html.flat-theme .mobile-status-pill,html.flat-theme .cheatsheet-modal,html.flat-theme .todo-panel-modal,html.flat-theme .session-selector-modal,html.flat-theme .context-input-modal,html.flat-theme .settings-modal,html.flat-theme .watcher-modal,html.flat-theme .ctx-window-modal,html.flat-theme .diff-review-modal,html.flat-theme .cross-session-search-modal,html.flat-theme .sb-modal-overlay,html.flat-theme .sb-modal,html.flat-theme .memory-overlay,html.flat-theme .autonomy-overlay,html.flat-theme .routines-overlay,html.flat-theme .add-project-overlay,html.flat-theme .pr-description-modal-overlay,html.flat-theme .search-modal-backdrop,html.flat-theme .search-modal,html.flat-theme .sysm-overlay,html.flat-theme .sysm-modal{
     backdrop-filter: none;
     -webkit-backdrop-filter: none
 }
@@ -189,7 +189,7 @@ html.flat-theme .command-palette,html.flat-theme .model-picker,html.flat-theme .
     box-shadow: 0 12px 40px var(--black-25)
 }
 
-html.flat-theme .permission-card,html.flat-theme .question-card {
+html.flat-theme .dock-card {
     background: var(--color-bg-element);
     box-shadow: 0 1px 4px var(--black-10);
     backdrop-filter: none;
@@ -244,30 +244,6 @@ html.flat-theme .watcher-modal {
     background: var(--color-bg-panel);
     border-color: var(--color-border);
     box-shadow: 0 12px 40px var(--black-25)
-}
-
-html:not(.flat-theme) .git-commit-file-accordion {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    background: var(--white-1_5)
-}
-
-html:not(.flat-theme) .git-commit-file-accordion.expanded {
-    background: var(--white-2_5);
-    box-shadow: 0 1px 4px var(--black-10)
-}
-
-html.flat-theme .git-commit-file-accordion {
-    background: var(--color-bg-element);
-    border-color: var(--color-border)
-}
-
-html.flat-theme .git-commit-file-accordion.expanded {
-    background: var(--color-bg-panel)
-}
-
-html.flat-theme .git-commit-file-header:hover {
-    background: var(--color-bg)
 }
 
 html.flat-theme .search-modal-backdrop {

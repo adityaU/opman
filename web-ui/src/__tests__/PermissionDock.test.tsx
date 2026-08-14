@@ -143,7 +143,7 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />
     );
-    const card = document.querySelector(".permission-card")!;
+    const card = document.querySelector(".dock-card")!;
     fireEvent.keyDown(card, { key: "Enter" });
     expect(onReply).toHaveBeenCalledWith("pk", "once");
   });
@@ -152,7 +152,7 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />
     );
-    const card = document.querySelector(".permission-card")!;
+    const card = document.querySelector(".dock-card")!;
     fireEvent.keyDown(card, { key: "a" });
     expect(onReply).toHaveBeenCalledWith("pk", "always");
   });
@@ -161,7 +161,7 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />
     );
-    const card = document.querySelector(".permission-card")!;
+    const card = document.querySelector(".dock-card")!;
     fireEvent.keyDown(card, { key: "A" });
     expect(onReply).toHaveBeenCalledWith("pk", "always");
   });
@@ -170,7 +170,7 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />
     );
-    const card = document.querySelector(".permission-card")!;
+    const card = document.querySelector(".dock-card")!;
     fireEvent.keyDown(card, { key: "Escape" });
     expect(onReply).toHaveBeenCalledWith("pk", "reject");
   });
@@ -179,7 +179,7 @@ describe("PermissionDock", () => {
     render(
       <PermissionDock permissions={[makePerm({ id: "pk" })]} onReply={onReply} />
     );
-    const card = document.querySelector(".permission-card")!;
+    const card = document.querySelector(".dock-card")!;
     fireEvent.keyDown(card, { key: "r" });
     expect(onReply).toHaveBeenCalledWith("pk", "reject");
   });

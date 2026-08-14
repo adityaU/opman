@@ -19,9 +19,14 @@ export type FileOpenPlan =
  * Monotonic across the tab. Two clicks on the same path are two requests, and
  * only the counter tells the panel that the second one happened — without it,
  * asking again for a file the user has since browsed away from changes nothing.
+ *
+ * Shared with the browser pane, whose tab has the same property for the same
+ * reason: it keeps its own page, so an earlier URL written back to it reads as
+ * nothing having happened. One counter rather than one per panel, because it
+ * only has to rise and a single source cannot disagree with itself.
  */
 let sequence = 0;
-export function nextFileOpenSeq(): number {
+export function nextRevealSeq(): number {
   sequence += 1;
   return sequence;
 }

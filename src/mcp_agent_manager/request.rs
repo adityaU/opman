@@ -47,6 +47,33 @@ pub(super) struct ManagerRequest {
     /// The MCP server named by an `mcp_auth_required` notice.
     #[serde(default)]
     pub(super) server: Option<String>,
+    /// How far into `agent_list`'s newest-first ordering the page starts.
+    #[serde(default)]
+    pub(super) offset: Option<u64>,
+    /// How many agents `agent_list` returns.
+    #[serde(default)]
+    pub(super) limit: Option<u64>,
+}
+
+/// One page of `agent_list`, clamped so a caller cannot ask for the whole project.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct Page {
+    pub(super) offset: usize,
+    pub(super) limit: usize,
+}
+
+impl Page {
+    /// Agents per page when the caller names no limit.
+    pub(super) const DEFAULT: usize = 20;
+    const MAX: usize = 100;
+
+    fn from_request(request: &ManagerRequest) -> Self {
+        let size = |value: Option<u64>| value.and_then(|v| usize::try_from(v).ok());
+        Self {
+            offset: size(request.offset).unwrap_or(0),
+            limit: size(request.limit).unwrap_or(Self::DEFAULT).clamp(1, Self::MAX),
+        }
+    }
 }
 
 /// What the caller is asking for. One variant per tool, so the match in `mod.rs` is
@@ -67,6 +94,10 @@ pub(super) enum Op {
 }
 
 impl ManagerRequest {
+    pub(super) fn page(&self) -> Page {
+        Page::from_request(self)
+    }
+
     pub(super) fn op(&self) -> Result<Op> {
         match self.op.as_str() {
             "send" => Ok(Op::Send),

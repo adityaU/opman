@@ -74,6 +74,30 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
     [onMenu, pane.id],
   );
 
+  /**
+   * The corner button is also the grab handle.
+   *
+   * The header's kind chip is the other one, but the header is out of sight
+   * until it is peeked — so without this the only way to move a pane by pointer
+   * is to first summon the chrome that names it. The corner control is the one
+   * thing that is always on screen, and it already stands for "this pane".
+   */
+  const startDrag = useCallback(
+    (event: React.DragEvent<HTMLButtonElement>) => {
+      if (!pane.widget) {
+        event.preventDefault();
+        return;
+      }
+      // Firefox refuses to begin a drag with an empty payload. The pane id
+      // travels in React state, not here, so a drag from another app can never
+      // be mistaken for one of ours.
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", pane.id);
+      onDragWidget(pane.id);
+    },
+    [onDragWidget, pane.id, pane.widget],
+  );
+
   return (
     <section
       ref={ref}
@@ -114,8 +138,12 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
           type="button"
           className="wsp-pane-dots"
           onClick={openMenu}
+          draggable={pane.widget !== null}
+          onDragStart={startDrag}
+          onDragEnd={onDragWidgetEnd}
           aria-haspopup="menu"
           aria-label={`Pane ${ordinal} menu`}
+          title="Pane menu — drag to move this pane"
         >
           <MoreHorizontal size={14} />
         </button>

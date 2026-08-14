@@ -42,11 +42,12 @@ impl AcpEngine {
             .unwrap_or_default()
     }
     // ── agent-reported state ─────────────────────────────────────────
-    /// Store the `session/new` / `session/load` reply and adopt the agent's own mode.
+    /// Store the `session/new` / `session/load` reply and adopt the agent's own mode — only
+    /// where the session has not been given one, since opman's choice is about to be pushed.
     pub fn merge_session_setup(&self, id: &str, setup: &Value) {
         self.with_discovered(id, |d| d.setup = setup.clone());
         if let Some(mode) = options::current_mode(setup) {
-            self.note_mode(id, &mode);
+            self.adopt_mode(id, &mode);
         }
     }
 

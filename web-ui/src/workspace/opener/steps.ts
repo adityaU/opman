@@ -144,6 +144,7 @@ export function toWidget(draft: OpenerDraft, paneId?: PaneId): WidgetState | nul
         projectPath,
         browserId: browserIdForProject(projectPath),
         url: null,
+        reveal: 0,
       };
   }
 }

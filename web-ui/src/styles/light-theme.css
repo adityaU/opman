@@ -112,7 +112,7 @@ html.light-theme .routines-confirm-overlay {
 }
 
                                                                         
-html.light-theme .routines-panel,html.light-theme .notifications-panel,html.light-theme .memory-panel,html.light-theme .autonomy-panel,html.light-theme .add-project-panel,html.light-theme .assistant-panel,html.light-theme .system-monitor-panel,html.light-theme .context-window-panel,html.light-theme .diff-review-panel,html.light-theme .cross-session-panel,html.light-theme .git-commit-dialog,html.light-theme .pr-branch-picker-dropdown{
+html.light-theme .routines-panel,html.light-theme .notifications-panel,html.light-theme .memory-panel,html.light-theme .autonomy-panel,html.light-theme .add-project-panel,html.light-theme .assistant-panel,html.light-theme .system-monitor-panel,html.light-theme .context-window-panel,html.light-theme .diff-review-panel,html.light-theme .cross-session-panel,html.light-theme .pr-branch-picker-dropdown{
     box-shadow: 0 8px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .06)
 }
 

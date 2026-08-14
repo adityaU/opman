@@ -143,18 +143,6 @@
     gap: 4px
 }
 
-/* Git file rows had Tailwind gap-1.5 on the now-block container */
-.git-changes-list .swipe-row-content {
-    background: var(--color-bg-panel);
-    gap: 0.375rem
-}
-
-/* Git rows' hover:bg-bg-element/40 is on the block container, hidden behind
-   the opaque content layer.  Replicate the hover on the content div. */
-.git-changes-list .swipe-row:hover .swipe-row-content {
-    background: color-mix(in srgb, var(--color-bg-element) 40%, var(--color-bg-panel))
-}
-
 /* Explorer open-file hover likewise needs to live on the content layer */
 .explorer-open-files .swipe-row:hover .swipe-row-content {
     background: var(--white-4)
@@ -198,10 +186,6 @@ html.flat-theme .swipe-action-btn.swipe-action-success {
 html.flat-theme .swipe-action-btn.swipe-action-warning {
     background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
     border-color: color-mix(in srgb, var(--color-warning) 15%, var(--color-border-subtle))
-}
-
-html.flat-theme .git-changes-list .swipe-row:hover .swipe-row-content {
-    background: color-mix(in srgb, var(--color-bg-element) 40%, var(--color-surface))
 }
 
 html.flat-theme .explorer-open-files .swipe-row:hover .swipe-row-content {

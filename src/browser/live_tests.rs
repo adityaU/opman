@@ -112,7 +112,10 @@ async fn the_outline_describes_the_page_without_its_markup() {
     assert!(outline.contains("link \"Docs\""), "{outline}");
     assert!(outline.contains("button \"Go\""), "{outline}");
     assert!(outline.contains("[ref=e"), "{outline}");
-    assert!(outline.contains("checked"), "checkbox state is worth a token");
+    assert!(
+        outline.contains("checked"),
+        "checkbox state is worth a token"
+    );
     assert!(outline.contains("quick brown fox"), "prose survives");
 
     // Markup, scripts, styles and hidden nodes do not.
@@ -212,12 +215,16 @@ async fn readable_text_drops_the_navigation() {
 #[ignore = "launches a real Chromium"]
 async fn panes_are_independent_tabs_on_one_browser() {
     let first = serve(FIXTURE).await;
-    let second = serve("<html><head><title>Other</title></head><body><h1>Other</h1></body></html>")
-        .await;
+    let second =
+        serve("<html><head><title>Other</title></head><body><h1>Other</h1></body></html>").await;
 
     let (pool, _profile) = pool();
-    pool.navigate("pane-a", "/repo/a", &first).await.expect("pane a loads");
-    pool.navigate("pane-b", "/repo/b", &second).await.expect("pane b loads");
+    pool.navigate("pane-a", "/repo/a", &first)
+        .await
+        .expect("pane a loads");
+    pool.navigate("pane-b", "/repo/b", &second)
+        .await
+        .expect("pane b loads");
 
     let listed = pool.list().await;
     assert_eq!(listed.len(), 2);
@@ -230,4 +237,59 @@ async fn panes_are_independent_tabs_on_one_browser() {
     assert_eq!(pool.list().await.len(), 1);
 
     pool.shutdown().await;
+}
+
+/// The restart story, end to end: a browser whose parent was killed keeps the profile
+/// lock, and the next opman must join it rather than die on "chromium exited before
+/// printing a DevTools endpoint". Then, once that browser is gone, its leftover lock must
+/// not block a fresh launch either.
+#[tokio::test]
+#[ignore = "launches a real Chromium"]
+async fn a_browser_outliving_its_parent_is_adopted_and_its_lock_later_cleared() {
+    use super::chrome::Chrome;
+    use super::profile::Owner;
+
+    let dir = tempfile::tempdir().expect("a temp profile directory");
+    let profile = dir.path().join("profile");
+    std::fs::create_dir_all(&profile).expect("the profile directory");
+
+    let orphan = Chrome::launch(&profile).await.expect("the first launch");
+    let endpoint = orphan.ws_url().to_owned();
+    // Exactly what a SIGKILLed parent leaves: a live browser and no handle to reap it.
+    std::mem::forget(orphan);
+
+    let mut adopted = Chrome::launch(&profile).await.expect("the second launch");
+    assert_eq!(adopted.ws_url(), endpoint, "it should join, not relaunch");
+    assert!(adopted.is_alive());
+
+    let Owner::Live { pid, .. } = super::profile::owner(&profile) else {
+        panic!("the profile should read as held by a live browser");
+    };
+    // Adopting must not have taken ownership: ending the pool leaves the browser up.
+    adopted.shutdown().await;
+    assert!(
+        super::profile::pid_alive(pid),
+        "an adopted browser is not ours to kill"
+    );
+
+    let _ = std::process::Command::new("kill")
+        .arg("-9")
+        .arg(pid.to_string())
+        .status();
+    for _ in 0..50 {
+        if !super::profile::pid_alive(pid) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    let fresh = Chrome::launch(&profile)
+        .await
+        .expect("the stale lock is cleared");
+    assert_ne!(
+        fresh.ws_url(),
+        endpoint,
+        "the dead browser must not be adopted"
+    );
+    fresh.shutdown().await;
 }

@@ -177,6 +177,20 @@
     opacity: .5
 }
 
+.sb-session-bucket {
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    user-select: none
+}
+
+.sb-session-bucket:first-child {
+    padding-top: var(--space-1)
+}
+
 .sb-show-more {
     display: block;
     width: 100%;
@@ -192,9 +206,14 @@
     transition: var(--transition-interactive-fast)
 }
 
-.sb-show-more:hover {
+.sb-show-more:hover:not(:disabled) {
     background: var(--white-4);
     color: var(--color-primary)
+}
+
+.sb-show-more:disabled {
+    cursor: default;
+    opacity: .5
 }
 
 .sb-session-actions {

@@ -52,6 +52,7 @@ export function useBrowserPane(
   paneId: string,
   project: string,
   initialUrl: string | null,
+  reveal: number,
   onUrlChanged: (url: string) => void,
 ): BrowserPaneControls {
   const [state, setState] = useState<BrowserPaneState>(BLANK);
@@ -138,6 +139,27 @@ export function useBrowserPane(
     },
     [paneId, project, run],
   );
+
+  /**
+   * Go where the owner says, when it says so explicitly.
+   *
+   * The connect effect above ignores `initialUrl` changes on purpose, so that
+   * browsing does not drag the tab back to where it started. But stepping
+   * through the *pane's* history is exactly a request to go back to an earlier
+   * URL, and it is indistinguishable from ordinary browsing by the URL alone.
+   * The counter is what distinguishes it: it only ever rises, and only a history
+   * move raises it.
+   */
+  const revealed = useRef(reveal);
+  useEffect(() => {
+    if (reveal <= revealed.current) return;
+    revealed.current = reveal;
+    const target = initialUrl?.trim();
+    if (target) run(() => browserNavigate(paneId, project, target));
+    // `initialUrl` is read, not depended on: it changes as the user browses, and
+    // this must fire on the counter alone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal]);
 
   const back = useCallback(() => run(() => browserBack(paneId)), [paneId, run]);
   const forward = useCallback(() => run(() => browserForward(paneId)), [paneId, run]);

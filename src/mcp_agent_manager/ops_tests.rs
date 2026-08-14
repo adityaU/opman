@@ -4,6 +4,12 @@ use super::*;
 use crate::mcp_agent_manager::fake_runner::{Harness, DIR};
 use crate::mcp_agent_manager::queue::QueuedMessage;
 
+/// The page `agent_list` gets when the caller names neither bound.
+const PAGE: Page = Page {
+    offset: 0,
+    limit: Page::DEFAULT,
+};
+
 /// A transcript in the shape `progress` hands over: newest first, reasoning alongside the
 /// answer.
 fn transcript() -> Value {
@@ -56,7 +62,7 @@ async fn listing_includes_the_default_runners_own_sessions() {
         .expect("create")
         .id;
 
-    let listed = list(&harness.state, DIR).await.expect("listed");
+    let listed = list(&harness.state, DIR, PAGE).await.expect("listed");
 
     assert_eq!(listed["count"], 2);
     let ids: Vec<&str> = listed["agents"]
@@ -93,12 +99,72 @@ async fn listing_reports_busy_state_and_queue_depth_per_agent() {
             body: json!({}),
         });
 
-    let listed = list(&harness.state, DIR).await.expect("listed");
+    let listed = list(&harness.state, DIR, PAGE).await.expect("listed");
 
     let agent = &listed["agents"][0];
     assert_eq!(agent["busy"], true);
     assert_eq!(agent["queued_messages"], 1);
     assert_eq!(agent["runner"], "opencode");
+}
+
+/// A caller that wants an agent older than the page must be able to see that there is
+/// one — `count` stays the project total while `returned` describes what came back.
+#[tokio::test]
+async fn listing_pages_and_still_reports_the_project_total() {
+    let harness = Harness::new();
+    for _ in 0..5 {
+        session(&harness).await;
+    }
+
+    let first = list(
+        &harness.state,
+        DIR,
+        Page {
+            offset: 0,
+            limit: 2,
+        },
+    )
+    .await
+    .expect("listed");
+
+    assert_eq!(first["count"], 5, "count is the project total, not the page");
+    assert_eq!(first["returned"], 2);
+    assert_eq!(first["offset"], 0);
+    assert_eq!(first["agents"].as_array().map(Vec::len), Some(2));
+
+    let last = list(
+        &harness.state,
+        DIR,
+        Page {
+            offset: 4,
+            limit: 2,
+        },
+    )
+    .await
+    .expect("listed");
+
+    assert_eq!(last["returned"], 1, "a partial last page is not an error");
+    assert_eq!(last["offset"], 4);
+}
+
+#[tokio::test]
+async fn a_page_past_the_last_agent_is_empty_rather_than_an_error() {
+    let harness = Harness::new();
+    session(&harness).await;
+
+    let listed = list(
+        &harness.state,
+        DIR,
+        Page {
+            offset: 50,
+            limit: 20,
+        },
+    )
+    .await
+    .expect("listed");
+
+    assert_eq!(listed["returned"], 0);
+    assert_eq!(listed["count"], 1);
 }
 
 #[tokio::test(start_paused = true)]

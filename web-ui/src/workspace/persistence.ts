@@ -7,13 +7,16 @@
  * partially-recognised tree is repaired toward something usable instead of
  * discarded.
  *
- * Not persisted: which PTY a terminal pane was attached to. PTYs are
- * server-side and keyed by a uuid this tab no longer holds after a reload, so a
- * terminal pane restores as a terminal for its project and spawns a fresh
- * shell. Pretending otherwise would restore a pane wired to nothing.
+ * A pane's trail is persisted along with the widget it is showing, so "the file
+ * I had open before this one" survives a reload rather than only a window
+ * switch. Everything it points at is either server-side and outlives the tab —
+ * shells, chat sessions, browser tabs — or is a path, so an entry restored is an
+ * entry that still means something. The one exception is a shell that has since
+ * exited, and the terminal panel already checks the server before attaching.
  */
 
 import { browserIdForProject } from "../api/browser";
+import { EMPTY_HISTORY, repairHistory, type PaneHistory } from "./history";
 import { emptyWorkspace } from "./reducer";
 import { normalize } from "./tree";
 import {
@@ -147,7 +150,12 @@ function parseNode(value: unknown): Node | null {
 
   if (value.type === "leaf") {
     const id = asPaneId(value.id);
-    return { type: "leaf", id, widget: parseWidget(value.widget, id) };
+    const widget = parseWidget(value.widget, id);
+    // Repaired against the widget rather than trusted: the two are stored side
+    // by side and a half-finished write, an older layout with no trail at all,
+    // or a hand-edited value could leave them disagreeing. The widget wins,
+    // because the widget is what the pane will render.
+    return { type: "leaf", id, widget, history: repairHistory(parseHistory(value.history, id), widget) };
   }
   if (value.type !== "split" || !Array.isArray(value.children)) return null;
   if (value.dir !== "row" && value.dir !== "col") return null;
@@ -222,6 +230,24 @@ function parsePtyId(value: Record<string, unknown>): string | null {
   return value.ptyIds.find((id): id is string => typeof id === "string" && id !== "") ?? null;
 }
 
+/**
+ * A pane's trail.
+ *
+ * Entries that no longer parse are dropped rather than failing the pane, so one
+ * unreadable past target costs that entry and not the desk. The cursor is
+ * clamped into the surviving list — including onto `entries.length`, which is
+ * how "showing nothing" is spelled — and `repairHistory` has the final say once
+ * the widget is known.
+ */
+function parseHistory(value: unknown, paneId: PaneId): PaneHistory {
+  if (!isRecord(value) || !Array.isArray(value.entries)) return EMPTY_HISTORY;
+  const entries = value.entries
+    .map((entry) => parseWidget(entry, paneId))
+    .filter((entry): entry is WidgetState => entry !== null);
+  const raw = typeof value.index === "number" ? Math.trunc(value.index) : entries.length;
+  return { entries, index: Math.min(Math.max(raw, 0), entries.length) };
+}
+
 function parseWidget(value: unknown, paneId: PaneId): WidgetState | null {
   if (!isRecord(value)) return null;
   const kind = value.kind;
@@ -261,6 +287,11 @@ function parseWidget(value: unknown, paneId: PaneId): WidgetState | null {
             ? value.browserId
             : browserIdForProject(projectPath),
         url: typeof value.url === "string" && value.url ? value.url : null,
+        // Restored as zero whatever it was. The counter only means "newer than
+        // the last one this panel acted on", and after a reload the panel has
+        // acted on nothing — so carrying the old value across would arm a
+        // navigation the user did not ask for on first paint.
+        reveal: 0,
       };
   }
 }

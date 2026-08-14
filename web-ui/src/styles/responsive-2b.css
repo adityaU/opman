@@ -43,7 +43,7 @@
         justify-content: center
     }
 
-    .command-palette-shortcut,.theme-selector-footer,.cheatsheet-footer,.todo-panel-footer,.session-selector-footer,.context-input-hints,.settings-footer,.watcher-modal-footer,.ctx-window-footer,.diff-review-footer-hint,.search-modal-hint,.model-picker-tab-hint,.permission-hint,.question-hint,.login-footer,.sysm-footer{
+    .command-palette-shortcut,.theme-selector-footer,.cheatsheet-footer,.todo-panel-footer,.session-selector-footer,.context-input-hints,.settings-footer,.watcher-modal-footer,.ctx-window-footer,.diff-review-footer-hint,.search-modal-hint,.model-picker-tab-hint,.dock-card-hint,.login-footer,.sysm-footer{
         display: none
     }
 

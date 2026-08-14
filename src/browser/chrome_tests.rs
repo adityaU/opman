@@ -38,13 +38,30 @@ async fn sandbox_noise_before_a_successful_banner_is_not_a_failure() {
     );
 }
 
+#[tokio::test]
+async fn a_claimed_profile_is_reported_as_such_not_as_a_bare_exit() {
+    let refusal = b"[ERROR:process_singleton_posix.cc(347)] Failed to create \
+        /profile/SingletonLock: File exists (17)\n\
+        [ERROR:chrome_main_delegate.cc(520)] Failed to create a ProcessSingleton for \
+        your profile directory.\n" as &[u8];
+    assert!(matches!(
+        read_ws_url(refusal).await,
+        Err(LaunchError::ProfileLocked)
+    ));
+}
+
+#[tokio::test]
+async fn a_locked_profile_outranks_the_sandbox_complaint_it_prints_alongside() {
+    let both = b"No usable sandbox!\n\
+        Failed to create a ProcessSingleton for your profile directory.\n" as &[u8];
+    assert!(matches!(
+        read_ws_url(both).await,
+        Err(LaunchError::ProfileLocked)
+    ));
+}
+
 #[test]
 fn only_the_disabled_variant_passes_sandbox_flags() {
     assert!(Sandbox::Enabled.flags().is_empty());
     assert!(Sandbox::Disabled.flags().contains(&"--no-sandbox"));
-}
-
-#[test]
-fn which_finds_nothing_for_an_impossible_name() {
-    assert!(which("opman-definitely-not-a-real-binary").is_none());
 }

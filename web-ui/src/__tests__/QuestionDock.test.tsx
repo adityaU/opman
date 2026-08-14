@@ -289,3 +289,63 @@ describe("QuestionDock", () => {
     expect(submitBtn.hasAttribute("disabled")).toBe(false);
   });
 });
+
+describe("QuestionDock multi-question tabs", () => {
+  const threeQuestions = (): QuestionRequest =>
+    makeQuestion({
+      id: "m1",
+      questions: [
+        { text: "First question", header: "One", type: "select", options: ["A1", "B1"] },
+        { text: "Second question", header: "Two", type: "select", options: ["A2", "B2"] },
+        { text: "Third question", header: "Three", type: "text" },
+      ],
+    });
+
+  it("shows a tab per sub-question and only the active one's body", () => {
+    render(<QuestionDock questions={[threeQuestions()]} onReply={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText("One")).toBeTruthy();
+    expect(screen.getByText("Two")).toBeTruthy();
+    expect(screen.getByText("Three")).toBeTruthy();
+    expect(screen.getByText("First question")).toBeTruthy();
+    expect(screen.queryByText("Second question")).toBeNull();
+  });
+
+  it("switching tabs swaps the visible question", async () => {
+    const user = userEvent.setup();
+    render(<QuestionDock questions={[threeQuestions()]} onReply={vi.fn()} onDismiss={vi.fn()} />);
+    await user.click(screen.getByText("Two"));
+    expect(screen.getByText("Second question")).toBeTruthy();
+    expect(screen.queryByText("First question")).toBeNull();
+  });
+
+  it("submit stays disabled until every question is answered", async () => {
+    const user = userEvent.setup();
+    const onReply = vi.fn<OnReply>();
+    render(<QuestionDock questions={[threeQuestions()]} onReply={onReply} onDismiss={vi.fn()} />);
+
+    const submit = () => screen.getByLabelText("Submit answers");
+    await user.click(screen.getByText("A1"));
+    expect(submit().hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("1 of 3 answered")).toBeTruthy();
+
+    await user.click(screen.getByText("Two"));
+    await user.click(screen.getByText("B2"));
+    await user.click(screen.getByText("Three"));
+    await user.type(screen.getByPlaceholderText("Type your answer..."), "free text");
+
+    expect(submit().hasAttribute("disabled")).toBe(false);
+    await user.click(submit());
+    expect(onReply).toHaveBeenCalledWith("m1", [["A1"], ["B2"], ["free text"]]);
+  });
+
+  it("keeps the header and footer outside the scrolling body", () => {
+    const { container } = render(
+      <QuestionDock questions={[threeQuestions()]} onReply={vi.fn()} onDismiss={vi.fn()} />
+    );
+    const card = container.querySelector(".dock-card")!;
+    expect(card.querySelector(".dock-card-head")).toBeTruthy();
+    expect(card.querySelector(".dock-card-body")).toBeTruthy();
+    expect(card.querySelector(".dock-card-foot")).toBeTruthy();
+    expect(card.querySelector(".dock-card-body .dock-card-foot")).toBeNull();
+  });
+});

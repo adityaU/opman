@@ -166,7 +166,7 @@ async fn handle_manager_request(state: &ManagerState, request: ManagerRequest) -
             let target = resolve_target(state, request.target.as_deref(), &source).await?;
             ops::abort(state, &target, directory).await
         }
-        Op::List => ops::list(state, directory).await,
+        Op::List => ops::list(state, directory, request.page()).await,
         Op::Wait => {
             let target = resolve_target(state, request.target.as_deref(), &source).await?;
             ops::wait(state, &target, directory, request.timeout).await

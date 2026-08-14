@@ -28,10 +28,10 @@
 @import './diff-review-1.css';
 @import './diff-review-2.css';
 @import './browser-panel.css';
-@import './git-panel-1.css';
-@import './git-panel-2.css';
-@import './git-panel-3.css';
-@import './git-panel-4.css';
+@import './git-1.css';
+@import './git-2.css';
+@import './git-3.css';
+@import './git-4.css';
 @import './home-welcome.css';
 @import './kanban.css';
 @import './login.css';
@@ -51,6 +51,7 @@
 @import './open-sessions.css';
 @import './permissions-1.css';
 @import './permissions-2.css';
+@import './permissions-3.css';
 @import './prompt-input-1.css';
 @import './prompt-input-2.css';
 @import './prompt-input-3.css';
@@ -109,13 +110,13 @@
 @import './composer-popover.css';
 @import './sidebar-redesign.css';
 @import './modern-shell.css';
-@import './git-shell-polish.css';
 @import './floating-shell-polish.css';
 @import './mobile-shell.css';
 @import './mobile-header.css';
 @import './theme-polish.css';
 @import './composer.css';
 @import './composer-2.css';
+@import './composer-3.css';
 @import './workspace-1.css';
 @import './workspace-2.css';
 @import './workspace-3.css';

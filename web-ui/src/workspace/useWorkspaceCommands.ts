@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useCommands, useWhenContext } from "../keybindings/useCommand";
 import { useNavTree } from "../keybindings/navRegions";
 import type { CommandHandler } from "../keybindings/KeymapContext";
+import { nextRevealSeq } from "./fileOpen";
 import { withViewTransition } from "./viewTransition";
 import type { WorkspaceAction } from "./reducer";
 import type { Direction, PaneId, Workspace } from "./types";
@@ -56,6 +57,15 @@ export function useWorkspaceCommands(deps: WorkspaceCommandDeps): void {
       "workspace.zoomPane": () => dispatch({ type: "toggleZoom" }),
       "workspace.equalize": () => dispatch({ type: "equalize" }),
       "workspace.cyclePane": () => dispatch({ type: "cycleFocus", step: 1 }),
+
+      // The token is minted here rather than in the reducer, which has to stay
+      // pure — a step back to a file the editor has already shown, or a URL the
+      // browser tab is still sitting on, needs a value neither has seen before
+      // or the panel treats the move as something it already did.
+      "workspace.historyBack": () =>
+        dispatch({ type: "historyStep", pane: focusedPaneId, step: -1, seq: nextRevealSeq() }),
+      "workspace.historyForward": () =>
+        dispatch({ type: "historyStep", pane: focusedPaneId, step: 1, seq: nextRevealSeq() }),
 
       "workspace.newWindow": () => dispatch({ type: "newWindow" }),
       "workspace.closeWindow": () =>

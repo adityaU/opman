@@ -1,0 +1,195 @@
+/* ── Composer dateline: session name + live progress on one line ─────── */
+
+/* ── The dateline ─────────────────────────────────────────────────────
+   One 20px line at the top of the card: the session's name on the left, what
+   the runner is doing on the right. The progress text used to own a row of its
+   own, which meant the card grew taller the moment a turn started; sharing this
+   line keeps the writing surface still. */
+
+.composer-session {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    min-height: 20px;
+    padding: 0 2px 6px;
+    font-size: 11px;
+}
+
+/* Idle reads as a quiet ring; a running turn fills it and breathes. The dot is
+   the only thing on this line that moves. */
+.composer-session-mark {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+    transition: box-shadow var(--transition-base), background-color var(--transition-base);
+}
+
+.composer-session-mark[data-state="busy"] {
+    background: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+    animation: composer-session-breathe 1.9s cubic-bezier(.33, 0, .1, 1) infinite;
+}
+
+@keyframes composer-session-breathe {
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-primary) 4%, transparent) }
+}
+
+/* The name is a target the width of its text, nothing more — no chip, no box.
+   The dotted underline is the whole invitation to rename. */
+.composer-session-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    max-width: 62%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 550;
+    letter-spacing: .002em;
+    color: var(--color-text-muted);
+    cursor: text;
+    border-bottom: 1px dotted transparent;
+    transition: color var(--transition-base), border-color var(--transition-base);
+}
+
+.composer-session-name:disabled { cursor: default }
+
+.composer-session-name:hover:not(:disabled),
+.composer-session-name:focus-visible {
+    color: var(--color-text);
+    border-bottom-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    outline: none;
+}
+
+.composer-session-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.composer-session-title.is-unnamed {
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-text-muted) 78%, transparent);
+}
+
+/* Held back until the line is under the pointer or the keyboard, so the resting
+   state is just a name. */
+.composer-session-pencil {
+    flex: 0 0 auto;
+    opacity: 0;
+    transform: translateY(1px);
+    transition: opacity var(--transition-base);
+}
+
+.composer-session-name:hover .composer-session-pencil,
+.composer-session-name:focus-visible .composer-session-pencil { opacity: .75 }
+
+/* A small filled field rather than a full-width rule: the input has to be free
+   to grow for long names, and a hairline stretched across the card reads as a
+   stray divider. Negative margins cancel its own padding and border, so the
+   first character stays exactly where the label had it and the row keeps its
+   height — entering and leaving edit mode moves nothing. */
+.composer-session-input {
+    min-width: 0;
+    /* A comfortable field, not a canyon: it never stretches to the card's full
+       width, and a longer name scrolls inside it. */
+    flex: 0 1 auto;
+    width: min(100%, 42ch);
+    margin: -1px -7px;
+    padding: 0 6px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 7%, var(--color-bg-element));
+    font: inherit;
+    font-weight: 550;
+    letter-spacing: .002em;
+    color: var(--color-text);
+    outline: none;
+}
+
+.composer-session-input::placeholder { color: var(--color-text-muted) }
+
+/* The browser's own blue belongs to no theme. */
+.composer-session-input::selection {
+    background: color-mix(in srgb, var(--color-primary) 34%, transparent);
+    color: var(--color-text);
+}
+
+.composer-session-progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    color: var(--color-text-muted);
+}
+
+.composer-session-working {
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* Same tone as the name: one status line with a single accented word on it,
+   rather than two labels competing over the composer's top edge. */
+.composer-session-progress-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+}
+
+.composer-session-dots {
+    display: inline-flex;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+
+.composer-session-dots i {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    animation: composer-progress-dot 1.2s ease-in-out infinite;
+}
+
+.composer-session-dots i:nth-child(2) { animation-delay: .15s }
+.composer-session-dots i:nth-child(3) { animation-delay: .3s }
+
+@keyframes composer-progress-dot {
+    0%, 60%, 100% { opacity: .3; transform: translateY(0) }
+    30% { opacity: 1; transform: translateY(-2px) }
+}
+
+/* Under 560px the two zones stop competing for one line: the name keeps the
+   row, the progress text wraps beneath it at full width. */
+@media (max-width: 560px) {
+    .composer-session { flex-wrap: wrap; row-gap: 3px }
+
+    /* A thumb needs more than the height of 11px text. The negative margin keeps
+       the taller hit area from changing the line. */
+    .composer-session-name {
+        padding: 7px 0;
+        margin: -7px 0;
+    }
+
+    .composer-session-name { max-width: calc(100% - 20px) }
+
+    .composer-session-progress {
+        flex-basis: 100%;
+        justify-content: flex-start;
+        padding-left: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .composer-session-mark[data-state="busy"] { animation: none }
+    .composer-session-dots i { animation: none }
+}

@@ -95,7 +95,15 @@ export function createHandleSend(deps: HandlerDeps) {
       // sitting on an empty screen until the session exists.
       deps.setSending(true);
       try {
-        const created = await newSession(deps.activeProjectIndex, runnerForNewSession);
+        // The composer's configuration is part of creating the session, not of the send
+        // that follows it: a session created bare reports its engine's own defaults, and
+        // that row read back would overwrite the permission mode on screen.
+        const created = await newSession(deps.activeProjectIndex, runnerForNewSession, {
+          ...(deps.selectedModel ? { model: deps.selectedModel.modelID } : {}),
+          ...(deps.selectedAgent ? { agent: deps.selectedAgent } : {}),
+          ...(deps.selectedEffort ? { effort: deps.selectedEffort } : {}),
+          ...(deps.selectedPermission ? { permissionMode: deps.selectedPermission } : {}),
+        });
         sid = created.session_id;
         deps.bindRunnerChoice(sid, runnerForNewSession);
         deps.setUrlSession(sid, deps.activeProjectIndex);

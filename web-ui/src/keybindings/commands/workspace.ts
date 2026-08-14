@@ -34,6 +34,12 @@ export const WORKSPACE_COMMANDS: readonly CommandDef[] = [
   { id: "workspace.zoomPane", title: "Toggle Pane Zoom", category: "Workspace", label: "zoom" },
   { id: "workspace.equalize", title: "Reset Pane Sizes", category: "Workspace", label: "equalize" },
 
+  // ── The pane's own trail ──
+  // Per pane, and across widget kinds: back from a chat session lands on the
+  // shell that pane was showing before it, not on the previous session.
+  { id: "workspace.historyBack", title: "Go Back in Pane", category: "Workspace", label: "back" },
+  { id: "workspace.historyForward", title: "Go Forward in Pane", category: "Workspace", label: "forward" },
+
   // ── Focus ──
   ...FOCUS_ORDINALS,
   { id: "workspace.focusLeft", title: "Focus Pane Left", category: "Workspace", label: "left" },

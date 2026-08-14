@@ -6,7 +6,7 @@ import { WindowSwitcher } from "./WindowSwitcher";
 import { TargetOverlay } from "./target/TargetOverlay";
 import { useTargeting, type TargetRequest, type TargetSlot } from "./target/useTargeting";
 import { WidgetOpener } from "./opener/WidgetOpener";
-import { paneMenuItems } from "./paneMenuItems";
+import { usePaneMenu } from "./usePaneMenu";
 import { useWhenContext } from "../keybindings/useCommand";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useWorkspacePlacement } from "./useWorkspacePlacement";
@@ -87,10 +87,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   const targeting = useTargeting();
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [menu, setMenu] = useState<{ pane: PaneId; anchor: HTMLElement } | null>(null);
   const [renaming, setRenaming] = useState<WindowId | null>(null);
 
   const paneList = useMemo(() => panes(activeWindow.root), [activeWindow.root]);
+
+  const menu = usePaneMenu({ panes: paneList, dispatch, describe });
 
   // The panel keybindings — terminal tabs, git actions, editor navigation — are
   // each scoped to the surface they act on. That surface is whichever pane has
@@ -115,6 +116,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
     root: activeWindow.root,
     focusedPaneId: activeWindow.focusedPaneId,
     panes: paneList,
+    // The same cache the menu reads, so the opener's shell step and a Recent row
+    // pointing at a shell cannot name it differently.
+    shells: menu.shells,
   });
 
   // A terminal pane is busy when a command owns its terminal. Chat panes get
@@ -172,11 +176,6 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
 
   const headerPeek = useHeaderPeek();
 
-  const openPaneMenu = useCallback(
-    (pane: PaneId, anchor: HTMLElement) => setMenu({ pane, anchor }),
-    [],
-  );
-
   const renamingWindow = renaming
     ? state.windows.find((candidate) => candidate.id === renaming) ?? null
     : null;
@@ -195,7 +194,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
       const element = document.querySelector<HTMLElement>(
         `[data-pane-id="${CSS.escape(activeWindow.focusedPaneId)}"] .wsp-pane-dots`,
       );
-      if (element) setMenu({ pane: activeWindow.focusedPaneId, anchor: element });
+      if (element) menu.show(activeWindow.focusedPaneId, element);
     },
     peekPaneHeader: headerPeek.peek,
     renameActiveWindow: () => renameWindow(activeWindow.id),
@@ -210,6 +209,18 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
 
   // ── Render ──
 
+  /**
+   * The windows a dragged pane can be sent to: every one but the one it is in,
+   * which is what the pane slots themselves already answer for.
+   */
+  const otherWindows = useMemo(
+    () =>
+      state.windows
+        .filter((window) => window.id !== state.activeWindowId)
+        .map((window) => ({ id: window.id, name: window.name })),
+    [state.activeWindowId, state.windows],
+  );
+
   const slots: TargetSlot[] = useMemo(
     () =>
       paneList.map((pane, index) => ({
@@ -218,11 +229,6 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
         focused: pane.id === activeWindow.focusedPaneId,
       })),
     [activeWindow.focusedPaneId, paneList],
-  );
-
-  const menuItems = useMemo(
-    () => (menu ? paneMenuItems(menu.pane, dispatch, paneList.length) : []),
-    [dispatch, menu, paneList.length],
   );
 
   return (
@@ -235,7 +241,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
         busyPanes={busyTerminals}
         busyWindows={busyWindows}
         onOpenWidget={placement.onOpenWidgetKind}
-        onPaneMenu={openPaneMenu}
+        onPaneMenu={menu.show}
         onRenameWindow={renameWindow}
         dragSourcePane={placement.dragSource}
         onDragWidget={placement.setDragSource}
@@ -256,7 +262,13 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
         <TargetOverlay
           label={placement.draggedLabel}
           slots={slots}
-          interaction={{ kind: "drop", source: placement.dragSource, onDrop: placement.dropWidget }}
+          interaction={{
+            kind: "drop",
+            source: placement.dragSource,
+            onDrop: placement.dropWidget,
+            windows: otherWindows,
+            onDropWindow: placement.dropOnWindow,
+          }}
           onCancel={placement.endDrag}
         />
       )}
@@ -283,7 +295,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
         />
       )}
 
-      {menu && <PaneMenu items={menuItems} anchor={menu.anchor} onClose={() => setMenu(null)} />}
+      {menu.open && (
+        <PaneMenu items={menu.items} anchor={menu.open.anchor} onClose={menu.close} />
+      )}
 
       {renamingWindow && (
         <RenameWindowField

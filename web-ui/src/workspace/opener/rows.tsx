@@ -4,6 +4,7 @@ import { WIDGET_ICON, WIDGET_LABEL } from "../PaneHeader";
 import { projectColorVars, projectInitials } from "../ProjectBadge";
 import { WIDGET_KINDS, type WidgetKind } from "../types";
 import type { OpenerChoice, OpenerDraft, StepId } from "./steps";
+import { basename } from "../../utils/path";
 
 /**
  * What a row *is*, per step.
@@ -128,8 +129,3 @@ export const Crumbs: React.FC<{ readonly draft: OpenerDraft }> = function Crumbs
     </div>
   );
 };
-
-function basename(path: string): string {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}

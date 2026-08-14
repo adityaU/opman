@@ -104,3 +104,22 @@ fn an_absent_delivery_defaults_to_immediate() {
         Some(Delivery::Immediate)
     );
 }
+
+/// A list with no bounds is the first page, so an agent that just calls the tool gets a
+/// bounded answer rather than the whole project.
+#[test]
+fn an_unbounded_list_is_the_first_default_sized_page() {
+    let page = line(serde_json::json!({ "op": "list" })).page();
+
+    assert_eq!(page.offset, 0);
+    assert_eq!(page.limit, Page::DEFAULT);
+}
+
+#[test]
+fn a_limit_is_clamped_at_both_ends_rather_than_refused() {
+    let huge = line(serde_json::json!({ "op": "list", "limit": 100_000 })).page();
+    let zero = line(serde_json::json!({ "op": "list", "limit": 0 })).page();
+
+    assert_eq!(huge.limit, 100);
+    assert_eq!(zero.limit, 1);
+}

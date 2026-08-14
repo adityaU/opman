@@ -136,6 +136,38 @@
     outline-offset: 1px
 }
 
+/* ── Reordering ───────────────────────────────────────────────────
+   The chip being dragged stays in place and fades rather than leaving a hole:
+   the rail is the list of windows, and one going momentarily missing from it
+   reads as a close. The insertion line says where it lands. */
+.wsp-rail-chip.is-dragging {
+    opacity: .45;
+    cursor: grabbing
+}
+
+/* Drawn on the chip the pointer is over, in the gutter between chips, so it
+   never overlaps a name. Colour is the primary accent — the same "this is the
+   pending result" language the active chip uses — so both theme variants get it
+   from the palette rather than from a surface. */
+.wsp-rail-chip[data-drop]::after {
+    content: "";
+    position: absolute;
+    left: var(--space-1);
+    right: var(--space-1);
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-primary);
+    pointer-events: none
+}
+
+.wsp-rail-chip[data-drop="before"]::after {
+    top: calc(var(--space-1) / -2 - 1px)
+}
+
+.wsp-rail-chip[data-drop="after"]::after {
+    bottom: calc(var(--space-1) / -2 - 1px)
+}
+
 /* Clamped by the rail's own max-width rather than by a fixed pixel count, so
    a short name is never truncated just because a long one could be. */
 .wsp-rail-chip-name {
@@ -143,6 +175,54 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap
+}
+
+/* The × overlays the chip's right edge instead of taking a column of its own:
+   the rail is sized by the widest window name, and a permanently reserved
+   16px would widen every chip in it for a control that is only ever used on
+   one. Hidden until the pointer or the keyboard is on the chip, so the resting
+   rail stays a list of names. */
+.wsp-rail-chip-close {
+    position: absolute;
+    top: 50%;
+    right: 2px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--theme-surface-2);
+    color: var(--color-text-muted);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity var(--transition-fast), color var(--transition-fast),
+        background var(--transition-fast)
+}
+
+.wsp-rail-chip:hover .wsp-rail-chip-close,
+.wsp-rail-chip:focus-within .wsp-rail-chip-close,
+.wsp-rail-chip-close:focus-visible {
+    opacity: 1
+}
+
+.wsp-rail-chip-close:hover {
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 18%, var(--theme-surface-2))
+}
+
+.wsp-rail-chip-close:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
+}
+
+/* One corner, two indicators: while the × is up the pulse would sit under it,
+   so the busy dot yields to the control the pointer came for. */
+.wsp-rail-chip:hover .wsp-rail-chip-pulse,
+.wsp-rail-chip:focus-within .wsp-rail-chip-pulse {
+    opacity: 0
 }
 
 /* The pulse: an agent is working somewhere in that window. */

@@ -1,4 +1,5 @@
 import { apiFetch, apiPost } from "./client";
+import type { EngineChoices } from "./state";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -64,13 +65,22 @@ export async function selectSession(
   });
 }
 
+/**
+ * Create a session, on the configuration the composer is showing.
+ *
+ * `engine` is not a nicety: without it the session is born on its engine's own default
+ * permission mode, and that row — read back a moment later as the session's own answer —
+ * replaced whatever the user had picked.
+ */
 export async function newSession(
   projectIdx: number,
   runner?: string | null,
+  engine?: EngineChoices,
 ): Promise<NewSessionResponse> {
   return apiPost("/session/new", {
     project_idx: projectIdx,
     ...(runner ? { runner } : {}),
+    ...(engine ? { engine } : {}),
   });
 }
 

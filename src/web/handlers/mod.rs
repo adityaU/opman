@@ -25,9 +25,17 @@ mod download_handlers;
 mod editor_handlers;
 pub(crate) use editor_handlers::editor_target;
 mod files_handlers;
+mod git_branch;
 mod git_context_handlers;
 mod git_ext_handlers;
 mod git_handlers;
+mod git_ignore;
+mod git_integrate;
+mod git_refs;
+mod git_stash;
+mod git_sync;
+mod git_workdir;
+mod git_worktree;
 mod health_handlers;
 mod kanban_handlers;
 mod kanban_internal;
@@ -63,7 +71,8 @@ pub use auth_handlers::{health, login, verify};
 pub use keybindings_handlers::{get_keybindings, put_keybindings};
 
 pub use state_handlers::{
-    get_session_stats, get_state, get_theme, list_themes, public_bootstrap, switch_theme,
+    get_session_page, get_session_stats, get_state, get_theme, list_themes, public_bootstrap,
+    switch_theme,
 };
 
 pub use project_handlers::{
@@ -93,13 +102,30 @@ pub use session_handlers::{
 
 pub use ask_internal::internal_ask;
 
-pub use git_handlers::{
-    git_commit, git_diff, git_discard, git_log, git_stage, git_status, git_unstage,
+pub use git_workdir::{git_commit, git_discard, git_stage, git_unstage};
+
+pub use git_handlers::{git_diff, git_log, git_status};
+
+pub use git_ext_handlers::{git_range_diff, git_show};
+
+pub use git_ignore::git_gitignore;
+
+pub use git_stash::git_stash;
+
+pub use git_branch::{
+    git_branch_create, git_branch_delete, git_branch_rename, git_branches, git_checkout,
 };
 
-pub use git_ext_handlers::{
-    git_branches, git_checkout, git_gitignore, git_pull, git_range_diff, git_show, git_stash,
+pub use git_integrate::{
+    git_cherry_pick, git_merge, git_operation, git_operation_status, git_rebase, git_reset,
+    git_revert,
 };
+
+pub use git_refs::{git_blame, git_tag_create, git_tag_delete, git_tags};
+
+pub use git_sync::{git_fetch, git_pull, git_push, git_sync_status};
+
+pub use git_worktree::{git_worktree_add, git_worktree_prune, git_worktree_remove, git_worktrees};
 
 pub use git_context_handlers::{git_context_summary, git_repos};
 

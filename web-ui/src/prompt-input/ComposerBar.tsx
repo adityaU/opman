@@ -7,21 +7,8 @@
  * instead of squeezing between two fixed gutters.
  */
 import React from "react";
-import { ArrowUp, Loader2, Paperclip, Square, Activity } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, Square } from "lucide-react";
 import { RUNNER_LABELS } from "./helpers";
-
-export function ComposerProgress({ text }: { text: string }) {
-  return (
-    <div className="composer-progress" role="status" aria-live="polite">
-      <span className="composer-progress-indicator" aria-hidden="true">
-        <Activity size={12} />
-      </span>
-      <span className="composer-progress-label">Working</span>
-      <span className="composer-progress-text" title={text}>{text}</span>
-      <span className="composer-progress-dots" aria-hidden="true"><i /><i /><i /></span>
-    </div>
-  );
-}
 
 // ── ComposerField ───────────────────────────────────────────────
 

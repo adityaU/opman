@@ -38,6 +38,27 @@ pub async fn select_session(
     }
 }
 
+/// Record what a just-created session should run as, with the runner that owns it.
+///
+/// Best-effort: an engine with no configure route answers `false`, and a session that runs on
+/// its engine's defaults is not a failure worth refusing to create it over.
+async fn seed_engine(
+    state: &ServerState,
+    session_id: &str,
+    runner: crate::runner::RunnerKind,
+    dir: &str,
+    choices: &crate::app::EngineChoices,
+) {
+    if choices.is_empty() {
+        return;
+    }
+    state
+        .runner_registry
+        .ensure_binding(session_id, runner, dir)
+        .await;
+    let _ = state.runner_registry.configure(session_id, dir, choices).await;
+}
+
 pub async fn new_session(
     State(state): State<ServerState>,
     _auth: AuthUser,
@@ -55,10 +76,14 @@ pub async fn new_session(
         let runner_name = runner.display_name().into_owned();
         let session = state
             .runner_registry
-            .create_session(runner, &dir, "")
+            .create_session(runner.clone(), &dir, "")
             .await
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         let now = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        // Configure before the row is published: the session list is what the composer reads
+        // back, and a row that briefly reports the engine's default would overwrite the very
+        // choice this send is about to make.
+        seed_engine(&state, &session.id, runner, &dir, &req.engine).await;
         state
             .web_state
             .add_and_activate_session(
@@ -67,6 +92,7 @@ pub async fn new_session(
                     id: session.id.clone(),
                     title: session.title,
                     directory: dir,
+                    engine: req.engine,
                     time: crate::app::SessionTime {
                         created: now,
                         updated: now,

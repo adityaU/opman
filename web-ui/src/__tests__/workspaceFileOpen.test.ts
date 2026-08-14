@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { nextFileOpenSeq, planFileOpen, projectForFile } from "../workspace/fileOpen";
+import { nextRevealSeq, planFileOpen, projectForFile } from "../workspace/fileOpen";
 import { asPaneId } from "../workspace/types";
 import type { FileOpenRequest, PaneNode, WidgetState } from "../workspace/types";
 import type { WorkspaceProject } from "../workspace/DesktopWorkspace";
+import { EMPTY_HISTORY, recordTarget } from "../workspace/history";
 
 const REPO = "/home/dev/repo";
 const OTHER = "/home/dev/other";
@@ -15,6 +16,7 @@ const pane = (id: string, widget: WidgetState | null): PaneNode => ({
   type: "leaf",
   id: asPaneId(id),
   widget,
+  history: recordTarget(EMPTY_HISTORY, widget),
 });
 
 const chat = (projectPath: string): WidgetState => ({
@@ -125,10 +127,10 @@ describe("planFileOpen", () => {
   });
 });
 
-describe("nextFileOpenSeq", () => {
+describe("nextRevealSeq", () => {
   it("rises on every call, so asking for the same path twice is two requests", () => {
-    const first = nextFileOpenSeq();
-    const second = nextFileOpenSeq();
+    const first = nextRevealSeq();
+    const second = nextRevealSeq();
     expect(second).toBeGreaterThan(first);
   });
 });

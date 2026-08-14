@@ -21,7 +21,7 @@ function populated(): Workspace {
   let state = emptyWorkspace();
   const pane = paneIds(state.windows[0].root)[0];
   state = workspaceReducer(state, {
-    type: "setWidget",
+    type: "openWidget",
     pane,
     widget: { kind: "chat", projectPath: "/repo", sessionId: "s1", engine: null },
   });
@@ -295,7 +295,7 @@ describe("pane engine", () => {
     let state = emptyWorkspace();
     const pane = paneIds(state.windows[0].root)[0];
     state = workspaceReducer(state, {
-      type: "setWidget",
+      type: "openWidget",
       pane,
       widget: { kind: "chat", projectPath: "/repo", sessionId: "s1", engine },
     });

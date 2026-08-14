@@ -17,7 +17,7 @@ use tempfile::TempDir;
 
 // ── test git repo helpers ────────────────────────────────────────────
 
-fn run_git(dir: &Path, args: &[&str]) -> std::process::Output {
+pub(crate) fn run_git(dir: &Path, args: &[&str]) -> std::process::Output {
     Command::new("git")
         .args(args)
         .current_dir(dir)
@@ -30,7 +30,7 @@ fn run_git(dir: &Path, args: &[&str]) -> std::process::Output {
 
 /// Initialise an empty temp repo with a deterministic `main` branch and a local
 /// identity so commits succeed regardless of the developer's global config.
-fn init_repo() -> TempDir {
+pub(crate) fn init_repo() -> TempDir {
     let td = TempDir::new().expect("tempdir");
     let dir = td.path();
     run_git(dir, &["init", "-q"]);
@@ -41,23 +41,23 @@ fn init_repo() -> TempDir {
     td
 }
 
-fn write_file(dir: &Path, name: &str, content: &str) {
+pub(crate) fn write_file(dir: &Path, name: &str, content: &str) {
     std::fs::write(dir.join(name), content).expect("write file");
 }
 
-fn commit_all(dir: &Path, msg: &str) {
+pub(crate) fn commit_all(dir: &Path, msg: &str) {
     run_git(dir, &["add", "-A"]);
     run_git(dir, &["commit", "-q", "-m", msg]);
 }
 
-fn state_for(dir: &Path) -> ServerState {
+pub(crate) fn state_for(dir: &Path) -> ServerState {
     let mut state = test_server_state();
     state.web_state =
         WebStateHandle::new_test_with_projects(vec![("repo".to_string(), dir.to_path_buf())]);
     state
 }
 
-async fn call(
+pub(crate) async fn call(
     state: &ServerState,
     method: &str,
     uri: &str,
@@ -230,288 +230,8 @@ async fn log_returns_commits_and_respects_limit() {
 
 // ── git_stage ────────────────────────────────────────────────────────
 
-#[tokio::test]
-async fn stage_specific_file() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    write_file(dir, "b.txt", "b\n");
-
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/stage",
-        Some(serde_json::json!({"files": ["b.txt"], "repo": "."})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-}
-
-#[tokio::test]
-async fn stage_all_files() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    write_file(dir, "a.txt", "2\n");
-
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/stage",
-        Some(serde_json::json!({"files": []})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-}
-
-#[tokio::test]
-async fn stage_invalid_and_empty_filenames() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    let state = state_for(dir);
-
-    let (s1, _) = call(
-        &state,
-        "POST",
-        "/api/git/stage",
-        Some(serde_json::json!({"files": ["-x"]})),
-    )
-    .await;
-    assert_eq!(s1, StatusCode::BAD_REQUEST);
-
-    let (s2, _) = call(
-        &state,
-        "POST",
-        "/api/git/stage",
-        Some(serde_json::json!({"files": [""]})),
-    )
-    .await;
-    assert_eq!(s2, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn stage_nonexistent_file_fails() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/stage",
-        Some(serde_json::json!({"files": ["ghost.txt"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-}
-
 // ── git_unstage ──────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn unstage_specific_and_all() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    write_file(dir, "b.txt", "b\n");
-    run_git(dir, &["add", "b.txt"]);
-    let state = state_for(dir);
-
-    let (s1, _) = call(
-        &state,
-        "POST",
-        "/api/git/unstage",
-        Some(serde_json::json!({"files": ["b.txt"]})),
-    )
-    .await;
-    assert_eq!(s1, StatusCode::OK);
-
-    run_git(dir, &["add", "b.txt"]);
-    let (s2, _) = call(
-        &state,
-        "POST",
-        "/api/git/unstage",
-        Some(serde_json::json!({"files": []})),
-    )
-    .await;
-    assert_eq!(s2, StatusCode::OK);
-}
-
-#[tokio::test]
-async fn unstage_invalid_filename() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/unstage",
-        Some(serde_json::json!({"files": ["-bad"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn unstage_nonexistent_fails() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/unstage",
-        Some(serde_json::json!({"files": ["ghost.txt"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-}
 
 // ── git_commit ───────────────────────────────────────────────────────
 
-#[tokio::test]
-async fn commit_empty_message_rejected() {
-    let td = init_repo();
-    let dir = td.path();
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/commit",
-        Some(serde_json::json!({"message": "   "})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn commit_dash_message_rejected() {
-    let td = init_repo();
-    let dir = td.path();
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/commit",
-        Some(serde_json::json!({"message": "-oops"})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn commit_success_returns_hash() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    run_git(dir, &["add", "-A"]);
-    let state = state_for(dir);
-    let (status, body) = call(
-        &state,
-        "POST",
-        "/api/git/commit",
-        Some(serde_json::json!({"message": "my commit"})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(!body["hash"].as_str().unwrap().is_empty());
-    assert_eq!(body["message"], "my commit");
-}
-
-#[tokio::test]
-async fn commit_nothing_staged_fails() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    // Clean tree now.
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/commit",
-        Some(serde_json::json!({"message": "nothing"})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-}
-
 // ── git_discard ──────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn discard_empty_files_rejected() {
-    let td = init_repo();
-    let dir = td.path();
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/discard",
-        Some(serde_json::json!({"files": []})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn discard_invalid_filename_rejected() {
-    let td = init_repo();
-    let dir = td.path();
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/discard",
-        Some(serde_json::json!({"files": ["-x"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn discard_restores_modified_file() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "original\n");
-    commit_all(dir, "init");
-    write_file(dir, "a.txt", "modified\n");
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/discard",
-        Some(serde_json::json!({"files": ["a.txt"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    let restored = std::fs::read_to_string(dir.join("a.txt")).unwrap();
-    assert_eq!(restored, "original\n");
-}
-
-#[tokio::test]
-async fn discard_nonexistent_fails() {
-    let td = init_repo();
-    let dir = td.path();
-    write_file(dir, "a.txt", "1\n");
-    commit_all(dir, "init");
-    let state = state_for(dir);
-    let (status, _) = call(
-        &state,
-        "POST",
-        "/api/git/discard",
-        Some(serde_json::json!({"files": ["ghost.txt"]})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-}

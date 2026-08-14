@@ -19,7 +19,7 @@ import { DesktopLayout } from "./components/DesktopLayout";
 import { MobileLayout } from "./components/MobileLayout";
 
 export default function CodeEditorPanel({
-  focused, open, projectPath, sessionId, onError, layout,
+  focused, open, projectPath, sessionId, onError, layout, onActiveFileChanged,
 }: CodeEditorPanelProps) {
   const explorer = useFileExplorer(projectPath, open, onError);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -85,6 +85,26 @@ export default function CodeEditorPanel({
     editorDirty: explorer.saveStatus === "modified",
     anyDirty: explorer.openFiles.some((file) => file.editedContent !== null),
   });
+
+  /**
+   * Tell whoever mounted the panel which file it settled on.
+   *
+   * The `open` prop is a request — "reveal this" — and most files are reached
+   * without one, by clicking through the tree or a tab. So the owner cannot
+   * learn the panel's cursor from what it handed in, and a pane's history would
+   * only ever have recorded files opened from outside. Reported on the path
+   * alone, so switching between already-open tabs counts.
+   *
+   * Through a ref, and keyed on the path alone: mount sites pass a closure over
+   * their pane id, so the prop is a fresh function on every render and depending
+   * on it would report the same file on every keystroke in the editor.
+   */
+  const reportActiveFile = useRef(onActiveFileChanged);
+  reportActiveFile.current = onActiveFileChanged;
+
+  useEffect(() => {
+    reportActiveFile.current?.(explorer.activeFilePath);
+  }, [explorer.activeFilePath]);
 
   // Pending line jump
   useEffect(() => {

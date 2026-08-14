@@ -22,7 +22,9 @@ export function planBrowserOpen(
   focusedPaneId: PaneId,
 ): BrowserOpenPlan {
   const browserId = browserIdForProject(projectPath);
-  const widget: WidgetState = { kind: "browser", projectPath, browserId, url };
+  // `reveal: 0` — this is a fresh request, not a step back through the pane's
+  // history, and the panel navigates on its own for a live open.
+  const widget: WidgetState = { kind: "browser", projectPath, browserId, url, reveal: 0 };
 
   // Already on screen: update the URL it remembers and leave the pane where it
   // is. The panel is connected to the same tab, so it is already showing the

@@ -132,6 +132,7 @@ export const MobileChatView: React.FC<MobileChatViewProps> = function MobileChat
         disabled={!p.appState}
         sessionId={p.activeSessionId}
         progressText={activeProgressText(p.messages, p.sessionStatus.type !== "idle")}
+        sessionTitle={sessionTitle}
         currentModel={p.currentModel}
         selectedModel={p.selectedModel}
         onModelSelected={p.handleModelSelected}

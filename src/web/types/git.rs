@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::git_ops::GitActionResponse;
+
 /// A single file entry in `git status` output.
 #[derive(Serialize, Clone)]
 pub struct GitFileEntry {
@@ -85,22 +87,6 @@ pub struct GitUnstageRequest {
     pub repo: String,
 }
 
-/// Request body for `POST /api/git/commit`.
-#[derive(Deserialize)]
-pub struct GitCommitRequest {
-    pub message: String,
-    /// Repo path relative to project root (default: ".").
-    #[serde(default)]
-    pub repo: String,
-}
-
-/// Response for `POST /api/git/commit`.
-#[derive(Serialize)]
-pub struct GitCommitResponse {
-    pub hash: String,
-    pub message: String,
-}
-
 /// Request body for `POST /api/git/discard`.
 #[derive(Deserialize)]
 pub struct GitDiscardRequest {
@@ -140,38 +126,6 @@ pub struct GitShowFile {
     pub status: String,
 }
 
-/// Response for `GET /api/git/branches`.
-#[derive(Serialize)]
-pub struct GitBranchesResponse {
-    /// The current (checked-out) branch name.
-    pub current: String,
-    /// Local branch names.
-    pub local: Vec<String>,
-    /// Remote branch names (e.g. "origin/main").
-    pub remote: Vec<String>,
-}
-
-/// Request body for `POST /api/git/checkout`.
-#[derive(Deserialize)]
-pub struct GitCheckoutRequest {
-    /// Branch name to switch to.
-    pub branch: String,
-    /// Repo path relative to project root (default: ".").
-    #[serde(default)]
-    pub repo: String,
-}
-
-/// Response for `POST /api/git/checkout`.
-#[derive(Serialize)]
-pub struct GitCheckoutResponse {
-    /// The branch that was switched to.
-    pub branch: String,
-    /// `true` if checkout succeeded.
-    pub success: bool,
-    /// Optional message (e.g. stderr output).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-}
 
 /// Query params for `GET /api/git/range-diff?base=<branch>&limit=<n>&repo=...`.
 #[derive(Deserialize)]
@@ -250,93 +204,6 @@ pub struct GitRepoScope {
     pub repo: String,
 }
 
-// ── Pull / Stash / Gitignore types ─────────────────────────────────
-
-/// Request body for `POST /api/git/pull`.
-#[derive(Deserialize)]
-pub struct GitPullRequest {
-    /// Optional remote name (default: "origin").
-    #[serde(default)]
-    pub remote: String,
-    /// Optional branch to pull (default: current branch).
-    #[serde(default)]
-    pub branch: String,
-    /// Repo path relative to project root (default: ".").
-    #[serde(default)]
-    pub repo: String,
-}
-
-/// Response for `POST /api/git/pull`.
-#[derive(Serialize)]
-pub struct GitPullResponse {
-    pub success: bool,
-    pub output: String,
-}
-
-/// Request body for `POST /api/git/stash`.
-#[derive(Deserialize)]
-pub struct GitStashRequest {
-    /// Action: "push" (default), "pop", "list", "drop".
-    #[serde(default = "stash_action_default")]
-    pub action: String,
-    /// Optional stash message (for push).
-    #[serde(default)]
-    pub message: String,
-    /// Optional stash index (for pop/drop, e.g. "stash@{0}").
-    #[serde(default)]
-    pub stash_ref: String,
-    /// Repo path relative to project root (default: ".").
-    #[serde(default)]
-    pub repo: String,
-}
-
-fn stash_action_default() -> String {
-    "push".to_string()
-}
-
-/// A single stash entry.
-#[derive(Serialize)]
-pub struct GitStashEntry {
-    pub index: usize,
-    pub reference: String,
-    pub message: String,
-}
-
-/// Response for `POST /api/git/stash`.
-#[derive(Serialize)]
-pub struct GitStashResponse {
-    pub success: bool,
-    pub output: String,
-    /// Populated when action is "list".
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub entries: Vec<GitStashEntry>,
-}
-
-/// Request body for `POST /api/git/gitignore`.
-#[derive(Deserialize)]
-pub struct GitIgnoreRequest {
-    /// Action: "add" or "list".
-    #[serde(default = "gitignore_action_default")]
-    pub action: String,
-    /// Patterns to add (for "add" action).
-    #[serde(default)]
-    pub patterns: Vec<String>,
-    /// Repo path relative to project root (default: ".").
-    #[serde(default)]
-    pub repo: String,
-}
-
-fn gitignore_action_default() -> String {
-    "list".to_string()
-}
-
-/// Response for `POST /api/git/gitignore`.
-#[derive(Serialize)]
-pub struct GitIgnoreResponse {
-    pub success: bool,
-    /// Current .gitignore contents.
-    pub content: String,
-}
 
 #[cfg(test)]
 #[path = "git_tests.rs"]

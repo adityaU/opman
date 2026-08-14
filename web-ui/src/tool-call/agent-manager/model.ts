@@ -83,6 +83,23 @@ export function agentRows(output: Record<string, unknown>): readonly AgentRow[] 
   });
 }
 
+/**
+ * How many sessions the page left behind.
+ *
+ * `count` is the project total and `offset` where the page started, so what is
+ * missing is everything before the page plus everything after it.
+ */
+export function hiddenAgentCount(
+  output: Record<string, unknown>,
+  shown: number,
+): number {
+  const total = output.count;
+  const offset = output.offset;
+  if (typeof total !== "number") return 0;
+  const start = typeof offset === "number" ? offset : 0;
+  return Math.max(0, total - start - shown);
+}
+
 // ── agent_runner_options ────────────────────────────────
 
 export interface ModelRow {

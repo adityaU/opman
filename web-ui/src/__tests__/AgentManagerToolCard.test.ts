@@ -6,6 +6,7 @@ import {
 } from "../tool-call/agent-manager";
 import {
   agentRows,
+  hiddenAgentCount,
   openableSessionId,
   runnerOptions,
 } from "../tool-call/agent-manager/model";
@@ -76,5 +77,23 @@ describe("agent manager tool card helpers", () => {
     expect(openableSessionId("wait", { agent_id: "ses_2" }, {})).toBe("ses_2");
     expect(openableSessionId("progress", { agent_id: "parent" }, {})).toBe("");
     expect(openableSessionId("list", {}, {})).toBe("");
+  });
+});
+
+describe("hiddenAgentCount", () => {
+  it("reports what a first page left behind", () => {
+    expect(hiddenAgentCount({ count: 143, offset: 0 }, 20)).toBe(123);
+  });
+
+  it("accounts for a page that started partway in", () => {
+    expect(hiddenAgentCount({ count: 50, offset: 20 }, 20)).toBe(10);
+  });
+
+  it("hides nothing when the page covers the project", () => {
+    expect(hiddenAgentCount({ count: 3, offset: 0 }, 3)).toBe(0);
+  });
+
+  it("stays at zero for an older reply that carries no count", () => {
+    expect(hiddenAgentCount({}, 5)).toBe(0);
   });
 });

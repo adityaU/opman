@@ -10,10 +10,16 @@
 /* ── Pane menu ───────────────────────────────────────────────────── */
 
 /* The surface comes from `.modal-popover-surface`; this only places it. */
+/* The history rows carry a file name, a session title or a host, so the widest
+   row is now content the menu does not choose. Without a ceiling those rows set
+   the width and every other label ellipsises to fit them — the reverse of what
+   should happen. Bounded here, the fixed actions always read in full and it is
+   the long name that truncates. */
 .wsp-menu {
     position: fixed;
     z-index: calc(var(--z-modal) + 5);
     min-width: 232px;
+    max-width: min(320px, calc(100vw - 2 * var(--space-4)));
     padding: var(--space-1);
     outline: none
 }
@@ -146,6 +152,77 @@
     box-shadow: 0 0 0 2px var(--theme-focus-ring)
 }
 
+/* ── Close-window confirmation ───────────────────────────────────── */
+
+/* Same portalled, chip-anchored surface as the rename field, and deliberately
+   the same shell: they are the two things a chip can open. */
+.wsp-confirm {
+    position: fixed;
+    transform: translateY(-50%);
+    z-index: calc(var(--z-modal) + 5);
+    width: 230px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--modal-border);
+    border-radius: var(--radius);
+    background: var(--modal-surface);
+    /* The glassy theme's modal surface is translucent and reads as mud without
+       it; the flat theme sets --modal-blur to none, so this costs it nothing. */
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur);
+    box-shadow: var(--popover-shadow), var(--modal-rim)
+}
+
+.wsp-confirm-text {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.45
+}
+
+.wsp-confirm-text strong {
+    color: var(--color-text);
+    font-weight: 600
+}
+
+.wsp-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2)
+}
+
+.wsp-confirm-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast)
+}
+
+.wsp-confirm-btn:hover {
+    border-color: var(--color-border-active)
+}
+
+.wsp-confirm-btn.is-danger {
+    border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+    color: var(--color-danger)
+}
+
+.wsp-confirm-btn.is-danger:hover {
+    background: color-mix(in srgb, var(--color-danger) 26%, transparent)
+}
+
+.wsp-confirm-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px
+}
+
 /* ── Sidebar peek ────────────────────────────────────────────────── */
 
 /* A 6px strip, not a full-height invisible panel: it must not swallow clicks
@@ -219,4 +296,81 @@
 .wsp-target-slot.is-over .wsp-target-number {
     color: var(--color-on-accent);
     background: var(--color-primary)
+}
+
+/* The half of the pane a dropped pane would take. Drawn as a pseudo-element so
+   the preview costs no DOM and no React render as the pointer crosses a band:
+   only the `data-edge` attribute changes, and the cascade does the rest. A
+   centre drop lights the whole pane, because a swap takes all of it. */
+.wsp-target-slot.is-drop.is-over::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-primary) 26%, transparent);
+    pointer-events: none;
+    transition: inset var(--transition-fast)
+}
+
+.wsp-target-slot.is-drop[data-edge="left"]::after {
+    inset: 0 50% 0 0
+}
+
+.wsp-target-slot.is-drop[data-edge="right"]::after {
+    inset: 0 0 0 50%
+}
+
+.wsp-target-slot.is-drop[data-edge="top"]::after {
+    inset: 0 0 50% 0
+}
+
+.wsp-target-slot.is-drop[data-edge="bottom"]::after {
+    inset: 50% 0 0 0
+}
+
+/* The other windows, redrawn inside the overlay because the rail itself sits
+   underneath it. Same edge, same chip vocabulary as the rail. */
+.wsp-target-windows {
+    position: fixed;
+    top: 50%;
+    right: var(--space-2);
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-panel);
+    box-shadow: var(--shadow-lg)
+}
+
+.wsp-target-window {
+    min-width: 40px;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-2);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums
+}
+
+.wsp-target-window.is-over {
+    border-style: solid;
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    color: var(--color-text)
+}
+
+.wsp-target-window-name {
+    max-width: 8ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
 }
