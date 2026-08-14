@@ -19,8 +19,62 @@ use super::server::{FORMAT_TIMEOUT, QUERY_TIMEOUT};
 
 // ── Definition ──────────────────────────────────────────
 
+/// The four "take me to the symbol" queries. They differ only in the LSP method
+/// and the capability that gates it, so they are one enum rather than four
+/// near-identical functions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Goto {
+    Definition,
+    TypeDefinition,
+    Implementation,
+    Declaration,
+}
+
+impl Goto {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "definition" => Some(Self::Definition),
+            "type-definition" | "typeDefinition" => Some(Self::TypeDefinition),
+            "implementation" => Some(Self::Implementation),
+            "declaration" => Some(Self::Declaration),
+            _ => None,
+        }
+    }
+
+    fn method(self) -> &'static str {
+        match self {
+            Self::Definition => "textDocument/definition",
+            Self::TypeDefinition => "textDocument/typeDefinition",
+            Self::Implementation => "textDocument/implementation",
+            Self::Declaration => "textDocument/declaration",
+        }
+    }
+
+    fn supported_by(self, caps: &super::server::ServerCaps) -> bool {
+        match self {
+            Self::Definition => caps.definition,
+            Self::TypeDefinition => caps.type_definition,
+            Self::Implementation => caps.implementation,
+            Self::Declaration => caps.declaration,
+        }
+    }
+}
+
 pub async fn definition(
     pool: &Arc<LspPool>,
+    file: &Path,
+    project_dir: &Path,
+    line: i64,
+    col: i64,
+    content: Option<&str>,
+) -> Value {
+    goto(pool, Goto::Definition, file, project_dir, line, col, content).await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn goto(
+    pool: &Arc<LspPool>,
+    kind: Goto,
     file: &Path,
     project_dir: &Path,
     line: i64,
@@ -30,7 +84,7 @@ pub async fn definition(
     let Some((resolved, caps)) = prepare(pool, file, project_dir, content).await else {
         return unavailable(&[("locations", json!([]))]);
     };
-    if !caps.definition {
+    if !kind.supported_by(&caps) {
         return unavailable(&[("locations", json!([]))]);
     }
     let text = read_text(file, content);
@@ -40,14 +94,14 @@ pub async fn definition(
         .server
         .peer
         .request(
-            "textDocument/definition",
+            kind.method(),
             json!({ "textDocument": { "uri": path_to_uri(file) }, "position": position }),
             QUERY_TIMEOUT,
         )
         .await;
 
     let Ok(value) = result else {
-        debug!("lsp: definition failed");
+        debug!(?kind, "lsp: goto failed");
         return unavailable(&[("locations", json!([]))]);
     };
 

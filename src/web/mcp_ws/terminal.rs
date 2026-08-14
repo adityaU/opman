@@ -146,7 +146,7 @@ pub(crate) async fn handle_terminal_new(
     );
 
     // Get working directory from web state
-    let working_dir = state
+    let project = state
         .web_state
         .get_working_dir()
         .await
@@ -154,7 +154,14 @@ pub(crate) async fn handle_terminal_new(
 
     state
         .pty_mgr
-        .spawn_shell(id.clone(), rows, cols, working_dir)
+        .spawn(crate::web::pty_manager::SpawnSpec {
+            id: id.clone(),
+            program: crate::web::pty_manager::PtyProgram::Shell,
+            project,
+            label: None,
+            rows,
+            cols,
+        })
         .await
         .map_err(|e| format!("Failed to spawn PTY: {}", e))?;
 

@@ -5,7 +5,20 @@
 use super::super::activity::PtyActivity;
 use super::super::handle::WebPtyHandle;
 use super::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
+use super::super::kind::{PtyProgram, SpawnSpec};
 use super::*;
+
+/// A spec for one PTY. The tests only ever vary the id, program and project.
+fn spec(id: &str, program: PtyProgram, project: &std::path::Path) -> SpawnSpec {
+    SpawnSpec {
+        id: id.into(),
+        program,
+        project: project.to_path_buf(),
+        label: None,
+        rows: 24,
+        cols: 80,
+    }
+}
 
 #[tokio::test]
 async fn shell_pty_full_lifecycle() {
@@ -20,9 +33,9 @@ async fn shell_pty_full_lifecycle() {
     let h = start_web_pty_manager();
 
     let out = h
-        .spawn_shell("term1".into(), 24, 80, work.path().to_path_buf())
+        .spawn(spec("term1", PtyProgram::Shell, work.path()))
         .await;
-    assert!(out.is_ok(), "spawn_shell should succeed: {out:?}");
+    assert!(out.is_ok(), "spawning a shell should succeed: {out:?}");
 
     assert_eq!(h.list().await, vec!["term1".to_string()]);
     assert!(h.write("term1", b"echo hi\n".to_vec()).await, "write");
@@ -39,9 +52,7 @@ async fn spawn_shell_error_arm_reports_err() {
     env.set("SHELL", "/nonexistent/opman-fakeshell-zzz");
     let work = tempfile::tempdir().unwrap();
     let h = start_web_pty_manager();
-    let res = h
-        .spawn_shell("bad".into(), 24, 80, work.path().to_path_buf())
-        .await;
+    let res = h.spawn(spec("bad", PtyProgram::Shell, work.path())).await;
     assert!(res.is_err(), "missing shell -> Err arm");
     assert!(h.list().await.is_empty());
 }
@@ -50,8 +61,10 @@ async fn spawn_shell_error_arm_reports_err() {
 async fn all_spawn_arms_insert_ptys() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
+    // Long-lived fakes: a program that exits is pruned from the map, which is a
+    // different behaviour and has its own test below.
     for name in ["nvim", "gitui", "opencode", "claude"] {
-        write_fake_bin(dir.path(), name, "exit 0");
+        write_fake_bin(dir.path(), name, "while true; do sleep 1; done");
     }
     let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
     let mut env = EnvRestore::new();
@@ -62,22 +75,25 @@ async fn all_spawn_arms_insert_ptys() {
     let work = work_dir.path().to_path_buf();
     let h = start_web_pty_manager();
 
-    assert!(h
-        .spawn_neovim("nv".into(), 24, 80, work.clone())
-        .await
-        .is_ok());
-    assert!(h
-        .spawn_gitui("gt".into(), 24, 80, work.clone())
-        .await
-        .is_ok());
-    assert!(h
-        .spawn_opencode("oc".into(), 24, 80, work.clone(), Some("s1".into()))
-        .await
-        .is_ok());
-    assert!(h
-        .spawn_claude_attach("cl".into(), 24, 80, work.clone(), "short".into())
-        .await
-        .is_ok());
+    let programs = [
+        ("nv", PtyProgram::Neovim),
+        ("gt", PtyProgram::Git),
+        (
+            "oc",
+            PtyProgram::Opencode {
+                session_id: Some("s1".into()),
+            },
+        ),
+        (
+            "cl",
+            PtyProgram::ClaudeAttach {
+                short_id: "short".into(),
+            },
+        ),
+    ];
+    for (id, program) in programs {
+        assert!(h.spawn(spec(id, program, &work)).await.is_ok(), "{id}");
+    }
 
     let mut ids = h.list().await;
     ids.sort();
@@ -91,8 +107,72 @@ async fn all_spawn_arms_insert_ptys() {
         ]
     );
 
+    for id in ["nv", "gt", "oc", "cl"] {
+        assert!(h.kill(id).await, "{id}");
+    }
+
     // Dropping the handle closes the channel; the manager drains & kills all PTYs.
     drop(h);
+}
+
+/// A shell the user typed `exit` into must stop being offered. Nothing else in
+/// the process notices a child ending, so listing is what has to notice.
+#[tokio::test]
+async fn a_program_that_exits_is_dropped_from_the_listing() {
+    let _g = env_lock();
+    let dir = tempfile::tempdir().unwrap();
+    let sh = write_fake_bin(dir.path(), "briefshell", "exit 0");
+    let mut env = EnvRestore::new();
+    env.set("SHELL", &sh.display().to_string());
+
+    let h = start_web_pty_manager();
+    h.spawn(spec("brief", PtyProgram::Shell, dir.path()))
+        .await
+        .expect("fake shell spawns");
+
+    for _ in 0..60 {
+        if h.list().await.is_empty() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("an exited shell should not stay in the listing");
+}
+
+/// The label and project travel with the PTY, since the picker groups by one
+/// and shows the other.
+#[tokio::test]
+async fn sessions_carry_the_project_and_a_numbered_label() {
+    let _g = env_lock();
+    let dir = tempfile::tempdir().unwrap();
+    let sh = write_fake_bin(dir.path(), "metashell", "while true; do sleep 1; done");
+    let mut env = EnvRestore::new();
+    env.set("SHELL", &sh.display().to_string());
+
+    let work = tempfile::tempdir().unwrap();
+    let h = start_web_pty_manager();
+    for id in ["one", "two"] {
+        h.spawn(spec(id, PtyProgram::Shell, work.path()))
+            .await
+            .expect("fake shell spawns");
+    }
+
+    let listed = h.sessions().await;
+    assert_eq!(listed.len(), 2);
+    for session in &listed {
+        assert_eq!(session.project, work.path().to_string_lossy());
+        assert_eq!(session.kind, super::super::kind::PtyKind::Shell);
+    }
+    let mut labels: Vec<&str> = listed.iter().map(|s| s.label.as_str()).collect();
+    labels.sort();
+    assert_eq!(labels, ["Shell 1", "Shell 2"]);
+
+    // A rename replaces only the label.
+    assert!(h.rename("one", "Build".into()).await);
+    let renamed = h.sessions().await;
+    assert!(renamed.iter().any(|s| s.id == "one" && s.label == "Build"));
+    assert!(renamed.iter().any(|s| s.label.starts_with("Shell")));
+    assert!(!h.rename("nope", "X".into()).await, "unknown id");
 }
 
 // ── Foreground activity ─────────────────────────────────────────────
@@ -126,7 +206,7 @@ async fn activity_reports_running_while_a_command_holds_the_terminal() {
     env.set("SHELL", &sh.display().to_string());
 
     let h = start_web_pty_manager();
-    h.spawn_shell("busy-term".into(), 24, 80, dir.path().to_path_buf())
+    h.spawn(spec("busy-term", PtyProgram::Shell, dir.path()))
         .await
         .expect("fake shell spawns");
 
@@ -148,7 +228,7 @@ async fn activity_is_idle_when_the_shell_owns_the_terminal() {
     env.set("SHELL", &sh.display().to_string());
 
     let h = start_web_pty_manager();
-    h.spawn_shell("idle-term".into(), 24, 80, dir.path().to_path_buf())
+    h.spawn(spec("idle-term", PtyProgram::Shell, dir.path()))
         .await
         .expect("fake shell spawns");
 

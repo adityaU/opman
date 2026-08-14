@@ -34,11 +34,11 @@ import { SettingsPage, useSettingsRoute } from "./settings-page";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
 import { EditorOpenProvider } from "./tool-call/EditorOpenContext";
+import { AgentSessionOpenProvider } from "./tool-call/agent-manager";
 import type { FileOpenRequest } from "./code-editor/types";
 import { StartupGate } from "./StartupGate";
 import { isMobileViewport } from "./hooks/useIsMobile";
 import { useWorkspaceShellProps } from "./workspace/useWorkspaceShellProps";
-import { useEditorEngine } from "./editor-engine/preference";
 
 export function ChatLayout() {
   // Latches once the app has painted for the first time; see the startup gate
@@ -49,7 +49,6 @@ export function ChatLayout() {
   // as its chord, so the two can never drift into separate implementations.
   const keymap = useKeymapContext();
   const { runCommand } = keymap;
-  const [editorEngine, setEditorEngine] = useEditorEngine(keymap.mode);
 
   // ── Core SSE state ──
   const sse = useSSE();
@@ -58,9 +57,9 @@ export function ChatLayout() {
     crossSessionPermissions, crossSessionQuestions, sessionStatus,
     isLoadingMessages, isLoadingOlder, hasOlderMessages, totalMessageCount,
     watcherStatus, subagentMessages, fileEditCount,
-    mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpAgentActivity,
+    mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpBrowserOpen, mcpAgentActivity,
     refreshState, clearPermission, clearQuestion,
-    clearMcpEditorOpen, clearMcpTerminalFocus,
+    clearMcpEditorOpen, clearMcpTerminalFocus, clearMcpBrowserOpen,
     addOptimisticMessage, clearOptimistic, loadOlderMessages, beginSessionSwitch,
     isSessionBusy,
   } = sse;
@@ -313,7 +312,7 @@ export function ChatLayout() {
       return typeof label === "string" ? label : null;
     })
     .filter((value): value is string => Boolean(value));
-  const effortOptions = supportedEfforts.length > 0 ? [...new Set(supportedEfforts)] : ["low", "medium", "high"];
+   const effortOptions = [...new Set(supportedEfforts)];
 
   // ── Restore the last session on a cold start ──
   useSessionRestore({
@@ -407,7 +406,14 @@ export function ChatLayout() {
     [crossSessionPermissions, crossSessionQuestions, permissions, questions],
   );
 
-  const { workspaceProps, armTargeting, openKindHere, openFileInWorkspace } = useWorkspaceShellProps({
+  const {
+    workspaceProps,
+    armTargeting,
+    openKindHere,
+    openFileInWorkspace,
+    openFileWhereInWorkspace,
+    openBrowserInWorkspace,
+  } = useWorkspaceShellProps({
     appState,
     activeSessionId,
     busySessions,
@@ -450,6 +456,22 @@ export function ChatLayout() {
     [mobile, openFileInWorkspace],
   );
 
+  /**
+   * The editor's own jumps, which offer a pane instead of choosing one. Falls
+   * back to the ordinary reveal wherever the workspace is not mounted — mobile,
+   * or the board — so the link still works, it just stops asking.
+   */
+  const editorOpener = useMemo(
+    () => ({
+      open: openFileInEditor,
+      openWhere: (path: string, line: number | null, label: string) => {
+        if (openFileWhereInWorkspace(path, line, label)) return;
+        openFileInEditor(path, line);
+      },
+    }),
+    [openFileInEditor, openFileWhereInWorkspace],
+  );
+
   // The MCP `web_editor` tool asking for a file is the same request arriving
   // over SSE, so it takes the same route. Cleared on arrival: it is an event,
   // and a latched one would re-fire on the next unrelated render.
@@ -466,6 +488,15 @@ export function ChatLayout() {
     openKindHere("terminal");
     clearMcpTerminalFocus();
   }, [mcpTerminalFocusId, openKindHere, clearMcpTerminalFocus]);
+
+  // An agent drove a project's browser somewhere: show it. The workspace reuses
+  // the pane already holding that project's browser, so this only ever creates
+  // one when there is none — no second view of the same tab.
+  useEffect(() => {
+    if (!mcpBrowserOpen) return;
+    openBrowserInWorkspace(mcpBrowserOpen.projectPath, mcpBrowserOpen.url);
+    clearMcpBrowserOpen();
+  }, [mcpBrowserOpen, openBrowserInWorkspace, clearMcpBrowserOpen]);
 
   /**
    * Hand a chat to a pane instead of navigating. Reports false when it could
@@ -512,6 +543,33 @@ export function ChatLayout() {
     if (targetChat(null, activeProjectIndex, "New session")) return;
     await handlers.handleNewSession();
   }, [activeProjectIndex, handlers, targetChat]);
+  /**
+   * An agent-manager tool card asking to open the session it just started.
+   *
+   * The card knows an id and nothing else, so the lookup is here: find the
+   * project that holds it, then take the same route the sidebar takes — arm the
+   * pane overlay on desktop, navigate where there are no panes.
+   */
+  const projectIndexOfSession = useCallback(
+    (sessionId: string) =>
+      (appState?.projects ?? []).findIndex((project: any) =>
+        project.sessions?.some((session: any) => session.id === sessionId),
+      ),
+    [appState?.projects],
+  );
+  const agentSessionOpener = useMemo(
+    () => ({
+      canOpen: (sessionId: string) => projectIndexOfSession(sessionId) >= 0,
+      open: (sessionId: string, label: string) => {
+        const index = projectIndexOfSession(sessionId);
+        if (index < 0) return;
+        if (targetChat(sessionId, index, label)) return;
+        handlers.handleSelectSession(sessionId, index);
+      },
+    }),
+    [handlers, projectIndexOfSession, targetChat],
+  );
+
   const openMemoryActive = useCallback(() => modalState.openMemoryActive(), [modalState]);
   const openMemoryAll = useCallback(() => modalState.openMemoryAll(), [modalState]);
   const openCmdPalette = useCallback(() => modalState.open("commandPalette"), [modalState]);
@@ -585,8 +643,6 @@ export function ChatLayout() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onThemeApplied={callbacks.handleThemeApplied}
-          editorEngine={editorEngine}
-          onEditorEngineChange={setEditorEngine}
           onError={(message) => addToast(message, "error")}
           runners={availableRunners}
         />
@@ -596,7 +652,8 @@ export function ChatLayout() {
   }
 
   return (
-    <EditorOpenProvider value={openFileInEditor}>
+    <EditorOpenProvider value={editorOpener}>
+    <AgentSessionOpenProvider value={agentSessionOpener}>
     <div className="chat-layout">
       {mobile.sidebarOpen && <div className="sidebar-overlay visible" onClick={mobile.closeSidebar} />}
       <ChatMainArea
@@ -683,6 +740,7 @@ export function ChatLayout() {
         isKanbanView={isKanbanView} onToggleKanban={toggleKanbanView}
       />
     </div>
+    </AgentSessionOpenProvider>
     </EditorOpenProvider>
   );
 }

@@ -220,6 +220,12 @@ pub(crate) enum Commands {
     /// Run the Kanban MCP bridge (task lane/notes updates for launched tasks)
     McpKanban,
 
+    /// Run the browser MCP bridge (drives the workspace's browser panes)
+    McpBrowser {
+        /// Path to the project directory — its browser is the one the tools default to
+        project_path: Option<PathBuf>,
+    },
+
     /// Run the ask MCP bridge (asks the user a structured question and waits)
     McpAsk {
         /// Path to the project directory

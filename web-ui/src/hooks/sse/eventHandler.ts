@@ -458,6 +458,9 @@ export interface AppSSEContext {
   setMcpEditorOpenPath: React.Dispatch<React.SetStateAction<string | null>>;
   setMcpEditorOpenLine: React.Dispatch<React.SetStateAction<number | null>>;
   setMcpTerminalFocusId: React.Dispatch<React.SetStateAction<string | null>>;
+  setMcpBrowserOpen: React.Dispatch<
+    React.SetStateAction<{ projectPath: string; url: string } | null>
+  >;
   setMcpAgentActivity: React.Dispatch<React.SetStateAction<Map<string, boolean>>>;
   setPresenceClients: React.Dispatch<React.SetStateAction<ClientPresence[]>>;
 }
@@ -543,6 +546,13 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
   });
   appSSE.addEventListener("mcp_terminal_focus", (e: MessageEvent) => {
     ctx.setMcpTerminalFocusId(e.data);
+  });
+  appSSE.addEventListener("mcp_browser_open", (e: MessageEvent) => {
+    try {
+      const data = JSON.parse(e.data) as { projectPath?: string; url?: string };
+      if (!data.projectPath) return;
+      ctx.setMcpBrowserOpen({ projectPath: data.projectPath, url: data.url ?? "" });
+    } catch { /* ignore */ }
   });
   appSSE.addEventListener("mcp_agent_activity", (e: MessageEvent) => {
     try {

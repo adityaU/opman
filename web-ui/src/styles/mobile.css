@@ -88,7 +88,7 @@
     border-radius: 50%;
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all .15s ease;
+    transition: var(--transition-interactive);
     flex-shrink: 0;
     pointer-events: auto;
     box-shadow: 0 2px 8px var(--black-8);

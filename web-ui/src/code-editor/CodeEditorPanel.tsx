@@ -13,23 +13,14 @@ import { useFileExplorer } from "./hooks/useFileExplorer";
 import { useFileEditor } from "./hooks/useFileEditor";
 import { useLspFeatures } from "./hooks/useLspFeatures";
 import { useEditorCommands } from "./useEditorCommands";
+import { useWhenContext } from "../keybindings/useCommand";
 import { useEditorLsp } from "./hooks/useEditorLsp";
 import { DesktopLayout } from "./components/DesktopLayout";
 import { MobileLayout } from "./components/MobileLayout";
-import { shouldAttachNeovim } from "./surface";
-import { useOptionalKeymapContext } from "../keybindings/KeymapContext";
-import { useEditorEngine } from "../editor-engine/preference";
-import { useIsMobile } from "../hooks/useIsMobile";
-import { useNvimEditBinding } from "../nvim/edit/useNvimEditBinding";
-import type { IdleReason } from "../nvim/edit/decorations";
 
 export default function CodeEditorPanel({
   focused, open, projectPath, sessionId, onError, layout,
 }: CodeEditorPanelProps) {
-  const keymap = useOptionalKeymapContext();
-  const isMobile = useIsMobile();
-  const [editorEngine] = useEditorEngine(keymap?.mode ?? "normal");
-
   const explorer = useFileExplorer(projectPath, open, onError);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +38,7 @@ export default function CodeEditorPanel({
   const fileRenderType: FileRenderType = activeEntry?.renderType ?? "code";
 
   const lsp = useLspFeatures(
-    activeEntry, explorer.activeFilePath, sessionId,
+    activeEntry, explorer.activeFilePath, sessionId, projectPath,
     currentContent, editor.cursorLine, editor.cursorCol,
     explorer.loadFile, explorer.setOpenFiles, explorer.setSaveStatus,
     onError,
@@ -55,7 +46,7 @@ export default function CodeEditorPanel({
 
   // LSP lives inside the editor: hover tooltips, ⌘-click / F12 to definition,
   // ⇧⌥F to format, diagnostics underlined in place.
-  const { extensions: lspExtensions, runAction } = useEditorLsp({
+  const { extensions: lspExtensions } = useEditorLsp({
     enabled: lsp.lspAvailable,
     activeFilePath: explorer.activeFilePath,
     activeDiagnostics: lsp.activeDiagnostics,
@@ -68,47 +59,31 @@ export default function CodeEditorPanel({
     referencesAt: lsp.referencesAt,
     renameAt: lsp.renameAt,
     jumpTo: lsp.jumpTo,
-  });
-
-  const attachNvim = shouldAttachNeovim(layout, editorEngine, isMobile)
-    && editor.activeView === "code" && explorer.activeFilePath !== null;
-  const handleNvimBufferDetached = useCallback(() => {
-    const path = explorer.activeFilePath;
-    if (path) explorer.closeFile(path);
-  }, [explorer.activeFilePath, explorer.closeFile]);
-  const idleReason: IdleReason = editorEngine !== "neovim"
-    ? "engine-codemirror"
-    : isMobile || layout === "mobile"
-      ? "mobile-surface"
-      : editor.activeView !== "code"
-        ? "not-code-surface"
-        : explorer.activeFilePath === null
-          ? "no-file"
-          : !sessionId
-            ? "no-session"
-            : "disabled";
-  const nvimBinding = useNvimEditBinding({
-    enabled: attachNvim,
-    path: explorer.activeFilePath,
-    sessionId,
-    idleReason,
-    onBufferDetached: handleNvimBufferDetached,
-    onAction: runAction,
+    gotoAt: lsp.gotoAt,
+    reveal: lsp.reveal,
   });
 
   const extensions = useMemo(
-    () => [...editor.extensions, ...lspExtensions, ...nvimBinding],
-    [editor.extensions, lspExtensions, nvimBinding],
+    () => [...editor.extensions, ...lspExtensions],
+    [editor.extensions, lspExtensions],
   );
 
   useEditorCommands({
     hasOpenFile: Boolean(openFile),
+    viewRef: editor.editorViewRef,
     save: explorer.handleSave,
     revert: explorer.handleRevert,
     format: lsp.handleFormatWithLsp,
     goToDefinition: lsp.handleDefinition,
     hover: lsp.handleHover,
     reloadRoot: explorer.handleReloadRoot,
+  });
+
+  // `mod+s` is scoped `when: editorDirty`, so an unpublished key left Save
+  // inert: the binding never matched and the keystroke fell through.
+  useWhenContext({
+    editorDirty: explorer.saveStatus === "modified",
+    anyDirty: explorer.openFiles.some((file) => file.editedContent !== null),
   });
 
   // Pending line jump
@@ -134,7 +109,10 @@ export default function CodeEditorPanel({
     const editorMain = panel?.querySelector<HTMLElement>(".code-editor-main");
     if (!editorMain) return;
 
+    // 0x0 means the pane's window is in the background and its contents are
+    // being skipped, not that the editor got narrower.
     const resizeObserver = new ResizeObserver(() => {
+      if (editorMain.clientWidth === 0) return;
       editor.editorViewRef.current?.requestMeasure();
     });
     resizeObserver.observe(editorMain);

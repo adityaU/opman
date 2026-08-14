@@ -41,7 +41,7 @@ impl BuiltinFlags {
 
 /// Names opman ships. The settings page marks these as toggleable but not removable:
 /// deleting the config entry only restores the built-in.
-pub const BUILTIN_NAMES: [&str; 8] = [
+pub const BUILTIN_NAMES: [&str; 9] = [
     "terminal",
     "neovim",
     "time",
@@ -50,6 +50,7 @@ pub const BUILTIN_NAMES: [&str; 8] = [
     "kanban",
     "agent-manager",
     "ask",
+    "browser",
 ];
 
 pub fn is_builtin(name: &str) -> bool {
@@ -123,6 +124,19 @@ pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
         )
         .with_presence(Presence::LoopbackDescriptor)
         .with_timeout(PROXY_TIMEOUT_SECS),
+    );
+    // Browser panes. Unconditional but loopback-gated like kanban: the tools act on tabs
+    // the web server owns, so without it there is nothing to drive. A page load plus its
+    // outline can outrun a default MCP timeout on a slow site, hence the proxy timeout.
+    specs.push(
+        ServerSpec::stdio(
+            "browser",
+            exe,
+            vec![Arg::lit("mcp-browser"), Arg::Dir],
+            Vec::new(),
+        )
+            .with_presence(Presence::LoopbackDescriptor)
+            .with_timeout(PROXY_TIMEOUT_SECS),
     );
     specs.push(
         ServerSpec::stdio(

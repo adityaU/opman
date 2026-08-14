@@ -30,7 +30,7 @@
     font-size: var(--font-size-xs);
     font-weight: 500;
     cursor: pointer;
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 .sb-modal-btn:disabled {
@@ -91,7 +91,7 @@
     font-size: var(--font-size-xs);
     font-family: inherit;
     cursor: pointer;
-    transition: all .15s ease
+    transition: var(--transition-interactive)
 }
 
 .sb-add-project-btn:hover {
@@ -195,7 +195,7 @@
     background: transparent;
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all .15s ease
+    transition: var(--transition-interactive)
 }
 
 .sb-dir-browser-close:hover {
@@ -223,7 +223,7 @@
     color: var(--color-text-secondary);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all .15s ease
+    transition: var(--transition-interactive)
 }
 
 .sb-dir-browser-nav-btn:hover:not(:disabled) {

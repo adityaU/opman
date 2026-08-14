@@ -1,0 +1,12 @@
+/* Nerd Font symbol glyphs (powerline, devicons, file-type icons).
+   Symbols-only patch font: the browser fetches it lazily, and only when a
+   glyph in one of these ranges is actually painted, so normal text pays
+   nothing. Referenced as the last-but-one fallback in every mono stack. */
+@font-face {
+    font-family: "Symbols Nerd Font Mono";
+    src: url("/fonts/SymbolsNerdFontMono-Regular.woff2") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+23FB-23FE, U+2665, U+26A1, U+2B58, U+E000-F8FF, U+F0000-FFFFD, U+100000-10FFFD;
+}

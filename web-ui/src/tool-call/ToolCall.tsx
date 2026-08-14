@@ -15,7 +15,8 @@ import { KanbanToolCard, isKanbanTool } from "./KanbanToolCard";
 import { ReadCard, isReadTool, BashCard, isBashCard, EditCard, isEditCard } from "./readBashCards";
 import { WebSearchCard, isWebSearchCard, WebFetchCard, isWebFetchCard, GlobCard, isGlobCard } from "./webGlobCards";
 import { GenericToolCard } from "./GenericToolCard";
-import { AgentManagerToolCard, isAgentManagerTool } from "./AgentManagerToolCard";
+import { AgentManagerToolCard, isAgentManagerTool } from "./agent-manager";
+import { BrowserToolCard, isBrowserTool } from "./BrowserToolCard";
 import { useAutoOpen } from "../hooks/useAutoOpen";
 
 export const ToolCall = React.memo(function ToolCall({
@@ -40,6 +41,7 @@ export const ToolCall = React.memo(function ToolCall({
   const isA2UI = lname.includes("ui_render") || lname.includes("ui_ui_render") || toolName === "a2ui";
   const isAgentManager = isAgentManagerTool(toolName);
   const isKanban = isKanbanTool(toolName);
+  const isBrowser = isBrowserTool(toolName);
   const isRead = !isKanban && isReadTool(toolName);
   const isBash = !isBackgroundTask && isBashCard(toolName);
   const isEdit = isEditCard(toolName);
@@ -116,6 +118,10 @@ export const ToolCall = React.memo(function ToolCall({
   }
 
   // Kanban MCP tools render as purpose-built cards — no accordion wrapper
+  if (isBrowser) {
+    return <BrowserToolCard part={part} />;
+  }
+
   if (isKanban) {
     return <KanbanToolCard part={part} />;
   }
@@ -158,7 +164,6 @@ export const ToolCall = React.memo(function ToolCall({
           <SubagentSession
             sessionId={taskSessionId}
             title={childSession?.title || "Task"}
-            progressTitle={state?.title}
             messages={subagentMessages?.get(taskSessionId)}
             isRunning={isRunning}
             isCompleted={isCompleted}

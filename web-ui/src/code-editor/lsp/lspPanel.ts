@@ -147,8 +147,8 @@ export function lspPanelExtension(bridge: LspPanelBridgeRef): Extension {
   const panel = (view: EditorView): Panel => {
     const dom = element("div", "cm-lsp-panel");
     render(dom, view.state.field(lspPanelField), bridge, view);
-    // Neovim's binding claims keydown in the capture phase, so an Escape meant
-    // for this panel would otherwise never reach CodeMirror's keymap.
+    // The app keymap listens for keydown in the capture phase, so an Escape
+    // meant for this panel would otherwise never reach CodeMirror's keymap.
     const dismiss = (event: KeyboardEvent): void => {
       if (event.key === "Escape") closeLspPanel(view);
     };

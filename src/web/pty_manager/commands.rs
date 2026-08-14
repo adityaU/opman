@@ -4,50 +4,14 @@ use tokio::sync::oneshot;
 
 use super::activity::PtyActivity;
 use super::buffer::RawOutputBuffer;
+use super::kind::SpawnSpec;
+use super::session::PtySession;
 
 pub enum PtyCmd {
-    /// Spawn a shell PTY for the web UI.
-    SpawnShell {
-        id: String,
-        rows: u16,
-        cols: u16,
-        working_dir: std::path::PathBuf,
-        reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
-    },
-    /// Spawn a neovim PTY for the web UI.
-    SpawnNeovim {
-        id: String,
-        rows: u16,
-        cols: u16,
-        working_dir: std::path::PathBuf,
-        reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
-    },
-    /// Spawn a gitui PTY for the web UI.
-    SpawnGitui {
-        id: String,
-        rows: u16,
-        cols: u16,
-        working_dir: std::path::PathBuf,
-        reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
-    },
-    /// Spawn an opencode attach PTY for the web UI.
-    SpawnOpencode {
-        id: String,
-        rows: u16,
-        cols: u16,
-        working_dir: std::path::PathBuf,
-        /// If set, attach to this specific session; otherwise create a new one.
-        session_id: Option<String>,
-        reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
-    },
-    /// Spawn an interactive `claude attach <short_id>` PTY for the Claude engine.
-    SpawnClaudeAttach {
-        id: String,
-        rows: u16,
-        cols: u16,
-        working_dir: std::path::PathBuf,
-        /// The claude background agent's short id to attach to.
-        short_id: String,
+    /// Start a PTY. One variant for every kind: what differs between them is
+    /// the command line, which `SpawnSpec` already carries.
+    Spawn {
+        spec: Box<SpawnSpec>,
         reply: oneshot::Sender<Result<RawOutputBuffer, String>>,
     },
     /// Write bytes to a web PTY.
@@ -73,13 +37,22 @@ pub enum PtyCmd {
         id: String,
         reply: oneshot::Sender<Option<PtyActivity>>,
     },
+    /// Rename a PTY as it appears in the shell picker.
+    Rename {
+        id: String,
+        label: String,
+        reply: oneshot::Sender<bool>,
+    },
     /// Kill and remove a web PTY.
     Kill {
         id: String,
         reply: oneshot::Sender<bool>,
     },
-    /// List active web PTY IDs.
-    List { reply: oneshot::Sender<Vec<String>> },
+    /// Every live PTY with its project, label and activity. Exited programs are
+    /// dropped as part of answering, so this is also what prunes the map.
+    Sessions {
+        reply: oneshot::Sender<Vec<PtySession>>,
+    },
 }
 
 #[cfg(test)]

@@ -59,6 +59,13 @@ fn spec_models_take_precedence_over_the_config_option() {
 }
 
 #[test]
+fn empty_spec_models_fall_back_to_config_option() {
+    let mut s = setup();
+    s["models"] = json!({ "currentModelId": "opus[1m]", "availableModels": [] });
+    assert_eq!(ids(&models(&s)), vec!["default", "opus[1m]", "sonnet"]);
+}
+
+#[test]
 fn mode_ids_prefer_the_spec_modes_block() {
     let from_spec = mode_ids(&setup());
     assert_eq!(
@@ -209,6 +216,7 @@ fn provider_payload_shapes_models_like_the_picker_expects() {
         &models(&setup()),
         current(&setup(), MODEL).as_deref(),
         &mode_ids(&setup()),
+        &efforts(&setup()),
     );
     // The picker reads `all`/`connected`/`default`, the same shape the other engines emit —
     // a `providers` key here would have rendered an empty model list.
@@ -249,7 +257,7 @@ fn provider_payload_carries_the_agents_own_permission_modes() {
             description: String::new(),
         },
     ];
-    let payload = provider_payload("claude", "Claude", &[], None, &modes);
+    let payload = provider_payload("claude", "Claude", &[], None, &modes, &[]);
     let listed = payload["permissionModes"].as_array().expect("array");
     assert_eq!(listed.len(), 2);
     assert_eq!(listed[0]["value"], "bypassPermissions");

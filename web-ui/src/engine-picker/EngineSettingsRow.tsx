@@ -9,33 +9,11 @@
 import { Shield } from "lucide-react";
 import type { PermissionModeOption } from "../api/session";
 
-/**
- * Fallback permission modes, by runner name. Engines that report their own modes (every ACP
- * agent does) override this — a config-declared agent can never appear in a table like
- * this, so discovery is the rule and these are the backstop.
- */
-const PERMISSIONS: Record<string, { value: string; label: string }[]> = {
-  "claude-code": [
-    { value: "default", label: "Ask when needed" },
-    { value: "acceptEdits", label: "Auto-accept edits" },
-    { value: "plan", label: "Plan only" },
-    { value: "bypassPermissions", label: "Bypass permissions" },
-  ],
-  claude: [
-    { value: "default", label: "Ask when needed" },
-    { value: "acceptEdits", label: "Auto-accept edits" },
-    { value: "plan", label: "Plan only" },
-    { value: "bypassPermissions", label: "Bypass permissions" },
-  ],
-  opencode: [{ value: "default", label: "Default" }],
-};
-
 interface Props {
-  runner: string;
   /**
-   * Modes the engine reported, or null to fall back to the table above. An empty array is
-   * not the same as null: it means the engine was asked and has no permission model to
-   * offer, so the control is hidden rather than filled in with someone else's modes.
+   * Modes the engine reported. Null (not asked yet) and empty (asked, has no permission
+   * model — native opencode takes no `permission` field at all) both hide the control:
+   * every runner that has modes publishes them, so there is nothing to fill in from here.
    */
   permissionModes: PermissionModeOption[] | null;
   supportedEfforts: string[];
@@ -46,12 +24,11 @@ interface Props {
 }
 
 export function EngineSettingsRow({
-  runner, permissionModes, supportedEfforts, effort, permission, onEffortChange, onPermissionChange,
+  permissionModes, supportedEfforts, effort, permission, onEffortChange, onPermissionChange,
 }: Props) {
-  const permissions = permissionModes ?? PERMISSIONS[runner] ?? PERMISSIONS.opencode;
+  const permissions = permissionModes ?? [];
   const efforts = Array.from(new Set([
     ...supportedEfforts.filter(Boolean),
-    ...(effort && !supportedEfforts.includes(effort) ? [effort] : []),
   ]));
 
   return (

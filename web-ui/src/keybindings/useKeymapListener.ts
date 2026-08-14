@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { editorOwnsKey } from "../code-editor/capture";
 import { stepFromEvent } from "./chord";
 import { useKeymapContext } from "./KeymapContext";
 import type { Keymap, MatchContext } from "./matcher";
 import type { ChordStep } from "./types";
 import { whenEvaluator } from "./when";
-import { nvimOwnsKey } from "../nvim/capture";
 
 /**
  * The live keyboard listener.
@@ -105,18 +105,10 @@ export function useKeymapListener(): KeymapListenerState {
 
     function onKeyDown(event: KeyboardEvent) {
       if (MODIFIER_KEYS.has(event.key.toLowerCase())) return;
-      // Neovim is a keyboard surface of its own, so while one of its editors
-      // holds focus every key belongs to it, including chords the app would
-      // otherwise claim. The way back out is the binding's release-focus chord
-      // (Ctrl+Shift+Escape), which blurs the editor; do not preventDefault or
-      // stopPropagation because the binding's document listener still needs the event.
-      if (nvimOwnsKey(event.target)) {
-        clearTimer();
-        setPending(undefined);
-        setRevealed(false);
-        return;
-      }
-
+      // An open completion list or search panel is steering these keys. The
+      // listener runs in the capture phase, so standing down here is the only
+      // way CodeMirror ever sees them.
+      if (editorOwnsKey(event.target, event.key)) return;
       const { keymap: map, mode: current, context: ctx, runCommand: run } = latest.current;
       const steps = latest.current.pending?.steps ?? [];
 

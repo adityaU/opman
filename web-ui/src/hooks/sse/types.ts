@@ -75,6 +75,11 @@ export interface SSEState {
   mcpEditorOpenLine: number | null;
   /** MCP: terminal ID the AI agent wants to focus. */
   mcpTerminalFocusId: string | null;
+  /**
+   * An agent drove a project's browser somewhere. The workspace reveals that
+   * browser — reusing the pane already showing it, or splitting a column.
+   */
+  mcpBrowserOpen: { projectPath: string; url: string } | null;
   /** MCP: currently active agent tools (tool name → true). */
   mcpAgentActivity: Map<string, boolean>;
   /** Connected clients (presence tracking). */
@@ -89,6 +94,7 @@ export interface SSEState {
   clearQuestion: (id: string) => void;
   /** Clear MCP editor open request (after frontend has handled it). */
   clearMcpEditorOpen: () => void;
+  clearMcpBrowserOpen: () => void;
   /** Imperatively open a file in the editor panel (e.g. tool-card path click). */
   openMcpEditor: (path: string, line?: number | null) => void;
   /** Clear MCP terminal focus request (after frontend has handled it). */

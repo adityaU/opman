@@ -12,12 +12,13 @@ fn names(flags: BuiltinFlags) -> Vec<String> {
 }
 
 /// `skills` is unflagged: skills reaching no runner at all is the bug this fixes.
-/// `kanban`, `ask` and `agent-manager` are unconditional in the list and gated at bind time.
+/// `kanban`, `ask`, `browser` and `agent-manager` are unconditional in the list and gated
+/// at bind time.
 #[test]
 fn no_flags_still_yields_the_unflagged_servers() {
     assert_eq!(
         names(BuiltinFlags::default()),
-        ["skills", "kanban", "ask", "agent-manager"]
+        ["skills", "kanban", "ask", "browser", "agent-manager"]
     );
 }
 
@@ -29,7 +30,7 @@ fn every_flag_adds_exactly_its_own_server() {
     };
     assert_eq!(
         names(flags),
-        ["terminal", "skills", "kanban", "ask", "agent-manager"]
+        ["terminal", "skills", "kanban", "ask", "browser", "agent-manager"]
     );
 }
 
@@ -45,9 +46,24 @@ fn all_flags_yield_every_builtin() {
             "skills",
             "kanban",
             "ask",
+            "browser",
             "agent-manager"
         ]
     );
+}
+
+/// Browser panes live in the web server, so the tools are worth offering only when it is
+/// there to own them — the same bind-time gate kanban uses.
+#[test]
+fn browser_is_gated_on_the_loopback_descriptor_at_bind_time() {
+    let specs = servers("/opman", BuiltinFlags::default());
+    let browser = specs
+        .iter()
+        .find(|spec| spec.name() == "browser")
+        .expect("browser is a built-in");
+    assert_eq!(browser.presence, Presence::LoopbackDescriptor);
+    // A page load plus its outline can outrun a default MCP timeout on a slow site.
+    assert_eq!(browser.timeout_secs, Some(PROXY_TIMEOUT_SECS));
 }
 
 #[test]

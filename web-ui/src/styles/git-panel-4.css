@@ -114,7 +114,7 @@
     font-size: 11px;
     cursor: pointer;
     padding: 3px 8px;
-    transition: all var(--transition-base);
+    transition: var(--transition-interactive);
     max-width: 100%
 }
 

@@ -147,6 +147,7 @@ async fn live_capability_probe_populates_models_and_modes() {
         &models,
         engine.current_model().as_deref(),
         &modes,
+        &engine.efforts(),
     );
     let listed = payload["all"][0]["models"]
         .as_object()

@@ -1,0 +1,166 @@
+/* CodeMirror puts `cm-tooltip` on the tooltip's own element rather than on a
+   wrapper, so this card *is* a `.cm-tooltip` — and the editor theme paints that
+   as an opaque panel, overriding the single-class popover recipe. Restated at
+   two classes so the card keeps the app's surface instead of the editor's. */
+.cm-tooltip.lsph-card {
+    border: 1px solid var(--modal-border);
+    border-radius: var(--popover-radius);
+    background: var(--modal-surface);
+    box-shadow: var(--popover-shadow), var(--modal-rim);
+    backdrop-filter: var(--modal-blur);
+    -webkit-backdrop-filter: var(--modal-blur)
+}
+
+/* The LSP hover card.
+   Built on the app's popover recipe (`modal-popover-surface`), so the border,
+   blur, shadow and entrance are the shell's rather than the editor's — a hover
+   is a floating surface like the command palette, and glassy and flat are
+   already answered there. Only what is particular to a symbol lives here: the
+   signature it leads with, the prose under it, and the actions it offers. */
+
+.lsph-card {
+    display: flex;
+    flex-direction: column;
+    max-width: 34rem;
+    min-width: 12rem;
+    overflow: hidden;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.55;
+    text-align: left
+}
+
+/* The one line worth reading first. Larger than the prose under it and in the
+   text colour, so the eye lands here before the paragraph. */
+.lsph-signature {
+    display: block;
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere
+}
+
+.lsph-signature + .lsph-doc {
+    padding-top: 0
+}
+
+.lsph-doc {
+    max-height: 18rem;
+    padding: var(--space-2) var(--space-3);
+    overflow: auto;
+    overflow-wrap: anywhere
+}
+
+/* ── Action rail ──────────────────────────────────────────────────────
+   Separated by a hairline rather than by space: the actions are a different
+   kind of thing from the documentation above them, and the rule says so in
+   one pixel instead of a paragraph of margin. */
+
+.lsph-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border-top: 1px solid var(--modal-border);
+    background: var(--black-8, rgba(0, 0, 0, .08))
+}
+
+html.flat-theme .lsph-rail {
+    background: none
+}
+
+/* Label and pane control share one chip: two targets, one thing. Without the
+   resting background the row read as alternating words and icons. */
+.lsph-action {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 5px);
+    background: var(--white-4);
+    overflow: hidden;
+    transition: border-color var(--transition-fast)
+}
+
+.lsph-action:hover {
+    border-color: var(--modal-border)
+}
+
+.lsph-action-go,
+.lsph-action-where {
+    border: 0;
+    background: none;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast)
+}
+
+.lsph-action-go {
+    padding: 3px var(--space-2);
+    border-radius: var(--radius-sm, 5px);
+    white-space: nowrap
+}
+
+/* Inside a group the two halves share one shape, so the pair reads as one
+   control with two targets rather than as two buttons that happen to touch. */
+.lsph-action .lsph-action-go {
+    border-radius: 0
+}
+
+.lsph-action-where {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    border-left: 1px solid var(--modal-border);
+    color: var(--color-text-muted)
+}
+
+.lsph-action-where svg {
+    width: 12px;
+    height: 12px;
+    display: block
+}
+
+.lsph-action-go:hover,
+.lsph-action-where:hover {
+    background: var(--theme-surface-hover, var(--color-bg-hover));
+    color: var(--color-text)
+}
+
+.lsph-action-go:active,
+.lsph-action-where:active {
+    color: var(--color-primary)
+}
+
+.lsph-action-go:focus-visible,
+.lsph-action-where:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    color: var(--color-text)
+}
+
+/* Rename writes to the project rather than moving the reader, so it sits apart
+   from the navigations and does not carry a pane control. */
+.lsph-action-go.is-rename {
+    margin-left: auto;
+    padding: 3px var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 5px);
+    background: var(--white-4)
+}
+
+.lsph-action-go.is-rename:hover {
+    color: var(--color-warning)
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lsph-action-go,
+    .lsph-action-where {
+        transition: none
+    }
+}

@@ -200,7 +200,7 @@
     font-size: 10px;
     font-family: var(--font-mono);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: var(--transition-interactive-fast);
     line-height: 1.4;
     white-space: nowrap
 }

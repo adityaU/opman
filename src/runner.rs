@@ -108,10 +108,15 @@ pub trait Runner: Send + Sync {
         })
     }
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()>;
-    fn rename<'a>(&'a self, _session_id: &'a str, _title: &'a str) -> RunnerFuture<'a, bool> {
+    fn rename<'a>(
+        &'a self,
+        _session_id: &'a str,
+        _title: &'a str,
+        _directory: &'a str,
+    ) -> RunnerFuture<'a, bool> {
         Box::pin(async { Ok(false) })
     }
-    fn delete<'a>(&'a self, _session_id: &'a str) -> RunnerFuture<'a, bool> {
+    fn delete<'a>(&'a self, _session_id: &'a str, _directory: &'a str) -> RunnerFuture<'a, bool> {
         Box::pin(async { Ok(false) })
     }
     fn reply_permission<'a>(
@@ -472,6 +477,36 @@ impl Runner for HttpRunner {
         })
     }
 
+    fn rename<'a>(
+        &'a self,
+        session_id: &'a str,
+        title: &'a str,
+        directory: &'a str,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.json_request(
+                self.client
+                    .patch(format!("{}/session/{session_id}", self.base_url))
+                    .header("x-opencode-directory", directory)
+                    .json(&json!({ "title": title })),
+            )
+            .await
+            .map(|_| true)
+        })
+    }
+
+    fn delete<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.json_request(
+                self.client
+                    .delete(format!("{}/session/{session_id}", self.base_url))
+                    .header("x-opencode-directory", directory),
+            )
+            .await
+            .map(|_| true)
+        })
+    }
+
     // Permission/question replies are routed by request id, and only the engine
     // that raised the request knows the id. Each engine's reply endpoint reports
     // whether it actually resolved a pending waiter (`{"ok": bool}`), so an engine
@@ -605,11 +640,16 @@ impl Runner for AcpRunner {
     fn abort<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, ()> {
         self.http.abort(session_id, directory)
     }
-    fn rename<'a>(&'a self, session_id: &'a str, title: &'a str) -> RunnerFuture<'a, bool> {
-        self.http.rename(session_id, title)
+    fn rename<'a>(
+        &'a self,
+        session_id: &'a str,
+        title: &'a str,
+        directory: &'a str,
+    ) -> RunnerFuture<'a, bool> {
+        self.http.rename(session_id, title, directory)
     }
-    fn delete<'a>(&'a self, session_id: &'a str) -> RunnerFuture<'a, bool> {
-        self.http.delete(session_id)
+    fn delete<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, bool> {
+        self.http.delete(session_id, directory)
     }
     fn reply_permission<'a>(
         &'a self,
@@ -990,6 +1030,27 @@ impl RunnerRegistry {
             .await
     }
 
+    /// The permission-mode ids this runner publishes, empty when it has no catalogue.
+    ///
+    /// A runner that publishes none cannot contradict a caller, so callers treat the empty
+    /// list as "unknown, pass it through" rather than "rejects everything".
+    pub async fn permission_modes(&self, kind: RunnerKind, directory: &str) -> Vec<String> {
+        let Ok(providers) = self.providers(kind, directory).await else {
+            return Vec::new();
+        };
+        providers
+            .get("permissionModes")
+            .and_then(Value::as_array)
+            .map(|modes| {
+                modes
+                    .iter()
+                    .filter_map(|mode| mode.get("value").and_then(Value::as_str))
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub async fn agents(&self, kind: RunnerKind, directory: &str) -> Result<Value> {
         self.catalog(kind, directory, |runner, dir| runner.agents(dir))
             .await
@@ -1045,6 +1106,8 @@ impl RunnerRegistry {
         let session = target.create_session(directory, "Handoff session").await?;
         let mut handoff_body = body;
         handoff_body["parts"] = json!([{ "type": "text", "text": handoff }]);
+        self.carry_permission(&target_kind, directory, &session.id, &mut handoff_body)
+            .await;
         let response = target
             .send_message(&session.id, directory, handoff_body)
             .await?;
@@ -1062,6 +1125,38 @@ impl RunnerRegistry {
             switched: true,
             response,
         })
+    }
+
+    /// Carry the composer's permission mode onto a freshly created handoff session.
+    ///
+    /// A mode is a name in one runner's vocabulary — `bypassPermissions` means nothing to
+    /// codex — so one the target does not publish is dropped rather than forwarded: an
+    /// unrecognised mode is stored, pushed and silently ignored, and the handed-off session
+    /// spends the conversation asking for permissions the user already granted. One the
+    /// target does publish is also recorded on the session, so it outlives the first turn
+    /// the way it would have on the runner the user chose it on.
+    async fn carry_permission(
+        &self,
+        kind: &RunnerKind,
+        directory: &str,
+        session_id: &str,
+        body: &mut Value,
+    ) {
+        let Some(object) = body.as_object_mut() else {
+            return;
+        };
+        let Some(requested) = object.get("permission").and_then(Value::as_str) else {
+            return;
+        };
+        let offered = self.permission_modes(kind.clone(), directory).await;
+        if !offered.is_empty() && !offered.iter().any(|mode| mode == requested) {
+            object.remove("permission");
+            return;
+        }
+        let choices = crate::app::EngineChoices::from_parts(None, None, None, Some(requested));
+        if let Ok(runner) = self.runner(kind) {
+            let _ = runner.configure(session_id, directory, &choices).await;
+        }
     }
 
     /// Run a slash command on the runner that owns this session.
@@ -1083,6 +1178,30 @@ impl RunnerRegistry {
         self.runner(&binding.runner)?
             .execute_command(&binding.physical_id, &binding.directory, command)
             .await
+    }
+
+    /// What one session is configured to run as, as the runner that owns it reports it.
+    ///
+    /// Scoped to that one runner rather than fanning out across all of them: the binding
+    /// already says who owns the session, and a configuration only means anything under
+    /// the runner whose catalogue the values came from.
+    pub async fn session_engine(
+        &self,
+        session_id: &str,
+        directory: &str,
+    ) -> Result<crate::app::EngineChoices> {
+        let (session_id, directory) = validate_location(session_id, directory)?;
+        let directory = directory
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
+        let binding = self.binding(session_id.as_str(), directory).await;
+        self.runner(&binding.runner)?
+            .sessions(&binding.directory)
+            .await?
+            .into_iter()
+            .find(|session| session.id == binding.physical_id)
+            .map(|session| session.engine)
+            .context("the runner does not know this session")
     }
 
     /// Record a session's engine choices with the runner that owns it.
@@ -1124,7 +1243,7 @@ impl RunnerRegistry {
             .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
         let binding = self.binding(session_id.as_str(), directory).await;
         self.runner(&binding.runner)?
-            .rename(&binding.physical_id, title)
+            .rename(&binding.physical_id, title, &binding.directory)
             .await
     }
 
@@ -1136,7 +1255,7 @@ impl RunnerRegistry {
         let binding = self.binding(session_id.as_str(), directory).await;
         let deleted = self
             .runner(&binding.runner)?
-            .delete(&binding.physical_id)
+            .delete(&binding.physical_id, &binding.directory)
             .await?;
         if deleted {
             self.bindings.write().await.remove(session_id.as_str());
@@ -1210,6 +1329,9 @@ fn recent_progress_messages(body: &Value, limit: usize) -> Vec<Value> {
     messages.into_iter().rev().take(limit).collect()
 }
 
+#[cfg(test)]
+#[path = "runner_mutation_tests.rs"]
+mod mutation_tests;
 #[cfg(test)]
 #[path = "runner_tests.rs"]
 mod tests;

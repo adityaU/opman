@@ -1,18 +1,20 @@
 /**
  * The widget opener's step machine.
  *
- * Kind, then project, then — for chat only — session. Modelled as data rather
- * than as three nested components so "which step am I on" is one value, going
- * back is popping it, and the whole flow is testable without rendering.
+ * Kind, then project, then the thing that kind is *of* — a session for chat, a
+ * shell for a terminal. Modelled as data rather than as nested components so
+ * "which step am I on" is one value, going back is popping it, and the whole
+ * flow is testable without rendering.
  *
- * The step list is derived, never stored: `files`, `terminal` and `git` finish
- * at the project, and hard-coding a length would mean remembering to change it
- * when a fourth widget arrives.
+ * The step list is derived, never stored: `files` and `git` finish at the
+ * project, and hard-coding a length would mean remembering to change it when
+ * another widget arrives.
  */
 
+import { browserIdForProject } from "../../api/browser";
 import { WIDGET_KINDS, type PaneId, type WidgetKind, type WidgetState } from "../types";
 
-export type StepId = "kind" | "project" | "session";
+export type StepId = "kind" | "project" | "session" | "shell";
 
 /**
  * One answerable option.
@@ -25,6 +27,8 @@ export interface OpenerChoice {
   readonly value: string | null;
   readonly label: string;
   readonly hint?: string;
+  /** Marks a choice as actively working — a shell running a command. */
+  readonly busy?: boolean;
 }
 
 export interface OpenerDraft {
@@ -37,14 +41,27 @@ export interface OpenerDraft {
    * has chosen anything.
    */
   readonly sessionId: string | null | undefined;
+  /**
+   * Which running shell a terminal will show. Same three states as `sessionId`,
+   * and for the same reason — `null` is the real answer "a new shell", which the
+   * pane then starts, and is not the same as not having been asked.
+   */
+  readonly ptyId: string | null | undefined;
 }
 
-export const EMPTY_DRAFT: OpenerDraft = { kind: null, projectPath: null, sessionId: undefined };
+export const EMPTY_DRAFT: OpenerDraft = {
+  kind: null,
+  projectPath: null,
+  sessionId: undefined,
+  ptyId: undefined,
+};
 
-/** Chat is the only widget that needs to name a conversation. */
+/** The last step is what the kind is *of*: a conversation, or a shell. */
 export function stepsFor(kind: WidgetKind | null): readonly StepId[] {
   if (kind === null) return ["kind"];
-  return kind === "chat" ? ["kind", "project", "session"] : ["kind", "project"];
+  if (kind === "chat") return ["kind", "project", "session"];
+  if (kind === "terminal") return ["kind", "project", "shell"];
+  return ["kind", "project"];
 }
 
 /** The step awaiting an answer, or null when the draft is finished. */
@@ -52,6 +69,7 @@ export function currentStep(draft: OpenerDraft): StepId | null {
   if (draft.kind === null) return "kind";
   if (draft.projectPath === null) return "project";
   if (draft.kind === "chat" && draft.sessionId === undefined) return "session";
+  if (draft.kind === "terminal" && draft.ptyId === undefined) return "shell";
   return null;
 }
 
@@ -70,6 +88,8 @@ export function advance(draft: OpenerDraft, value: string | null): OpenerDraft {
       return value === null ? draft : { ...draft, projectPath: value };
     case "session":
       return { ...draft, sessionId: value };
+    case "shell":
+      return { ...draft, ptyId: value };
     case null:
       return draft;
   }
@@ -85,6 +105,9 @@ export function retreat(draft: OpenerDraft): OpenerDraft {
   if (draft.kind === null) return draft;
   if (draft.kind === "chat" && draft.sessionId !== undefined) {
     return { ...draft, sessionId: undefined };
+  }
+  if (draft.kind === "terminal" && draft.ptyId !== undefined) {
+    return { ...draft, ptyId: undefined };
   }
   if (draft.projectPath !== null) return { ...draft, projectPath: null };
   return { ...draft, kind: null };
@@ -107,8 +130,20 @@ export function toWidget(draft: OpenerDraft, paneId?: PaneId): WidgetState | nul
     case "files":
       return paneId ? { kind: "files", projectPath, sessionId: paneId, open: null } : null;
     case "terminal":
-      return { kind: "terminal", projectPath, ptyIds: [] };
+      // `null` here is the answer "a new shell": the pane starts one, because
+      // only it knows the size to open it at.
+      return { kind: "terminal", projectPath, ptyId: draft.ptyId ?? null };
     case "git":
       return { kind: "git", projectPath };
+    case "browser":
+      // Per project, not per pane: the id is derived from the project so a second
+      // browser opened for the same repo reconnects to the tab already running
+      // there — including one an agent opened.
+      return {
+        kind: "browser",
+        projectPath,
+        browserId: browserIdForProject(projectPath),
+        url: null,
+      };
   }
 }

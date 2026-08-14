@@ -29,6 +29,7 @@ pub(super) async fn provider(State(engine): State<Engine>) -> Json<Value> {
         &engine.models(),
         current.as_deref(),
         &modes,
+        &engine.efforts(),
     ))
 }
 

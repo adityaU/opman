@@ -6,6 +6,7 @@ import { QuestionDock } from "./QuestionDock";
 import { SearchBar } from "./SearchBar";
 import { Sparkles, Command, WifiOff, ChevronDown } from "lucide-react";
 import type { ChatMainAreaProps } from "./ChatMainArea";
+import { activeProgressText } from "./prompt-input/progress";
 
 /**
  * The single-transcript chat surface: header pill, timeline, docks, composer.
@@ -130,6 +131,7 @@ export const MobileChatView: React.FC<MobileChatViewProps> = function MobileChat
         // composer and runner/model controls usable while sessionId is null.
         disabled={!p.appState}
         sessionId={p.activeSessionId}
+        progressText={activeProgressText(p.messages, p.sessionStatus.type !== "idle")}
         currentModel={p.currentModel}
         selectedModel={p.selectedModel}
         onModelSelected={p.handleModelSelected}

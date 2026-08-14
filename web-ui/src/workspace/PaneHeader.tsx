@@ -3,10 +3,10 @@ import {
   Columns2,
   FileCode2,
   GitBranch,
+  Globe,
   Maximize2,
   MessageSquare,
   Minimize2,
-  MoreHorizontal,
   Rows2,
   SquareTerminal,
   X,
@@ -17,13 +17,14 @@ import { ProjectBadge } from "./ProjectBadge";
 import type { PaneId, WidgetKind, WidgetState } from "./types";
 
 /**
- * The toolbar above a pane, on the same recipe as every other panel header in
- * the app.
+ * The toolbar over a pane, on the same recipe as every other panel header in
+ * the app — but out of the layout, and out of sight until asked for.
  *
- * Everything here is also a command, so the header is a convenience rather than
- * the only route — which is what lets it be switched off entirely (zen mode)
- * without taking any capability with it. What survives zen is what the pane
- * card itself draws: the project hue in its border, and the busy rim.
+ * Everything here is also a command, which is what lets the header be absent
+ * by default without taking any capability with it: the reveal chord brings it
+ * back for a few seconds, and the pane menu is permanently in the corner. What
+ * identifies a pane the rest of the time is what the card itself draws — the
+ * project hue in its border, and the busy rim.
  */
 
 const WIDGET_ICON: Readonly<Record<WidgetKind, LucideIcon>> = {
@@ -31,6 +32,7 @@ const WIDGET_ICON: Readonly<Record<WidgetKind, LucideIcon>> = {
   files: FileCode2,
   terminal: SquareTerminal,
   git: GitBranch,
+  browser: Globe,
 };
 
 const WIDGET_LABEL: Readonly<Record<WidgetKind, string>> = {
@@ -38,6 +40,7 @@ const WIDGET_LABEL: Readonly<Record<WidgetKind, string>> = {
   files: "Files",
   terminal: "Terminal",
   git: "Git",
+  browser: "Browser",
 };
 
 export interface PaneHeaderProps {
@@ -49,10 +52,11 @@ export interface PaneHeaderProps {
   readonly subtitle: string | null;
   readonly busy: boolean;
   readonly focused: boolean;
+  /** Visible: the reveal chord is up, or the header itself holds focus. */
+  readonly peek: boolean;
   readonly canClose: boolean;
   readonly onSplit: (pane: PaneId, dir: "row" | "col") => void;
   readonly onClose: (pane: PaneId) => void;
-  readonly onMenu: (pane: PaneId, anchor: HTMLElement) => void;
   /** Zen: this pane alone, filling the shell. */
   readonly zen: boolean;
   readonly onToggleZen: () => void;
@@ -69,21 +73,16 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
   subtitle,
   busy,
   focused,
+  peek,
   canClose,
   onSplit,
   onClose,
-  onMenu,
   zen,
   onToggleZen,
   onDragWidget,
   onDragWidgetEnd,
 }) {
   const Icon = widget ? WIDGET_ICON[widget.kind] : null;
-
-  const openMenu = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => onMenu(paneId, event.currentTarget),
-    [onMenu, paneId],
-  );
 
   /**
    * The kind chip is the grab handle — the one part of the header that names
@@ -101,7 +100,7 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
   );
 
   return (
-    <div className={`wsp-head${focused ? " is-focused" : ""}`}>
+    <div className={`wsp-head${focused ? " is-focused" : ""}${peek ? " is-peek" : ""}`}>
       <span className="wsp-head-ordinal" aria-hidden="true">
         {ordinal}
       </span>
@@ -162,17 +161,6 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
             aria-label={zen ? "Leave Zen" : "Zen: fill the screen with this pane"}
           >
             {zen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
-        </KeyHint>
-        <KeyHint label="Pane menu" command="workspace.paneMenu">
-          <button
-            type="button"
-            className="wsp-head-btn"
-            onClick={openMenu}
-            aria-haspopup="menu"
-            aria-label="Pane menu"
-          >
-            <MoreHorizontal size={13} />
           </button>
         </KeyHint>
         {canClose && (

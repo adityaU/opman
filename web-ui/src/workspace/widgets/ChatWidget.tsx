@@ -11,6 +11,7 @@ import { useWorkspaceChat } from "./WorkspaceChatContext";
 import { usePaneEngine } from "./usePaneEngine";
 import type { ImageAttachment } from "../../api";
 import type { PaneEngine } from "../types";
+import { activeProgressText } from "../../prompt-input/progress";
 
 /**
  * A chat pane.
@@ -183,6 +184,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
         disabled={!services.appState}
         sessionId={sessionId}
         stats={view.stats}
+        progressText={activeProgressText(view.messages, busy)}
         currentModel={controls.engine.model?.modelID ?? null}
         selectedModel={controls.engine.model}
         onModelSelected={controls.setModel}

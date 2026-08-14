@@ -209,7 +209,6 @@ export function EnginePalette(props: Props) {
         </div>
 
         <EngineSettingsRow
-          runner={props.runner}
           permissionModes={permissionModes}
           supportedEfforts={props.supportedEfforts}
           effort={props.effort}

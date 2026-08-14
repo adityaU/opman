@@ -9,22 +9,6 @@
     border: none;
 }
 
-.cm-lsp-hover {
-    max-width: 520px;
-    max-height: 320px;
-    overflow: auto;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius);
-    border: .5px solid var(--glass-border-dark, var(--white-8));
-    background: var(--theme-elevated);
-    box-shadow: 0 8px 28px -8px var(--black-25);
-    color: var(--color-text);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    line-height: 1.55;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
 
 /* ── Diagnostic underlines ────────────────────────────── */
 

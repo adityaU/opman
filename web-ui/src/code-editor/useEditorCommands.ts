@@ -1,3 +1,7 @@
+import type { RefObject } from "react";
+import { redo, undo } from "@codemirror/commands";
+import { openSearchPanel } from "@codemirror/search";
+import type { EditorView } from "@codemirror/view";
 import { useCommands } from "../keybindings/useCommand";
 
 /**
@@ -13,6 +17,8 @@ import { useCommands } from "../keybindings/useCommand";
 
 export interface EditorCommandDeps {
   readonly hasOpenFile: boolean;
+  /** The live CodeMirror view, for the commands that are editor state changes. */
+  readonly viewRef: RefObject<EditorView | null>;
   readonly save: () => void;
   readonly revert: () => void;
   readonly format: () => void;
@@ -28,8 +34,21 @@ export function useEditorCommands(deps: EditorCommandDeps): void {
     if (deps.hasOpenFile) run();
   };
 
+  // Undo, redo and find are bound in the keymap, so the listener consumes the
+  // chord before CodeMirror's own keymaps ever see it. Without a handler here
+  // the keystroke is swallowed and nothing happens.
+  const withView = (run: (view: EditorView) => boolean) => () => {
+    const view = deps.viewRef.current;
+    if (!view) return;
+    view.focus();
+    run(view);
+  };
+
   useCommands({
     "editor.save": withFile(deps.save),
+    "editor.undo": withView(undo),
+    "editor.redo": withView(redo),
+    "editor.find": withView(openSearchPanel),
     "editor.revert": withFile(deps.revert),
     "lsp.format": withFile(deps.format),
     "lsp.goToDefinition": withFile(deps.goToDefinition),

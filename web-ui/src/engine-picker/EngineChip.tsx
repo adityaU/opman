@@ -50,6 +50,8 @@ export function EngineChip(props: Props) {
     props.currentAgent,
     props.onModelSelected,
     props.onAgentChange,
+    props.permission,
+    props.onPermissionChange,
   );
 
   const agent = props.agents.find((a) => a.id === props.currentAgent);

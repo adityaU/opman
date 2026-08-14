@@ -76,7 +76,6 @@ pub(crate) async fn setup_web_server(
                 instance_name,
                 backend: backend.to_string(),
             },
-            app.nvim_registry.clone(),
             runner_registry,
             mcp,
             acp,

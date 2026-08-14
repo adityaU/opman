@@ -43,7 +43,47 @@ pub fn pick_default(models: &[ModelInfo]) -> &str {
         .unwrap_or("claude-sonnet-4-6")
 }
 
-/// Build the opencode `{ all, connected, default }` provider payload for `models`.
+/// The permission modes this engine accepts, with what each one means.
+///
+/// Published on `/provider` for the same reason the ACP engines publish theirs: the mode
+/// names are this runner's vocabulary, and anything that has to name one — the engine
+/// picker, the `/permission-mode` command, the agent-manager MCP — otherwise needs its own
+/// copy of the list, which is how one of them ends up offering a mode the engine will
+/// reject.
+pub const PERMISSION_MODES: [(&str, &str, &str); 6] = [
+    ("default", "Manual", "Prompts before anything consequential"),
+    (
+        "acceptEdits",
+        "Accept Edits",
+        "Auto-accept file edits, prompt for the rest",
+    ),
+    (
+        "auto",
+        "Auto",
+        "Let a classifier answer the permission prompts",
+    ),
+    (
+        "bypassPermissions",
+        "Bypass Permissions",
+        "Run everything without prompting",
+    ),
+    (
+        "dontAsk",
+        "Don't Ask",
+        "Never prompt; deny whatever is not pre-approved",
+    ),
+    ("plan", "Plan Mode", "Plan only, execute no tools"),
+];
+
+/// Whether `mode` is one this engine accepts, in its canonical spelling.
+pub fn permission_mode(mode: &str) -> Option<&'static str> {
+    PERMISSION_MODES
+        .iter()
+        .find(|(id, _, _)| id.eq_ignore_ascii_case(mode))
+        .map(|(id, _, _)| *id)
+}
+
+/// Build the opencode `{ all, connected, default, permissionModes }` provider payload.
 pub fn provider_payload(models: &[ModelInfo]) -> Value {
     let default_id = pick_default(models).to_string();
     let models_map: serde_json::Map<String, Value> = models
@@ -59,10 +99,20 @@ pub fn provider_payload(models: &[ModelInfo]) -> Value {
         })
         .collect();
 
+    let modes: Vec<Value> = PERMISSION_MODES
+        .iter()
+        .map(|(value, label, description)| json!({
+            "value": value,
+            "label": label,
+            "description": description,
+        }))
+        .collect();
+
     json!({
         "all": [{ "id": "anthropic", "name": "Anthropic", "models": models_map }],
         "connected": ["anthropic"],
         "default": { "anthropic": default_id },
+        "permissionModes": modes,
     })
 }
 

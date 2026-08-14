@@ -69,6 +69,10 @@ pub struct EditorLspQuery {
     pub trigger: Option<String>,
     /// The identifier a rename should introduce. Ignored by every other query.
     pub new_name: Option<String>,
+    /// Which "take me to the symbol" query this is: `definition`,
+    /// `type-definition`, `implementation` or `declaration`. Absent means
+    /// `definition`, so the original endpoint keeps its meaning.
+    pub goto: Option<String>,
 }
 
 #[derive(Deserialize)]

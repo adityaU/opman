@@ -53,7 +53,7 @@ code,pre,kbd,samp {
     border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .code-editor-back:hover {
@@ -136,7 +136,7 @@ code,pre,kbd,samp {
     border-radius: var(--radius);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .code-editor-action:hover {
@@ -302,5 +302,5 @@ code,pre,kbd,samp {
     color: var(--color-text-muted);
     cursor: pointer;
     border-radius: var(--radius);
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }

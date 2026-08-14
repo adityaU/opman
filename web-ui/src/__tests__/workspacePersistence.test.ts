@@ -168,16 +168,28 @@ describe("a hostile or stale store", () => {
   });
 
   it("falls back to the default chrome when it is missing or wrong-typed", () => {
-    const state = loadWorkspace(
-      stored({
-        windows: [
-          { id: "w1", name: "1", root: { type: "leaf", id: "p1", widget: null }, focusedPaneId: "p1" },
-        ],
-        activeWindowId: "w1",
-        chrome: { rail: false, paneHeaders: "yes" },
-      }),
-    );
-    expect(state.chrome).toEqual({ rail: false, paneHeaders: true, zen: false });
+    const load = (chrome: unknown) =>
+      loadWorkspace(
+        stored({
+          windows: [
+            { id: "w1", name: "1", root: { type: "leaf", id: "p1", widget: null }, focusedPaneId: "p1" },
+          ],
+          activeWindowId: "w1",
+          chrome,
+        }),
+      ).chrome;
+
+    // A boolean is honoured; anything else falls back to the default.
+    expect(load({ rail: false })).toEqual({ rail: false, zen: false });
+    expect(load({ rail: "yes" })).toEqual({ rail: true, zen: false });
+    expect(load(undefined)).toEqual({ rail: true, zen: false });
+    expect(load("nonsense")).toEqual({ rail: true, zen: false });
+
+    // Zen is never restored: it is where you happened to be, not a preference.
+    expect(load({ rail: true, zen: true })).toEqual({ rail: true, zen: false });
+
+    // A key the shape no longer has is ignored rather than carried through.
+    expect(load({ rail: false, paneHeaders: true })).toEqual({ rail: false, zen: false });
   });
 
   it("survives a storage that throws on write", () => {
@@ -196,7 +208,7 @@ describe("a hostile or stale store", () => {
  * spawning a fresh one and losing the scrollback.
  */
 describe("terminal survival", () => {
-  const withTerminal = (ptyIds: unknown) => ({
+  const withShell = (extra: Record<string, unknown>) => ({
     windows: [
       {
         id: "w1",
@@ -204,7 +216,7 @@ describe("terminal survival", () => {
         root: {
           type: "leaf",
           id: "p1",
-          widget: { kind: "terminal", projectPath: "/repo", ptyIds },
+          widget: { kind: "terminal", projectPath: "/repo", ...extra },
         },
         focusedPaneId: "p1",
       },
@@ -212,21 +224,38 @@ describe("terminal survival", () => {
     activeWindowId: "w1",
   });
 
-  it("round-trips the pty ids", () => {
-    const state = loadWorkspace(stored(withTerminal(["pty-a", "pty-b"])));
+  it("round-trips the shell a pane was showing", () => {
+    const state = loadWorkspace(stored(withShell({ ptyId: "pty-a" })));
     expect(state.windows[0].root).toMatchObject({
-      widget: { kind: "terminal", ptyIds: ["pty-a", "pty-b"] },
+      widget: { kind: "terminal", ptyId: "pty-a" },
     });
   });
 
-  it("survives a pane written before ids were persisted", () => {
-    const state = loadWorkspace(stored(withTerminal(undefined)));
-    expect(state.windows[0].root).toMatchObject({ widget: { kind: "terminal", ptyIds: [] } });
+  it("restores a pane with no shell as one that will ask which", () => {
+    const state = loadWorkspace(stored(withShell({})));
+    expect(state.windows[0].root).toMatchObject({ widget: { kind: "terminal", ptyId: null } });
   });
 
-  it("drops non-string ids rather than handing them to the PTY layer", () => {
-    const state = loadWorkspace(stored(withTerminal(["ok", 7, null, { id: "x" }])));
-    expect(state.windows[0].root).toMatchObject({ widget: { ptyIds: ["ok"] } });
+  it("refuses a non-string id rather than handing it to the PTY layer", () => {
+    const state = loadWorkspace(stored(withShell({ ptyId: 7 })));
+    expect(state.windows[0].root).toMatchObject({ widget: { ptyId: null } });
+  });
+
+  // A pane used to hold a strip of tabs. The shells are all still running, so
+  // the first is restored into the pane and the rest stay in the picker.
+  it("migrates a pane saved with a strip of tabs to its first shell", () => {
+    const state = loadWorkspace(stored(withShell({ ptyIds: ["pty-a", "pty-b"] })));
+    expect(state.windows[0].root).toMatchObject({ widget: { ptyId: "pty-a" } });
+  });
+
+  it("skips junk while migrating a tab strip", () => {
+    const state = loadWorkspace(stored(withShell({ ptyIds: [7, null, "", "ok"] })));
+    expect(state.windows[0].root).toMatchObject({ widget: { ptyId: "ok" } });
+  });
+
+  it("migrates an empty tab strip to no shell", () => {
+    const state = loadWorkspace(stored(withShell({ ptyIds: [] })));
+    expect(state.windows[0].root).toMatchObject({ widget: { ptyId: null } });
   });
 });
 

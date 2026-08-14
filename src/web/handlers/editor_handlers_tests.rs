@@ -37,6 +37,7 @@ fn query(path: &str) -> EditorLspQuery {
         content: None,
         trigger: None,
         new_name: None,
+        goto: None,
     }
 }
 

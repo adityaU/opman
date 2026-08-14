@@ -1,7 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../sidebar/formatTime";
+import { createShell, loadShells } from "../terminal-panel/useShells";
+import type { PtySession } from "../api";
 import { EMPTY_DRAFT, toWidget, type OpenerDraft, type StepId } from "./opener/steps";
-import { nextFileOpenSeq, planFileOpen } from "./fileOpen";
+import { browserIdForProject } from "../api/browser";
+import { planBrowserOpen } from "./browserOpen";
+import { nextFileOpenSeq, planFileOpen, projectForFile } from "./fileOpen";
 import { findPane } from "./tree";
 import { paneByOrdinal } from "./nav";
 import {
@@ -63,20 +67,18 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   );
 
   /**
-   * Ask which pane — unless the question has only one answer.
+   * Always ask which pane.
    *
-   * With a single pane the overlay was a whole extra gesture between the user
-   * and the thing they clicked: it dimmed the screen to offer one slot, marked
-   * "1", which they then had to hit. Asking before replacing is worth a click
-   * when there is somewhere else the widget could have gone; when there is
-   * not, it is just a click.
+   * This used to place straight into the only pane when there was one, on the
+   * grounds that a one-slot overlay is ceremony. It is not: with a single pane
+   * the answer the user most often wants is a *split* or a new window, and
+   * skipping the question took those away at exactly the moment they mattered
+   * most. One gesture that always means the same thing beats one that
+   * sometimes answers itself.
    */
   const armOrPlace = useCallback(
-    (request: TargetRequest) => {
-      if (panes.length === 1) place(widgetForRequest(request, panes[0].id), panes[0].id);
-      else targeting.arm(request);
-    },
-    [panes, place, targeting, widgetForRequest],
+    (request: TargetRequest) => targeting.arm(request),
+    [targeting],
   );
 
   const resolveTarget = useCallback(
@@ -125,6 +127,15 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
    */
   const onOpenWidgetKind = useCallback(
     (pane: PaneId, kind: WidgetKind) => {
+      // A terminal always has a third question — which shell — so it stays in
+      // the staged opener even with one project; the project step is simply
+      // pre-answered. Same flow as chat choosing a session.
+      if (kind === "terminal") {
+        dispatch({ type: "focusPane", pane });
+        const projectPath = projects.length === 1 ? projects[0].path : null;
+        setOpener({ draft: { ...EMPTY_DRAFT, kind, projectPath } });
+        return;
+      }
       if (projects.length === 1) {
         place(widgetFor(kind, projects[0].path, pane), pane);
         return;
@@ -164,6 +175,66 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     [dispatch, place],
   );
 
+  /**
+   * Reveal a file, but let the user say where it lands.
+   *
+   * The sibling of `openFileHere`, for the case where the caller is *in* the
+   * editor: jumping to a definition is as often "show me this beside what I am
+   * reading" as "replace what I am reading", and only the reader knows which.
+   * The pane is answered by the same overlay a session click uses, so the
+   * vocabulary — a number, a split, a new window — is one the user already has.
+   */
+  const openFileWhere = useCallback(
+    (path: string, line: number | null, label: string) => {
+      const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
+      const open: FileOpenRequest = { path, line, seq: nextFileOpenSeq() };
+      const projectPath = projectForFile(path, projectList, undefined)
+        || paneList.find((pane) => pane.id === focused)?.widget?.projectPath
+        || "";
+      const widgetForPane: WidgetForPane = (pane) => ({
+        kind: "files", projectPath, sessionId: pane, open,
+      });
+      armOrPlace({ widget: widgetForPane(focused), widgetForPane, label });
+    },
+    [armOrPlace],
+  );
+
+  /**
+   * Reveal the browser an agent just drove somewhere. Same contract as
+   * `openFileHere`: the caller knows what, the workspace knows where.
+   */
+  const openBrowserHere = useCallback(
+    (projectPath: string, url: string) => {
+      const { focusedPaneId: focused, panes: paneList } = openHere.current;
+      const plan = planBrowserOpen(projectPath, url, paneList, focused);
+      if (plan.action === "place") {
+        place(plan.widget, plan.pane);
+        return;
+      }
+      dispatch({ type: "splitPane", pane: plan.pane, dir: "row", widget: plan.widget });
+    },
+    [dispatch, place],
+  );
+
+  /**
+   * The shells the opener can offer, refreshed each time it opens.
+   *
+   * Fetched rather than derived from the layout: a shell is workspace-wide and
+   * may have been started by another pane, by an agent, or in another browser
+   * tab, so the only honest list is the server's.
+   */
+  const [shells, setShells] = useState<readonly PtySession[]>([]);
+  useEffect(() => {
+    if (!opener) return;
+    let mounted = true;
+    void loadShells(true).then((running) => {
+      if (mounted) setShells(running);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [opener]);
+
   const choicesFor = useCallback(
     (step: StepId, draft: OpenerDraft): readonly OpenerChoice[] => {
       if (step === "kind") {
@@ -171,6 +242,9 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
       }
       if (step === "project") {
         return projects.map((p) => ({ value: p.path, label: p.name, hint: p.path }));
+      }
+      if (step === "shell") {
+        return shellChoices(shells, draft.projectPath);
       }
       // Recency-sorted by `sessionsFor`; "New session" is pinned above it
       // because it is the answer to a different question than "which one".
@@ -180,15 +254,26 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
         ...sessions.map((s) => ({ value: s.id, label: s.title, hint: formatTime(s.updated) })),
       ];
     },
-    [projects, sessionsFor],
+    [projects, sessionsFor, shells],
   );
 
   const onOpenerDone = useCallback(
-    (draft: OpenerDraft) => {
+    async (draft: OpenerDraft) => {
       setOpener(null);
       if (!draft.kind || !draft.projectPath) return;
+
+      // "New shell" from the shell step is answered by actually starting one,
+      // so the pane opens straight onto a prompt rather than onto a second
+      // picker asking the question the modal just asked.
+      let resolved = draft;
+      if (draft.kind === "terminal" && draft.ptyId === null) {
+        const ptyId = await createShell("shell", draft.projectPath).catch(() => null);
+        if (!ptyId) return;
+        resolved = { ...draft, ptyId };
+      }
+
       const createWidget: WidgetForPane = (pane) => {
-        const widget = toWidget(draft, pane);
+        const widget = toWidget(resolved, pane);
         if (!widget) throw new Error("Incomplete widget opener draft");
         return widget;
       };
@@ -229,6 +314,8 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     onOpenWidgetKind,
     openKindHere,
     openFileHere,
+    openFileWhere,
+    openBrowserHere,
     armOrPlace,
     resolveTarget,
     resolveTargetByOrdinal,
@@ -249,6 +336,7 @@ const KIND_LABEL: Readonly<Record<WidgetKind, string>> = {
   files: "Files",
   terminal: "Terminal",
   git: "Git",
+  browser: "Browser",
 };
 
 function widgetFor(kind: WidgetKind, projectPath: string, paneId: PaneId): WidgetState {
@@ -258,10 +346,45 @@ function widgetFor(kind: WidgetKind, projectPath: string, paneId: PaneId): Widge
     case "files":
       return { kind: "files", projectPath, sessionId: paneId, open: null };
     case "terminal":
-      return { kind: "terminal", projectPath, ptyIds: [] };
+      // No shell chosen: the pane shows the picker, listing what is already
+      // running here alongside "new shell".
+      return { kind: "terminal", projectPath, ptyId: null };
     case "git":
       return { kind: "git", projectPath };
+    case "browser":
+      return {
+        kind: "browser",
+        projectPath,
+        browserId: browserIdForProject(projectPath),
+        url: null,
+      };
   }
+}
+
+/**
+ * The running shells in one project, busiest first, under "New shell".
+ *
+ * Busy first because the shell someone is looking for is usually the one with
+ * work in it; a numbered label alone gives no reason to prefer any of them.
+ */
+function shellChoices(
+  shells: readonly PtySession[],
+  projectPath: string | null,
+): readonly OpenerChoice[] {
+  const mine = projectPath ? shells.filter((shell) => shell.project === projectPath) : [];
+  const ordered = [...mine].sort((a, b) => {
+    if (a.activity !== b.activity) return a.activity === "running" ? -1 : 1;
+    return a.label.localeCompare(b.label, undefined, { numeric: true });
+  });
+  return [
+    { value: null, label: "New shell", hint: "started in the project root" },
+    ...ordered.map((shell) => ({
+      value: shell.id,
+      label: shell.label,
+      hint: shell.activity === "running" ? "running a command" : "idle",
+      busy: shell.activity === "running",
+    })),
+  ];
 }
 
 function describeWidget(widget: WidgetState, projects: readonly WorkspaceProject[]): string {

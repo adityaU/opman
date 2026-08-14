@@ -43,6 +43,16 @@ fn dispatch_fields() -> Value {
             "description": "Provider id for the model, when the runner needs one \
                             disambiguated (OpenCode). Optional.",
         },
+        "permission": {
+            "type": "string",
+            "description": "Permission mode for the turn, named in the target runner's own \
+                            vocabulary — claude: default/acceptEdits/plan/dontAsk/\
+                            bypassPermissions; codex: read-only/agent/agent-full-access. \
+                            agent_runner_options lists them under 'permission_modes'. \
+                            Optional: omitted, agent_start inherits the calling session's \
+                            mode when the new session lands on the same runner, and \
+                            agent_send leaves the target's mode alone.",
+        },
     })
 }
 
@@ -80,7 +90,13 @@ pub(super) fn definitions() -> Value {
             "name": "agent_start",
             "description": "Start a new agent session on any available runner. Requires \
                             model and effort — call agent_runner_options first if you do \
-                            not already know what the runner accepts.",
+                            not already know what the runner accepts. Pass 'permission' to \
+                            decide what the new session may do without asking (e.g. \
+                            bypassPermissions, agent-full-access); it is applied to the \
+                            session before its first turn. When a caller agent starts a \
+                            session with a message, the opening prompt includes that \
+                            caller's id and instructions to report the final work back \
+                            with agent_send.",
             "inputSchema": {
                 "type": "object",
                 "properties": properties(json!({
@@ -105,9 +121,10 @@ pub(super) fn definitions() -> Value {
         },
         {
             "name": "agent_runner_options",
-            "description": "List the models and the reasoning efforts each one supports. \
-                            Call this before agent_send or agent_start: both require a \
-                            model and an effort, and this is what says which are valid. \
+            "description": "List the models, the reasoning efforts each one supports, and \
+                            the runner's permission modes. Call this before agent_send or \
+                            agent_start: both require a model and an effort, and \
+                            'permission_modes' names what may be passed as 'permission'. \
                             Only connected providers are listed; use 'filter' to reach a \
                             model behind one that is not.",
             "inputSchema": {

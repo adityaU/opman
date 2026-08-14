@@ -98,8 +98,7 @@ export function lspCompletionExtension(bridge: LspBridgeRef) {
     };
   };
 
-  // Ctrl-N / Ctrl-P are how Vim asks for completion, and the editor is in
-  // insert mode when they arrive — so they belong to CodeMirror, not Neovim.
+  // Ctrl-n / Ctrl-p step the completion list, the way a Vim user expects.
   const vimKeys = keymap.of([
     { key: "Ctrl-n", run: (view) => step(view, true) },
     { key: "Ctrl-p", run: (view) => step(view, false) },
@@ -136,6 +135,6 @@ function documentCompletions(
 }
 
 function step(view: EditorView, forward: boolean): boolean {
-  if (completionStatus(view.state) === null) return startCompletion(view);
-  return moveCompletionSelection(forward)(view);
+  const status = completionStatus(view.state);
+  return status === null ? startCompletion(view) : moveCompletionSelection(forward)(view);
 }

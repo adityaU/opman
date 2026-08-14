@@ -1,0 +1,185 @@
+/* Browser pane.
+ *
+ * Built entirely from the shared tokens, so the glassy and flat themes both
+ * come out right without a second set of rules: the only thing that separates
+ * them is what `--white-*` and the surface variables resolve to.
+ *
+ * The page itself is the loud thing on screen. Everything the pane draws around
+ * it is therefore quiet — a single toolbar row, hairline separators, and no
+ * chrome at all below it. */
+
+.bwp-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden
+}
+
+/* ── Toolbar ─────────────────────────────────────────── */
+
+.bwp-urlbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    padding: var(--space-1) var(--space-2);
+    min-height: 28px;
+    background: var(--white-2);
+    border-bottom: .5px solid var(--glass-border-dark, var(--white-6))
+}
+
+.bwp-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: var(--transition-interactive)
+}
+
+.bwp-nav:hover {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+.bwp-nav.is-active {
+    background: var(--white-6);
+    color: var(--color-text)
+}
+
+/* The reload button doubles as the only progress indicator: a spinner
+   elsewhere would be a second thing to look at for the same fact. */
+.bwp-nav.is-loading svg {
+    animation: bwp-spin 900ms linear infinite
+}
+
+@keyframes bwp-spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bwp-nav.is-loading svg {
+        animation: none;
+        opacity: .5
+    }
+}
+
+.bwp-url {
+    flex: 1;
+    min-width: 0;
+    height: 22px;
+    padding: 0 var(--space-2);
+    background: var(--white-4);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    transition: var(--transition-interactive)
+}
+
+.bwp-url:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--white-6)
+}
+
+.bwp-url::placeholder {
+    color: var(--color-text-faint, var(--color-text-muted))
+}
+
+/* ── Page surface ────────────────────────────────────── */
+
+.bwp-surface {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    /* White rather than the panel colour: a page that sets no background of its
+       own expects to sit on white, and inheriting a dark panel makes its black
+       text unreadable. */
+    background: #fff
+}
+
+.bwp-iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0
+}
+
+/* The mirrored page. Centred and letterboxed, because the frame's aspect is the
+   headless viewport's and stretching it would misplace every click. */
+.bwp-screencast {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    outline: none;
+    cursor: default
+}
+
+.bwp-frame {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    /* Frames arrive as discrete JPEGs; smoothing them on scale-down reads as
+       blur on text, which is most of what a page is. */
+    image-rendering: auto;
+    user-select: none;
+    -webkit-user-drag: none
+}
+
+/* ── Waiting and failure ─────────────────────────────── */
+
+.bwp-placeholder,
+.bwp-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    height: 100%;
+    padding: var(--space-4);
+    background: var(--color-bg-panel);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    text-align: center
+}
+
+.bwp-error p {
+    margin: 0;
+    max-width: 44ch;
+    color: var(--color-text);
+    /* A CDP failure message can be a URL or a long chain; wrap rather than
+       overflow a narrow pane. */
+    overflow-wrap: anywhere
+}
+
+.bwp-retry {
+    padding: var(--space-1) var(--space-3);
+    background: var(--white-6);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: var(--transition-interactive)
+}
+
+.bwp-retry:hover {
+    background: var(--white-8)
+}

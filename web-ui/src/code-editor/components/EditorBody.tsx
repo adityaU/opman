@@ -4,10 +4,13 @@
  * Renders the CodeMirror editor, diagnostics panel, hover card,
  * and delegates to FileRenderers for non-code file types.
  */
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Loader2, File, PenLine } from "lucide-react";
+import { indentWithTab } from "@codemirror/commands";
 import CodeMirror from "@uiw/react-codemirror";
 import type { FileReadResponse, FileRenderType, EditorLspDiagnostic, EditorViewMode, OpenFileEntry } from "../types";
+import type { Extension } from "@codemirror/state";
+import { keymap, type EditorView, type ViewUpdate } from "@codemirror/view";
 import { isPreviewableRenderType } from "../types";
 import { rawFileUrl } from "../../api";
 import {
@@ -28,10 +31,10 @@ interface Props {
   currentContent: string;
   activeView: EditorViewMode;
   // Editor
-  extensions: any[];
+  extensions: Extension[];
   onEditorChange: (value: string) => void;
-  onCreateEditor: (view: any) => void;
-  onUpdate: (update: any) => void;
+  onCreateEditor: (view: EditorView) => void;
+  onUpdate: (update: ViewUpdate) => void;
   // State flags
   loadingFile: boolean;
   languageLoading: boolean;
@@ -115,6 +118,32 @@ export function EditorBody({
   );
 }
 
+/**
+ * `foldGutter` is off here only because the editor supplies its own, with the
+ * chevron marker and the plain-text fold service; everything else CodeMirror
+ * offers is on.
+ */
+const BASIC_SETUP = {
+  lineNumbers: true,
+  highlightActiveLineGutter: true,
+  highlightActiveLine: true,
+  foldGutter: false,
+  bracketMatching: true,
+  history: true,
+  defaultKeymap: true,
+  historyKeymap: true,
+  searchKeymap: true,
+  foldKeymap: true,
+  lintKeymap: true,
+  closeBrackets: true,
+  // Completion is supplied by `lspCompletionExtension`, which installs its own
+  // `autocompletion()` with an `override` source and its own default keymap.
+  // A second instance here would compete with it for the same facet.
+  completionKeymap: false,
+  autocompletion: false,
+  indentOnInput: true,
+} as const;
+
 // ── Markup wrapper ──────────────────────────────────────
 
 function MarkupWrapper({ children }: { children: React.ReactNode }) {
@@ -143,10 +172,10 @@ interface FileContentProps {
   fileRenderType: FileRenderType;
   currentContent: string;
   activeView: EditorViewMode;
-  extensions: any[];
+  extensions: Extension[];
   onEditorChange: (value: string) => void;
-  onCreateEditor: (view: any) => void;
-  onUpdate: (update: any) => void;
+  onCreateEditor: (view: EditorView) => void;
+  onUpdate: (update: ViewUpdate) => void;
   activeEntry?: OpenFileEntry | null;
   setOpenFiles?: React.Dispatch<React.SetStateAction<OpenFileEntry[]>>;
 }
@@ -156,6 +185,10 @@ function FileContent({
   extensions, onEditorChange, onCreateEditor, onUpdate,
   activeEntry, setOpenFiles,
 }: FileContentProps) {
+  const editorExtensions = useMemo(
+    () => [...extensions, keymap.of([indentWithTab])],
+    [extensions],
+  );
   const renderEditor = () => (
     <CodeMirror
       value={currentContent}
@@ -163,20 +196,9 @@ function FileContent({
       onChange={onEditorChange}
       onCreateEditor={onCreateEditor}
       onUpdate={onUpdate}
-      extensions={extensions}
+      extensions={editorExtensions}
       theme="none"
-      basicSetup={{
-        lineNumbers: true,
-        highlightActiveLineGutter: true,
-        highlightActiveLine: true,
-        // The shared editor extension installs the themed fold gutter and
-        // keeps its initial spacer visible in the Neovim surface.
-        foldGutter: false,
-        bracketMatching: true,
-        closeBrackets: true,
-        autocompletion: true,
-        indentOnInput: true,
-      }}
+      basicSetup={BASIC_SETUP}
     />
   );
 

@@ -144,6 +144,11 @@ impl AcpEngine {
         self.any_session(options::models)
     }
 
+    /// The reasoning effort choices the agent exposes through `configOptions`.
+    pub fn efforts(&self) -> Vec<options::Choice> {
+        self.any_session(options::efforts)
+    }
+
     /// The model the agent currently has selected, for the picker's default.
     pub fn current_model(&self) -> Option<String> {
         self.any_session(options::current_model)

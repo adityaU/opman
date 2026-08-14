@@ -23,12 +23,23 @@ const openai = {
 };
 
 const providersByRunner: Record<string, any> = {
-  claude: { all: [anthropic], connected: new Set(["anthropic"]), defaults: { anthropic: "claude-haiku-4-5" } },
-  codex: { all: [openai], connected: new Set(["openai"]), defaults: { openai: "gpt-5-mini" } },
+  claude: {
+    all: [anthropic],
+    connected: new Set(["anthropic"]),
+    defaults: { anthropic: "claude-haiku-4-5" },
+    permissionModes: [{ value: "default", label: "Manual" }, { value: "acceptEdits", label: "Accept Edits" }],
+  },
+  codex: {
+    all: [openai],
+    connected: new Set(["openai"]),
+    defaults: { openai: "gpt-5-mini" },
+    permissionModes: [{ value: "agent", label: "Agent" }],
+  },
 };
 
 vi.mock("../hooks/useProviders", () => ({
   useProviders: (runner: string) => ({
+    permissionModes: null,
     ...(providersByRunner[runner] ?? { all: [], connected: new Set(), defaults: {} }),
     loading: false,
     error: null,
@@ -87,6 +98,26 @@ describe("useEngineOptions", () => {
     );
 
     await waitFor(() => expect(onAgent).toHaveBeenCalledWith("codex-default"));
+  });
+
+  it("repairs a permission mode the new runner never published", async () => {
+    // `acceptEdits` is claude's word, not codex's. Left alone it is sent, stored and
+    // ignored, and the session keeps asking for what the user already granted.
+    const onPermission = vi.fn();
+    renderHook(() =>
+      useEngineOptions("codex", { providerID: "openai", modelID: "gpt-5-mini" }, "codex-default", vi.fn(), vi.fn(), "acceptEdits", onPermission),
+    );
+
+    await waitFor(() => expect(onPermission).toHaveBeenCalledWith("agent"));
+  });
+
+  it("leaves a permission the runner does offer alone", async () => {
+    const onPermission = vi.fn();
+    renderHook(() =>
+      useEngineOptions("claude", { providerID: "anthropic", modelID: "claude-haiku-4-5" }, "build", vi.fn(), vi.fn(), "acceptEdits", onPermission),
+    );
+
+    await waitFor(() => expect(onPermission).not.toHaveBeenCalled());
   });
 
   it("fills an empty model selection from the runner's default", async () => {

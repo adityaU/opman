@@ -12,7 +12,7 @@ import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
   DragOverlay, AtMentionPopover,
 } from "./components";
-import { ComposerField, ComposerActions } from "./ComposerBar";
+import { ComposerField, ComposerActions, ComposerProgress } from "./ComposerBar";
 
 interface Props {
   onSend: (text: string, images?: ImageAttachment[], fileContext?: string) => Promise<boolean>;
@@ -47,6 +47,8 @@ interface Props {
   /** Open an interactive terminal attached to this session's claude CLI agent. */
   /** Session token/cost stats, shown via the pill row's usage info button. */
   stats?: SessionStats | null;
+  /** Latest live runner progress title, shown above the composer instead of in history. */
+  progressText?: string | null;
 }
 
 export function PromptInput({
@@ -56,6 +58,7 @@ export function PromptInput({
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
   backend, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
+  progressText = null,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -124,7 +127,9 @@ export function PromptInput({
   }, [text, attach, atMention, fileMention, onSend, onCommand, onContentChange]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // The slash list owns Enter while it is open — it is picking a command, not
+    // sending the half-typed name that filtered it.
+    if (e.key === "Enter" && !e.shiftKey && !showSlash) {
       e.preventDefault();
       handleSubmit();
       return;
@@ -210,6 +215,7 @@ export function PromptInput({
           onClear={queue.clearAll} onClose={() => setShowQueue(false)} />
       )}
       <div className="prompt-input-wrapper">
+        {progressText && <ComposerProgress text={progressText} />}
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}
           onRemove={(id) => atMention.setAgentMentions((prev) => prev.filter((m) => m !== id))} />
         <FileMentionPills fileMentions={fileMention.fileMentions} onRemove={fileMention.removeFileMention} />

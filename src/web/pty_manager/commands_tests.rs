@@ -1,85 +1,76 @@
-//! Generated tests for PtyCmd enum construction / field access.
+//! Tests for PtyCmd construction / field access.
 //!
-//! `PtyCmd` has no executable methods; these tests simply construct each
-//! variant and destructure it, ensuring the variant shapes stay stable.
+//! `PtyCmd` has no executable methods; these tests construct each variant and
+//! destructure it, ensuring the variant shapes stay stable.
 
 use super::*;
 use std::path::PathBuf;
 use tokio::sync::oneshot;
 
-#[test]
-fn constructs_and_matches_spawn_variants() {
-    let (tx, _rx) = oneshot::channel();
-    let cmd = PtyCmd::SpawnShell {
+use super::super::kind::{PtyKind, PtyProgram};
+
+fn a_spec(program: PtyProgram) -> SpawnSpec {
+    SpawnSpec {
         id: "id-1".into(),
+        program,
+        project: PathBuf::from("/tmp"),
+        label: None,
         rows: 24,
         cols: 80,
-        working_dir: PathBuf::from("/tmp"),
-        reply: tx,
-    };
-    match cmd {
-        PtyCmd::SpawnShell {
-            id,
-            rows,
-            cols,
-            working_dir,
-            ..
-        } => {
-            assert_eq!(id, "id-1");
-            assert_eq!(rows, 24);
-            assert_eq!(cols, 80);
-            assert_eq!(working_dir, PathBuf::from("/tmp"));
-        }
-        _ => panic!("wrong variant"),
     }
+}
 
+/// One variant now carries every kind, and the per-kind arguments ride on the
+/// program rather than on the command.
+#[test]
+fn spawn_carries_the_whole_spec() {
     let (tx, _rx) = oneshot::channel();
-    let cmd = PtyCmd::SpawnOpencode {
-        id: "o".into(),
-        rows: 10,
-        cols: 20,
-        working_dir: PathBuf::from("/w"),
-        session_id: Some("sess".into()),
+    let cmd = PtyCmd::Spawn {
+        spec: Box::new(a_spec(PtyProgram::Shell)),
         reply: tx,
     };
-    if let PtyCmd::SpawnOpencode { session_id, .. } = cmd {
-        assert_eq!(session_id.as_deref(), Some("sess"));
-    } else {
+    let PtyCmd::Spawn { spec, .. } = cmd else {
         panic!("wrong variant");
-    }
+    };
+    assert_eq!(spec.id, "id-1");
+    assert_eq!(spec.rows, 24);
+    assert_eq!(spec.cols, 80);
+    assert_eq!(spec.project, PathBuf::from("/tmp"));
+    assert_eq!(spec.program.kind(), PtyKind::Shell);
+    assert!(spec.label.is_none(), "the manager numbers it");
+}
 
+#[test]
+fn spawn_carries_per_kind_arguments() {
     let (tx, _rx) = oneshot::channel();
-    let cmd = PtyCmd::SpawnClaudeAttach {
-        id: "c".into(),
-        rows: 1,
-        cols: 2,
-        working_dir: PathBuf::from("/"),
-        short_id: "abc123".into(),
+    let cmd = PtyCmd::Spawn {
+        spec: Box::new(a_spec(PtyProgram::Opencode {
+            session_id: Some("sess".into()),
+        })),
         reply: tx,
     };
-    if let PtyCmd::SpawnClaudeAttach { short_id, .. } = cmd {
-        assert_eq!(short_id, "abc123");
-    } else {
+    let PtyCmd::Spawn { spec, .. } = cmd else {
         panic!("wrong variant");
+    };
+    match &spec.program {
+        PtyProgram::Opencode { session_id } => assert_eq!(session_id.as_deref(), Some("sess")),
+        _ => panic!("wrong program"),
     }
 
-    // SpawnNeovim + SpawnGitui share the shape.
     let (tx, _rx) = oneshot::channel();
-    let _ = PtyCmd::SpawnNeovim {
-        id: "n".into(),
-        rows: 5,
-        cols: 5,
-        working_dir: PathBuf::from("."),
+    let cmd = PtyCmd::Spawn {
+        spec: Box::new(a_spec(PtyProgram::ClaudeAttach {
+            short_id: "abc123".into(),
+        })),
         reply: tx,
     };
-    let (tx, _rx) = oneshot::channel();
-    let _ = PtyCmd::SpawnGitui {
-        id: "g".into(),
-        rows: 5,
-        cols: 5,
-        working_dir: PathBuf::from("."),
-        reply: tx,
+    let PtyCmd::Spawn { spec, .. } = cmd else {
+        panic!("wrong variant");
     };
+    match &spec.program {
+        PtyProgram::ClaudeAttach { short_id } => assert_eq!(short_id, "abc123"),
+        _ => panic!("wrong program"),
+    }
 }
 
 #[test]
@@ -108,6 +99,17 @@ fn constructs_and_matches_control_variants() {
         panic!();
     }
 
+    let (tx, _rx) = oneshot::channel::<bool>();
+    if let PtyCmd::Rename { id, label, .. } = (PtyCmd::Rename {
+        id: "n".into(),
+        label: "Build".into(),
+        reply: tx,
+    }) {
+        assert_eq!((id.as_str(), label.as_str()), ("n", "Build"));
+    } else {
+        panic!();
+    }
+
     let (tx, _rx) = oneshot::channel::<Option<RawOutputBuffer>>();
     let _ = PtyCmd::GetOutput {
         id: "o".into(),
@@ -120,8 +122,8 @@ fn constructs_and_matches_control_variants() {
         reply: tx,
     };
 
-    let (tx, _rx) = oneshot::channel::<Vec<String>>();
-    let _ = PtyCmd::List { reply: tx };
+    let (tx, _rx) = oneshot::channel::<Vec<PtySession>>();
+    let _ = PtyCmd::Sessions { reply: tx };
 }
 
 #[test]
@@ -133,7 +135,8 @@ fn get_output_reply_carries_buffer() {
         reply: tx,
     };
     if let PtyCmd::GetOutput { reply, .. } = cmd {
-        reply.send(Some(RawOutputBuffer::new())).unwrap();
+        let sent = reply.send(Some(RawOutputBuffer::new()));
+        assert!(sent.is_ok(), "the receiver is still alive");
     }
-    assert!(rx.try_recv().unwrap().is_some());
+    assert!(rx.try_recv().is_ok_and(|buffer| buffer.is_some()));
 }

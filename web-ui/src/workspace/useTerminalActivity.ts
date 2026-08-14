@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ptyActivity } from "../api";
+import { ptySessions } from "../api";
 import { panes } from "./tree";
 import type { PaneId, WorkspaceWindow } from "./types";
 
 /**
  * Which terminal panes are running a foreground command.
  *
- * Polled from one endpoint covering every PTY rather than read off each
+ * Polled from one endpoint covering every shell rather than read off each
  * terminal's output stream. A pane in a background window is not mounted and
  * has no stream, but its shell is still running the build — and that is exactly
  * the case the window rail's pulse exists to surface.
@@ -23,10 +23,10 @@ export function useTerminalActivity(windows: readonly WorkspaceWindow[]): Readon
   const owners = useMemo(() => terminalPanes(windows), [windows]);
 
   // Read through a ref so a layout edit does not restart the timer; only a
-  // change to the *set of PTY ids* should, and that is what `key` tracks.
+  // change to the *set of shells* should, and that is what `key` tracks.
   const ownersRef = useRef(owners);
   ownersRef.current = owners;
-  const key = useMemo(() => [...owners.values()].flat().sort().join("|"), [owners]);
+  const key = useMemo(() => [...owners.values()].sort().join("|"), [owners]);
 
   const [busy, setBusy] = useState<ReadonlySet<PaneId>>(NONE);
 
@@ -38,11 +38,14 @@ export function useTerminalActivity(windows: readonly WorkspaceWindow[]): Readon
 
     let live = true;
     const poll = async () => {
-      const activity = await ptyActivity().catch(() => null);
-      if (!live || !activity) return;
+      const sessions = await ptySessions().catch(() => null);
+      if (!live || !sessions) return;
+      const running = new Set(
+        sessions.filter((s) => s.activity === "running").map((s) => s.id),
+      );
       const next = new Set<PaneId>();
-      for (const [pane, ptyIds] of ownersRef.current) {
-        if (ptyIds.some((id) => activity[id] === "running")) next.add(pane);
+      for (const [pane, ptyId] of ownersRef.current) {
+        if (running.has(ptyId)) next.add(pane);
       }
       setBusy((current) => (sameSet(current, next) ? current : next));
     };
@@ -58,13 +61,13 @@ export function useTerminalActivity(windows: readonly WorkspaceWindow[]): Readon
   return busy;
 }
 
-/** Every terminal pane in the workspace, mapped to the PTYs it owns. */
-function terminalPanes(windows: readonly WorkspaceWindow[]): Map<PaneId, readonly string[]> {
-  const owners = new Map<PaneId, readonly string[]>();
+/** Every terminal pane showing a shell, mapped to that shell. */
+function terminalPanes(windows: readonly WorkspaceWindow[]): Map<PaneId, string> {
+  const owners = new Map<PaneId, string>();
   for (const window of windows) {
     for (const pane of panes(window.root)) {
-      if (pane.widget?.kind !== "terminal" || pane.widget.ptyIds.length === 0) continue;
-      owners.set(pane.id, pane.widget.ptyIds);
+      if (pane.widget?.kind !== "terminal" || !pane.widget.ptyId) continue;
+      owners.set(pane.id, pane.widget.ptyId);
     }
   }
   return owners;

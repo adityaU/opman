@@ -328,7 +328,7 @@ html.flat-theme .message-action-btn:hover {
     color: var(--color-text-muted);
     font-size: var(--font-size-2xs);
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .code-block-action-btn:hover {
@@ -369,7 +369,7 @@ html.flat-theme .message-action-btn:hover {
     border-bottom: none;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .spreadsheet-tab:hover {
@@ -534,7 +534,7 @@ html.flat-theme .document-content td {
     border: .5px solid var(--glass-border-dark, var(--white-6));
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .spreadsheet-action-btn:hover {
@@ -561,7 +561,7 @@ html.flat-theme .document-content td {
     border: .5px solid transparent;
     border-bottom: none;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .spreadsheet-tab-group.active {
@@ -597,7 +597,7 @@ html.flat-theme .document-content td {
     border-radius: var(--radius-sm);
     cursor: pointer;
     opacity: .5;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .spreadsheet-tab-close:hover {
@@ -644,7 +644,7 @@ html.flat-theme .document-content td {
     border: .5px solid var(--glass-border-dark, var(--white-6));
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all var(--transition-base)
+    transition: var(--transition-interactive)
 }
 
 .doc-toolbar-btn:hover {

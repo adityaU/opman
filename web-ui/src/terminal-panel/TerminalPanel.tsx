@@ -1,155 +1,120 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalPanelProps } from "./types";
-import { useTerminalTabs, useTerminalLifecycle, useTerminalSearch } from "./hooks";
-import { TabBar, HeaderActions, SearchBar, TabBody } from "./components";
+import type { TerminalPanelProps } from "./types";
+import { useActiveShell } from "./useActiveShell";
+import { useTerminalSession } from "./useTerminalSession";
+import { useTerminalSearch } from "./useTerminalSearch";
+import { SearchBar } from "./components";
+import { ShellPicker } from "./ShellPicker";
 import { MobileKeyBar } from "./mobile/MobileKeyBar";
 import { useTerminalCommands } from "./useTerminalCommands";
 import { useMobileKeys } from "./mobile/useMobileKeys";
 
+/**
+ * One terminal showing one shell, and nothing else on screen.
+ *
+ * There is deliberately no header: every row of chrome is a row of scrollback,
+ * and everything the header offered lives elsewhere — switching, renaming and
+ * killing shells in the picker (`terminal.selectShell`), search on Ctrl+F,
+ * expand on its command. The pane's own title bar already says this is a
+ * terminal.
+ *
+ * The shell belongs to the project, not to this panel: it was very likely
+ * started by another pane, and it will outlive this one.
+ */
 export function TerminalPanel({
   sessionId,
   projectPath,
-  onClose,
   visible = true,
-  mcpAgentActive = false,
   layout = "desktop",
-  restoreIds,
-  onTabsChanged,
+  ptyId = null,
+  onPtyIdChanged,
 }: TerminalPanelProps) {
   const isMobile = layout === "mobile";
   const [expanded, setExpanded] = useState(false);
-  const projectKey = projectPath ?? "default";
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const {
-    tabs,
-    setTabs,
-    activeTabId,
-    setActiveTabId,
-    renameId,
-    setRenameId,
-    renameValue,
-    setRenameValue,
-    kindMenuOpen,
-    setKindMenuOpen,
-    runtimesRef,
-    containerRefs,
-    createTab,
-    closeTab,
-    startRename,
-    commitRename,
-  } = useTerminalTabs(projectKey, restoreIds, onTabsChanged);
+  const active = useActiveShell(ptyId, projectPath, sessionId, onPtyIdChanged);
 
   // The touch key bar rewrites keystrokes (sticky Ctrl/Alt), so the terminal's
   // data path reads the transform from this ref.
   const transformRef = useRef<((data: string) => string) | null>(null);
 
-  useTerminalLifecycle(
-    tabs,
-    setTabs,
+  const { status, runtimeRef } = useTerminalSession(
+    active.ptyId,
+    active.shell?.kind ?? "shell",
+    projectPath,
     sessionId,
-    runtimesRef,
-    containerRefs,
-    activeTabId,
-    expanded,
-    visible,
-    transformRef
+    containerRef,
+    visible && !active.choosing,
+    transformRef,
   );
 
-  const mobileKeys = useMobileKeys(activeTabId, runtimesRef, transformRef, isMobile);
+  const mobileKeys = useMobileKeys(active.ptyId, runtimeRef, transformRef, isMobile);
+  const search = useTerminalSearch(runtimeRef);
 
   useTerminalCommands({
-    tabs, activeTabId, setActiveTabId, createTab, closeTab, startRename,
-    openKindMenu: () => setKindMenuOpen(true),
+    hasShell: active.ptyId !== null,
+    newShell: active.create,
+    killShell: active.ptyId ? () => active.kill(active.ptyId as string) : undefined,
+    selectShell: active.startChoosing,
+    step: active.step,
+    clear: () => runtimeRef.current?.term.clear(),
     expand: () => setExpanded((on) => !on),
+    find: search.toggleSearch,
   });
 
-  // Only the active project's tabs are shown in the tab bar — tabs for other
-  // projects stay mounted in TabBody so their terminals keep running.
-  const visibleTabs = useMemo(
-    () => tabs.filter((t) => t.projectKey === projectKey),
-    [tabs, projectKey]
-  );
-
-  const {
-    searchOpen,
-    setSearchOpen,
-    searchQuery,
-    searchInputRef,
-    handleSearchChange,
-    searchNext,
-    searchPrev,
-    closeSearch,
-  } = useTerminalSearch(activeTabId, runtimesRef);
-
-  const handleHidePanel = useCallback(() => onClose(), [onClose]);
-
-  const handleToggleSearch = useCallback(() => {
-    if (searchOpen) {
-      closeSearch();
-    } else {
-      setSearchOpen(true);
-      requestAnimationFrame(() => searchInputRef.current?.focus());
-    }
-  }, [searchOpen, closeSearch, setSearchOpen, searchInputRef]);
-
-  const handleCancelRename = useCallback(() => {
-    setRenameId(null);
-    setRenameValue("");
-  }, [setRenameId, setRenameValue]);
-
-  const activeTab = useMemo(
-    () => tabs.find((t) => t.id === activeTabId) ?? null,
-    [tabs, activeTabId]
-  );
-
   return (
-    <div className={`terminal-panel ${expanded ? "expanded" : ""}${isMobile ? " terminal-panel-mobile" : ""}`} data-surface="terminal">
-      <div className="terminal-panel-header">
-        <TabBar
-          tabs={visibleTabs}
-          activeTabId={activeTabId}
-          renameId={renameId}
-          renameValue={renameValue}
-          kindMenuOpen={kindMenuOpen}
-          onSelectTab={setActiveTabId}
-          onStartRename={startRename}
-          onRenameValueChange={setRenameValue}
-          onCommitRename={commitRename}
-          onCancelRename={handleCancelRename}
-          onCloseTab={closeTab}
-          onToggleKindMenu={() => setKindMenuOpen((v) => !v)}
-          onCreateTab={createTab}
-        />
-        <HeaderActions
-          expanded={expanded}
-          searchOpen={searchOpen}
-          mcpAgentActive={mcpAgentActive}
-          searchInputRef={searchInputRef}
-          onToggleSearch={handleToggleSearch}
-          onToggleExpand={() => setExpanded((v) => !v)}
-          onHidePanel={handleHidePanel}
-        />
-      </div>
-
-      {searchOpen && (
+    <div
+      className={`terminal-panel ${expanded ? "expanded" : ""}${isMobile ? " terminal-panel-mobile" : ""}`}
+      data-surface="terminal"
+    >
+      {search.searchOpen && !active.choosing && (
         <SearchBar
-          searchQuery={searchQuery}
-          searchInputRef={searchInputRef}
-          onSearchChange={handleSearchChange}
-          onSearchNext={searchNext}
-          onSearchPrev={searchPrev}
-          onClose={closeSearch}
+          searchQuery={search.searchQuery}
+          searchInputRef={search.searchInputRef}
+          onSearchChange={search.handleSearchChange}
+          onSearchNext={search.searchNext}
+          onSearchPrev={search.searchPrev}
+          onClose={search.closeSearch}
         />
       )}
 
-      <TabBody
-        tabs={tabs}
-        activeTabId={activeTabId}
-        containerRefs={containerRefs}
-      />
+      <div className="terminal-panel-body">
+        {/* The terminal stays mounted behind the picker so switching back to it
+            does not tear down and re-attach the stream. */}
+        <div
+          ref={containerRef}
+          className="term-surface"
+          style={{ display: active.choosing ? "none" : "block" }}
+        >
+          {status === "connecting" && <div className="terminal-overlay">Opening terminal…</div>}
+          {status === "error" && (
+            <div className="terminal-overlay error">This terminal could not be opened</div>
+          )}
+        </div>
 
-      {isMobile && <MobileKeyBar keys={mobileKeys} />}
+        {active.choosing && (
+          <ShellPicker
+            shells={active.shells}
+            loading={active.loading}
+            projectName={basename(projectPath) ?? "this project"}
+            onPick={active.select}
+            onCreate={active.create}
+            onKill={active.kill}
+            onRename={active.renameById}
+            onCancel={active.ptyId ? active.stopChoosing : undefined}
+          />
+        )}
+      </div>
+
+      {isMobile && !active.choosing && <MobileKeyBar keys={mobileKeys} />}
     </div>
   );
+}
+
+function basename(path: string | null): string | null {
+  if (!path) return null;
+  const parts = path.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? path;
 }

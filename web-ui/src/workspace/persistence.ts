@@ -13,6 +13,7 @@
  * shell. Pretending otherwise would restore a pane wired to nothing.
  */
 
+import { browserIdForProject } from "../api/browser";
 import { emptyWorkspace } from "./reducer";
 import { normalize } from "./tree";
 import {
@@ -107,10 +108,10 @@ function parseChrome(value: unknown): ChromeState {
   if (!isRecord(value)) return DEFAULT_CHROME;
   const flag = (key: keyof ChromeState) =>
     typeof value[key] === "boolean" ? (value[key] as boolean) : DEFAULT_CHROME[key];
-  // Zen is deliberately not restored. `rail` and `paneHeaders` are standing
-  // preferences; Zen is where you happened to be when the tab closed, and
-  // coming back to a chromeless shell you did not ask for reads as a bug.
-  return { rail: flag("rail"), paneHeaders: flag("paneHeaders"), zen: false };
+  // Zen is deliberately not restored. `rail` is a standing preference; Zen is
+  // where you happened to be when the tab closed, and coming back to a
+  // chromeless shell you did not ask for reads as a bug.
+  return { rail: flag("rail"), zen: false };
 }
 
 function parseWindow(value: unknown): WorkspaceWindow | null {
@@ -206,6 +207,21 @@ function parseFileOpen(value: unknown): FileOpenRequest | null {
   };
 }
 
+/**
+ * Which shell a terminal pane was showing.
+ *
+ * Layouts saved when a pane held a strip of tabs carry `ptyIds`; the pane now
+ * shows one shell, so the first of them is restored and the rest are simply
+ * left running — they are still in the picker, which is where they belonged all
+ * along. An id whose shell has since exited resolves to the picker, because the
+ * panel checks the server before attaching.
+ */
+function parsePtyId(value: Record<string, unknown>): string | null {
+  if (typeof value.ptyId === "string" && value.ptyId) return value.ptyId;
+  if (!Array.isArray(value.ptyIds)) return null;
+  return value.ptyIds.find((id): id is string => typeof id === "string" && id !== "") ?? null;
+}
+
 function parseWidget(value: unknown, paneId: PaneId): WidgetState | null {
   if (!isRecord(value)) return null;
   const kind = value.kind;
@@ -229,14 +245,22 @@ function parseWidget(value: unknown, paneId: PaneId): WidgetState | null {
         open: parseFileOpen(value.open),
       };
     case "terminal":
-      return {
-        kind: "terminal",
-        projectPath,
-        ptyIds: Array.isArray(value.ptyIds)
-          ? value.ptyIds.filter((id): id is string => typeof id === "string")
-          : [],
-      };
+      return { kind: "terminal", projectPath, ptyId: parsePtyId(value) };
     case "git":
       return { kind: "git", projectPath };
+    case "browser":
+      return {
+        kind: "browser",
+        projectPath,
+        // Browsers are per project, so a widget saved before `browserId` existed
+        // — or one saved with a pane-scoped id — resolves to the project's
+        // browser rather than being dropped or stranded on a tab nothing else
+        // can reach.
+        browserId:
+          typeof value.browserId === "string" && value.browserId.startsWith("proj:")
+            ? value.browserId
+            : browserIdForProject(projectPath),
+        url: typeof value.url === "string" && value.url ? value.url : null,
+      };
   }
 }

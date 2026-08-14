@@ -3,12 +3,12 @@ import type { BindingSpec } from "../types";
 /** Terminal, git and board. */
 
 export const BASE_TERMINAL: readonly BindingSpec[] = [
-  { key: "ctrl+shift+`", command: "terminal.newTab" },
-  { key: "mod+k `", command: "terminal.newTabOfKind" },
-  { key: "alt+]", command: "terminal.nextTab", when: "focus==terminal" },
-  { key: "alt+[", command: "terminal.previousTab", when: "focus==terminal" },
-  { key: "mod+k x", command: "terminal.closeTab", when: "focus==terminal" },
-  { key: "f2", command: "terminal.renameTab", when: "focus==terminal" },
+  { key: "ctrl+shift+`", command: "terminal.newShell" },
+  { key: "mod+k `", command: "terminal.selectShell" },
+  { key: "alt+]", command: "terminal.nextShell", when: "focus==terminal" },
+  { key: "alt+[", command: "terminal.previousShell", when: "focus==terminal" },
+  { key: "mod+k x", command: "terminal.killShell", when: "focus==terminal" },
+  { key: "f2", command: "terminal.renameShell", when: "focus==terminal" },
   { key: "mod+f", command: "terminal.find", when: "focus==terminal" },
   { key: "enter", command: "terminal.findNext", when: "terminalFindOpen" },
   { key: "shift+enter", command: "terminal.findPrevious", when: "terminalFindOpen" },

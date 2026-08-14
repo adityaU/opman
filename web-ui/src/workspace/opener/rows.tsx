@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageSquare, Plus } from "lucide-react";
+import { MessageSquare, Plus, SquareTerminal } from "lucide-react";
 import { WIDGET_ICON, WIDGET_LABEL } from "../PaneHeader";
 import { projectColorVars, projectInitials } from "../ProjectBadge";
 import { WIDGET_KINDS, type WidgetKind } from "../types";
@@ -21,17 +21,19 @@ const KIND_BLURB: Readonly<Record<WidgetKind, string>> = {
   files: "Browse and edit files",
   terminal: "A shell in the project root",
   git: "Diff, stage and commit",
+  browser: "A page an agent can read and drive",
 };
 
 function asKind(value: string | null): WidgetKind | null {
   return value !== null && WIDGET_KINDS.includes(value as WidgetKind) ? (value as WidgetKind) : null;
 }
 
-/** Two-line rows carry a sub; the session list stays single-line and dense. */
+/** Two-line rows carry a sub; the session and shell lists stay dense. */
 export function rowClass(step: StepId, choice: OpenerChoice): string {
   if (step === "kind") return "wsp-opener-row is-kind";
   if (step === "project") return "wsp-opener-row is-project";
-  return `wsp-opener-row ${choice.value === null ? "is-new" : "is-session"}`;
+  if (choice.value === null) return "wsp-opener-row is-new";
+  return `wsp-opener-row ${step === "shell" ? "is-shell" : "is-session"}`;
 }
 
 export const RowBody: React.FC<{ readonly step: StepId; readonly choice: OpenerChoice }> =
@@ -70,8 +72,8 @@ export const RowBody: React.FC<{ readonly step: StepId; readonly choice: OpenerC
       );
     }
 
-    // "New session" answers a different question than the rows below it, so it
-    // gets the accent tile and a sub line; the existing sessions do not.
+    // "New session" / "New shell" answers a different question than the rows
+    // below it, so it gets the accent tile and a sub line; the rest do not.
     if (choice.value === null) {
       return (
         <>
@@ -86,11 +88,18 @@ export const RowBody: React.FC<{ readonly step: StepId; readonly choice: OpenerC
       );
     }
 
+    // A shell's hint is what it is *doing*, so it reads as a state rather than
+    // as a timestamp — that is the whole reason to pick one shell over another.
+    const Glyph = step === "shell" ? SquareTerminal : MessageSquare;
     return (
       <>
-        <MessageSquare className="wsp-opener-glyph" size={13} aria-hidden="true" />
+        <Glyph className="wsp-opener-glyph" size={13} aria-hidden="true" />
         <span className="wsp-opener-label">{choice.label}</span>
-        {choice.hint && <span className="wsp-opener-when">{choice.hint}</span>}
+        {choice.hint && (
+          <span className={`wsp-opener-when${choice.busy ? " is-running" : ""}`}>
+            {choice.hint}
+          </span>
+        )}
       </>
     );
   };

@@ -68,6 +68,22 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
                     .data(payload.to_string()),
             )
         }
+        WebEvent::McpBrowserOpen {
+            project_path,
+            browser_id,
+            url,
+        } => {
+            let payload = serde_json::json!({
+                "projectPath": project_path,
+                "browserId": browser_id,
+                "url": url,
+            });
+            Some(
+                SseEvent::default()
+                    .event("mcp_browser_open")
+                    .data(payload.to_string()),
+            )
+        }
         WebEvent::McpEditorNavigate { line } => {
             let payload = serde_json::json!({ "line": line });
             Some(

@@ -37,6 +37,7 @@ export interface WindowViewProps {
   readonly renderWidget: (widget: WidgetState, pane: PaneNode, focused: boolean) => React.ReactNode;
   /** Panes busy for a reason the widget itself reports, e.g. a running command. */
   readonly busyPanes: ReadonlySet<PaneId>;
+  /** True while the reveal chord is showing the headers. */
   readonly showHeaders: boolean;
   readonly zen: boolean;
   readonly dragSourcePane: PaneId | null;
@@ -69,7 +70,7 @@ export const WindowView: React.FC<WindowViewProps> = React.memo(function WindowV
           pane={pane}
           ordinal={ordinalOfPane(win.root, pane.id) ?? 1}
           focused={focused}
-          showHeader={showHeaders}
+          peekHeader={showHeaders}
           canClose={total > 1}
           projectName={context.projectName}
           subtitle={context.subtitle}

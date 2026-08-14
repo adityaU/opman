@@ -121,13 +121,6 @@ describe("useSettingsRoute", () => {
     expect(result.current.section).toBe("skills");
   });
 
-  it("reads the editor section from the URL", () => {
-    window.location.pathname = "/settings";
-    window.location.search = "?section=editor";
-    const { result } = renderHook(() => useSettingsRoute());
-    expect(result.current.section).toBe("editor");
-  });
-
   it("falls back to a valid section rather than rendering nothing", () => {
     window.location.pathname = "/settings";
     window.location.search = "?section=nonsense";

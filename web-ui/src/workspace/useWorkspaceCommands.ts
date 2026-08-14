@@ -29,6 +29,8 @@ export interface WorkspaceCommandDeps {
   readonly openWidgetPicker: () => void;
   readonly openWindowSwitcher: () => void;
   readonly openPaneMenu: () => void;
+  /** Show the focused window's pane headers for a few seconds. */
+  readonly peekPaneHeader: () => void;
   readonly renameActiveWindow: () => void;
   /** True while the pane-target overlay owns the keyboard. */
   readonly targeting: boolean;
@@ -64,11 +66,10 @@ export function useWorkspaceCommands(deps: WorkspaceCommandDeps): void {
         dispatch({ type: "movePaneToWindow", pane: focusedPaneId, window: "new" }),
 
       "workspace.toggleRail": () => dispatch({ type: "toggleChrome", level: "rail" }),
-      // `toggleZen` used to be pane-headers-only, which is a preference rather
-      // than a mode; the headers keep their own command and Zen now means what
+      // The header is peeked, not toggled: it shows itself for a few seconds
+      // and withdraws, so there is nothing to switch back off. Zen means what
       // the name says — one pane, the whole shell.
-      "workspace.togglePaneHeaders": () =>
-        dispatch({ type: "toggleChrome", level: "paneHeaders" }),
+      "workspace.revealPaneHeader": deps.peekPaneHeader,
       "workspace.toggleZen": () => withViewTransition(() => dispatch({ type: "toggleZen" })),
 
       "workspace.openWidget": deps.openWidgetPicker,

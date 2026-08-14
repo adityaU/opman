@@ -33,7 +33,7 @@
     border-radius: var(--radius-lg);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 .sb-icon-btn:hover {
@@ -59,7 +59,7 @@
     cursor: pointer;
     align-items: center;
     justify-content: center;
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 .sidebar-close-btn:hover {
@@ -76,7 +76,7 @@
     background: var(--white-4);
     border: .5px solid var(--white-6);
     border-radius: var(--radius-lg);
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 .sb-search:focus-within {
@@ -115,7 +115,7 @@
     border-radius: 50%;
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 .sb-search-clear:hover {

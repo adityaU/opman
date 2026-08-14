@@ -29,6 +29,9 @@ pub(super) struct ManagerRequest {
     pub(super) effort: Option<String>,
     #[serde(default)]
     pub(super) provider: Option<String>,
+    /// The permission mode the turn runs under, in the target runner's own vocabulary.
+    #[serde(default)]
+    pub(super) permission: Option<String>,
     #[serde(default)]
     pub(super) title: Option<String>,
     #[serde(default)]
@@ -98,6 +101,14 @@ impl ManagerRequest {
             self.effort.as_deref(),
             self.provider.as_deref(),
         )
+    }
+
+    /// The permission mode the caller named, if it named one at all.
+    pub(super) fn requested_permission(&self) -> Option<&str> {
+        self.permission
+            .as_deref()
+            .map(str::trim)
+            .filter(|mode| !mode.is_empty())
     }
 }
 

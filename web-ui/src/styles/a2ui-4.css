@@ -238,7 +238,7 @@
     background: var(--color-bg);
     color: var(--color-text-muted);
     cursor: default;
-    transition: all var(--transition-fast)
+    transition: var(--transition-interactive-fast)
 }
 
 button.a2ui-tag { cursor: pointer }

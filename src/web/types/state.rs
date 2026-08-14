@@ -4,9 +4,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
-use crate::mcp::NvimSocketRegistry;
 use crate::mcp_skills::SkillsRegistry;
-use crate::nvim_ui::NvimUiPool;
 
 use super::super::pty_manager::WebPtyHandle;
 use super::super::web_state::WebStateHandle;
@@ -113,16 +111,16 @@ pub struct ServerState {
     pub raw_sse_tx: broadcast::Sender<String>,
     /// Handle to the web PTY manager (independent from TUI PTYs).
     pub pty_mgr: WebPtyHandle,
+    /// Headless browser panes. One Chromium for the whole app, one tab per browser
+    /// widget, shared by the pane and the `browser` MCP tools so an agent drives the
+    /// page the user is watching.
+    pub browser: crate::browser::BrowserPool,
     /// Shared HTTP client for proxying requests to the opencode server.
     /// Reuses TCP connections across requests (connection pooling).
     pub http_client: reqwest::Client,
-    /// Shared neovim socket registry, still used by the terminal and MCP tools.
-    pub nvim_registry: NvimSocketRegistry,
-    /// Lazy embedded Neovim processes used by the browser UI.
-    pub nvim_ui: Arc<NvimUiPool>,
     /// Running language servers for the file editor's LSP features. Started on
     /// demand per (project root, language); no Neovim session required.
-    pub lsp: std::sync::Arc<crate::lsp::LspPool>,
+    pub lsp: Arc<crate::lsp::LspPool>,
     /// Skills registry for MCP server.
     pub skills_registry: SkillsRegistry,
     /// The MCP server set handed to runners. Swappable, so the settings page can add,
@@ -147,16 +145,16 @@ pub struct ServerState {
     /// rather than in an engine because the asker is a child of the runner, not of any
     /// engine: the request that waits and the reply that answers it only meet in the web
     /// server.
-    pub ask_pending: std::sync::Arc<crate::web::ask_pending::AskPending>,
+    pub ask_pending: Arc<crate::web::ask_pending::AskPending>,
     /// Common runtime runner registry used by session handlers.
-    pub runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
+    pub runner_registry: Arc<crate::runner::RunnerRegistry>,
     /// The live ACP engines. Reconcilable against `acp.json`, so the settings page can add,
     /// edit or remove an agent and have the runner appear or disappear without a restart.
-    pub acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
+    pub acp: Arc<crate::acp_engine::supervisor::AcpSupervisor>,
     /// MCP OAuth logins waiting on a browser. Held here rather than per request because
     /// the flow outlives the request that started it: the settings page gets the
     /// authorize URL back immediately and delivers the callback in a second call.
-    pub mcp_logins: std::sync::Arc<crate::web::handlers::LoginSessions>,
+    pub mcp_logins: Arc<crate::web::handlers::LoginSessions>,
 }
 
 #[cfg(test)]

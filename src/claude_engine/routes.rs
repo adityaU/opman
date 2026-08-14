@@ -202,16 +202,6 @@ fn with_attachments(text: String, paths: &[String]) -> String {
     format!("{text}\n\n[Attached file(s) — use the Read tool to view]:\n{list}")
 }
 
-/// Valid claude permission modes (for the runtime `/permission-mode` command).
-const PERMISSION_MODES: &[&str] = &[
-    "default",
-    "acceptEdits",
-    "auto",
-    "bypassPermissions",
-    "dontAsk",
-    "plan",
-];
-
 /// If `text` is a runtime control command (`/permission-mode <mode>`), apply it and
 /// return true (so no claude turn is dispatched).
 fn handle_control_command(engine: &Engine, session_id: &str, text: &str) -> bool {
@@ -246,19 +236,20 @@ fn handle_control_command(engine: &Engine, session_id: &str, text: &str) -> bool
         .or_else(|| t.strip_prefix("/perm"));
     if let Some(rest) = rest {
         let mode = rest.trim();
-        let resolved = PERMISSION_MODES
-            .iter()
-            .find(|m| m.eq_ignore_ascii_case(mode))
-            .copied();
-        match resolved {
+        match models::permission_mode(mode) {
             Some(m) => engine.set_permission_mode(session_id, m),
             None => {
                 if let Some(entry) = engine.get_session(session_id) {
+                    let options = models::PERMISSION_MODES
+                        .iter()
+                        .map(|(id, _, _)| *id)
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     engine.emit(
                         &entry.directory,
                         "tui.toast.show",
                         json!({
-                            "message": format!("Unknown permission mode '{mode}'. Options: {}", PERMISSION_MODES.join(", ")),
+                            "message": format!("Unknown permission mode '{mode}'. Options: {options}"),
                             "variant": "error"
                         }),
                     );

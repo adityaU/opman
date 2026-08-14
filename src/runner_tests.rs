@@ -263,6 +263,29 @@ struct MockRunner {
     prefix: &'static str,
     next: AtomicUsize,
     sessions: RwLock<HashMap<String, Value>>,
+    /// Permission modes this runner publishes on `/provider`, empty for one that has none.
+    modes: &'static [&'static str],
+    /// Choices recorded out of band, so a test can tell a mode that was merely sent from
+    /// one that will still be in force on the session's second turn.
+    configured: RwLock<Vec<(String, crate::app::EngineChoices)>>,
+}
+
+impl MockRunner {
+    fn new(kind: RunnerKind, prefix: &'static str) -> Self {
+        Self {
+            kind,
+            prefix,
+            next: AtomicUsize::new(1),
+            sessions: RwLock::new(HashMap::new()),
+            modes: &[],
+            configured: RwLock::new(Vec::new()),
+        }
+    }
+
+    fn with_modes(mut self, modes: &'static [&'static str]) -> Self {
+        self.modes = modes;
+        self
+    }
 }
 
 impl Runner for MockRunner {
@@ -331,17 +354,41 @@ impl Runner for MockRunner {
     fn abort<'a>(&'a self, _session_id: &'a str, _directory: &'a str) -> RunnerFuture<'a, ()> {
         Box::pin(async { Ok(()) })
     }
+    fn providers<'a>(&'a self, _directory: &'a str) -> RunnerFuture<'a, Value> {
+        Box::pin(async move {
+            let modes: Vec<Value> = self
+                .modes
+                .iter()
+                .map(|mode| json!({ "value": mode, "label": mode }))
+                .collect();
+            Ok(json!({
+                "all": [],
+                "connected": [],
+                "default": {},
+                "permissionModes": modes,
+            }))
+        })
+    }
+    fn configure<'a>(
+        &'a self,
+        session_id: &'a str,
+        _directory: &'a str,
+        choices: &'a crate::app::EngineChoices,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.configured
+                .write()
+                .await
+                .push((session_id.to_string(), choices.clone()));
+            Ok(true)
+        })
+    }
 }
 
 #[tokio::test]
 async fn switching_runner_creates_a_handoff_session_with_summary(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let old = Arc::new(MockRunner {
-        kind: RunnerKind::Opencode,
-        prefix: "old",
-        next: AtomicUsize::new(1),
-        sessions: RwLock::new(HashMap::new()),
-    });
+    let old = Arc::new(MockRunner::new(RunnerKind::Opencode, "old"));
     old.sessions.write().await.insert(
         "logical".into(),
         json!([
@@ -349,12 +396,7 @@ async fn switching_runner_creates_a_handoff_session_with_summary(
             { "info": { "role": "assistant" }, "parts": [{ "text": "I found the parser" }] }
         ]),
     );
-    let new = Arc::new(MockRunner {
-        kind: RunnerKind::ClaudeCode,
-        prefix: "new",
-        next: AtomicUsize::new(1),
-        sessions: RwLock::new(HashMap::new()),
-    });
+    let new = Arc::new(MockRunner::new(RunnerKind::ClaudeCode, "new"));
     let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
     runners.insert(RunnerKind::Opencode, old.clone());
     runners.insert(RunnerKind::ClaudeCode, new.clone());
@@ -379,19 +421,72 @@ async fn switching_runner_creates_a_handoff_session_with_summary(
     Ok(())
 }
 
+/// A handoff carries the composer's permission mode when the target knows the name.
+///
+/// Sending it is not enough on its own: the mode has to be recorded on the new session too,
+/// or it lapses the moment the handoff turn ends and the user is back to being asked.
+#[tokio::test]
+async fn a_handoff_carries_a_permission_the_target_offers(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let old = Arc::new(MockRunner::new(RunnerKind::Opencode, "old"));
+    let new = Arc::new(
+        MockRunner::new(RunnerKind::ClaudeCode, "new").with_modes(&["default", "acceptEdits"]),
+    );
+    let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
+    runners.insert(RunnerKind::Opencode, old);
+    runners.insert(RunnerKind::ClaudeCode, new.clone());
+    let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
+
+    let outcome = registry
+        .send_message(
+            "logical",
+            "/project",
+            Some(RunnerKind::ClaudeCode),
+            json!({ "parts": [], "permission": "acceptEdits" }),
+        )
+        .await?;
+
+    assert_eq!(outcome.response["permission"], "acceptEdits");
+    let configured = new.configured.read().await;
+    let (session, choices) = configured.first().ok_or("the new session was not configured")?;
+    assert_eq!(session, &outcome.session_id);
+    assert_eq!(
+        choices.permission_mode.as_ref().map(|mode| mode.as_str()),
+        Some("acceptEdits")
+    );
+    Ok(())
+}
+
+/// A mode is a name in one runner's vocabulary, so one the target never published is
+/// dropped. Forwarding it is worse than dropping it: the target stores it, ignores it, and
+/// keeps prompting for permissions the user believes they already granted.
+#[tokio::test]
+async fn a_handoff_drops_a_permission_the_target_does_not_know(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let old = Arc::new(MockRunner::new(RunnerKind::Opencode, "old"));
+    let new = Arc::new(MockRunner::new(RunnerKind::ClaudeCode, "new").with_modes(&["default"]));
+    let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
+    runners.insert(RunnerKind::Opencode, old);
+    runners.insert(RunnerKind::ClaudeCode, new.clone());
+    let registry = RunnerRegistry::new(RunnerKind::Opencode, runners);
+
+    let outcome = registry
+        .send_message(
+            "logical",
+            "/project",
+            Some(RunnerKind::ClaudeCode),
+            json!({ "parts": [], "permission": "agent-full-access" }),
+        )
+        .await?;
+
+    assert!(outcome.response.get("permission").is_none());
+    assert!(new.configured.read().await.is_empty());
+    Ok(())
+}
+
 fn two_runner_registry() -> (Arc<MockRunner>, Arc<MockRunner>, RunnerRegistry) {
-    let default = Arc::new(MockRunner {
-        kind: RunnerKind::ClaudeCode,
-        prefix: "cc",
-        next: AtomicUsize::new(1),
-        sessions: RwLock::new(HashMap::new()),
-    });
-    let other = Arc::new(MockRunner {
-        kind: RunnerKind::Claude,
-        prefix: "cp",
-        next: AtomicUsize::new(1),
-        sessions: RwLock::new(HashMap::new()),
-    });
+    let default = Arc::new(MockRunner::new(RunnerKind::ClaudeCode, "cc"));
+    let other = Arc::new(MockRunner::new(RunnerKind::Claude, "cp"));
     let mut runners: HashMap<RunnerKind, Arc<dyn Runner>> = HashMap::new();
     runners.insert(RunnerKind::ClaudeCode, default.clone());
     runners.insert(RunnerKind::Claude, other.clone());

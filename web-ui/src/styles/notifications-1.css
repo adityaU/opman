@@ -222,7 +222,7 @@
     box-shadow: 0 12px 40px var(--black-14),0 4px 14px var(--black-8)
 }
 
-.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.terminal-panel-header,.mobile-panel-header{
+.notification-prefs-header,.ctx-window-header,.diff-review-header,.pr-description-modal-header,.git-panel-header,.mobile-panel-header{
     background: linear-gradient(180deg,color-mix(in srgb,var(--color-surface) 52%,transparent),transparent);
     border-bottom-color: var(--color-border)
 }

@@ -11,6 +11,10 @@
 .am-card-start .am-card-icon { color: var(--color-secondary) }
 .am-card-send .am-card-icon { color: var(--color-accent) }
 .am-card-progress .am-card-icon { color: var(--color-info) }
+.am-card-list .am-card-icon { color: var(--color-info) }
+.am-card-wait .am-card-icon { color: var(--color-warning) }
+.am-card-abort .am-card-icon { color: var(--color-error) }
+.am-card-options .am-card-icon { color: var(--color-secondary) }
 .am-card-error .am-card-icon { color: var(--color-error) }
 
 .am-card-head {
@@ -142,8 +146,151 @@
 .am-card-muted { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-xs); font-style: italic }
 .am-card-error-message { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--color-error); font-size: var(--font-size-xs); line-height: 1.45 }
 
+/* ── Open session ───────────────────────────────────────────────── */
+/* The one action a manager card offers, so it reads as an action: the chip
+   form sits inline among the meta chips, the button form anchors the start
+   banner. Both answer "where does it go?" through the pane overlay. */
+
+.am-open-chip,
+.am-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast)
+}
+
+.am-open-chip {
+    padding: 2px var(--space-2);
+    border: .5px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-accent);
+    font-size: var(--font-size-2xs)
+}
+.am-open-chip:hover { background: color-mix(in srgb, var(--color-accent) 20%, transparent) }
+
+.am-open-btn {
+    margin-left: auto;
+    padding: 3px var(--space-3);
+    border: .5px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+    font-size: var(--font-size-xs)
+}
+.am-open-btn:hover { background: color-mix(in srgb, var(--color-accent) 24%, transparent) }
+
+.am-start-banner { flex-wrap: wrap }
+.am-start-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+
+/* ── agent_list ─────────────────────────────────────────────────── */
+
+.am-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 260px;
+    overflow: auto;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-sm);
+    background: var(--white-3)
+}
+.am-list-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: .5px solid var(--white-4);
+    font-size: var(--font-size-2xs)
+}
+.am-list-row:last-child { border-bottom: 0 }
+.am-list-row.is-busy { background: color-mix(in srgb, var(--color-warning) 6%, transparent) }
+.am-list-title { min-width: 0; flex: 1 1 auto; color: var(--color-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.am-list-id { flex-shrink: 0; color: var(--color-text-muted); font-family: var(--font-mono) }
+.am-list-runner,
+.am-list-queued,
+.am-tag {
+    flex-shrink: 0;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--white-6);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs)
+}
+.am-list-queued { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 14%, transparent) }
+
+.am-dot { width: 6px; height: 6px; border-radius: var(--radius-full); flex-shrink: 0 }
+.am-dot-busy { background: var(--color-warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warning) 18%, transparent) }
+.am-dot-idle { background: var(--color-text-muted); opacity: .5 }
+
+/* ── agent_wait / agent_abort ───────────────────────────────────── */
+
+.am-verdict {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-sm);
+    background: var(--white-3);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    font-weight: 600
+}
+.am-verdict svg { flex-shrink: 0 }
+.am-verdict-done { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 30%, transparent) }
+.am-verdict-timeout { color: var(--color-warning); border-color: color-mix(in srgb, var(--color-warning) 30%, transparent) }
+.am-verdict-aborted { color: var(--color-error); border-color: color-mix(in srgb, var(--color-error) 30%, transparent) }
+.am-verdict-note { color: var(--color-text-muted); font-weight: 400; font-family: var(--font-mono) }
+.am-verdict .am-open-chip { margin-left: auto }
+
+.am-reply-text {
+    max-height: 240px;
+    overflow: auto;
+    padding: var(--space-2) var(--space-3);
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-sm);
+    background: var(--white-3);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word
+}
+
+/* ── agent_runner_options ───────────────────────────────────────── */
+
+.am-tags { display: flex; flex-wrap: wrap; gap: var(--space-1) }
+.am-models {
+    display: flex;
+    flex-direction: column;
+    max-height: 240px;
+    overflow: auto;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-sm);
+    background: var(--white-3)
+}
+.am-model-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-bottom: .5px solid var(--white-4);
+    font-size: var(--font-size-2xs)
+}
+.am-model-row:last-child { border-bottom: 0 }
+.am-model-name { flex: 0 1 auto; min-width: 0; color: var(--color-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.am-model-id { flex: 1 1 auto; min-width: 0; color: var(--color-text-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.am-model-efforts { flex-shrink: 0; color: var(--color-secondary) }
+.am-models .am-card-muted { padding: var(--space-2) var(--space-3); font-size: var(--font-size-2xs) }
+
 @media (max-width: 560px) {
     .am-card-summary { display: none }
     .am-card-body { padding: var(--space-2) }
     .am-transcript-role { flex-basis: 44px }
+    .am-list-id,
+    .am-model-efforts { display: none }
+    .am-open-btn { margin-left: 0 }
 }

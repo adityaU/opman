@@ -169,15 +169,13 @@ describe("movePaneToWindow", () => {
 });
 
 describe("chrome", () => {
+  // Pane headers are no longer chrome state: they are peeked on a chord and
+  // withdraw on a timer, so there is nothing here to toggle for them.
   it("toggles each level independently", () => {
     let state = emptyWorkspace();
-    expect(state.chrome).toEqual({ rail: true, paneHeaders: true, zen: false });
-    state = run(
-      state,
-      { type: "toggleChrome", level: "rail" },
-      { type: "toggleChrome", level: "paneHeaders" },
-    );
-    expect(state.chrome).toEqual({ rail: false, paneHeaders: false, zen: false });
+    expect(state.chrome).toEqual({ rail: true, zen: false });
+    state = run(state, { type: "toggleChrome", level: "rail" });
+    expect(state.chrome).toEqual({ rail: false, zen: false });
   });
 });
 

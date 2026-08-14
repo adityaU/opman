@@ -252,6 +252,22 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
     return true;
   }, []);
 
+  /** Same as `openFileInWorkspace`, but the user answers which pane. */
+  const openFileWhereInWorkspace = useCallback(
+    (path: string, line: number | null, label: string) => {
+      if (!bridgeRef.current) return false;
+      bridgeRef.current.openFileWhere(path, line, label);
+      return true;
+    },
+    [],
+  );
+
+  const openBrowserInWorkspace = useCallback((projectPath: string, url: string) => {
+    if (!bridgeRef.current) return false;
+    bridgeRef.current.openBrowser(projectPath, url);
+    return true;
+  }, []);
+
   return useMemo(
     () => ({
       workspaceProps: {
@@ -267,8 +283,10 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
       armTargeting,
       openKindHere,
       openFileInWorkspace,
+      openFileWhereInWorkspace,
+      openBrowserInWorkspace,
     }),
-    [armTargeting, openKindHere, openFileInWorkspace, chat, deps.activeSessionId, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
+    [armTargeting, openKindHere, openFileInWorkspace, openFileWhereInWorkspace, openBrowserInWorkspace, chat, deps.activeSessionId, deps.busySessions, describe, onTargetingReady, projects, sessionsFor],
   );
 }
 

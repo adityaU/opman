@@ -1,5 +1,5 @@
 import React from "react";
-import { FileCode2, GitBranch, MessageSquare, SquareTerminal } from "lucide-react";
+import { FileCode2, GitBranch, Globe, MessageSquare, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useChord } from "../keybindings/useChord";
 import type { PaneId, WidgetKind } from "./types";
@@ -20,6 +20,7 @@ const CHOICES: readonly { kind: WidgetKind; label: string; icon: LucideIcon; hin
   { kind: "files", label: "Files", icon: FileCode2, hint: "editor + explorer" },
   { kind: "terminal", label: "Terminal", icon: SquareTerminal, hint: "a shell" },
   { kind: "git", label: "Git", icon: GitBranch, hint: "changes + log" },
+  { kind: "browser", label: "Browser", icon: Globe, hint: "a page agents can drive" },
 ];
 
 interface EmptyPaneProps {

@@ -189,7 +189,12 @@ function reduceWindow(window: WorkspaceWindow, action: WorkspaceAction): Workspa
       return root === window.root ? window : { ...window, root, focusedPaneId: action.pane };
     }
 
+    // Re-focusing the pane that already has focus must return the *same*
+    // window. Every pane claims focus on `focusin`, and a window switch fires
+    // one — so a new object here rebuilds the window on arrival and re-renders
+    // the tree `WindowView`'s memo exists to leave alone.
     case "focusPane":
+      if (action.pane === window.focusedPaneId) return window;
       return findPane(window.root, action.pane) ? { ...window, focusedPaneId: action.pane } : window;
 
     case "focusDirection": {

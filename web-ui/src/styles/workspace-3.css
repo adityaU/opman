@@ -10,9 +10,16 @@
    rather than the only route — which is what lets it be switched off
    entirely (zen mode) without taking any capability with it. */
 
+/* The header floats over the widget rather than sitting above it: it costs
+   the pane no height at rest. Hover is deliberately not what brings it back —
+   the pointer lives inside a pane, so a hover reveal is a permanent header
+   with extra steps. It comes up on the reveal chord (`mod+k h`), stays while
+   it holds focus, and withdraws by itself. */
 .wsp-head {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: 3;
     height: var(--pane-head-h);
-    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: var(--space-1-5);
@@ -20,13 +27,76 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     border-bottom: 1px solid var(--color-border-subtle);
-    background: var(--theme-surface-2)
+    background: var(--theme-surface-2);
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+    transition: opacity var(--transition-fast), transform var(--transition-fast)
 }
 
 /* The glass sheen is one gradient over the surface, matching the sidebar's
-   own header; flat gets the plain fill. */
+   own header; flat gets the plain fill. Floating over live content, both
+   variants take the panel's own blur so what passes underneath stays
+   legible as material rather than as noise. */
 html:not(.flat-theme) .wsp-head {
-    background: linear-gradient(180deg, var(--white-4), transparent), var(--theme-surface-2)
+    background: linear-gradient(180deg, var(--white-4), transparent), var(--theme-surface-2);
+    backdrop-filter: blur(var(--glass-blur-sm))
+}
+
+.wsp-head.is-peek,
+.wsp-pane.is-drag-source > .wsp-head,
+.wsp-head:focus-within {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto
+}
+
+/* ── The permanent corner control ────────────────────────────────── */
+
+/* Everything the header offers is also in this menu, so one button is enough
+   to keep the pane fully operable with no chrome at all. Transparent until
+   pointed at: over a terminal or an editor it should read as an affordance
+   the widget lends its corner to, not as a second toolbar. */
+.wsp-pane-dots {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    opacity: .45;
+    cursor: pointer;
+    transition: opacity var(--transition-fast), color var(--transition-fast),
+        background var(--transition-fast)
+}
+
+.wsp-pane.is-focused .wsp-pane-dots {
+    opacity: .7
+}
+
+.wsp-pane-dots:hover {
+    opacity: 1;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 10%, transparent)
+}
+
+.wsp-pane-dots:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px
+}
+
+/* A pane's first row of content would otherwise start under the header the
+   instant it appears. Panes that scroll simply reveal it again; this keeps
+   the top of a *static* widget reachable without one. */
+.wsp-pane-body {
+    scroll-padding-top: var(--pane-head-h)
 }
 
 .wsp-head.is-focused {
@@ -83,18 +153,11 @@ html:not(.flat-theme) .wsp-head {
     gap: 1px;
     margin-left: auto;
     padding-left: var(--space-2);
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity var(--transition-fast)
+    flex-shrink: 0
 }
 
-/* Revealed on hover or focus — but always present for a keyboard user, and
-   never hidden from the accessibility tree. */
-.wsp-pane:hover .wsp-head-actions,
-.wsp-pane.is-focused .wsp-head-actions,
-.wsp-head-actions:focus-within {
-    opacity: 1
-}
+/* The actions used to fade in on their own; the whole header now does that,
+   so inside a revealed header they are simply present. */
 
 .wsp-head-btn {
     width: 22px;

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef } from "react";
+import { MoreHorizontal } from "lucide-react";
+import { KeyHint } from "../keybindings/hint/KeyHint";
 import { PaneHeader } from "./PaneHeader";
 import { projectColorVars } from "./ProjectBadge";
 import type { PaneId, PaneNode, WidgetState } from "./types";
@@ -21,7 +23,8 @@ export interface PaneProps {
   readonly pane: PaneNode;
   readonly ordinal: number;
   readonly focused: boolean;
-  readonly showHeader: boolean;
+  /** True while the reveal chord is showing headers. */
+  readonly peekHeader: boolean;
   readonly canClose: boolean;
   readonly projectName: string;
   readonly subtitle: string | null;
@@ -43,7 +46,7 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
   pane,
   ordinal,
   focused,
-  showHeader,
+  peekHeader,
   canClose,
   projectName,
   subtitle,
@@ -66,6 +69,11 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
   // one the next command acts on, even when the press lands on dead space.
   const claim = useCallback(() => onFocus(pane.id), [onFocus, pane.id]);
 
+  const openMenu = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => onMenu(pane.id, event.currentTarget),
+    [onMenu, pane.id],
+  );
+
   return (
     <section
       ref={ref}
@@ -73,33 +81,45 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
       data-pane-id={pane.id}
       aria-label={paneLabel(pane.widget, projectName, ordinal)}
       className={
-        `wsp-pane${focused ? " is-focused" : ""}${busy ? " is-busy" : ""}` +
-        (dragSource ? " is-drag-source" : "")
+        `wsp-pane${focused ? " is-focused" : ""}` + (dragSource ? " is-drag-source" : "")
       }
       style={pane.widget ? projectColorVars(pane.widget.projectPath) : undefined}
       onPointerDownCapture={claim}
       onFocusCapture={claim}
     >
-      {showHeader && (
-        <PaneHeader
-          paneId={pane.id}
-          ordinal={ordinal}
-          widget={pane.widget}
-          projectName={projectName}
-          subtitle={subtitle}
-          busy={busy}
-          focused={focused}
-          canClose={canClose}
-          onSplit={onSplit}
-          onClose={onClose}
-          onMenu={onMenu}
-          zen={zen}
-          onToggleZen={onToggleZen}
-          onDragWidget={onDragWidget}
-          onDragWidgetEnd={onDragWidgetEnd}
-        />
-      )}
+      <PaneHeader
+        paneId={pane.id}
+        ordinal={ordinal}
+        widget={pane.widget}
+        projectName={projectName}
+        subtitle={subtitle}
+        busy={busy}
+        focused={focused}
+        peek={peekHeader}
+        canClose={canClose}
+        onSplit={onSplit}
+        onClose={onClose}
+        zen={zen}
+        onToggleZen={onToggleZen}
+        onDragWidget={onDragWidget}
+        onDragWidgetEnd={onDragWidgetEnd}
+      />
       <div className="wsp-pane-body">{children}</div>
+      {/* The one control that never leaves. It sits over the widget's own top
+          right corner rather than in the header, because the header is not
+          there most of the time and everything it can do has to stay one click
+          away. */}
+      <KeyHint label="Pane menu" command="workspace.paneMenu">
+        <button
+          type="button"
+          className="wsp-pane-dots"
+          onClick={openMenu}
+          aria-haspopup="menu"
+          aria-label={`Pane ${ordinal} menu`}
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </KeyHint>
     </section>
   );
 });

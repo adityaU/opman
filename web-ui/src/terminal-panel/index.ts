@@ -1,2 +1,4 @@
 export { TerminalPanel } from "./TerminalPanel";
-export type { TerminalPanelProps, PtyKind, TabInfo } from "./types";
+export { ShellPicker } from "./ShellPicker";
+export { useShells, loadShells, createShell, killShell, invalidateShells } from "./useShells";
+export type { TerminalPanelProps, PtyKind, PtySession, ShellStatus } from "./types";

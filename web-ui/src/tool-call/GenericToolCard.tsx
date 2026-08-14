@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Wrench, ChevronDown, ChevronRight, AlertTriangle, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Wrench, ChevronDown, ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
 import type { MessagePart } from "../types";
 import { formatToolName } from "./helpers";
 import { TcStatus } from "./tcUtils";
@@ -26,10 +26,9 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
   const [expanded, setExpanded] = useState(() => shouldAutoOpen(toolName));
 
   const state = part.state;
-  const progressTitle = state?.title;
   const status = state?.status || "pending";
   const isError = status === "error";
-  const isRunning = status === "running" || status === "pending";
+  const isRunning = status === "running" || status === "pending" || status === "in_progress";
   const durationMs =
     state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
 
@@ -59,20 +58,6 @@ export function GenericToolCard({ part }: { part: MessagePart }) {
           <TcStatus status={status} durationMs={durationMs} />
         </span>
       </button>
-
-      {progressTitle && (
-        <div className="gmc-progress" role="status" aria-live="polite">
-          {isRunning ? (
-            <Loader2 size={12} className="tool-spin-icon" />
-          ) : isError ? (
-            <XCircle size={12} className="tool-error-icon" />
-          ) : (
-            <CheckCircle2 size={12} className="tool-success-icon" />
-          )}
-          <span className="gmc-progress-label">Progress</span>
-          <span className="gmc-progress-text">{progressTitle}</span>
-        </div>
-      )}
 
       {expanded && (hasInput || hasOutput || isError || isRunning) && (
         <div className="gmc-card-body">

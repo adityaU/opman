@@ -38,10 +38,12 @@ async fn spawn_opencode_no_session_id_resolves_none_arm() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = live_state(tmp.path());
     let req = SpawnPtyRequest {
-        kind: "opencode".into(),
+        kind: PtyKind::Opencode,
         id: "oc-nosess".into(),
         rows: Some(24),
         cols: Some(80),
+        project: None,
+        label: None,
         session_id: None,
     };
     let st = status(spawn_pty(State(state), auth(), axum::Json(req)).await).await;

@@ -34,12 +34,13 @@
 
 pub(crate) mod ask_pending;
 mod auth;
+mod browser_sse;
 pub(crate) mod db;
 mod error;
 mod handlers;
 pub mod keybindings;
+mod editor_ws;
 mod mcp_ws;
-mod nvim_ws;
 pub mod pty_manager;
 mod request_log;
 mod routes;
@@ -87,7 +88,6 @@ pub struct WebConfig {
 /// them to connected SSE clients).
 pub async fn start_web_server(
     config: WebConfig,
-    nvim_registry: crate::mcp::NvimSocketRegistry,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     mcp: crate::mcp_registry::RegistryHandle,
     acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
@@ -161,8 +161,12 @@ pub async fn start_web_server(
     // started lazily on the first request for a file and reaped when idle.
     let lsp_pool = std::sync::Arc::new(crate::lsp::LspPool::new());
     crate::lsp::reaper::spawn(lsp_pool.clone());
-    let nvim_ui = std::sync::Arc::new(crate::nvim_ui::NvimUiPool::new(nvim_registry.clone()));
-    crate::nvim_ui::reaper::spawn(nvim_ui.clone());
+
+    let http_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
 
     let shared_state = ServerState {
         web_state,
@@ -172,13 +176,10 @@ pub async fn start_web_server(
         event_tx,
         raw_sse_tx,
         pty_mgr,
-        http_client: reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .connect_timeout(std::time::Duration::from_secs(10))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new()),
-        nvim_registry,
-        nvim_ui,
+        // Nothing launches until a browser pane is opened, so a workspace without one
+        // never pays for Chromium.
+        browser: crate::browser::BrowserPool::new(http_client.clone()),
+        http_client,
         lsp: lsp_pool,
         skills_registry,
         mcp,

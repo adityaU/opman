@@ -44,6 +44,9 @@ pub const FORMAT_TIMEOUT: Duration = Duration::from_secs(15);
 pub struct ServerCaps {
     pub hover: bool,
     pub definition: bool,
+    pub type_definition: bool,
+    pub implementation: bool,
+    pub declaration: bool,
     pub formatting: bool,
     pub completion: bool,
     pub references: bool,
@@ -244,6 +247,9 @@ fn read_caps(result: &Value) -> ServerCaps {
     ServerCaps {
         hover: claims("hoverProvider"),
         definition: claims("definitionProvider"),
+        type_definition: claims("typeDefinitionProvider"),
+        implementation: claims("implementationProvider"),
+        declaration: claims("declarationProvider"),
         formatting: claims("documentFormattingProvider"),
         completion: completion_provider.is_some(),
         references: claims("referencesProvider"),

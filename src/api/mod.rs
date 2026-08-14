@@ -30,7 +30,7 @@ impl ApiClient {
     /// Prefer `with_client()` to share a single connection pool.
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            client: Client::new()
         }
     }
 

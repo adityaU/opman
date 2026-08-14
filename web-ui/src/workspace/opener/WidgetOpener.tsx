@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FolderGit2, LayoutGrid, MessagesSquare, Search } from "lucide-react";
+import { FolderGit2, LayoutGrid, MessagesSquare, Search, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { advance, currentStep, EMPTY_DRAFT, isComplete, retreat, type OpenerChoice, type OpenerDraft, type StepId } from "./steps";
 import { Crumbs, RowBody, rowClass } from "./rows";
@@ -37,6 +37,7 @@ const STEP_TITLE: Readonly<Record<StepId, string>> = {
   kind: "Open what?",
   project: "In which project?",
   session: "Which session?",
+  shell: "Which shell?",
 };
 
 /** Says the stage in the first glyph the eye reaches, ahead of the title. */
@@ -44,12 +45,14 @@ const STEP_ICON: Readonly<Record<StepId, LucideIcon>> = {
   kind: LayoutGrid,
   project: FolderGit2,
   session: MessagesSquare,
+  shell: SquareTerminal,
 };
 
 const STEP_FILTER: Readonly<Record<StepId, string>> = {
   kind: "Filter widgets",
   project: "Filter projects",
   session: "Filter sessions",
+  shell: "Filter shells",
 };
 
 /** What the empty state is empty *of* — "nothing matches" named nothing. */
@@ -57,6 +60,7 @@ const STEP_NOUN: Readonly<Record<StepId, string>> = {
   kind: "widgets",
   project: "projects",
   session: "sessions",
+  shell: "shells",
 };
 
 export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
@@ -136,7 +140,10 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
 
   const StepIcon = STEP_ICON[step];
   // Only the last step of a draft actually opens anything; the rest go on.
-  const commits = step === "session" || (step === "project" && draft.kind !== "chat");
+  const commits =
+    step === "session" ||
+    step === "shell" ||
+    (step === "project" && draft.kind !== "chat" && draft.kind !== "terminal");
 
   return createPortal(
     <div className="modal-backdrop wsp-opener-backdrop" onClick={onCancel}>
@@ -182,10 +189,12 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
           )}
           {choices.map((choice, index) => (
             <React.Fragment key={choice.value ?? "__new__"}>
-              {step === "session" && index === 1 && choices[0].value === null && (
+              {index === 1 && choices[0].value === null && (
                 <li className="wsp-opener-group" role="presentation">
-                  <span>Recent</span>
-                  <span className="wsp-opener-group-note">newest first</span>
+                  <span>{step === "shell" ? "Running" : "Recent"}</span>
+                  <span className="wsp-opener-group-note">
+                    {step === "shell" ? "busy first" : "newest first"}
+                  </span>
                 </li>
               )}
               <li>

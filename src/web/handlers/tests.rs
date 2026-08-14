@@ -238,7 +238,6 @@ mod handler_tests {
     use std::sync::Arc;
     use tokio::sync::broadcast;
 
-    use crate::mcp::NvimSocketRegistry;
     use crate::mcp_skills::SkillsRegistry;
     use crate::web::auth::AuthUser;
     use crate::web::error::WebError;
@@ -249,7 +248,7 @@ mod handler_tests {
     // Import the handler functions
     use crate::web::handlers::{
         add_project, browse_files, get_state, get_system_stats, health, home_dir, list_themes,
-        login, pty_list, public_bootstrap, read_file, switch_project, verify,
+        login, pty_sessions, public_bootstrap, read_file, switch_project, verify,
     };
 
     // ── Test utilities ──────────────────────────────────────────

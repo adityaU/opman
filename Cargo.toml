@@ -15,7 +15,9 @@ portable-pty = "0.8"
 vt100 = "0.15"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
-serde = { version = "1", features = ["derive"] }
+# `rc` lets `Arc<str>` serialize directly — pane ids are handed to several responses at
+# once, and cloning them into `String`s just to serialize would undo the sharing.
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 serde_yaml = "0.9"
 opman-backend-contracts = { path = "crates/backend-contracts" }
@@ -39,6 +41,7 @@ include_dir = "0.7"
 similar = "2"
 rmpv = "1.3"
 rmp = "0.8"
+rmp-serde = "1.3"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 url = "2"
 open = "5"

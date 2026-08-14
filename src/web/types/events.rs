@@ -66,6 +66,14 @@ pub enum WebEvent {
     McpTerminalFocus {
         id: String,
     },
+    /// MCP: an agent drove a browser pane somewhere. The workspace reveals that project's
+    /// browser — reusing the pane if one is open, splitting a column if not — so the user
+    /// sees the page being worked on rather than learning about it afterwards.
+    McpBrowserOpen {
+        project_path: String,
+        browser_id: String,
+        url: String,
+    },
     /// MCP: AI agent activity indicator (tool being invoked).
     McpAgentActivity {
         tool: String,

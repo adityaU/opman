@@ -1,0 +1,274 @@
+/* ── Browser MCP tool cards ─────────────────────────────────────
+ *
+ * Same chassis as the kanban and agent-manager cards — hairline border, tinted
+ * head, body on a divider — so a transcript reads as one system rather than a
+ * parade of card designs. What differs is the payload: a page outline has
+ * hierarchy, roles and handles, and this sheet spends its specificity on making
+ * those four things separable at a glance.
+ *
+ * Every colour resolves from a token, so glassy and flat both come out right
+ * with no second set of rules. */
+
+.bwc-card {
+    margin: var(--space-2) 0;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-lg);
+    background: var(--white-2);
+    overflow: hidden
+}
+
+/* Tone is the verb, not the tool: reading a page and acting on one are
+   different kinds of event in a transcript and should not look alike. */
+.bwc-go .bwc-icon { color: var(--color-accent) }
+.bwc-read .bwc-icon { color: var(--color-info) }
+.bwc-act .bwc-icon { color: var(--color-secondary) }
+.bwc-card-error .bwc-icon { color: var(--color-error) }
+
+/* ── Header ─────────────────────────────────────────── */
+
+.bwc-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    background: var(--white-3);
+    color: inherit;
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast)
+}
+
+.bwc-head:hover:not(:disabled) { background: var(--white-6) }
+.bwc-head:disabled { cursor: default }
+
+.bwc-chevron,
+.bwc-icon {
+    display: flex;
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.bwc-icon { color: var(--color-accent) }
+
+.bwc-label {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: .01em
+}
+
+/* The host is the page's identity — the one thing a reader scans for. Mono
+   because a domain is an address, not prose. */
+.bwc-host {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.bwc-typed {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-style: italic
+}
+
+.bwc-chip {
+    flex-shrink: 0;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-full);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--white-4)
+}
+
+.bwc-chip.is-ref {
+    color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent)
+}
+
+.bwc-chip.is-key {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent)
+}
+
+.bwc-status {
+    margin-left: auto;
+    display: flex;
+    flex-shrink: 0
+}
+
+/* Collapsed footer: the one number worth knowing without opening anything. */
+.bwc-foot {
+    padding: var(--space-1) var(--space-3) var(--space-2);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* ── Body ───────────────────────────────────────────── */
+
+.bwc-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-top: .5px solid var(--white-4)
+}
+
+.bwc-title {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: var(--font-size-sm)
+}
+
+.bwc-url {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-accent);
+    text-decoration: none;
+    overflow-wrap: anywhere
+}
+
+.bwc-url:hover { text-decoration: underline }
+.bwc-path { color: var(--color-text-muted) }
+
+.bwc-shot {
+    display: block;
+    width: 100%;
+    max-height: 340px;
+    object-fit: contain;
+    object-position: top;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius);
+    background: #fff
+}
+
+.bwc-prose {
+    max-height: 340px;
+    overflow-y: auto;
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere
+}
+
+.bwc-truncated {
+    font-size: var(--font-size-2xs);
+    font-style: italic;
+    color: var(--color-text-muted)
+}
+
+/* ── The outline ────────────────────────────────────── */
+
+.bwc-outline {
+    max-height: 340px;
+    overflow: auto;
+    padding: var(--space-2);
+    border-radius: var(--radius);
+    background: var(--white-2);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.7
+}
+
+.bwc-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    white-space: nowrap
+}
+
+/* Role first and dimmest: it is the grammar of the line, not its content. */
+.bwc-role {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    opacity: .75
+}
+
+.bwc-role.is-actionable { color: var(--color-secondary); opacity: 1 }
+.bwc-role.is-heading { color: var(--color-text); font-weight: 600; opacity: 1 }
+.bwc-role.is-text { opacity: .5 }
+
+/* The accessible name is what a person would have read on the page, so it gets
+   the full-contrast treatment and the room to be elided. */
+.bwc-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text)
+}
+
+.bwc-note {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    opacity: .6
+}
+
+.bwc-ref {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: var(--space-2);
+    color: var(--color-secondary);
+    opacity: .8
+}
+
+/* ── Sessions list ──────────────────────────────────── */
+
+.bwc-panes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1)
+}
+
+.bwc-pane {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    min-width: 0
+}
+
+.bwc-pane-project {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--color-text)
+}
+
+.bwc-pane-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted)
+}
+
+.bwc-pane-url {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+/* ── Failure ────────────────────────────────────────── */
+
+.bwc-errmsg {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    color: var(--color-error);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere
+}

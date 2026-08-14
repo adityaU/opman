@@ -117,14 +117,30 @@ pub struct FocusPanelRequest {
 /// Request to spawn a web PTY.
 #[derive(Deserialize)]
 pub struct SpawnPtyRequest {
-    /// PTY type: "shell", "neovim", "git", or "opencode"
-    pub kind: String,
+    /// What to run. Typed, so an unknown kind is refused by deserialization
+    /// rather than carried down to the spawner as a string.
+    pub kind: crate::web::pty_manager::PtyKind,
     /// Unique ID for this PTY instance (client-generated)
     pub id: String,
     pub rows: Option<u16>,
     pub cols: Option<u16>,
-    /// Optional session ID (only used for "opencode" kind)
+    /// Absolute path of the project to start in. Falls back to the active
+    /// project, which is only right when the caller has no pane of its own —
+    /// a terminal pane knows its project and must say so.
+    pub project: Option<String>,
+    /// What to call this PTY in the shell picker. The server numbers it when
+    /// absent, since only the server can see every project's shells.
+    pub label: Option<String>,
+    /// Optional session ID (only used for "opencode" and "claude-attach")
     pub session_id: Option<String>,
+}
+
+/// Request to rename a web PTY as the shell picker shows it.
+#[derive(Deserialize)]
+pub struct PtyRenameRequest {
+    /// PTY ID
+    pub id: String,
+    pub label: String,
 }
 
 /// Request to write to a web PTY.

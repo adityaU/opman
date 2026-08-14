@@ -132,10 +132,11 @@ fn spec_models(setup: &Value) -> Option<Vec<Choice>> {
     Some(listed.iter().map(choice_from_model).collect())
 }
 
-/// Permission modes: the spec's `modes.availableModes` first, falling back to the `mode`
-/// config option for agents that only expose it that way.
+/// Permission modes: a non-empty spec list first, else the `mode` config option.
 pub fn mode_ids(setup: &Value) -> Vec<Choice> {
-    spec_modes(setup).unwrap_or_else(|| choices(setup, MODE))
+    spec_modes(setup)
+        .filter(|listed| !listed.is_empty())
+        .unwrap_or_else(|| choices(setup, MODE))
 }
 
 /// The mode the agent says it is in.
@@ -148,9 +149,16 @@ pub fn current_mode(setup: &Value) -> Option<String> {
         .or_else(|| current(setup, MODE))
 }
 
-/// Models: the spec's `models.availableModels` first, else the `model` config option.
+/// Models: a non-empty spec list first, else the `model` config option.
 pub fn models(setup: &Value) -> Vec<Choice> {
-    spec_models(setup).unwrap_or_else(|| choices(setup, MODEL))
+    spec_models(setup)
+        .filter(|listed| !listed.is_empty())
+        .unwrap_or_else(|| choices(setup, MODEL))
+}
+
+/// Reasoning efforts are published as a generic ACP config option.
+pub fn efforts(setup: &Value) -> Vec<Choice> {
+    choices(setup, EFFORT)
 }
 
 /// The model the agent says it is on.
@@ -206,7 +214,12 @@ pub fn provider_payload(
     models: &[Choice],
     current_model: Option<&str>,
     permission_modes: &[Choice],
+    effort_choices: &[Choice],
 ) -> Value {
+    let efforts: Vec<&str> = effort_choices
+        .iter()
+        .map(|choice| choice.id.as_str())
+        .collect();
     let entries: serde_json::Map<String, Value> = models
         .iter()
         // "default" is an alias for whatever the agent would pick anyway; listing it beside
@@ -219,6 +232,7 @@ pub fn provider_payload(
                 "name": if m.name.is_empty() { &m.id } else { &m.name },
                 "description": m.description,
                 "limit": { "context": 0, "output": 0 },
+                "reasoningEfforts": efforts,
             });
             (m.id.clone(), entry)
         })

@@ -70,8 +70,8 @@ export const WORKSPACE_COMMANDS: readonly CommandDef[] = [
   { id: "workspace.toggleRail", title: "Toggle Window Rail", category: "Workspace", label: "rail" },
   { id: "workspace.toggleZen", title: "Toggle Zen", category: "Workspace", label: "zen" },
   {
-    id: "workspace.togglePaneHeaders",
-    title: "Toggle Pane Headers",
+    id: "workspace.revealPaneHeader",
+    title: "Reveal Pane Header",
     category: "Workspace",
     label: "headers",
   },

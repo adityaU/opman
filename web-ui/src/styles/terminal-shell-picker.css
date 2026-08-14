@@ -1,0 +1,277 @@
+/* ── Shell picker ──────────────────────────────────────────────────
+   Which shell this terminal shows. Lives inside the pane rather than in a
+   dialog: the pane is already asking the question, and a modal over it
+   would make choosing a shell feel heavier than starting one.
+
+   Built on the panel's own tokens so it reads as the terminal's empty
+   state, not as a separate surface dropped into it. Both theme variants
+   come for free — every colour here is a token, and the only glass is the
+   panel's, inherited. */
+
+.tsp {
+    position: absolute;
+    inset: var(--panel-inset, 10px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-height: 0;
+    overflow: hidden
+}
+
+.tsp-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+    color: var(--color-text-muted)
+}
+
+.tsp-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-2xs);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 500
+}
+
+.tsp-cancel {
+    flex-shrink: 0;
+    padding: 2px var(--space-2);
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: var(--font-size-2xs);
+    cursor: pointer;
+    border-radius: var(--shell-radius-control);
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-cancel:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+.tsp-list {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto
+}
+
+/* The row and its kill button are siblings so that reaching for a shell can
+   never end one — the destructive target is outside the one being aimed at. */
+.tsp-list li {
+    display: flex;
+    align-items: center;
+    gap: 2px
+}
+
+.tsp-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2);
+    border: none;
+    background: none;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--shell-radius-inner);
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-row:hover,
+.tsp-row:focus-visible {
+    background: var(--white-6);
+    outline: none
+}
+
+.tsp-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    opacity: .5
+}
+
+.tsp-dot.is-running {
+    background: var(--color-success);
+    opacity: 1
+}
+
+.tsp-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.tsp-kind,
+.tsp-busy {
+    flex-shrink: 0;
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted)
+}
+
+.tsp-busy {
+    color: var(--color-success)
+}
+
+.tsp-kill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: var(--shell-radius-control);
+    opacity: 0;
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-list li:hover .tsp-kill,
+.tsp-kill:focus-visible {
+    opacity: 1
+}
+
+.tsp-kill:hover {
+    color: var(--color-error);
+    background: var(--white-6)
+}
+
+.tsp-empty {
+    padding: var(--space-3) var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs)
+}
+
+.tsp-new {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+    padding-top: var(--space-2);
+    border-top: .5px solid var(--glass-border-dark)
+}
+
+/* "New shell" answers a different question than the rows above it, so it is
+   the one thing here that carries the accent. */
+.tsp-new-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    padding: var(--space-2);
+    border: none;
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--shell-radius-inner);
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-new-btn:hover {
+    filter: brightness(1.08)
+}
+
+.tsp-new-more {
+    flex-shrink: 0;
+    padding: var(--space-2);
+    border: .5px solid var(--color-border);
+    background: none;
+    color: var(--color-text-muted);
+    font-family: inherit;
+    font-size: var(--font-size-2xs);
+    cursor: pointer;
+    border-radius: var(--shell-radius-inner);
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-new-more:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+.tsp-kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    flex-shrink: 0
+}
+
+.tsp-kind-btn {
+    padding: var(--space-1) var(--space-2);
+    border: .5px solid var(--color-border);
+    background: none;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-2xs);
+    cursor: pointer;
+    border-radius: var(--shell-radius-control);
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-kind-btn:hover {
+    background: var(--white-6)
+}
+
+/* Renaming a shell replaces its row with an input, in place. */
+.tsp-rename {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 var(--space-2);
+    background: var(--white-8);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--shell-radius-inner);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    outline: none
+}
+
+.tsp-edit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: var(--shell-radius-control);
+    opacity: 0;
+    transition: var(--transition-interactive-fast)
+}
+
+.tsp-list li:hover .tsp-edit,
+.tsp-edit:focus-visible {
+    opacity: 1
+}
+
+.tsp-edit:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}

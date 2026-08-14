@@ -16,9 +16,11 @@ mod endpoint;
 mod fake_runner;
 mod ops;
 mod options;
+mod permission;
 mod queue;
 mod request;
 mod tools;
+mod turn;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,6 +33,7 @@ use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
 use crate::runner::RunnerRegistry;
+use dispatch::Dispatch;
 use queue::QueuedMessage;
 use request::{ManagerRequest, Op};
 
@@ -139,27 +142,8 @@ async fn handle_manager_request(state: &ManagerState, request: ManagerRequest) -
     let delivery = request.delivery_mode()?;
 
     match op {
-        Op::Send => {
-            let target = resolve_target(state, request.target.as_deref(), &source).await?;
-            let message = request
-                .message
-                .as_deref()
-                .context("agent_send requires 'message'")?;
-            queue::deliver(
-                state,
-                QueuedMessage {
-                    id: new_id("msg"),
-                    source,
-                    target,
-                    directory: directory.to_string(),
-                    runner,
-                    body: request.dispatch()?.body(message),
-                },
-                delivery,
-            )
-            .await
-        }
-        Op::Start => start(state, &request, directory, &source, runner, delivery).await,
+        Op::Send => turn::send(state, &request, directory, source, runner, delivery).await,
+        Op::Start => turn::start(state, &request, directory, &source, runner, delivery).await,
         Op::Progress => {
             let target = resolve_target(state, request.target.as_deref(), &source).await?;
             let mut progress = state.registry.progress(&target, directory).await?;
@@ -192,69 +176,6 @@ async fn handle_manager_request(state: &ManagerState, request: ManagerRequest) -
     }
 }
 
-/// Create a session, remember who asked for it, and send the opening message.
-///
-/// The model and effort are validated *before* the session exists: a rejected dispatch
-/// would otherwise leave an empty session behind that nobody asked for.
-async fn start(
-    state: &ManagerState,
-    request: &ManagerRequest,
-    directory: &str,
-    source: &str,
-    runner: Option<crate::runner::RunnerKind>,
-    delivery: Option<queue::Delivery>,
-) -> Result<Value> {
-    let dispatch = request.dispatch()?;
-    let kind = match runner {
-        Some(kind) => kind,
-        None if !source.is_empty() => state.registry.runner_for(source).await,
-        None => state.registry.default_kind(),
-    };
-    let session = state
-        .registry
-        .create_session(
-            kind.clone(),
-            directory,
-            request.title.as_deref().unwrap_or("Agent session"),
-        )
-        .await?;
-    if !source.is_empty() {
-        state
-            .parents
-            .lock()
-            .await
-            .insert(session.id.clone(), source.to_string());
-    }
-    let Some(message) = request
-        .message
-        .as_deref()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-    else {
-        return Ok(json!({
-            "session_id": session.id,
-            "runner": kind,
-            "delivery": "none",
-        }));
-    };
-    let mut result = queue::deliver(
-        state,
-        QueuedMessage {
-            id: new_id("msg"),
-            source: source.to_string(),
-            target: session.id.clone(),
-            directory: directory.to_string(),
-            runner: None,
-            body: dispatch.body(message),
-        },
-        Some(delivery.unwrap_or(queue::Delivery::Immediate)),
-    )
-    .await?;
-    result["session_id"] = Value::String(session.id);
-    result["runner"] = serde_json::to_value(kind)?;
-    Ok(result)
-}
-
 /// The agent a call is about: the one named, or the parent that started this session.
 async fn resolve_target(
     state: &ManagerState,
@@ -274,10 +195,6 @@ async fn resolve_target(
         .get(source)
         .cloned()
         .context("parent session is unknown; pass an explicit target agent id")
-}
-
-fn new_id(prefix: &str) -> String {
-    format!("{prefix}_{}", rand::random::<u128>())
 }
 
 #[cfg(test)]

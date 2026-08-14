@@ -32,18 +32,9 @@ html[data-wsp-zen] .wsp-root {
     gap: 0
 }
 
-/* The header is the one thing Zen hides that the user may have deliberately
-   turned on, so it comes back the moment the pane is hovered — the pane's own
-   controls, including the way out, stay one pointer-move away. */
-html[data-wsp-zen] .wsp-head {
-    opacity: 0;
-    transition: opacity var(--transition-base)
-}
-
-html[data-wsp-zen] .wsp-pane:hover .wsp-head,
-html[data-wsp-zen] .wsp-head:focus-within {
-    opacity: 1
-}
+/* The header needs nothing from Zen any more: it autohides everywhere, costs
+   the pane no height at rest, and comes back on hover — which is exactly the
+   behaviour Zen used to install here by hand. */
 
 /* Nothing to distinguish from, so the card stops advertising that it is the
    focused one. It keeps its border and radius: the pane is still a surface

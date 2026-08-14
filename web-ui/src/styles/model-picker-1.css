@@ -73,7 +73,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-full);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: var(--transition-interactive-fast);
     white-space: nowrap
 }
 

@@ -2,13 +2,15 @@ import type { CommandDef } from "../types";
 
 /** Terminal panel and its tabs. */
 export const TERMINAL_COMMANDS: readonly CommandDef[] = [
-  { id: "terminal.newTab", title: "New Terminal", category: "Terminal", label: "new" },
-  { id: "terminal.newTabOfKind", title: "New Terminal of Kind…", category: "Terminal", label: "new kind" },
-  { id: "terminal.nextTab", title: "Next Terminal Tab", category: "Terminal", when: "terminalOpen" },
-  { id: "terminal.previousTab", title: "Previous Terminal Tab", category: "Terminal", when: "terminalOpen" },
-  { id: "terminal.selectTab", title: "Select Terminal Tab…", category: "Terminal", when: "terminalOpen", label: "select" },
-  { id: "terminal.closeTab", title: "Close Terminal Tab", category: "Terminal", when: "terminalOpen", label: "close" },
-  { id: "terminal.renameTab", title: "Rename Terminal Tab", category: "Terminal", when: "terminalOpen", label: "rename" },
+  // Shells, not tabs: one terminal per pane, and the shells it can show are
+  // shared with every other pane and outlive all of them.
+  { id: "terminal.newShell", title: "New Shell", category: "Terminal", label: "new" },
+  { id: "terminal.nextShell", title: "Next Shell", category: "Terminal", when: "terminalOpen" },
+  { id: "terminal.previousShell", title: "Previous Shell", category: "Terminal", when: "terminalOpen" },
+  { id: "terminal.selectShell", title: "Switch Shell…", category: "Terminal", when: "terminalOpen", label: "switch" },
+  { id: "terminal.killShell", title: "Kill Shell", category: "Terminal", when: "terminalOpen", label: "kill" },
+  { id: "terminal.renameShell", title: "Rename Shell", category: "Terminal", when: "terminalOpen", label: "rename" },
+  { id: "terminal.expand", title: "Maximize Terminal", category: "Terminal", when: "terminalOpen", label: "expand" },
   { id: "terminal.find", title: "Find in Terminal", category: "Terminal", when: "terminalOpen", label: "search" },
   { id: "terminal.findNext", title: "Next Terminal Match", category: "Terminal", when: "terminalFindOpen" },
   { id: "terminal.findPrevious", title: "Previous Terminal Match", category: "Terminal", when: "terminalFindOpen" },

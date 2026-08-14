@@ -1,10 +1,15 @@
 import { defineConfig } from "@playwright/test";
 
+const editorSuite = process.env.OPMAN_E2E_EDITOR === "1";
+
 export default defineConfig({
   testDir: "./tests",
-  timeout: 30_000,
+  // Every editor test boots the real backend page, logs in and waits for the
+  // language server before its body runs. That setup is charged against the
+  // test budget, so the hermetic suite gets a larger one.
+  timeout: editorSuite ? 60_000 : 30_000,
   retries: 0,
-  workers: process.env.OPMAN_E2E_NVIM === "1" ? 1 : undefined,
+  workers: editorSuite ? 1 : undefined,
   use: {
     baseURL: "http://localhost:5199",
     headless: true,
@@ -13,12 +18,16 @@ export default defineConfig({
     serviceWorkers: "block",
   },
   webServer: {
-    command: process.env.OPMAN_E2E_NVIM === "1"
-      ? "node tests/nvim-editor/serve.mjs"
+    command: editorSuite
+      ? "node tests/editor/serve.mjs"
       : "npx vite --port 5199 --strictPort",
     port: 5199,
-    reuseExistingServer: true,
-    timeout: process.env.OPMAN_E2E_NVIM === "1" ? 60_000 : 15_000,
+    // The editor harness publishes a backend URL in `.state.json` alongside the
+    // vite server it owns. Reusing a leftover harness pairs this run with a
+    // backend the previous run is about to tear down, which reads as a mid-run
+    // ECONNREFUSED cascade rather than as the stale server it is.
+    reuseExistingServer: !editorSuite,
+    timeout: editorSuite ? 60_000 : 15_000,
   },
   projects: [
     {

@@ -11,6 +11,9 @@ mod acp_upsert;
 mod agents_handlers;
 mod ask_internal;
 mod auth_handlers;
+mod browser_handlers;
+mod browser_internal;
+mod browser_ops;
 mod common;
 mod context_handlers;
 mod doc_handlers;
@@ -20,6 +23,7 @@ mod doc_writers;
 mod doc_writers_html;
 mod download_handlers;
 mod editor_handlers;
+pub(crate) use editor_handlers::editor_target;
 mod files_handlers;
 mod git_context_handlers;
 mod git_ext_handlers;
@@ -35,7 +39,6 @@ mod mcp_login_state;
 mod mcp_tools_handlers;
 mod mcp_upsert;
 mod memory_handlers;
-mod nvim_handlers;
 mod presence_handlers;
 mod project_handlers;
 mod pty_handlers;
@@ -68,7 +71,16 @@ pub use project_handlers::{
     switch_project, toggle_panel,
 };
 
-pub use pty_handlers::{pty_activity, pty_kill, pty_list, pty_resize, pty_write, spawn_pty};
+pub use pty_handlers::{
+    pty_kill, pty_rename, pty_resize, pty_sessions, pty_write, spawn_pty,
+};
+pub use browser_handlers::{
+    browser_back, browser_click, browser_close, browser_forward, browser_insert_text, browser_key,
+    browser_list, browser_mode, browser_mouse, browser_navigate, browser_open, browser_reload,
+    browser_resize, browser_screenshot, browser_scroll, browser_snapshot, browser_text,
+    browser_type,
+};
+pub use browser_internal::internal_browser;
 
 pub use session_engine::set_session_engine;
 
@@ -120,7 +132,6 @@ pub use memory_handlers::{
     create_personal_memory, delete_personal_memory, get_autonomy_settings, list_active_memory,
     list_personal_memory, update_autonomy_settings, update_personal_memory,
 };
-pub use nvim_handlers::proxy_nvim;
 
 pub use presence_handlers::{deregister_presence, get_presence, register_presence};
 

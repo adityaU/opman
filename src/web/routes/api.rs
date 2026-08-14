@@ -3,8 +3,8 @@ use axum::routing::{delete, get, post, put};
 use axum::Router;
 
 use super::super::handlers;
+use super::super::editor_ws;
 use super::super::mcp_ws;
-use super::super::nvim_ws;
 use super::super::sse;
 
 pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
@@ -40,12 +40,31 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/pty/spawn", post(handlers::spawn_pty))
         .route("/pty/write", post(handlers::pty_write))
         .route("/pty/resize", post(handlers::pty_resize))
+        .route("/pty/rename", post(handlers::pty_rename))
         .route("/pty/kill", post(handlers::pty_kill))
-        .route("/pty/list", get(handlers::pty_list))
-        .route("/pty/activity", get(handlers::pty_activity))
+        .route("/pty/sessions", get(handlers::pty_sessions))
         .route("/pty/stream", get(sse::terminal_stream))
-        .route("/nvim", post(handlers::proxy_nvim))
-        .route("/nvim/ui", get(nvim_ws::websocket_handler))
+        // Browser panes: a headless Chromium tab per browser widget. Reads go out as a
+        // compact `[ref=eN]` outline rather than HTML — see `crate::browser`.
+        .route("/browser/open", post(handlers::browser_open))
+        .route("/browser/navigate", post(handlers::browser_navigate))
+        .route("/browser/back", post(handlers::browser_back))
+        .route("/browser/forward", post(handlers::browser_forward))
+        .route("/browser/reload", post(handlers::browser_reload))
+        .route("/browser/snapshot", get(handlers::browser_snapshot))
+        .route("/browser/text", get(handlers::browser_text))
+        .route("/browser/screenshot", get(handlers::browser_screenshot))
+        .route("/browser/click", post(handlers::browser_click))
+        .route("/browser/type", post(handlers::browser_type))
+        .route("/browser/key", post(handlers::browser_key))
+        .route("/browser/scroll", post(handlers::browser_scroll))
+        .route("/browser/mouse", post(handlers::browser_mouse))
+        .route("/browser/text-input", post(handlers::browser_insert_text))
+        .route("/browser/mode", post(handlers::browser_mode))
+        .route("/browser/resize", post(handlers::browser_resize))
+        .route("/browser/close", post(handlers::browser_close))
+        .route("/browser/list", get(handlers::browser_list))
+        .route("/browser/stream", get(super::super::browser_sse::browser_stream))
         // App events SSE
         .route("/events", get(sse::events_stream))
         // ── Context Window ───────────────────────────────────────────
@@ -224,6 +243,8 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/routines/{routine_id}/run", post(handlers::run_routine))
         // ── MCP WebSocket (AI agent tool bridge) ─────────────────────
         .route("/mcp/ws", get(mcp_ws::websocket_handler))
+        // The editor's binary channel: every LSP query for one pane, multiplexed.
+        .route("/editor/ws", get(editor_ws::websocket_handler))
         // ── MCP Skills ───────────────────────────────────────────────
         .route("/mcp/servers", get(handlers::list_servers))
         .route(

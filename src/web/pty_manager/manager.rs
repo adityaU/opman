@@ -8,10 +8,9 @@ use tokio::sync::mpsc;
 
 use super::commands::PtyCmd;
 use super::handle::WebPtyHandle;
-use super::spawn::{
-    spawn_claude_attach_pty, spawn_gitui_pty, spawn_neovim_pty, spawn_opencode_pty,
-    spawn_shell_pty, WebPty,
-};
+use super::kind::SpawnSpec;
+use super::session::PtySession;
+use super::spawn::{spawn_pty, WebPty};
 
 /// Start the web PTY manager on a dedicated OS thread.
 /// Returns a `WebPtyHandle` that can be cloned into Axum state.
@@ -36,114 +35,21 @@ pub fn start_web_pty_manager() -> WebPtyHandle {
     WebPtyHandle { cmd_tx }
 }
 
+/// A PTY per id, for the life of the server process.
+type Ptys = HashMap<String, WebPty>;
+
 async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
-    let mut ptys: HashMap<String, WebPty> = HashMap::new();
+    let mut ptys: Ptys = HashMap::new();
 
     while let Some(cmd) = cmd_rx.recv().await {
         match cmd {
-            PtyCmd::SpawnShell {
-                id,
-                rows,
-                cols,
-                working_dir,
-                reply,
-            } => {
-                let result = spawn_shell_pty(rows, cols, &working_dir);
-                match result {
-                    Ok(pty) => {
-                        let output = pty.output.clone();
-                        ptys.insert(id, pty);
-                        let _ = reply.send(Ok(output));
-                    }
-                    Err(e) => {
-                        let _ = reply.send(Err(e.to_string()));
-                    }
-                }
-            }
-            PtyCmd::SpawnNeovim {
-                id,
-                rows,
-                cols,
-                working_dir,
-                reply,
-            } => {
-                let result = spawn_neovim_pty(rows, cols, &working_dir);
-                match result {
-                    Ok(pty) => {
-                        let output = pty.output.clone();
-                        ptys.insert(id, pty);
-                        let _ = reply.send(Ok(output));
-                    }
-                    Err(e) => {
-                        let _ = reply.send(Err(e.to_string()));
-                    }
-                }
-            }
-            PtyCmd::SpawnGitui {
-                id,
-                rows,
-                cols,
-                working_dir,
-                reply,
-            } => {
-                let result = spawn_gitui_pty(rows, cols, &working_dir);
-                match result {
-                    Ok(pty) => {
-                        let output = pty.output.clone();
-                        ptys.insert(id, pty);
-                        let _ = reply.send(Ok(output));
-                    }
-                    Err(e) => {
-                        let _ = reply.send(Err(e.to_string()));
-                    }
-                }
-            }
-            PtyCmd::SpawnOpencode {
-                id,
-                rows,
-                cols,
-                working_dir,
-                session_id,
-                reply,
-            } => {
-                let result = spawn_opencode_pty(rows, cols, &working_dir, session_id.as_deref());
-                match result {
-                    Ok(pty) => {
-                        let output = pty.output.clone();
-                        ptys.insert(id, pty);
-                        let _ = reply.send(Ok(output));
-                    }
-                    Err(e) => {
-                        let _ = reply.send(Err(e.to_string()));
-                    }
-                }
-            }
-            PtyCmd::SpawnClaudeAttach {
-                id,
-                rows,
-                cols,
-                working_dir,
-                short_id,
-                reply,
-            } => {
-                let result = spawn_claude_attach_pty(rows, cols, &working_dir, &short_id);
-                match result {
-                    Ok(pty) => {
-                        let output = pty.output.clone();
-                        ptys.insert(id, pty);
-                        let _ = reply.send(Ok(output));
-                    }
-                    Err(e) => {
-                        let _ = reply.send(Err(e.to_string()));
-                    }
-                }
+            PtyCmd::Spawn { spec, reply } => {
+                let _ = reply.send(start(&mut ptys, &spec));
             }
             PtyCmd::Write { id, data, reply } => {
-                let ok = if let Some(pty) = ptys.get_mut(&id) {
+                let ok = ptys.get_mut(&id).is_some_and(|pty| {
                     pty.writer.write_all(&data).is_ok() && pty.writer.flush().is_ok()
-                } else {
-                    false
-                };
+                });
                 let _ = reply.send(ok);
             }
             PtyCmd::Resize {
@@ -152,46 +58,32 @@ async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
                 cols,
                 reply,
             } => {
-                let ok = if let Some(pty) = ptys.get_mut(&id) {
-                    let resize_ok = pty
-                        .master
-                        .resize(PtySize {
-                            rows,
-                            cols,
-                            pixel_width: 0,
-                            pixel_height: 0,
-                        })
-                        .is_ok();
-                    if resize_ok {
-                        pty.rows = rows;
-                        pty.cols = cols;
-                    }
-                    resize_ok
-                } else {
-                    false
-                };
-                let _ = reply.send(ok);
+                let _ = reply.send(resize(&mut ptys, &id, rows, cols));
             }
             PtyCmd::GetOutput { id, reply } => {
-                let output = ptys.get(&id).map(|pty| pty.output.clone());
-                let _ = reply.send(output);
+                let _ = reply.send(ptys.get(&id).map(|pty| pty.output.clone()));
             }
             PtyCmd::Activity { id, reply } => {
-                let activity = ptys.get(&id).map(WebPty::activity);
-                let _ = reply.send(activity);
+                let _ = reply.send(ptys.get(&id).map(WebPty::activity));
             }
-            PtyCmd::Kill { id, reply } => {
-                let ok = if let Some(mut pty) = ptys.remove(&id) {
-                    let _ = pty.child.kill();
-                    true
-                } else {
-                    false
-                };
+            PtyCmd::Rename { id, label, reply } => {
+                let found = ptys.get_mut(&id);
+                let ok = found.is_some();
+                if let Some(pty) = found {
+                    pty.meta.label = label;
+                }
                 let _ = reply.send(ok);
             }
-            PtyCmd::List { reply } => {
-                let ids: Vec<String> = ptys.keys().cloned().collect();
-                let _ = reply.send(ids);
+            PtyCmd::Kill { id, reply } => {
+                let killed = ptys.remove(&id);
+                let ok = killed.is_some();
+                if let Some(mut pty) = killed {
+                    let _ = pty.child.kill();
+                }
+                let _ = reply.send(ok);
+            }
+            PtyCmd::Sessions { reply } => {
+                let _ = reply.send(sessions(&mut ptys));
             }
         }
     }
@@ -200,6 +92,70 @@ async fn run_manager(mut cmd_rx: mpsc::UnboundedReceiver<PtyCmd>) {
     for (_, mut pty) in ptys.drain() {
         let _ = pty.child.kill();
     }
+}
+
+/// Start a PTY, unless one already answers to that id.
+///
+/// Re-spawning over a live id would leave the running program with no reader
+/// and no way to be killed, so an id that is already taken returns the PTY it
+/// names. That makes spawn safe to retry, which is what a browser that
+/// re-attaches after a reload effectively does.
+fn start(ptys: &mut Ptys, spec: &SpawnSpec) -> Result<super::buffer::RawOutputBuffer, String> {
+    if let Some(existing) = ptys.get(&spec.id) {
+        return Ok(existing.output.clone());
+    }
+
+    let label = match &spec.label {
+        Some(given) => given.clone(),
+        None => next_label(ptys, spec),
+    };
+
+    let pty = spawn_pty(spec, label).map_err(|e| e.to_string())?;
+    let output = pty.output.clone();
+    ptys.insert(spec.id.clone(), pty);
+    Ok(output)
+}
+
+/// "Shell 3" — numbered within its project and kind, so a second project's
+/// first shell is Shell 1 rather than continuing someone else's count.
+fn next_label(ptys: &Ptys, spec: &SpawnSpec) -> String {
+    let kind = spec.program.kind();
+    let taken = ptys
+        .values()
+        .filter(|pty| pty.meta.kind == kind && pty.meta.project == spec.project)
+        .count();
+    format!("{} {}", kind.label(), taken + 1)
+}
+
+fn resize(ptys: &mut Ptys, id: &str, rows: u16, cols: u16) -> bool {
+    let Some(pty) = ptys.get_mut(id) else {
+        return false;
+    };
+    let resized = pty
+        .master
+        .resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .is_ok();
+    if resized {
+        pty.rows = rows;
+        pty.cols = cols;
+    }
+    resized
+}
+
+/// Describe every live PTY, dropping the ones whose program has exited.
+///
+/// Pruning here rather than on a timer: the answer has to be accurate at the
+/// moment it is asked, and there is no other moment worth spending a wakeup on.
+fn sessions(ptys: &mut Ptys) -> Vec<PtySession> {
+    ptys.retain(|_, pty| pty.is_alive());
+    ptys.iter()
+        .map(|(id, pty)| PtySession::new(id, &pty.meta, pty.activity()))
+        .collect()
 }
 
 #[cfg(test)]

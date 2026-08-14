@@ -34,9 +34,9 @@ export interface EngineOptions {
   models: ModelOption[];
   agents: AgentInfo[];
   /**
-   * Permission modes the engine reported, or null when it reports none and the caller
-   * should fall back to its own table. ACP agents come from config, so their modes can
-   * only be discovered — never looked up by runner name.
+   * Permission modes the engine reported, or null when it has not answered yet. Discovery
+   * is the only source: ACP agents come from config, so their modes could never be looked
+   * up by runner name.
    */
   permissionModes: PermissionModeOption[] | null;
   loading: boolean;
@@ -48,6 +48,8 @@ export function useEngineOptions(
   selectedAgent: string,
   onModelSelected: (modelId: string, providerId: string) => void,
   onAgentChange: (agentId: string) => void,
+  permission?: string,
+  onPermissionChange?: (permission: string) => void,
 ): EngineOptions {
   const providers = useProviders(runner);
   const { agents, loading: loadingAgents } = useAgents(runner);
@@ -93,6 +95,17 @@ export function useEngineOptions(
     if (fallback) onModelSelected(fallback.modelId, fallback.providerId);
   }, [models, runner, selectedModel, onModelSelected]);
 
+  // Same repair for the permission mode, and for a sharper reason: a mode is a name in one
+  // runner's vocabulary, so `bypassPermissions` carried to a runner that never published it
+  // is not merely stale — it is accepted by the composer, sent, and silently ignored, and
+  // the session spends the conversation asking for what the user already granted.
+  const { permissionModes } = providers;
+  useEffect(() => {
+    if (!onPermissionChange || !permissionModes || permissionModes.length === 0) return;
+    if (permission && permissionModes.some((mode) => mode.value === permission)) return;
+    onPermissionChange(permissionModes[0].value);
+  }, [permissionModes, permission, onPermissionChange]);
+
   useEffect(() => {
     if (agents.length === 0) return;
     if (selectedAgent && agents.some((a) => a.id === selectedAgent)) return;
@@ -102,7 +115,7 @@ export function useEngineOptions(
   return {
     models,
     agents,
-    permissionModes: providers.permissionModes,
+    permissionModes,
     loading: providers.loading || loadingAgents,
   };
 }

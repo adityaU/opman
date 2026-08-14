@@ -112,13 +112,13 @@ const GIT = namespace("g", "git", [
 ]);
 
 const TERMINAL = namespace("t", "terminal", [
-  { key: "n", command: "terminal.newTab", label: "new" },
-  { key: "N", command: "terminal.newTabOfKind", label: "new kind" },
-  { key: "c", command: "terminal.closeTab", label: "close", when: "terminalOpen" },
-  { key: "r", command: "terminal.renameTab", label: "rename", when: "terminalOpen" },
+  { key: "n", command: "terminal.newShell", label: "new" },
+  { key: "N", command: "terminal.selectShell", label: "switch" },
+  { key: "c", command: "terminal.killShell", label: "kill", when: "terminalOpen" },
+  { key: "r", command: "terminal.renameShell", label: "rename", when: "terminalOpen" },
   { key: "s", command: "terminal.find", label: "search", when: "terminalOpen" },
   { key: "l", command: "terminal.clear", label: "clear", when: "terminalOpen" },
-  { key: "t", command: "terminal.selectTab", label: "select tab", when: "terminalOpen" },
+  { key: "t", command: "terminal.expand", label: "expand", when: "terminalOpen" },
 ]);
 
 const BOARD = namespace("k", "kanban", [

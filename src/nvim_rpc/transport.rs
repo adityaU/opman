@@ -11,7 +11,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use rmpv::Value;
 
-#[path = "../nvim_ui/rpc/value.rs"]
+#[path = "checked_value.rs"]
 mod checked_value;
 
 static MSG_ID: AtomicU32 = AtomicU32::new(1);

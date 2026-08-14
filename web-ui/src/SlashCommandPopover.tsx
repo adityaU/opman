@@ -88,21 +88,32 @@ export function SlashCommandPopover({ filter, onSelect, onClose, sessionId, runn
   }, [filter]);
 
   useEffect(() => {
+    /**
+     * While the list is open it owns these keys outright.
+     *
+     * Stopping propagation is the point: the listener is on `document` in capture, so
+     * without it the same Enter continued to the textarea and the composer submitted the
+     * *typed prefix* as well. Picking `/agent` from a half-typed `/ag` therefore ran the
+     * command and forwarded `/ag` to the agent, which — being a name no runner knows —
+     * arrived as a plain message.
+     */
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowDown") {
-        e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
       } else if (e.key === "ArrowUp") {
-        e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        if (filtered[selectedIndex]) {
-          onSelect(filtered[selectedIndex]);
-        }
+        const command = filtered[selectedIndex];
+        if (!command) return;
+        onSelect(command);
       } else if (e.key === "Escape") {
         onClose();
+      } else {
+        return;
       }
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
     }
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
@@ -120,7 +131,11 @@ export function SlashCommandPopover({ filter, onSelect, onClose, sessionId, runn
           role="option"
           aria-selected={idx === selectedIndex}
           className={`composer-popover-row${idx === selectedIndex ? " is-cursor" : ""}`}
-          onClick={() => onSelect(cmd)}
+          /* Selected on press, not on click: a tap here blurs the textarea, and the
+             on-screen keyboard collapsing between touchstart and touchend moves the
+             composer up under the finger — so the click landed on the send button
+             instead of the row, and the half-typed slash went out as a message. */
+          onPointerDown={(e) => { e.preventDefault(); onSelect(cmd); }}
           onMouseEnter={() => setSelectedIndex(idx)}
         >
           {/* The slash belongs to the name: this is literally what gets typed,

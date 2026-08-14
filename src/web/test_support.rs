@@ -50,7 +50,6 @@ pub(crate) fn test_server_state() -> ServerState {
     // stream serves. A second channel here would let a test pass against plumbing that
     // does not exist.
     let raw_sse_tx = web_state.raw_sse_tx.clone();
-    let nvim_registry = crate::mcp::new_nvim_socket_registry();
     let runner_registry = std::sync::Arc::new(crate::runner::RunnerRegistry::new(
         crate::runner::RunnerKind::Opencode,
         runners,
@@ -64,9 +63,10 @@ pub(crate) fn test_server_state() -> ServerState {
         event_tx,
         raw_sse_tx,
         pty_mgr: noop_pty_handle(),
+        // Inert until a pane is opened, so tests that never touch a browser pane never
+        // launch Chromium.
+        browser: crate::browser::BrowserPool::new(reqwest::Client::new()),
         http_client: reqwest::Client::new(),
-        nvim_registry: nvim_registry.clone(),
-        nvim_ui: std::sync::Arc::new(crate::nvim_ui::NvimUiPool::new(nvim_registry)),
         lsp: std::sync::Arc::new(crate::lsp::LspPool::new()),
         skills_registry: crate::mcp_skills::SkillsRegistry::default(),
         mcp: crate::mcp_registry::RegistryHandle::default(),
@@ -129,18 +129,6 @@ pub(crate) fn test_server_state_with_projects(
     let web_state = WebStateHandle::new_test_with_projects(projects);
     state.raw_sse_tx = web_state.raw_sse_tx.clone();
     state.web_state = web_state;
-    state
-}
-
-pub(crate) fn test_server_state_with_projects_and_nvim_config(
-    projects: Vec<(String, std::path::PathBuf)>,
-    config: crate::nvim_ui::spawn::ConfigSource,
-) -> ServerState {
-    let mut state = test_server_state_with_projects(projects);
-    state.nvim_ui = std::sync::Arc::new(crate::nvim_ui::NvimUiPool::with_config(
-        state.nvim_registry.clone(),
-        config,
-    ));
     state
 }
 

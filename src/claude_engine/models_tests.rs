@@ -44,6 +44,33 @@ fn provider_payload_has_opencode_shape() {
         v["all"][0]["models"]["claude-opus-5"]["limit"]["context"],
         1_000_000
     );
+    assert!(v["all"][0]["models"]["claude-opus-5"]
+        .get("reasoningEfforts")
+        .is_none());
     assert_eq!(v["connected"][0], "anthropic");
     assert_eq!(v["default"]["anthropic"], "claude-fable-5");
+}
+
+#[test]
+fn provider_payload_publishes_exactly_the_modes_the_engine_accepts() {
+    // The picker renders whatever is here, so a mode listed and not accepted — or accepted
+    // and not listed — is a control that lies about what the engine will do.
+    let v = provider_payload(&default_models());
+    let modes = v["permissionModes"].as_array().expect("modes are published");
+    assert_eq!(modes.len(), PERMISSION_MODES.len());
+    for mode in modes {
+        let value = mode["value"].as_str().unwrap_or_default();
+        assert_eq!(permission_mode(value), Some(value));
+        assert!(!mode["label"].as_str().unwrap_or_default().is_empty());
+    }
+}
+
+#[test]
+fn a_mode_is_recognised_whatever_its_casing_and_nothing_else_is() {
+    assert_eq!(
+        permission_mode("BYPASSPERMISSIONS"),
+        Some("bypassPermissions")
+    );
+    assert_eq!(permission_mode("plan"), Some("plan"));
+    assert_eq!(permission_mode("agent-full-access"), None);
 }

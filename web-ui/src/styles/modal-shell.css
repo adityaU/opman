@@ -54,9 +54,9 @@
 :is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
     .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
     .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-    .term-kind-menu, .mobile-explorer-actions-dropdown,
+    .mobile-explorer-actions-dropdown,
     .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-    .prompt-queue-panel, .which-key, .nvim-popupmenu-overlay, .nvim-float-surface) {
+    .prompt-queue-panel, .which-key) {
     border: 1px solid var(--modal-border);
     border-radius: var(--popover-radius);
     background: var(--modal-surface);
@@ -122,9 +122,9 @@ html.flat-theme :is(.modal-backdrop, .wsp-opener-backdrop, .search-modal-backdro
         .kanban-modal-overlay),.modal-dialog-surface,.modal-popover-surface,:is(.git-branch-dropdown, .git-repo-dropdown, .git-breadcrumb-dropdown,
         .prompt-runner-menu, .usage-popover, .slash-popover, .prompt-at-popover,
         .prompt-chip-dropdown, .sb-context-menu, .command-palette-panel,
-        .term-kind-menu, .mobile-explorer-actions-dropdown,
+        .mobile-explorer-actions-dropdown,
         .watcher-msg-picker, .model-picker, .agent-picker, .pr-branch-picker,
-        .prompt-queue-panel, .nvim-popupmenu-overlay, .nvim-float-surface){
+        .prompt-queue-panel){
         animation: none;
     }
 }

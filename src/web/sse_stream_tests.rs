@@ -207,7 +207,14 @@ async fn state_with_marker_pty(
     state.pty_mgr = crate::web::pty_manager::start_web_pty_manager();
     let buf = state
         .pty_mgr
-        .spawn_shell("replay-term".into(), 24, 80, dir.to_path_buf())
+        .spawn(crate::web::pty_manager::SpawnSpec {
+            id: "replay-term".into(),
+            program: crate::web::pty_manager::PtyProgram::Shell,
+            project: dir.to_path_buf(),
+            label: None,
+            rows: 24,
+            cols: 80,
+        })
         .await
         .expect("fake shell spawns");
     (state, buf)

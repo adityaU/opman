@@ -80,7 +80,7 @@ html.flat-theme .prompt-input-wrapper:focus-within {
         padding: 9px;
     }
 
-    .composer-field {
+.composer-field {
         padding: 2px 0 8px;
     }
 
@@ -132,6 +132,70 @@ html.flat-theme .prompt-input-wrapper:focus-within {
        engine chip, the instruction count, and usage share one 393px rail.
        (The engine chip sheds its agent name at 560px on its own.) */
     .composer-bar .prompt-chip-word { display: none }
+}
+
+/* Live runner titles belong to the writing surface, not the transcript. */
+.composer-progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 25px;
+    padding: 1px 2px 7px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+}
+
+.composer-progress-indicator {
+    display: inline-flex;
+    color: var(--color-primary);
+    animation: composer-progress-pulse 1.4s ease-in-out infinite;
+}
+
+.composer-progress-label {
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.composer-progress-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+}
+
+.composer-progress-dots {
+    display: inline-flex;
+    gap: 2px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.composer-progress-dots i {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    animation: composer-progress-dot 1.2s ease-in-out infinite;
+}
+
+.composer-progress-dots i:nth-child(2) { animation-delay: .15s; }
+.composer-progress-dots i:nth-child(3) { animation-delay: .3s; }
+
+@keyframes composer-progress-pulse {
+    50% { opacity: .45; transform: scale(.88); }
+}
+
+@keyframes composer-progress-dot {
+    0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .composer-progress-indicator,
+    .composer-progress-dots i { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

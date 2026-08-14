@@ -1,0 +1,53 @@
+/* The code editor's fold gutter.
+
+   CodeMirror draws the chevron; these rules give it the same muted-to-primary
+   affordance the rest of the editor chrome uses, so it reads the same way under
+   the glassy and the flat theme. */
+
+/* Holds the gutter's width steady as the viewport scrolls past foldable lines,
+   which CodeMirror otherwise leaves to hidden spacer rows. */
+.cm-editor .cm-foldGutter {
+    min-width: 1.4rem
+}
+
+/* No `min-height`: a row taller than its line makes CodeMirror resolve a click
+   at the row's centre to the line below, which folds nothing. */
+.cm-editor .cm-foldGutter .cm-gutterElement {
+    min-width: 1.4rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.cm-opman-fold-marker,
+.cm-opman-fold-marker svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* The revealed spacer rows overlap their neighbours, and an empty one landing
+   on top of the chevron swallows the click that should fold the block. Lifting
+   the marker keeps it the topmost thing at its own centre. */
+.cm-opman-fold-marker {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cm-editor .cm-foldGutter .cm-gutterElement:hover {
+    color: var(--color-primary);
+    background: var(--theme-surface-hover, var(--color-bg-hover));
+}
+
+.cm-editor .cm-foldGutter .cm-gutterElement:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cm-editor .cm-foldGutter .cm-gutterElement {
+        transition: none;
+    }
+}

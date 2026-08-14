@@ -62,3 +62,6 @@ sidebar-expanded.yml
 # Local Claude Code state
 .claude/settings.local.json
 .claude/worktrees/
+
+# Ephemeral editor e2e harness state (backend port, temp workspace, pid).
+web-ui/tests/editor/.state.json

@@ -97,9 +97,14 @@ function useExtent(ref: React.RefObject<HTMLDivElement>, dir: "row" | "col"): nu
     const element = ref.current;
     if (!element) return;
 
+    // A zero extent is never a real layout — it is a subtree that is not being
+    // rendered right now (a background window skips its contents entirely).
+    // Keeping the last real number is what lets the tree come back with its
+    // proportions intact instead of every gutter snapping to nothing.
     const measure = () => {
       const box = element.getBoundingClientRect();
-      setExtent(dir === "row" ? box.width : box.height);
+      const next = dir === "row" ? box.width : box.height;
+      if (next > 0) setExtent(next);
     };
     measure();
 

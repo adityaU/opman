@@ -10,11 +10,16 @@
  * under the pointer, definition on ⌘-click or F12, format on ⇧⌥F, and
  * diagnostics underlined in place with a gutter marker.
  */
-import { hoverTooltip, keymap, EditorView, type Tooltip } from "@codemirror/view";
+import { keymap, EditorView, type Tooltip } from "@codemirror/view";
 import { forEachDiagnostic, lintGutter, linter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
 import type { EditorLspDiagnostic } from "../types";
-import type { EditorReferenceLocation } from "../../api";
+import type {
+  EditorDefinitionLocation, EditorGotoKind, EditorHoverResponse, EditorLspActions,
+  EditorReferenceLocation,
+} from "../../api";
 import { markdownElement } from "./lspMarkdown";
+import { actionLabel, hoverCard, type HoverActionRequest } from "./hoverCard";
+import { holdingHoverTooltip } from "./hoverHold";
 import { diagnosticHoverExtension } from "./diagnosticHover";
 import { lspCompletionExtension, type LspCompletionResponse } from "./lspCompletion";
 import {
@@ -29,8 +34,16 @@ import {
 export interface LspBridge {
   enabled: boolean;
   diagnostics: () => readonly EditorLspDiagnostic[];
-  hoverAt: (line: number, col: number) => Promise<string | null>;
+  hoverAt: (line: number, col: number) => Promise<EditorHoverResponse | null>;
   definitionAt: (line: number, col: number) => Promise<boolean>;
+  /** Resolve one of the four navigations without moving the reader. */
+  gotoAt: (
+    kind: EditorGotoKind,
+    line: number,
+    col: number,
+  ) => Promise<readonly EditorDefinitionLocation[]>;
+  /** Open a resolved location, either in place or in a pane the user picks. */
+  reveal: (file: string, line: number, where: "here" | "choose", label: string) => void;
   format: () => Promise<void>;
   completeAt: (
     line: number,
@@ -92,28 +105,7 @@ export function pushDiagnostics(view: any, list: EditorLspDiagnostic[]) {
 
 // ── Extensions ──────────────────────────────────────────
 
-/** Actions a Neovim mapping can name, filled in when the extensions mount. */
-export interface LspActions {
-  run: (name: string) => void;
-}
-
-export function createLspExtensions(bridge: LspBridgeRef, actions: LspActions) {
-  const tooltip = hoverTooltip(async (view, pos): Promise<Tooltip | null> => {
-    const diagnostic = diagnosticAt(view, pos);
-    if (diagnostic) return diagnosticTooltip(pos, diagnostic);
-    if (!bridge.current.enabled) return null;
-    const { line, col } = positionAt(view.state.doc, pos);
-    const text = await bridge.current.hoverAt(line, col);
-    if (!text) return null;
-    return {
-      pos,
-      above: true,
-      // Servers answer in markdown — a fenced signature block, then prose.
-      // Printed literally that is a wall of backticks.
-      create: () => ({ dom: markdownElement(text, "cm-lsp-hover") }),
-    };
-  }, { hoverTime: 0 });
-
+export function createLspExtensions(bridge: LspBridgeRef) {
   const goToDefinition = (view: EditorView, pos: number) => {
     const { line, col } = positionAt(view.state.doc, pos);
     void bridge.current.definitionAt(line, col);
@@ -149,9 +141,73 @@ export function createLspExtensions(bridge: LspBridgeRef, actions: LspActions) {
     return true;
   };
 
-  // In insert mode keystrokes stay local, so Neovim's mappings cannot fire and
-  // CodeMirror needs the same three shortcuts. In every other mode Neovim
-  // consumes the key first and calls back through `actions.run`.
+  /**
+   * A hover card action. Navigations resolve first and only then decide what to
+   * do with the answer: one location goes straight there, several open the same
+   * list the references panel uses, because "go to definition" with three
+   * candidates is a choice, not a jump.
+   */
+  const runHoverAction = (
+    view: EditorView,
+    line: number,
+    col: number,
+    symbol: string,
+    request: HoverActionRequest,
+  ): void => {
+    if (request.action === "rename") {
+      view.dispatch({ selection: { anchor: offsetAt(view.state.doc, line, col) } });
+      startRename(view);
+      return;
+    }
+    if (request.action === "references") {
+      view.dispatch({ selection: { anchor: offsetAt(view.state.doc, line, col) } });
+      showReferences(view);
+      return;
+    }
+    const label = actionLabel(request.action, symbol);
+    void bridge.current.gotoAt(request.action, line, col).then((locations) => {
+      if (locations.length === 0) return;
+      if (locations.length === 1) {
+        const [only] = locations;
+        bridge.current.reveal(only.file, only.lnum, request.where, label);
+        return;
+      }
+      openLspPanel(view, {
+        kind: "references",
+        locations: locations.map((location) => ({ ...location, text: location.file })),
+        busy: false,
+      });
+    });
+  };
+
+  // Held open for five seconds after the pointer leaves — see `hoverHold`. The
+  // card has buttons in it, and CodeMirror's own hover drops it the instant the
+  // pointer moves toward one.
+  const tooltip = holdingHoverTooltip(async (view, pos): Promise<Tooltip | null> => {
+    const diagnostic = diagnosticAt(view, pos);
+    if (diagnostic) return diagnosticTooltip(pos, diagnostic);
+    if (!bridge.current.enabled) return null;
+    const { line, col } = positionAt(view.state.doc, pos);
+    const response = await bridge.current.hoverAt(line, col);
+    if (!response?.hover) return null;
+    const actions = response.actions ?? NO_ACTIONS;
+    const symbol = wordAt(view, pos);
+    return {
+      pos,
+      above: true,
+      // Servers answer in markdown — a fenced signature block, then prose.
+      // Printed literally that is a wall of backticks.
+      create: () => ({
+        dom: hoverCard({
+          text: response.hover ?? "",
+          actions,
+          onAction: (request) => runHoverAction(view, line, col, symbol, request),
+        }),
+      }),
+    };
+  });
+
+  // The editor's own shortcuts for definition, references, rename and format.
   const keys = keymap.of([
     { key: "F12", run: (view) => goToDefinition(view, view.state.selection.main.head) },
     { key: "Shift-F12", run: showReferences },
@@ -166,19 +222,6 @@ export function createLspExtensions(bridge: LspBridgeRef, actions: LspActions) {
       },
     },
   ]);
-
-  // The action handler needs whichever view is mounted, and only the view
-  // itself can say which that is.
-  const latestView: { current: EditorView | null } = { current: null };
-  const trackView = EditorView.updateListener.of((update) => { latestView.current = update.view; });
-
-  actions.run = (name: string): void => {
-    const view = latestView.current;
-    if (!view) return;
-    if (name === "lsp.definition") goToDefinition(view, view.state.selection.main.head);
-    else if (name === "lsp.references") showReferences(view);
-    else if (name === "lsp.rename") startRename(view);
-  };
 
   // ⌘/Ctrl-click jumps to the definition of whatever is under the pointer.
   const clickToDefine = EditorView.domEventHandlers({
@@ -196,7 +239,6 @@ export function createLspExtensions(bridge: LspBridgeRef, actions: LspActions) {
   const modifierHint = EditorView.contentAttributes.of({ "data-lsp": "on" });
 
   return [
-    trackView,
     tooltip,
     linter(null),
     lintGutter(),
@@ -207,6 +249,23 @@ export function createLspExtensions(bridge: LspBridgeRef, actions: LspActions) {
     lspCompletionExtension(bridge),
     lspPanelExtension(panelBridge),
   ];
+}
+
+/** An older backend answers a hover without saying what else it can do. */
+const NO_ACTIONS: EditorLspActions = {
+  definition: true, typeDefinition: false, implementation: false, declaration: false,
+  references: true, rename: true, format: true,
+};
+
+/** The identifier under a position, for naming what the pane chooser is placing. */
+function wordAt(view: EditorView, pos: number): string {
+  const line = view.state.doc.lineAt(pos);
+  const offset = pos - line.from;
+  const word = /[A-Za-z_$][\w$]*/g;
+  for (let match = word.exec(line.text); match; match = word.exec(line.text)) {
+    if (match.index <= offset && offset <= match.index + match[0].length) return match[0];
+  }
+  return "";
 }
 
 function diagnosticAt(view: EditorView, pos: number): EditorLspDiagnostic | null {

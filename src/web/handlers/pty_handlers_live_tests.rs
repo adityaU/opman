@@ -31,14 +31,28 @@ async fn status<T: IntoResponse>(r: Result<T, WebError>) -> axum::http::StatusCo
     r.into_response().status()
 }
 
-fn spawn_req(kind: &str, id: &str) -> SpawnPtyRequest {
+fn spawn_req(kind: PtyKind, id: &str) -> SpawnPtyRequest {
     SpawnPtyRequest {
-        kind: kind.into(),
+        kind,
         id: id.into(),
         rows: Some(24),
         cols: Some(80),
+        project: None,
+        label: None,
         session_id: None,
     }
+}
+
+/// The sessions endpoint, decoded.
+async fn sessions(state: &ServerState) -> Vec<serde_json::Value> {
+    let resp = pty_sessions(State(state.clone()), auth())
+        .await
+        .expect("sessions always answers")
+        .into_response();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .expect("a small JSON body");
+    serde_json::from_slice(&bytes).expect("an array of sessions")
 }
 
 #[tokio::test]
@@ -50,7 +64,7 @@ async fn spawn_shell_success_then_write_resize_list_kill() {
     let resp = spawn_pty(
         State(state.clone()),
         auth(),
-        axum::Json(spawn_req("shell", "live-1")),
+        axum::Json(spawn_req(PtyKind::Shell, "live-1")),
     )
     .await
     .unwrap()
@@ -63,16 +77,33 @@ async fn spawn_shell_success_then_write_resize_list_kill() {
     assert_eq!(v["id"], "live-1");
     assert_eq!(v["ok"], true);
 
-    // list → contains the id.
-    let resp = pty_list(State(state.clone()), auth())
-        .await
-        .unwrap()
-        .into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let ids: Vec<String> = serde_json::from_slice(&bytes).unwrap();
-    assert!(ids.contains(&"live-1".to_string()));
+    // sessions → the shell is there, tagged with its project and a label.
+    let listed = sessions(&state).await;
+    let entry = listed
+        .iter()
+        .find(|s| s["id"] == "live-1")
+        .expect("the spawned shell is listed");
+    assert_eq!(entry["kind"], "shell");
+    assert_eq!(entry["project"], tmp.path().to_string_lossy().as_ref());
+    assert_eq!(entry["label"], "Shell 1", "the manager numbers it");
+
+    // rename → the picker's label changes, the PTY does not.
+    let st = status(
+        pty_rename(
+            State(state.clone()),
+            auth(),
+            axum::Json(PtyRenameRequest {
+                id: "live-1".into(),
+                label: "  Build  ".into(),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(st, axum::http::StatusCode::OK);
+    let listed = sessions(&state).await;
+    let entry = listed.iter().find(|s| s["id"] == "live-1").expect("still there");
+    assert_eq!(entry["label"], "Build", "trimmed");
 
     // write valid base64 to the live PTY → OK (found).
     let data = BASE64.encode(b"echo hi\n");
@@ -142,7 +173,7 @@ async fn spawn_opencode_with_explicit_session_id() {
     // → 500 — but the branch under test has already run.
     let tmp = tempfile::TempDir::new().unwrap();
     let state = live_state(tmp.path());
-    let mut req = spawn_req("opencode", "oc-1");
+    let mut req = spawn_req(PtyKind::Opencode, "oc-1");
     req.session_id = Some("ses_explicit".into());
     let st = status(spawn_pty(State(state), auth(), axum::Json(req)).await).await;
     // The Some(sid) resolution branch has run regardless of the spawn outcome:
@@ -154,29 +185,77 @@ async fn spawn_opencode_with_explicit_session_id() {
 }
 
 #[tokio::test]
-async fn pty_activity_reports_a_live_shell() {
+async fn sessions_report_a_live_shell_activity() {
     let dir = tempfile::tempdir().unwrap();
     let state = live_state(dir.path());
     let ok = spawn_pty(
         State(state.clone()),
         auth(),
-        axum::Json(spawn_req("shell", "act1")),
+        axum::Json(spawn_req(PtyKind::Shell, "act1")),
     )
     .await
     .is_ok();
     assert!(ok, "shell spawns");
 
-    let resp = pty_activity(State(state), auth())
-        .await
-        .unwrap()
-        .into_response();
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    let entry = v.get("act1").and_then(|s| s.as_str());
+    let listed = sessions(&state).await;
+    let entry = listed
+        .iter()
+        .find(|s| s["id"] == "act1")
+        .expect("the live PTY is listed");
     assert!(
-        matches!(entry, Some("idle") | Some("running")),
-        "a live PTY reports one of the two states: {v:?}"
+        matches!(entry["activity"].as_str(), Some("idle") | Some("running")),
+        "a live PTY reports one of the two states: {entry:?}"
     );
+}
+
+/// Two shells in one project are numbered; a third project starts again at 1.
+#[tokio::test]
+async fn labels_are_numbered_per_project() {
+    let first = tempfile::tempdir().unwrap();
+    let second = tempfile::tempdir().unwrap();
+    let state = live_state(first.path());
+
+    for id in ["a", "b"] {
+        let req = spawn_req(PtyKind::Shell, id);
+        spawn_pty(State(state.clone()), auth(), axum::Json(req))
+            .await
+            .expect("shell spawns");
+    }
+    let mut third = spawn_req(PtyKind::Shell, "c");
+    third.project = Some(second.path().to_string_lossy().into_owned());
+    spawn_pty(State(state.clone()), auth(), axum::Json(third))
+        .await
+        .expect("shell spawns");
+
+    let listed = sessions(&state).await;
+    let label = |id: &str| {
+        listed
+            .iter()
+            .find(|s| s["id"] == id)
+            .map(|s| s["label"].as_str().unwrap_or_default().to_owned())
+            .unwrap_or_default()
+    };
+    let mut first_two = [label("a"), label("b")];
+    first_two.sort();
+    assert_eq!(first_two, ["Shell 1", "Shell 2"]);
+    assert_eq!(label("c"), "Shell 1", "a new project counts from one");
+}
+
+/// Spawning onto an id that is already live must not start a second program on
+/// top of the first — that would strand the running one with no reader.
+#[tokio::test]
+async fn spawning_a_live_id_twice_keeps_one_pty() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = live_state(dir.path());
+    for _ in 0..2 {
+        spawn_pty(
+            State(state.clone()),
+            auth(),
+            axum::Json(spawn_req(PtyKind::Shell, "same")),
+        )
+        .await
+        .expect("spawn is safe to retry");
+    }
+    let listed = sessions(&state).await;
+    assert_eq!(listed.iter().filter(|s| s["id"] == "same").count(), 1);
 }

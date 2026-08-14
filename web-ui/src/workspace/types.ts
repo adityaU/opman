@@ -33,9 +33,15 @@ export const asSplitId = (raw: string): SplitId => raw as SplitId;
 
 // ── Widgets ─────────────────────────────────────────────
 
-export type WidgetKind = "chat" | "files" | "terminal" | "git";
+export type WidgetKind = "chat" | "files" | "terminal" | "git" | "browser";
 
-export const WIDGET_KINDS: readonly WidgetKind[] = ["chat", "files", "terminal", "git"];
+export const WIDGET_KINDS: readonly WidgetKind[] = [
+  "chat",
+  "files",
+  "terminal",
+  "git",
+  "browser",
+];
 
 /**
  * The engine a chat pane sends on: which runner, and how that runner is set up.
@@ -81,18 +87,39 @@ export type WidgetState =
   | {
       readonly kind: "files";
       readonly projectPath: string;
-      /** The pane-local Neovim pool key used when this surface enters Vim mode. */
+      /** The chat session this pane's language servers are scoped to. */
       readonly sessionId: string;
       readonly open: FileOpenRequest | null;
     }
   /**
-   * `ptyIds` are the pane's terminal tabs. PTYs live in the server process and
-   * outlive a browser refresh, so remembering their ids is the whole of what it
-   * takes for a terminal to survive one — the pane re-attaches to the running
-   * shell instead of spawning a fresh one and losing the scrollback.
+   * One shell per terminal, named by `ptyId`.
+   *
+   * The shell itself is not the pane's — it lives in the server process, is
+   * shared with every other pane and outlives all of them. So this is a
+   * *pointer*, and `null` means "ask which one". Closing the pane, zooming it,
+   * moving it to another window or reloading the browser changes nothing about
+   * the program on the other end; the pane simply re-attaches and repaints from
+   * the retained scrollback.
    */
-  | { readonly kind: "terminal"; readonly projectPath: string; readonly ptyIds: readonly string[] }
+  | { readonly kind: "terminal"; readonly projectPath: string; readonly ptyId: string | null }
   | { readonly kind: "git"; readonly projectPath: string }
+  /**
+   * A headless Chromium tab, addressed by `browserId`.
+   *
+   * The id is the widget's own rather than the pane's so that dragging a
+   * browser between panes carries the live tab — history, cookies, scroll —
+   * instead of silently starting a new one. It is also the handle the agent's
+   * `browser_*` MCP tools name, which is what makes "the agent drives the page
+   * you are watching" true rather than approximately true.
+   *
+   * `url` is where the pane was last, saved so a reload comes back to it.
+   */
+  | {
+      readonly kind: "browser";
+      readonly projectPath: string;
+      readonly browserId: string;
+      readonly url: string | null;
+    }
 
 /** Build a widget once its destination pane — and therefore its identity — is known. */
 export type WidgetForPane = (pane: PaneId) => WidgetState;
@@ -143,11 +170,14 @@ export interface WorkspaceWindow {
  */
 export interface ChromeState {
   readonly rail: boolean;
-  readonly paneHeaders: boolean;
   /**
-   * One pane, the whole shell, nothing else. Distinct from `rail` and
-   * `paneHeaders`, which are durable preferences — Zen is a mode you are
-   * currently in, and it ends when the zoom it rides on does.
+   * One pane, the whole shell, nothing else. Distinct from `rail`, a durable
+   * preference — Zen is a mode you are currently in, and it ends when the zoom
+   * it rides on does.
+   *
+   * Pane headers are deliberately absent: they are no longer a preference at
+   * all. The header is peeked on a chord and withdraws by itself, so there is
+   * no state to persist and no way to be stuck without it.
    */
   readonly zen: boolean;
 }
@@ -160,7 +190,6 @@ export interface Workspace {
 
 export const DEFAULT_CHROME: ChromeState = {
   rail: true,
-  paneHeaders: true,
   zen: false,
 };
 

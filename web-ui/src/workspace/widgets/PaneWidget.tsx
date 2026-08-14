@@ -5,9 +5,9 @@ import type { PaneId, PaneNode, WidgetState } from "../types";
  * Renders a pane's widget.
  *
  * Existing widgets drop straight in — the editor, git and terminal panels were
- * already parameterised by `projectPath`, and chat owns its session. Neovim is
- * likewise pane-local: its session comes from the widget rather than the
- * globally focused chat session.
+ * already parameterised by `projectPath`, and chat owns its session. The
+ * editor's language servers are likewise pane-local: their session comes from
+ * the widget rather than from the globally focused chat session.
  *
  * Lazy, matching how the old side panel loaded these: a workspace restored with
  * four panes should not block first paint on four bundles.
@@ -19,14 +19,18 @@ const TerminalPanel = lazy(() =>
   import("../../TerminalPanel").then((m) => ({ default: m.TerminalPanel })),
 );
 const ChatWidget = lazy(() => import("./ChatWidget").then((m) => ({ default: m.ChatWidget })));
+const BrowserPanel = lazy(() => import("../../browser-panel"));
 
 export interface PaneWidgetProps {
   readonly widget: WidgetState;
   readonly pane: PaneNode;
   readonly focused: boolean;
   readonly onError: (message: string) => void;
-  /** Persist the pane's live PTY ids so its terminals survive a reload. */
-  readonly onPtyIdsChanged: (pane: PaneId, ptyIds: readonly string[]) => void;
+  /** Persist which shell the pane's terminal is showing, so a reload comes
+   *  back to it rather than to the picker. */
+  readonly onPtyIdChanged: (pane: PaneId, ptyId: string | null) => void;
+  /** Persist a browser pane's current URL so a reload comes back to it. */
+  readonly onBrowserUrlChanged: (pane: PaneId, url: string) => void;
 }
 
 export const PaneWidget: React.FC<PaneWidgetProps> = React.memo(function PaneWidget({
@@ -34,11 +38,12 @@ export const PaneWidget: React.FC<PaneWidgetProps> = React.memo(function PaneWid
   pane,
   focused,
   onError,
-  onPtyIdsChanged,
+  onPtyIdChanged,
+  onBrowserUrlChanged,
 }) {
   return (
     <Suspense fallback={<div className="wsp-widget-loading" aria-busy="true" />}>
-      {renderWidget(widget, pane, focused, onError, onPtyIdsChanged)}
+      {renderWidget(widget, pane, focused, onError, onPtyIdChanged, onBrowserUrlChanged)}
     </Suspense>
   );
 });
@@ -48,7 +53,8 @@ function renderWidget(
   pane: PaneNode,
   focused: boolean,
   onError: (message: string) => void,
-  onPtyIdsChanged: (pane: PaneId, ptyIds: readonly string[]) => void,
+  onPtyIdChanged: (pane: PaneId, ptyId: string | null) => void,
+  onBrowserUrlChanged: (pane: PaneId, url: string) => void,
 ): React.ReactNode {
   switch (widget.kind) {
     case "chat":
@@ -83,13 +89,23 @@ function renderWidget(
           sessionId={null}
           projectPath={widget.projectPath}
           visible
-          restoreIds={widget.ptyIds}
-          onTabsChanged={(ids) => onPtyIdsChanged(pane.id, ids)}
-          onClose={() => {}}
+          ptyId={widget.ptyId}
+          onPtyIdChanged={(ptyId) => onPtyIdChanged(pane.id, ptyId)}
         />
       );
 
     case "git":
       return <GitPanel focused={focused} projectPath={widget.projectPath} onError={onError} />;
+
+    case "browser":
+      return (
+        <BrowserPanel
+          paneId={widget.browserId}
+          project={widget.projectPath}
+          url={widget.url}
+          focused={focused}
+          onUrlChanged={(url) => onBrowserUrlChanged(pane.id, url)}
+        />
+      );
   }
 }

@@ -40,58 +40,23 @@
        Spending the drop shadow here too would leave focus nothing to say. */
     box-shadow: var(--modal-rim);
     outline: none;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base)
+    transition: opacity var(--transition-base), box-shadow var(--transition-base)
 }
 
 .wsp-pane:focus-visible {
     outline: none
 }
 
-/* Focus is elevation plus the accent, not an outline drawn over the content:
-   the card rises off the canvas, its edge picks up primary, and a 1px ring
-   separates it from the neighbour it now overlaps in depth. That is the whole
-   signal — the old full-perimeter 1px primary outline on a flush cell read as
-   an error state, and the .82 body dim that backed it up cost contrast. */
-.wsp-pane.is-focused {
-    border-color: color-mix(in srgb, var(--color-primary) 58%, var(--color-border));
-    box-shadow:
-        0 12px 28px color-mix(in srgb, var(--color-bg) 55%, transparent),
-        0 0 0 1px color-mix(in srgb, var(--color-primary) 26%, transparent),
-        var(--modal-rim)
+/* Focus is carried by context: the active pane keeps the shared card edge,
+   while its siblings recede. This preserves one material across the workspace
+   and leaves the focused content at full contrast. */
+.wsp-pane:not(.is-focused) {
+    opacity: .78
 }
 
-html.flat-theme .wsp-pane.is-focused {
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 26%, transparent)
-}
+/* Busy is carried by the header badge's pulsing dot (workspace-3.css) and by
+   the composer's stop button — the pane draws no rim of its own. */
 
-/* Busy: a 1px rim along the card's top edge, breathing. Opacity animates on
-   the compositor, so a pane that runs for ten minutes costs no repaints — and
-   because it is the pane's own edge rather than the header's, it survives zen
-   mode, where the badge that otherwise carries this is switched off. */
-.wsp-pane::after {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1px;
-    background: var(--color-running);
-    opacity: 0;
-    pointer-events: none;
-    z-index: 2;
-    transition: opacity var(--transition-base)
-}
-
-.wsp-pane.is-busy::after {
-    opacity: .85;
-    animation: wsp-pulse var(--wsp-pulse-dur) ease-in-out infinite
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .wsp-pane.is-busy::after { animation: none }
-}
-
-/* No opacity dim on unfocused panes. It cost every one of them a contrast
-   step — muted text at 82% over the surface lands under 4.5:1 — to say
-   something the card's own depth already says. */
 .wsp-pane-body {
     display: flex;
     flex-direction: column;
@@ -107,10 +72,18 @@ html.flat-theme .wsp-pane.is-focused {
    not throw away composer drafts, scroll positions or terminal buffers. The
    hidden ones are stacked on the visible one rather than removed.
 
-   `visibility: hidden`, not `display: none`: a display-none subtree has no
-   box, and xterm and the editor both size themselves from their container, so
-   they would come back measured to nothing and need a refit on every switch.
-   Hidden-but-laid-out costs layout and no paint, and needs no refit at all. */
+   `content-visibility: hidden`, not `visibility: hidden` and not
+   `display: none`. All three take the subtree out of the tab order and the
+   accessibility tree; the difference is what the browser still has to do with
+   it on a switch. `visibility` is an *inherited* property, so flipping it
+   dirties the computed style of every descendant of both windows — on a desk
+   of six windows that was ~144k elements recalculated per switch and by far
+   the largest phase in the trace. `content-visibility` is not inherited and
+   skips the subtree's style, layout and paint outright.
+
+   The reason `display: none` was rejected still stands and is handled rather
+   than avoided: a skipped subtree measures 0x0, so xterm, the code editor and
+   the pane tree all ignore an empty box instead of refitting to it. */
 .wsp-body {
     position: relative
 }
@@ -125,7 +98,7 @@ html.flat-theme .wsp-pane.is-focused {
 .wsp-window:not(.is-active) {
     position: absolute;
     inset: 0;
-    visibility: hidden;
+    content-visibility: hidden;
     pointer-events: none
 }
 

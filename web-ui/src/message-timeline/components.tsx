@@ -24,14 +24,12 @@ export function PendingReply({
 }) {
   return (
     <div className={`pending-reply${settled ? " pending-reply-settled" : ""}`} role="status" aria-live="polite">
-      <div className="pending-reply-inner">
+      <div className="pending-reply-inner" title={detail}>
         {settled
-          ? <CircleSlash size={15} className="pending-reply-icon" />
-          : <Loader2 size={15} className="tool-spin-icon" />}
-        <div className="pending-reply-text">
-          <span className="pending-reply-label">{label}</span>
-          <span className="pending-reply-detail">{detail}</span>
-        </div>
+          ? <CircleSlash size={13} className="pending-reply-icon" />
+          : <Loader2 size={13} className="tool-spin-icon" />}
+        <span className="pending-reply-label">{label}</span>
+        {settled ? <span className="pending-reply-detail">{detail}</span> : null}
       </div>
     </div>
   );

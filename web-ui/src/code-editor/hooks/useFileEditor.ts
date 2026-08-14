@@ -7,14 +7,14 @@ import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import type { Extension } from "@codemirror/state";
 import { loadLanguageExtension, editorThemeExtension } from "../theme";
-import { nvimFoldMirrorExtension } from "../fold-sync";
+import { foldGutterExtension } from "../fold";
 import type { OpenFileEntry, EditorViewMode } from "../types";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 export interface FileEditorState {
-  languageExtension: any;
+  languageExtension: Extension | null;
   languageLoading: boolean;
-  extensions: any[];
+  extensions: Extension[];
   viewModes: Record<string, EditorViewMode>;
   activeView: EditorViewMode;
   setActiveView: (mode: EditorViewMode) => void;
@@ -23,7 +23,7 @@ export interface FileEditorState {
   setCursorLine: (n: number) => void;
   setCursorCol: (n: number) => void;
   jumpToLine: (line: number) => void;
-  editorViewRef: React.MutableRefObject<any>;
+  editorViewRef: React.MutableRefObject<EditorView | null>;
   isDesktop: boolean;
 }
 
@@ -35,12 +35,12 @@ export function useFileEditor(
 ): FileEditorState {
   // Shared with the rest of the app, and phrased as the stylesheets phrase it.
   const isDesktop = !useIsMobile();
-  const [languageExtension, setLanguageExtension] = useState<any>(null);
+  const [languageExtension, setLanguageExtension] = useState<Extension | null>(null);
   const [languageLoading, setLanguageLoading]     = useState(false);
   const [viewModes, setViewModes]                 = useState<Record<string, EditorViewMode>>({});
   const [cursorLine, setCursorLine]               = useState(1);
   const [cursorCol, setCursorCol]                 = useState(1);
-  const editorViewRef = useRef<any>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
 
   const openFile = activeEntry
     ? { path: activeEntry.path, content: activeEntry.content, language: activeEntry.language }
@@ -66,7 +66,7 @@ export function useFileEditor(
 
   // Build extensions
   const extensions = useMemo(() => {
-    const exts: Extension[] = [EditorView.lineWrapping, ...editorThemeExtension, nvimFoldMirrorExtension];
+    const exts: Extension[] = [EditorView.lineWrapping, ...editorThemeExtension, foldGutterExtension];
     if (languageExtension) exts.push(languageExtension);
     return exts;
   }, [languageExtension]);

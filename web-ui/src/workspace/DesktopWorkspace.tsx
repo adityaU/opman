@@ -13,6 +13,7 @@ import { useWorkspacePlacement } from "./useWorkspacePlacement";
 import { useWorkspaceWidgets } from "./useWorkspaceWidgets";
 import { useWorkspace } from "./useWorkspace";
 import { useTerminalActivity } from "./useTerminalActivity";
+import { useHeaderPeek } from "./useHeaderPeek";
 import { panes } from "./tree";
 import type { PaneId, WidgetKind, WidgetState, WindowId } from "./types";
 import { WorkspaceChatProvider, type WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
@@ -36,6 +37,13 @@ export interface WorkspaceBridge {
   readonly openKindHere: (kind: WidgetKind) => void;
   /** Reveal a file: in the files pane already open, or in a new split. */
   readonly openFile: (path: string, line: number | null) => void;
+  /** Reveal a file in a pane the user picks, through the target overlay. */
+  readonly openFileWhere: (path: string, line: number | null, label: string) => void;
+  /**
+   * Reveal the project's browser, which an agent has just driven somewhere:
+   * reusing the pane already showing it, or splitting a column for it.
+   */
+  readonly openBrowser: (projectPath: string, url: string) => void;
 }
 
 export interface WorkspaceProject {
@@ -133,14 +141,20 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   // tree, and one function is a smaller contract than a provider. In an effect,
   // not in render — publishing during render is a side effect, and under
   // StrictMode's double invocation it would run twice per commit.
-  const { armOrPlace, openKindHere, openFileHere } = placement;
+  const { armOrPlace, openKindHere, openFileHere, openFileWhere, openBrowserHere } = placement;
   useEffect(() => {
-    targetingBridge?.({ arm: armOrPlace, openKindHere, openFile: openFileHere });
+    targetingBridge?.({
+      arm: armOrPlace,
+      openKindHere,
+      openFile: openFileHere,
+      openFileWhere,
+      openBrowser: openBrowserHere,
+    });
     // Withdrawn on unmount, so the shell's callers fall back rather than
     // dispatching into a reducer that is no longer on screen — which is what
     // the board switching the whole workspace out does.
     return () => targetingBridge?.(null);
-  }, [armOrPlace, openFileHere, openKindHere, targetingBridge]);
+  }, [armOrPlace, openBrowserHere, openFileHere, openFileWhere, openKindHere, targetingBridge]);
 
   /** Open the inline field. The commit goes through `commitRename`. */
   const renameWindow = useCallback(
@@ -155,6 +169,8 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
     },
     [dispatch, renaming],
   );
+
+  const headerPeek = useHeaderPeek();
 
   const openPaneMenu = useCallback(
     (pane: PaneId, anchor: HTMLElement) => setMenu({ pane, anchor }),
@@ -174,11 +190,14 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
     openWidgetPicker: placement.openWidgetPicker,
     openWindowSwitcher: () => setSwitcherOpen(true),
     openPaneMenu: () => {
+      // The corner button, not a header one: it is the control that is always
+      // on screen, so the menu opens in the same place whichever route is used.
       const element = document.querySelector<HTMLElement>(
-        `[data-pane-id="${CSS.escape(activeWindow.focusedPaneId)}"] .wsp-head-btn`,
+        `[data-pane-id="${CSS.escape(activeWindow.focusedPaneId)}"] .wsp-pane-dots`,
       );
       if (element) setMenu({ pane: activeWindow.focusedPaneId, anchor: element });
     },
+    peekPaneHeader: headerPeek.peek,
     renameActiveWindow: () => renameWindow(activeWindow.id),
     targeting: targeting.active,
     openerOpen: placement.opener !== null,
@@ -211,6 +230,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
       <WorkspaceRoot
         workspace={state}
         dispatch={dispatch}
+        peekHeaders={headerPeek.peeking}
         describePane={describe}
         busyPanes={busyTerminals}
         busyWindows={busyWindows}

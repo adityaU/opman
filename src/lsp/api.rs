@@ -165,12 +165,33 @@ pub async fn hover(
         .await;
 
     match result {
-        Ok(value) => json!({ "available": true, "hover": hover_text(&value) }),
+        // The actions ride along with the hover the editor already asked for.
+        // A separate capabilities call would be a second round trip to learn
+        // something this same server just answered.
+        Ok(value) => json!({
+            "available": true,
+            "hover": hover_text(&value),
+            "actions": actions(&caps),
+        }),
         Err(e) => {
             debug!("lsp: hover failed: {e}");
-            unavailable(&[("hover", Value::Null)])
+            unavailable(&[("hover", Value::Null), ("actions", actions(&caps))])
         }
     }
+}
+
+/// What this server will actually answer, so the hover card offers no action
+/// that resolves to an empty panel.
+pub fn actions(caps: &super::server::ServerCaps) -> Value {
+    json!({
+        "definition": caps.definition,
+        "typeDefinition": caps.type_definition,
+        "implementation": caps.implementation,
+        "declaration": caps.declaration,
+        "references": caps.references,
+        "rename": caps.rename,
+        "format": caps.formatting,
+    })
 }
 
 // ── Completion ──────────────────────────────────────────

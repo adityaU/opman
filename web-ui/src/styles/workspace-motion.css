@@ -29,27 +29,29 @@
 
 /* ── Windows ─────────────────────────────────────────────────────── */
 
-/* Both layers are mounted (see WindowLayer), so a switch can be a real
-   cross-fade rather than a swap: the outgoing window fades and only then
-   stops being visible, which is what the delayed `visibility` does — without
-   it the layer would blink out on frame one and the fade would play to an
-   empty box. */
+/* The arriving window fades in; the leaving one goes at once.
+
+   This used to be a real cross-fade, both layers painting for the length of
+   it. Two full-screen trees on screen together is the most expensive frame a
+   switch has, and the second one is a tree the user is done with — measured,
+   dropping it took a six-window switch from 385ms to 117ms. The fade that
+   carries the change is the incoming one, so that is the one kept. */
 .wsp-window {
     opacity: 1;
-    transition: opacity .16s var(--ease-out-expo), visibility 0s
+    transition: opacity .16s var(--ease-out-expo)
 }
 
 .wsp-window:not(.is-active) {
     opacity: 0;
-    transition: opacity .16s var(--ease-out-expo), visibility 0s .16s
+    transition: none
 }
 
-/* A cross-fade between two full-screen trees is a repaint of both on every
-   frame unless each one owns a compositing layer. `WorkspaceRoot` sets this
-   attribute for the length of the transition and takes it off again, because
-   `will-change` left on permanently would hold one full-screen layer per
-   mounted window for as long as the desk exists. */
-.wsp-body[data-wsp-switching] .wsp-window {
+/* The fade is one layer's opacity, so promote that layer for the length of it
+   rather than repainting it per frame. `WorkspaceRoot` sets the attribute and
+   takes it off again: `will-change` left on permanently would hold a
+   full-screen compositing layer per mounted window for as long as the desk
+   exists. */
+.wsp-body[data-wsp-switching] .wsp-window.is-active {
     will-change: opacity
 }
 

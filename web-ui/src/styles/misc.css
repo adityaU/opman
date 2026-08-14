@@ -69,7 +69,7 @@
     --color-syntax-tag: var(--color-secondary);
     --color-syntax-attribute: var(--color-info);
     --color-syntax-regex: var(--color-error);
-    --font-mono: "IBM Plex Mono", "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-mono: "IBM Plex Mono", "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Symbols Nerd Font Mono", monospace;
     --font-sans: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-size-2xs: .6875rem;
     --font-size-xs: .75rem;
@@ -101,6 +101,18 @@
     --transition-fast: .1s ease;
     --transition-base: .15s ease;
     --transition-slow: .25s ease;
+    /* The hover/press affordance, as an explicit property list.
+       `transition: all` reads as the same thing and is not: it makes the
+       element a transition candidate for *every* animatable property, so a
+       change the element does not care about — `visibility` inherited from an
+       ancestor, `scrollbar-color` resolving through a var — starts a real
+       animation on it. Hiding one workspace window flips `visibility` for its
+       whole subtree, and with these rules written as `all` that was ~1000
+       transitions and ~2000 transition events per window switch. */
+    --transition-interactive-fast: background-color .1s ease, border-color .1s ease,
+        color .1s ease, box-shadow .1s ease, opacity .1s ease, transform .1s ease;
+    --transition-interactive: background-color .15s ease, border-color .15s ease,
+        color .15s ease, box-shadow .15s ease, opacity .15s ease, transform .15s ease;
     /* One period for every "something is working" pulse in the product. */
     --wsp-pulse-dur: 1.8s;
     /* And one colour. An agent running is not a warning — the sidebar row's

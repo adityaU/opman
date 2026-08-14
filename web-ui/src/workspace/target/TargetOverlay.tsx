@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useChordLabeller } from "../../keybindings/useChord";
 import type { PaneId } from "../types";
 import type { TargetSlot } from "./useTargeting";
 
@@ -111,12 +112,7 @@ export const TargetOverlay: React.FC<TargetOverlayProps> = function TargetOverla
       <div className="wsp-target-chip" role="status">
         <span className="wsp-target-chip-label">{label}</span>
         <span className="wsp-target-chip-keys">
-          {interaction.kind === "pick" ? (
-            <>
-              <kbd>1</kbd>–<kbd>9</kbd> pane · <kbd>↵</kbd> current · <kbd>s</kbd>/<kbd>v</kbd> split ·{" "}
-              <kbd>n</kbd> window · <kbd>esc</kbd>
-            </>
-          ) : (
+          {interaction.kind === "pick" ? <PickKeys slots={slots} /> : (
             <>drop on a pane to swap · <kbd>esc</kbd> cancels</>
           )}
         </span>
@@ -125,6 +121,43 @@ export const TargetOverlay: React.FC<TargetOverlayProps> = function TargetOverla
     document.body,
   );
 };
+
+/**
+ * The keys, read from the keymap rather than written here.
+ *
+ * The overlay used to name `s`/`v`/`n` in prose, which went stale the moment
+ * those bindings moved — and it never told a vim-mode user that their split key
+ * is a different one. Every cap below is whatever the live keymap resolves.
+ */
+function PickKeys({ slots }: { readonly slots: readonly TargetSlot[] }) {
+  const chordFor = useChordLabeller();
+  const ordinals = slots.map((slot) => slot.ordinal).sort((left, right) => left - right);
+  const first = ordinals[0];
+  const last = ordinals[ordinals.length - 1];
+  const paneKeys = ordinals.length > 2
+    ? [String(first), "–", String(last)]
+    : ordinals.map(String);
+
+  const entries: readonly (readonly [string | undefined, string])[] = [
+    [chordFor("workspace.targetSplitRight"), "vertical"],
+    [chordFor("workspace.targetSplitDown"), "horizontal"],
+    [chordFor("workspace.targetNewWindow"), "window"],
+  ];
+
+  return (
+    <>
+      {paneKeys.map((key, index) => (
+        key === "–" ? <span key="dash">–</span> : <kbd key={`${key}-${index}`}>{key}</kbd>
+      ))}
+      {" pane · "}
+      <kbd>↵</kbd> current
+      {entries.filter(([chord]) => chord).map(([chord, name]) => (
+        <span key={name}> · <kbd>{chord}</kbd> {name}</span>
+      ))}
+      {" · "}<kbd>esc</kbd>
+    </>
+  );
+}
 
 /**
  * Measure the panes once per arm.

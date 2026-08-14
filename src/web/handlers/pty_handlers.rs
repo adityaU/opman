@@ -1,6 +1,6 @@
-//! Web PTY spawn/write/resize/kill/list handlers.
+//! Web PTY spawn/write/resize/rename/kill/list handlers.
 
-use std::collections::HashMap;
+use std::path::PathBuf;
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
-use super::super::pty_manager::PtyActivity;
+use super::super::pty_manager::{PtyKind, PtyProgram, PtySession, SpawnSpec};
 use super::super::types::*;
 
 #[derive(Serialize)]
@@ -19,60 +19,68 @@ struct SpawnResponse {
     ok: bool,
 }
 
-/// Spawn a new web-owned PTY (shell, neovim, gitui, or opencode).
+/// Spawn a new web-owned PTY, or return the one already answering to that id.
 pub async fn spawn_pty(
     State(state): State<ServerState>,
     _auth: AuthUser,
     Json(req): Json<SpawnPtyRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let rows = req.rows.unwrap_or(24).clamp(1, 500);
-    let cols = req.cols.unwrap_or(80).clamp(1, 500);
+    let project = resolve_project(&state, req.project.as_deref()).await?;
+    let program = resolve_program(&state, req.kind, req.session_id).await?;
 
-    // Get the working directory from the active project
-    let working_dir = state
+    let spec = SpawnSpec {
+        id: req.id.clone(),
+        program,
+        project,
+        label: req.label,
+        rows: req.rows.unwrap_or(24).clamp(1, 500),
+        cols: req.cols.unwrap_or(80).clamp(1, 500),
+    };
+
+    state
+        .pty_mgr
+        .spawn(spec)
+        .await
+        .map_err(|e| WebError::Internal(format!("Failed to spawn PTY: {e}")))?;
+
+    Ok(Json(SpawnResponse {
+        id: req.id,
+        ok: true,
+    }))
+}
+
+/// Where the PTY starts: the caller's project, else whichever one is active.
+async fn resolve_project(state: &ServerState, requested: Option<&str>) -> WebResult<PathBuf> {
+    if let Some(path) = requested.filter(|path| !path.is_empty()) {
+        return Ok(PathBuf::from(path));
+    }
+    state
         .web_state
         .get_working_dir()
         .await
-        .ok_or(WebError::BadRequest("No active project".into()))?;
+        .ok_or(WebError::BadRequest("No active project".into()))
+}
 
-    let result = match req.kind.as_str() {
-        "shell" => {
-            state
-                .pty_mgr
-                .spawn_shell(req.id.clone(), rows, cols, working_dir)
-                .await
-        }
-        "neovim" => {
-            state
-                .pty_mgr
-                .spawn_neovim(req.id.clone(), rows, cols, working_dir)
-                .await
-        }
-        "git" => {
-            state
-                .pty_mgr
-                .spawn_gitui(req.id.clone(), rows, cols, working_dir)
-                .await
-        }
-        "opencode" => {
-            // Get the active session ID (if any) to attach to
-            let session_id = req.session_id.clone().or_else(|| {
-                // Try to get from web state synchronously — but we're in async context
-                None
-            });
-            // We'll resolve session_id from web state if not provided
+/// Pair the requested kind with the arguments only that kind takes.
+async fn resolve_program(
+    state: &ServerState,
+    kind: PtyKind,
+    session_id: Option<String>,
+) -> WebResult<PtyProgram> {
+    match kind {
+        PtyKind::Shell => Ok(PtyProgram::Shell),
+        PtyKind::Neovim => Ok(PtyProgram::Neovim),
+        PtyKind::Git => Ok(PtyProgram::Git),
+        PtyKind::Opencode => {
             let session_id = match session_id {
                 Some(sid) => Some(sid),
                 None => state.web_state.active_session_id().await,
             };
-            state
-                .pty_mgr
-                .spawn_opencode(req.id.clone(), rows, cols, working_dir, session_id)
-                .await
+            Ok(PtyProgram::Opencode { session_id })
         }
-        "claude-attach" => {
+        PtyKind::ClaudeAttach => {
             // Resolve the opman session → its live claude background short id.
-            let session_id = match req.session_id.clone() {
+            let session_id = match session_id {
                 Some(sid) => sid,
                 None => state
                     .web_state
@@ -85,25 +93,8 @@ pub async fn spawn_pty(
                     "This session has no running claude agent to attach to".into(),
                 ),
             )?;
-            state
-                .pty_mgr
-                .spawn_claude_attach(req.id.clone(), rows, cols, working_dir, short_id)
-                .await
+            Ok(PtyProgram::ClaudeAttach { short_id })
         }
-        _ => {
-            return Err(WebError::BadRequest(format!(
-                "Unknown PTY kind: {}",
-                req.kind
-            )))
-        }
-    };
-
-    match result {
-        Ok(_) => Ok(Json(SpawnResponse {
-            id: req.id,
-            ok: true,
-        })),
-        Err(e) => Err(WebError::Internal(format!("Failed to spawn PTY: {}", e))),
     }
 }
 
@@ -116,12 +107,7 @@ pub async fn pty_write(
     let data = BASE64
         .decode(&req.data)
         .map_err(|e| WebError::BadRequest(format!("Invalid base64: {e}")))?;
-    let ok = state.pty_mgr.write(&req.id, data).await;
-    if ok {
-        Ok(StatusCode::OK)
-    } else {
-        Err(WebError::BadRequest("PTY not found".into()))
-    }
+    ok_or_missing(state.pty_mgr.write(&req.id, data).await)
 }
 
 /// Resize a web-owned PTY.
@@ -132,57 +118,51 @@ pub async fn pty_resize(
 ) -> WebResult<impl IntoResponse> {
     let rows = req.rows.clamp(1, 500);
     let cols = req.cols.clamp(1, 500);
-    let ok = state.pty_mgr.resize(&req.id, rows, cols).await;
-    if ok {
-        Ok(StatusCode::OK)
-    } else {
-        Err(WebError::BadRequest("PTY not found".into()))
-    }
+    ok_or_missing(state.pty_mgr.resize(&req.id, rows, cols).await)
 }
 
-/// Kill a web-owned PTY.
+/// Rename a web-owned PTY as the shell picker shows it.
+pub async fn pty_rename(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+    Json(req): Json<PtyRenameRequest>,
+) -> WebResult<impl IntoResponse> {
+    let label = req.label.trim();
+    if label.is_empty() {
+        return Err(WebError::BadRequest("Label cannot be empty".into()));
+    }
+    ok_or_missing(state.pty_mgr.rename(&req.id, label.to_owned()).await)
+}
+
+/// Kill a web-owned PTY. The only thing that ends a shell short of it exiting.
 pub async fn pty_kill(
     State(state): State<ServerState>,
     _auth: AuthUser,
     Json(req): Json<PtyKillRequest>,
 ) -> WebResult<impl IntoResponse> {
-    let ok = state.pty_mgr.kill(&req.id).await;
-    if ok {
+    ok_or_missing(state.pty_mgr.kill(&req.id).await)
+}
+
+/// Every live web PTY: its project, label, kind and whether it is busy.
+///
+/// One endpoint rather than the three it replaces. The picker needs the labels,
+/// the window rail needs the activity and re-attaching needs to know the id is
+/// still live — all of that is one walk of the same map, and splitting it meant
+/// the picker could offer a shell the activity poll had already dropped.
+pub async fn pty_sessions(
+    State(state): State<ServerState>,
+    _auth: AuthUser,
+) -> WebResult<impl IntoResponse> {
+    let live: Vec<PtySession> = state.pty_mgr.sessions().await;
+    Ok(Json(live))
+}
+
+fn ok_or_missing(found: bool) -> WebResult<StatusCode> {
+    if found {
         Ok(StatusCode::OK)
     } else {
         Err(WebError::BadRequest("PTY not found".into()))
     }
-}
-
-/// List active web PTY IDs.
-pub async fn pty_list(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> WebResult<impl IntoResponse> {
-    let ids = state.pty_mgr.list().await;
-    Ok(Json(ids))
-}
-
-/// Which web PTYs are running a foreground command, keyed by id.
-///
-/// One request for every terminal rather than a flag on each output stream: a
-/// pane in a background window is not mounted and has no stream, but its shell
-/// is still running the build the user wants to know about.
-pub async fn pty_activity(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-) -> WebResult<impl IntoResponse> {
-    let ids = state.pty_mgr.list().await;
-    let mut activity: HashMap<String, PtyActivity> = HashMap::with_capacity(ids.len());
-    for id in ids {
-        // A PTY killed between the list and the query is simply absent from the
-        // map, which is what a caller should read as "no longer running".
-        let Some(current) = state.pty_mgr.activity(&id).await else {
-            continue;
-        };
-        activity.insert(id, current);
-    }
-    Ok(Json(activity))
 }
 
 #[cfg(test)]

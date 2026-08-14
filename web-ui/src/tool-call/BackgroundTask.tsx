@@ -42,7 +42,6 @@ export const BackgroundTask = React.memo(function BackgroundTask({ part }: Backg
       : typeof input === "string"
         ? input
         : undefined;
-  const progressTitle = state?.title;
   const taskId = meta?.taskId;
   const summary = meta?.summary;
   // Live/final command output streamed from the task's output file by the backend.
@@ -115,20 +114,6 @@ export const BackgroundTask = React.memo(function BackgroundTask({ part }: Backg
           )}
         </span>
       </button>
-
-      {progressTitle && (
-        <div className="background-task-progress" role="status" aria-live="polite">
-          {isRunning ? (
-            <Loader2 size={12} className="tool-spin-icon" />
-          ) : isError ? (
-            <XCircle size={12} className="tool-error-icon" />
-          ) : (
-            <CheckCircle2 size={12} className="tool-success-icon" />
-          )}
-          <span className="background-task-progress-label">Progress</span>
-          <span className="background-task-progress-text">{progressTitle}</span>
-        </div>
-      )}
 
       {expanded && (
         <div className="background-task-body">

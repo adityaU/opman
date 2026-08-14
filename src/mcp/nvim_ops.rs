@@ -27,14 +27,6 @@ pub enum NvimOp {
     Signature,
 }
 
-/// Security capability required by a Neovim operation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Capability {
-    Read,
-    Edit,
-    Execute,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidNvimOp;
 
@@ -86,31 +78,6 @@ impl NvimOp {
             Self::Rename => "nvim_rename",
             Self::Format => "nvim_format",
             Self::Signature => "nvim_signature",
-        }
-    }
-
-    pub const fn capability(&self) -> Capability {
-        match self {
-            Self::Command | Self::Eval => Capability::Execute,
-            Self::Open
-            | Self::Input
-            | Self::Write
-            | Self::EditAndSave
-            | Self::Undo
-            | Self::Rename
-            | Self::Format => Capability::Edit,
-            Self::Read
-            | Self::Buffers
-            | Self::Info
-            | Self::Diagnostics
-            | Self::Definition
-            | Self::References
-            | Self::Hover
-            | Self::Symbols
-            | Self::CodeActions
-            | Self::Grep
-            | Self::Diff
-            | Self::Signature => Capability::Read,
         }
     }
 

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { MessageCircle, GitBranch, FileCode, Terminal, PenSquare, Command, Menu, LayoutGrid } from "lucide-react";
 import type { FileOpenRequest } from "./code-editor/types";
+import { useRememberedShell } from "./terminal-panel/useRememberedShell";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(m => ({ default: m.TerminalPanel })));
 const CodeEditorPanel = lazy(() => import("./code-editor"));
@@ -36,6 +37,10 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
     activeSessionId, activeProject, fileOpen,
     mcpAgentActivity, onError, onSendToAI, isKanbanView, onToggleKanban,
   } = props;
+
+  // Mobile has one terminal sheet and no layout to store a shell choice in, so
+  // the choice is remembered per project instead of asked for every time.
+  const [terminalPtyId, setTerminalPtyId] = useRememberedShell(activeProject?.path ?? null);
 
   // Compose button visibility:
   //   "visible"  = input hidden + dock collapsed  (both FABs float independently)
@@ -148,8 +153,8 @@ export function MobileDock(props: MobileDockProps): React.ReactElement {
               visible={activePanel === "terminal"}
               sessionId={activeSessionId}
               projectPath={activeProject?.path ?? null}
-              onClose={() => togglePanel("terminal")}
-              mcpAgentActive={Array.from(mcpAgentActivity.keys()).some(t => t.startsWith("web_terminal"))}
+              ptyId={terminalPtyId}
+              onPtyIdChanged={setTerminalPtyId}
             />
           </Suspense>
         </div>

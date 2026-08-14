@@ -4,43 +4,41 @@ import { SearchAddon } from "@xterm/addon-search";
 
 // ── Types ──────────────────────────────────────────────
 
-export type PtyKind = "shell" | "neovim" | "git" | "opencode" | "claude-attach";
-export type TabStatus = "connecting" | "ready" | "error";
+export type { PtyKind, PtyActivity, PtySession } from "../api";
+import type { PtyKind } from "../api";
 
-export interface TabInfo {
-  id: string;
-  kind: PtyKind;
-  label: string;
-  status: TabStatus;
-  projectKey: string;
-}
+/** Whether the view has reached the shell it is meant to be showing. */
+export type ShellStatus = "connecting" | "ready" | "error";
 
 export interface TerminalPanelProps {
   sessionId: string | null;
-  /** Path of the active project — used to scope terminal tabs per project so
-   *  switching projects doesn't tear down other projects' running terminals. */
+  /** The project this terminal belongs to. Sent on spawn, so the shell starts
+   *  here rather than in whichever project the sidebar happens to be on. */
   projectPath: string | null;
-  onClose: () => void;
   /** Whether the panel is currently visible (used to re-fit xterm on reopen) */
   visible?: boolean;
-  /** MCP: whether an AI agent is currently using terminal tools */
-  mcpAgentActive?: boolean;
   /** Which shell renders the panel. Mobile adds the on-screen key bar, because
    *  a soft keyboard has no Esc, Tab, Ctrl or arrows. */
   layout?: "desktop" | "mobile";
-  /** PTY ids this panel owned before a reload — adopted rather than re-spawned. */
-  restoreIds?: readonly string[];
-  /** Reports the live tab ids so the owner can persist them. */
-  onTabsChanged?: (ids: string[]) => void;
+  /**
+   * The shell to show, or `null` to ask which one.
+   *
+   * One shell per terminal, not a tab strip: the shells are shared across the
+   * whole workspace, so a per-panel tab bar was a second, private list of them
+   * that went stale as soon as another pane opened one.
+   */
+  ptyId?: string | null;
+  /** Report the shell this terminal settled on, so the owner can persist it. */
+  onPtyIdChanged?: (ptyId: string | null) => void;
 }
 
-export interface TabRuntime {
+/** The xterm instance and the wiring that keeps it fed. */
+export interface TerminalRuntime {
   term: Terminal;
   fit: FitAddon;
   search: SearchAddon;
   sse: EventSource | null;
   observer: ResizeObserver | null;
-  container: HTMLDivElement | null;
 }
 
 // ── Constants ──────────────────────────────────────────
@@ -63,6 +61,7 @@ export const TERM_OPTIONS = {
   allowProposedApi: true,
 };
 
+/** The kinds a user may start by hand. `claude-attach` needs a live agent. */
 export const ALL_PTY_KINDS: PtyKind[] = ["shell", "neovim", "git", "opencode"];
 
 // ── Helpers ────────────────────────────────────────────

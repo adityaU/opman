@@ -116,12 +116,16 @@ fn spawn_pty_request_full_and_optional() {
         "id": "p1",
         "rows": 40,
         "cols": 120,
+        "project": "/repo",
+        "label": "Build",
         "session_id": "s"
     }))
     .unwrap();
-    assert_eq!(full.kind, "opencode");
+    assert_eq!(full.kind, crate::web::pty_manager::PtyKind::Opencode);
     assert_eq!(full.rows, Some(40));
     assert_eq!(full.cols, Some(120));
+    assert_eq!(full.project.as_deref(), Some("/repo"));
+    assert_eq!(full.label.as_deref(), Some("Build"));
     assert_eq!(full.session_id.as_deref(), Some("s"));
 
     let minimal: SpawnPtyRequest =
@@ -129,6 +133,10 @@ fn spawn_pty_request_full_and_optional() {
     assert!(minimal.rows.is_none());
     assert!(minimal.cols.is_none());
     assert!(minimal.session_id.is_none());
+    assert!(
+        minimal.project.is_none() && minimal.label.is_none(),
+        "a caller with no pane of its own falls back to the active project"
+    );
 }
 
 #[test]

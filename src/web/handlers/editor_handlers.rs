@@ -22,7 +22,7 @@ use super::common::resolve_readable_path;
 
 /// Resolve the requested path inside the project and return both it and the
 /// project root the language server should be anchored under.
-async fn editor_target(
+pub(crate) async fn editor_target(
     state: &ServerState,
     path: &str,
 ) -> WebResult<(std::path::PathBuf, std::path::PathBuf)> {
@@ -72,9 +72,19 @@ pub async fn editor_lsp_definition(
     Json(query): Json<EditorLspQuery>,
 ) -> WebResult<impl IntoResponse> {
     let (file, project_dir) = editor_target(&state, &query.path).await?;
+    // One endpoint for all four navigations: they take the same position and
+    // return the same location list, and an unknown name means the caller asked
+    // for something this build does not have — answer definition rather than
+    // erroring, which is what every existing caller wants.
+    let kind = query
+        .goto
+        .as_deref()
+        .and_then(crate::lsp::api_edit::Goto::parse)
+        .unwrap_or(crate::lsp::api_edit::Goto::Definition);
     Ok(Json(
-        crate::lsp::api_edit::definition(
+        crate::lsp::api_edit::goto(
             &state.lsp,
+            kind,
             &file,
             &project_dir,
             query.line.unwrap_or(1),

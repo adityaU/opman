@@ -6,7 +6,7 @@ import type { WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
 import type { PaneEngine, PaneId, PaneNode, WidgetState, Workspace } from "./types";
 
 /**
- * The three writes a mounted widget can make back onto its own pane, and the
+ * The four writes a mounted widget can make back onto its own pane, and the
  * renderer that mounts it.
  *
  * All four are built to keep one identity for the life of the workspace. They
@@ -78,17 +78,15 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
   );
 
   /**
-   * Persist a terminal pane's live PTY ids so its shells survive a reload.
-   * Guarded on an actual change: the panel reports on every tab render, and an
+   * Remember which shell a terminal pane is showing, so a reload comes back to
+   * it. Guarded on an actual change: the panel reports on every settle, and an
    * unguarded dispatch would rewrite the tree — and re-save it — every frame.
    */
-  const onPtyIdsChanged = useCallback(
-    (paneId: PaneId, ptyIds: readonly string[]) => {
+  const onPtyIdChanged = useCallback(
+    (paneId: PaneId, ptyId: string | null) => {
       const pane = activePane(paneId);
-      if (pane?.widget?.kind !== "terminal") return;
-      const current = pane.widget.ptyIds;
-      if (current.length === ptyIds.length && current.every((id, i) => id === ptyIds[i])) return;
-      dispatch({ type: "setWidget", pane: paneId, widget: { ...pane.widget, ptyIds } });
+      if (pane?.widget?.kind !== "terminal" || pane.widget.ptyId === ptyId) return;
+      dispatch({ type: "setWidget", pane: paneId, widget: { ...pane.widget, ptyId } });
     },
     [activePane, dispatch],
   );
@@ -96,6 +94,20 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
   const chatServices = useMemo<WorkspaceChatServices>(
     () => ({ ...chat, bindSession, setEngine }),
     [bindSession, chat, setEngine],
+  );
+
+  /**
+   * Remember where a browser pane is, so a reload comes back to the page rather
+   * than to a blank tab. Guarded like the PTY ids above: the panel reports the
+   * URL on every settled navigation, including ones that did not move.
+   */
+  const onBrowserUrlChanged = useCallback(
+    (paneId: PaneId, url: string) => {
+      const pane = activePane(paneId);
+      if (pane?.widget?.kind !== "browser" || pane.widget.url === url) return;
+      dispatch({ type: "setWidget", pane: paneId, widget: { ...pane.widget, url } });
+    },
+    [activePane, dispatch],
   );
 
   const reportError = useCallback((message: string) => latest.current.onError(message), []);
@@ -109,10 +121,11 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
         pane,
         focused,
         onError: reportError,
-        onPtyIdsChanged,
+        onPtyIdChanged,
+        onBrowserUrlChanged,
       });
     },
-    [onPtyIdsChanged, reportError],
+    [onBrowserUrlChanged, onPtyIdChanged, reportError],
   );
 
   return useMemo(() => ({ chatServices, renderWidget }), [chatServices, renderWidget]);

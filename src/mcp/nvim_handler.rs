@@ -74,17 +74,6 @@ pub(crate) fn handle_nvim_request(nvim_socket: &Path, request: &SocketRequest) -
     handle_nvim_op_blocking(nvim_socket, op, request)
 }
 
-pub(crate) fn handle_browser_nvim_command(
-    nvim_socket: &Path,
-    command: command::BrowserCommand,
-) -> SocketResponse {
-    command::handle_browser(nvim_socket, command)
-}
-
-pub(crate) fn parse_browser_command(command: &str) -> Result<command::BrowserCommand, ()> {
-    command.parse()
-}
-
 #[cfg(test)]
 #[path = "nvim_handler_tests.rs"]
 mod nvim_handler_tests;

@@ -5,6 +5,7 @@ mod api;
 mod app;
 mod background_tasks;
 mod blockkit;
+mod browser;
 mod claude_engine;
 mod cli;
 mod cli_skills;
@@ -19,6 +20,7 @@ mod loopback;
 mod lsp;
 mod mcp;
 mod mcp_agent_manager;
+mod mcp_browser;
 mod mcp_ask;
 mod mcp_kanban;
 mod mcp_neovim;
@@ -30,9 +32,7 @@ mod mcp_skills;
 mod mcp_time;
 mod mcp_ui;
 mod mouse_handler;
-pub(crate) mod nvim_edit;
 mod nvim_rpc;
-mod nvim_ui;
 mod preflight;
 mod process_health;
 mod pty;
@@ -125,6 +125,13 @@ async fn main() -> Result<()> {
             return mcp_kanban::run_mcp_kanban_bridge()
                 .await
                 .map_err(Into::into);
+        }
+        Some(Commands::McpBrowser { project_path }) => {
+            return mcp_browser::run_mcp_browser_bridge(
+                project_path.unwrap_or_else(|| PathBuf::from(".")),
+            )
+            .await
+            .map_err(Into::into);
         }
         Some(Commands::McpAsk { project_path }) => {
             return mcp_ask::run_mcp_ask_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))

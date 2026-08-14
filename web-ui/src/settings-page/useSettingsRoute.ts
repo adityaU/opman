@@ -4,7 +4,7 @@ import { appNavigate, onLocationChange, SETTINGS_PATH } from "../utils/navigatio
 /**
  * Path-based route for the settings page.
  *
- * Settings is a destination (`/settings`), not a modal: it holds six editors, each of
+ * Settings is a destination (`/settings`), not a modal: it holds five editors, each of
  * which owns unsaved text or an in-flight login, and none of that survives an Escape
  * keypress aimed at something else. Being a path also makes a section linkable — the
  * command palette and the keymap open `?section=keybindings` directly rather than opening
@@ -13,7 +13,7 @@ import { appNavigate, onLocationChange, SETTINGS_PATH } from "../utils/navigatio
 
 export { SETTINGS_PATH };
 
-export const SETTINGS_SECTIONS = ["appearance", "editor", "keybindings", "acp", "mcp", "skills"] as const;
+export const SETTINGS_SECTIONS = ["appearance", "keybindings", "acp", "mcp", "skills"] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 

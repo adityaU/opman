@@ -8,6 +8,7 @@ pub(super) fn internal_routes() -> Router<super::super::types::ServerState> {
     // shared token checked by the handlers, not the browser AuthUser extractor.
     Router::new()
         .route("/ask", post(handlers::internal_ask))
+        .route("/browser", post(handlers::internal_browser))
         .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
         .route(
             "/kanban/task/{task_id}/status",

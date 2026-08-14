@@ -21,8 +21,8 @@ const MOTIONS = vim(
     { key: "[s", command: "session.previous", label: "previous session" },
     { key: "]b", command: "editor.nextFile", label: "next file", when: "editorOpen" },
     { key: "[b", command: "editor.previousFile", label: "previous file", when: "editorOpen" },
-    { key: "]t", command: "terminal.nextTab", label: "next terminal", when: "terminalOpen" },
-    { key: "[t", command: "terminal.previousTab", label: "previous terminal", when: "terminalOpen" },
+    { key: "]t", command: "terminal.nextShell", label: "next terminal", when: "terminalOpen" },
+    { key: "[t", command: "terminal.previousShell", label: "previous terminal", when: "terminalOpen" },
     { key: "]m", command: "chat.nextMessage", label: "next message", when: "focus==chat" },
     { key: "[m", command: "chat.previousMessage", label: "previous message", when: "focus==chat" },
     { key: "]d", command: "lsp.nextDiagnostic", label: "next problem", when: "editorOpen" },
@@ -156,13 +156,21 @@ const WINDOW_PREFIX = vim(
 /**
  * `hjkl` while the target overlay is up. Vim only — normal mode keeps bare
  * letters free and uses the arrows the base layer binds.
+ *
+ * `h` moving the highlight is why the horizontal split gets `s` here: vim
+ * already calls that `:split`, so the key a vim user reaches for is the one
+ * they know rather than the one the base layer needed.
  */
 const TARGET = vim(
   [
+    // Vim keeps `h` for movement, so the base layer's horizontal split is
+    // withdrawn here and re-offered as `s` — vim's own name for it.
+    { key: "h", command: "-workspace.targetSplitDown", when: "workspaceTargeting" },
     { key: "h", command: "workspace.focusLeft", when: "workspaceTargeting" },
     { key: "j", command: "workspace.focusDown", when: "workspaceTargeting" },
     { key: "k", command: "workspace.focusUp", when: "workspaceTargeting" },
     { key: "l", command: "workspace.focusRight", when: "workspaceTargeting" },
+    { key: "s", command: "workspace.targetSplitDown", when: "workspaceTargeting" },
   ],
   "window",
 );

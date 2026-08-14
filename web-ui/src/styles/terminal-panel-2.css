@@ -1,7 +1,4 @@
 
-.terminal-panel-actions button.active {
-    color: var(--color-primary)
-}
 
 .terminal-overlay {
     position: absolute;
@@ -22,8 +19,4 @@
 
 .terminal-overlay.error {
     color: var(--color-error)
-}
-
-.terminal-panel-actions .mcp-agent-indicator {
-    margin-right: 4px
 }

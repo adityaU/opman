@@ -1,4 +1,14 @@
 import { apiFetch, apiPost, apiUpload } from "./client";
+import { editorSocket, type EditorOp } from "./editorSocket";
+
+/**
+ * Every editor query goes over the binary channel rather than its own POST.
+ * The signatures are unchanged, so no call site knows the difference — see
+ * `editorSocket` for why the transport matters under a fast pointer.
+ */
+function lspRequest<T>(op: EditorOp, payload: unknown, signal?: AbortSignal): Promise<T> {
+  return editorSocket.request(op, payload, signal) as Promise<T>;
+}
 
 // ── Types ─────────────────────────────────────────────
 
@@ -205,7 +215,28 @@ export async function fetchEditorDiagnostics(
   sessionId: string,
   content?: string
 ): Promise<{ diagnostics: EditorLspDiagnostic[]; available: boolean; published: boolean }> {
-  return apiPost("/editor/lsp/diagnostics", { path, session_id: sessionId, content });
+  return lspRequest("diagnostics", { path, session_id: sessionId, content });
+}
+
+/** The four navigations a hover card can offer, as the server names them. */
+export type EditorGotoKind = "definition" | "type-definition" | "implementation" | "declaration";
+
+/** What the language server behind this file will actually answer. */
+export interface EditorLspActions {
+  definition: boolean;
+  typeDefinition: boolean;
+  implementation: boolean;
+  declaration: boolean;
+  references: boolean;
+  rename: boolean;
+  format: boolean;
+}
+
+export interface EditorHoverResponse {
+  hover: string | null;
+  available: boolean;
+  /** Absent from an older backend, which is why every reader defaults it. */
+  actions?: EditorLspActions;
 }
 
 export async function fetchEditorHover(
@@ -213,9 +244,10 @@ export async function fetchEditorHover(
   sessionId: string,
   line: number,
   col: number,
-  content?: string
-): Promise<{ hover: string | null; available: boolean }> {
-  return apiPost("/editor/lsp/hover", { path, session_id: sessionId, line, col, content });
+  content?: string,
+  signal?: AbortSignal
+): Promise<EditorHoverResponse> {
+  return lspRequest("hover", { path, session_id: sessionId, line, col, content }, signal);
 }
 
 export async function fetchEditorDefinition(
@@ -223,9 +255,10 @@ export async function fetchEditorDefinition(
   sessionId: string,
   line: number,
   col: number,
-  content?: string
+  content?: string,
+  goto: EditorGotoKind = "definition"
 ): Promise<{ locations: EditorDefinitionLocation[]; available: boolean }> {
-  return apiPost("/editor/lsp/definition", { path, session_id: sessionId, line, col, content });
+  return lspRequest("goto", { path, session_id: sessionId, line, col, content, goto });
 }
 
 export interface EditorReferenceLocation {
@@ -242,7 +275,7 @@ export async function fetchEditorReferences(
   col: number,
   content?: string
 ): Promise<{ locations: EditorReferenceLocation[]; available: boolean }> {
-  return apiPost("/editor/lsp/references", { path, session_id: sessionId, line, col, content });
+  return lspRequest("references", { path, session_id: sessionId, line, col, content });
 }
 
 export async function renameEditorSymbol(
@@ -253,7 +286,7 @@ export async function renameEditorSymbol(
   newName: string,
   content?: string
 ): Promise<{ renamed: boolean; files: string[]; available: boolean }> {
-  return apiPost("/editor/lsp/rename", {
+  return lspRequest("rename", {
     path, session_id: sessionId, line, col, content, new_name: newName,
   });
 }
@@ -286,7 +319,7 @@ export async function fetchEditorCompletion(
   content?: string,
   trigger?: string
 ): Promise<EditorCompletionResponse> {
-  return apiPost("/editor/lsp/completion", {
+  return lspRequest("completion", {
     path, session_id: sessionId, line, col, content, trigger,
   });
 }
@@ -296,5 +329,5 @@ export async function formatEditorFile(
   sessionId: string,
   content?: string
 ): Promise<{ formatted: boolean; content: string; available: boolean }> {
-  return apiPost("/editor/lsp/format", { path, session_id: sessionId, content });
+  return lspRequest("format", { path, session_id: sessionId, content });
 }

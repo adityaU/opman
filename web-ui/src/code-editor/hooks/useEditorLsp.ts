@@ -9,7 +9,6 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { createLspExtensions, pushDiagnostics, type LspBridge } from "../lsp/editorLsp";
-import { useCallback } from "react";
 import type { EditorLspDiagnostic } from "../types";
 
 interface Args {
@@ -17,7 +16,7 @@ interface Args {
   activeFilePath: string | null;
   activeDiagnostics: EditorLspDiagnostic[];
   editorViewRef: React.MutableRefObject<any>;
-  hoverAt: (line: number, col: number) => Promise<string | null>;
+  hoverAt: LspBridge["hoverAt"];
   definitionAt: (line: number, col: number) => Promise<boolean>;
   format: () => Promise<void>;
   completeAt: LspBridge["completeAt"];
@@ -25,16 +24,18 @@ interface Args {
   referencesAt: LspBridge["referencesAt"];
   renameAt: LspBridge["renameAt"];
   jumpTo: LspBridge["jumpTo"];
+  gotoAt: LspBridge["gotoAt"];
+  reveal: LspBridge["reveal"];
 }
 
 export function useEditorLsp({
   enabled, activeFilePath, activeDiagnostics, editorViewRef,
   hoverAt, definitionAt, format, completeAt, triggerCharacters,
-  referencesAt, renameAt, jumpTo,
+  referencesAt, renameAt, jumpTo, gotoAt, reveal,
 }: Args) {
   const bridge = useRef<LspBridge>({
     enabled, diagnostics: () => activeDiagnostics, hoverAt, definitionAt, format, completeAt, triggerCharacters,
-    referencesAt, renameAt, jumpTo,
+    referencesAt, renameAt, jumpTo, gotoAt, reveal,
   });
 
   // Refresh the handles in place rather than rebuilding the extensions.
@@ -48,14 +49,14 @@ export function useEditorLsp({
   bridge.current.referencesAt = referencesAt;
   bridge.current.renameAt = renameAt;
   bridge.current.jumpTo = jumpTo;
+  bridge.current.gotoAt = gotoAt;
+  bridge.current.reveal = reveal;
 
-  const actions = useRef<{ run: (name: string) => void }>({ run: () => {} });
-  const extensions = useMemo(() => createLspExtensions(bridge, actions.current), []);
-  const runAction = useCallback((name: string) => actions.current.run(name), []);
+  const extensions = useMemo(() => createLspExtensions(bridge), []);
 
   useEffect(() => {
     pushDiagnostics(editorViewRef.current, enabled ? activeDiagnostics : []);
   }, [activeDiagnostics, activeFilePath, enabled, editorViewRef]);
 
-  return { extensions, runAction };
+  return { extensions };
 }

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ptyWrite } from "../../api";
-import type { TabRuntime } from "../types";
-import { encodeForPty } from "../encode";
+import type { TerminalRuntime } from "../types";
+import { writeToPty } from "../writes";
 import {
   applyModifiers, nextModifierState, type ModifierState,
 } from "./keys";
@@ -39,8 +38,8 @@ export interface MobileKeys {
  * ref rather than applied only here.
  */
 export function useMobileKeys(
-  activeTabId: string | null,
-  runtimesRef: React.MutableRefObject<Map<string, TabRuntime>>,
+  ptyId: string | null,
+  runtimeRef: React.MutableRefObject<TerminalRuntime | null>,
   transformRef: React.MutableRefObject<((data: string) => string) | null>,
   enabled: boolean,
 ): MobileKeys {
@@ -49,7 +48,7 @@ export function useMobileKeys(
   const [extrasOpen, setExtrasOpen] = useState(readExtrasOpen);
 
   // Read at call time: the transform runs from xterm's data callback, which is
-  // installed once per tab and must not be re-created on every modifier tap.
+  // installed once per shell and must not be re-created on every modifier tap.
   const state = useRef({ ctrl, alt });
   state.current = { ctrl, alt };
 
@@ -73,22 +72,21 @@ export function useMobileKeys(
   }, [enabled, transformRef, consume]);
 
   const focusTerminal = useCallback(() => {
-    if (!activeTabId) return;
-    runtimesRef.current.get(activeTabId)?.term.focus();
-  }, [activeTabId, runtimesRef]);
+    runtimeRef.current?.term.focus();
+  }, [runtimeRef]);
 
   const press = useCallback(
     (seq: string) => {
-      if (!activeTabId) return;
+      if (!ptyId) return;
       const { ctrl: c, alt: a } = state.current;
       const data = applyModifiers(seq, c !== "off", a !== "off");
       if (c !== "off" || a !== "off") consume();
-      ptyWrite(activeTabId, encodeForPty(data)).catch(() => {});
+      writeToPty(ptyId, data);
       // Every key press is a hint that the user wants to keep typing.
       focusTerminal();
       navigator.vibrate?.(8);
     },
-    [activeTabId, consume, focusTerminal],
+    [ptyId, consume, focusTerminal],
   );
 
   const toggleCtrl = useCallback(() => {

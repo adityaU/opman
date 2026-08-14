@@ -50,10 +50,12 @@ async fn claude_attach_resolves_active_session_but_no_agent_400() {
         .await;
 
     let req = SpawnPtyRequest {
-        kind: "claude-attach".into(),
+        kind: PtyKind::ClaudeAttach,
         id: "att-1".into(),
         rows: Some(24),
         cols: Some(80),
+        project: None,
+        label: None,
         session_id: None,
     };
     // Active session resolved, but it has no running claude agent → 400.

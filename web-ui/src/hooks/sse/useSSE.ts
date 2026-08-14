@@ -79,6 +79,9 @@ export function useSSE(): SSEState {
   const [mcpEditorOpenPath, setMcpEditorOpenPath] = useState<string | null>(null);
   const [mcpEditorOpenLine, setMcpEditorOpenLine] = useState<number | null>(null);
   const [mcpTerminalFocusId, setMcpTerminalFocusId] = useState<string | null>(null);
+  const [mcpBrowserOpen, setMcpBrowserOpen] = useState<
+    { projectPath: string; url: string } | null
+  >(null);
   const [mcpAgentActivity, setMcpAgentActivity] = useState<Map<string, boolean>>(new Map());
   const [presenceClients, setPresenceClients] = useState<ClientPresence[]>([]);
   const [crossSessionPermissions, setCrossSessionPermissions] = useState<PermissionRequest[]>([]);
@@ -752,6 +755,7 @@ export function useSSE(): SSEState {
     setMcpEditorOpenPath(path);
   }, []);
   const clearMcpTerminalFocus = useCallback(() => { setMcpTerminalFocusId(null); }, []);
+  const clearMcpBrowserOpen = useCallback(() => { setMcpBrowserOpen(null); }, []);
 
   /**
    * Show a submitted prompt immediately, in the session it was sent to.
@@ -934,7 +938,7 @@ export function useSSE(): SSEState {
     const appSSECtx: Parameters<typeof setupAppSSEListeners>[1] = {
       activeSessionRef, sessionCacheRef, refreshState, touchEvent, recoverAfterReconnect,
       setBusySessions, setSessionStatus, setSessionStatuses, setStats, setWatcherStatus,
-      setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId,
+      setMcpEditorOpenPath, setMcpEditorOpenLine, setMcpTerminalFocusId, setMcpBrowserOpen,
       setMcpAgentActivity, setPresenceClients,
     };
 
@@ -1100,11 +1104,11 @@ export function useSSE(): SSEState {
     sessionStatus, connectionStatus, initialConnectionsReady,
     isLoadingMessages, isLoadingOlder, hasOlderMessages,
     totalMessageCount, watcherStatus, subagentMessages, fileEditCount,
-    mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId,
+    mcpEditorOpenPath, mcpEditorOpenLine, mcpTerminalFocusId, mcpBrowserOpen,
     mcpAgentActivity, presenceClients,
     crossSessionPermissions, crossSessionQuestions,
     refreshState, refreshMessages, clearPermission, clearQuestion,
-    clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus, addOptimisticMessage, clearOptimistic, loadOlderMessages,
+    clearMcpEditorOpen, openMcpEditor, clearMcpTerminalFocus, clearMcpBrowserOpen, addOptimisticMessage, clearOptimistic, loadOlderMessages,
     expectSessionSwitch, blockSessionAdoption, beginSessionSwitch, isSessionBusy,
   };
 }

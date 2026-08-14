@@ -1,8 +1,9 @@
-//! Wave-2 tests that actually open a PTY and launch a harmless FAKE program for
-//! each `spawn_*_pty`, driving the openpty + reader-thread + WebPty-construction
-//! path. Fakes exit immediately (or print a line then exit) so nothing lingers.
+//! Tests that actually open a PTY and launch a harmless FAKE program for each
+//! kind, driving the openpty + reader-thread + WebPty-construction path. Fakes
+//! exit immediately (or print a line then exit) so nothing lingers.
 
 use super::*;
+use super::super::kind::PtyKind;
 use crate::web::pty_manager::manager::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
 
 /// Let the detached reader thread run, then kill the child.
@@ -12,8 +13,22 @@ fn drain_and_kill(mut pty: WebPty) {
     let _ = pty.output.drain_new();
 }
 
+/// Start one program in `project`, labelled as the manager would label it.
+fn start(program: PtyProgram, project: &std::path::Path, rows: u16, cols: u16) -> Result<WebPty> {
+    let kind = program.kind();
+    let spec = SpawnSpec {
+        id: "test".into(),
+        program,
+        project: project.to_path_buf(),
+        label: None,
+        rows,
+        cols,
+    };
+    spawn_pty(&spec, format!("{} 1", kind.label()))
+}
+
 #[test]
-fn spawn_shell_pty_success_with_fake_shell() {
+fn shell_pty_success_with_fake_shell() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
     let sh = write_fake_bin(dir.path(), "fakeshell", "printf 'hi from shell\\n'\nexit 0");
@@ -21,24 +36,27 @@ fn spawn_shell_pty_success_with_fake_shell() {
     env.set("SHELL", &sh.display().to_string());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = spawn_shell_pty(24, 80, work.path()).expect("shell pty");
+    let pty = start(PtyProgram::Shell, work.path(), 24, 80).expect("shell pty");
     assert_eq!(pty.rows, 24);
     assert_eq!(pty.cols, 80);
+    assert_eq!(pty.meta.kind, PtyKind::Shell);
+    assert_eq!(pty.meta.label, "Shell 1");
+    assert_eq!(pty.meta.project, work.path());
     drain_and_kill(pty);
 }
 
 #[test]
-fn spawn_shell_pty_error_when_shell_missing() {
+fn shell_pty_error_when_shell_missing() {
     let _g = env_lock();
     let mut env = EnvRestore::new();
     // Absolute, nonexistent shell -> spawn_command fails.
     env.set("SHELL", "/nonexistent/opman-fakeshell-xyz");
     let work = tempfile::tempdir().unwrap();
-    assert!(spawn_shell_pty(24, 80, work.path()).is_err());
+    assert!(start(PtyProgram::Shell, work.path(), 24, 80).is_err());
 }
 
 #[test]
-fn spawn_neovim_pty_success_with_fake_nvim() {
+fn neovim_pty_success_with_fake_nvim() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
     write_fake_bin(dir.path(), "nvim", "exit 0");
@@ -46,23 +64,23 @@ fn spawn_neovim_pty_success_with_fake_nvim() {
     env.prepend_path(dir.path());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = spawn_neovim_pty(30, 100, work.path()).expect("nvim pty");
+    let pty = start(PtyProgram::Neovim, work.path(), 30, 100).expect("nvim pty");
     assert_eq!(pty.rows, 30);
     drain_and_kill(pty);
 }
 
 #[test]
-fn spawn_neovim_pty_error_when_absent() {
+fn neovim_pty_error_when_absent() {
     let _g = env_lock();
     let empty = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(spawn_neovim_pty(30, 100, work.path()).is_err());
+    assert!(start(PtyProgram::Neovim, work.path(), 30, 100).is_err());
 }
 
 #[test]
-fn spawn_gitui_pty_success_with_fake_gitui() {
+fn gitui_pty_success_with_fake_gitui() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
     write_fake_bin(dir.path(), "gitui", "printf 'gitui\\n'\nexit 0");
@@ -70,23 +88,23 @@ fn spawn_gitui_pty_success_with_fake_gitui() {
     env.prepend_path(dir.path());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = spawn_gitui_pty(20, 60, work.path()).expect("gitui pty");
+    let pty = start(PtyProgram::Git, work.path(), 20, 60).expect("gitui pty");
     assert_eq!(pty.cols, 60);
     drain_and_kill(pty);
 }
 
 #[test]
-fn spawn_gitui_pty_error_when_absent() {
+fn gitui_pty_error_when_absent() {
     let _g = env_lock();
     let empty = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(spawn_gitui_pty(20, 60, work.path()).is_err());
+    assert!(start(PtyProgram::Git, work.path(), 20, 60).is_err());
 }
 
 #[test]
-fn spawn_opencode_pty_success_new_and_existing_session() {
+fn opencode_pty_success_new_and_existing_session() {
     let _g = env_lock();
     // base_url() must be initialized or it panics; set once (ignored if present).
     let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
@@ -97,26 +115,26 @@ fn spawn_opencode_pty_success_new_and_existing_session() {
 
     let work = tempfile::tempdir().unwrap();
     // No session id.
-    let pty = spawn_opencode_pty(24, 80, work.path(), None).expect("opencode pty");
+    let pty = start(PtyProgram::Opencode { session_id: None }, work.path(), 24, 80).expect("opencode pty");
     drain_and_kill(pty);
     // With a session id (drives the `--session` arg branch).
-    let pty2 = spawn_opencode_pty(24, 80, work.path(), Some("sess-1")).expect("opencode pty2");
+    let pty2 = start(PtyProgram::Opencode { session_id: Some("sess-1".into()) }, work.path(), 24, 80).expect("opencode pty2");
     drain_and_kill(pty2);
 }
 
 #[test]
-fn spawn_opencode_pty_error_when_absent() {
+fn opencode_pty_error_when_absent() {
     let _g = env_lock();
     let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
     let empty = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(spawn_opencode_pty(24, 80, work.path(), None).is_err());
+    assert!(start(PtyProgram::Opencode { session_id: None }, work.path(), 24, 80).is_err());
 }
 
 #[test]
-fn spawn_claude_attach_pty_success_via_env_bin() {
+fn claude_attach_pty_success_via_env_bin() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
     let claude = write_fake_bin(dir.path(), "fakeclaude", "exit 0");
@@ -124,12 +142,12 @@ fn spawn_claude_attach_pty_success_via_env_bin() {
     env.set("OPMAN_CLAUDE_BIN", &claude.display().to_string());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = spawn_claude_attach_pty(24, 80, work.path(), "short-abc").expect("claude pty");
+    let pty = start(PtyProgram::ClaudeAttach { short_id: "short-abc".into() }, work.path(), 24, 80).expect("claude pty");
     drain_and_kill(pty);
 }
 
 #[test]
-fn spawn_claude_attach_pty_success_via_path_default() {
+fn claude_attach_pty_success_via_path_default() {
     let _g = env_lock();
     let dir = tempfile::tempdir().unwrap();
     write_fake_bin(dir.path(), "claude", "exit 0");
@@ -140,17 +158,17 @@ fn spawn_claude_attach_pty_success_via_path_default() {
 
     let work = tempfile::tempdir().unwrap();
     let pty =
-        spawn_claude_attach_pty(24, 80, work.path(), "short-def").expect("claude pty default");
+        start(PtyProgram::ClaudeAttach { short_id: "short-def".into() }, work.path(), 24, 80).expect("claude pty default");
     drain_and_kill(pty);
 }
 
 #[test]
-fn spawn_claude_attach_pty_error_when_absent() {
+fn claude_attach_pty_error_when_absent() {
     let _g = env_lock();
     let empty = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.remove("OPMAN_CLAUDE_BIN");
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(spawn_claude_attach_pty(24, 80, work.path(), "x").is_err());
+    assert!(start(PtyProgram::ClaudeAttach { short_id: "x".into() }, work.path(), 24, 80).is_err());
 }

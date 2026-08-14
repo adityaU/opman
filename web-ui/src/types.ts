@@ -43,7 +43,7 @@ export interface ToolPartState {
   input?: Record<string, unknown> | string;
   output?: string;
   error?: string;
-  status?: "completed" | "pending" | "running" | "error";
+  status?: "completed" | "pending" | "running" | "in_progress" | "error";
   title?: string;
   time?: { start?: number; end?: number };
   metadata?: {

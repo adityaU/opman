@@ -217,6 +217,7 @@ fn to_request(
         model: text("model"),
         effort: text("effort"),
         provider: text("provider"),
+        permission: text("permission"),
         title: text("title"),
         message: text("message"),
         delivery: text("delivery"),

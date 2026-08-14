@@ -14,7 +14,7 @@ use anyhow::{bail, Result};
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use crate::app::SessionInfo;
+use crate::app::{EngineChoices, SessionInfo};
 use crate::runner::{Runner, RunnerFuture, RunnerKind, RunnerRegistry, RunnerSession};
 
 /// The project every manager test works in. Absolute, which is all a project directory has
@@ -54,6 +54,23 @@ impl Harness {
         let request = serde_json::from_value(request)?;
         super::handle_manager_request(&self.state, request).await
     }
+
+    /// A session on `kind`, already configured with `permission` when one is given.
+    pub(super) async fn session(&self, kind: RunnerKind, permission: &str) -> String {
+        let session = self
+            .state
+            .registry
+            .create_session(kind, DIR, "parent")
+            .await
+            .expect("create");
+        let choices = crate::app::EngineChoices::from_parts(None, None, None, Some(permission));
+        self.state
+            .registry
+            .configure(&session.id, DIR, &choices)
+            .await
+            .expect("configure");
+        session.id
+    }
 }
 
 /// One recorded `send_message`.
@@ -70,6 +87,21 @@ impl Sent {
     }
 }
 
+/// The modes each fake runner publishes, in the live `/provider` shape.
+///
+/// Deliberately disjoint between the two: the mode names are one runner's vocabulary, and
+/// a `bypassPermissions` carried onto opencode is the mistake worth catching.
+fn permission_modes(kind: &RunnerKind) -> Value {
+    let modes: &[&str] = match kind {
+        RunnerKind::Claude => &["default", "acceptEdits", "bypassPermissions"],
+        _ => &["build", "plan"],
+    };
+    modes
+        .iter()
+        .map(|mode| json!({ "value": mode, "label": mode, "description": "" }))
+        .collect()
+}
+
 pub(super) struct FakeRunner {
     kind: RunnerKind,
     counter: AtomicUsize,
@@ -80,6 +112,10 @@ pub(super) struct FakeRunner {
     sends: Mutex<Vec<Sent>>,
     aborted: Mutex<Vec<String>>,
     transcript: Mutex<Value>,
+    /// What each session has been configured to run as — written by `configure`, read back
+    /// by `sessions`, which is how a real engine behaves and what the inheritance path
+    /// depends on.
+    engines: Mutex<HashMap<String, EngineChoices>>,
 }
 
 impl FakeRunner {
@@ -94,7 +130,13 @@ impl FakeRunner {
             sends: Mutex::new(Vec::new()),
             aborted: Mutex::new(Vec::new()),
             transcript: Mutex::new(json!([])),
+            engines: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// What one session is configured to run as, as `configure` left it.
+    pub(super) async fn engine_of(&self, session_id: &str) -> Option<EngineChoices> {
+        self.engines.lock().await.get(session_id).cloned()
     }
 
     /// Whether every session this runner owns reports a turn in flight.
@@ -148,6 +190,7 @@ impl Runner for FakeRunner {
 
     fn sessions<'a>(&'a self, directory: &'a str) -> RunnerFuture<'a, Vec<SessionInfo>> {
         Box::pin(async move {
+            let engines = self.engines.lock().await;
             Ok(self
                 .ids
                 .lock()
@@ -157,9 +200,25 @@ impl Runner for FakeRunner {
                     id: id.clone(),
                     title: format!("{id} title"),
                     directory: directory.to_string(),
+                    engine: engines.get(id).cloned().unwrap_or_default(),
                     ..SessionInfo::default()
                 })
                 .collect())
+        })
+    }
+
+    fn configure<'a>(
+        &'a self,
+        session_id: &'a str,
+        _directory: &'a str,
+        choices: &'a EngineChoices,
+    ) -> RunnerFuture<'a, bool> {
+        Box::pin(async move {
+            self.engines
+                .lock()
+                .await
+                .insert(session_id.to_string(), choices.clone());
+            Ok(true)
         })
     }
 
@@ -206,6 +265,7 @@ impl Runner for FakeRunner {
                 ],
                 "connected": ["openai", "claude"],
                 "default": { "openai": "gpt-5.6-luna" },
+                "permissionModes": permission_modes(&self.kind),
             }))
         })
     }

@@ -22,7 +22,7 @@ export const BASE_WORKSPACE: readonly BindingSpec[] = [
   { key: "mod+k mod+\\", command: "workspace.splitDown" },
 
   // Pane lifecycle. `mod+w` is the browser's, and every obvious second step is taken: `w` and
-  // `x` by editor.close and terminal.closeTab, `q` by chat.queuePanel, `u` by
+  // `x` by editor.close and terminal.killShell, `q` by chat.queuePanel, `u` by
   // editor.revert, `r` by session.rename. Those are `when`-scoped so the
   // conflict test allows the overlap — but the matcher picks one, and a chord
   // that works only when no session is active is worse than a free letter.
@@ -61,7 +61,7 @@ export const BASE_WORKSPACE: readonly BindingSpec[] = [
   // Chrome. The sidebar keeps `mod+b` over in base-core.
   { key: "mod+k l", command: "workspace.toggleRail" },
   { key: "mod+k mod+z", command: "workspace.toggleZen" },
-  { key: "mod+k h", command: "workspace.togglePaneHeaders" },
+  { key: "mod+k h", command: "workspace.revealPaneHeader" },
   // Zen hides the way back out, so it owns Escape while it is on. Scoped, or
   // it would swallow the Escape that closes everything else.
   { key: "escape", command: "workspace.toggleZen", when: "workspaceZen" },
@@ -82,9 +82,11 @@ export const BASE_WORKSPACE_TARGET: readonly BindingSpec[] = [
   })),
   { key: "enter", command: "workspace.targetAccept", when: "workspaceTargeting" },
   { key: "escape", command: "workspace.targetCancel", when: "workspaceTargeting" },
-  { key: "s", command: "workspace.targetSplitDown", when: "workspaceTargeting" },
+  // Named after the shape of the result rather than after the verb: `h` lays
+  // the panes out horizontally, `v` vertically, `w` opens a window.
+  { key: "h", command: "workspace.targetSplitDown", when: "workspaceTargeting" },
   { key: "v", command: "workspace.targetSplitRight", when: "workspaceTargeting" },
-  { key: "n", command: "workspace.targetNewWindow", when: "workspaceTargeting" },
+  { key: "w", command: "workspace.targetNewWindow", when: "workspaceTargeting" },
   // Arrows move the highlight; the letters are vim's and are added by the vim
   // layer so normal mode keeps `h`/`l` free for typing into a focused pane.
   { key: "left", command: "workspace.focusLeft", when: "workspaceTargeting" },

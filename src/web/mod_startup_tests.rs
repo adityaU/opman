@@ -78,12 +78,10 @@ async fn start_web_server_binds_random_port() {
         instance_name: Some("test-instance".to_string()),
         backend: "claude-code".to_string(),
     };
-    let registry = crate::mcp::new_nvim_socket_registry();
 
     let registry_arc = runner_registry();
     let (port, _handle) = start_web_server(
         config,
-        registry,
         registry_arc.clone(),
         crate::mcp_registry::RegistryHandle::default(),
         crate::web::test_support::test_acp_supervisor(registry_arc),
@@ -115,11 +113,9 @@ async fn start_web_server_explicit_port_none_defaults_to_zero() {
         instance_name: None,
         backend: "opencode".to_string(),
     };
-    let registry = crate::mcp::new_nvim_socket_registry();
     let registry_arc = runner_registry();
     let (port, _handle) = start_web_server(
         config,
-        registry,
         registry_arc.clone(),
         crate::mcp_registry::RegistryHandle::default(),
         crate::web::test_support::test_acp_supervisor(registry_arc),

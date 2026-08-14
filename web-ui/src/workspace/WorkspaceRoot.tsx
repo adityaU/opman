@@ -56,6 +56,8 @@ export interface WorkspaceRootProps {
   readonly busyPanes: ReadonlySet<PaneId>;
   readonly onOpenWidget: (pane: PaneId, kind: WidgetKind) => void;
   readonly onPaneMenu: (pane: PaneId, anchor: HTMLElement) => void;
+  /** True while `workspace.revealPaneHeader` is showing the headers. */
+  readonly peekHeaders: boolean;
   readonly onRenameWindow: (id: WindowId) => void;
   /** Widget drag: the pane a drag started from, and the two ends of one. */
   readonly dragSourcePane: PaneId | null;
@@ -72,6 +74,7 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
   busyPanes,
   onOpenWidget,
   onPaneMenu,
+  peekHeaders,
   onRenameWindow,
   dragSourcePane,
   onDragWidget,
@@ -195,7 +198,7 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
               describePane={describePane}
               renderWidget={renderWidget}
               busyPanes={busyPanes}
-              showHeaders={workspace.chrome.paneHeaders}
+              showHeaders={peekHeaders}
               zen={workspace.chrome.zen}
               dragSourcePane={dragSourcePane}
               onFocus={onFocus}
