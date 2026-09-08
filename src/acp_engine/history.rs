@@ -12,7 +12,9 @@
 //!
 //! So the first read of a cold session's messages connects, and the replay it triggers
 //! fills the transcript before the response is written. Every guard below exists to keep
-//! that from happening when it would cost a child process and return nothing.
+//! that from happening when it would start a new child process and return nothing. With
+//! process pooling, a warm directory usually only needs one `session/load` on the existing
+//! child.
 
 use std::sync::Arc;
 use std::time::Duration;

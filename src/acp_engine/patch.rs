@@ -38,6 +38,8 @@ pub struct AgentPatch {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inject_mcp: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_process: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_model: Option<String>,
@@ -68,6 +70,7 @@ impl AgentPatch {
         set(&mut target.runner, self.runner);
         set(&mut target.client_caps, self.client_caps);
         set(&mut target.inject_mcp, self.inject_mcp);
+        set(&mut target.shared_process, self.shared_process);
         set(&mut target.default_mode, self.default_mode);
         set(&mut target.default_model, self.default_model);
         set(&mut target.modes_are_agents, self.modes_are_agents);

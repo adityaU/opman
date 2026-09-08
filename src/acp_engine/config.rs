@@ -63,6 +63,10 @@ pub struct AgentConfig {
     /// Forward opman's own MCP servers (terminal, neovim, time, ui, agent-manager)
     /// to the agent via `session/new`.
     pub inject_mcp: bool,
+    /// Share one agent process across every session in the same directory. ACP is
+    /// multi-session by design; turn this off for an agent that assumes one session per
+    /// process.
+    pub shared_process: bool,
     /// Initial `mode` config option / session mode, e.g. `bypassPermissions`.
     pub default_mode: String,
     /// Initial `model` config option.
@@ -93,6 +97,7 @@ impl Default for AgentConfig {
             runner: String::new(),
             client_caps: ClientCaps::default(),
             inject_mcp: true,
+            shared_process: true,
             default_mode: String::new(),
             default_model: String::new(),
             modes_are_agents: false,

@@ -103,7 +103,15 @@ async fn finish(engine: &Arc<AcpEngine>, session_id: &str, outcome: Result<Value
             // The connection is gone, not merely erroring; the next prompt must reconnect
             // and resume rather than write into a dead child.
             if message.contains("acp process exited") || message.contains("connection closed") {
-                engine.conns.close(session_id).await;
+                let affected = engine.conns.evict(session_id).await;
+                for id in affected {
+                    super::emit_system(
+                        engine,
+                        &id,
+                        "warning",
+                        "The agent process exited; the session will reconnect on your next message.",
+                    );
+                }
             }
         }
     }
@@ -141,7 +149,15 @@ pub async fn abort(engine: Arc<AcpEngine>, session_id: &str) {
         let params = json!({ "sessionId": acp_session });
         if let Err(e) = peer.notify("session/cancel", params).await {
             debug!(session = %session_id, "acp cancel failed, dropping connection: {e}");
-            engine.conns.close(session_id).await;
+            let affected = engine.conns.evict(session_id).await;
+            for id in affected {
+                super::emit_system(
+                    &engine,
+                    &id,
+                    "warning",
+                    "The agent process exited; the session will reconnect on your next message.",
+                );
+            }
         }
     }
     // The agent cancels its outstanding permission requests along with the turn, so a prompt
