@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
@@ -24,6 +24,14 @@ pub use opman_backend_contracts::{
 /// opencode-shaped JSON, so runner-specific protocol details stay here.
 pub trait Runner: Send + Sync {
     fn kind(&self) -> RunnerKind;
+    /// The ACP agent id this slot is reserved for but has not started yet.
+    ///
+    /// Only a lazy runner answers this. It exists so the ACP supervisor can tell a slot
+    /// that is merely *reserved* for an agent from one genuinely held by another engine:
+    /// the first is the supervisor's to take over, the second is a clash to report.
+    fn pending_acp_agent(&self) -> Option<String> {
+        None
+    }
     fn event_url(&self) -> Option<String> {
         None
     }
@@ -710,7 +718,17 @@ pub struct RunnerRegistry {
     default: RunnerKind,
     runners: std::sync::RwLock<RunnerMap>,
     bindings: RwLock<HashMap<String, Binding>>,
+    /// Called once for each runner that starts after boot.
+    ///
+    /// Almost everything looks a runner up per request and so needs no telling. The SSE
+    /// fan-out is the exception — it subscribes once per runner — so a lazily started
+    /// runner would otherwise answer prompts into a channel no browser is reading.
+    on_runner_started: OnceLock<StartedHook>,
 }
+
+/// Notified with a runner that has just come up, and the runner itself so the callback
+/// does not have to look up a map it may already be holding a lock on.
+pub type StartedHook = Arc<dyn Fn(&RunnerKind, &Arc<dyn Runner>) + Send + Sync>;
 
 impl RunnerRegistry {
     pub fn new(default: RunnerKind, runners: HashMap<RunnerKind, Arc<dyn Runner>>) -> Self {
@@ -718,6 +736,21 @@ impl RunnerRegistry {
             default,
             runners: std::sync::RwLock::new(Arc::new(runners)),
             bindings: RwLock::new(HashMap::new()),
+            on_runner_started: OnceLock::new(),
+        }
+    }
+
+    /// Register the started-hook. Set once, from the web layer, as soon as the SSE
+    /// channels it needs exist.
+    pub fn set_on_runner_started(&self, hook: StartedHook) {
+        let _ = self.on_runner_started.set(hook);
+    }
+
+    /// Announce a runner that has just started. Called by [`crate::runner_lazy`] after the
+    /// real runner is installed, so a hook looking the slot up sees the started one.
+    pub fn notify_started(&self, kind: &RunnerKind, runner: &Arc<dyn Runner>) {
+        if let Some(hook) = self.on_runner_started.get() {
+            hook(kind, runner);
         }
     }
 
@@ -761,6 +794,12 @@ impl RunnerRegistry {
     /// Whether a slot is currently served.
     pub fn has(&self, kind: &RunnerKind) -> bool {
         self.snapshot().contains_key(kind)
+    }
+
+    /// The ACP agent a slot is reserved for but has not started. See
+    /// [`Runner::pending_acp_agent`].
+    pub fn pending_acp_agent(&self, kind: &RunnerKind) -> Option<String> {
+        self.snapshot().get(kind)?.pending_acp_agent()
     }
 
     /// The runner serving a slot, lifted out of the map so the caller can await on it

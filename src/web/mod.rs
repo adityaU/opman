@@ -36,11 +36,11 @@ pub(crate) mod ask_pending;
 mod auth;
 mod browser_sse;
 pub(crate) mod db;
+mod editor_ws;
 mod error;
 pub(crate) mod git;
 mod handlers;
 pub mod keybindings;
-mod editor_ws;
 mod mcp_ws;
 pub mod pty_manager;
 mod request_log;
@@ -152,6 +152,39 @@ pub async fn start_web_server(
             raw_sse_tx.clone(),
             web_state.clone(),
         );
+    }
+    // The two loops above only reach runners that are already up. Runners now start on
+    // first use, so the same wiring has to run again at the moment each one comes up —
+    // otherwise a lazily started runner streams into a channel nobody reads and its
+    // tokens never reach the browser.
+    {
+        let raw_sse_tx = raw_sse_tx.clone();
+        let hook_state = web_state.clone();
+        // The default HTTP runner's stream is already owned by the web state's own
+        // listener, exactly as in the boot loop above.
+        let default_kind = runner_registry.default_kind();
+        runner_registry.set_on_runner_started(std::sync::Arc::new(
+            move |kind: &crate::runner::RunnerKind,
+                  runner: &std::sync::Arc<dyn crate::runner::Runner>| {
+                let label = kind.display_name().to_string();
+                if let Some(receiver) = runner.event_receiver() {
+                    runner_events::spawn_runner_event_receiver(
+                        receiver,
+                        label,
+                        raw_sse_tx.clone(),
+                        hook_state.clone(),
+                    );
+                } else if let Some(endpoint) = runner.event_url().filter(|_| kind != &default_kind)
+                {
+                    runner_events::spawn_runner_event_forwarder(
+                        endpoint,
+                        label,
+                        raw_sse_tx.clone(),
+                        hook_state.clone(),
+                    );
+                }
+            },
+        ));
     }
     let (editor_tx, _) = broadcast::channel::<types::EditorEvent>(64);
     web_state.set_editor_tx(editor_tx.clone());

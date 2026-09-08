@@ -129,9 +129,14 @@ pub async fn list_agents(
                     running: is_running,
                     // A slot is only a clash when someone else holds it: an agent already
                     // running holds its own, which conflicts with nothing.
+                    // A slot held by this agent's own not-yet-started lazy runner is
+                    // reserved for it, not taken from it.
                     slot_taken: !is_running
-                        && RunnerKind::parse(&entry.runner)
-                            .is_some_and(|kind| state.runner_registry.has(&kind)),
+                        && RunnerKind::parse(&entry.runner).is_some_and(|kind| {
+                            state.runner_registry.has(&kind)
+                                && state.runner_registry.pending_acp_agent(&kind).as_deref()
+                                    != Some(id.as_str())
+                        }),
                     is_default: default.as_deref() == Some(id.as_str()),
                 },
             )

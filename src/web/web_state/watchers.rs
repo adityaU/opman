@@ -235,7 +235,10 @@ impl super::WebStateHandle {
             None
         };
         let api = crate::api::ApiClient::new();
-        let base_url = crate::app::base_url().to_string();
+        // Captured here rather than in the timer task: this is the only place the
+        // task-local test override is visible, and a watcher armed on a live runner
+        // should send to the engine it was armed against.
+        let base_url = crate::app::try_base_url().map(str::to_string);
 
         let project_dir = {
             let inner = self.inner.read().await;
@@ -257,6 +260,12 @@ impl super::WebStateHandle {
 
         let handle = tokio::spawn(async move {
             tokio::time::sleep(tokio::time::Duration::from_secs(timeout)).await;
+            // A watcher armed before the default runner was ever used has nothing to
+            // send to yet, so wait for one rather than starting one.
+            let base_url = match base_url {
+                Some(url) => url,
+                None => crate::app::base_url_ready().await.to_string(),
+            };
             info!(session_id = %sid, "Watcher: sending continuation message");
             let mut full_msg = String::new();
             if let Some(orig) = original {

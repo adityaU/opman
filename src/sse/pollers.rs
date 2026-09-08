@@ -132,7 +132,9 @@ pub fn spawn_session_poller(
         let mut known_active: HashSet<String> = HashSet::new();
 
         let client = crate::api::ApiClient::new();
-        let base_url = crate::app::base_url().to_string();
+        // The default runner starts on first use, so idle here rather than poll a URL
+        // that does not exist yet.
+        let base_url = crate::app::base_url_ready().await.to_string();
 
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
@@ -196,7 +198,9 @@ pub fn spawn_provider_fetcher(
 ) {
     let tx = bg_tx.clone();
     tokio::spawn(async move {
-        let base_url = crate::app::base_url();
+        // `/provider` is hit immediately, so this waits for a runner rather than
+        // starting one — the model limits are worth nothing before the first turn.
+        let base_url = crate::app::base_url_ready().await;
         let client = reqwest::Client::new();
 
         // Retry a few times in case the server isn't ready yet

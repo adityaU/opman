@@ -182,3 +182,74 @@ fn the_default_runners_agent_is_spared_and_reported() {
         "it must keep running on the old definition"
     );
 }
+
+/// A slot reserved by an agent's own not-yet-started lazy runner is not a clash. Without
+/// this every configured agent would report as blocked from the moment runners became
+/// lazy, because each one holds a placeholder in the registry from boot.
+#[tokio::test]
+async fn a_slot_reserved_by_its_own_lazy_runner_is_not_blocked() {
+    let slot = RunnerKind::Acp("gemini".to_string());
+    register_acp_runners(std::iter::once("gemini".to_string()));
+    let lazy = crate::runner_lazy::LazyRunner::new(
+        slot.clone(),
+        crate::runner_lazy::LazyContext::new(),
+        || async { anyhow::bail!("never started in this test") },
+    )
+    .for_acp_agent("gemini");
+    let runners: HashMap<RunnerKind, Arc<dyn crate::runner::Runner>> = HashMap::from([(
+        slot.clone(),
+        Arc::new(lazy) as Arc<dyn crate::runner::Runner>,
+    )]);
+    let registry = Arc::new(crate::runner::RunnerRegistry::new(unpinned(), runners));
+    let supervisor = AcpSupervisor::adopt(
+        registry.clone(),
+        crate::mcp_registry::SharedRegistry::default(),
+        reqwest::Client::new(),
+        std::iter::empty(),
+    );
+
+    // `/bin/true` exits immediately, so the start fails rather than leaving a child
+    // behind — enough to prove the agent was attempted rather than reported blocked.
+    let changes = supervisor
+        .reconcile(&config_with("gemini", agent("/bin/true")))
+        .await;
+    assert!(
+        changes.blocked.is_empty(),
+        "its own reservation is not a clash"
+    );
+}
+
+/// An engine a lazy runner starts has to end up owned by the supervisor, or every later
+/// reconcile would see a slot it did not create and refuse to touch it.
+#[tokio::test]
+async fn adopt_one_takes_ownership_of_a_first_use_start() {
+    let slot = RunnerKind::Acp("gemini".to_string());
+    register_acp_runners(std::iter::once("gemini".to_string()));
+    let registry = Arc::new(crate::runner::RunnerRegistry::new(
+        unpinned(),
+        HashMap::new(),
+    ));
+    let supervisor = AcpSupervisor::adopt(
+        registry,
+        crate::mcp_registry::SharedRegistry::default(),
+        reqwest::Client::new(),
+        std::iter::empty(),
+    );
+    assert!(supervisor.running().await.is_empty());
+
+    let config = agent("gemini-acp");
+    let engine = Arc::new(AcpEngine::new(
+        "gemini".to_string(),
+        config.clone(),
+        None,
+        crate::mcp_registry::SharedRegistry::default(),
+    ));
+    supervisor
+        .adopt_one("gemini".to_string(), slot.clone(), engine)
+        .await;
+
+    assert_eq!(supervisor.running().await.get("gemini"), Some(&slot));
+    // Owned means reconcilable: an unchanged config now leaves it alone.
+    let changes = supervisor.reconcile(&config_with("gemini", config)).await;
+    assert!(changes.added.is_empty() && changes.removed.is_empty());
+}

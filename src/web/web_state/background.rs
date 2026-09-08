@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::api::ApiClient;
-use crate::app::base_url;
+use crate::app::base_url_ready;
 
 use super::super::types::*;
 use super::sse::run_opencode_sse;
@@ -134,7 +134,7 @@ impl super::WebStateHandle {
                     if delay_ms > 0 {
                         tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     }
-                    let base = base_url().to_string();
+                    let base = base_url_ready().await.to_string();
                     if handle.session_poll_startup_once(&client, &base).await {
                         let _ = event_tx.send(WebEvent::StateChanged);
                         debug!("initial session poll succeeded on attempt {attempt}");
@@ -149,7 +149,7 @@ impl super::WebStateHandle {
             }
 
             loop {
-                let base = base_url().to_string();
+                let base = base_url_ready().await.to_string();
                 handle.session_poll_iter_once(&client, &base).await;
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             }
@@ -339,7 +339,7 @@ impl super::WebStateHandle {
                     h.abort();
                 }
 
-                let base = base_url().to_string();
+                let base = base_url_ready().await.to_string();
                 handles = handle.opencode_sse_reconnect_once(&base).await;
 
                 // Reconnect loop: check every 2 minutes if we need to restart

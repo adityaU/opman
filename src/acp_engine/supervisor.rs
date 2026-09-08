@@ -87,6 +87,23 @@ impl AcpSupervisor {
         }
     }
 
+    /// Take ownership of one engine that a lazy runner has just started.
+    ///
+    /// The counterpart to [`Self::adopt`] now that runners start on first use rather than
+    /// at boot: the supervisor is built with nothing live, and each engine joins it at the
+    /// moment it comes up. Without this a first-use start would produce an engine the
+    /// supervisor does not own, and so would refuse to reconcile for the rest of the run.
+    pub async fn adopt_one(&self, id: String, kind: RunnerKind, engine: Arc<AcpEngine>) {
+        self.live.lock().await.insert(
+            id,
+            Live {
+                kind,
+                config: engine.agent.clone(),
+                engine,
+            },
+        );
+    }
+
     /// Re-read `acp.json` and make the running set match it.
     pub async fn reload(&self) -> AcpChanges {
         self.reconcile(&super::config::load()).await
@@ -117,7 +134,13 @@ impl AcpSupervisor {
                 tracing::warn!(agent = %id, runner = %agent.runner, "skipping ACP agent: unknown runner slot");
                 continue;
             };
-            if self.registry.has(&kind) {
+            // A slot merely *reserved* for this agent by a lazy runner is not a clash:
+            // it is this agent's own slot, waiting to be started. Starting it here is
+            // also how an edited agent takes effect, since the lazy runner still holds
+            // the definition it was built from.
+            if self.registry.has(&kind)
+                && self.registry.pending_acp_agent(&kind).as_deref() != Some(id.as_str())
+            {
                 tracing::warn!(agent = %id, runner = %agent.runner, "ACP agent's runner slot is already served");
                 changes.blocked.push(id.clone());
                 continue;

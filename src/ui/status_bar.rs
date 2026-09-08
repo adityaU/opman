@@ -88,7 +88,9 @@ impl<'a> Widget for StatusBar<'a> {
                     ));
 
                     // Track URL x-range for click-to-copy
-                    let url_text = crate::app::base_url();
+                    // Runners start on first use, so there is genuinely no URL to show
+                    // until a session has been created or a message sent.
+                    let url_text = crate::app::try_base_url().unwrap_or("not started");
                     let start_x: u16 = area.x + spans.iter().map(|s| s.width() as u16).sum::<u16>();
                     let end_x = start_x + url_text.len() as u16;
                     self.app.status_bar_url_range.set(Some((start_x, end_x)));

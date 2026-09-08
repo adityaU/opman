@@ -17,28 +17,32 @@ pub(crate) fn spawn_activate_project(
     theme_envs: Vec<(String, String)>,
 ) {
     let tx = bg_tx.clone();
-    let base_url = crate::app::base_url().to_string();
-    tokio::task::spawn_blocking(move || {
-        match pty::PtyInstance::spawn(
-            &base_url,
-            terminal_rows,
-            terminal_cols,
-            &project_path,
-            None,
-            &theme_envs,
-        ) {
-            Ok(pty) => {
-                let _ = tx.send(BackgroundEvent::PtySpawned {
-                    project_idx,
-                    session_id: "__new__".to_string(),
-                    pty,
-                });
-                let _ = tx.send(BackgroundEvent::ProjectActivated { project_idx });
+    tokio::spawn(async move {
+        // The PTY runs the agent's own TUI against the default runner, so there is
+        // nothing to attach to until that runner has been started.
+        let base_url = crate::app::base_url_ready().await.to_string();
+        tokio::task::spawn_blocking(move || {
+            match pty::PtyInstance::spawn(
+                &base_url,
+                terminal_rows,
+                terminal_cols,
+                &project_path,
+                None,
+                &theme_envs,
+            ) {
+                Ok(pty) => {
+                    let _ = tx.send(BackgroundEvent::PtySpawned {
+                        project_idx,
+                        session_id: "__new__".to_string(),
+                        pty,
+                    });
+                    let _ = tx.send(BackgroundEvent::ProjectActivated { project_idx });
+                }
+                Err(e) => {
+                    tracing::warn!(project_idx, "Background PTY spawn failed: {}", e);
+                }
             }
-            Err(e) => {
-                tracing::warn!(project_idx, "Background PTY spawn failed: {}", e);
-            }
-        }
+        });
     });
 }
 
@@ -61,8 +65,8 @@ pub(crate) fn spawn_session_fetch(
     }
 
     let tx = bg_tx.clone();
-    let base_url = crate::app::base_url().to_string();
     tokio::spawn(async move {
+        let base_url = crate::app::base_url_ready().await.to_string();
         let client = api::ApiClient::new();
         let mut all_busy: Vec<String> = Vec::new();
         for (project_idx, dir) in &fetch_targets {
@@ -103,8 +107,8 @@ pub(crate) fn spawn_single_session_fetch(
     project_dir: String,
 ) {
     let tx = bg_tx.clone();
-    let base_url = crate::app::base_url().to_string();
     tokio::spawn(async move {
+        let base_url = crate::app::base_url_ready().await.to_string();
         let client = api::ApiClient::new();
         match client.fetch_sessions(&base_url, &project_dir).await {
             Ok(sessions) => {
@@ -132,8 +136,8 @@ pub(crate) fn spawn_session_select(
     theme_envs: Vec<(String, String)>,
 ) {
     let tx = bg_tx.clone();
-    let base_url = crate::app::base_url().to_string();
     tokio::spawn(async move {
+        let base_url = crate::app::base_url_ready().await.to_string();
         let client = api::ApiClient::new();
         let _ = client
             .select_session(&base_url, &project_dir, &session_id)

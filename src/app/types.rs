@@ -24,8 +24,15 @@ pub enum InputMode {
 /// The base URL for the managed OpenCode server (set at startup after spawning).
 pub static BASE_URL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
+/// Publish the default runner's URL. Called from the lazy start path rather than from
+/// boot, so a second call is a lost race between two concurrent first uses rather than a
+/// bug: whichever engine won is the live one, and the loser is discarded with it.
 pub fn init_base_url(url: String) {
-    BASE_URL.set(url).expect("BASE_URL already initialized");
+    if let Err(url) = BASE_URL.set(url) {
+        if BASE_URL.get().map(String::as_str) != Some(url.as_str()) {
+            tracing::warn!(%url, "ignoring a second base URL; the first engine to start owns it");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -39,15 +46,36 @@ tokio::task_local! {
 }
 
 pub fn base_url() -> &'static str {
+    try_base_url().expect("BASE_URL not initialized — opencode server not started")
+}
+
+/// The default runner's URL, or `None` while it has not been started.
+///
+/// The default runner starts on first use like every other one, so anything running before
+/// then — the status bar, the startup pollers — has to be able to ask without demanding an
+/// answer. Callers that only run once a session exists keep using [`base_url`].
+pub fn try_base_url() -> Option<&'static str> {
     #[cfg(test)]
     {
         if let Ok(leaked) = TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str())) {
-            return leaked;
+            return Some(leaked);
         }
     }
-    BASE_URL
-        .get()
-        .expect("BASE_URL not initialized — opencode server not started")
+    BASE_URL.get().map(String::as_str)
+}
+
+/// Wait until the default runner has been started, then return its URL.
+///
+/// For the background loops spawned at boot: they have nothing to do until a runner
+/// exists, and idling is the whole point — polling `/session` on a URL that is not there
+/// yet is what starting every backend eagerly used to buy.
+pub async fn base_url_ready() -> &'static str {
+    loop {
+        if let Some(url) = try_base_url() {
+            return url;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
 }
 
 /// Represents a single managed project with its server and optional PTY.
