@@ -18,6 +18,8 @@ mod assistant_routine_exec;
 mod assistant_routines;
 mod assistant_send;
 mod background;
+mod background_hydration;
+mod background_sessions;
 mod db_sync;
 mod file_edits;
 mod kanban;
@@ -64,9 +66,9 @@ pub(super) struct WebProject {
 
 /// Inner mutable state protected by `RwLock`.
 pub(super) struct WebStateInner {
-    /// False until every configured project's initial session list is hydrated.
+    /// Tracks whether the initial session hydration pass has settled.
     /// This prevents an empty first snapshot from being mistaken for a new session.
-    pub(super) startup_ready: bool,
+    pub(super) startup_hydration: background_hydration::StartupHydration,
     pub(super) projects: Vec<WebProject>,
     pub(super) active_project: usize,
     /// Panel visibility (sidebar, terminal_pane, neovim_pane, integrated_terminal, git_panel).
@@ -309,7 +311,7 @@ impl WebStateHandle {
         let routine_runs = db.list_routine_runs();
 
         WebStateInner {
-            startup_ready: false,
+            startup_hydration: background_hydration::StartupHydration::Pending,
             active_project: 0,
             projects,
             panels: WebPanelVisibility {

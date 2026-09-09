@@ -31,6 +31,9 @@ export function StartupGate({
   const sessionsReady = stateReady && appState.startup_ready !== false;
   const liveReady = initialConnectionsReady;
   const workspaceReady = !activeSessionId || !isLoadingMessages;
+  // The provider request is backed by the default runner. That runner is lazy,
+  // so an empty workspace must not wait for its catalogue before it can open.
+  const toolsReady = !activeSessionId || !providersLoading;
   const liveDetail = connectionStatus === "disconnected"
     ? "Retrying the real-time event streams"
     : "Opening real-time event streams";
@@ -39,7 +42,7 @@ export function StartupGate({
     { label: "Load workspace", detail: "Reading projects and preferences", done: stateReady },
     { label: "Hydrate sessions", detail: "Waiting for the session index", done: sessionsReady },
     { label: "Connect live updates", detail: liveDetail, done: liveReady },
-    { label: "Prepare tools", detail: "Loading providers and the active session", done: !providersLoading && workspaceReady },
+    { label: "Prepare tools", detail: "Loading providers and the active session", done: toolsReady && workspaceReady },
   ];
   const activeStep = steps.find((step) => !step.done) ?? steps[steps.length - 1];
   const completed = steps.filter((step) => step.done).length;

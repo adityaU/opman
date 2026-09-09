@@ -623,7 +623,7 @@ export function ChatLayout() {
   const startupReady = appState.startup_ready !== false;
   const liveReady = sse.initialConnectionsReady;
   const workspaceReady = !activeSessionId || !isLoadingMessages;
-  if (!hasStartedRef.current && (!startupReady || !liveReady || providers.loading || !workspaceReady)) {
+  if (!hasStartedRef.current && (!startupReady || !liveReady || (activeSessionId && providers.loading) || !workspaceReady)) {
     return <StartupGate appState={appState} connectionStatus={sse.connectionStatus} initialConnectionsReady={sse.initialConnectionsReady} activeSessionId={activeSessionId} isLoadingMessages={isLoadingMessages} providersLoading={providers.loading} />;
   }
   hasStartedRef.current = true;

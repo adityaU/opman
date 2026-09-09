@@ -44,4 +44,20 @@ describe("StartupGate", () => {
     expect(screen.queryByText("Loading")).toBeNull();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
   });
+
+  it("does not wait for providers before a session exists", () => {
+    render(
+      <StartupGate
+        appState={state(true)}
+        connectionStatus="connected"
+        initialConnectionsReady={true}
+        activeSessionId={null}
+        isLoadingMessages={false}
+        providersLoading={true}
+      />,
+    );
+
+    expect(screen.queryByText("Loading")).toBeNull();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
+  });
 });

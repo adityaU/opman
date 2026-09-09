@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::api::ApiClient;
+use crate::web::web_state::background_hydration::StartupHydration;
 use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -58,15 +59,33 @@ async fn startup_once_no_projects_is_immediately_ready() {
     // startup poll succeeds vacuously and the retry loop stops on the first try.
     let h = WebStateHandle::new_test();
     let client = ApiClient::new();
-    assert!(h.session_poll_startup_once(&client, DEAD_BASE).await);
-    assert!(h.inner.read().await.startup_ready);
+    assert_eq!(
+        h.session_poll_startup_once(&client, DEAD_BASE).await,
+        StartupHydration::Complete
+    );
+    assert!(h.inner.read().await.startup_hydration.is_ready());
+}
+
+#[tokio::test]
+async fn startup_poll_without_runner_is_immediately_ready() {
+    let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
+    let client = ApiClient::new();
+    let hydration = crate::app::TEST_BASE_URL_UNSET
+        .scope((), h.session_poll_startup(&client))
+        .await;
+
+    assert_eq!(hydration, StartupHydration::NoRunner);
+    assert!(h.inner.read().await.startup_hydration.is_ready());
 }
 
 #[tokio::test]
 async fn startup_once_dead_base_returns_false_and_no_sessions() {
     let h = WebStateHandle::new_test_with_projects(vec![("p".into(), PathBuf::from("/proj"))]);
     let client = ApiClient::new();
-    assert!(!h.session_poll_startup_once(&client, DEAD_BASE).await);
+    assert_eq!(
+        h.session_poll_startup_once(&client, DEAD_BASE).await,
+        StartupHydration::Pending
+    );
     assert!(h.inner.read().await.projects[0].sessions.is_empty());
 }
 
@@ -79,7 +98,10 @@ async fn startup_once_success_hydrates_active_session() {
         { "id": "sx", "title": "x", "directory": "/other", "time": { "created": 1, "updated": 2 } }
     ]);
     let (base, srv) = mock_server(sessions, serde_json::json!({})).await;
-    assert!(h.session_poll_startup_once(&client, &base).await);
+    assert_eq!(
+        h.session_poll_startup_once(&client, &base).await,
+        StartupHydration::Complete
+    );
     {
         let st = h.inner.read().await;
         // Only the /proj session survives the directory filter.

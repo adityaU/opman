@@ -129,7 +129,7 @@ impl super::WebStateHandle {
             .collect();
 
         WebAppState {
-            startup_ready: inner.startup_ready,
+            startup_ready: inner.startup_hydration.is_ready(),
             projects,
             active_project: inner.active_project,
             panels: inner.panels.clone(),
