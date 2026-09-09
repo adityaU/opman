@@ -88,6 +88,8 @@ pub struct DirEntry {
     pub path: String,
     /// Whether this path is already added as a project.
     pub is_project: bool,
+    /// Whether this directory is reached through a symbolic link.
+    pub is_symlink: bool,
 }
 
 /// Response for directory browsing.

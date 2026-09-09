@@ -83,6 +83,7 @@ fn dir_entry_and_browse_dirs_response_serialize() {
             name: "sub".into(),
             path: "/a/sub".into(),
             is_project: true,
+            is_symlink: false,
         }],
     };
     let v = serde_json::to_value(&resp).unwrap();

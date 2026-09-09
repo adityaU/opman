@@ -47,6 +47,14 @@
     text-overflow: ellipsis
 }
 
+.add-project-entry-symlink {
+    flex-shrink: 0;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .02em
+}
+
 .add-project-entry-star {
     color: var(--color-warning);
     flex-shrink: 0

@@ -50,14 +50,12 @@ pub async fn browse_files(
         if name.starts_with('.') {
             continue;
         }
-        let metadata = entry
-            .metadata()
+        let file_type = entry
+            .file_type()
             .await
-            .map_err(|e| WebError::Internal(format!("Failed to read metadata: {e}")))?;
-
-        // Security: skip symlinks that escape the project directory
-        let file_type = metadata.file_type();
-        if file_type.is_symlink() {
+            .map_err(|e| WebError::Internal(format!("Failed to read file type: {e}")))?;
+        let metadata = if file_type.is_symlink() {
+            // Security: skip symlinks that escape the project directory.
             let link_target = match tokio::fs::read_link(entry.path()).await {
                 Ok(t) => t,
                 Err(_) => continue,
@@ -67,19 +65,27 @@ pub async fn browse_files(
             } else {
                 canonical_target.join(link_target)
             };
-            if let Ok(canonical_link) = resolved.canonicalize() {
-                if !canonical_link.starts_with(&canonical_base) {
-                    tracing::warn!(
-                        "[browse] skipping symlink escaping project: {}",
-                        entry.path().display()
-                    );
-                    continue;
-                }
-            } else {
-                // Can't resolve — skip to be safe
+            let canonical_link = match resolved.canonicalize() {
+                Ok(path) => path,
+                Err(_) => continue,
+            };
+            if !canonical_link.starts_with(&canonical_base) {
+                tracing::warn!(
+                    "[browse] skipping symlink escaping project: {}",
+                    entry.path().display()
+                );
                 continue;
             }
-        }
+            match tokio::fs::metadata(canonical_link).await {
+                Ok(metadata) => metadata,
+                Err(_) => continue,
+            }
+        } else {
+            entry
+                .metadata()
+                .await
+                .map_err(|e| WebError::Internal(format!("Failed to read metadata: {e}")))?
+        };
 
         let entry_path = if rel == "." {
             name.clone()

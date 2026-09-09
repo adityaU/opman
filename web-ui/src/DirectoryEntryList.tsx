@@ -51,6 +51,7 @@ export function DirectoryEntryList({
         >
           <Folder size={14} className="add-project-entry-icon" />
           <span className="add-project-entry-name">{entry.name}</span>
+          {entry.is_symlink && <span className="add-project-entry-symlink">symlink</span>}
           {entry.is_project && <Star size={11} className="add-project-entry-star" />}
           <button
             className="add-project-entry-add"

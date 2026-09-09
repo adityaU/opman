@@ -78,11 +78,24 @@ pub async fn browse_dirs(
         if name.starts_with('.') || SKIP_DIRS.contains(&name.as_str()) {
             continue;
         }
-        let metadata = match entry.metadata().await {
-            Ok(metadata) => metadata,
+        let file_type = match entry.file_type().await {
+            Ok(file_type) => file_type,
             Err(_) => continue,
         };
-        if !metadata.is_dir() {
+        // DirEntry metadata describes the link itself. Follow only symlinks so ordinary
+        // directories keep the cheap readdir-backed classification.
+        let (is_dir, is_symlink) = if file_type.is_dir() {
+            (true, false)
+        } else if file_type.is_symlink() {
+            let is_dir = match tokio::fs::metadata(entry.path()).await {
+                Ok(metadata) => metadata.is_dir(),
+                Err(_) => false,
+            };
+            (is_dir, true)
+        } else {
+            (false, false)
+        };
+        if !is_dir {
             continue;
         }
         let entry_path = if canonical_str.ends_with('/') {
@@ -95,6 +108,7 @@ pub async fn browse_dirs(
             name,
             path: entry_path,
             is_project,
+            is_symlink,
         });
     }
     entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -147,3 +161,7 @@ pub async fn create_project_dir(
         path: path.to_string_lossy().to_string(),
     }))
 }
+
+#[cfg(test)]
+#[path = "directory_handlers_symlink_tests.rs"]
+mod directory_handlers_symlink_tests;

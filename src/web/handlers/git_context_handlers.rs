@@ -194,12 +194,19 @@ async fn discover_repos(
         }
 
         let path = entry.path();
-        let metadata = match entry.metadata().await {
-            Ok(m) => m,
+        let file_type = match entry.file_type().await {
+            Ok(file_type) => file_type,
             Err(_) => continue,
         };
-
-        if !metadata.is_dir() {
+        // Follow directory links as well as ordinary directories; metadata on a DirEntry
+        // describes the link itself and would otherwise hide repositories behind one.
+        let is_dir = file_type.is_dir()
+            || (file_type.is_symlink()
+                && match tokio::fs::metadata(&path).await {
+                    Ok(metadata) => metadata.is_dir(),
+                    Err(_) => false,
+                });
+        if !is_dir {
             continue;
         }
 

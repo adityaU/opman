@@ -8,6 +8,8 @@ export interface DirEntry {
   path: string;
   /** Whether this path is already added as a project. */
   is_project: boolean;
+  /** Whether this directory is reached through a symbolic link. */
+  is_symlink: boolean;
 }
 
 export interface BrowseDirsResponse {
