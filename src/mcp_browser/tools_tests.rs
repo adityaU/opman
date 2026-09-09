@@ -9,7 +9,10 @@ fn operation(name: &str, args: Value) -> Value {
 #[test]
 fn no_tool_asks_the_agent_for_a_pane_id() {
     let text = definitions().to_string();
-    assert!(!text.contains("pane_id"), "tools must address a project, not a pane");
+    assert!(
+        !text.contains("pane_id"),
+        "tools must address a project, not a pane"
+    );
 }
 
 #[test]
@@ -46,16 +49,16 @@ fn supplied_options_are_forwarded() {
         json!({ "max_nodes": 50, "viewport_only": true }),
     );
     assert_eq!(body.get("max_nodes").and_then(Value::as_u64), Some(50));
-    assert_eq!(body.get("viewport_only").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        body.get("viewport_only").and_then(Value::as_bool),
+        Some(true)
+    );
 }
 
 #[test]
 fn navigate_direction_becomes_the_operation_tag() {
     for direction in ["back", "forward", "reload"] {
-        let body = operation(
-            "browser_navigate",
-            json!({ "direction": direction }),
-        );
+        let body = operation("browser_navigate", json!({ "direction": direction }));
         assert_eq!(body.get("op").and_then(Value::as_str), Some(direction));
     }
 }
@@ -130,6 +133,11 @@ fn read_text_marks_truncation() {
 #[tokio::test]
 async fn a_missing_web_server_is_reported_not_silently_empty() {
     let project = Project("/repo".to_string());
-    let text = dispatch_tool(None, &project, Some(json!({ "name": "browser_list_panes" }))).await;
+    let text = dispatch_tool(
+        None,
+        &project,
+        Some(json!({ "name": "browser_list_panes" })),
+    )
+    .await;
     assert!(text.contains("not running"), "got: {text}");
 }

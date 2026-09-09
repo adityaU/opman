@@ -223,6 +223,48 @@ async fn add_project_invalid_path_bad_request() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
+// ── directory creation ────────────────────────────────────────────
+
+#[tokio::test]
+async fn create_dir_creates_only_the_requested_folder() {
+    let state = test_server_state();
+    let parent = tempfile::tempdir().unwrap();
+    let path = parent.path().to_str().unwrap().to_string();
+    let (status, body) = send_json(
+        test_router(state.clone()),
+        "POST",
+        "/api/dirs/create",
+        Some(json!({ "parent": path, "name": "new-folder" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(parent.path().join("new-folder").is_dir());
+    assert!(state.web_state.get_state().await.projects.is_empty());
+    let response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(response["name"], "new-folder");
+}
+
+#[tokio::test]
+async fn create_dir_rejects_invalid_or_existing_names() {
+    let state = test_server_state();
+    let parent = tempfile::tempdir().unwrap();
+    let existing = parent.path().join("existing");
+    std::fs::create_dir(&existing).unwrap();
+    for name in ["", "..", "nested/name", "nested\\name", "existing"] {
+        let (status, _) = send_json(
+            test_router(state.clone()),
+            "POST",
+            "/api/dirs/create",
+            Some(json!({
+                "parent": parent.path().to_str().unwrap(),
+                "name": name,
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "name: {name:?}");
+    }
+}
+
 // ── remove_project ──────────────────────────────────────────────────
 
 #[tokio::test]

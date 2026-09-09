@@ -3,7 +3,6 @@
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
-use std::path::PathBuf;
 
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
@@ -56,7 +55,10 @@ async fn seed_engine(
         .runner_registry
         .ensure_binding(session_id, runner, dir)
         .await;
-    let _ = state.runner_registry.configure(session_id, dir, choices).await;
+    let _ = state
+        .runner_registry
+        .configure(session_id, dir, choices)
+        .await;
 }
 
 pub async fn new_session(
@@ -175,134 +177,6 @@ pub async fn remove_project(
         Ok(()) => Ok(StatusCode::OK),
         Err(msg) => Err(WebError::BadRequest(msg)),
     }
-}
-
-/// GET /api/dirs/home — return the user's home directory.
-pub async fn home_dir(_auth: AuthUser) -> WebResult<impl IntoResponse> {
-    let home = dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("/"))
-        .to_string_lossy()
-        .to_string();
-    Ok(Json(HomeDirResponse { path: home }))
-}
-
-/// Directories to skip when browsing (mirrors the TUI fuzzy picker's filter).
-const SKIP_DIRS: &[&str] = &[
-    "node_modules",
-    "target",
-    "__pycache__",
-    ".git",
-    "vendor",
-    "dist",
-    "build",
-    ".cache",
-    "Library",
-    "Pictures",
-    "Music",
-    "Movies",
-];
-
-/// POST /api/dirs/browse — list subdirectories of a given path.
-///
-/// Used by the add-project modal to let users browse the filesystem.
-/// Mirrors the TUI fuzzy picker logic: skips hidden dirs and common
-/// non-project directories, marks existing projects with a flag.
-pub async fn browse_dirs(
-    State(state): State<ServerState>,
-    _auth: AuthUser,
-    Json(req): Json<BrowseDirsRequest>,
-) -> WebResult<impl IntoResponse> {
-    let target = if req.path.is_empty() {
-        dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
-    } else {
-        // Expand ~ to home
-        let expanded = if req.path.starts_with('~') {
-            if let Some(home) = dirs::home_dir() {
-                home.join(req.path.trim_start_matches('~').trim_start_matches('/'))
-            } else {
-                PathBuf::from(&req.path)
-            }
-        } else {
-            PathBuf::from(&req.path)
-        };
-        expanded
-    };
-
-    let canonical = std::fs::canonicalize(&target)
-        .map_err(|e| WebError::BadRequest(format!("Invalid path: {e}")))?;
-
-    if !canonical.is_dir() {
-        return Err(WebError::BadRequest("Path is not a directory".into()));
-    }
-
-    // Collect existing project paths for marking
-    let existing_paths: std::collections::HashSet<String> = state
-        .web_state
-        .all_project_paths()
-        .await
-        .into_iter()
-        .collect();
-
-    let canonical_str = canonical.to_string_lossy().to_string();
-    let parent = canonical
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-
-    let mut entries = Vec::new();
-    let mut dir_reader = tokio::fs::read_dir(&canonical)
-        .await
-        .map_err(|e| WebError::Internal(format!("Failed to read directory: {e}")))?;
-
-    while let Some(entry) = dir_reader
-        .next_entry()
-        .await
-        .map_err(|e| WebError::Internal(format!("Failed to read entry: {e}")))?
-    {
-        let name = entry.file_name().to_string_lossy().to_string();
-
-        // Skip hidden directories
-        if name.starts_with('.') {
-            continue;
-        }
-
-        // Skip non-project directories (mirrors TUI logic)
-        if SKIP_DIRS.contains(&name.as_str()) {
-            continue;
-        }
-
-        let metadata = match entry.metadata().await {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-
-        if !metadata.is_dir() {
-            continue;
-        }
-
-        let entry_path = if canonical_str.ends_with('/') {
-            format!("{}{}", canonical_str, name)
-        } else {
-            format!("{}/{}", canonical_str, name)
-        };
-
-        let is_project = existing_paths.contains(&entry_path);
-
-        entries.push(DirEntry {
-            name,
-            path: entry_path,
-            is_project,
-        });
-    }
-
-    // Sort alphabetically
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-
-    Ok(Json(BrowseDirsResponse {
-        path: canonical_str,
-        parent,
-        entries,
-    }))
 }
 
 pub async fn toggle_panel(

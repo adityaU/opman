@@ -182,6 +182,28 @@ async fn connect_sse_error_arm_then_would_sleep() {
 }
 
 #[tokio::test]
+async fn connect_sse_waits_for_base_url_without_panicking() {
+    // BASE_URL is process-global and other tests initialize it. Scope the
+    // unavailable state so this exercises the fresh-boot path deterministically.
+    let (tx, _rx) = mpsc::unbounded_channel::<BackgroundEvent>();
+    let result = crate::app::TEST_BASE_URL_UNSET
+        .scope(
+            (),
+            tokio::time::timeout(
+                Duration::from_millis(20),
+                connect_sse(tx, 0, "/tmp/proj".to_string()),
+            ),
+        )
+        .await;
+
+    // A panic would fail the test; a healthy listener waits for the lazy runner.
+    assert!(
+        result.is_err(),
+        "connect_sse should wait for the default runner"
+    );
+}
+
+#[tokio::test]
 async fn spawn_sse_listener_does_not_panic() {
     let (tx, _rx) = mpsc::unbounded_channel::<BackgroundEvent>();
     spawn_sse_listener(&tx, 0, "/tmp/proj".to_string());

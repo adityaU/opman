@@ -45,6 +45,8 @@ export interface ChatHandlerInputs {
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string | null, projectIdx: number) => void;
+  /** Move to a project without selecting a session in it. */
+  selectProject: (projectIdx: number) => void;
   /** Temporarily block background SSE-driven session adoption for non-switch actions. */
   blockSessionAdoption: (ms?: number) => void;
   /** Run a registered command by id — how a `/name` reaches its implementation. */
@@ -100,6 +102,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     clearQuestion: inputs.clearQuestion,
     closeMobileSidebarSilent: inputs.closeMobileSidebarSilent,
     setUrlSession: inputs.setUrlSession,
+    selectProject: inputs.selectProject,
     blockSessionAdoption: inputs.blockSessionAdoption,
     runCommandId: inputs.runCommandId,
     getMessages: () => messagesRef.current(),
@@ -110,7 +113,7 @@ export function useChatHandlers(inputs: ChatHandlerInputs) {
     inputs.setSending, inputs.setSelectedModel, inputs.setSelectedAgent, inputs.clearRunnerChoice, inputs.bindRunnerChoice,
     inputs.setMobileInputHidden, inputs.addToast, inputs.addOptimisticMessage,
     inputs.clearOptimistic, inputs.refreshState, inputs.refreshMessages, inputs.clearPermission, inputs.clearQuestion,
-    inputs.closeMobileSidebarSilent, inputs.setUrlSession,
+    inputs.closeMobileSidebarSilent, inputs.setUrlSession, inputs.selectProject,
     inputs.blockSessionAdoption, inputs.runCommandId,
   ]);
 

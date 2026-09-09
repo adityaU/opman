@@ -73,6 +73,8 @@ export function useSessionSelection(opts: SessionSelectionOptions): SessionSelec
   }, []);
 
   const selectProject = useCallback((projectIdx: number) => {
+    setSessionId(null);
+    setNewSessionMode(false);
     setProjectIndex(projectIdx);
     if (onPageRoute()) appNavigate("/");
   }, []);

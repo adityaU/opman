@@ -8,10 +8,16 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json, Response};
 use serde::Serialize;
 
+use crate::browser::BrowserInstallGuide;
+
 /// JSON body for error responses.
 #[derive(Serialize)]
 struct ErrorBody {
     error: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    code: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    browser_setup: Option<BrowserInstallGuide>,
 }
 
 /// Unified error type for web handlers.
@@ -28,6 +34,8 @@ pub enum WebError {
     ServerUnavailable,
     /// Upstream (opencode server) returned an error — preserve its status code.
     Upstream(StatusCode, String),
+    /// Chromium is not installed, or an explicit browser path is unusable.
+    BrowserUnavailable(BrowserInstallGuide),
     /// Catch-all for unexpected internal failures.
     Internal(String),
 }
@@ -40,6 +48,7 @@ impl std::fmt::Display for WebError {
             Self::BadRequest(msg) => write!(f, "Bad request: {}", msg),
             Self::ServerUnavailable => write!(f, "Server unavailable"),
             Self::Upstream(status, msg) => write!(f, "Upstream {}: {}", status, msg),
+            Self::BrowserUnavailable(_) => write!(f, "Browser engine unavailable"),
             Self::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -49,18 +58,65 @@ impl std::error::Error for WebError {}
 
 impl IntoResponse for WebError {
     fn into_response(self) -> Response {
-        let (status, message) = match &self {
-            Self::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
-            Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg.to_string()),
-            Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+        let (status, body) = match self {
+            Self::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                ErrorBody {
+                    error: "Unauthorized".to_string(),
+                    code: None,
+                    browser_setup: None,
+                },
+            ),
+            Self::NotFound(msg) => (
+                StatusCode::NOT_FOUND,
+                ErrorBody {
+                    error: msg.to_string(),
+                    code: None,
+                    browser_setup: None,
+                },
+            ),
+            Self::BadRequest(msg) => (
+                StatusCode::BAD_REQUEST,
+                ErrorBody {
+                    error: msg,
+                    code: None,
+                    browser_setup: None,
+                },
+            ),
             Self::ServerUnavailable => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Server unavailable".to_string(),
+                ErrorBody {
+                    error: "Server unavailable".to_string(),
+                    code: None,
+                    browser_setup: None,
+                },
             ),
-            Self::Upstream(status, msg) => (*status, msg.clone()),
-            Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            Self::Upstream(status, msg) => (
+                status,
+                ErrorBody {
+                    error: msg,
+                    code: None,
+                    browser_setup: None,
+                },
+            ),
+            Self::BrowserUnavailable(guide) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorBody {
+                    error: "Browser engine unavailable".to_string(),
+                    code: Some("browser_unavailable"),
+                    browser_setup: Some(guide),
+                },
+            ),
+            Self::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorBody {
+                    error: msg,
+                    code: None,
+                    browser_setup: None,
+                },
+            ),
         };
-        (status, Json(ErrorBody { error: message })).into_response()
+        (status, Json(body)).into_response()
     }
 }
 
@@ -111,6 +167,30 @@ mod tests {
         let (status, json) = error_to_parts(WebError::ServerUnavailable).await;
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(json["error"], "Server unavailable");
+    }
+
+    #[tokio::test]
+    async fn browser_unavailable_returns_platform_setup() {
+        let (status, json) = error_to_parts(WebError::BrowserUnavailable(
+            crate::browser::BrowserUnavailable::NoBrowser.install_guide(),
+        ))
+        .await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(json["code"], "browser_unavailable");
+        assert!(json["browser_setup"]["title"].as_str().is_some());
+        assert_eq!(json["browser_setup"]["issue"]["kind"], "no_browser");
+    }
+
+    #[tokio::test]
+    async fn browser_override_failure_returns_the_offending_path() {
+        let unavailable = crate::browser::BrowserUnavailable::OverrideMissing(
+            std::path::PathBuf::from("/wrong/chromium"),
+        );
+        let (status, json) =
+            error_to_parts(WebError::BrowserUnavailable(unavailable.install_guide())).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(json["browser_setup"]["issue"]["kind"], "override_missing");
+        assert_eq!(json["browser_setup"]["issue"]["path"], "/wrong/chromium");
     }
 
     #[tokio::test]

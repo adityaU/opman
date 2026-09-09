@@ -66,7 +66,9 @@ fn resolver_errors_become_rust_errors() {
         editable: false,
         select: false,
     };
-    let error = resolved.into_target().expect_err("an error must not resolve");
+    let error = resolved
+        .into_target()
+        .expect_err("an error must not resolve");
     assert!(error.to_string().contains("not on this page"));
 }
 

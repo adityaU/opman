@@ -83,7 +83,7 @@ async fn serve(body: &'static str) -> String {
     format!("http://127.0.0.1:{port}/")
 }
 
-async fn fixture_pool() -> (BrowserPool, tempfile::TempDir, &'static str) {
+pub(super) async fn fixture_pool() -> (BrowserPool, tempfile::TempDir, &'static str) {
     let url = serve(FIXTURE).await;
     let (pool, dir) = pool();
     let pane = "live-test-pane";
@@ -194,19 +194,6 @@ async fn a_stale_ref_is_refused_rather_than_hitting_the_wrong_element() {
         error.to_string().contains("re-snapshot"),
         "the error should tell the model what to do: {error}"
     );
-
-    pool.shutdown().await;
-}
-
-#[tokio::test]
-#[ignore = "launches a real Chromium"]
-async fn readable_text_drops_the_navigation() {
-    let (pool, _profile, pane_id) = fixture_pool().await;
-    let pane = pool.get(pane_id).await.expect("the pane is open");
-    let text = pane.tab().read_text(None).await.expect("text extraction");
-
-    assert!(text.text.contains("quick brown fox"), "{}", text.text);
-    assert_eq!(text.title, "Fixture");
 
     pool.shutdown().await;
 }

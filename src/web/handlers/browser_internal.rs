@@ -82,7 +82,12 @@ impl Operation {
     const fn navigates(&self) -> bool {
         matches!(
             self,
-            Self::Open { .. } | Self::Navigate { .. } | Self::Back | Self::Forward | Self::Click { .. } | Self::Type { .. }
+            Self::Open { .. }
+                | Self::Navigate { .. }
+                | Self::Back
+                | Self::Forward
+                | Self::Click { .. }
+                | Self::Type { .. }
         )
     }
 }
@@ -124,9 +129,7 @@ pub async fn internal_browser(
         Operation::Snapshot { options } => ops::snapshot(&state, &pane_id, options).await,
         Operation::Text { max_chars } => ops::read_text(&state, &pane_id, max_chars).await,
         Operation::Screenshot { quality } => ops::screenshot(&state, &pane_id, quality).await,
-        Operation::Click { reference } => {
-            ops::click(&state, &pane_ref(&pane_id, reference)).await
-        }
+        Operation::Click { reference } => ops::click(&state, &pane_ref(&pane_id, reference)).await,
         Operation::Type {
             reference,
             text,

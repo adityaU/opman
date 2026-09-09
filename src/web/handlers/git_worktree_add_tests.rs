@@ -1,7 +1,7 @@
 //! Creating a worktree, and the path containment that guards it.
 
-use super::git_worktree_tests::*;
 use super::super::git_worktree::*;
+use super::git_worktree_tests::*;
 use axum::extract::State;
 use axum::response::Json;
 
@@ -59,12 +59,7 @@ async fn add_list_remove_prune_round_trip() {
     assert_eq!(body["worktrees"].as_array().expect("array").len(), 1);
 
     let (status, body) = parts(
-        git_worktree_prune(
-            State(state.clone()),
-            auth(),
-            Json(GitRepoScope::default()),
-        )
-        .await,
+        git_worktree_prune(State(state.clone()), auth(), Json(GitRepoScope::default())).await,
     )
     .await;
     assert_eq!(status, axum::http::StatusCode::OK);

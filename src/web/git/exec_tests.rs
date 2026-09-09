@@ -20,9 +20,13 @@ async fn repo() -> tempfile::TempDir {
 #[tokio::test]
 async fn success_captures_stdout() {
     let dir = repo().await;
-    let out = run_strict(dir.path(), &["rev-parse", "--abbrev-ref", "HEAD"], Reach::Local)
-        .await
-        .expect("ran");
+    let out = run_strict(
+        dir.path(),
+        &["rev-parse", "--abbrev-ref", "HEAD"],
+        Reach::Local,
+    )
+    .await
+    .expect("ran");
     assert_eq!(out.trimmed(), "main");
 }
 
@@ -42,12 +46,22 @@ async fn dirty_tree_is_classified() {
     let dir = repo().await;
     let path = dir.path();
     std::fs::write(path.join("f.txt"), "one").expect("write");
-    run_strict(path, &["add", "f.txt"], Reach::Local).await.expect("add");
-    run_strict(path, &["commit", "-q", "-m", "add f"], Reach::Local).await.expect("commit");
-    run_strict(path, &["checkout", "-q", "-b", "other"], Reach::Local).await.expect("branch");
+    run_strict(path, &["add", "f.txt"], Reach::Local)
+        .await
+        .expect("add");
+    run_strict(path, &["commit", "-q", "-m", "add f"], Reach::Local)
+        .await
+        .expect("commit");
+    run_strict(path, &["checkout", "-q", "-b", "other"], Reach::Local)
+        .await
+        .expect("branch");
     std::fs::write(path.join("f.txt"), "two").expect("write");
-    run_strict(path, &["commit", "-qam", "change f"], Reach::Local).await.expect("commit");
-    run_strict(path, &["checkout", "-q", "main"], Reach::Local).await.expect("back");
+    run_strict(path, &["commit", "-qam", "change f"], Reach::Local)
+        .await
+        .expect("commit");
+    run_strict(path, &["checkout", "-q", "main"], Reach::Local)
+        .await
+        .expect("back");
     std::fs::write(path.join("f.txt"), "conflicting").expect("write");
 
     let refusal = run(path, &["checkout", "other"], Reach::Local)

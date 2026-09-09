@@ -85,9 +85,13 @@ pub struct ClaudeEngine {
     /// Cached dynamic model list from `claude -p` with the fetch timestamp (ms).
     /// Refreshed every hour by the `/provider` route.
     model_cache: Mutex<Option<(Vec<claude_cli::ModelInfo>, u64)>>,
+    /// Model discovery strategy, kept on the engine so routes and startup use one seam.
+    model_probe: ModelProbe,
 }
 
 static ENGINE: OnceLock<Arc<ClaudeEngine>> = OnceLock::new();
+
+type ModelProbe = fn() -> Option<Vec<claude_cli::ModelInfo>>;
 
 /// Global accessor (used by the PTY layer to resolve a session's `claude` short id).
 pub fn engine() -> Option<Arc<ClaudeEngine>> {
@@ -129,7 +133,16 @@ fn default_model() -> Option<String> {
 }
 
 impl ClaudeEngine {
+    #[cfg(test)]
     fn new(persist: Option<PathBuf>, mcp: crate::mcp_registry::SharedRegistry) -> Self {
+        Self::new_with_model_probe(persist, mcp, claude_cli::fetch_models_via_cli)
+    }
+
+    fn new_with_model_probe(
+        persist: Option<PathBuf>,
+        mcp: crate::mcp_registry::SharedRegistry,
+        model_probe: ModelProbe,
+    ) -> Self {
         let reg = match &persist {
             Some(p) => Registry::load(p),
             None => Registry::default(),
@@ -158,6 +171,7 @@ impl ClaudeEngine {
             dispatching: Mutex::new(HashSet::new()),
             aborting: Mutex::new(HashMap::new()),
             model_cache: Mutex::new(None),
+            model_probe,
         }
     }
 
@@ -369,6 +383,10 @@ impl ClaudeEngine {
         if let Ok(mut g) = self.model_cache.lock() {
             *g = Some((models, now_ms()));
         }
+    }
+
+    fn model_probe(&self) -> ModelProbe {
+        self.model_probe
     }
 
     fn add_allowed_tool(&self, session_id: &str, tool: &str) {
@@ -1237,16 +1255,28 @@ fn session_info(entry: &SessionEntry) -> serde_json::Value {
 pub async fn start_embedded_server(
     mcp: crate::mcp_registry::SharedRegistry,
 ) -> Result<(String, ServerHandle)> {
+    start_embedded_server_with_model_probe(mcp, claude_cli::fetch_models_via_cli).await
+}
+
+async fn start_embedded_server_with_model_probe(
+    mcp: crate::mcp_registry::SharedRegistry,
+    model_probe: ModelProbe,
+) -> Result<(String, ServerHandle)> {
     let persist = dirs::config_dir().map(|d| d.join("opman").join("claude_sessions.json"));
-    let engine = Arc::new(ClaudeEngine::new(persist, mcp));
+    let engine = Arc::new(ClaudeEngine::new_with_model_probe(
+        persist,
+        mcp,
+        model_probe,
+    ));
     let _ = ENGINE.set(engine.clone());
 
     // Fetch available models once at startup in a background task so the
     // /provider route is ready without blocking server startup.
     {
         let eng = engine.clone();
+        let model_probe = eng.model_probe();
         tokio::task::spawn(async move {
-            if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli)
+            if let Some(models) = tokio::task::spawn_blocking(model_probe)
                 .await
                 .ok()
                 .flatten()

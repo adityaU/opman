@@ -1,7 +1,7 @@
 //! Reset, revert and cherry-pick: the commit-replay half of git_integrate.
 
-use super::git_integrate_tests::*;
 use super::super::git_integrate::*;
+use super::git_integrate_tests::*;
 use axum::extract::State;
 use axum::response::Json;
 

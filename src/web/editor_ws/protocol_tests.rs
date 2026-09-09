@@ -42,10 +42,29 @@ fn a_missing_payload_defaults_rather_than_failing() {
 
 #[test]
 fn writes_are_not_cancellable() {
-    for op in [Op::Write, Op::Delete, Op::Move, Op::Rename, Op::Format, Op::CreateFile, Op::CreateDir] {
-        assert!(!op.is_read_only(), "{op:?} must not be abandoned mid-flight");
+    for op in [
+        Op::Write,
+        Op::Delete,
+        Op::Move,
+        Op::Rename,
+        Op::Format,
+        Op::CreateFile,
+        Op::CreateDir,
+    ] {
+        assert!(
+            !op.is_read_only(),
+            "{op:?} must not be abandoned mid-flight"
+        );
     }
-    for op in [Op::Hover, Op::Goto, Op::References, Op::Completion, Op::Diagnostics, Op::Browse, Op::Read] {
+    for op in [
+        Op::Hover,
+        Op::Goto,
+        Op::References,
+        Op::Completion,
+        Op::Diagnostics,
+        Op::Browse,
+        Op::Read,
+    ] {
         assert!(op.is_read_only(), "{op:?} should be cancellable");
     }
 }
@@ -91,5 +110,10 @@ fn a_buffer_is_smaller_than_its_json_form() {
     let payload = json!({ "path": "big.ts", "content": text });
     let packed = rmp_serde::to_vec_named(&payload).expect("packs");
     let json = serde_json::to_vec(&payload).expect("serialises");
-    assert!(packed.len() < json.len(), "{} vs {}", packed.len(), json.len());
+    assert!(
+        packed.len() < json.len(),
+        "{} vs {}",
+        packed.len(),
+        json.len()
+    );
 }

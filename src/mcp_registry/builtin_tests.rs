@@ -30,7 +30,14 @@ fn every_flag_adds_exactly_its_own_server() {
     };
     assert_eq!(
         names(flags),
-        ["terminal", "skills", "kanban", "ask", "browser", "agent-manager"]
+        [
+            "terminal",
+            "skills",
+            "kanban",
+            "ask",
+            "browser",
+            "agent-manager"
+        ]
     );
 }
 

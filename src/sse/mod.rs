@@ -99,7 +99,9 @@ async fn connect_sse(
     project_idx: usize,
     project_dir: String,
 ) {
-    let base_url = crate::app::base_url();
+    // The default runner starts on first use, so wait here rather than panic before
+    // the reconnect loop can keep the listener alive.
+    let base_url = crate::app::base_url_ready().await;
     loop {
         debug!(project_idx, base_url, "SSE connecting");
         match run_sse_stream(&bg_tx, project_idx, base_url, &project_dir).await {

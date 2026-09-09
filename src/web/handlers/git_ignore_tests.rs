@@ -1,8 +1,6 @@
 //! `.gitignore` listing and appending.
 
-use super::super::git_ext_handlers::git_ext_handlers_history_tests::{
-    call, init_repo, state_for,
-};
+use super::super::git_ext_handlers::git_ext_handlers_history_tests::{call, init_repo, state_for};
 use axum::http::StatusCode;
 
 #[tokio::test]

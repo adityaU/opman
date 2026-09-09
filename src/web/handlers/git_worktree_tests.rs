@@ -50,7 +50,9 @@ pub(crate) fn auth() -> AuthUser {
     }
 }
 
-pub(crate) async fn parts<T: IntoResponse>(r: WebResult<T>) -> (axum::http::StatusCode, serde_json::Value) {
+pub(crate) async fn parts<T: IntoResponse>(
+    r: WebResult<T>,
+) -> (axum::http::StatusCode, serde_json::Value) {
     let resp = r.into_response();
     let status = resp.status();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
@@ -61,15 +63,9 @@ pub(crate) async fn parts<T: IntoResponse>(r: WebResult<T>) -> (axum::http::Stat
 }
 
 pub(crate) async fn list(state: &ServerState) -> serde_json::Value {
-    let (status, body) = parts(
-        git_worktrees(
-            State(state.clone()),
-            auth(),
-            Query(GitRepoScope::default()),
-        )
-        .await,
-    )
-    .await;
+    let (status, body) =
+        parts(git_worktrees(State(state.clone()), auth(), Query(GitRepoScope::default())).await)
+            .await;
     assert_eq!(status, axum::http::StatusCode::OK);
     body
 }
@@ -212,9 +208,7 @@ async fn prune_reports_a_worktree_whose_directory_vanished() {
 #[tokio::test]
 async fn worktrees_without_an_active_project_is_a_bad_request() {
     let state = test_server_state();
-    let (status, _) = parts(
-        git_worktrees(State(state), auth(), Query(GitRepoScope::default())).await,
-    )
-    .await;
+    let (status, _) =
+        parts(git_worktrees(State(state), auth(), Query(GitRepoScope::default())).await).await;
     assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
 }

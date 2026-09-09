@@ -1,5 +1,6 @@
 @import './nerd-font.css';
 @import './add-project.css';
+@import './add-project-list.css';
 @import './autonomy.css';
 @import './base-1.css';
 @import './base-2.css';
@@ -28,6 +29,7 @@
 @import './diff-review-1.css';
 @import './diff-review-2.css';
 @import './browser-panel.css';
+@import './browser-panel-setup.css';
 @import './git-1.css';
 @import './git-2.css';
 @import './git-3.css';

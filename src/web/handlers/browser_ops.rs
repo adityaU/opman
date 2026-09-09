@@ -8,7 +8,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::browser::{MouseKind, Opened, RenderMode, SnapshotOptions};
+use crate::browser::{MouseKind, Opened, RenderMode, SnapshotOptions, Viewport};
 
 use super::super::error::{WebError, WebResult};
 use super::super::types::ServerState;
@@ -108,17 +108,27 @@ pub struct ResizeRequest {
     pub pane_id: String,
     pub width: u32,
     pub height: u32,
+    /// The pane's `devicePixelRatio`. Absent from an older client, which then gets the
+    /// one-to-one capture it used to get.
+    #[serde(default)]
+    pub scale: Option<f64>,
 }
 
 /// CDP failures are the caller's problem (a bad ref, an unreachable host), not a server
 /// fault — surface the message rather than a bare 500.
 fn bad_request(error: anyhow::Error) -> WebError {
+    if let Some(unavailable) = error.downcast_ref::<crate::browser::BrowserUnavailable>() {
+        return WebError::BrowserUnavailable(unavailable.install_guide());
+    }
     WebError::BadRequest(error.to_string())
 }
 
 /// Resolve an already-open pane. Acting on a pane that was never opened is a mistake
 /// worth reporting, not a reason to silently spawn a tab.
-async fn require(state: &ServerState, pane_id: &str) -> WebResult<std::sync::Arc<crate::browser::Pane>> {
+async fn require(
+    state: &ServerState,
+    pane_id: &str,
+) -> WebResult<std::sync::Arc<crate::browser::Pane>> {
     state
         .browser
         .get(pane_id)
@@ -238,15 +248,15 @@ pub async fn read_text(
     max_chars: Option<usize>,
 ) -> WebResult<Value> {
     let pane = require(state, pane_id).await?;
-    let text = pane
-        .tab()
-        .read_text(max_chars)
-        .await
-        .map_err(bad_request)?;
+    let text = pane.tab().read_text(max_chars).await.map_err(bad_request)?;
     serde_json::to_value(text).map_err(|e| WebError::Internal(e.to_string()))
 }
 
-pub async fn screenshot(state: &ServerState, pane_id: &str, quality: Option<u8>) -> WebResult<Value> {
+pub async fn screenshot(
+    state: &ServerState,
+    pane_id: &str,
+    quality: Option<u8>,
+) -> WebResult<Value> {
     let pane = require(state, pane_id).await?;
     let data = pane
         .tab()
@@ -322,11 +332,11 @@ pub async fn set_mode(state: &ServerState, request: &ModeRequest) -> WebResult<V
 
 pub async fn resize(state: &ServerState, request: &ResizeRequest) -> WebResult<Value> {
     let pane = require(state, &request.pane_id).await?;
-    pane.tab()
-        .resize(request.width.clamp(200, 3840), request.height.clamp(200, 2160))
-        .await
-        .map_err(bad_request)?;
-    Ok(json!({ "ok": true }))
+    let viewport = Viewport::new(request.width, request.height, request.scale);
+    pane.tab().resize(viewport).await.map_err(bad_request)?;
+    // The applied scale, which the pane needs: a click on the frame is in device pixels
+    // and the page expects CSS pixels, and the two only agree at one-to-one.
+    Ok(json!({ "ok": true, "scale": viewport.scale() }))
 }
 
 pub async fn close(state: &ServerState, pane_id: &str) -> WebResult<Value> {

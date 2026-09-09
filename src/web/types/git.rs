@@ -126,7 +126,6 @@ pub struct GitShowFile {
     pub status: String,
 }
 
-
 /// Query params for `GET /api/git/range-diff?base=<branch>&limit=<n>&repo=...`.
 #[derive(Deserialize)]
 pub struct GitRangeDiffQuery {
@@ -203,7 +202,6 @@ pub struct GitRepoScope {
     #[serde(default)]
     pub repo: String,
 }
-
 
 #[cfg(test)]
 #[path = "git_tests.rs"]

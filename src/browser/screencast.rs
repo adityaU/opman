@@ -5,7 +5,7 @@
 //! nothing, which is the point — encoding JPEG for a hidden tab is pure waste, and a
 //! workspace can hold many panes.
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use serde_json::{json, Value};
@@ -13,14 +13,20 @@ use tokio::sync::{Mutex, Notify};
 
 use super::cdp::Cdp;
 
-/// Frames are JPEG at this quality — legible text at a fraction of PNG's bytes.
-const QUALITY: u32 = 60;
-/// Cap the encoded width; the pane scales to fit anyway.
-const MAX_WIDTH: u32 = 1280;
+/// Frames are JPEG at this quality — legible text at a fraction of PNG's bytes. High
+/// enough that small text does not pick up ringing, which on a page is most of the image.
+const QUALITY: u32 = 80;
+/// Frame width before any pane has said how wide it wants one — the default viewport, at
+/// one device pixel per CSS pixel.
+const DEFAULT_WIDTH: u32 = 1280;
 
 #[derive(Default)]
 struct State {
     viewers: AtomicUsize,
+    /// How wide frames should be copied, in pixels. Written by `Tab::resize`, read when
+    /// the stream starts — this is the whole of the sharpness control, because the frame
+    /// is a downscale of a compositor surface that is always at the browser's own scale.
+    capture_width: AtomicU32,
     /// Base64 JPEG. `Arc<str>` so handing a frame to a stream never copies it.
     frame: Mutex<Option<Arc<str>>>,
     /// Bumped per frame; a stream compares against its own last seen value instead of
@@ -46,8 +52,26 @@ impl Screencast {
         Self {
             cdp,
             session_id,
-            state: Arc::new(State::default()),
+            state: Arc::new(State {
+                capture_width: AtomicU32::new(DEFAULT_WIDTH),
+                ..State::default()
+            }),
         }
+    }
+
+    /// Set the width frames are copied at. Restarts a running stream, because
+    /// `Page.startScreencast` takes the size once and never revisits it — and a pane that
+    /// just changed size is already repainting, so the seam costs nothing visible.
+    pub(super) async fn set_capture_width(&self, width: u32) {
+        let previous = self.state.capture_width.swap(width, Ordering::AcqRel);
+        if previous == width || self.state.viewers.load(Ordering::Acquire) == 0 {
+            return;
+        }
+        let _ = self
+            .cdp
+            .call_on(&self.session_id, "Page.stopScreencast", json!({}))
+            .await;
+        self.start().await;
     }
 
     /// Attach. Starts the stream if this is the first viewer.
@@ -82,7 +106,12 @@ impl Screencast {
             .call_on(
                 &self.session_id,
                 "Page.startScreencast",
-                json!({ "format": "jpeg", "quality": QUALITY, "maxWidth": MAX_WIDTH, "everyNthFrame": 1 }),
+                json!({
+                    "format": "jpeg",
+                    "quality": QUALITY,
+                    "maxWidth": self.state.capture_width.load(Ordering::Acquire),
+                    "everyNthFrame": 1,
+                }),
             )
             .await;
         if started.is_err() {

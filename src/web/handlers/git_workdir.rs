@@ -180,7 +180,6 @@ pub async fn git_discard(
     Ok(StatusCode::OK)
 }
 
-
 #[cfg(test)]
 #[path = "git_workdir_tests.rs"]
 pub(crate) mod git_workdir_tests;

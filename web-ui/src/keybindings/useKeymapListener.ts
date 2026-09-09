@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { browserOwnsKey } from "../browser-panel/capture";
 import { editorOwnsKey } from "../code-editor/capture";
 import { stepFromEvent } from "./chord";
 import { useKeymapContext } from "./KeymapContext";
@@ -109,6 +110,10 @@ export function useKeymapListener(): KeymapListenerState {
       // listener runs in the capture phase, so standing down here is the only
       // way CodeMirror ever sees them.
       if (editorOwnsKey(event.target, event.key)) return;
+      // A focused browser pane owns the keyboard outright — a page must be able
+      // to receive `/`, `g` and Cmd+F the way it would in a real window. The
+      // surface hands the keyboard back on a double Escape.
+      if (browserOwnsKey(event.target)) return;
       const { keymap: map, mode: current, context: ctx, runCommand: run } = latest.current;
       const steps = latest.current.pending?.steps ?? [];
 

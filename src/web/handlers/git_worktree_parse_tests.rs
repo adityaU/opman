@@ -1,7 +1,7 @@
 //! Porcelain parsing and path containment, driven by fixtures rather than a repository.
 
-use super::git_worktree_tests::*;
 use super::super::git_worktree::*;
+use super::git_worktree_tests::*;
 use std::path::Path;
 use tempfile::TempDir;
 

@@ -56,7 +56,9 @@ fn provider_payload_publishes_exactly_the_modes_the_engine_accepts() {
     // The picker renders whatever is here, so a mode listed and not accepted — or accepted
     // and not listed — is a control that lies about what the engine will do.
     let v = provider_payload(&default_models());
-    let modes = v["permissionModes"].as_array().expect("modes are published");
+    let modes = v["permissionModes"]
+        .as_array()
+        .expect("modes are published");
     assert_eq!(modes.len(), PERMISSION_MODES.len());
     for mode in modes {
         let value = mode["value"].as_str().unwrap_or_default();

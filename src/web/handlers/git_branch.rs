@@ -13,7 +13,7 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::WebResult;
 use super::super::types::*;
-use crate::web::git::{exec, scope, GitFailure, RefName, Reach};
+use crate::web::git::{exec, scope, GitFailure, Reach, RefName};
 
 #[path = "git_branch_list.rs"]
 mod git_branch_list;

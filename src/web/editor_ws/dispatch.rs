@@ -28,11 +28,21 @@ pub async fn run(state: &ServerState, op: Op, payload: Value) -> Result<Value, S
     let content = query.content.as_deref();
 
     let value = match op {
-        Op::Hover => crate::lsp::api::hover(&state.lsp, &file, &project_dir, line, col, content).await,
-        Op::Diagnostics => crate::lsp::api::diagnostics(&state.lsp, &file, &project_dir, content).await,
+        Op::Hover => {
+            crate::lsp::api::hover(&state.lsp, &file, &project_dir, line, col, content).await
+        }
+        Op::Diagnostics => {
+            crate::lsp::api::diagnostics(&state.lsp, &file, &project_dir, content).await
+        }
         Op::Completion => {
             crate::lsp::api::completion(
-                &state.lsp, &file, &project_dir, line, col, content, query.trigger.as_deref(),
+                &state.lsp,
+                &file,
+                &project_dir,
+                line,
+                col,
+                content,
+                query.trigger.as_deref(),
             )
             .await
         }
@@ -42,22 +52,42 @@ pub async fn run(state: &ServerState, op: Op, payload: Value) -> Result<Value, S
                 .as_deref()
                 .and_then(crate::lsp::api_edit::Goto::parse)
                 .unwrap_or(crate::lsp::api_edit::Goto::Definition);
-            crate::lsp::api_edit::goto(&state.lsp, kind, &file, &project_dir, line, col, content).await
+            crate::lsp::api_edit::goto(&state.lsp, kind, &file, &project_dir, line, col, content)
+                .await
         }
         Op::References => {
-            crate::lsp::api_refactor::references(&state.lsp, &file, &project_dir, line, col, content).await
+            crate::lsp::api_refactor::references(
+                &state.lsp,
+                &file,
+                &project_dir,
+                line,
+                col,
+                content,
+            )
+            .await
         }
         Op::Rename => {
             crate::lsp::api_refactor::rename(
-                &state.lsp, &file, &project_dir, line, col,
-                query.new_name.as_deref().unwrap_or_default(), content,
+                &state.lsp,
+                &file,
+                &project_dir,
+                line,
+                col,
+                query.new_name.as_deref().unwrap_or_default(),
+                content,
             )
             .await
         }
         Op::Format => crate::lsp::api_edit::format(&state.lsp, &file, &project_dir, content).await,
         // The file-manager ops are answered by `files`, and `cancel` never
         // reaches here — the session takes it before dispatch.
-        Op::Browse | Op::Read | Op::Write | Op::CreateFile | Op::CreateDir | Op::Delete | Op::Move => {
+        Op::Browse
+        | Op::Read
+        | Op::Write
+        | Op::CreateFile
+        | Op::CreateDir
+        | Op::Delete
+        | Op::Move => {
             return Err(format!("{op:?} is not a language-server op"));
         }
         Op::Cancel => return Ok(json!(null)),

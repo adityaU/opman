@@ -357,6 +357,7 @@ export function ChatLayout() {
     clearPermission, clearQuestion,
     closeMobileSidebarSilent: mobile.closeSidebarSilent,
     setUrlSession,
+    selectProject,
     blockSessionAdoption: sse.blockSessionAdoption,
     runCommandId: runCommand,
     getMessages,
@@ -687,6 +688,7 @@ export function ChatLayout() {
         handleQuestionDismiss={handlers.handleQuestionDismiss}
         workspace={workspaceProps}
         handleSelectSession={handleSelectSessionOrTarget} handleNewSession={handleNewSessionOrTarget}
+        onProjectChanged={refreshState}
         handleSwitchProject={handlers.handleSwitchProject} handleAgentChange={handlers.handleAgentChange}
         handleRunnerChange={handleRunnerChange}
         handleEffortChange={sessionEngine.setEffort}
@@ -711,6 +713,7 @@ export function ChatLayout() {
         currentRunner={currentRunner}
         activeProjectIndex={activeProjectIndex}
         onCommand={handlers.handleCommand} onNewSession={handleNewSessionOrTarget}
+        onProjectChanged={refreshState}
         onSelectSession={handlers.handleSelectSession} onSend={handlers.handleSend}
         onModelSelected={handlers.handleModelSelected} onAgentChange={handlers.handleAgentChange}
         onContextSubmit={callbacks.handleContextSubmit}

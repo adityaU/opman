@@ -49,7 +49,9 @@ pub async fn resolve(state: &ServerState, repo: &str) -> WebResult<RepoScope> {
         return Err(WebError::BadRequest("Path traversal not allowed".into()));
     }
     if !target.join(".git").exists() {
-        return Err(WebError::BadRequest(format!("Not a git repository: {repo}")));
+        return Err(WebError::BadRequest(format!(
+            "Not a git repository: {repo}"
+        )));
     }
 
     Ok(RepoScope { dir: target })

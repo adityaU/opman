@@ -2,8 +2,8 @@ use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 
-use super::super::handlers;
 use super::super::editor_ws;
+use super::super::handlers;
 use super::super::mcp_ws;
 use super::super::sse;
 
@@ -33,6 +33,7 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         // Directory browsing (for add-project picker)
         .route("/dirs/home", get(handlers::home_dir))
         .route("/dirs/browse", post(handlers::browse_dirs))
+        .route("/dirs/create", post(handlers::create_project_dir))
         .route("/session/select", post(handlers::select_session))
         .route("/session/new", post(handlers::new_session))
         .route("/panel/toggle", post(handlers::toggle_panel))
@@ -65,7 +66,10 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/browser/resize", post(handlers::browser_resize))
         .route("/browser/close", post(handlers::browser_close))
         .route("/browser/list", get(handlers::browser_list))
-        .route("/browser/stream", get(super::super::browser_sse::browser_stream))
+        .route(
+            "/browser/stream",
+            get(super::super::browser_sse::browser_stream),
+        )
         // App events SSE
         .route("/events", get(sse::events_stream))
         // ── Context Window ───────────────────────────────────────────

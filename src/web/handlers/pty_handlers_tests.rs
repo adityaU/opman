@@ -47,7 +47,8 @@ fn spawn_req(kind: PtyKind) -> SpawnPtyRequest {
 #[tokio::test]
 async fn spawn_no_project_400() {
     let state = test_server_state();
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Shell))).await).await;
+    let st =
+        status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Shell))).await).await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -55,7 +56,8 @@ async fn spawn_no_project_400() {
 async fn spawn_shell_manager_down_500() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Shell))).await).await;
+    let st =
+        status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Shell))).await).await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
@@ -63,7 +65,8 @@ async fn spawn_shell_manager_down_500() {
 async fn spawn_neovim_manager_down_500() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Neovim))).await).await;
+    let st =
+        status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Neovim))).await).await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
@@ -71,7 +74,8 @@ async fn spawn_neovim_manager_down_500() {
 async fn spawn_git_manager_down_500() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Git))).await).await;
+    let st =
+        status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Git))).await).await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
@@ -79,7 +83,15 @@ async fn spawn_git_manager_down_500() {
 async fn spawn_opencode_manager_down_500() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
-    let st = status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::Opencode))).await).await;
+    let st = status(
+        spawn_pty(
+            State(state),
+            auth(),
+            axum::Json(spawn_req(PtyKind::Opencode)),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::INTERNAL_SERVER_ERROR);
 }
 
@@ -88,8 +100,15 @@ async fn spawn_claude_attach_no_session_400() {
     let tmp = tempfile::TempDir::new().unwrap();
     let state = state_dir(tmp.path());
     // no session_id and no active session → "No session to attach"
-    let st =
-        status(spawn_pty(State(state), auth(), axum::Json(spawn_req(PtyKind::ClaudeAttach))).await).await;
+    let st = status(
+        spawn_pty(
+            State(state),
+            auth(),
+            axum::Json(spawn_req(PtyKind::ClaudeAttach)),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -210,76 +229,6 @@ async fn pty_resize_not_found_400() {
     assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
 }
 
-// ── pty_kill ───────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn pty_kill_not_found_400() {
-    let state = test_server_state();
-    let st = status(
-        pty_kill(
-            State(state),
-            auth(),
-            axum::Json(PtyKillRequest { id: "x".into() }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-// ── pty_rename ─────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn pty_rename_not_found_400() {
-    let state = test_server_state();
-    let st = status(
-        pty_rename(
-            State(state),
-            auth(),
-            axum::Json(PtyRenameRequest {
-                id: "x".into(),
-                label: "Build".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-/// A blank label would leave an unclickable row in the picker, so it is refused
-/// before the manager is asked.
-#[tokio::test]
-async fn pty_rename_blank_label_400() {
-    let state = test_server_state();
-    let st = status(
-        pty_rename(
-            State(state),
-            auth(),
-            axum::Json(PtyRenameRequest {
-                id: "x".into(),
-                label: "   ".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-// ── pty_sessions ───────────────────────────────────────────────────
-
-#[tokio::test]
-async fn pty_sessions_empty_ok() {
-    let state = test_server_state();
-    let resp = pty_sessions(State(state), auth())
-        .await
-        .unwrap()
-        .into_response();
-    assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(v.as_array().expect("an array of sessions").len(), 0);
-}
+#[cfg(test)]
+#[path = "pty_lifecycle_tests.rs"]
+mod pty_lifecycle_tests;

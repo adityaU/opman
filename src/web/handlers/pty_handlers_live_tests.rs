@@ -102,7 +102,10 @@ async fn spawn_shell_success_then_write_resize_list_kill() {
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
     let listed = sessions(&state).await;
-    let entry = listed.iter().find(|s| s["id"] == "live-1").expect("still there");
+    let entry = listed
+        .iter()
+        .find(|s| s["id"] == "live-1")
+        .expect("still there");
     assert_eq!(entry["label"], "Build", "trimmed");
 
     // write valid base64 to the live PTY → OK (found).

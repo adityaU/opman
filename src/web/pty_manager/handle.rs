@@ -48,11 +48,7 @@ impl WebPtyHandle {
     /// Write bytes to a web PTY.
     pub async fn write(&self, id: &str, data: Vec<u8>) -> bool {
         let id = id.to_owned();
-        ask!(
-            self,
-            |reply| PtyCmd::Write { id, data, reply },
-            false
-        )
+        ask!(self, |reply| PtyCmd::Write { id, data, reply }, false)
     }
 
     /// Resize a web PTY.

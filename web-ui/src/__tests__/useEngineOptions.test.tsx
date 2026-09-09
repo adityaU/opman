@@ -120,6 +120,18 @@ describe("useEngineOptions", () => {
     await waitFor(() => expect(onPermission).not.toHaveBeenCalled());
   });
 
+  it("leaves an empty agent selection empty", async () => {
+    // No agent is not a broken agent: the send omits the field and the runner uses its
+    // own default. Filling it made opening a session look like a user choice, which is
+    // how `/agent default` ended up in transcripts nobody had typed into.
+    const onAgent = vi.fn();
+    renderHook(() =>
+      useEngineOptions("claude", { providerID: "anthropic", modelID: "claude-haiku-4-5" }, "", vi.fn(), onAgent),
+    );
+
+    await waitFor(() => expect(onAgent).not.toHaveBeenCalled());
+  });
+
   it("fills an empty model selection from the runner's default", async () => {
     const onModel = vi.fn();
     renderHook(() => useEngineOptions("claude", null, "build", onModel, vi.fn()));

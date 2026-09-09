@@ -101,11 +101,13 @@ pub fn provider_payload(models: &[ModelInfo]) -> Value {
 
     let modes: Vec<Value> = PERMISSION_MODES
         .iter()
-        .map(|(value, label, description)| json!({
-            "value": value,
-            "label": label,
-            "description": description,
-        }))
+        .map(|(value, label, description)| {
+            json!({
+                "value": value,
+                "label": label,
+                "description": description,
+            })
+        })
         .collect();
 
     json!({

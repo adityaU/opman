@@ -2,24 +2,27 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useEscape } from "./hooks/useKeyboard";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import type { DirEntry } from "./api";
-import { addProject, browseDirs, getHomeDir } from "./api";
+import { addProject, browseDirs, createProjectDir, getHomeDir } from "./api";
+import { DirectoryEntryList } from "./DirectoryEntryList";
+import { NewFolderForm } from "./NewFolderForm";
 import {
   Search,
   X,
-  Folder,
   FolderOpen,
   ArrowLeft,
   Home,
-  Star,
+  FolderPlus,
   Plus,
 } from "lucide-react";
 
 interface Props {
   onClose: () => void;
+  onProjectAdded?: () => Promise<void> | void;
 }
 
-export function AddProjectModal({ onClose }: Props) {
+export function AddProjectModal({ onClose, onProjectAdded }: Props) {
   const [loading, setLoading] = useState(false);
+  const [folderLoading, setFolderLoading] = useState(false);
   const [error, setError] = useState("");
   const [browsePath, setBrowsePath] = useState("");
   const [browseParent, setBrowseParent] = useState("");
@@ -27,6 +30,8 @@ export function AddProjectModal({ onClose }: Props) {
   const [filter, setFilter] = useState("");
   const [browseLoading, setBrowseLoading] = useState(false);
   const [selected, setSelected] = useState(0);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   const filterInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -69,8 +74,10 @@ export function AddProjectModal({ onClose }: Props) {
       setBrowsePath(res.path);
       setBrowseParent(res.parent);
       setBrowseEntries(res.entries);
+      return res;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to browse directory");
+      return null;
     } finally {
       setBrowseLoading(false);
     }
@@ -90,13 +97,14 @@ export function AddProjectModal({ onClose }: Props) {
     setError("");
     try {
       await addProject(browsePath);
+      await onProjectAdded?.();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add project");
     } finally {
       setLoading(false);
     }
-  }, [browsePath, loading, onClose]);
+  }, [browsePath, loading, onClose, onProjectAdded]);
 
   // Add a specific directory entry as a project
   const handleAddEntry = useCallback(async (entry: DirEntry) => {
@@ -109,13 +117,35 @@ export function AddProjectModal({ onClose }: Props) {
     setError("");
     try {
       await addProject(entry.path);
+      await onProjectAdded?.();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add project");
     } finally {
       setLoading(false);
     }
-  }, [loading, onClose]);
+  }, [loading, onClose, onProjectAdded]);
+
+  const handleCreateFolder = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!browsePath || folderLoading) return;
+    setFolderLoading(true);
+    setError("");
+    try {
+      const created = await createProjectDir(browsePath, newFolderName);
+      const refreshed = await browseInto(browsePath);
+      if (refreshed) {
+        const index = refreshed.entries.findIndex((entry) => entry.path === created.path);
+        setSelected(index >= 0 ? index : 0);
+      }
+      setNewFolderName("");
+      setNewFolderOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create folder");
+    } finally {
+      setFolderLoading(false);
+    }
+  }, [browseInto, browsePath, folderLoading, newFolderName]);
 
   // Scroll selected entry into view
   useEffect(() => {
@@ -188,13 +218,32 @@ export function AddProjectModal({ onClose }: Props) {
             {browsePath}
           </div>
           <button
+            className="add-project-new-folder"
+            onClick={() => { setNewFolderOpen(true); setError(""); }}
+            disabled={folderLoading || !browsePath}
+            title="Create a folder here"
+          >
+            <FolderPlus size={13} />
+            New Folder
+          </button>
+          <button
             className="add-project-add-current"
             onClick={handleAddCurrentDir}
-            disabled={loading || !browsePath}
+            disabled={loading || folderLoading || !browsePath}
           >
             {loading ? "Adding..." : "Add This Directory"}
           </button>
         </div>
+
+        {newFolderOpen && (
+          <NewFolderForm
+            name={newFolderName}
+            loading={folderLoading}
+            onNameChange={setNewFolderName}
+            onSubmit={handleCreateFolder}
+            onCancel={() => setNewFolderOpen(false)}
+          />
+        )}
 
         {/* Search / filter */}
         <div className="add-project-search">
@@ -215,43 +264,17 @@ export function AddProjectModal({ onClose }: Props) {
         </div>
 
         {/* Directory listing (body) */}
-        <div className="add-project-body" ref={listRef}>
-          {browseLoading ? (
-            <div className="add-project-empty">Loading...</div>
-          ) : filteredEntries.length === 0 ? (
-            <div className="add-project-empty">
-              {filter ? "No matching directories" : "No subdirectories"}
-            </div>
-          ) : (
-            filteredEntries.map((entry, i) => (
-              <div
-                key={entry.path}
-                className={`add-project-entry${i === selected ? " add-project-entry-selected" : ""}${entry.is_project ? " add-project-entry-existing" : ""}`}
-                onClick={() => browseInto(entry.path)}
-                onDoubleClick={() => handleAddEntry(entry)}
-                onMouseEnter={() => setSelected(i)}
-                title={entry.is_project ? `${entry.path} (already added)` : entry.path}
-              >
-                <Folder size={14} className="add-project-entry-icon" />
-                <span className="add-project-entry-name">{entry.name}</span>
-                {entry.is_project && (
-                  <Star size={11} className="add-project-entry-star" />
-                )}
-                <button
-                  className="add-project-entry-add"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddEntry(entry);
-                  }}
-                  title={entry.is_project ? "Already added" : "Add as project"}
-                  disabled={entry.is_project || loading}
-                >
-                  {entry.is_project ? <Star size={11} /> : <Plus size={13} />}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+        <DirectoryEntryList
+          entries={filteredEntries}
+          selected={selected}
+          loading={loading || folderLoading}
+          browseLoading={browseLoading}
+          filter={filter}
+          listRef={listRef}
+          onBrowse={(path) => { void browseInto(path); }}
+          onAdd={(entry) => { void handleAddEntry(entry); }}
+          onSelect={setSelected}
+        />
 
         {/* Error display */}
         {error && (

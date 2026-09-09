@@ -67,6 +67,23 @@ pub fn pid_alive(_pid: u32) -> bool {
     true
 }
 
+/// Whether the browser holding a profile is a headless one.
+///
+/// Only ever true of a leftover from before panes ran headed — but adopting it would keep
+/// exactly the blocks that headed browsing exists to avoid, and the user would see no
+/// change at all after the upgrade.
+#[cfg(target_os = "linux")]
+pub fn is_headless(pid: u32) -> bool {
+    proc_entry(pid, "cmdline").is_some_and(|cmdline| cmdline.contains("--headless"))
+}
+
+/// Without `/proc` there is no command line to read, and evicting a browser on a guess is
+/// worse than adopting one that turns out to be headless.
+#[cfg(not(target_os = "linux"))]
+pub fn is_headless(_pid: u32) -> bool {
+    false
+}
+
 /// The pid inside `SingletonLock`, whose target is `<hostname>-<pid>`. The hostname can
 /// itself contain dashes, so the pid is what follows the *last* one.
 fn lock_holder(dir: &Path) -> Option<u32> {

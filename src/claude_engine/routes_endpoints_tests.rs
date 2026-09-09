@@ -10,6 +10,18 @@ fn engine() -> Engine {
     ))
 }
 
+fn no_model_probe() -> Option<Vec<claude_cli::ModelInfo>> {
+    None
+}
+
+fn engine_without_model_probe() -> Engine {
+    Arc::new(ClaudeEngine::new_with_model_probe(
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+        no_model_probe,
+    ))
+}
+
 /// Local mirror of `crate::web::test_support::send_json` for the engine router.
 async fn send(
     router: Router,
@@ -350,7 +362,13 @@ async fn info_and_health() {
 
 #[tokio::test]
 async fn provider_returns_default_models() {
-    let (st, body) = send(router(engine()), "GET", "/provider", None).await;
+    let (st, body) = send(
+        router(engine_without_model_probe()),
+        "GET",
+        "/provider",
+        None,
+    )
+    .await;
     assert_eq!(st, StatusCode::OK);
     let v = json_of(&body);
     assert_eq!(v["all"][0]["id"], "anthropic");

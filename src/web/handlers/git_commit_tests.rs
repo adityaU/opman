@@ -1,6 +1,8 @@
 //! Committing, amending and staging everything in one step.
 
-use super::super::git_handlers::git_handlers_tests::{call, commit_all, init_repo, run_git, state_for, write_file};
+use super::super::git_handlers::git_handlers_tests::{
+    call, commit_all, init_repo, run_git, state_for, write_file,
+};
 use axum::http::StatusCode;
 
 #[tokio::test]

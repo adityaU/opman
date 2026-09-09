@@ -143,4 +143,3 @@ async fn resolve_repo_dir_no_project() {
     let res = resolve_repo_dir(&state, "x").await;
     assert!(matches!(res, Err(WebError::BadRequest(_))));
 }
-

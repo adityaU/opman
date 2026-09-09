@@ -50,6 +50,10 @@ export function createHandleSwitchProject(deps: HandlerDeps) {
       if (newSid) {
         // URL is the single source of truth — triggers beginSessionSwitch + API calls
         deps.setUrlSession(newSid, index);
+      } else {
+        // An empty project has no session to identify it. Still move the UI's
+        // project selection, otherwise a later /session/new uses the old index.
+        deps.selectProject(index);
       }
       deps.setSelectedModel(null);
       deps.setSelectedAgent("");

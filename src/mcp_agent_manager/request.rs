@@ -71,7 +71,9 @@ impl Page {
         let size = |value: Option<u64>| value.and_then(|v| usize::try_from(v).ok());
         Self {
             offset: size(request.offset).unwrap_or(0),
-            limit: size(request.limit).unwrap_or(Self::DEFAULT).clamp(1, Self::MAX),
+            limit: size(request.limit)
+                .unwrap_or(Self::DEFAULT)
+                .clamp(1, Self::MAX),
         }
     }
 }

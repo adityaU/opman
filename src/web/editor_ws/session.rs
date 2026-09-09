@@ -109,7 +109,11 @@ async fn handle_cancel(in_flight: &Arc<Mutex<InFlight>>, outbound: &Outbound, re
         Some(id) => in_flight.lock().await.cancel(id),
         None => false,
     };
-    send(outbound, &Response::ok(request.id, serde_json::json!({ "cancelled": aborted }))).await;
+    send(
+        outbound,
+        &Response::ok(request.id, serde_json::json!({ "cancelled": aborted })),
+    )
+    .await;
 }
 
 fn spawn_request(

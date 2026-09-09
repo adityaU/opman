@@ -80,7 +80,10 @@ pub(crate) fn repo_with_clone() -> (TempDir, TempDir) {
     commit(origin.path(), "a.txt", "one\n");
     // Pushing into a non-bare checkout is refused; allow it explicitly where
     // a test wants a push to succeed.
-    run_git(origin.path(), &["config", "receive.denyCurrentBranch", "warn"]);
+    run_git(
+        origin.path(),
+        &["config", "receive.denyCurrentBranch", "warn"],
+    );
 
     let work = TempDir::new().expect("tempdir");
     let clone_dir = work.path().join("clone");
@@ -160,10 +163,19 @@ async fn status_counts_ahead_and_behind() {
 async fn status_parses_remotes_with_distinct_push_url() {
     let td = init_repo();
     commit(td.path(), "a.txt", "one\n");
-    run_git(td.path(), &["remote", "add", "origin", "/tmp/fetch-side.git"]);
     run_git(
         td.path(),
-        &["remote", "set-url", "--push", "origin", "/tmp/push-side.git"],
+        &["remote", "add", "origin", "/tmp/fetch-side.git"],
+    );
+    run_git(
+        td.path(),
+        &[
+            "remote",
+            "set-url",
+            "--push",
+            "origin",
+            "/tmp/push-side.git",
+        ],
     );
     run_git(td.path(), &["remote", "add", "mirror", "/tmp/mirror.git"]);
 

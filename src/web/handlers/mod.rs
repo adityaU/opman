@@ -16,6 +16,7 @@ mod browser_internal;
 mod browser_ops;
 mod common;
 mod context_handlers;
+mod directory_handlers;
 mod doc_handlers;
 mod doc_readers;
 mod doc_readers_docx;
@@ -75,14 +76,12 @@ pub use state_handlers::{
     switch_theme,
 };
 
+pub use directory_handlers::{browse_dirs, create_project_dir, home_dir};
 pub use project_handlers::{
-    add_project, browse_dirs, focus_panel, home_dir, new_session, remove_project, select_session,
-    switch_project, toggle_panel,
+    add_project, focus_panel, new_session, remove_project, select_session, switch_project,
+    toggle_panel,
 };
 
-pub use pty_handlers::{
-    pty_kill, pty_rename, pty_resize, pty_sessions, pty_write, spawn_pty,
-};
 pub use browser_handlers::{
     browser_back, browser_click, browser_close, browser_forward, browser_insert_text, browser_key,
     browser_list, browser_mode, browser_mouse, browser_navigate, browser_open, browser_reload,
@@ -90,6 +89,7 @@ pub use browser_handlers::{
     browser_type,
 };
 pub use browser_internal::internal_browser;
+pub use pty_handlers::{pty_kill, pty_rename, pty_resize, pty_sessions, pty_write, spawn_pty};
 
 pub use session_engine::set_session_engine;
 

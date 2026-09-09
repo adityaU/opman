@@ -1,7 +1,7 @@
 //! Push and pull, the two endpoints that can be rejected by a remote.
 
-use super::git_sync_tests::*;
 use super::super::git_sync::*;
+use super::git_sync_tests::*;
 use axum::extract::State;
 use axum::response::Json;
 

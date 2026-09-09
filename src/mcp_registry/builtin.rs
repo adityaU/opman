@@ -135,8 +135,8 @@ pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
             vec![Arg::lit("mcp-browser"), Arg::Dir],
             Vec::new(),
         )
-            .with_presence(Presence::LoopbackDescriptor)
-            .with_timeout(PROXY_TIMEOUT_SECS),
+        .with_presence(Presence::LoopbackDescriptor)
+        .with_timeout(PROXY_TIMEOUT_SECS),
     );
     specs.push(
         ServerSpec::stdio(

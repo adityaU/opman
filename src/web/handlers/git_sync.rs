@@ -36,7 +36,13 @@ async fn head_state(dir: &Path) -> WebResult<Head> {
     {
         return Ok(Head::Unborn);
     }
-    match run(dir, &["symbolic-ref", "--quiet", "--short", "HEAD"], Reach::Local).await? {
+    match run(
+        dir,
+        &["symbolic-ref", "--quiet", "--short", "HEAD"],
+        Reach::Local,
+    )
+    .await?
+    {
         Ok(output) => Ok(Head::Branch(output.trimmed().to_string())),
         Err(_) => {
             let short = run_lenient(dir, &["rev-parse", "--short", "HEAD"]).await?;
@@ -49,7 +55,12 @@ async fn head_state(dir: &Path) -> WebResult<Head> {
 async fn upstream_of(dir: &Path) -> WebResult<Option<String>> {
     let result = run(
         dir,
-        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
         Reach::Local,
     )
     .await?;
@@ -68,7 +79,12 @@ async fn divergence(dir: &Path, upstream: &str) -> WebResult<(u32, u32)> {
     let spec = format!("{upstream}...HEAD");
     let output = run_lenient(dir, &["rev-list", "--left-right", "--count", &spec]).await?;
     let mut parts = output.trimmed().split_whitespace();
-    let mut next = || parts.next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    let mut next = || {
+        parts
+            .next()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(0)
+    };
     let behind = next();
     let ahead = next();
     Ok((behind, ahead))

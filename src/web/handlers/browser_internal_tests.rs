@@ -94,8 +94,12 @@ fn an_unknown_operation_is_rejected_rather_than_ignored() {
 fn only_page_moving_operations_reveal_a_pane() {
     let moves = |body: serde_json::Value| parse(body).operation.navigates();
 
-    assert!(moves(serde_json::json!({ "op": "open", "url": "x.example" })));
-    assert!(moves(serde_json::json!({ "op": "navigate", "url": "x.example" })));
+    assert!(moves(
+        serde_json::json!({ "op": "open", "url": "x.example" })
+    ));
+    assert!(moves(
+        serde_json::json!({ "op": "navigate", "url": "x.example" })
+    ));
     assert!(moves(serde_json::json!({ "op": "click", "ref": "e1" })));
     assert!(moves(serde_json::json!({ "op": "back" })));
 

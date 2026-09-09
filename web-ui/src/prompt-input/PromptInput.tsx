@@ -74,7 +74,7 @@ export function PromptInput({
     if (queue.queued.length === 0) setShowQueue(false);
   }, [queue.queued.length]);
 
-  const { allAgents, agents, mentionableAgents } = useAgents(currentAgent, onAgentChange, currentRunner);
+  const { allAgents, agents, mentionableAgents } = useAgents(currentRunner);
   const attach = useAttachments();
   const atMention = useAtMention(allAgents, mentionableAgents, textareaRef, text, setText);
   const fileMention = useFileMention();

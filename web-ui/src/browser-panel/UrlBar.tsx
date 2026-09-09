@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Keyboard,
   Monitor,
   Power,
   RotateCw,
@@ -28,6 +29,8 @@ interface UrlBarProps {
   readonly onReload: () => void;
   readonly onToggleMode: () => void;
   readonly onEndSession: () => void;
+  /** True while the page has the keyboard and the app's chords are standing down. */
+  readonly capturing: boolean;
 }
 
 export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
@@ -40,6 +43,7 @@ export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
   onReload,
   onToggleMode,
   onEndSession,
+  capturing,
 }) {
   const [draft, setDraft] = useState(url);
   const [editing, setEditing] = useState(false);
@@ -95,6 +99,16 @@ export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
         }}
         onBlur={() => setEditing(false)}
       />
+
+      {capturing ? (
+        <span
+          className="bwp-capture"
+          title="This page has the keyboard. Press Escape twice to give it back to the app."
+        >
+          <Keyboard size={12} />
+          <span className="bwp-capture-hint">esc esc</span>
+        </span>
+      ) : null}
 
       <button
         type="button"

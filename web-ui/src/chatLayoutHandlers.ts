@@ -50,6 +50,8 @@ export interface HandlerDeps {
   closeMobileSidebarSilent: () => void;
   /** Navigate to a session via URL (single source of truth). */
   setUrlSession: (sessionId: string | null, projectIdx: number) => void;
+  /** Move to a project without selecting a session in it. */
+  selectProject: (projectIdx: number) => void;
   /** Temporarily block background SSE-driven session adoption for non-switch actions. */
   blockSessionAdoption: (ms?: number) => void;
   /**
@@ -172,12 +174,21 @@ export function createHandleAbort(deps: HandlerDeps) {
   };
 }
 
+/**
+ * Choose the agent the next prompt runs as.
+ *
+ * The choice is recorded with the runner that owns the session — `setSelectedAgent` is
+ * the per-session engine setter — and nothing is said *to* the conversation. It used to
+ * also send `/agent <id>` as a prompt, which was how the agent got set before sessions
+ * carried their own configuration. That prompt is a real turn: on a runner that does not
+ * claim the command it lands in the transcript as a message the user never wrote, and the
+ * composer's own repair (an empty agent filled from the runner's list) sent it on merely
+ * opening an old session.
+ */
 export function createHandleAgentChange(deps: HandlerDeps) {
   return async (agentId: string) => {
+    if (!agentId || agentId === deps.selectedAgent) return;
     deps.setSelectedAgent(agentId);
-    if (deps.activeSessionId) {
-      try { await executeCommand(deps.activeSessionId, "agent", agentId); } catch { /* best-effort */ }
-    }
     deps.addToast(`Agent switched to ${agentId}`, "success");
   };
 }

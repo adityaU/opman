@@ -79,7 +79,9 @@ async fn every_ref_taking_action_rejects_an_option_lookalike() {
         };
         let result = git_stash(
             axum::extract::State(state.clone()),
-            AuthUser { subject: "test".into() },
+            AuthUser {
+                subject: "test".into(),
+            },
             axum::response::Json(request),
         )
         .await;
@@ -106,7 +108,9 @@ async fn apply_keeps_the_entry_while_pop_removes_it() {
     };
     git_stash(
         axum::extract::State(state.clone()),
-        AuthUser { subject: "test".into() },
+        AuthUser {
+            subject: "test".into(),
+        },
         axum::response::Json(apply),
     )
     .await
@@ -127,7 +131,9 @@ async fn apply_keeps_the_entry_while_pop_removes_it() {
     };
     git_stash(
         axum::extract::State(state),
-        AuthUser { subject: "test".into() },
+        AuthUser {
+            subject: "test".into(),
+        },
         axum::response::Json(pop),
     )
     .await
@@ -153,7 +159,9 @@ async fn push_includes_untracked_files() {
     };
     git_stash(
         axum::extract::State(state),
-        AuthUser { subject: "test".into() },
+        AuthUser {
+            subject: "test".into(),
+        },
         axum::response::Json(request),
     )
     .await
@@ -168,8 +176,7 @@ async fn push_includes_untracked_files() {
 #[test]
 fn parse_entry_skips_blank_rows_and_splits_on_tabs() {
     assert!(parse_entry(0, "").is_none());
-    let entry = parse_entry(3, "stash@{3}\tWIP on main\t2 hours ago\tabc1234")
-        .expect("row parses");
+    let entry = parse_entry(3, "stash@{3}\tWIP on main\t2 hours ago\tabc1234").expect("row parses");
     assert_eq!(entry.index, 3);
     assert_eq!(entry.reference, "stash@{3}");
     assert_eq!(entry.message, "WIP on main");

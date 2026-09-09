@@ -581,7 +581,7 @@ async fn provider(State(engine): State<Engine>) -> Json<Value> {
     // background fetch hasn't completed yet or failed.
     let models = if let Some(models) = engine.cached_models_any() {
         models
-    } else if let Some(models) = tokio::task::spawn_blocking(claude_cli::fetch_models_via_cli)
+    } else if let Some(models) = tokio::task::spawn_blocking(engine.model_probe())
         .await
         .ok()
         .flatten()

@@ -85,4 +85,12 @@ describe("EngineChip keeps runner and model consistent", () => {
     const { onAgentChange } = renderChip({ currentAgent: "codex-default" });
     return waitFor(() => expect(onAgentChange).toHaveBeenCalledWith("build"));
   });
+
+  it("shows the runner's default agent for an empty selection, and reports no change", async () => {
+    // Opening an old session starts with no agent. Naming one is the chip's job;
+    // announcing one the user never picked is not.
+    const { onAgentChange } = renderChip({ currentAgent: "", agents: [] });
+    await waitFor(() => expect(screen.getByText("Build")).toBeTruthy());
+    expect(onAgentChange).not.toHaveBeenCalled();
+  });
 });

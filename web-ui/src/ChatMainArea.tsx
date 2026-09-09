@@ -93,6 +93,7 @@ export interface ChatMainAreaProps {
   handlePromptContentChange: (hasContent: boolean) => void;
   loadOlderMessages: () => Promise<boolean>;
   openAddProject: () => void;
+  onProjectChanged: () => Promise<void>;
   openModelPicker: () => void;
   openAgentPicker: () => void;
   openMemory: () => void;
@@ -154,6 +155,7 @@ export const ChatMainArea: React.FC<ChatMainAreaProps> = React.memo(function Cha
     onNewSession: p.handleNewSession,
     onSwitchProject: p.handleSwitchProject,
     onOpenAddProject: p.openAddProject,
+    onProjectChanged: p.onProjectChanged,
     isMobileOpen: p.mobileSidebarOpen,
     onClose: p.closeMobileSidebar,
     isKanbanView: p.isKanbanView,

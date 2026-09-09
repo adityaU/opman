@@ -17,7 +17,10 @@ fn a_worktree_omits_the_fields_it_has_no_answer_for() {
     .expect("serialises");
 
     assert!(json.get("relative").is_none());
-    assert!(json.get("branch").is_none(), "a detached worktree has no branch");
+    assert!(
+        json.get("branch").is_none(),
+        "a detached worktree has no branch"
+    );
     assert!(json.get("prunable").is_none());
     assert_eq!(json["locked"], false);
 }

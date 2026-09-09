@@ -100,8 +100,24 @@ export function browserSetMode(paneId: string, mode: BrowserMode): Promise<Brows
   return apiPost<BrowserPage>("/browser/mode", { pane_id: paneId, mode });
 }
 
-export function browserResize(paneId: string, width: number, height: number): Promise<void> {
-  return apiPost("/browser/resize", { pane_id: paneId, width, height });
+/**
+ * Match the page's viewport to the pane, and capture at this display's pixel
+ * density. The server clamps the ratio it will honour and answers with the one
+ * it applied, which is what the surface needs to place a click: frames arrive in
+ * device pixels and the page is driven in CSS pixels.
+ */
+export function browserResize(
+  paneId: string,
+  width: number,
+  height: number,
+  scale: number,
+): Promise<{ readonly scale: number }> {
+  return apiPost<{ scale: number }>("/browser/resize", {
+    pane_id: paneId,
+    width,
+    height,
+    scale,
+  });
 }
 
 export function browserClose(paneId: string): Promise<void> {

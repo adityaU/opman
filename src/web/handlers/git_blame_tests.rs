@@ -1,7 +1,7 @@
 //! Blame parsing, including the per-block metadata carry-forward.
 
-use super::git_refs_tests::*;
 use super::super::git_refs::{git_blame, iso_date, parse_tz};
+use super::git_refs_tests::*;
 use axum::extract::{Query, State};
 
 #[tokio::test]

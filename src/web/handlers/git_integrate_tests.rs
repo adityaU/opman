@@ -121,7 +121,11 @@ pub(crate) async fn merge(state: &ServerState, branch: &str, no_ff: bool) -> ser
     body_of(response).await
 }
 
-pub(crate) async fn reset(state: &ServerState, target: &str, mode: GitResetMode) -> serde_json::Value {
+pub(crate) async fn reset(
+    state: &ServerState,
+    target: &str,
+    mode: GitResetMode,
+) -> serde_json::Value {
     let req = GitResetRequest {
         target: target.to_string(),
         mode,
@@ -206,7 +210,12 @@ async fn resolving_then_continuing_lands_a_merge_commit() {
     assert_eq!(done["ok"], true, "{done}");
 
     // Two parents means git recorded a real merge rather than a plain commit.
-    assert_eq!(git_out(dir, &["rev-list", "--parents", "-n", "1", "HEAD"]).split(' ').count(), 3);
+    assert_eq!(
+        git_out(dir, &["rev-list", "--parents", "-n", "1", "HEAD"])
+            .split(' ')
+            .count(),
+        3
+    );
     assert!(status_of(&state, "").await.get("kind").is_none());
 }
 

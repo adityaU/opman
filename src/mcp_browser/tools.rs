@@ -155,8 +155,14 @@ pub(super) async fn dispatch_tool(
         return "The browser API is unavailable — the opman web server is not running.".into();
     };
     let params = params.unwrap_or_else(|| json!({}));
-    let name = params.get("name").and_then(Value::as_str).unwrap_or_default();
-    let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
     let Some(mut operation) = to_operation(name, &args) else {
         return format!("Unknown tool `{name}`.");
@@ -256,7 +262,12 @@ fn render(name: &str, value: &Value) -> String {
         } else {
             ""
         };
-        return format!("{}\n{}\n\n{}{suffix}", field("title"), field("url"), field("text"));
+        return format!(
+            "{}\n{}\n\n{}{suffix}",
+            field("title"),
+            field("url"),
+            field("text")
+        );
     }
 
     let outline = field("outline");
@@ -272,11 +283,7 @@ fn render(name: &str, value: &Value) -> String {
     } else {
         ""
     };
-    format!(
-        "{}\n{}\n\n{outline}{note}",
-        field("title"),
-        field("url")
-    )
+    format!("{}\n{}\n\n{outline}{note}", field("title"), field("url"))
 }
 
 #[cfg(test)]

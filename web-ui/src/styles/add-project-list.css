@@ -1,0 +1,84 @@
+/* ── Add Project body / list ── */
+
+.add-project-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+    min-height: 120px
+}
+
+.add-project-empty {
+    padding: 28px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-muted)
+}
+
+.add-project-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: background .1s
+}
+
+.add-project-entry:hover,
+.add-project-entry-selected {
+    background: var(--color-hover)
+}
+
+.add-project-entry-existing {
+    opacity: .55
+}
+
+.add-project-entry-icon {
+    color: var(--color-muted);
+    flex-shrink: 0
+}
+
+.add-project-entry-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.add-project-entry-star {
+    color: var(--color-warning);
+    flex-shrink: 0
+}
+
+.add-project-entry-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s, background .1s, color .1s
+}
+
+.add-project-entry:hover .add-project-entry-add,
+.add-project-entry-selected .add-project-entry-add {
+    opacity: 1
+}
+
+.add-project-entry-add:hover:not(:disabled) {
+    color: var(--color-primary);
+    background: var(--theme-primary-soft)
+}
+
+.add-project-entry-add:disabled {
+    opacity: .3;
+    cursor: not-allowed
+}

@@ -4,8 +4,8 @@
 
 use super::super::activity::PtyActivity;
 use super::super::handle::WebPtyHandle;
-use super::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
 use super::super::kind::{PtyProgram, SpawnSpec};
+use super::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
 use super::*;
 
 /// A spec for one PTY. The tests only ever vary the id, program and project.
@@ -32,9 +32,7 @@ async fn shell_pty_full_lifecycle() {
     let work = tempfile::tempdir().unwrap();
     let h = start_web_pty_manager();
 
-    let out = h
-        .spawn(spec("term1", PtyProgram::Shell, work.path()))
-        .await;
+    let out = h.spawn(spec("term1", PtyProgram::Shell, work.path())).await;
     assert!(out.is_ok(), "spawning a shell should succeed: {out:?}");
 
     assert_eq!(h.list().await, vec!["term1".to_string()]);

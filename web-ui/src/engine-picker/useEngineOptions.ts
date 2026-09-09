@@ -106,9 +106,17 @@ export function useEngineOptions(
     onPermissionChange(permissionModes[0].value);
   }, [permissionModes, permission, onPermissionChange]);
 
+  // The agent repair, and the one case it deliberately does not cover: *no* agent chosen.
+  //
+  // An empty agent is not a broken selection, it is the absence of one — the send omits
+  // the field and the runner uses its own default, which is the same agent this effect
+  // would have filled in. Filling it anyway made opening a session look like a choice the
+  // user had just made, with everything that hangs off one: a toast, a write to the
+  // runner, and (while `/agent` was still sent as a prompt) a message in the transcript.
+  // The chip shows the runner's first agent for an empty selection instead.
   useEffect(() => {
-    if (agents.length === 0) return;
-    if (selectedAgent && agents.some((a) => a.id === selectedAgent)) return;
+    if (!selectedAgent || agents.length === 0) return;
+    if (agents.some((a) => a.id === selectedAgent)) return;
     onAgentChange(agents[0].id);
   }, [agents, selectedAgent, onAgentChange]);
 

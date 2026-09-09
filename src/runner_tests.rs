@@ -426,8 +426,8 @@ async fn switching_runner_creates_a_handoff_session_with_summary(
 /// Sending it is not enough on its own: the mode has to be recorded on the new session too,
 /// or it lapses the moment the handoff turn ends and the user is back to being asked.
 #[tokio::test]
-async fn a_handoff_carries_a_permission_the_target_offers(
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn a_handoff_carries_a_permission_the_target_offers() -> Result<(), Box<dyn std::error::Error>>
+{
     let old = Arc::new(MockRunner::new(RunnerKind::Opencode, "old"));
     let new = Arc::new(
         MockRunner::new(RunnerKind::ClaudeCode, "new").with_modes(&["default", "acceptEdits"]),
@@ -448,7 +448,9 @@ async fn a_handoff_carries_a_permission_the_target_offers(
 
     assert_eq!(outcome.response["permission"], "acceptEdits");
     let configured = new.configured.read().await;
-    let (session, choices) = configured.first().ok_or("the new session was not configured")?;
+    let (session, choices) = configured
+        .first()
+        .ok_or("the new session was not configured")?;
     assert_eq!(session, &outcome.session_id);
     assert_eq!(
         choices.permission_mode.as_ref().map(|mode| mode.as_str()),

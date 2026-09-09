@@ -10,10 +10,11 @@ use std::sync::Arc;
 
 use tokio::sync::{Mutex, RwLock};
 
-use super::chrome::Chrome;
 use super::cdp::Cdp;
+use super::chrome::Chrome;
+use super::pane::Pane;
 use super::tab::Tab;
-use super::types::{PaneInfo, RenderMode};
+use super::types::{PaneInfo, RenderMode, Viewport};
 
 /// A tab that has never been anywhere. Distinguishing it is what lets `open` tell a fresh
 /// pane (send it to the saved URL) from a live one (adopt whatever it is showing).
@@ -40,64 +41,6 @@ struct Running {
 pub enum Opened {
     Created,
     Adopted,
-}
-
-/// A pane's tab plus the bits of state the UI shows in the header.
-pub struct Pane {
-    tab: Tab,
-    project: Arc<str>,
-    meta: Mutex<Meta>,
-}
-
-struct Meta {
-    url: String,
-    title: String,
-    mode: RenderMode,
-}
-
-impl Pane {
-    pub fn tab(&self) -> &Tab {
-        &self.tab
-    }
-
-    /// The project this browser belongs to. Browsers are per project, so this is what
-    /// lets an agent working in one repo reach that repo's browser and no other.
-    pub fn project(&self) -> &Arc<str> {
-        &self.project
-    }
-
-    /// Where the tab actually is, as opposed to where a reopened widget remembers it.
-    pub async fn current_url(&self) -> String {
-        self.meta.lock().await.url.clone()
-    }
-
-    pub async fn mode(&self) -> RenderMode {
-        self.meta.lock().await.mode
-    }
-
-    /// Force screencast on a site the probe thought was framable — the escape hatch for
-    /// pages that break inside an iframe for reasons no header advertises.
-    pub async fn set_mode(&self, mode: RenderMode) {
-        self.meta.lock().await.mode = mode;
-    }
-
-    async fn record(&self, url: String, title: String, mode: RenderMode) {
-        let mut meta = self.meta.lock().await;
-        meta.url = url;
-        meta.title = title;
-        meta.mode = mode;
-    }
-
-    async fn info(&self, pane_id: Arc<str>) -> PaneInfo {
-        let meta = self.meta.lock().await;
-        PaneInfo {
-            pane_id,
-            project: Arc::clone(&self.project),
-            url: meta.url.clone(),
-            title: meta.title.clone(),
-            mode: meta.mode,
-        }
-    }
 }
 
 /// Shared, cloneable handle. Put one on `ServerState`.
@@ -170,16 +113,8 @@ impl BrowserPool {
         }
 
         let cdp = self.cdp().await?;
-        let tab = Tab::open(cdp, DEFAULT_WIDTH, DEFAULT_HEIGHT).await?;
-        let pane = Arc::new(Pane {
-            tab,
-            project: Arc::from(project),
-            meta: Mutex::new(Meta {
-                url: BLANK.into(),
-                title: String::new(),
-                mode: RenderMode::Screencast,
-            }),
-        });
+        let tab = Tab::open(cdp, Viewport::new(DEFAULT_WIDTH, DEFAULT_HEIGHT, None)).await?;
+        let pane = Arc::new(Pane::new(tab, project));
 
         let mut panes = self.panes.write().await;
         // Two panes racing on the same id: keep whoever landed first, close the loser's
@@ -187,7 +122,7 @@ impl BrowserPool {
         if let Some(existing) = panes.get(pane_id) {
             let existing = Arc::clone(existing);
             drop(panes);
-            pane.tab.close().await;
+            pane.tab().close().await;
             return Ok((existing, Opened::Adopted));
         }
         panes.insert(Arc::from(pane_id), Arc::clone(&pane));
@@ -203,7 +138,7 @@ impl BrowserPool {
             .read()
             .await
             .iter()
-            .find(|(_, pane)| pane.project.as_ref() == project)
+            .find(|(_, pane)| pane.project().as_ref() == project)
             .map(|(id, pane)| (Arc::clone(id), Arc::clone(pane)))
     }
 
@@ -226,10 +161,10 @@ impl BrowserPool {
 
         // Probe and navigate together: the probe is a plain HTTP round trip and has no
         // reason to serialise behind the page load.
-        let (mode, navigated) = tokio::join!(self.probe(&url), pane.tab.navigate(&url));
+        let (mode, navigated) = tokio::join!(self.probe(&url), pane.tab().navigate(&url));
         navigated?;
 
-        let snapshot = pane.tab.snapshot(Default::default()).await;
+        let snapshot = pane.tab().snapshot(Default::default()).await;
         let (final_url, title) = match snapshot {
             Ok(page) => (page.url, page.title),
             Err(_) => (url, String::new()),
@@ -247,10 +182,7 @@ impl BrowserPool {
         };
         let headers = response.headers();
         let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-        RenderMode::from_headers(
-            header("x-frame-options"),
-            header("content-security-policy"),
-        )
+        RenderMode::from_headers(header("x-frame-options"), header("content-security-policy"))
     }
 
     /// Every open pane, for `browser_list_panes`.
@@ -270,13 +202,13 @@ impl BrowserPool {
         let Some(pane) = self.panes.write().await.remove(pane_id) else {
             return;
         };
-        pane.tab.close().await;
+        pane.tab().close().await;
     }
 
     /// Tear down every tab and the browser itself. Called on server shutdown.
     pub async fn shutdown(&self) {
         for (_, pane) in self.panes.write().await.drain() {
-            pane.tab.close().await;
+            pane.tab().close().await;
         }
         if let Some(running) = self.running.lock().await.take() {
             running.chrome.shutdown().await;

@@ -54,9 +54,14 @@ export function EngineChip(props: Props) {
     props.onPermissionChange,
   );
 
-  const agent = props.agents.find((a) => a.id === props.currentAgent);
-  const agentLabel = agent?.label || props.currentAgent;
-  const dot = agentColor(props.currentAgent, agent?.color);
+  // What the next prompt will actually run as. An unset agent means "the runner's own
+  // default", which is the first agent it lists — so the chip names it rather than
+  // writing it back into the session just to have something to show.
+  const effectiveAgent = props.currentAgent || options.agents[0]?.id || "";
+  const agent = props.agents.find((a) => a.id === effectiveAgent)
+    || options.agents.find((a) => a.id === effectiveAgent);
+  const agentLabel = agent?.label || effectiveAgent;
+  const dot = agentColor(effectiveAgent, agent?.color);
 
   return (
     <>
@@ -90,7 +95,7 @@ export function EngineChip(props: Props) {
           runner={props.runner}
           availableRunners={props.availableRunners}
           selectedModel={props.selectedModel}
-          selectedAgent={props.currentAgent}
+          selectedAgent={effectiveAgent}
           supportedEfforts={props.supportedEfforts}
           effort={props.effort}
           permission={props.permission}

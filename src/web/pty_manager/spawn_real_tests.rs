@@ -2,8 +2,8 @@
 //! kind, driving the openpty + reader-thread + WebPty-construction path. Fakes
 //! exit immediately (or print a line then exit) so nothing lingers.
 
-use super::*;
 use super::super::kind::PtyKind;
+use super::*;
 use crate::web::pty_manager::manager::pty_test_support::{env_lock, write_fake_bin, EnvRestore};
 
 /// Let the detached reader thread run, then kill the child.
@@ -115,10 +115,24 @@ fn opencode_pty_success_new_and_existing_session() {
 
     let work = tempfile::tempdir().unwrap();
     // No session id.
-    let pty = start(PtyProgram::Opencode { session_id: None }, work.path(), 24, 80).expect("opencode pty");
+    let pty = start(
+        PtyProgram::Opencode { session_id: None },
+        work.path(),
+        24,
+        80,
+    )
+    .expect("opencode pty");
     drain_and_kill(pty);
     // With a session id (drives the `--session` arg branch).
-    let pty2 = start(PtyProgram::Opencode { session_id: Some("sess-1".into()) }, work.path(), 24, 80).expect("opencode pty2");
+    let pty2 = start(
+        PtyProgram::Opencode {
+            session_id: Some("sess-1".into()),
+        },
+        work.path(),
+        24,
+        80,
+    )
+    .expect("opencode pty2");
     drain_and_kill(pty2);
 }
 
@@ -130,7 +144,13 @@ fn opencode_pty_error_when_absent() {
     let mut env = EnvRestore::new();
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(start(PtyProgram::Opencode { session_id: None }, work.path(), 24, 80).is_err());
+    assert!(start(
+        PtyProgram::Opencode { session_id: None },
+        work.path(),
+        24,
+        80
+    )
+    .is_err());
 }
 
 #[test]
@@ -142,7 +162,15 @@ fn claude_attach_pty_success_via_env_bin() {
     env.set("OPMAN_CLAUDE_BIN", &claude.display().to_string());
 
     let work = tempfile::tempdir().unwrap();
-    let pty = start(PtyProgram::ClaudeAttach { short_id: "short-abc".into() }, work.path(), 24, 80).expect("claude pty");
+    let pty = start(
+        PtyProgram::ClaudeAttach {
+            short_id: "short-abc".into(),
+        },
+        work.path(),
+        24,
+        80,
+    )
+    .expect("claude pty");
     drain_and_kill(pty);
 }
 
@@ -157,8 +185,15 @@ fn claude_attach_pty_success_via_path_default() {
     env.prepend_path(dir.path());
 
     let work = tempfile::tempdir().unwrap();
-    let pty =
-        start(PtyProgram::ClaudeAttach { short_id: "short-def".into() }, work.path(), 24, 80).expect("claude pty default");
+    let pty = start(
+        PtyProgram::ClaudeAttach {
+            short_id: "short-def".into(),
+        },
+        work.path(),
+        24,
+        80,
+    )
+    .expect("claude pty default");
     drain_and_kill(pty);
 }
 
@@ -170,5 +205,13 @@ fn claude_attach_pty_error_when_absent() {
     env.remove("OPMAN_CLAUDE_BIN");
     env.set("PATH", &empty.path().display().to_string());
     let work = tempfile::tempdir().unwrap();
-    assert!(start(PtyProgram::ClaudeAttach { short_id: "x".into() }, work.path(), 24, 80).is_err());
+    assert!(start(
+        PtyProgram::ClaudeAttach {
+            short_id: "x".into()
+        },
+        work.path(),
+        24,
+        80
+    )
+    .is_err());
 }

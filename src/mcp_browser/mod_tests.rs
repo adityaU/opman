@@ -16,7 +16,9 @@ async fn initialize_advertises_tools() {
         .expect("tools capability");
     assert!(capabilities.is_object());
     assert_eq!(
-        response.pointer("/result/serverInfo/name").and_then(Value::as_str),
+        response
+            .pointer("/result/serverInfo/name")
+            .and_then(Value::as_str),
         Some("opman-browser")
     );
 }
@@ -65,7 +67,10 @@ async fn a_malformed_line_produces_a_parse_error_and_keeps_the_loop_alive() {
     let text = String::from_utf8(output).expect("utf-8 output");
     let mut lines = text.lines();
     let first: Value = serde_json::from_str(lines.next().expect("a parse error")).expect("json");
-    assert_eq!(first.pointer("/error/code").and_then(Value::as_i64), Some(-32700));
+    assert_eq!(
+        first.pointer("/error/code").and_then(Value::as_i64),
+        Some(-32700)
+    );
 
     // The second request was still served: one bad line must not end the session.
     let second: Value = serde_json::from_str(lines.next().expect("a second reply")).expect("json");

@@ -1,8 +1,8 @@
 //! Coverage for `start_embedded_server` — the adapter bootstrap that mints the engine,
 //! sets the global `ENGINE`, binds a loopback port, and spawns the model-fetch /
-//! status-poller / reaper background tasks. Driven with a temp config dir and a stub
-//! `claude` binary (`echo`) so nothing touches the real home/config or a live CLI. The
-//! detached background tasks are cancelled when this test's tokio runtime is dropped.
+//! status-poller / reaper background tasks. The model probe is injected to avoid a live
+//! CLI; a stub `claude` binary (`echo`) keeps the other detached tasks away from the real
+//! home/config. They are cancelled when this test's tokio runtime is dropped.
 use super::*;
 use crate::claude_engine::claude_cli::ENV_LOCK;
 
@@ -19,9 +19,12 @@ async fn start_embedded_server_binds_and_returns_url() {
     std::env::set_var("HOME", tmp.path());
     std::env::set_var("OPMAN_CLAUDE_BIN", "echo");
 
-    let (url, handle) = start_embedded_server(crate::mcp_registry::RegistryHandle::default())
-        .await
-        .expect("embedded server starts");
+    let (url, handle) = start_embedded_server_with_model_probe(
+        crate::mcp_registry::RegistryHandle::default(),
+        || None,
+    )
+    .await
+    .expect("embedded server starts");
 
     // Loopback URL was bound and stashed on the (global) engine.
     assert!(url.starts_with("http://127.0.0.1:"));

@@ -1,0 +1,191 @@
+/* Browser setup state. Kept separate from the live pane rules so both remain
+   small and the setup view can stay readable inside a narrow desktop pane. */
+
+.bwp-setup {
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    overflow: auto;
+    padding: clamp(var(--space-4), 4vw, var(--space-6));
+    text-align: left
+}
+
+.bwp-setup-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: .5px solid color-mix(in srgb, var(--color-accent) 45%, var(--white-8));
+    border-radius: var(--radius);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--white-4))
+}
+
+.bwp-setup-content {
+    width: min(100%, 620px)
+}
+
+.bwp-setup-kicker {
+    margin: 0 0 var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs, var(--font-size-xs));
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase
+}
+
+.bwp-setup h2 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-lg, 1rem);
+    line-height: 1.25
+}
+
+.bwp-setup-summary {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted)
+}
+
+.bwp-setup-override {
+    display: grid;
+    gap: var(--space-1);
+    margin-top: var(--space-3);
+    padding: var(--panel-inset, var(--space-3));
+    border: .5px solid color-mix(in srgb, var(--color-accent) 48%, var(--white-8));
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-panel))
+}
+
+.bwp-setup-override-title,
+.bwp-setup-override-detail,
+.bwp-setup-override-help {
+    margin: 0;
+}
+
+.bwp-setup-override-title {
+    color: var(--color-text);
+    font-weight: 600
+}
+
+.bwp-setup-override-detail,
+.bwp-setup-override-help {
+    color: var(--color-text-muted)
+}
+
+.bwp-setup-override-path {
+    display: block;
+    max-width: 100%;
+    padding: var(--space-1) var(--space-2);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    background: var(--color-bg-panel);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs, var(--font-size-xs));
+    overflow-wrap: anywhere
+}
+
+html.flat-theme .bwp-setup-override {
+    border-color: var(--color-border, var(--white-8));
+    background: var(--color-bg-panel)
+}
+
+.bwp-setup-steps {
+    display: grid;
+    gap: var(--space-1);
+    margin: var(--space-3) 0 0;
+    padding-left: 1.3rem;
+    color: var(--color-text)
+}
+
+.bwp-setup-commands {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-3)
+}
+
+.bwp-setup-command {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    background: var(--white-4)
+}
+
+.bwp-setup-command-label {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs, var(--font-size-xs));
+    white-space: nowrap
+}
+
+.bwp-setup-command code,
+.bwp-setup-path code {
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs, var(--font-size-xs));
+    overflow-wrap: anywhere
+}
+
+.bwp-setup-copy {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    background: none;
+    cursor: pointer
+}
+
+.bwp-setup-copy:hover,
+.bwp-setup-copy:focus-visible {
+    color: var(--color-text);
+    background: var(--white-8)
+}
+
+.bwp-setup-path {
+    margin: var(--space-3) 0 0;
+    color: var(--color-text-muted)
+}
+
+.bwp-setup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-3)
+}
+
+.bwp-setup-actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-accent);
+    font-size: var(--font-size-xs);
+    text-decoration: none
+}
+
+.bwp-setup-actions a:hover {
+    text-decoration: underline
+}
+
+@media (max-width: 520px) {
+    .bwp-setup-command {
+        grid-template-columns: 1fr auto
+    }
+
+    .bwp-setup-command code {
+        grid-column: 1 / -1;
+        grid-row: 2
+    }
+
+    .bwp-setup-copy {
+        grid-column: 2;
+        grid-row: 1
+    }
+}

@@ -96,10 +96,12 @@ impl AcpEngine {
     /// [`super::conn_options::apply_defaults`] read it back — so a session opened in `plan` was
     /// pushed the agent's own mode instead, for the whole conversation.
     pub fn adopt_mode(&self, id: &str, mode: &str) {
-        let held = self.get_session(id).and_then(|s| match self.agent.modes_are_agents {
-            true => s.agent,
-            false => s.permission_mode,
-        });
+        let held = self
+            .get_session(id)
+            .and_then(|s| match self.agent.modes_are_agents {
+                true => s.agent,
+                false => s.permission_mode,
+            });
         if held.is_some() {
             return;
         }

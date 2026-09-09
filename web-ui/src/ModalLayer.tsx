@@ -36,6 +36,7 @@ export interface ModalLayerProps {
   activeProjectIndex: number;
   onCommand: (cmd: string, args?: string) => Promise<void>;
   onNewSession: () => void;
+  onProjectChanged: () => Promise<void>;
   onSelectSession: (sessionId: string, projectIdx: number) => void;
   onSend: (text: string, images?: any[]) => Promise<boolean>;
   onModelSelected: (modelId: string, providerId: string) => void;
@@ -146,7 +147,7 @@ export const ModalLayer: React.FC<ModalLayerProps> = React.memo(function ModalLa
         <L><RoutinesModal onClose={cl("routines")} activeSessionId={p.activeSessionId} autonomyMode={p.autonomyMode} appState={p.appState} /></L>
       )}
 
-      {m.addProject && <L><AddProjectModal onClose={cl("addProject")} /></L>}
+      {m.addProject && <L><AddProjectModal onClose={cl("addProject")} onProjectAdded={p.onProjectChanged} /></L>}
 
       {m.systemMonitor && (
         <L><SystemMonitorModal onClose={cl("systemMonitor")} /></L>

@@ -36,7 +36,10 @@ fn split_remote_matches_known_remotes_only() {
     let remotes = vec!["origin".to_string(), "upstream".to_string()];
 
     let tracked = RefName::parse("origin/feature/login").expect("valid");
-    assert_eq!(tracked.split_remote(&remotes), Some(("origin", "feature/login")));
+    assert_eq!(
+        tracked.split_remote(&remotes),
+        Some(("origin", "feature/login"))
+    );
 
     // A local branch that merely looks remote-shaped stays local.
     let local = RefName::parse("feature/login").expect("valid");

@@ -46,7 +46,13 @@ impl Op {
     pub fn is_read_only(self) -> bool {
         !matches!(
             self,
-            Self::Write | Self::CreateFile | Self::CreateDir | Self::Delete | Self::Move | Self::Rename | Self::Format
+            Self::Write
+                | Self::CreateFile
+                | Self::CreateDir
+                | Self::Delete
+                | Self::Move
+                | Self::Rename
+                | Self::Format
         )
     }
 }
@@ -75,11 +81,19 @@ pub struct Response {
 
 impl Response {
     pub fn ok(id: u64, result: Value) -> Self {
-        Self { id, result: Some(result), error: None }
+        Self {
+            id,
+            result: Some(result),
+            error: None,
+        }
     }
 
     pub fn failed(id: u64, error: impl Into<String>) -> Self {
-        Self { id, result: None, error: Some(error.into()) }
+        Self {
+            id,
+            result: None,
+            error: Some(error.into()),
+        }
     }
 }
 
@@ -96,7 +110,11 @@ pub struct Event {
 
 impl Event {
     pub fn new(event: &'static str, payload: Value) -> Self {
-        Self { id: 0, event, payload }
+        Self {
+            id: 0,
+            event,
+            payload,
+        }
     }
 }
 

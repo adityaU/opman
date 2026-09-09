@@ -127,7 +127,10 @@ async fn listing_pages_and_still_reports_the_project_total() {
     .await
     .expect("listed");
 
-    assert_eq!(first["count"], 5, "count is the project total, not the page");
+    assert_eq!(
+        first["count"], 5,
+        "count is the project total, not the page"
+    );
     assert_eq!(first["returned"], 2);
     assert_eq!(first["offset"], 0);
     assert_eq!(first["agents"].as_array().map(Vec::len), Some(2));

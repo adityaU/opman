@@ -16,6 +16,11 @@ export interface BrowseDirsResponse {
   entries: DirEntry[];
 }
 
+export interface CreateDirResponse {
+  name: string;
+  path: string;
+}
+
 export interface NewSessionResponse {
   session_id: string;
 }
@@ -46,6 +51,14 @@ export async function browseDirs(
   path: string
 ): Promise<BrowseDirsResponse> {
   return apiPost("/dirs/browse", { path });
+}
+
+/** Create a directory inside the currently browsed path. */
+export async function createProjectDir(
+  parent: string,
+  name: string,
+): Promise<CreateDirResponse> {
+  return apiPost("/dirs/create", { parent, name });
 }
 
 /** Get the user's home directory. */

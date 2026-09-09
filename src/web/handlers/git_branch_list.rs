@@ -72,7 +72,10 @@ pub async fn remote_names(dir: &Path) -> WebResult<Vec<String>> {
 }
 
 /// Every local and remote-tracking branch, in that order.
-pub async fn collect(dir: &Path, head: &HeadState) -> WebResult<(Vec<GitBranchInfo>, Vec<GitBranchInfo>)> {
+pub async fn collect(
+    dir: &Path,
+    head: &HeadState,
+) -> WebResult<(Vec<GitBranchInfo>, Vec<GitBranchInfo>)> {
     let locals = read(dir, "refs/heads", false, head).await?;
     let remotes = read(dir, "refs/remotes", true, head).await?;
     Ok((locals, remotes))
@@ -86,12 +89,7 @@ async fn read(
 ) -> WebResult<Vec<GitBranchInfo>> {
     let output = exec::run_lenient(
         dir,
-        &[
-            "for-each-ref",
-            "--sort=-committerdate",
-            FORMAT,
-            namespace,
-        ],
+        &["for-each-ref", "--sort=-committerdate", FORMAT, namespace],
     )
     .await?;
 

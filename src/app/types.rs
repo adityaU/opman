@@ -43,6 +43,9 @@ tokio::task_local! {
     /// its own value with full isolation from parallel tests. Fire-and-forget
     /// `tokio::spawn`ed work does NOT inherit it and falls back to the global.
     pub static TEST_BASE_URL: String;
+
+    /// Test-only override for exercising code that runs before the default runner exists.
+    pub static TEST_BASE_URL_UNSET: ();
 }
 
 pub fn base_url() -> &'static str {
@@ -57,6 +60,9 @@ pub fn base_url() -> &'static str {
 pub fn try_base_url() -> Option<&'static str> {
     #[cfg(test)]
     {
+        if TEST_BASE_URL_UNSET.try_with(|_| ()).is_ok() {
+            return None;
+        }
         if let Ok(leaked) = TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str())) {
             return Some(leaked);
         }

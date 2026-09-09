@@ -95,7 +95,7 @@ export function useRenameSession() {
 //  useRemoveProject
 // ═══════════════════════════════════════════════════════
 
-export function useRemoveProject() {
+export function useRemoveProject(onProjectChanged?: () => Promise<void>) {
   const [removeConfirm, setRemoveConfirm] = useState<{
     index: number;
     name: string;
@@ -107,13 +107,14 @@ export function useRemoveProject() {
     setRemoveLoading(true);
     try {
       await removeProject(removeConfirm.index);
+      await onProjectChanged?.();
     } catch (err) {
       console.error("Failed to remove project:", err);
     } finally {
       setRemoveLoading(false);
       setRemoveConfirm(null);
     }
-  }, [removeConfirm, removeLoading]);
+  }, [removeConfirm, removeLoading, onProjectChanged]);
 
   return { removeConfirm, setRemoveConfirm, removeLoading, handleRemoveProject } as const;
 }

@@ -38,6 +38,7 @@ interface Props {
   onNewSession: () => void;
   onSwitchProject: (index: number) => void;
   onOpenAddProject: () => void;
+  onProjectChanged?: () => Promise<void>;
   isMobileOpen: boolean;
   onClose: () => void;
   /** Whether the Kanban board view is currently active. */
@@ -61,6 +62,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
   onNewSession,
   onSwitchProject,
   onOpenAddProject,
+  onProjectChanged,
   isMobileOpen,
   onClose,
   isKanbanView,
@@ -157,7 +159,7 @@ export const ChatSidebar = React.memo(function ChatSidebar({
     renameTarget, setRenameTarget, renameValue, setRenameValue,
     renameLoading, renameInputRef, handleRenameSubmit, handleRenameKeyDown,
   } = useRenameSession();
-  const { removeConfirm, setRemoveConfirm, removeLoading, handleRemoveProject } = useRemoveProject();
+  const { removeConfirm, setRemoveConfirm, removeLoading, handleRemoveProject } = useRemoveProject(onProjectChanged);
 
   // ── Helpers for swipe actions ─────────────────────
   const triggerRename = useCallback((sessionId: string, title: string) => {

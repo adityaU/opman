@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { UrlBar } from "./UrlBar";
 import { ScreencastSurface } from "./ScreencastSurface";
+import { BrowserSetup } from "./BrowserSetup";
 import { useBrowserPane } from "./useBrowserPane";
 
 /**
  * A browser in a pane.
  *
- * The page runs as a headless Chromium tab in the opman process, not in this
- * document. What changes between the two render modes is only how the pane
+ * The page runs as a Chromium tab in the opman process, not in this document. What changes between the two render modes is only how the pane
  * *shows* it: an iframe when the site permits framing (cheap, crisp, native
  * scrolling) and a live mirror of the real tab when it does not. Either way the
  * agent's `browser_*` tools act on that same tab, which is what lets a person
@@ -42,9 +42,12 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
   const pane = useBrowserPane(paneId, project, url, reveal, onUrlChanged);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const { resize } = pane;
+  // Shown in the header, so "my shortcuts stopped working" is answered on screen
+  // rather than being a thing the user has to know.
+  const [capturing, setCapturing] = useState(false);
 
-  // Keep the headless viewport the shape of the pane, so media queries and
-  // sticky headers behave as they would at this size in a real window.
+  // Keep the page's viewport the shape of the pane, so media queries and sticky
+  // headers behave as they would at this size in a real window.
   useEffect(() => {
     const element = surfaceRef.current;
     if (!element) return;
@@ -56,7 +59,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
     return () => observer.disconnect();
   }, [resize]);
 
-  const retry = useCallback(() => pane.reload(), [pane]);
+  const retry = useCallback(() => pane.retry(), [pane]);
 
   return (
     <div className="bwp-panel">
@@ -70,16 +73,21 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
         onReload={pane.reload}
         onToggleMode={pane.toggleMode}
         onEndSession={pane.endSession}
+        capturing={capturing}
       />
 
       <div className="bwp-surface" ref={surfaceRef}>
         {pane.error !== null ? (
-          <div className="bwp-error" role="alert">
-            <p>{pane.error}</p>
-            <button type="button" className="bwp-retry" onClick={retry}>
-              Try again
-            </button>
-          </div>
+          pane.browserSetup ? (
+            <BrowserSetup guide={pane.browserSetup} onRetry={retry} />
+          ) : (
+            <div className="bwp-error" role="alert">
+              <p>{pane.error}</p>
+              <button type="button" className="bwp-retry" onClick={retry}>
+                Try again
+              </button>
+            </div>
+          )
         ) : pane.mode === "iframe" && pane.url ? (
           <iframe
             className="bwp-iframe"
@@ -91,7 +99,12 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
             referrerPolicy="no-referrer"
           />
         ) : (
-          <ScreencastSurface paneId={paneId} focused={focused} />
+          <ScreencastSurface
+            paneId={paneId}
+            focused={focused}
+            scale={pane.scale}
+            onCaptureChange={setCapturing}
+          />
         )}
       </div>
     </div>

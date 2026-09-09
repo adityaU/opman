@@ -11,7 +11,7 @@ use axum::response::{IntoResponse, Json};
 
 use super::super::auth::AuthUser;
 use super::super::error::WebResult;
-use super::super::git::exec::{Reach, run, run_lenient, run_strict};
+use super::super::git::exec::{run, run_lenient, run_strict, Reach};
 use super::super::git::refname::{self, CommitHash, RefName, RepoPath};
 use super::super::git::scope;
 use super::super::types::{
@@ -66,7 +66,11 @@ fn parse_tag_row(line: &str) -> Option<GitTagEntry> {
         Some(pair) => pair,
         None => (subjects, ""),
     };
-    let subject = if annotated.is_empty() { plain } else { annotated };
+    let subject = if annotated.is_empty() {
+        plain
+    } else {
+        annotated
+    };
     Some(GitTagEntry {
         name: name.to_string(),
         hash: hash.to_string(),

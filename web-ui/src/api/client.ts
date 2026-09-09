@@ -6,6 +6,44 @@ import type {
   OpenCodeEvent,
 } from "../types";
 
+export interface BrowserInstallCommand {
+  readonly label: string;
+  readonly command: string;
+}
+
+export type BrowserSetupIssue =
+  | { readonly kind: "no_browser" }
+  | {
+      readonly kind: "override_missing" | "override_not_executable";
+      readonly path: string;
+    };
+
+export interface BrowserInstallGuide {
+  readonly platform: string;
+  readonly title: string;
+  readonly summary: string;
+  readonly steps: readonly string[];
+  readonly commands: readonly BrowserInstallCommand[];
+  readonly env_var: string;
+  readonly docs_url: string;
+  readonly issue: BrowserSetupIssue;
+}
+
+export class ApiError extends Error {
+  readonly code?: string;
+  readonly browserSetup?: BrowserInstallGuide;
+
+  constructor(
+    message: string,
+    details: { readonly code?: string; readonly browserSetup?: BrowserInstallGuide } = {},
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.code = details.code;
+    this.browserSetup = details.browserSetup;
+  }
+}
+
 // ── Token management ──────────────────────────────────
 //
 // Auth is now cookie-based: the backend sets an HttpOnly `opman_token`
@@ -60,7 +98,7 @@ async function guard(res: Response): Promise<Response> {
     window.location.reload();
     throw new Error("Unauthorized");
   }
-  if (!res.ok) throw new Error(await detail(res));
+  if (!res.ok) throw await apiError(res);
   return res;
 }
 
@@ -71,16 +109,62 @@ async function guard(res: Response): Promise<Response> {
  * have answers with the SPA's `index.html`, and showing a user a page of markup instead of
  * "404 Not Found" is worse than showing them nothing.
  */
-async function detail(res: Response): Promise<string> {
+async function apiError(res: Response): Promise<ApiError> {
   const raw = (await res.text().catch(() => "")).trim();
   try {
-    const body = JSON.parse(raw);
-    if (body?.error || body?.message) return body.error || body.message;
+    const body: unknown = JSON.parse(raw);
+    if (typeof body === "object" && body !== null) {
+      const record = body as Record<string, unknown>;
+      const message =
+        (typeof record.error === "string" && record.error) ||
+        (typeof record.message === "string" && record.message);
+      if (message) {
+        return new ApiError(message, {
+          code: typeof record.code === "string" ? record.code : undefined,
+          browserSetup: isBrowserInstallGuide(record.browser_setup)
+            ? record.browser_setup
+            : undefined,
+        });
+      }
+    }
   } catch {
     const prose = raw.length <= 200 && !raw.startsWith("<");
-    if (prose && raw) return raw;
+    if (prose && raw) return new ApiError(raw);
   }
-  return `API error: ${res.status} ${res.statusText}`.trimEnd();
+  return new ApiError(`API error: ${res.status} ${res.statusText}`.trimEnd());
+}
+
+function isBrowserInstallGuide(value: unknown): value is BrowserInstallGuide {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.platform === "string" &&
+    typeof record.title === "string" &&
+    typeof record.summary === "string" &&
+    Array.isArray(record.steps) &&
+    record.steps.every((step) => typeof step === "string") &&
+    Array.isArray(record.commands) &&
+    record.commands.every(
+      (command) =>
+        typeof command === "object" &&
+        command !== null &&
+        typeof (command as Record<string, unknown>).label === "string" &&
+        typeof (command as Record<string, unknown>).command === "string",
+    ) &&
+    typeof record.env_var === "string" &&
+    typeof record.docs_url === "string" &&
+    isBrowserSetupIssue(record.issue)
+  );
+}
+
+function isBrowserSetupIssue(value: unknown): value is BrowserSetupIssue {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (record.kind === "no_browser") return true;
+  return (
+    (record.kind === "override_missing" || record.kind === "override_not_executable") &&
+    typeof record.path === "string"
+  );
 }
 
 /**

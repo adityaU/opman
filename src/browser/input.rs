@@ -212,7 +212,10 @@ impl Key {
             return Err(anyhow::anyhow!("empty key in `{chord}`"));
         }
 
-        let key = match NAMED.iter().find(|(name, ..)| name.eq_ignore_ascii_case(base)) {
+        let key = match NAMED
+            .iter()
+            .find(|(name, ..)| name.eq_ignore_ascii_case(base))
+        {
             Some(&(name, code, virtual_code, text)) => Self {
                 key: name.to_owned(),
                 code: code.to_owned(),
@@ -261,7 +264,9 @@ async fn dispatch_key(cdp: &Cdp, session: &str, key: &Key, phase: &str) -> anyho
     // *absent* rather than null for a key that produces none: CDP validates the type and
     // rejects the whole call on a null.
     if let (Some(text), Some(object)) = (
-        (phase == "keyDown").then_some(key.text.as_deref()).flatten(),
+        (phase == "keyDown")
+            .then_some(key.text.as_deref())
+            .flatten(),
         params.as_object_mut(),
     ) {
         object.insert("text".into(), json!(text));

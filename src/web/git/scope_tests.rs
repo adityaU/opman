@@ -115,7 +115,10 @@ async fn linked_worktree_resolves_despite_dot_git_being_a_file() {
         .output()
         .expect("worktree add");
 
-    assert!(linked.join(".git").is_file(), "worktree .git should be a file");
+    assert!(
+        linked.join(".git").is_file(),
+        "worktree .git should be a file"
+    );
 
     let state = state_for(tmp.path());
     let resolved = resolve(&state, "wt").await.expect("worktree resolves");

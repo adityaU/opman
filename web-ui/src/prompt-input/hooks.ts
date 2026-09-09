@@ -7,19 +7,21 @@ import {
 
 // ── useAgents ───────────────────────────────────────────────────
 
-export function useAgents(currentAgent: string, onAgentChange: (agent: string) => void, runner = "opencode") {
+/**
+ * The runner's agents, for the composer's own lists (@mentions, the chip's labels).
+ *
+ * Lists only. Keeping the *selection* valid belongs to `useEngineOptions`, which owns
+ * that invariant for runner, model and agent together; this hook used to repair it too,
+ * from a different list and on a different clock, so one session load fired the change
+ * twice.
+ */
+export function useAgents(runner = "opencode") {
   const [allAgents, setAllAgents] = useState<AgentInfo[]>(() => runnerFallbackAgents(runner));
 
   useEffect(() => {
     setAllAgents(runnerFallbackAgents(runner));
     fetchAgents(runner).then((fetched) => {
-      if (fetched.length > 0) {
-        setAllAgents(fetched);
-        const selectable = selectableAgents(fetched);
-        if (selectable.length > 0 && (!currentAgent || !selectable.some((a) => a.id === currentAgent))) {
-          onAgentChange(selectable[0].id);
-        }
-      }
+      if (fetched.length > 0) setAllAgents(fetched);
     });
   }, [runner]);
 

@@ -11,7 +11,12 @@ async fn a_result_reaches_the_waiting_call() {
     let (tx, rx) = oneshot::channel();
     pending.lock().await.insert(7, tx);
 
-    route(json!({ "id": 7, "result": { "ok": true } }), &pending, &events).await;
+    route(
+        json!({ "id": 7, "result": { "ok": true } }),
+        &pending,
+        &events,
+    )
+    .await;
 
     let value = rx.await.expect("reply arrives").expect("not an error");
     assert_eq!(value, json!({ "ok": true }));
@@ -31,7 +36,10 @@ async fn an_error_reply_carries_the_data_field() {
     });
     route(frame, &pending, &events).await;
 
-    let error = rx.await.expect("reply arrives").expect_err("must be an error");
+    let error = rx
+        .await
+        .expect("reply arrives")
+        .expect_err("must be an error");
     assert_eq!(error, "Cannot find context: for id 4");
 }
 
@@ -62,7 +70,10 @@ async fn events_fan_out_with_their_session() {
     let event = rx.try_recv().expect("an event was published");
     assert_eq!(&*event.method, "Page.screencastFrame");
     assert_eq!(event.session_id.as_deref(), Some("S1"));
-    assert_eq!(event.params.get("data").and_then(Value::as_str), Some("abc"));
+    assert_eq!(
+        event.params.get("data").and_then(Value::as_str),
+        Some("abc")
+    );
 }
 
 #[tokio::test]

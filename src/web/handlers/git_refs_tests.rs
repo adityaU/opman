@@ -73,15 +73,7 @@ pub(crate) async fn body_json<T: IntoResponse>(r: WebResult<T>) -> serde_json::V
 }
 
 pub(crate) async fn tags(state: &ServerState) -> serde_json::Value {
-    body_json(
-        git_tags(
-            State(state.clone()),
-            auth(),
-            Query(GitRepoScope::default()),
-        )
-        .await,
-    )
-    .await
+    body_json(git_tags(State(state.clone()), auth(), Query(GitRepoScope::default())).await).await
 }
 
 pub(crate) async fn create(state: &ServerState, req: GitTagRequest) -> serde_json::Value {
@@ -210,8 +202,14 @@ async fn create_on_explicit_target() {
     commit_as(dir, "A", "a@example.com", "a.txt", "two\n", "c2");
     let state = state_for(dir);
 
-    assert_eq!(create(&state, tag_req("at-hash", None, Some(&first))).await["ok"], true);
-    assert_eq!(create(&state, tag_req("at-ref", None, Some("main"))).await["ok"], true);
+    assert_eq!(
+        create(&state, tag_req("at-hash", None, Some(&first))).await["ok"],
+        true
+    );
+    assert_eq!(
+        create(&state, tag_req("at-ref", None, Some("main"))).await["ok"],
+        true
+    );
 
     let resolved = String::from_utf8_lossy(&run_git(dir, &["rev-list", "-n1", "at-hash"]).stdout)
         .trim()
@@ -231,7 +229,10 @@ async fn duplicate_tag_is_refused_not_an_error() {
     assert_eq!(create(&state, tag_req("dup", None, None)).await["ok"], true);
     let again = create(&state, tag_req("dup", None, None)).await;
     assert_eq!(again["ok"], false);
-    assert!(again["message"].as_str().unwrap_or("").contains("already exists"));
+    assert!(again["message"]
+        .as_str()
+        .unwrap_or("")
+        .contains("already exists"));
     assert!(again["hint"].is_string());
 }
 

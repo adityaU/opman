@@ -11,6 +11,7 @@ import {
   type BrowserMode,
   type BrowserPage,
 } from "../api/browser";
+import { ApiError, type BrowserInstallGuide } from "../api/client";
 
 /**
  * A browser pane's navigation state.
@@ -27,6 +28,7 @@ export interface BrowserPaneState {
   readonly mode: BrowserMode;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly browserSetup: BrowserInstallGuide | null;
 }
 
 const BLANK: BrowserPaneState = {
@@ -35,13 +37,17 @@ const BLANK: BrowserPaneState = {
   mode: "screencast",
   loading: false,
   error: null,
+  browserSetup: null,
 };
 
 export interface BrowserPaneControls extends BrowserPaneState {
+  /** Device pixels per CSS pixel in the captured frames, as the server applied it. */
+  readonly scale: number;
   readonly go: (url: string) => void;
   readonly back: () => void;
   readonly forward: () => void;
   readonly reload: () => void;
+  readonly retry: () => void;
   readonly toggleMode: () => void;
   readonly resize: (width: number, height: number) => void;
   /** End the browser session — closes the tab the project has been sharing. */
@@ -56,6 +62,7 @@ export function useBrowserPane(
   onUrlChanged: (url: string) => void,
 ): BrowserPaneControls {
   const [state, setState] = useState<BrowserPaneState>(BLANK);
+  const [scale, setScale] = useState(1);
   // Kept in a ref as well so the resize observer can read it without becoming a
   // dependency that re-subscribes on every navigation.
   const alive = useRef(true);
@@ -78,6 +85,7 @@ export function useBrowserPane(
         mode: page.mode ?? previous.mode,
         loading: false,
         error: null,
+        browserSetup: null,
       }));
       if (page.url) onUrlChanged(page.url);
     },
@@ -86,7 +94,7 @@ export function useBrowserPane(
 
   const run = useCallback(
     (action: () => Promise<BrowserPage>) => {
-      setState((previous) => ({ ...previous, loading: true, error: null }));
+      setState((previous) => ({ ...previous, loading: true, error: null, browserSetup: null }));
       action()
         .then(settle)
         .catch((error: unknown) => {
@@ -95,6 +103,7 @@ export function useBrowserPane(
             ...previous,
             loading: false,
             error: error instanceof Error ? error.message : String(error),
+            browserSetup: error instanceof ApiError ? (error.browserSetup ?? null) : null,
           }));
         });
     },
@@ -106,7 +115,7 @@ export function useBrowserPane(
   // makes reopening a browser pick up an agent's work in progress.
   useEffect(() => {
     let cancelled = false;
-    setState((previous) => ({ ...previous, loading: true }));
+    setState((previous) => ({ ...previous, loading: true, error: null, browserSetup: null }));
     browserOpen(paneId, project, initialUrl ?? undefined)
       .then((page) => {
         if (!cancelled) settle(page);
@@ -117,6 +126,7 @@ export function useBrowserPane(
           ...previous,
           loading: false,
           error: error instanceof Error ? error.message : String(error),
+          browserSetup: error instanceof ApiError ? (error.browserSetup ?? null) : null,
         }));
       });
     return () => {
@@ -164,6 +174,10 @@ export function useBrowserPane(
   const back = useCallback(() => run(() => browserBack(paneId)), [paneId, run]);
   const forward = useCallback(() => run(() => browserForward(paneId)), [paneId, run]);
   const reload = useCallback(() => run(() => browserReload(paneId)), [paneId, run]);
+  const retry = useCallback(
+    () => run(() => browserOpen(paneId, project, initialUrl ?? undefined)),
+    [initialUrl, paneId, project, run],
+  );
 
   /**
    * The manual override for a site that passes the framing check but still
@@ -178,9 +192,19 @@ export function useBrowserPane(
     });
   }, [paneId]);
 
+  /**
+   * Follow the pane's box, at this display's pixel density. The applied scale
+   * comes back because the server may have refused the full ratio on a wide
+   * pane, and a click is placed against what was actually captured.
+   */
   const resize = useCallback(
     (width: number, height: number) => {
-      void browserResize(paneId, Math.round(width), Math.round(height)).catch(() => {});
+      const ratio = window.devicePixelRatio || 1;
+      browserResize(paneId, Math.round(width), Math.round(height), ratio)
+        .then((applied) => {
+          if (alive.current) setScale(applied.scale || 1);
+        })
+        .catch(() => {});
     },
     [paneId],
   );
@@ -198,5 +222,5 @@ export function useBrowserPane(
       .catch(() => {});
   }, [paneId, project, settle]);
 
-  return { ...state, go, back, forward, reload, toggleMode, resize, endSession };
+  return { ...state, scale, go, back, forward, reload, retry, toggleMode, resize, endSession };
 }

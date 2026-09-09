@@ -98,6 +98,30 @@
     color: var(--color-text-faint, var(--color-text-muted))
 }
 
+/* Shown only while the page holds the keyboard. It answers the question that
+   state provokes — "why did my shortcut stop working?" — and carries the way
+   out, so the pane needs no separate explanation. */
+.bwp-capture {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: 22px;
+    padding: 0 var(--space-2);
+    border: .5px solid var(--white-8);
+    border-radius: var(--radius);
+    background: var(--white-6);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    cursor: default
+}
+
+.bwp-capture-hint {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs, var(--font-size-xs));
+    letter-spacing: .04em;
+    text-transform: uppercase
+}
+
 /* ── Page surface ────────────────────────────────────── */
 
 .bwp-surface {

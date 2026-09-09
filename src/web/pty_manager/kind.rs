@@ -42,9 +42,13 @@ pub enum PtyProgram {
     Neovim,
     Git,
     /// `None` starts a fresh conversation rather than resuming one.
-    Opencode { session_id: Option<String> },
+    Opencode {
+        session_id: Option<String>,
+    },
     /// The claude background agent's short id.
-    ClaudeAttach { short_id: String },
+    ClaudeAttach {
+        short_id: String,
+    },
 }
 
 impl PtyProgram {

@@ -72,6 +72,15 @@ pub struct BrowseDirsRequest {
     pub path: String,
 }
 
+/// Request to create a directory inside the browsed path.
+#[derive(Deserialize)]
+pub struct CreateDirRequest {
+    /// Absolute path to the parent directory.
+    pub parent: String,
+    /// A single directory name, not a path.
+    pub name: String,
+}
+
 /// A single directory entry in the dir browser.
 #[derive(Serialize)]
 pub struct DirEntry {
@@ -90,6 +99,13 @@ pub struct BrowseDirsResponse {
     pub parent: String,
     /// Child directories.
     pub entries: Vec<DirEntry>,
+}
+
+/// Response after creating a directory.
+#[derive(Serialize)]
+pub struct CreateDirResponse {
+    pub name: String,
+    pub path: String,
 }
 
 /// Response for the home directory endpoint.

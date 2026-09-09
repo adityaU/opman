@@ -68,7 +68,16 @@ pub async fn definition(
     col: i64,
     content: Option<&str>,
 ) -> Value {
-    goto(pool, Goto::Definition, file, project_dir, line, col, content).await
+    goto(
+        pool,
+        Goto::Definition,
+        file,
+        project_dir,
+        line,
+        col,
+        content,
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
