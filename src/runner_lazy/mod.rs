@@ -8,3 +8,7 @@ pub use runner::LazyRunner;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "readiness_tests.rs"]
+mod readiness_tests;

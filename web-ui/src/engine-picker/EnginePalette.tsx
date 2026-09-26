@@ -15,6 +15,7 @@ import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import type { EngineOptions, ModelOption } from "./useEngineOptions";
 import { EngineSettingsRow } from "./EngineSettingsRow";
+import { startRunner } from "./startRunner";
 
 interface Props {
   runner: string;
@@ -57,6 +58,8 @@ export function EnginePalette(props: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [startingRunner, setStartingRunner] = useState<string | null>(null);
+  const [runnerError, setRunnerError] = useState<string | null>(null);
 
   useEscape(props.onClose);
   useFocusTrap(panelRef);
@@ -117,12 +120,24 @@ export function EnginePalette(props: Props) {
 
   useEffect(() => { setCursor(0); }, [query, props.runner]);
 
-  const choose = (row: Row) => {
+  const choose = async (row: Row) => {
     if (row.kind === "runner") {
-      // Stay open: the lists below are about to change, and the point of one
-      // surface is that the consequence is visible where the cause was.
-      props.onRunnerChange(row.id);
-      setQuery("");
+      // Do not publish the new runner until its server is ready. Publishing first lets the
+      // dependent provider/agent requests race this startup call and cache an empty 503.
+      if (startingRunner) return;
+      setRunnerError(null);
+      setStartingRunner(row.id);
+      try {
+        await startRunner(row.id);
+        // Stay open: the lists below are about to change, and the point of one
+        // surface is that the consequence is visible where the cause was.
+        props.onRunnerChange(row.id);
+        setQuery("");
+      } catch (error: unknown) {
+        setRunnerError(error instanceof Error ? error.message : `Could not start ${row.label}`);
+      } finally {
+        setStartingRunner(null);
+      }
       return;
     }
     if (row.kind === "model") props.onModelSelected(row.model.modelId, row.model.providerId);
@@ -139,7 +154,7 @@ export function EnginePalette(props: Props) {
       setCursor((c) => Math.max(0, c - 1));
     } else if (event.key === "Enter" && rows[cursor]) {
       event.preventDefault();
-      choose(rows[cursor]);
+      void choose(rows[cursor]);
     }
   };
 
@@ -179,6 +194,14 @@ export function EnginePalette(props: Props) {
               {loading ? `Loading ${props.runner} options…` : `Nothing matches “${query}”.`}
             </p>
           )}
+          {startingRunner && (
+            <p className="engine-palette-empty" role="status">
+              Starting {RUNNER_LABELS[startingRunner] || startingRunner}…
+            </p>
+          )}
+          {runnerError && (
+            <p className="engine-palette-empty" role="alert">{runnerError}</p>
+          )}
           {rows.map((row, index) => {
             const header = row.kind !== lastKind ? row.kind : null;
             lastKind = row.kind;
@@ -197,7 +220,7 @@ export function EnginePalette(props: Props) {
                   aria-selected={row.selected}
                   className={`engine-row${row.selected ? " is-selected" : ""}${index === cursor ? " is-cursor" : ""}`}
                   onMouseEnter={() => setCursor(index)}
-                  onClick={() => choose(row)}
+                  onClick={() => void choose(row)}
                 >
                   <span className="engine-row-label">{row.label}</span>
                   {"hint" in row && row.hint && <span className="engine-row-hint">{row.hint}</span>}

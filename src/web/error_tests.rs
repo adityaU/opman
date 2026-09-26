@@ -35,8 +35,9 @@ async fn into_response_bad_request() {
 #[tokio::test]
 async fn into_response_server_unavailable() {
     let (status, json) = parts(WebError::ServerUnavailable).await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(json["error"], "Server unavailable");
+    assert_eq!(json["code"], "server_unavailable");
 }
 
 #[tokio::test]

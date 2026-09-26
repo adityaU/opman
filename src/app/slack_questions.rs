@@ -28,7 +28,12 @@ impl App {
                     guard.pending_permissions.remove(thread_ts);
                     drop(guard);
 
-                    let base_url = crate::app::base_url().to_string();
+                    let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                        tracing::debug!(
+                            "skipping Slack permission reply because the runner is unavailable"
+                        );
+                        return true;
+                    };
                     let project_dir = self
                         .projects
                         .get(pidx)
@@ -118,7 +123,12 @@ impl App {
                     guard.pending_questions.remove(thread_ts);
                     drop(guard);
 
-                    let base_url = crate::app::base_url().to_string();
+                    let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                        tracing::debug!(
+                            "skipping Slack question rejection because the runner is unavailable"
+                        );
+                        return true;
+                    };
                     let project_dir = self
                         .projects
                         .get(pidx)
@@ -189,7 +199,12 @@ impl App {
                 guard.pending_questions.remove(thread_ts);
                 drop(guard);
 
-                let base_url = crate::app::base_url().to_string();
+                let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                    tracing::debug!(
+                        "skipping Slack question reply because the runner is unavailable"
+                    );
+                    return true;
+                };
                 let project_dir = self
                     .projects
                     .get(pidx)

@@ -7,6 +7,9 @@ use super::super::handlers;
 use super::super::mcp_ws;
 use super::super::sse;
 
+#[path = "../handlers/runner_handlers.rs"]
+mod runner_handlers;
+
 pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
     let api_routes = Router::new()
         // Auth
@@ -30,6 +33,7 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/project/switch", post(handlers::switch_project))
         .route("/project/add", post(handlers::add_project))
         .route("/project/remove", post(handlers::remove_project))
+        .route("/runner/select", post(runner_handlers::select_runner))
         // Directory browsing (for add-project picker)
         .route("/dirs/home", get(handlers::home_dir))
         .route("/dirs/browse", post(handlers::browse_dirs))

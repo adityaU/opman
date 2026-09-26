@@ -48,23 +48,34 @@ tokio::task_local! {
     pub static TEST_BASE_URL_UNSET: ();
 }
 
-pub fn base_url() -> &'static str {
-    try_base_url().expect("BASE_URL not initialized — opencode server not started")
-}
+#[cfg(test)]
+static TEST_BASE_URL_CACHE: std::sync::OnceLock<std::sync::Mutex<HashMap<String, &'static str>>> =
+    std::sync::OnceLock::new();
 
 /// The default runner's URL, or `None` while it has not been started.
 ///
 /// The default runner starts on first use like every other one, so anything running before
 /// then — the status bar, the startup pollers — has to be able to ask without demanding an
-/// answer. Callers that only run once a session exists keep using [`base_url`].
+/// answer. Callers that need to wait for the runner use [`base_url_ready`] instead.
 pub fn try_base_url() -> Option<&'static str> {
     #[cfg(test)]
     {
         if TEST_BASE_URL_UNSET.try_with(|_| ()).is_ok() {
             return None;
         }
-        if let Ok(leaked) = TEST_BASE_URL.try_with(|u| &*Box::leak(u.clone().into_boxed_str())) {
-            return Some(leaked);
+        if let Ok(url) = TEST_BASE_URL.try_with(Clone::clone) {
+            let cache = TEST_BASE_URL_CACHE.get_or_init(Default::default);
+            if let Ok(mut cache) = cache.lock() {
+                if let Some(&leaked) = cache.get(&url) {
+                    return Some(leaked);
+                }
+                // Task-local test values cannot be returned with a `'static` lifetime. Keep
+                // one process-lifetime copy per distinct mock URL rather than leaking on
+                // every lookup.
+                let leaked = &*Box::leak(url.clone().into_boxed_str());
+                cache.insert(url, leaked);
+                return Some(leaked);
+            }
         }
     }
     BASE_URL.get().map(String::as_str)

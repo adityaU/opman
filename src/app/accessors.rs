@@ -1,6 +1,6 @@
 //! Small App utility methods: hang detection, dirty flags, toggles.
 
-use crate::app::{base_url, App};
+use crate::app::{try_base_url, App};
 use crate::ui::layout_manager::PanelId;
 use tracing::{debug, info};
 
@@ -100,7 +100,12 @@ impl App {
                     .find(|p| p.active_session.as_deref() == Some(&session_id))
                     .map(|p| p.path.to_string_lossy().to_string());
                 if let Some(proj_dir) = proj_dir {
-                    let base = base_url().to_string();
+                    let Some(base) = try_base_url().map(str::to_owned) else {
+                        debug!(
+                            "skipping todo continuation reminder because the runner is unavailable"
+                        );
+                        return;
+                    };
                     tokio::spawn(async move {
                         let client = crate::api::ApiClient::new();
                         let msg = "[SYSTEM REMINDER - TODO CONTINUATION] The todo list has been \

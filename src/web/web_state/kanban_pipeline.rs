@@ -202,7 +202,7 @@ impl super::WebStateHandle {
         let brief = build_stage_brief(task, &lane, index, run.stages.len(), prev_output.as_deref());
         let brief = inject_memory(&brief, &memory);
 
-        let base = crate::app::base_url().to_string();
+        let base = crate::app::base_url_ready().await.to_owned();
         let client = reqwest::Client::new();
         let dir = board.project_path.clone();
 
@@ -243,7 +243,7 @@ impl super::WebStateHandle {
 
     /// Read a session's latest assistant message text (the stage's output).
     async fn capture_session_output(&self, dir: &str, session_id: &str) -> Option<String> {
-        let base = crate::app::base_url().to_string();
+        let base = crate::app::base_url_ready().await.to_owned();
         let client = reqwest::Client::new();
         let resp = client
             .get(format!("{base}/session/{session_id}/message"))

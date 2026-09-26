@@ -22,7 +22,10 @@ impl App {
         if let (Some(ref ss), Some(ref auth)) = (self.slack_state.clone(), self.slack_auth.clone())
         {
             let bot_token = auth.bot_token.clone();
-            let base_url = crate::app::base_url().to_string();
+            let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                tracing::debug!("skipping Slack block action because the runner is unavailable");
+                return;
+            };
             let ss = ss.clone();
             let project_paths: Vec<String> = self
                 .projects

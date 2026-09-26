@@ -332,17 +332,20 @@ async fn main() -> Result<()> {
                         (url, handle, None)
                     }
                 };
-                crate::app::init_base_url(url.clone());
                 let real: Arc<dyn runner::Runner> = match &engine {
-                    Some((_, engine)) => {
-                        Arc::new(runner::AcpRunner::new(kind, url, http, engine.clone()))
-                    }
-                    None => Arc::new(runner::HttpRunner::new(kind, url, http)),
+                    Some((_, engine)) => Arc::new(runner::AcpRunner::new(
+                        kind,
+                        url.clone(),
+                        http,
+                        engine.clone(),
+                    )),
+                    None => Arc::new(runner::HttpRunner::new(kind, url.clone(), http)),
                 };
                 Ok(runner_lazy::LazyStart {
                     runner: real,
                     handle: Some(handle),
                     engine,
+                    base_url: Some(url),
                 })
             }
         })
@@ -388,6 +391,7 @@ async fn main() -> Result<()> {
                             )),
                             handle: Some(handle),
                             engine: None,
+                            base_url: None,
                         })
                     }
                 },
@@ -422,6 +426,7 @@ async fn main() -> Result<()> {
                             )),
                             handle: Some(handle),
                             engine: None,
+                            base_url: None,
                         })
                     }
                 },
@@ -467,6 +472,7 @@ async fn main() -> Result<()> {
                             )),
                             handle: Some(handle),
                             engine: Some((agent_id, engine)),
+                            base_url: None,
                         })
                     }
                 })

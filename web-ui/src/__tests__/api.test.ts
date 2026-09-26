@@ -14,6 +14,8 @@ import {
   fetchAppState,
   fetchSessionMessages,
   fetchProviders,
+  fetchCommands,
+  fetchAgents,
   parseOpenCodeEvent,
   classifyFile,
 } from "../api";
@@ -228,6 +230,34 @@ describe("fetchProviders", () => {
     expect(result.all).toEqual([]);
     expect(result.connected).toEqual([]);
     expect(result.default).toEqual({});
+  });
+
+  it("treats a not-yet-started server as an empty catalogue", async () => {
+    mockFetch({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: () => Promise.resolve('{"error":"Server unavailable","code":"server_unavailable"}'),
+    });
+    await expect(fetchProviders()).resolves.toEqual({ all: [], connected: [], default: {} });
+  });
+
+  it("treats a not-yet-started server as an empty command and agent catalogue", async () => {
+    mockFetch({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: () => Promise.resolve('{"error":"Server unavailable","code":"server_unavailable"}'),
+    });
+    await expect(fetchCommands()).resolves.toEqual([]);
+
+    mockFetch({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: () => Promise.resolve('{"error":"Server unavailable","code":"server_unavailable"}'),
+    });
+    await expect(fetchAgents()).resolves.toEqual([]);
   });
 });
 

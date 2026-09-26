@@ -150,7 +150,10 @@ pub(super) fn open_watcher_modal(app: &mut App) {
 /// Fetch user messages for a session and send them via background event.
 pub(super) fn fetch_watcher_session_messages(app: &App, session_id: &str, project_idx: usize) {
     let sid = session_id.to_string();
-    let base_url = crate::app::base_url().to_string();
+    let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+        tracing::debug!("skipping watcher message fetch because the runner is unavailable");
+        return;
+    };
     let proj_dir = app
         .projects
         .get(project_idx)

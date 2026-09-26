@@ -39,7 +39,10 @@ impl App {
         let triage_sessions: Vec<crate::slack::SessionMeta> = self.collect_session_meta();
         let prompt = crate::slack::build_triage_prompt(&projects, &triage_sessions, &text);
         let bg_tx = self.bg_tx.clone();
-        let base_url = crate::app::base_url().to_string();
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!("skipping Slack triage because the runner is unavailable");
+            return;
+        };
         let original_text = text.clone();
 
         if let Ok(triage_dir) = crate::slack::triage_project_dir() {
@@ -86,7 +89,10 @@ impl App {
             .as_ref()
             .map(|a| a.bot_token.clone())
             .unwrap_or_default();
-        let base_url = crate::app::base_url().to_string();
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!("skipping Slack @ command because the runner is unavailable");
+            return;
+        };
         let buffer_secs = self.config.settings.slack.relay_buffer_secs;
         let slack_st = self.slack_state.clone();
 

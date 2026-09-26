@@ -6,7 +6,9 @@ use anyhow::Result;
 use serde_json::{json, Value};
 use tokio::sync::{broadcast, OnceCell};
 
-use crate::runner::{Runner, RunnerFuture, RunnerKind, RunnerSession, SlashCommand};
+use crate::runner::{
+    Runner, RunnerFuture, RunnerKind, RunnerSession, RunnerStartOutcome, SlashCommand,
+};
 
 use super::{LazyContext, LazyStart};
 
@@ -55,12 +57,22 @@ impl LazyRunner {
         self.inner
             .get_or_try_init(|| async {
                 let started = (self.start)().await?;
+                let handle = started.handle;
+                if let Some(handle) = &handle {
+                    self.ctx.push_handle(Arc::clone(handle));
+                }
+                if let Err(error) = started.runner.wait_until_ready().await {
+                    if let Some(handle) = &handle {
+                        crate::server::kill_server(handle);
+                    }
+                    return Err(error);
+                }
+                if let Some(url) = started.base_url {
+                    crate::app::init_base_url(url);
+                }
                 let registry = self.ctx.registry();
                 if let Some(registry) = &registry {
                     registry.install(self.kind.clone(), started.runner.clone());
-                }
-                if let Some(handle) = started.handle {
-                    self.ctx.push_handle(handle);
                 }
                 if let (Some(supervisor), Some((id, engine))) =
                     (self.ctx.supervisor(), started.engine)
@@ -90,6 +102,18 @@ macro_rules! if_started {
 impl Runner for LazyRunner {
     fn kind(&self) -> RunnerKind {
         self.kind.clone()
+    }
+
+    fn ensure_started<'a>(&'a self) -> RunnerFuture<'a, RunnerStartOutcome> {
+        Box::pin(async move {
+            let was_started = self.is_started();
+            self.ensure().await?;
+            Ok(if was_started {
+                RunnerStartOutcome::AlreadyStarted
+            } else {
+                RunnerStartOutcome::Started
+            })
+        })
     }
 
     fn pending_acp_agent(&self) -> Option<String> {

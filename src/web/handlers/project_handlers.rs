@@ -5,9 +5,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 
 use super::super::auth::AuthUser;
+use super::common::default_base_url;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use crate::app::base_url;
 
 pub async fn switch_project(
     State(state): State<ServerState>,
@@ -113,7 +113,7 @@ pub async fn new_session(
     }
 
     // Create the session synchronously via the opencode server API.
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let resp = state
         .http_client
         .post(format!("{}/session", base))

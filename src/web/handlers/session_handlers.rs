@@ -7,10 +7,9 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
+use super::common::{default_base_url, resolve_project_dir};
 use crate::api::interactions::CommandError;
 use crate::api::ApiClient;
-use crate::app::base_url;
 use crate::runner::RunnerKind;
 use crate::web::session_instructions;
 
@@ -64,7 +63,7 @@ pub async fn get_session_messages(
             page.before,
         )));
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let resp = state
         .http_client
         .get(format!("{}/session/{}/message", base, session_id))
@@ -309,7 +308,7 @@ pub async fn send_message(
         })));
     }
 
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let resp = state
         .http_client
         .post(format!("{}/session/{}/message", base, session_id))
@@ -371,7 +370,7 @@ pub async fn abort_session(
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         return Ok(StatusCode::OK);
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     client
         .abort_session(&base, &dir, &session_id)
@@ -415,7 +414,7 @@ async fn proxy_queue(
     index: Option<usize>,
 ) -> WebResult<Json<serde_json::Value>> {
     let dir = resolve_project_dir(state).await?;
-    let base = base_url().to_string();
+    let base = default_base_url(state).await?;
     let path = match index {
         Some(i) => format!("{}/session/{}/queue/{}", base, session_id, i),
         None => format!("{}/session/{}/queue", base, session_id),
@@ -468,7 +467,7 @@ pub async fn delete_session(
     {
         return Ok(StatusCode::OK);
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let resp = state
         .http_client
         .delete(format!("{}/session/{}", base, session_id))
@@ -521,7 +520,7 @@ pub async fn rename_session(
     {
         return Ok(Json(serde_json::json!({ "ok": true, "title": req.title })));
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let resp = state
         .http_client
         .patch(format!("{}/session/{}", base, session_id))
@@ -584,7 +583,7 @@ pub async fn execute_command(
         return Ok(Json(result));
     }
 
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     let result = client
         .execute_session_command(
@@ -622,6 +621,18 @@ pub async fn get_providers(
     Query(query): Query<RunnerQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    let startup_kind = query
+        .runner
+        .as_deref()
+        .map(parse_runner)
+        .transpose()?
+        .unwrap_or_else(|| state.runner_registry.default_kind());
+    state
+        .runner_registry
+        .ensure_started(&startup_kind)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner startup failed: {e}")))?;
+
     if let Some(name) = query.runner.as_deref() {
         let runner = parse_runner(name)?;
         let providers = state
@@ -631,7 +642,7 @@ pub async fn get_providers(
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         return Ok(Json(providers));
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     let providers = client
         .fetch_providers(&base, &dir)
@@ -652,6 +663,17 @@ pub async fn get_commands(
     Query(query): Query<RunnerQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
+    let startup_kind = query
+        .runner
+        .as_deref()
+        .map(parse_runner)
+        .transpose()?
+        .unwrap_or_else(|| state.runner_registry.default_kind());
+    state
+        .runner_registry
+        .ensure_started(&startup_kind)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner startup failed: {e}")))?;
     if let Some(name) = query.runner.as_deref() {
         let runner = parse_runner(name)?;
         let commands = state
@@ -661,7 +683,7 @@ pub async fn get_commands(
             .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
         return Ok(Json(commands));
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     let cmds = client
         .list_commands(&base, &dir)
@@ -692,7 +714,7 @@ pub async fn reply_permission(
     {
         return Ok(StatusCode::OK);
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     client
         .reply_permission(&base, &dir, &request_id, &req.reply)
@@ -724,7 +746,7 @@ pub async fn reply_question(
     {
         return Ok(StatusCode::OK);
     }
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     client
         .reply_question(&base, &dir, &request_id, &answers)
@@ -810,7 +832,7 @@ pub async fn a2ui_callback(
     Json(req): Json<A2uiCallbackRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
 
     // Format the callback as a structured user message the agent can parse.
     let text = a2ui_callback_text(&req.callback_id, &req.payload);

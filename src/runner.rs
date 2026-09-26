@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
@@ -20,10 +20,34 @@ pub use opman_backend_contracts::{
     is_valid_acp_id, register_acp_runners, ProjectDirectory, RunnerKind, SessionId,
 };
 
+/// The result of asking a runner slot to be available for use.
+///
+/// This is deliberately not a boolean: both variants mean the slot is answering requests,
+/// while the distinction tells callers whether this request performed the startup work.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunnerStartOutcome {
+    Started,
+    AlreadyStarted,
+}
+
 /// The small contract every runner implements.  The web layer only deals in
 /// opencode-shaped JSON, so runner-specific protocol details stay here.
 pub trait Runner: Send + Sync {
     fn kind(&self) -> RunnerKind;
+    /// Start a lazy runner without performing a user-facing operation.
+    ///
+    /// Eager runners are already available; lazy runners override this to start and verify.
+    fn ensure_started<'a>(&'a self) -> RunnerFuture<'a, RunnerStartOutcome> {
+        Box::pin(async { Ok(RunnerStartOutcome::AlreadyStarted) })
+    }
+    /// Wait until the runner's HTTP server is answering requests.
+    ///
+    /// Non-HTTP runners are ready when their process is created; HTTP runners override this
+    /// so a lazy slot never exposes a server that is merely bound but not serving yet.
+    fn wait_until_ready<'a>(&'a self) -> RunnerFuture<'a, ()> {
+        Box::pin(async { Ok(()) })
+    }
     /// The ACP agent id this slot is reserved for but has not started yet.
     ///
     /// Only a lazy runner answers this. It exists so the ACP supervisor can tell a slot
@@ -269,11 +293,55 @@ impl HttpRunner {
         }
         Ok(body)
     }
+
+    async fn wait_until_ready(&self) -> Result<()> {
+        const DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
+        const MAX_BACKOFF: std::time::Duration = std::time::Duration::from_millis(250);
+        // opencode binds its port before its app is serving, and a request that lands in
+        // that window is never answered — so one probe must not be allowed to sit on the
+        // whole deadline. Short probes, retried, reach the server once it really answers.
+        const PROBE: std::time::Duration = std::time::Duration::from_secs(1);
+
+        let deadline = tokio::time::Instant::now() + DEADLINE;
+        let mut backoff = std::time::Duration::from_millis(25);
+        let mut last_error = String::from("no response");
+
+        loop {
+            let now = tokio::time::Instant::now();
+            if now >= deadline {
+                bail!(
+                    "{} runner at {} did not become ready within {DEADLINE:?}: {last_error}",
+                    self.kind.display_name(),
+                    self.base_url
+                );
+            }
+            let probe = PROBE.min(deadline - now);
+            let request = self
+                .client
+                .get(format!("{}/health", self.base_url))
+                .header("Accept", "application/json");
+            match tokio::time::timeout(probe, request.send()).await {
+                // A response of any status proves the HTTP server is accepting requests. A
+                // minimal test server may not expose `/health`, while the real engines do.
+                Ok(Ok(_response)) => return Ok(()),
+                Ok(Err(error)) => last_error = error.to_string(),
+                Err(_) => last_error = "health request timed out".to_string(),
+            }
+
+            let sleep_for =
+                backoff.min(deadline.saturating_duration_since(tokio::time::Instant::now()));
+            tokio::time::sleep(sleep_for).await;
+            backoff = (backoff * 2).min(MAX_BACKOFF);
+        }
+    }
 }
 
 impl Runner for HttpRunner {
     fn kind(&self) -> RunnerKind {
         self.kind.clone()
+    }
+    fn wait_until_ready<'a>(&'a self) -> RunnerFuture<'a, ()> {
+        Box::pin(async move { self.wait_until_ready().await })
     }
     fn event_url(&self) -> Option<String> {
         Some(format!("{}/event", self.base_url))
@@ -587,6 +655,9 @@ impl Runner for AcpRunner {
     fn kind(&self) -> RunnerKind {
         self.http.kind()
     }
+    fn wait_until_ready<'a>(&'a self) -> RunnerFuture<'a, ()> {
+        Box::pin(async move { self.http.wait_until_ready().await })
+    }
     fn event_url(&self) -> Option<String> {
         None
     }
@@ -723,7 +794,7 @@ pub struct RunnerRegistry {
     /// Almost everything looks a runner up per request and so needs no telling. The SSE
     /// fan-out is the exception — it subscribes once per runner — so a lazily started
     /// runner would otherwise answer prompts into a channel no browser is reading.
-    on_runner_started: OnceLock<StartedHook>,
+    on_runner_started: std::sync::RwLock<Vec<StartedHook>>,
 }
 
 /// Notified with a runner that has just come up, and the runner itself so the callback
@@ -736,20 +807,27 @@ impl RunnerRegistry {
             default,
             runners: std::sync::RwLock::new(Arc::new(runners)),
             bindings: RwLock::new(HashMap::new()),
-            on_runner_started: OnceLock::new(),
+            on_runner_started: std::sync::RwLock::new(Vec::new()),
         }
     }
 
-    /// Register the started-hook. Set once, from the web layer, as soon as the SSE
-    /// channels it needs exist.
+    /// Register a started-hook. Several web subsystems need the same notification:
+    /// SSE wiring and session hydration both have work to do when a lazy runner comes up.
     pub fn set_on_runner_started(&self, hook: StartedHook) {
-        let _ = self.on_runner_started.set(hook);
+        match self.on_runner_started.write() {
+            Ok(mut hooks) => hooks.push(hook),
+            Err(poisoned) => poisoned.into_inner().push(hook),
+        }
     }
 
     /// Announce a runner that has just started. Called by [`crate::runner_lazy`] after the
     /// real runner is installed, so a hook looking the slot up sees the started one.
     pub fn notify_started(&self, kind: &RunnerKind, runner: &Arc<dyn Runner>) {
-        if let Some(hook) = self.on_runner_started.get() {
+        let hooks = match self.on_runner_started.read() {
+            Ok(hooks) => hooks.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        };
+        for hook in hooks {
             hook(kind, runner);
         }
     }
@@ -811,9 +889,15 @@ impl RunnerRegistry {
             .context("runner is not available")
     }
 
+    /// Start the selected slot while leaving the actual user operation to the caller.
+    pub async fn ensure_started(&self, kind: &RunnerKind) -> Result<RunnerStartOutcome> {
+        self.runner(kind)?.ensure_started().await
+    }
+
     pub fn default_kind(&self) -> RunnerKind {
         self.default.clone()
     }
+
     pub fn available(&self) -> Vec<RunnerKind> {
         let mut runners: Vec<_> = self.snapshot().keys().cloned().collect();
         runners.sort_by(|a, b| a.display_name().cmp(&b.display_name()));

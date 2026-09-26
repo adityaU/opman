@@ -26,7 +26,12 @@ impl App {
             .as_ref()
             .map(|a| a.bot_token.clone())
             .unwrap_or_default();
-        let base_url = crate::app::base_url().to_string();
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!(
+                "skipping Slack pending-message drain because the runner is unavailable"
+            );
+            return;
+        };
         let project_dir = project.path.to_string_lossy().to_string();
         let pname = project.name.clone();
         let sname = project

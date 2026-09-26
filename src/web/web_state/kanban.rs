@@ -393,7 +393,7 @@ impl super::WebStateHandle {
             let event_tx = self.event_tx.clone();
             // Fire-and-forget so the note POST returns immediately.
             tokio::spawn(async move {
-                let base = crate::app::base_url().to_string();
+                let base = crate::app::base_url_ready().await.to_owned();
                 let client = reqwest::Client::new();
                 let _ = client
                     .post(format!("{base}/session/{sid}/message"))

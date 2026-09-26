@@ -4,9 +4,9 @@ use axum::extract::State;
 use axum::response::{IntoResponse, Json};
 
 use super::super::auth::AuthUser;
+use super::common::default_base_url;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use crate::app::base_url;
 
 /// GET /api/session/{session_id}/file-edits
 ///
@@ -88,7 +88,7 @@ pub async fn search_messages(
         .await
         .ok_or(WebError::BadRequest("Invalid project index".into()))?;
 
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let dir = project_path.to_string_lossy().to_string();
     let query_lower = query.to_lowercase();
     let limit = params.limit.min(200); // cap at 200

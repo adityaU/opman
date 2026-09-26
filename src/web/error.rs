@@ -8,6 +8,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json, Response};
 use serde::Serialize;
 
+use crate::app::try_base_url;
 use crate::browser::BrowserInstallGuide;
 
 /// JSON body for error responses.
@@ -29,8 +30,7 @@ pub enum WebError {
     NotFound(&'static str),
     /// Request body failed validation (bad base64, unknown panel name, etc.).
     BadRequest(String),
-    /// The main TUI loop is unreachable (channel closed or oneshot dropped).
-    #[allow(dead_code)]
+    /// The default runner is not available yet.
     ServerUnavailable,
     /// Upstream (opencode server) returned an error — preserve its status code.
     Upstream(StatusCode, String),
@@ -84,10 +84,10 @@ impl IntoResponse for WebError {
                 },
             ),
             Self::ServerUnavailable => (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::SERVICE_UNAVAILABLE,
                 ErrorBody {
                     error: "Server unavailable".to_string(),
-                    code: None,
+                    code: Some("server_unavailable"),
                     browser_setup: None,
                 },
             ),
@@ -118,6 +118,12 @@ impl IntoResponse for WebError {
         };
         (status, Json(body)).into_response()
     }
+}
+
+/// Resolve the default runner for a web request without turning a lazy-start race into a
+/// process abort. Handlers that need a runner can use this at the point of the request.
+pub(crate) fn base_url_or_unavailable() -> WebResult<&'static str> {
+    try_base_url().ok_or(WebError::ServerUnavailable)
 }
 
 /// Convenience alias for handler return types.
@@ -163,10 +169,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn server_unavailable_returns_500() {
+    async fn server_unavailable_returns_503() {
         let (status, json) = error_to_parts(WebError::ServerUnavailable).await;
-        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(json["error"], "Server unavailable");
+        assert_eq!(json["code"], "server_unavailable");
     }
 
     #[tokio::test]

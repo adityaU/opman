@@ -6,9 +6,8 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
+use super::common::{default_base_url, resolve_project_dir};
 use crate::api::ApiClient;
-use crate::app::base_url;
 
 /// GET /api/session/:id/todos — fetch todos for a session.
 pub async fn get_session_todos(
@@ -17,7 +16,7 @@ pub async fn get_session_todos(
     axum::extract::Path(session_id): axum::extract::Path<String>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = ApiClient::with_client(state.http_client.clone());
     let todos = client
         .fetch_todos(&base, &dir, &session_id)
@@ -62,7 +61,7 @@ pub async fn get_context_window(
     axum::extract::Query(query): axum::extract::Query<ContextWindowQuery>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
 
     // 1. Determine which session to inspect
     let session_id = match query.session_id {

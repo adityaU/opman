@@ -83,7 +83,10 @@ pub(super) fn execute_command_action_ext(app: &mut App, action: CommandAction) -
                 if let Some(ref session_id) = project.active_session {
                     let proj_dir = project.path.to_string_lossy().to_string();
                     let sid = session_id.clone();
-                    let base_url = crate::app::base_url().to_string();
+                    let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                        tracing::debug!("skipping todo fetch because the runner is unavailable");
+                        return Ok(());
+                    };
                     let bg_tx = app.bg_tx.clone();
                     tokio::spawn(async move {
                         let client = crate::api::ApiClient::new();

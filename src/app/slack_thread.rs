@@ -33,7 +33,10 @@ impl App {
         // ── Normal thread reply ─────────────────────────
         {
             let st = state.clone();
-            let base_url = crate::app::base_url().to_string();
+            let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                tracing::debug!("skipping Slack thread reply because the runner is unavailable");
+                return;
+            };
             let projects: Vec<(String, String)> = self
                 .projects
                 .iter()
@@ -135,7 +138,10 @@ impl App {
         state: &std::sync::Arc<tokio::sync::Mutex<crate::slack::SlackState>>,
     ) {
         let st = state.clone();
-        let base_url = crate::app::base_url().to_string();
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!("skipping Slack @ command because the runner is unavailable");
+            return;
+        };
         let bot_token = self
             .slack_auth
             .as_ref()

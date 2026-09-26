@@ -161,7 +161,12 @@ fn handle_pending_session_select(app: &mut App) {
                 app.unseen_sessions.remove(&session_id);
                 let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
                 let sid = session_id.clone();
-                let base_url = crate::app::base_url().to_string();
+                let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                    tracing::debug!(
+                        "skipping session selection sync because the runner is unavailable"
+                    );
+                    return;
+                };
                 tokio::spawn(async move {
                     let client = crate::api::ApiClient::new();
                     let _ = client.select_session(&base_url, &dir, &sid).await;
@@ -203,7 +208,11 @@ fn handle_pending_new_session(app: &mut App) {
                 .map(|r| (r.width, r.height))
                 .unwrap_or((80, 24));
             let bg_tx = app.bg_tx.clone();
-            let base_url = crate::app::base_url().to_string();
+            let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                tracing::debug!("skipping new-session PTY because the runner is unavailable");
+                app.awaiting_new_session = None;
+                return;
+            };
             let theme_envs = app.theme.pty_env_vars();
             let new_session_dir = project_path.to_string_lossy().to_string();
             tokio::spawn(async move {

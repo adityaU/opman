@@ -1,4 +1,4 @@
-import { apiFetch, apiPost, apiDelete, apiPatch, apiPut } from "./client";
+import { ApiError, apiFetch, apiPost, apiDelete, apiPatch, apiPut } from "./client";
 import type { Message, Provider, SlashCommand, TodoItem } from "../types";
 
 // ── Message pagination ────────────────────────────────
@@ -154,9 +154,14 @@ export async function executeCommand(
  */
 export async function fetchCommands(runner?: string): Promise<SlashCommand[]> {
   const query = runner ? `?runner=${encodeURIComponent(runner)}` : "";
-  const data = await apiFetch<unknown>(`/commands${query}`);
-  if (Array.isArray(data)) return data as SlashCommand[];
-  return [];
+  try {
+    const data = await apiFetch<unknown>(`/commands${query}`);
+    if (Array.isArray(data)) return data as SlashCommand[];
+    return [];
+  } catch (error) {
+    if (isServerUnavailable(error)) return [];
+    throw error;
+  }
 }
 
 // ── Providers ─────────────────────────────────────────
@@ -181,20 +186,25 @@ interface ProvidersResponse {
 
 export async function fetchProviders(runner?: string): Promise<ProvidersResponse> {
   const path = runner ? `/providers?runner=${encodeURIComponent(runner)}` : "/providers";
-  const data = await apiFetch<unknown>(path);
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    const resp = data as Record<string, unknown>;
-    return {
-      all: (resp.all as Provider[]) || [],
-      connected: (resp.connected as string[]) || [],
-      default: (resp.default as Record<string, string>) || {},
-      permissionModes: (resp.permissionModes as PermissionModeOption[]) || undefined,
-    };
+  try {
+    const data = await apiFetch<unknown>(path);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const resp = data as Record<string, unknown>;
+      return {
+        all: (resp.all as Provider[]) || [],
+        connected: (resp.connected as string[]) || [],
+        default: (resp.default as Record<string, string>) || {},
+        permissionModes: (resp.permissionModes as PermissionModeOption[]) || undefined,
+      };
+    }
+    if (Array.isArray(data)) {
+      return { all: data as Provider[], connected: [], default: {} };
+    }
+    return { all: [], connected: [], default: {} };
+  } catch (error) {
+    if (isServerUnavailable(error)) return { all: [], connected: [], default: {} };
+    throw error;
   }
-  if (Array.isArray(data)) {
-    return { all: data as Provider[], connected: [], default: {} };
-  }
-  return { all: [], connected: [], default: {} };
 }
 
 // ── Permissions & Questions ───────────────────────────
@@ -301,7 +311,12 @@ export async function fetchAgents(runner = "opencode"): Promise<AgentInfo[]> {
     if (agents.length > 0) return agents;
     if (runner !== "opencode") return runnerFallbackAgents(runner);
     return agents;
-  } catch {
+  } catch (error) {
+    if (isServerUnavailable(error)) return [];
     return runnerFallbackAgents(runner);
   }
+}
+
+function isServerUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "server_unavailable";
 }

@@ -1,11 +1,10 @@
-use std::io::{BufRead, BufReader};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::app::Project;
 use crate::cli::AgentBackend;
@@ -43,7 +42,9 @@ pub fn spawn_agent_server(
     command
         .args(["serve", "--port", &port.to_string()])
         .current_dir(&temp)
-        .stdout(Stdio::piped())
+        // Readiness is determined from the bound port below. A child is allowed to log to
+        // either stream without making startup depend on a particular output format.
+        .stdout(Stdio::null())
         .stderr(Stdio::null());
     if let Some(config) = opencode_config {
         command.env("OPENCODE_CONFIG_CONTENT", config);
@@ -52,44 +53,26 @@ pub fn spawn_agent_server(
         format!("Failed to spawn `{binary} serve`. Is {binary} installed and on PATH?")
     })?;
 
-    let stdout = child
-        .stdout
-        .take()
-        .context("Failed to capture agent server stdout")?;
-
-    let reader = BufReader::new(stdout);
-    let mut base_url: Option<String> = None;
-
-    // Allow up to 20 seconds for the server to print its listening line.
+    // Do not wait for a stdout line here. Recent agent versions can log their listening
+    // address to stderr, or stay quiet entirely, while already accepting connections. A
+    // blocking `BufRead::lines()` made the old deadline ineffective in both cases.
     let deadline = std::time::Instant::now() + Duration::from_secs(20);
-
-    for line in reader.lines() {
-        if std::time::Instant::now() > deadline {
+    loop {
+        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            break;
+        }
+        if let Some(status) = child.try_wait().context("Failed to inspect agent server")? {
+            bail!("`{binary} serve` exited before listening (status: {status})");
+        }
+        if std::time::Instant::now() >= deadline {
             let _ = child.kill();
+            let _ = child.wait();
             bail!("Timed out waiting for `{binary} serve` to start (20s)");
         }
-        match line {
-            Ok(line) => {
-                debug!(%binary, %line, "agent server stdout");
-                // Both opencode and claude-code print a line containing "http://"
-                if let Some(url_start) = line.find("http://") {
-                    let url = line[url_start..].trim().to_string();
-                    info!(%url, %binary, "Agent server is ready");
-                    base_url = Some(url);
-                    break;
-                }
-            }
-            Err(e) => {
-                warn!("Error reading agent server stdout: {}", e);
-                break;
-            }
-        }
+        std::thread::sleep(Duration::from_millis(50));
     }
-
-    let url = base_url.unwrap_or_else(|| {
-        warn!("Could not parse listening URL from `{binary} serve` output, using fallback");
-        format!("http://127.0.0.1:{}", port)
-    });
+    let url = format!("http://127.0.0.1:{port}");
+    info!(%url, %binary, "Agent server is ready");
 
     let handle: ServerHandle = Arc::new(Mutex::new(Some(child)));
     Ok((url, handle))

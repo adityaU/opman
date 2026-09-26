@@ -183,7 +183,7 @@ impl super::WebStateHandle {
             return Err("No project directory found".to_string());
         }
 
-        let base = crate::app::base_url().to_string();
+        let base = crate::app::base_url_ready().await.to_owned();
         let url = format!("{}/session", base);
 
         let client = reqwest::Client::new();

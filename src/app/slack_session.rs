@@ -98,7 +98,10 @@ impl App {
                             .map(|a| a.bot_token.clone())
                             .unwrap_or_default();
                         let buffer_secs = self.config.settings.slack.relay_buffer_secs;
-                        let base_url = crate::app::base_url().to_string();
+                        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                            tracing::debug!("skipping Slack session-map restore because the runner is unavailable");
+                            return;
+                        };
                         let st = state.clone();
 
                         tokio::spawn(async move {

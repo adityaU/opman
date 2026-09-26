@@ -30,19 +30,27 @@ pub(crate) fn handle_mouse_in_loop(
                 if let Some((start_x, end_x)) = app.status_bar_url_range.get() {
                     let col = mouse_event.column;
                     if col >= start_x && col < end_x {
-                        let url = crate::app::base_url();
-                        use std::io::Write as _;
-                        use std::process::{Command, Stdio};
-                        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn()
-                        {
-                            if let Some(stdin) = child.stdin.as_mut() {
-                                let _ = stdin.write_all(url.as_bytes());
+                        if let Some(url) = crate::app::try_base_url() {
+                            use std::io::Write as _;
+                            use std::process::{Command, Stdio};
+                            if let Ok(mut child) =
+                                Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                            {
+                                if let Some(stdin) = child.stdin.as_mut() {
+                                    let _ = stdin.write_all(url.as_bytes());
+                                }
+                                let _ = child.wait();
+                                app.toast_message = Some((
+                                    "Server URL copied!".to_string(),
+                                    std::time::Instant::now(),
+                                ));
+                                app.needs_redraw = true;
                             }
-                            let _ = child.wait();
+                        } else {
+                            tracing::debug!(
+                                "skipping server URL copy because the runner is unavailable"
+                            );
                         }
-                        app.toast_message =
-                            Some(("Server URL copied!".to_string(), std::time::Instant::now()));
-                        app.needs_redraw = true;
                     }
                 }
             }
@@ -238,7 +246,12 @@ fn select_session_or_pending(app: &mut App, proj_idx: usize, session_id: String)
             app.active_project = proj_idx;
             let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
             let sid = session_id.clone();
-            let base_url = crate::app::base_url().to_string();
+            let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+                tracing::debug!(
+                    "skipping session selection sync because the runner is unavailable"
+                );
+                return;
+            };
             tokio::spawn(async move {
                 let client = crate::api::ApiClient::new();
                 let _ = client.select_session(&base_url, &dir, &sid).await;

@@ -32,8 +32,11 @@ impl App {
         } else {
             None
         };
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!("skipping watcher because the runner is unavailable");
+            return;
+        };
         let api = crate::api::ApiClient::new();
-        let base_url = crate::app::base_url().to_string();
         let project_dir = self
             .projects
             .get(watcher.project_idx)

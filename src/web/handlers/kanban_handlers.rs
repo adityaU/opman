@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::super::auth::AuthUser;
+use super::common::default_base_url;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
 use super::super::web_state::KanbanError;
@@ -83,7 +84,10 @@ pub async fn create_task(
 /// the agent and keeps the conversation. No-op if the task never launched a session.
 async fn stop_task_agent(state: &ServerState, session_id: Option<&str>) {
     let Some(sid) = session_id else { return };
-    let base = crate::app::base_url().to_string();
+    let Some(base) = crate::app::try_base_url().map(str::to_owned) else {
+        tracing::debug!("skipping task-agent stop because the default runner is unavailable");
+        return;
+    };
     let _ = state
         .http_client
         .post(format!("{base}/session/{sid}/abort"))
@@ -313,7 +317,7 @@ pub async fn launch_task(
     let model = req.model.or_else(|| lane.and_then(|l| l.model.clone()));
     let project_path = board.project_path.clone();
 
-    let base = crate::app::base_url().to_string();
+    let base = default_base_url(&state).await?;
     let client = &state.http_client;
 
     // 1) Create the session in the active backend.
@@ -375,7 +379,7 @@ pub async fn abort_task(
         .await
         .ok_or(WebError::NotFound("task"))?;
     if let Some(sid) = &task.session_id {
-        let base = crate::app::base_url().to_string();
+        let base = default_base_url(&state).await?;
         let _ = state
             .http_client
             .post(format!("{base}/session/{sid}/abort"))

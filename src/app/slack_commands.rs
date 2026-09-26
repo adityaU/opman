@@ -40,7 +40,10 @@ impl App {
             .map(|a| a.bot_token.clone())
             .unwrap_or_default();
         let bg_tx = self.bg_tx.clone();
-        let base_url = crate::app::base_url().to_string();
+        let Some(base_url) = crate::app::try_base_url().map(str::to_owned) else {
+            tracing::debug!("skipping Slack slash command because the runner is unavailable");
+            return;
+        };
 
         let cmd = command.clone();
         let txt = text.clone();

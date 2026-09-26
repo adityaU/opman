@@ -7,8 +7,7 @@ use axum::response::{IntoResponse, Json};
 use super::super::auth::AuthUser;
 use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
-use crate::app::base_url;
+use super::common::{default_base_url, resolve_project_dir};
 
 /// GET /api/watchers — list all active watchers with real-time status.
 pub async fn list_watchers(
@@ -82,7 +81,7 @@ pub async fn get_watcher_messages(
     axum::extract::Path(session_id): axum::extract::Path<String>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
 
     // Fetch messages from the opencode server
     let resp = state

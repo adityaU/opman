@@ -1,7 +1,6 @@
 use tracing::warn;
 
 use crate::api::ApiClient;
-use crate::app::base_url;
 use crate::config::{Config, ProjectEntry};
 
 use super::super::types::*;
@@ -248,7 +247,7 @@ impl super::WebStateHandle {
                 drop(inner); // Release lock before async API call
 
                 // Tell the opencode server about the selection
-                let base = base_url().to_string();
+                let base = crate::app::base_url_ready().await.to_owned();
                 let client = ApiClient::new();
                 let dir = {
                     let inner = self.inner.read().await;

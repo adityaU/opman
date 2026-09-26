@@ -5,10 +5,10 @@ use axum::response::{IntoResponse, Json};
 use serde::Deserialize;
 
 use super::super::auth::AuthUser;
-use super::super::error::WebResult;
+use super::super::error::{WebError, WebResult};
 use super::super::types::*;
-use super::common::resolve_project_dir;
-use crate::app::base_url;
+use super::common::{default_base_url, resolve_project_dir};
+use crate::runner::RunnerKind;
 
 /// GET /api/agents — list available agents.
 ///
@@ -67,6 +67,21 @@ pub async fn get_agents(
 
     let dir = resolve_project_dir(&state).await?;
 
+    let startup_kind = query
+        .runner
+        .as_deref()
+        .map(|name| {
+            RunnerKind::parse(name)
+                .ok_or_else(|| WebError::BadRequest(format!("Unknown runner: {name}")))
+        })
+        .transpose()?
+        .unwrap_or_else(|| state.runner_registry.default_kind());
+    state
+        .runner_registry
+        .ensure_started(&startup_kind)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner startup failed: {e}")))?;
+
     // Any other named runner answers for itself. Falling through to `base_url()` would ask
     // whichever engine happens to be primary — which is how the ACP `claude` runner ended up
     // listing opencode's agents. An ACP engine reports none, and the client falls back to a
@@ -94,7 +109,7 @@ pub async fn get_agents(
         }
     }
 
-    let base = base_url().to_string();
+    let base = default_base_url(&state).await?;
 
     // ── Primary: query the running opencode instance ────────────────
     if let Ok(resp) = state

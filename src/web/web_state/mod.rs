@@ -20,6 +20,7 @@ mod assistant_send;
 mod background;
 mod background_hydration;
 mod background_sessions;
+mod background_started;
 mod db_sync;
 mod file_edits;
 mod kanban;
@@ -283,6 +284,8 @@ impl WebStateHandle {
             runner_registry: Some(runner_registry),
         };
 
+        handle.register_runner_started_hook();
+
         // Spawn background tasks
         handle.spawn_persist_worker(persist_rx);
         handle.spawn_session_poller();
@@ -387,6 +390,15 @@ impl WebStateHandle {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn attach_runner_registry_for_test(
+        &mut self,
+        runner_registry: Arc<crate::runner::RunnerRegistry>,
+    ) {
+        self.runner_registry = Some(runner_registry);
+        self.register_runner_started_hook();
+    }
+
     /// Access the underlying DB handle (tests only).
     #[cfg(test)]
     pub(crate) fn db_for_test(&self) -> &Db {
@@ -428,3 +440,7 @@ mod mod_tests;
 #[cfg(test)]
 #[path = "mod_build_inner_tests.rs"]
 mod mod_build_inner_tests;
+
+#[cfg(test)]
+#[path = "background_started_tests.rs"]
+mod background_started_tests;

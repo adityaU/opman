@@ -13,6 +13,12 @@ pub struct LazyStart {
     pub handle: Option<ServerHandle>,
     /// The ACP agent id and engine, so the supervisor can own it from here on.
     pub engine: Option<(String, Arc<AcpEngine>)>,
+    /// The URL to publish as the default runner's, set only by the default slot.
+    ///
+    /// It is published after the readiness check, not at spawn: a server that never
+    /// answers is killed, and the next attempt must not find its dead port already pinned
+    /// as the process-wide base URL.
+    pub base_url: Option<String>,
 }
 
 /// The process-wide bits a lazily started runner has to join once it is alive.

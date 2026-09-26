@@ -74,7 +74,11 @@ pub(super) fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             app.active_project = proj_idx;
                             let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
                             let sid = session_id.clone();
-                            let base_url = crate::app::base_url().to_string();
+                            let Some(base_url) = crate::app::try_base_url().map(str::to_owned)
+                            else {
+                                tracing::debug!("skipping session selection sync because the runner is unavailable");
+                                return Ok(());
+                            };
                             tokio::spawn(async move {
                                 let client = crate::api::ApiClient::new();
                                 let _ = client.select_session(&base_url, &dir, &sid).await;
@@ -96,7 +100,11 @@ pub(super) fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             app.active_project = proj_idx;
                             let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
                             let sid = session_id.clone();
-                            let base_url = crate::app::base_url().to_string();
+                            let Some(base_url) = crate::app::try_base_url().map(str::to_owned)
+                            else {
+                                tracing::debug!("skipping session selection sync because the runner is unavailable");
+                                return Ok(());
+                            };
                             tokio::spawn(async move {
                                 let client = crate::api::ApiClient::new();
                                 let _ = client.select_session(&base_url, &dir, &sid).await;
@@ -151,7 +159,11 @@ pub(super) fn handle_sidebar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                             app.active_project = proj_idx;
                             let dir = app.projects[proj_idx].path.to_string_lossy().to_string();
                             let sid = session_id.clone();
-                            let base_url = crate::app::base_url().to_string();
+                            let Some(base_url) = crate::app::try_base_url().map(str::to_owned)
+                            else {
+                                tracing::debug!("skipping session selection sync because the runner is unavailable");
+                                return Ok(());
+                            };
                             tokio::spawn(async move {
                                 let client = crate::api::ApiClient::new();
                                 let _ = client.select_session(&base_url, &dir, &sid).await;

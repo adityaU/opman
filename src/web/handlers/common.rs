@@ -64,6 +64,20 @@ pub(super) async fn resolve_project_dir(state: &ServerState) -> WebResult<String
         .ok_or(WebError::BadRequest("No active project".into()))
 }
 
+/// The default runner's URL for a handler that talks to it directly.
+///
+/// Runners start on first use, so the first request after boot may be the one that has
+/// to start it. Starting here keeps that request working instead of answering 503.
+pub(super) async fn default_base_url(state: &ServerState) -> WebResult<String> {
+    let kind = state.runner_registry.default_kind();
+    state
+        .runner_registry
+        .ensure_started(&kind)
+        .await
+        .map_err(|e| WebError::Internal(format!("Runner startup failed: {e}")))?;
+    Ok(super::super::error::base_url_or_unavailable()?.to_owned())
+}
+
 /// Helper: resolve a specific git repo directory within the project.
 ///
 /// When `repo` is empty or ".", returns the project root.

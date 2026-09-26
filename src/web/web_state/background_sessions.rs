@@ -8,11 +8,12 @@ use crate::app::{base_url_ready, try_base_url};
 use super::super::types::*;
 use super::background_hydration::StartupHydration;
 
-fn merge_runner_sessions(
+pub(super) fn merge_runner_sessions(
     project: &super::WebProject,
     default_runner: &str,
     mut fetched: Vec<crate::app::SessionInfo>,
     session_runners: &std::collections::HashMap<String, String>,
+    excluding_runner: Option<&str>,
 ) -> Vec<crate::app::SessionInfo> {
     let fetched_ids: HashSet<String> = fetched.iter().map(|session| session.id.clone()).collect();
     fetched.extend(
@@ -21,16 +22,16 @@ fn merge_runner_sessions(
             .iter()
             .filter(|session| {
                 !fetched_ids.contains(&session.id)
-                    && session_runners
-                        .get(&session.id)
-                        .is_some_and(|runner| runner != default_runner)
+                    && session_runners.get(&session.id).is_some_and(|runner| {
+                        runner != default_runner && Some(runner.as_str()) != excluding_runner
+                    })
             })
             .cloned(),
     );
     fetched
 }
 
-fn repair_active_session(
+pub(super) fn repair_active_session(
     project: &mut super::WebProject,
     sessions: &[crate::app::SessionInfo],
 ) -> bool {
@@ -150,8 +151,13 @@ impl super::WebStateHandle {
                     state.session_runners.insert(session_id, runner);
                 }
                 if let Some(project) = state.projects.get_mut(idx) {
-                    let filtered =
-                        merge_runner_sessions(project, &default_runner, fetched, &session_runners);
+                    let filtered = merge_runner_sessions(
+                        project,
+                        &default_runner,
+                        fetched,
+                        &session_runners,
+                        None,
+                    );
                     repair_active_session(project, &filtered);
                     project.sessions = filtered;
                 }
@@ -216,8 +222,13 @@ impl super::WebStateHandle {
                     state.session_runners.insert(session_id, runner);
                 }
                 if let Some(project) = state.projects.get_mut(idx) {
-                    let filtered =
-                        merge_runner_sessions(project, &default_runner, fetched, &session_runners);
+                    let filtered = merge_runner_sessions(
+                        project,
+                        &default_runner,
+                        fetched,
+                        &session_runners,
+                        None,
+                    );
                     let active_changed = project.active_session.is_some()
                         && repair_active_session(project, &filtered);
                     let sessions_differ = if project.sessions.len() != filtered.len() {

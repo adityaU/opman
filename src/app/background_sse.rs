@@ -48,7 +48,6 @@ impl App {
                         let child_title = session.title.clone();
                         let parent_sid = session.parent_id.clone();
                         let bot_token = auth.bot_token.clone();
-                        let base_url = crate::app::base_url().to_string();
                         let project_dir = self
                             .projects
                             .get(project_idx)
@@ -58,6 +57,10 @@ impl App {
                         let st = slack_state.clone();
 
                         tokio::spawn(async move {
+                            // A session-created event proves that its runner is alive, but
+                            // the process-wide URL publication can trail the event by a
+                            // scheduling turn. Wait here instead of dropping the Slack link.
+                            let base_url = crate::app::base_url_ready().await.to_owned();
                             Self::setup_subagent_slack_thread(
                                 project_idx,
                                 child_sid,

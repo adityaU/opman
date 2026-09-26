@@ -17,7 +17,13 @@ pub(super) fn handle_context_input_keys(app: &mut App, key: KeyEvent) -> Result<
                         if let Some(ref session_id) = project.active_session {
                             let proj_dir = project.path.to_string_lossy().to_string();
                             let sid = session_id.clone();
-                            let base_url = crate::app::base_url().to_string();
+                            let Some(base_url) = crate::app::try_base_url().map(str::to_owned)
+                            else {
+                                tracing::debug!(
+                                    "skipping context send because the runner is unavailable"
+                                );
+                                return Ok(());
+                            };
                             tracing::info!(
                                 session_id = sid,
                                 "Sending context input as system message"

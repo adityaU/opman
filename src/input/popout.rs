@@ -77,12 +77,28 @@ pub(super) fn popout_panels(app: &mut App) {
             return;
         }
 
+        if panels_to_popout.contains(&PanelId::TerminalPane) && crate::app::try_base_url().is_none()
+        {
+            tracing::debug!("skipping panel popout because the runner is unavailable");
+            app.pre_popout_state = None;
+            app.toast_message = Some((
+                "The server is not started yet".into(),
+                std::time::Instant::now(),
+            ));
+            return;
+        }
+
         let mut spawned: Vec<std::process::Child> = Vec::new();
 
         for panel in &panels_to_popout {
             let cmd_str = match panel {
                 PanelId::TerminalPane => {
-                    let base_url = crate::app::base_url();
+                    let Some(base_url) = crate::app::try_base_url() else {
+                        tracing::debug!(
+                            "skipping terminal popout because the runner is unavailable"
+                        );
+                        return;
+                    };
                     let dir = project_dir.to_string_lossy();
                     let session_part = project
                         .active_session

@@ -72,7 +72,7 @@ fn read_raw_pty_output(mut reader: Box<dyn Read + Send>, output: RawOutputBuffer
 /// This is the only part of spawning that differs per kind. It used to be five
 /// functions that were otherwise byte-for-byte identical, so a fix to the PTY
 /// plumbing had to be made five times and in practice was made once.
-fn command_for(program: &PtyProgram, project: &std::path::Path) -> CommandBuilder {
+fn command_for(program: &PtyProgram, project: &std::path::Path) -> Result<CommandBuilder> {
     let mut cmd = match program {
         PtyProgram::Shell => {
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
@@ -88,7 +88,11 @@ fn command_for(program: &PtyProgram, project: &std::path::Path) -> CommandBuilde
         PtyProgram::Opencode { session_id } => {
             let mut cmd = CommandBuilder::new("opencode");
             cmd.arg("attach");
-            cmd.arg(crate::app::base_url());
+            cmd.arg(
+                crate::app::BASE_URL
+                    .get()
+                    .ok_or_else(|| anyhow::anyhow!("Runner is not started"))?,
+            );
             cmd.arg("--dir");
             cmd.arg(project.to_string_lossy().as_ref());
             if let Some(sid) = session_id {
@@ -109,7 +113,7 @@ fn command_for(program: &PtyProgram, project: &std::path::Path) -> CommandBuilde
     cmd.cwd(project);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    cmd
+    Ok(cmd)
 }
 
 /// Open a PTY pair, start the program in it, and stream its bytes into a buffer.
@@ -126,7 +130,7 @@ pub(crate) fn spawn_pty(spec: &SpawnSpec, label: String) -> Result<WebPty> {
 
     let child = pair
         .slave
-        .spawn_command(command_for(&spec.program, &spec.project))
+        .spawn_command(command_for(&spec.program, &spec.project)?)
         .with_context(|| format!("Failed to spawn {} in web PTY", kind.label()))?;
 
     let reader = pair

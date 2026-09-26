@@ -8,11 +8,19 @@ use crate::app::EngineChoices;
 use crate::runner::{Runner, RunnerFuture, RunnerKind, RunnerRegistry, RunnerSession};
 use serde_json::{json, Value};
 
-struct Stub(RunnerKind);
+struct Stub {
+    kind: RunnerKind,
+}
+
+impl Stub {
+    fn new(kind: RunnerKind) -> Self {
+        Self { kind }
+    }
+}
 
 impl Runner for Stub {
     fn kind(&self) -> RunnerKind {
-        self.0.clone()
+        self.kind.clone()
     }
 
     fn create_session<'a>(
@@ -65,9 +73,10 @@ fn counting(fail: usize) -> (Arc<LazyRunner>, Arc<AtomicUsize>) {
                 anyhow::bail!("binary not installed");
             }
             Ok(LazyStart {
-                runner: Arc::new(Stub(RunnerKind::Opencode)) as Arc<dyn Runner>,
+                runner: Arc::new(Stub::new(RunnerKind::Opencode)) as Arc<dyn Runner>,
                 handle: None,
                 engine: None,
+                base_url: None,
             })
         }
     });
@@ -155,9 +164,10 @@ async fn pending_acp_agent_is_reported_until_started() {
     let runner = Arc::new(
         LazyRunner::new(RunnerKind::Opencode, LazyContext::new(), || async {
             Ok(LazyStart {
-                runner: Arc::new(Stub(RunnerKind::Opencode)) as Arc<dyn Runner>,
+                runner: Arc::new(Stub::new(RunnerKind::Opencode)) as Arc<dyn Runner>,
                 handle: None,
                 engine: None,
+                base_url: None,
             })
         })
         .for_acp_agent("gemini"),
@@ -175,9 +185,10 @@ async fn starting_installs_the_real_runner_and_fires_the_hook() {
         ctx.clone(),
         || async {
             Ok(LazyStart {
-                runner: Arc::new(Stub(RunnerKind::Opencode)) as Arc<dyn Runner>,
+                runner: Arc::new(Stub::new(RunnerKind::Opencode)) as Arc<dyn Runner>,
                 handle: None,
                 engine: None,
+                base_url: None,
             })
         },
     ));
@@ -200,4 +211,23 @@ async fn starting_installs_the_real_runner_and_fires_the_hook() {
     assert_eq!(notified.load(Ordering::SeqCst), 1);
     let started_messages: Value = registry.messages("s1", "/p").await.unwrap();
     assert_eq!(started_messages, json!(["from the real runner"]));
+}
+
+#[tokio::test]
+async fn selecting_a_runner_starts_its_server() {
+    let ctx = LazyContext::new();
+    let (lazy, starts) = counting(0);
+    let mut runners = std::collections::HashMap::new();
+    runners.insert(RunnerKind::Opencode, lazy.clone() as Arc<dyn Runner>);
+    let registry = Arc::new(RunnerRegistry::new(RunnerKind::Opencode, runners));
+    ctx.set_registry(&registry);
+
+    let outcome = registry
+        .ensure_started(&RunnerKind::Opencode)
+        .await
+        .unwrap();
+
+    assert_eq!(outcome, crate::runner::RunnerStartOutcome::Started);
+    assert_eq!(starts.load(Ordering::SeqCst), 1);
+    assert!(lazy.is_started());
 }
