@@ -832,7 +832,6 @@ pub async fn a2ui_callback(
     Json(req): Json<A2uiCallbackRequest>,
 ) -> WebResult<impl IntoResponse> {
     let dir = resolve_project_dir(&state).await?;
-    let base = default_base_url(&state).await?;
 
     // Format the callback as a structured user message the agent can parse.
     let text = a2ui_callback_text(&req.callback_id, &req.payload);
@@ -843,6 +842,22 @@ pub async fn a2ui_callback(
             "text": text,
         }]
     });
+
+    // The session's own runner gets the click. Posting to the default runner would hand a
+    // claude session's button press to opencode, which has never heard of it.
+    if state
+        .runner_registry
+        .has_known_session(&session_id, &dir)
+        .await
+    {
+        state
+            .runner_registry
+            .send_message(&session_id, &dir, None, msg_body)
+            .await
+            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        return a2ui_callback_result(StatusCode::OK, serde_json::Value::Null);
+    }
+    let base = default_base_url(&state).await?;
 
     let resp = state
         .http_client
@@ -897,6 +912,10 @@ pub(crate) fn a2ui_callback_result(
 #[cfg(test)]
 #[path = "session_handlers_direct_tests.rs"]
 mod session_handlers_direct_tests;
+
+#[cfg(test)]
+#[path = "session_handlers_a2ui_tests.rs"]
+mod session_handlers_a2ui_tests;
 
 #[cfg(test)]
 #[path = "session_handlers_proxy_tests.rs"]
