@@ -8,10 +8,16 @@ sidecar, starts it with `--web-only --web-bind 127.0.0.1 --web-port <free port>`
 shows a small "Starting opman…" page (`ui/index.html`) until the port answers, then
 points its window at `http://127.0.0.1:<port>/`. Quitting the app stops opman.
 
-- The title bar hides itself. Move the cursor to the top 10px of the window and the
-  platform's native title bar (minimize, maximize, close, drag to move) appears; it
-  hides again 400ms after the cursor leaves. On macOS the bar is transparent. Where
-  the cursor position can't be read (Wayland), the bar stays visible.
+- The title bar floats over the page and hides itself; the page always fills the
+  whole window and never moves. Hovering the top 10px shows the window buttons,
+  which hide again 400ms after the cursor leaves the bar:
+  - macOS: the native traffic lights on a transparent overlay title bar.
+  - Linux: a native GTK header bar (minimize, maximize, close), transparent, on
+    X11 and Wayland.
+  - Windows: Windows 11-style caption buttons drawn by the app (Segoe Fluent
+    icons) that call the real minimize / maximize / close. Native caption buttons
+    cannot float over a webview without unsafe Win32 code.
+  - Drag the bar to move the window; double-click it to maximize.
 - opman's output goes to `opman.log` in the app log directory
   (`~/Library/Logs/dev.opman.desktop/` on macOS, `%LOCALAPPDATA%\dev.opman.desktop\logs\` on Windows,
   `~/.local/share/dev.opman.desktop/logs/` on Linux).

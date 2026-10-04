@@ -14,9 +14,7 @@ fn main() -> Result<(), tauri::Error> {
     let app = tauri::Builder::default()
         .manage(Sidecar::default())
         .setup(|app| {
-            if let Some(window) = app.get_webview_window(boot::MAIN_WINDOW) {
-                chrome::spawn(window)?;
-            }
+            chrome::build_window(app.handle(), boot::MAIN_WINDOW)?;
             let handle = app.handle().clone();
             std::thread::Builder::new()
                 .name("opman-boot".into())
