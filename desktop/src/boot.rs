@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 use crate::sidecar::{Port, Sidecar, SidecarError};
 use crate::splash::Splash;
 
-const MAIN_WINDOW: &str = "main";
+pub const MAIN_WINDOW: &str = "main";
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
 

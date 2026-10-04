@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod boot;
+mod chrome;
 mod shell_path;
 mod sidecar;
 mod splash;
@@ -13,6 +14,9 @@ fn main() -> Result<(), tauri::Error> {
     let app = tauri::Builder::default()
         .manage(Sidecar::default())
         .setup(|app| {
+            if let Some(window) = app.get_webview_window(boot::MAIN_WINDOW) {
+                chrome::spawn(window)?;
+            }
             let handle = app.handle().clone();
             std::thread::Builder::new()
                 .name("opman-boot".into())

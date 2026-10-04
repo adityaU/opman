@@ -165,3 +165,9 @@ jobs:
             desktop-dist/opman-desktop-*.exe.sha256
             desktop-dist/opman-desktop-*.msi
             desktop-dist/opman-desktop-*.msi.sha256
+            desktop-dist/opman-desktop-*.AppImage
+            desktop-dist/opman-desktop-*.AppImage.sha256
+            desktop-dist/opman-desktop-*.deb
+            desktop-dist/opman-desktop-*.deb.sha256
+            desktop-dist/opman-desktop-*.rpm
+            desktop-dist/opman-desktop-*.rpm.sha256

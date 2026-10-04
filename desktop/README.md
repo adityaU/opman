@@ -1,15 +1,20 @@
 # opman desktop
 
 A [Tauri v2](https://v2.tauri.app) shell that packages opman as a native app for
-macOS (Apple Silicon and Intel) and Windows (x86_64).
+macOS (Apple Silicon and Intel), Windows (x86_64) and Linux (x86_64 and arm64).
 
 The app does not reimplement anything. It bundles the regular `opman` binary as a
 sidecar, starts it with `--web-only --web-bind 127.0.0.1 --web-port <free port>`,
 shows a small "Starting opman…" page (`ui/index.html`) until the port answers, then
 points its window at `http://127.0.0.1:<port>/`. Quitting the app stops opman.
 
+- The title bar hides itself. Move the cursor to the top 10px of the window and the
+  platform's native title bar (minimize, maximize, close, drag to move) appears; it
+  hides again 400ms after the cursor leaves. On macOS the bar is transparent. Where
+  the cursor position can't be read (Wayland), the bar stays visible.
 - opman's output goes to `opman.log` in the app log directory
-  (`~/Library/Logs/dev.opman.desktop/` on macOS, `%LOCALAPPDATA%\dev.opman.desktop\logs\` on Windows).
+  (`~/Library/Logs/dev.opman.desktop/` on macOS, `%LOCALAPPDATA%\dev.opman.desktop\logs\` on Windows,
+  `~/.local/share/dev.opman.desktop/logs/` on Linux).
   If opman fails to start, or stops later, the window shows the error and that path.
 - macOS starts GUI apps with a minimal `PATH`, so the app asks your login shell
   (`$SHELL -ilc`) for its `PATH` and hands that to opman, letting it find `opencode`,
@@ -38,7 +43,8 @@ npx tauri build            # or: npx tauri dev
 ```
 
 Installers land in `desktop/target/release/bundle/` (`.app`/`.dmg` on macOS,
-NSIS `.exe` and `.msi` on Windows). `cargo check` in `desktop/` also needs the
+NSIS `.exe` and `.msi` on Windows, `.AppImage`/`.deb`/`.rpm` on Linux). Linux builds
+need the webview headers: `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev`. `cargo check` in `desktop/` also needs the
 sidecar file from step 2 to exist; an empty placeholder is enough.
 
 Icons in `icons/` are generated from the web UI icon:

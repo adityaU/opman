@@ -106,7 +106,12 @@ impl Sidecar {
 
         let mut command = Command::new(&binary);
         command
-            .args(["--web-only", "--exit-on-stdin-eof", "--web-bind", "127.0.0.1"])
+            .args([
+                "--web-only",
+                "--exit-on-stdin-eof",
+                "--web-bind",
+                "127.0.0.1",
+            ])
             .arg("--web-port")
             .arg(port.0.to_string())
             // The child holds the write end; when this app dies for any reason the

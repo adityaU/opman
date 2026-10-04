@@ -56,6 +56,11 @@ jobs:
             target: x86_64-apple-darwin
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
+          # 22.04 keeps the glibc floor low enough for most current distros.
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -73,6 +78,13 @@ jobs:
         with:
           name: desktop-frontend-dist
           path: web-ui/dist
+
+      - name: Install Linux webview dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev file xdg-utils
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -157,6 +169,9 @@ jobs:
           for file in "$bundle"/dmg/*.dmg; do cp "$file" "dist/$base.dmg"; done
           for file in "$bundle"/nsis/*.exe; do cp "$file" "dist/$base-setup.exe"; done
           for file in "$bundle"/msi/*.msi; do cp "$file" "dist/$base.msi"; done
+          for file in "$bundle"/appimage/*.AppImage; do cp "$file" "dist/$base.AppImage"; done
+          for file in "$bundle"/deb/*.deb; do cp "$file" "dist/$base.deb"; done
+          for file in "$bundle"/rpm/*.rpm; do cp "$file" "dist/$base.rpm"; done
           files=(dist/*)
           if (( ${#files[@]} == 0 )); then
             echo "::error::no installers found under $bundle"
