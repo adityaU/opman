@@ -1,0 +1,13 @@
+{
+  "name": "opman-desktop",
+  "private": true,
+  "version": "0.9.57",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

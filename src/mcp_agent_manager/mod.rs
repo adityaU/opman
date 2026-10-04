@@ -2,7 +2,7 @@
 //!
 //! Agent MCP processes are short-lived children of the runner, so they cannot call the
 //! in-process [`RunnerRegistry`] directly. This module is the small Unix-socket RPC
-//! between those MCP processes and the registry, plus the JSON-RPC/stdio MCP facade the
+//! between those MCP processes and the registry (a named pipe on Windows), plus the JSON-RPC/stdio MCP facade the
 //! runner actually talks to.
 //!
 //! The split: [`bridge`] is the child half (stdio in, socket out), everything else is the
@@ -29,7 +29,6 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
 use crate::runner::RunnerRegistry;
@@ -78,11 +77,11 @@ pub fn spawn(registry: Arc<RunnerRegistry>) -> Result<PathBuf> {
                     return;
                 }
             };
-            let (identity, listener) = parts.split();
+            let (identity, mut listener) = parts.split();
             tokio::select! {
                 result = listener.accept() => {
                     endpoint = endpoint::Endpoint::from_parts(identity, listener);
-                    let (stream, _) = match result {
+                    let stream = match result {
                         Ok(value) => value,
                         Err(error) => {
                             tracing::warn!(%error, "agent manager socket accept failed");
@@ -106,7 +105,10 @@ pub fn spawn(registry: Arc<RunnerRegistry>) -> Result<PathBuf> {
     Ok(path)
 }
 
-async fn handle_socket_connection(mut stream: UnixStream, state: ManagerState) -> Result<()> {
+async fn handle_socket_connection(
+    mut stream: crate::ipc::IpcStream,
+    state: ManagerState,
+) -> Result<()> {
     let mut line = String::new();
     BufReader::new(&mut stream).read_line(&mut line).await?;
     if line.trim().is_empty() {

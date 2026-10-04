@@ -3,13 +3,14 @@
 /// Connects to a neovim --listen Unix socket and sends synchronous
 /// requests using the msgpack-rpc protocol (type 0 = request, type 1 = response).
 use std::io::{self, Write};
-use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use rmpv::Value;
+
+use crate::ipc::blocking::Stream;
 
 #[path = "checked_value.rs"]
 mod checked_value;
@@ -81,7 +82,7 @@ fn parse_response(value: Value, expected_msgid: u64) -> Result<IncomingResponse>
     }
 }
 
-fn read_response(stream: &mut UnixStream, expected_msgid: u64) -> Result<Value> {
+fn read_response(stream: &mut Stream, expected_msgid: u64) -> Result<Value> {
     loop {
         let message = rmpv::decode::read_value(&mut *stream)
             .context("Failed to read msgpack response from neovim")?;
@@ -102,16 +103,9 @@ fn read_response(stream: &mut UnixStream, expected_msgid: u64) -> Result<Value> 
     }
 }
 
-fn connect(socket_path: &Path) -> Result<UnixStream> {
-    let stream = UnixStream::connect(socket_path)
-        .with_context(|| format!("Failed to connect to neovim at {:?}", socket_path))?;
-    stream
-        .set_read_timeout(Some(RPC_TIMEOUT))
-        .context("Failed to set read timeout")?;
-    stream
-        .set_write_timeout(Some(RPC_TIMEOUT))
-        .context("Failed to set write timeout")?;
-    Ok(stream)
+fn connect(socket_path: &Path) -> Result<Stream> {
+    crate::ipc::blocking::connect(socket_path, RPC_TIMEOUT)
+        .with_context(|| format!("Failed to connect to neovim at {:?}", socket_path))
 }
 
 fn request_bytes(msgid: u32, method: &str, args: Vec<Value>) -> Result<Vec<u8>> {
@@ -126,7 +120,7 @@ fn request_bytes(msgid: u32, method: &str, args: Vec<Value>) -> Result<Vec<u8>> 
     Ok(bytes)
 }
 
-fn write_request(stream: &mut UnixStream, request: &[u8]) -> Result<()> {
+fn write_request(stream: &mut Stream, request: &[u8]) -> Result<()> {
     stream
         .write_all(request)
         .context("Failed to write to neovim socket")?;
@@ -155,7 +149,7 @@ fn is_read_timeout(error: &anyhow::Error) -> bool {
 /// This is deliberately called only after a request has timed out. The same
 /// stream is used so the prompt can be serviced while the original request
 /// remains pending. Every helper response is correlated before it is consumed.
-fn dismiss_confirm_prompts(stream: &mut UnixStream) -> Result<()> {
+fn dismiss_confirm_prompts(stream: &mut Stream) -> Result<()> {
     for _ in 0..10 {
         let mode_msgid = MSG_ID.fetch_add(1, Ordering::Relaxed);
         let mode_request = request_bytes(mode_msgid, "nvim_get_mode", vec![])?;
@@ -229,10 +223,7 @@ pub fn nvim_exec_lua(socket_path: &Path, code: &str, args: Vec<Value>) -> Result
 /// New code should use checked_value::ext_or_int directly so malformed Ext
 /// values remain an error instead of becoming the current buffer.
 pub(crate) fn ext_or_int(value: &Value) -> i64 {
-    match checked_value::ext_or_int(value) {
-        Ok(handle) => handle,
-        Err(_) => i64::MIN,
-    }
+    checked_value::ext_or_int(value).unwrap_or(i64::MIN)
 }
 
 /// Compatibility wrapper for the existing synchronous nvim_rpc callers.

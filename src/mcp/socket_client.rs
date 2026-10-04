@@ -4,20 +4,18 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::types::{SocketRequest, SocketResponse};
 
-/// Send a SocketRequest over the Unix socket and return the response.
+/// Send a SocketRequest over the local IPC endpoint and return the response.
 pub async fn send_socket_request(
     sock_path: &Path,
     request: &SocketRequest,
 ) -> anyhow::Result<SocketResponse> {
-    let mut stream = tokio::net::UnixStream::connect(sock_path)
-        .await
-        .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to connect to manager socket at {:?}: {}. Is opman running?",
-                sock_path,
-                e
-            )
-        })?;
+    let mut stream = crate::ipc::connect(sock_path).await.map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to connect to manager socket at {:?}: {}. Is opman running?",
+            sock_path,
+            e
+        )
+    })?;
 
     let req_json = serde_json::to_string(request)?;
     stream.write_all(req_json.as_bytes()).await?;

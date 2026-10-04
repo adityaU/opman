@@ -123,7 +123,7 @@ fn notify_parent(name: &ServerName) {
     let payload = json!({ "op": "mcp_auth_required", "server": name.as_str() }).to_string();
     tokio::spawn(async move {
         use tokio::io::AsyncWriteExt;
-        if let Ok(mut stream) = tokio::net::UnixStream::connect(&socket).await {
+        if let Ok(mut stream) = crate::ipc::connect(std::path::Path::new(&socket)).await {
             let _ = stream.write_all(payload.as_bytes()).await;
             let _ = stream.write_all(b"\n").await;
             let _ = stream.flush().await;

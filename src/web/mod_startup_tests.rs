@@ -72,7 +72,7 @@ async fn start_web_server_binds_random_port() {
     let _env = EnvRedirect::new();
 
     let config = WebConfig {
-        port: Some(0), // 0 → OS-assigned free port
+        addr: ([0, 0, 0, 0], 0).into(), // 0 → OS-assigned free port
         username: String::new(),
         password: String::new(),
         instance_name: Some("test-instance".to_string()),
@@ -86,7 +86,8 @@ async fn start_web_server_binds_random_port() {
         crate::mcp_registry::RegistryHandle::default(),
         crate::web::test_support::test_acp_supervisor(registry_arc),
     )
-    .await;
+    .await
+    .expect("web server binds");
     // Port 0 requested → the OS assigns a real, non-zero port.
     assert!(port > 0, "expected a real bound port, got {port}");
 
@@ -102,12 +103,12 @@ async fn start_web_server_binds_random_port() {
 }
 
 #[tokio::test]
-async fn start_web_server_explicit_port_none_defaults_to_zero() {
+async fn start_web_server_binds_loopback_with_free_port() {
     let _env = EnvRedirect::new();
 
-    // port: None → unwrap_or(0) → still an OS-assigned port.
+    // Loopback with port 0 → still an OS-assigned port.
     let config = WebConfig {
-        port: None,
+        addr: ([127, 0, 0, 1], 0).into(),
         username: "u".to_string(),
         password: "p".to_string(),
         instance_name: None,
@@ -120,6 +121,7 @@ async fn start_web_server_explicit_port_none_defaults_to_zero() {
         crate::mcp_registry::RegistryHandle::default(),
         crate::web::test_support::test_acp_supervisor(registry_arc),
     )
-    .await;
+    .await
+    .expect("web server binds");
     assert!(port > 0);
 }

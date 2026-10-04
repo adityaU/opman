@@ -218,7 +218,7 @@ async fn the_socket_answers_with_an_ok_envelope_on_both_paths() {
 }
 
 async fn exchange(path: &std::path::Path, request: Value) -> Value {
-    let mut stream = UnixStream::connect(path).await.expect("connect");
+    let mut stream = crate::ipc::connect(path).await.expect("connect");
     let line = format!("{request}\n");
     stream.write_all(line.as_bytes()).await.expect("write");
     stream.shutdown().await.expect("shutdown");

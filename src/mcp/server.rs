@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
@@ -22,7 +21,7 @@ fn update_activity(ts: &AtomicU64) {
 }
 
 async fn write_response(
-    writer: &mut tokio::net::unix::OwnedWriteHalf,
+    writer: &mut crate::ipc::IpcWriteHalf,
     response: &SocketResponse,
 ) -> std::io::Result<()> {
     let payload = serde_json::to_vec(response).map_err(std::io::Error::other)?;
@@ -30,7 +29,7 @@ async fn write_response(
     writer.write_all(b"\n").await
 }
 
-/// Spawn the Unix domain socket server for a single project.
+/// Spawn the local IPC server for a single project.
 /// Handles concurrency controls (ephemeral dedup, per-file nvim locks,
 /// per-tab terminal locks) and direct nvim dispatch when possible.
 pub fn spawn_socket_server(
@@ -42,12 +41,9 @@ pub fn spawn_socket_server(
 ) -> PathBuf {
     let sock_path = super::types::socket_path_for_project(project_path);
 
-    // Remove stale socket file if it exists
-    let _ = std::fs::remove_file(&sock_path);
-
     let sock = sock_path.clone();
     tokio::spawn(async move {
-        let listener = match UnixListener::bind(&sock) {
+        let mut listener = match crate::ipc::IpcListener::bind(&sock) {
             Ok(l) => {
                 info!(?sock, "MCP socket server listening");
                 l
@@ -70,7 +66,7 @@ pub fn spawn_socket_server(
             Arc::new(Mutex::new(HashMap::new()));
 
         loop {
-            let (stream, _) = match listener.accept().await {
+            let stream = match listener.accept().await {
                 Ok(conn) => conn,
                 Err(e) => {
                     warn!("MCP socket accept error: {}", e);
@@ -96,7 +92,7 @@ pub fn spawn_socket_server(
 }
 
 async fn handle_connection(
-    stream: tokio::net::UnixStream,
+    stream: crate::ipc::IpcStream,
     tx: mpsc::UnboundedSender<crate::app::BackgroundEvent>,
     pidx: usize,
     eph: Arc<Mutex<HashSet<String>>>,

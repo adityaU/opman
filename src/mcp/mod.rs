@@ -11,6 +11,7 @@ mod types;
 pub use bridge::run_mcp_bridge;
 pub use nvim_ops::NvimOp;
 pub use server::spawn_socket_server;
+pub(crate) use socket_client::send_socket_request;
 pub use types::{
     cleanup_socket, new_nvim_socket_registry, socket_path_for_project, EditOp, NvimSocketRegistry,
     PendingSocketRequest, SocketRequest, SocketResponse, TabInfo,

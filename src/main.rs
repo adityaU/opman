@@ -16,6 +16,7 @@ mod event_loop;
 mod event_mouse;
 mod input;
 mod integrations;
+mod ipc;
 mod loopback;
 mod lsp;
 mod mcp;
@@ -104,9 +105,7 @@ async fn main() -> Result<()> {
     // ── Handle subcommands (early exit) ──────────────────────────────
     match cli.command {
         Some(Commands::Mcp { project_path }) => {
-            return mcp::run_mcp_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
-                .await
-                .map_err(Into::into);
+            return mcp::run_mcp_bridge(project_path.unwrap_or_else(|| PathBuf::from("."))).await;
         }
         Some(Commands::McpProxy { name }) => {
             mcp_proxy::run_mcp_proxy(&name).await?;
@@ -117,54 +116,44 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         Some(Commands::McpTime) => {
-            return mcp_time::run_mcp_time_bridge().await.map_err(Into::into);
+            return mcp_time::run_mcp_time_bridge().await;
         }
         Some(Commands::McpUi) => {
-            return mcp_ui::run_mcp_ui_bridge().await.map_err(Into::into);
+            return mcp_ui::run_mcp_ui_bridge().await;
         }
         Some(Commands::McpKanban) => {
-            return mcp_kanban::run_mcp_kanban_bridge()
-                .await
-                .map_err(Into::into);
+            return mcp_kanban::run_mcp_kanban_bridge().await;
         }
         Some(Commands::McpBrowser { project_path }) => {
             return mcp_browser::run_mcp_browser_bridge(
                 project_path.unwrap_or_else(|| PathBuf::from(".")),
             )
-            .await
-            .map_err(Into::into);
+            .await;
         }
         Some(Commands::McpAsk { project_path }) => {
             return mcp_ask::run_mcp_ask_bridge(project_path.unwrap_or_else(|| PathBuf::from(".")))
-                .await
-                .map_err(Into::into);
+                .await;
         }
         Some(Commands::McpAgentManager { project_path }) => {
             return mcp_agent_manager::run_bridge(
                 project_path.unwrap_or_else(|| PathBuf::from(".")),
             )
-            .await
-            .map_err(Into::into);
+            .await;
         }
         Some(Commands::ClaudeHook) => {
-            return claude_engine::run_permission_hook()
-                .await
-                .map_err(Into::into);
+            return claude_engine::run_permission_hook().await;
         }
         Some(Commands::McpNvim { project_path }) => {
             return mcp_neovim::run_mcp_neovim_bridge(
                 project_path.unwrap_or_else(|| PathBuf::from(".")),
             )
-            .await
-            .map_err(Into::into);
+            .await;
         }
         Some(Commands::SlackManifest) => {
             return setup::handle_slack_manifest();
         }
         Some(Commands::Skills { subcommand }) => {
-            return cli_skills::handle_skills(subcommand)
-                .await
-                .map_err(Into::into);
+            return cli_skills::handle_skills(subcommand).await;
         }
         None => {} // Default mode: run the TUI
     }
@@ -191,10 +180,11 @@ async fn main() -> Result<()> {
         agent_manager_socket.to_string_lossy().as_ref(),
     );
 
-    let web_port = cli.web_port;
+    let web_addr = std::net::SocketAddr::new(cli.web_bind, cli.web_port.unwrap_or(0));
     let web_user = cli.web_user.unwrap_or_default();
     let web_pass = cli.web_pass.unwrap_or_default();
     let web_only = cli.web_only;
+    let exit_on_stdin_eof = cli.exit_on_stdin_eof;
 
     // Derive instance name from --tunnel-hostname for the web UI page title.
     // e.g. "myapp.example.com" → "Myapp", "example.com" → "Example"
@@ -536,17 +526,16 @@ async fn main() -> Result<()> {
     // Start web UI server (if enabled)
     let (web_actual_port, web_state_handle) = setup::setup_web_server(
         enable_web,
-        web_port,
+        web_addr,
         &web_user,
         &web_pass,
         instance_name,
         backend.display_name(),
-        &app,
         runner_registry.clone(),
         mcp_registry.clone(),
         acp_supervisor,
     )
-    .await;
+    .await?;
 
     // Make the web state handle available to the TUI (e.g. for routine panel)
     if let Some(ref wsh) = web_state_handle {
@@ -610,7 +599,17 @@ async fn main() -> Result<()> {
             println!("  (also exposed via Cloudflare tunnel — see URL above)");
         }
         println!("Press Ctrl+C to stop.");
-        tokio::signal::ctrl_c().await.ok();
+        if exit_on_stdin_eof {
+            let (mut stdin, mut sink) = (tokio::io::stdin(), tokio::io::sink());
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = tokio::io::copy(&mut stdin, &mut sink) => {
+                    info!("stdin closed; parent is gone");
+                }
+            }
+        } else {
+            tokio::signal::ctrl_c().await.ok();
+        }
 
         // Clean up MCP socket files
         if enable_any_mcp {

@@ -6,6 +6,7 @@ description = "Terminal multiplexer wrapper for the opencode CLI — multi-proje
 
 [workspace]
 members = ["crates/backend-contracts"]
+exclude = ["desktop"]
 resolver = "2"
 
 [dependencies]

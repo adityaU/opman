@@ -1,0 +1,180 @@
+name: Desktop
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'src/ipc/**'
+      - '.github/workflows/desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Build React frontend (embedded into the opman sidecar) ─────
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          show-progress: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web-ui/package-lock.json
+
+      - name: Install React UI npm deps
+        run: npm ci
+        working-directory: web-ui
+
+      - name: Build React UI
+        run: npm run build
+        working-directory: web-ui
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: desktop-frontend-dist
+          path: web-ui/dist/
+          retention-days: 1
+
+  # ── Build opman + the Tauri app for each desktop target ────────
+  build-desktop:
+    needs: build-frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+          - runner: macos-14
+            target: x86_64-apple-darwin
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          show-progress: false
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: desktop-frontend-dist
+          path: web-ui/dist
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.0
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            desktop/target
+          key: desktop-cargo-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'desktop/Cargo.lock') }}
+          restore-keys: desktop-cargo-${{ matrix.target }}-
+
+      - name: Build opman
+        run: cargo build --release --target "$TARGET"
+
+      - name: Stage opman as the Tauri sidecar
+        run: |
+          set -euo pipefail
+          ext=""
+          if [[ "$RUNNER_OS" == "Windows" ]]; then ext=".exe"; fi
+          cp "target/$TARGET/release/opman$ext" "desktop/binaries/opman-$TARGET$ext"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Tauri CLI
+        run: npm ci
+        working-directory: desktop
+
+      - name: Read opman version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # Unset signing env vars would override tauri.conf.json's ad-hoc identity
+      # with an empty one, so only export the ones that are configured.
+      - name: Configure Apple signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                      APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [[ -z "$value" ]]; then continue; fi
+            delimiter="EOF_$(openssl rand -hex 8)"
+            {
+              echo "$name<<$delimiter"
+              echo "$value"
+              echo "$delimiter"
+            } >> "$GITHUB_ENV"
+          done
+
+      - name: Build desktop app
+        working-directory: desktop
+        run: npx tauri build --target "$TARGET" --config "{\"version\":\"$VERSION\"}"
+
+      - name: Collect bundles
+        run: |
+          set -euo pipefail
+          bundle="desktop/target/$TARGET/release/bundle"
+          base="opman-desktop-$VERSION-$TARGET"
+          mkdir -p dist
+          shopt -s nullglob
+          for file in "$bundle"/dmg/*.dmg; do cp "$file" "dist/$base.dmg"; done
+          for file in "$bundle"/nsis/*.exe; do cp "$file" "dist/$base-setup.exe"; done
+          for file in "$bundle"/msi/*.msi; do cp "$file" "dist/$base.msi"; done
+          files=(dist/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::no installers found under $bundle"
+            exit 1
+          fi
+          cd dist
+          for file in *; do
+            if command -v shasum >/dev/null; then
+              shasum -a 256 "$file" > "$file.sha256"
+            else
+              sha256sum "$file" > "$file.sha256"
+            fi
+          done
+          ls -la
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: desktop-${{ matrix.target }}
+          path: dist/*
+          retention-days: 7

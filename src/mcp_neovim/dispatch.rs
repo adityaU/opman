@@ -4,7 +4,7 @@ use crate::mcp::SocketRequest;
 
 use super::dispatch_edit::dispatch_edit_devflow_refactor;
 use super::format::format_response;
-use super::socket::send_socket_request;
+use crate::mcp::send_socket_request;
 
 pub(super) async fn handle_tool_call(
     sock_path: &std::path::Path,

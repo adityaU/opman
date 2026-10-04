@@ -124,9 +124,14 @@ jobs:
             opman-${{ matrix.target }}.tar.gz.sha256
           retention-days: 1
 
+  # ── Desktop apps (macOS + Windows) ─────────────────────
+  desktop:
+    uses: ./.github/workflows/desktop.yml
+    secrets: inherit
+
   # ── Create release artifacts ───────────────────────────
   publish:
-    needs: build-backend
+    needs: [build-backend, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -139,6 +144,14 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      # desktop-* also matches desktop-frontend-dist; only opman-desktop-* files are published.
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: desktop-*
+          path: desktop-dist
+          merge-multiple: true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -146,3 +159,9 @@ jobs:
           files: |
             opman-*.tar.gz
             opman-*.tar.gz.sha256
+            desktop-dist/opman-desktop-*.dmg
+            desktop-dist/opman-desktop-*.dmg.sha256
+            desktop-dist/opman-desktop-*.exe
+            desktop-dist/opman-desktop-*.exe.sha256
+            desktop-dist/opman-desktop-*.msi
+            desktop-dist/opman-desktop-*.msi.sha256

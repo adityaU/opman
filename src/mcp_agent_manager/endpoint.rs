@@ -1,14 +1,13 @@
-//! The self-healing Unix endpoint used by the in-process agent manager.
+//! The self-healing endpoint used by the in-process agent manager.
 
-use std::fs;
-use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use tokio::net::UnixListener;
 
-/// How often the endpoint checks that its pathname still names its own inode.
+use crate::ipc::{EndpointId, IpcListener};
+
+/// How often the endpoint checks that its pathname still names its own listener.
 pub(crate) const SUPERVISOR_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Stable per-process path used by opman and every child that reaches the endpoint.
@@ -43,32 +42,26 @@ enum EndpointState {
     Orphaned(EndpointParts),
 }
 
-/// The endpoint's complete ownership: pathname, bind-time inode, and listener.
+/// The endpoint's complete ownership: pathname, bind-time identity, and listener.
 pub(crate) struct EndpointParts {
     identity: EndpointIdentity,
-    listener: UnixListener,
+    listener: IpcListener,
 }
 
 pub(crate) struct EndpointIdentity {
     path: PathBuf,
-    inode: u64,
+    id: EndpointId,
 }
 
 impl Endpoint {
     pub(crate) fn bind(path: PathBuf) -> Result<Self> {
-        let listener = bind_listener(&path)?;
-        let inode = fs::metadata(&path)
-            .with_context(|| format!("failed to stat agent manager socket at {}", path.display()))?
-            .ino();
+        let parts = EndpointParts::bind(path)?;
         Ok(Self {
-            state: EndpointState::Bound(EndpointParts {
-                identity: EndpointIdentity { path, inode },
-                listener,
-            }),
+            state: EndpointState::Bound(parts),
         })
     }
 
-    pub(crate) fn from_parts(identity: EndpointIdentity, listener: UnixListener) -> Self {
+    pub(crate) fn from_parts(identity: EndpointIdentity, listener: IpcListener) -> Self {
         Self {
             state: EndpointState::Bound(EndpointParts { identity, listener }),
         }
@@ -108,8 +101,8 @@ impl Endpoint {
     fn orphaned(parts: EndpointParts) -> OrphanedEndpoint {
         tracing::error!(
             path = %parts.identity.path.display(),
-            expected_inode = parts.identity.inode,
-            actual_inode = ?parts.current_inode(),
+            expected = ?parts.identity.id,
+            actual = ?EndpointId::of(&parts.identity.path).ok(),
             "agent manager socket path no longer names this listener"
         );
         OrphanedEndpoint { parts }
@@ -122,33 +115,13 @@ struct OrphanedEndpoint {
 
 impl OrphanedEndpoint {
     fn rebind(self) -> (Endpoint, Result<()>) {
-        let path = self.parts.identity.path.clone();
-        match bind_listener(&path) {
-            Ok(listener) => {
-                let inode = match fs::metadata(&path) {
-                    Ok(metadata) => metadata.ino(),
-                    Err(error) => {
-                        return (
-                            Endpoint {
-                                state: EndpointState::Orphaned(self.parts),
-                            },
-                            Err(error).with_context(|| {
-                                format!(
-                                    "failed to stat rebound agent manager socket at {}",
-                                    path.display()
-                                )
-                            }),
-                        );
-                    }
-                };
-                let replacement = Endpoint {
-                    state: EndpointState::Bound(EndpointParts {
-                        identity: EndpointIdentity { path, inode },
-                        listener,
-                    }),
-                };
-                (replacement, Ok(()))
-            }
+        match EndpointParts::bind(self.parts.identity.path.clone()) {
+            Ok(parts) => (
+                Endpoint {
+                    state: EndpointState::Bound(parts),
+                },
+                Ok(()),
+            ),
             Err(error) => (
                 Endpoint {
                     state: EndpointState::Orphaned(self.parts),
@@ -160,57 +133,38 @@ impl OrphanedEndpoint {
 }
 
 impl EndpointParts {
-    pub(crate) fn split(self) -> (EndpointIdentity, UnixListener) {
+    fn bind(path: PathBuf) -> Result<Self> {
+        let listener = IpcListener::bind(&path).with_context(|| {
+            format!("failed to bind agent manager socket at {}", path.display())
+        })?;
+        let id = EndpointId::of(&path).with_context(|| {
+            format!("failed to stat agent manager socket at {}", path.display())
+        })?;
+        Ok(Self {
+            identity: EndpointIdentity { path, id },
+            listener,
+        })
+    }
+
+    pub(crate) fn split(self) -> (EndpointIdentity, IpcListener) {
         (self.identity, self.listener)
     }
 
     fn is_current(&self) -> bool {
-        self.current_inode() == Some(self.identity.inode)
-    }
-
-    fn current_inode(&self) -> Option<u64> {
-        fs::metadata(&self.identity.path)
-            .ok()
-            .map(|metadata| metadata.ino())
+        EndpointId::of(&self.identity.path).ok() == Some(self.identity.id)
     }
 }
 
 impl Drop for EndpointIdentity {
     fn drop(&mut self) {
-        let owned = fs::metadata(&self.path)
-            .ok()
-            .is_some_and(|metadata| metadata.ino() == self.inode);
-        if owned {
-            if let Err(error) = fs::remove_file(&self.path) {
-                tracing::warn!(
-                    path = %self.path.display(),
-                    %error,
-                    "failed to remove agent manager socket during shutdown"
-                );
-            }
+        if let Err(error) = self.id.release(&self.path) {
+            tracing::warn!(
+                path = %self.path.display(),
+                %error,
+                "failed to remove agent manager socket during shutdown"
+            );
         }
     }
-}
-
-fn bind_listener(path: &Path) -> Result<UnixListener> {
-    match fs::remove_file(path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            return Err(error).with_context(|| {
-                format!(
-                    "failed to remove stale agent manager socket at {}",
-                    path.display()
-                )
-            });
-        }
-    }
-    let listener = std::os::unix::net::UnixListener::bind(path)
-        .with_context(|| format!("failed to bind agent manager socket at {}", path.display()))?;
-    listener
-        .set_nonblocking(true)
-        .context("failed to configure agent manager socket")?;
-    UnixListener::from_std(listener).context("failed to initialize agent manager socket")
 }
 
 #[cfg(test)]

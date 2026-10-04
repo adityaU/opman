@@ -57,41 +57,39 @@ pub(crate) fn handle_slack_manifest() -> Result<()> {
 /// Setup and start the web server if enabled.
 pub(crate) async fn setup_web_server(
     enable_web: bool,
-    web_port: Option<u16>,
+    web_addr: std::net::SocketAddr,
     web_user: &str,
     web_pass: &str,
     instance_name: Option<String>,
     backend: &str,
-    app: &App,
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     mcp: crate::mcp_registry::RegistryHandle,
     acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
-) -> (u16, Option<web::WebStateHandle>) {
-    if enable_web {
-        let (actual_port, wsh) = web::start_web_server(
-            web::WebConfig {
-                port: web_port,
-                username: web_user.to_string(),
-                password: web_pass.to_string(),
-                instance_name,
-                backend: backend.to_string(),
-            },
-            runner_registry,
-            mcp,
-            acp,
-        )
-        .await;
-        info!("Web UI available at http://localhost:{}", actual_port);
-        // Set the initial theme so web clients can fetch it immediately
-        let initial_theme = web::WebThemePair::from_active_theme();
-        let wsh_clone = wsh.clone();
-        tokio::spawn(async move {
-            wsh_clone.set_theme(initial_theme).await;
-        });
-        (actual_port, Some(wsh))
-    } else {
-        (0, None)
+) -> Result<(u16, Option<web::WebStateHandle>)> {
+    if !enable_web {
+        return Ok((0, None));
     }
+    let (actual_port, wsh) = web::start_web_server(
+        web::WebConfig {
+            addr: web_addr,
+            username: web_user.to_string(),
+            password: web_pass.to_string(),
+            instance_name,
+            backend: backend.to_string(),
+        },
+        runner_registry,
+        mcp,
+        acp,
+    )
+    .await?;
+    info!("Web UI available at http://localhost:{}", actual_port);
+    // Set the initial theme so web clients can fetch it immediately
+    let initial_theme = web::WebThemePair::from_active_theme();
+    let theme_handle = wsh.clone();
+    tokio::spawn(async move {
+        theme_handle.set_theme(initial_theme).await;
+    });
+    Ok((actual_port, Some(wsh)))
 }
 
 /// Setup the KV file watcher for theme reloading.

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>opman</title>
+    <style>
+      :root {
+        --bg: #f7f7f8;
+        --fg: #1d1d1f;
+        --muted: #6e6e73;
+        --error: #c4271b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #161618;
+          --fg: #ececf0;
+          --muted: #9a9aa2;
+          --error: #ff6b5e;
+        }
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+      main {
+        max-width: 36rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      #status {
+        margin: 0;
+        color: var(--muted);
+      }
+      #detail {
+        margin: 0.75rem 0 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        -webkit-user-select: text;
+        user-select: text;
+        cursor: text;
+      }
+      body.failed #status {
+        color: var(--error);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p id="status">Starting opman…</p>
+      <p id="detail" hidden></p>
+    </main>
+    <script>
+      // The desktop shell reports a failed start by putting the message in the URL fragment.
+      function showError() {
+        const message = decodeURIComponent(location.hash.slice(1));
+        if (!message) return;
+        document.body.classList.add("failed");
+        document.getElementById("status").textContent = "opman could not start";
+        const detail = document.getElementById("detail");
+        detail.textContent = message;
+        detail.hidden = false;
+      }
+      window.addEventListener("hashchange", showError);
+      showError();
+    </script>
+  </body>
+</html>

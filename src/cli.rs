@@ -76,6 +76,20 @@ pub(crate) struct Cli {
     #[arg(long, value_name = "PORT")]
     pub web_port: Option<u16>,
 
+    /// Address the web UI server listens on. Use 127.0.0.1 to keep it off the network.
+    #[arg(
+        long,
+        value_name = "IP",
+        env = "OPMAN_WEB_BIND",
+        default_value = "0.0.0.0"
+    )]
+    pub web_bind: std::net::IpAddr,
+
+    /// Stop web-only mode when stdin closes. A parent that pipes stdin and then
+    /// dies (even when killed) takes opman down with it.
+    #[arg(long, requires = "web_only")]
+    pub exit_on_stdin_eof: bool,
+
     /// Username for web UI authentication
     #[arg(long, value_name = "USER", env = "OPMAN_WEB_USER")]
     pub web_user: Option<String>,
@@ -362,7 +376,7 @@ impl Cli {
         self.web_only
             || self.web
             || self.web_port.is_some()
-            || self.web_user.as_deref().map_or(false, |u| !u.is_empty())
+            || self.web_user.as_deref().is_some_and(|u| !u.is_empty())
             || self.tunnel_mode().is_some()
     }
 
@@ -372,8 +386,8 @@ impl Cli {
 
         // Tunnel requires authentication
         if tunnel.is_some() {
-            let has_user = self.web_user.as_deref().map_or(false, |u| !u.is_empty());
-            let has_pass = self.web_pass.as_deref().map_or(false, |p| !p.is_empty());
+            let has_user = self.web_user.as_deref().is_some_and(|u| !u.is_empty());
+            let has_pass = self.web_pass.as_deref().is_some_and(|p| !p.is_empty());
             if !has_user || !has_pass {
                 return Err("Cloudflare tunnel requires authentication.\n\
                      Provide --web-user and --web-pass (or OPMAN_WEB_USER / OPMAN_WEB_PASS)\n\

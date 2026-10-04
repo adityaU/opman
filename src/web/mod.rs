@@ -61,6 +61,7 @@ pub use types::ServerState;
 pub use types::WebThemePair;
 pub use web_state::WebStateHandle;
 
+use anyhow::Context;
 use tokio::sync::broadcast;
 use tracing::{error, info};
 
@@ -71,7 +72,8 @@ use types::WebEvent;
 
 /// Configuration for the web server, parsed from CLI args / env vars.
 pub struct WebConfig {
-    pub port: Option<u16>,
+    /// Listen address; port 0 picks a free port.
+    pub addr: std::net::SocketAddr,
     pub username: String,
     pub password: String,
     /// Optional instance name (from tunnel subdomain/name) used as page title.
@@ -84,7 +86,7 @@ pub struct WebConfig {
 
 /// Start the fully independent web server in a background tokio task.
 ///
-/// Returns `(actual_port, web_state_handle)`. The handle allows the TUI's
+/// Returns `(actual_port, web_state_handle)`, or an error when the address cannot be bound. The handle allows the TUI's
 /// main loop to push theme changes into the web state (which broadcasts
 /// them to connected SSE clients).
 pub async fn start_web_server(
@@ -92,7 +94,7 @@ pub async fn start_web_server(
     runner_registry: std::sync::Arc<crate::runner::RunnerRegistry>,
     mcp: crate::mcp_registry::RegistryHandle,
     acp: std::sync::Arc<crate::acp_engine::supervisor::AcpSupervisor>,
-) -> (u16, WebStateHandle) {
+) -> anyhow::Result<(u16, WebStateHandle)> {
     let (event_tx, _event_rx) = broadcast::channel::<WebEvent>(1000);
     // Raw upstream SSE events — re-broadcast to web clients so we don't need
     // a separate upstream connection per browser tab.
@@ -231,25 +233,18 @@ pub async fn start_web_server(
 
     let app = routes::build_router(shared_state);
 
-    // Bind to port (0 = random available port)
-    let port = config.port.unwrap_or(0);
-    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
-
     // Bind synchronously to discover the actual port before returning
+    let addr = config.addr;
     let listener = std::net::TcpListener::bind(addr)
-        .unwrap_or_else(|e| panic!("Failed to bind web server to port {port}: {e}"));
-    let actual_port = listener
-        .local_addr()
-        .expect("Failed to get local address")
-        .port();
-    listener.set_nonblocking(true).ok();
+        .with_context(|| format!("Failed to bind web server to {addr}"))?;
+    let actual_port = listener.local_addr()?.port();
+    listener.set_nonblocking(true)?;
 
     // Publish the internal API URL + token so the Kanban MCP server (spawned by
     // either backend) can reach the loopback-only `/internal/*` endpoints.
     write_internal_descriptor(actual_port, &internal_token);
 
-    let tokio_listener = tokio::net::TcpListener::from_std(listener)
-        .expect("Failed to convert std TcpListener to tokio");
+    let tokio_listener = tokio::net::TcpListener::from_std(listener)?;
 
     // Spawn the server in a background task
     tokio::spawn(async move {
@@ -259,7 +254,7 @@ pub async fn start_web_server(
         }
     });
 
-    (actual_port, web_state_ret)
+    Ok((actual_port, web_state_ret))
 }
 
 /// Label a session the moment its own runner announces it.

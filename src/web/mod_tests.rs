@@ -9,13 +9,13 @@ use crate::claude_engine::claude_cli::ENV_LOCK;
 #[test]
 fn web_config_construction() {
     let cfg = WebConfig {
-        port: Some(8080),
+        addr: ([127, 0, 0, 1], 8080).into(),
         username: "admin".to_string(),
         password: "secret".to_string(),
         instance_name: Some("laptop".to_string()),
         backend: "claude-code".to_string(),
     };
-    assert_eq!(cfg.port, Some(8080));
+    assert_eq!(cfg.addr.port(), 8080);
     assert_eq!(cfg.username, "admin");
     assert_eq!(cfg.password, "secret");
     assert_eq!(cfg.instance_name.as_deref(), Some("laptop"));
@@ -25,13 +25,13 @@ fn web_config_construction() {
 #[test]
 fn web_config_minimal() {
     let cfg = WebConfig {
-        port: None,
+        addr: ([0, 0, 0, 0], 0).into(),
         username: String::new(),
         password: String::new(),
         instance_name: None,
         backend: "opencode".to_string(),
     };
-    assert!(cfg.port.is_none());
+    assert_eq!(cfg.addr.port(), 0);
     assert!(cfg.username.is_empty());
     assert!(cfg.instance_name.is_none());
     assert_eq!(cfg.backend, "opencode");

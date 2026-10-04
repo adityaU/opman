@@ -12,7 +12,6 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
@@ -230,7 +229,7 @@ fn to_request(
 }
 
 async fn exchange(socket: &Path, request: &ManagerRequest) -> Result<Value> {
-    let mut stream = UnixStream::connect(socket)
+    let mut stream = crate::ipc::connect(socket)
         .await
         .map_err(|error| connection_error(socket, error))?;
     stream

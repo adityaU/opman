@@ -2,7 +2,6 @@ mod bridge;
 pub(crate) mod dispatch;
 mod dispatch_edit;
 pub(crate) mod format;
-pub(crate) mod socket;
 mod tools;
 mod tools_defs;
 
