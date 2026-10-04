@@ -119,6 +119,10 @@ pub struct AcpEngine {
     /// The agent's `session/new` reply from the startup probe, so models and modes are
     /// known before any user session exists.
     capabilities: Mutex<Value>,
+    /// True while the startup probe is still running. With lazy start the request that
+    /// boots the runner is usually the picker's own catalogue read, so it has to be able to
+    /// wait for the probe instead of answering with the empty list it would find.
+    probing: tokio::sync::watch::Sender<bool>,
     conns: ConnMap,
     events: broadcast::Sender<EngineEvent>,
     /// Raw event channel for in-process consumers, bypassing HTTP SSE buffering (which
@@ -157,6 +161,7 @@ impl AcpEngine {
             inflight: Mutex::new(HashMap::new()),
             followups: Mutex::new(HashMap::new()),
             capabilities: Mutex::new(Value::Null),
+            probing: tokio::sync::watch::Sender::new(false),
             conns: ConnMap::default(),
             events,
             raw_events,
@@ -261,11 +266,13 @@ pub async fn start_embedded_server(
     {
         let probing = engine.clone();
         let label = id.to_string();
+        probing.probing.send_replace(true);
         tokio::spawn(async move {
             match conn::probe_capabilities(&probing).await {
                 Ok(setup) => probing.set_capabilities(setup),
                 Err(e) => tracing::warn!(agent = %label, "ACP capability probe failed: {e}"),
             }
+            probing.probing.send_replace(false);
         });
     }
 

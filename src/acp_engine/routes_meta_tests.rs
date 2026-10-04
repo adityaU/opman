@@ -82,3 +82,45 @@ async fn a_permission_mode_agent_still_reports_its_modes() {
     let Json(agents) = agent_list(State(engine_with_modes(false))).await;
     assert_eq!(agents, json!([]), "ACP itself has no agents to list");
 }
+
+/// With lazy start, the catalogue read is what boots the runner, so it lands while the
+/// startup probe is still out. It must wait for the probe rather than answer empty — the
+/// picker never asks twice.
+#[tokio::test]
+async fn provider_waits_for_an_inflight_probe() {
+    let engine = Arc::new(AcpEngine::new(
+        "claude".to_string(),
+        AgentConfig::default(),
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ));
+    engine.probing.send_replace(true);
+    let probe = engine.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        probe.set_capabilities(json!({
+            "models": {
+                "currentModelId": "opus",
+                "availableModels": [{ "modelId": "opus", "name": "Opus" }],
+            },
+        }));
+        probe.probing.send_replace(false);
+    });
+    let Json(payload) = provider(State(engine)).await;
+    assert!(payload["all"][0]["models"].get("opus").is_some(), "{payload}");
+}
+
+/// An engine that never probed answers at once, empty, instead of waiting out the timeout.
+#[tokio::test(start_paused = true)]
+async fn provider_without_a_probe_does_not_wait() {
+    let engine = Arc::new(AcpEngine::new(
+        "claude".to_string(),
+        AgentConfig::default(),
+        None,
+        crate::mcp_registry::RegistryHandle::default(),
+    ));
+    let started = tokio::time::Instant::now();
+    let Json(payload) = provider(State(engine)).await;
+    assert_eq!(started.elapsed(), std::time::Duration::ZERO);
+    assert_eq!(payload["all"][0]["models"], json!({}));
+}

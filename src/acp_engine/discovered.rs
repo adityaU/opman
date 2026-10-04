@@ -16,6 +16,13 @@ impl AcpEngine {
         }
     }
 
+    /// Wait, at most `limit`, for the startup probe to finish. Returns at once when no probe
+    /// is running, so engines that never probed (tests, a failed start) are not held up.
+    pub async fn await_probe(&self, limit: std::time::Duration) {
+        let mut rx = self.probing.subscribe();
+        let _ = tokio::time::timeout(limit, rx.wait_for(|running| !*running)).await;
+    }
+
     /// Capability lookup across every source, newest first: a live session's own reply, then
     /// the startup probe. A live session wins because the user may have changed the mode or
     /// model since startup.

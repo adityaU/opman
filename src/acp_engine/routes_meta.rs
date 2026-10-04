@@ -12,8 +12,17 @@ use serde_json::{json, Value};
 use super::options;
 use super::routes::{dir_header, Engine};
 
+/// How long a catalogue read waits for the startup probe. Generous because the probe spawns
+/// the agent and opens a session, but bounded so a hung agent cannot hang the picker.
+const PROBE_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Model catalog in the opencode `/provider` shape.
 pub(super) async fn provider(State(engine): State<Engine>) -> Json<Value> {
+    // The picker reads the catalogue once; an empty answer while the probe is still out
+    // would stick until a reload.
+    if engine.models().is_empty() {
+        engine.await_probe(PROBE_WAIT).await;
+    }
     let current = engine.current_model();
     // An agent whose modes are really its agents has no permission model reachable over
     // ACP — its permissions live in its own config. Reporting an empty list says exactly
