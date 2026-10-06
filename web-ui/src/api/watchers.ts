@@ -1,4 +1,5 @@
-import { apiFetch, apiPost, apiDelete, clearToken } from "./client";
+import { apiFetch, apiPost, apiDelete, handleUnauthorized } from "./client";
+import { apiUrl } from "./base";
 
 // ── Watcher types ─────────────────────────────────────
 
@@ -136,16 +137,12 @@ export async function registerPresence(
 }
 
 export async function deregisterPresence(clientId: string): Promise<void> {
-  const res = await fetch("/api/presence", {
+  const res = await fetch(apiUrl("/presence"), {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify({ client_id: clientId }),
   });
-  if (res.status === 401) {
-    clearToken();
-    window.location.reload();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw new Error(`API error: ${res.status}`);
 }

@@ -2,7 +2,9 @@
 // Mirrors pinnedSessions.ts — stores session IDs that
 // appear in the "Open Sessions" section at sidebar top.
 
-const OPEN_KEY = "opman-open-sessions";
+import { storageKey } from "../api/base";
+
+const OPEN_KEY = storageKey("opman-open-sessions");
 export const OPEN_SESSION_MAX_AGE_MS = 2 * 24 * 60 * 60 * 1000;
 
 function epochMs(timestamp: number): number {

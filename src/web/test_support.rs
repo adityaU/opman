@@ -80,6 +80,8 @@ pub(crate) fn test_server_state() -> ServerState {
         acp: test_acp_supervisor(runner_registry.clone()),
         runner_registry,
         mcp_logins: std::sync::Arc::default(),
+        // Never reads or writes the user's servers.json.
+        remote: crate::remote::Registry::new(crate::remote::ServerStore::memory()),
     }
 }
 

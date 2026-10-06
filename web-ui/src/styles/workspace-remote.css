@@ -1,0 +1,124 @@
+/* ── Another server's pane, and the embed it shows ─────────────────────
+   A remote pane is an ordinary `.wsp-pane` card whose body is an iframe of
+   that server's instance in embed mode. The card — border, radius, focus
+   elevation, project hue — is the parent's; the embed draws none of it, so
+   the two read as one surface rather than a card nested in a card. */
+
+/* ── Parent side ─────────────────────────────────────────────────── */
+
+.wsp-remote {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    /* Painted until the embed's first frame lands, the same placeholder a
+       local pane shows while its bundle loads. */
+    background: repeating-linear-gradient(135deg, transparent 0 8px, var(--white-2) 8px 16px)
+}
+
+.wsp-remote-frame {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    color-scheme: normal
+}
+
+/* The server is named in the header ahead of the project, on the project
+   badge's own recipe so the two read as one identity: where, then what. */
+.wsp-head-server {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    max-width: 140px;
+    padding: 1px 6px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--theme-surface-2);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+    flex-shrink: 1
+}
+
+.wsp-head-server-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+/* ── Opener: projects grouped by server ──────────────────────────── */
+
+/* The first group needs no rule above it: the search field already is one. */
+.wsp-opener-list > .wsp-opener-group.is-server:first-child {
+    border-top: 0;
+    margin-top: 0
+}
+
+.wsp-opener-group.is-server {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text)
+}
+
+.wsp-opener-row.is-disabled {
+    cursor: default;
+    opacity: .55
+}
+
+.wsp-opener-row.is-disabled:hover,
+.wsp-opener-row.is-disabled.is-cursor {
+    background: transparent
+}
+
+.wsp-opener-crumb.is-server {
+    color: var(--color-text)
+}
+
+/* ── Embed side ──────────────────────────────────────────────────── */
+
+/* One widget and nothing else: no rail, no pane menu, no header. Placement
+   and pane commands are the parent's, so their controls are too. */
+html[data-opman-embed] .wsp-rail,
+html[data-opman-embed] .wsp-spine,
+html[data-opman-embed] .wsp-head,
+html[data-opman-embed] .wsp-pane-dots,
+html[data-opman-embed] .chat-status-bar,
+html[data-opman-embed] .mobile-dock {
+    display: none
+}
+
+/* The parent's card is the surface; the page shows through to it. */
+html[data-opman-embed],
+html[data-opman-embed] body,
+html[data-opman-embed] .chat-layout,
+html[data-opman-embed] .chat-content {
+    background: transparent
+}
+
+html[data-opman-embed]::before,
+html[data-opman-embed]::after {
+    display: none
+}
+
+html[data-opman-embed] .chat-content.wsp-embed {
+    padding: 0;
+    gap: 0
+}
+
+html[data-opman-embed] .wsp-root {
+    gap: 0
+}
+
+html[data-opman-embed] .wsp-pane,
+html[data-opman-embed] .wsp-pane.is-focused {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1
+}

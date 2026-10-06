@@ -1,15 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { PaneMenu } from "./PaneMenu";
 import { RenameWindowField } from "./RenameWindowField";
 import { WorkspaceRoot, type PaneContext } from "./WorkspaceRoot";
 import { WindowSwitcher } from "./WindowSwitcher";
 import { TargetOverlay } from "./target/TargetOverlay";
-import { useTargeting, type TargetRequest, type TargetSlot } from "./target/useTargeting";
+import { useTargeting, type TargetRequest } from "./target/useTargeting";
 import { WidgetOpener } from "./opener/WidgetOpener";
 import { usePaneMenu } from "./usePaneMenu";
 import { useWhenContext } from "../keybindings/useCommand";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useWorkspacePlacement } from "./useWorkspacePlacement";
+import { useWorkspaceBridge } from "./useWorkspaceBridge";
+import { useBusyWindows, useTargetSlots } from "./useWorkspaceSlots";
+import { postToParent } from "../embed/embedMode";
 import { useWorkspaceWidgets } from "./useWorkspaceWidgets";
 import { useWorkspace } from "./useWorkspace";
 import { useTerminalActivity } from "./useTerminalActivity";
@@ -71,7 +74,14 @@ export interface DesktopWorkspaceProps {
    * registrant per command id: two would race on mount order.
    */
   readonly targetingBridge?: (api: WorkspaceBridge | null) => void;
+  /**
+   * Embed mode: the one widget this page was opened to show. The workspace is
+   * then that widget alone, in memory, and every placement goes to the parent.
+   */
+  readonly embed?: WidgetState | null;
 }
+
+const forwardCommand = (command: string) => postToParent({ type: "opman:run-command", command });
 
 export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function DesktopWorkspace({
   projects,
@@ -82,8 +92,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   activeSessionId,
   chat,
   targetingBridge,
+  embed = null,
 }) {
-  const { state, window: activeWindow, dispatch } = useWorkspace(true);
+  const { state, window: activeWindow, focusedPane, dispatch } = useWorkspace(true, embed);
   const targeting = useTargeting();
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -127,38 +138,23 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   // shows its own progress and is over before a pulse would register.
   const busyTerminals = useTerminalActivity(state.windows);
 
-  const busyWindows = useMemo(() => {
-    const busy = new Set<WindowId>();
-    for (const window of state.windows) {
-      const anyBusy = panes(window.root).some((pane) => {
-        if (busyTerminals.has(pane.id)) return true;
-        if (pane.widget?.kind !== "chat" || !pane.widget.sessionId) return false;
-        return busySessions.has(pane.widget.sessionId);
-      });
-      if (anyBusy) busy.add(window.id);
-    }
-    return busy;
-  }, [busySessions, busyTerminals, state.windows]);
+  const busyWindows = useBusyWindows(state.windows, busySessions, busyTerminals);
 
-  // Hand the shell a way to arm targeting when a session is clicked in the
-  // sidebar. A callback rather than a context: the sidebar is not inside this
-  // tree, and one function is a smaller contract than a provider. In an effect,
-  // not in render — publishing during render is a side effect, and under
-  // StrictMode's double invocation it would run twice per commit.
-  const { armOrPlace, openKindHere, openFileHere, openFileWhere, openBrowserHere } = placement;
-  useEffect(() => {
-    targetingBridge?.({
-      arm: armOrPlace,
-      openKindHere,
-      openFile: openFileHere,
-      openFileWhere,
-      openBrowser: openBrowserHere,
-    });
-    // Withdrawn on unmount, so the shell's callers fall back rather than
-    // dispatching into a reducer that is no longer on screen — which is what
-    // the board switching the whole workspace out does.
-    return () => targetingBridge?.(null);
-  }, [armOrPlace, openBrowserHere, openFileHere, openFileWhere, openKindHere, targetingBridge]);
+  useWorkspaceBridge({
+    embed,
+    projects,
+    focusedPane,
+    dispatch,
+    placement: {
+      arm: placement.armOrPlace,
+      openKindHere: placement.openKindHere,
+      openFile: placement.openFileHere,
+      openFileWhere: placement.openFileWhere,
+      openBrowser: placement.openBrowserHere,
+      openForeignWidget: placement.openForeignWidget,
+    },
+    targetingBridge,
+  });
 
   /** Open the inline field. The commit goes through `commitRename`. */
   const renameWindow = useCallback(
@@ -205,31 +201,12 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
     resolveTargetSplit: placement.resolveTargetSplit,
     resolveTargetNewWindow: placement.resolveTargetNewWindow,
     cancelTargeting: targeting.cancel,
+    forward: embed ? forwardCommand : undefined,
   });
 
   // ── Render ──
 
-  /**
-   * The windows a dragged pane can be sent to: every one but the one it is in,
-   * which is what the pane slots themselves already answer for.
-   */
-  const otherWindows = useMemo(
-    () =>
-      state.windows
-        .filter((window) => window.id !== state.activeWindowId)
-        .map((window) => ({ id: window.id, name: window.name })),
-    [state.activeWindowId, state.windows],
-  );
-
-  const slots: TargetSlot[] = useMemo(
-    () =>
-      paneList.map((pane, index) => ({
-        paneId: pane.id,
-        ordinal: index + 1,
-        focused: pane.id === activeWindow.focusedPaneId,
-      })),
-    [activeWindow.focusedPaneId, paneList],
-  );
+  const { otherWindows, slots } = useTargetSlots(state, paneList, activeWindow.focusedPaneId);
 
   return (
     <WorkspaceChatProvider value={chatServices}>
@@ -279,6 +256,8 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
           initialDraft={placement.opener.draft}
           onDone={placement.onOpenerDone}
           onCancel={placement.closeOpener}
+          onStep={placement.onOpenerStep}
+          serverName={placement.serverName}
         />
       )}
 

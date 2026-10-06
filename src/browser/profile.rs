@@ -31,12 +31,15 @@ pub enum Owner {
     /// A browser still has it, and where its DevTools socket is — `None` when it was
     /// launched without one, which is unusable to us but must not be evicted.
     Live { pid: u32, ws_url: Option<String> },
+    /// A browser is serving DevTools from this profile but left no pid to read: Windows
+    /// Chromium claims a profile with a mutex, not the `SingletonLock` symlink.
+    Serving { port: u16, ws_url: String },
 }
 
 /// Inspect a profile directory without touching it.
 pub fn owner(dir: &Path) -> Owner {
     let Some(pid) = lock_holder(dir) else {
-        return Owner::Free;
+        return serving(dir).unwrap_or(Owner::Free);
     };
     let ws_url = devtools_endpoint(dir);
     if holder_is_running(pid, dir, ws_url.is_some()) {
@@ -51,6 +54,23 @@ pub fn release(dir: &Path) {
     for name in CLAIM_FILES {
         let _ = std::fs::remove_file(dir.join(name));
     }
+}
+
+/// A browser answering on the port file's endpoint. Only consulted when there is no lock
+/// symlink, so on unix a stale port file never counts.
+fn serving(dir: &Path) -> Option<Owner> {
+    if cfg!(unix) {
+        return None;
+    }
+    let (port, ws_url) = devtools_port_and_endpoint(dir)?;
+    endpoint_answers(port).then_some(Owner::Serving { port, ws_url })
+}
+
+/// Whether something accepts connections on a local DevTools port. The liveness check for
+/// a browser adopted by port, which has no pid to watch.
+pub fn endpoint_answers(port: u16) -> bool {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300)).is_ok()
 }
 
 /// Whether a process is still around. Used for an adopted browser, which is not a child
@@ -95,6 +115,10 @@ fn lock_holder(dir: &Path) -> Option<u32> {
 /// The websocket Chromium is serving DevTools on, from the port file it writes on start
 /// and deletes on a clean exit.
 fn devtools_endpoint(dir: &Path) -> Option<String> {
+    devtools_port_and_endpoint(dir).map(|(_, ws_url)| ws_url)
+}
+
+fn devtools_port_and_endpoint(dir: &Path) -> Option<(u16, String)> {
     let contents = std::fs::read_to_string(dir.join(PORT_FILE)).ok()?;
     let mut lines = contents.lines();
     let port: u16 = lines.next()?.trim().parse().ok()?;
@@ -102,7 +126,7 @@ fn devtools_endpoint(dir: &Path) -> Option<String> {
     if path.is_empty() {
         return None;
     }
-    Some(format!("ws://127.0.0.1:{port}{path}"))
+    Some((port, format!("ws://127.0.0.1:{port}{path}")))
 }
 
 /// Whether the lock holder is really still running.

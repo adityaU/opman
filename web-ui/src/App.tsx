@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { verifyToken, login, fetchBootstrap } from "./api";
+import { IS_HOME } from "./api/base";
 import { LoginPage } from "./LoginPage";
 import { ChatLayout } from "./ChatLayout";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -40,7 +41,15 @@ export function App() {
       if (data.instance_name) setAppName(data.instance_name);
     });
 
-    const auth = verifyToken().then((ok) => setAuthed(ok));
+    const auth = verifyToken().then((ok) => {
+      // A remote instance has no login of its own: home holds the remote's credentials,
+      // so a signed-out user belongs on home's login page.
+      if (!ok && !IS_HOME) {
+        window.location.assign("/");
+        return;
+      }
+      setAuthed(ok);
+    });
 
     Promise.allSettled([bootstrap, auth]).then(() => {
       setBootstrapReady(true);

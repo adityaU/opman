@@ -1,4 +1,6 @@
 import { apiFetch, apiPost } from "./client";
+import { apiUrl } from "./base";
+import { openEventStream } from "./streamSocket";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -103,12 +105,12 @@ export async function ptySessions(): Promise<PtySession[]> {
 export function createPtySSE(id: string, replay = false): EventSource {
   // Cookie auth: browser sends opman_token cookie automatically.
   const query = `id=${encodeURIComponent(id)}${replay ? "&replay=1" : ""}`;
-  return new EventSource(`/api/pty/stream?${query}`);
+  return openEventStream(apiUrl(`/pty/stream?${query}`));
 }
 
 // ── App events SSE ────────────────────────────────────
 
 export function createEventsSSE(): EventSource {
   // Cookie auth: browser sends opman_token cookie automatically.
-  return new EventSource(`/api/events`);
+  return openEventStream(apiUrl("/events"));
 }

@@ -1,9 +1,9 @@
 import React from "react";
-import { MessageSquare, Plus, SquareTerminal } from "lucide-react";
+import { MessageSquare, Plus, Server, SquareTerminal } from "lucide-react";
 import { WIDGET_ICON, WIDGET_LABEL } from "../PaneHeader";
 import { projectColorVars, projectInitials } from "../ProjectBadge";
 import { WIDGET_KINDS, type WidgetKind } from "../types";
-import type { OpenerChoice, OpenerDraft, StepId } from "./steps";
+import { decodeProjectChoice, type OpenerChoice, type OpenerDraft, type StepId } from "./steps";
 import { basename } from "../../utils/path";
 
 /**
@@ -55,12 +55,28 @@ export const RowBody: React.FC<{ readonly step: StepId; readonly choice: OpenerC
       );
     }
 
+    // A server's status row stands in for its projects, so it wears the
+    // server's mark rather than a project colour it does not have.
+    if (step === "project" && choice.value !== null && !decodeProjectChoice(choice.value).path) {
+      return (
+        <>
+          <span className="wsp-opener-tile" aria-hidden="true">
+            <Server size={15} />
+          </span>
+          <span className="wsp-opener-text">
+            <span className="wsp-opener-label">{choice.label}</span>
+            {choice.hint && <span className="wsp-opener-sub is-path">{choice.hint}</span>}
+          </span>
+        </>
+      );
+    }
+
     if (step === "project") {
       return (
         <>
           <span
             className="wsp-opener-chip"
-            style={projectColorVars(choice.value ?? choice.label)}
+            style={projectColorVars(choice.value ? decodeProjectChoice(choice.value).path : choice.label)}
             aria-hidden="true"
           >
             {projectInitials(choice.label)}
@@ -110,7 +126,10 @@ export const RowBody: React.FC<{ readonly step: StepId; readonly choice: OpenerC
  * came from — the widget's icon, the project's hue. Re-reading the words is
  * then optional, which is the point of showing them at all.
  */
-export const Crumbs: React.FC<{ readonly draft: OpenerDraft }> = function Crumbs({ draft }) {
+export const Crumbs: React.FC<{
+  readonly draft: OpenerDraft;
+  readonly serverName?: (id: string) => string;
+}> = function Crumbs({ draft, serverName }) {
   if (draft.kind === null) return null;
   const Icon = WIDGET_ICON[draft.kind];
 
@@ -120,6 +139,12 @@ export const Crumbs: React.FC<{ readonly draft: OpenerDraft }> = function Crumbs
         <Icon size={11} aria-hidden="true" />
         <span className="wsp-opener-crumb-text">{WIDGET_LABEL[draft.kind]}</span>
       </span>
+      {draft.server && (
+        <span className="wsp-opener-crumb is-server">
+          <Server size={11} aria-hidden="true" />
+          <span className="wsp-opener-crumb-text">{serverName?.(draft.server) ?? draft.server}</span>
+        </span>
+      )}
       {draft.projectPath !== null && (
         <span className="wsp-opener-crumb" style={projectColorVars(draft.projectPath)}>
           <span className="wsp-opener-crumb-dot" aria-hidden="true" />

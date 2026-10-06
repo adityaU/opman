@@ -1,4 +1,5 @@
-import { apiFetch, apiPost, apiPatch, apiDelete, apiPut } from "./client";
+import { apiFetch, apiPost, apiPatch, apiDelete, apiPut, handleUnauthorized } from "./client";
+import { apiUrl, resolveBackendUrl } from "./base";
 
 // ── Types (mirror the backend contract exactly) ───────────────────────
 
@@ -157,15 +158,12 @@ export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
 export async function uploadAttachment(taskId: string, file: File): Promise<Attachment> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`/api/kanban/task/${taskId}/attachment`, {
+  const res = await fetch(apiUrl(`/kanban/task/${taskId}/attachment`), {
     method: "POST",
     credentials: "same-origin",
     body: form,
   });
-  if (res.status === 401) {
-    window.location.reload();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) {
     const raw = await res.text().catch(() => "");
     let detail = "";
@@ -177,7 +175,18 @@ export async function uploadAttachment(taskId: string, file: File): Promise<Atta
 
 /** Build the direct asset URL usable in <img>/<video> src. */
 export function assetUrl(taskId: string, filename: string): string {
-  return `/api/kanban/asset/${taskId}/${encodeURIComponent(filename)}`;
+  return apiUrl(`/kanban/asset/${taskId}/${encodeURIComponent(filename)}`);
+}
+
+/**
+ * An attachment's own `url` made loadable from this instance.
+ *
+ * The backend answers with a server-relative `/api/kanban/asset/...`, which on a remote
+ * instance would fetch from home. Task text keeps the relative form — it belongs to the
+ * server, not to whichever frontend is looking at it — so only rendered links resolve.
+ */
+export function attachmentHref(url: string): string {
+  return resolveBackendUrl(url);
 }
 
 // ── Launch / Abort ─────────────────────────────────────────────────────

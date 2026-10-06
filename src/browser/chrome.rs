@@ -17,6 +17,8 @@ use tokio::process::{Child, Command};
 
 use super::banner::{read_ws_url, LaunchError, BANNER_TIMEOUT};
 use super::display::Display;
+use super::flags::launch_flags;
+use super::mode::BrowserMode;
 use super::profile::{self, Owner};
 
 /// How long a browser already on the profile has to publish its DevTools port before it
@@ -27,18 +29,6 @@ const ADOPT_POLL: Duration = Duration::from_millis(100);
 /// How long a browser being replaced gets to shut down cleanly before its claim on the
 /// profile is cleared out from under it.
 const RETIRE_GRACE: Duration = Duration::from_secs(5);
-
-/// Render at two device pixels per CSS pixel.
-///
-/// A screencast frame is a copy of the compositor surface, and the surface is sized by
-/// *this* number — not by the per-pane device scale factor, which only tells the page what
-/// to believe. Left at one, a pane on a retina display is a 1x image stretched over 2x
-/// pixels, which is exactly the softness it looked like. Panes that do not want the detail
-/// are served a downscaled copy instead (see [`super::types::Viewport::capture_width`]),
-/// so this costs bandwidth only where it buys sharpness.
-///
-/// Must agree with [`super::types::MAX_RATIO`]; the test below holds them together.
-const DEVICE_SCALE_FLAG: &str = "--force-device-scale-factor=2";
 
 /// A browser process and the DevTools endpoint it is listening on.
 pub struct Chrome {
@@ -51,15 +41,21 @@ pub struct Chrome {
 enum Process {
     /// Launched here. Dropping the handle kills it — along with the virtual display it
     /// was drawing into, which is held here for exactly that reason and never read.
-    /// Boxed only to keep the variant near the size of `Adopted`; there is one of these
-    /// per process, so the allocation is paid once.
-    Owned {
-        child: Child,
-        _display: Box<Display>,
-    },
+    /// Boxed to keep the variant near the size of `Adopted`; there is one of these per
+    /// process, so the allocation is paid once.
+    Owned(Box<Owned>),
     /// Already running on the profile when we got here, so not ours to end: another
     /// opman may be driving it, and if nobody is, the next launch adopts it again.
     Adopted(u32),
+    /// Adopted by its DevTools port because the platform left no pid to read (Windows).
+    /// Alive for as long as the port answers.
+    Served(u16),
+}
+
+/// A browser launched here, with the virtual display it draws into.
+struct Owned {
+    child: Child,
+    _display: Display,
 }
 
 impl Chrome {
@@ -74,7 +70,10 @@ impl Chrome {
     /// and it says so and exits. Retrying unsandboxed there is the difference between the
     /// feature working and not existing; doing it *only* there is what keeps the sandbox
     /// on every host that can honour it.
-    pub async fn launch(user_data_dir: &std::path::Path) -> anyhow::Result<Self> {
+    pub async fn launch(
+        user_data_dir: &std::path::Path,
+        mode: BrowserMode,
+    ) -> anyhow::Result<Self> {
         // Validate this before adoption: an existing browser must not hide a bad path the
         // user explicitly configured.
         super::binary::validate_override().map_err(anyhow::Error::new)?;
@@ -82,14 +81,19 @@ impl Chrome {
             return Ok(adopted);
         }
 
-        let binary = super::binary::find().map_err(anyhow::Error::new)?;
+        let binary = super::binary::find(mode).map_err(anyhow::Error::new)?;
+        tracing::info!(binary = %binary.display(), ?mode, "launching the pane browser");
 
-        let display = Display::ensure().await;
-        let (first, display) =
-            match Self::spawn(&binary, user_data_dir, display, Sandbox::Enabled).await {
-                Ok(chrome) => return Ok(chrome),
-                Err((error, display)) => (error, display),
-            };
+        let display = Display::for_mode(mode).await;
+        let launch = Launch {
+            binary: &binary,
+            user_data_dir,
+            mode,
+        };
+        let (first, display) = match launch.spawn(display, Sandbox::Enabled).await {
+            Ok(chrome) => return Ok(chrome),
+            Err((error, display)) => (error, display),
+        };
 
         // Whoever won the race owns the profile now; a second attempt only loses it again.
         if matches!(first, LaunchError::ProfileLocked) {
@@ -109,7 +113,8 @@ impl Chrome {
                 anyhow::Error::from(other.clone())
             ),
         }
-        Self::spawn(&binary, user_data_dir, display, Sandbox::Disabled)
+        launch
+            .spawn(display, Sandbox::Disabled)
             .await
             .map_err(|(error, _)| error.into())
     }
@@ -147,6 +152,13 @@ impl Chrome {
                     ))
                 }
                 Owner::Live { .. } => tokio::time::sleep(ADOPT_POLL).await,
+                Owner::Serving { port, ws_url } => {
+                    tracing::info!(port, "adopting the browser serving DevTools on the profile");
+                    return Ok(Some(Self {
+                        process: Process::Served(port),
+                        ws_url,
+                    }));
+                }
                 // The common case after a hard restart: the last browser is gone but its
                 // claim on the profile is not, and Chromium refuses to start on a claimed
                 // profile.
@@ -186,46 +198,55 @@ impl Chrome {
         profile::release(user_data_dir);
     }
 
+    /// Ask the process to exit. Dropping also kills it, but an explicit close lets the
+    /// pool report failures instead of swallowing them in a destructor. An adopted
+    /// browser is left running: it was up before this process and its tabs outlive it.
+    pub async fn shutdown(self) {
+        let Process::Owned(mut owned) = self.process else {
+            return;
+        };
+        let child = &mut owned.child;
+        let _ = child.start_kill();
+        let _ = child.wait().await;
+    }
+
+    /// Whether the process is still running. A crashed Chromium must be relaunched
+    /// rather than reconnected, so the pool checks this before handing out a tab.
+    pub fn is_alive(&mut self) -> bool {
+        match &mut self.process {
+            Process::Owned(owned) => matches!(owned.child.try_wait(), Ok(None)),
+            Process::Adopted(pid) => profile::pid_alive(*pid),
+            Process::Served(port) => profile::endpoint_answers(*port),
+        }
+    }
+}
+
+/// One launch attempt's fixed inputs; the sandbox and display vary between attempts.
+struct Launch<'a> {
+    binary: &'a std::path::Path,
+    user_data_dir: &'a std::path::Path,
+    mode: BrowserMode,
+}
+
+impl Launch<'_> {
     /// Start a browser on this display. The display comes back with any error so the
     /// unsandboxed retry reuses it instead of leaving one `Xvfb` behind per attempt.
     async fn spawn(
-        binary: &std::path::Path,
-        user_data_dir: &std::path::Path,
+        &self,
         display: Display,
         sandbox: Sandbox,
-    ) -> Result<Self, (LaunchError, Display)> {
+    ) -> Result<Chrome, (LaunchError, Display)> {
+        let binary = self.binary;
         let mut command = Command::new(binary);
         command
-            .args([
-                // Port 0 = let the OS pick; the real port arrives on stderr.
-                "--remote-debugging-port=0",
-                "--no-first-run",
-                "--no-default-browser-check",
-                "--disable-background-networking",
-                // Without these a window the (absent) window manager never raised can be
-                // treated as hidden, and a throttled renderer paints no screencast frames.
-                "--disable-backgrounding-occluded-windows",
-                "--disable-renderer-backgrounding",
-                "--disable-dev-shm-usage",
-                // Drops the `navigator.webdriver` flag that bot checks read first.
-                "--disable-blink-features=AutomationControlled",
-                "--mute-audio",
-                "--window-position=0,0",
-                "--window-size=1280,800",
-                DEVICE_SCALE_FLAG,
-            ])
+            .args(launch_flags(self.mode))
             .args(display.chrome_flags())
             .args(sandbox.flags())
-            .arg(format!("--user-data-dir={}", user_data_dir.display()))
+            .arg(format!("--user-data-dir={}", self.user_data_dir.display()))
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        match display.name() {
-            Some(name) => command.env("DISPLAY", name),
-            // Inheriting a stale `DISPLAY` would send a headless fallback looking for an X
-            // server that is not there.
-            None => command.env_remove("DISPLAY"),
-        };
+        display.apply_env(&mut command);
 
         let fail = |error: LaunchError, display| (error, display);
         let mut child = match command.spawn() {
@@ -242,35 +263,15 @@ impl Chrome {
         };
 
         match tokio::time::timeout(BANNER_TIMEOUT, read_ws_url(stderr)).await {
-            Ok(Ok(ws_url)) => Ok(Self {
-                process: Process::Owned {
+            Ok(Ok(ws_url)) => Ok(Chrome {
+                process: Process::Owned(Box::new(Owned {
                     child,
-                    _display: Box::new(display),
-                },
+                    _display: display,
+                })),
                 ws_url,
             }),
             Ok(Err(e)) => Err(fail(e, display)),
             Err(_) => Err(fail(LaunchError::Timeout, display)),
-        }
-    }
-
-    /// Ask the process to exit. Dropping also kills it, but an explicit close lets the
-    /// pool report failures instead of swallowing them in a destructor. An adopted
-    /// browser is left running: it was up before this process and its tabs outlive it.
-    pub async fn shutdown(self) {
-        let Process::Owned { mut child, .. } = self.process else {
-            return;
-        };
-        let _ = child.start_kill();
-        let _ = child.wait().await;
-    }
-
-    /// Whether the process is still running. A crashed Chromium must be relaunched
-    /// rather than reconnected, so the pool checks this before handing out a tab.
-    pub fn is_alive(&mut self) -> bool {
-        match &mut self.process {
-            Process::Owned { child, .. } => matches!(child.try_wait(), Ok(None)),
-            Process::Adopted(pid) => profile::pid_alive(*pid),
         }
     }
 }

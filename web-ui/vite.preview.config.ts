@@ -16,6 +16,9 @@ export default mergeConfig(base, defineConfig({
     proxy: {
       "/api": { target, changeOrigin: false, ws: true },
       "/internal": { target, changeOrigin: false, ws: true },
+      // A remote server's instance: home proxies `/remote/<id>/api/*`, and the SPA
+      // fallback serves `/remote/<id>/` from source like any other path.
+      "^/remote/[^/]+/api": { target, changeOrigin: false, ws: true },
     },
   },
 }));

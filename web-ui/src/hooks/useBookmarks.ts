@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { storageKey } from "../api/base";
 
 /** A bookmarked message entry */
 export interface Bookmark {
@@ -11,7 +12,7 @@ export interface Bookmark {
   createdAt: number;
 }
 
-const STORAGE_KEY = "opman-bookmarks";
+const STORAGE_KEY = storageKey("opman-bookmarks");
 
 /** Load all bookmarks from localStorage */
 function loadBookmarks(): Map<string, Bookmark> {

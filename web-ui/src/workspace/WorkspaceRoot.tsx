@@ -42,6 +42,8 @@ export interface PaneContext {
   readonly projectName: string;
   readonly subtitle: string | null;
   readonly busy: boolean;
+  /** Set when the widget is on another server: that server's name. */
+  readonly serverName?: string | null;
 }
 
 export interface WorkspaceRootProps {

@@ -1,5 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import type { PaneId, PaneNode, WidgetState } from "../types";
+import { isForeign } from "../foreignOpen";
+import { RemoteWidget } from "./RemoteWidget";
 
 /**
  * Renders a pane's widget.
@@ -37,6 +39,8 @@ export interface PaneWidgetProps {
    * around the tree is how a pane usually reaches a file.
    */
   readonly onActiveFileChanged: (pane: PaneId, path: string | null) => void;
+  /** Another server's pane reporting where its embed has gone. */
+  readonly onRemoteWidgetChanged: (pane: PaneId, widget: WidgetState) => void;
 }
 
 export const PaneWidget: React.FC<PaneWidgetProps> = React.memo(function PaneWidget(props) {
@@ -61,7 +65,23 @@ function renderWidget({
   onPtyIdChanged,
   onBrowserUrlChanged,
   onActiveFileChanged,
+  onRemoteWidgetChanged,
 }: PaneWidgetProps): React.ReactNode {
+  // Another server's widget is that server's own instance, embedded. Keyed by
+  // server: pointing the pane at a third server is a different frame.
+  if (widget.server && isForeign(widget)) {
+    return (
+      <RemoteWidget
+        key={widget.server}
+        widget={widget}
+        server={widget.server}
+        paneId={pane.id}
+        focused={focused}
+        onChanged={onRemoteWidgetChanged}
+      />
+    );
+  }
+
   switch (widget.kind) {
     case "chat":
       return (

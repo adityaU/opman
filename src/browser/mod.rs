@@ -14,17 +14,32 @@
 
 mod banner;
 mod binary;
+mod candidates;
 mod cdp;
 mod chrome;
 mod display;
+mod display_device;
+mod engine;
+mod flags;
 mod input;
 mod install;
+mod mode;
 mod pane;
 mod pool;
 mod profile;
+mod relay;
+mod relay_pipe;
 mod screencast;
 mod tab;
 mod types;
+mod window;
+
+#[cfg(test)]
+pub(crate) mod fake_device;
+
+#[cfg(test)]
+#[path = "link_tests.rs"]
+mod link_tests;
 
 #[cfg(test)]
 #[path = "live_tests.rs"]
@@ -34,7 +49,19 @@ mod live_tests;
 #[path = "live_render_tests.rs"]
 mod live_render_tests;
 
+#[cfg(test)]
+#[path = "live_device_tests.rs"]
+mod live_device_tests;
+
 pub use binary::{BrowserInstallGuide, BrowserUnavailable};
+pub use engine::DeviceLink;
+#[cfg(test)]
+pub use engine::{LinkId, LinkState};
+pub use mode::BrowserMode;
+// The home side of a device link. Called by the remote-server supervisor, which keeps one
+// relay per configured remote while this opman runs with `--device-browser`.
+#[allow(unused_imports)]
+pub use relay::{run_device_link, run_device_link_loop, RelayEnd, RelayError};
 pub use input::MouseKind;
 pub use pane::Pane;
 pub use pool::{normalize_url, pane_id_for_project, BrowserPool, Opened, BLANK};

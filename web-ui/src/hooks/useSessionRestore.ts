@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { onPageRoute } from "../utils/navigation";
+import { storageKey } from "../api/base";
 
 /**
  * Which session to open on a cold start, and what to do when it is gone.
@@ -15,7 +16,7 @@ import { onPageRoute } from "../utils/navigation";
  * one is not guaranteed to still exist when the list finally loads.
  */
 
-const LAST_SESSION_KEY = "opman_last_session";
+const LAST_SESSION_KEY = storageKey("opman_last_session");
 
 export interface UseSessionRestoreOptions {
   readonly appState: any;

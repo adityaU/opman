@@ -8,6 +8,8 @@ import {
   type Transitions,
   type PipelineRun,
 } from "../api/kanban";
+import { createEventsSSE } from "../api/pty";
+import { IS_EMBED } from "../embed/embedMode";
 
 export interface KanbanBoardState {
   board: Board | null;
@@ -92,7 +94,10 @@ export function useKanbanBoard(
   projectPathRef.current = projectPath;
 
   useEffect(() => {
-    const es = new EventSource("/api/events", { withCredentials: true });
+    // An embed shows no board, and on an HTTP/1.1 origin every stream it holds
+    // is one of six connections it shares with its parent page.
+    if (IS_EMBED) return;
+    const es = createEventsSSE();
 
     const scheduleRefetch = (eventProjectPath: string | undefined) => {
       // Only refetch if the event targets the active project (match by path when known).

@@ -69,3 +69,26 @@ fn a_hostname_with_dashes_still_yields_the_pid() {
         .expect("lock");
     assert_eq!(lock_holder(dir.path()), Some(4242));
 }
+
+#[test]
+fn a_listening_devtools_port_answers() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    assert!(endpoint_answers(port));
+    drop(listener);
+    assert!(!endpoint_answers(port));
+}
+
+#[test]
+fn a_port_file_without_a_lock_is_free_on_unix() {
+    // Unix Chromium always leaves the SingletonLock symlink; a lone port file is debris.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dir.path().join("DevToolsActivePort"),
+        format!("{port}\n/devtools/browser/x\n"),
+    )
+    .expect("port file");
+    assert_eq!(owner(dir.path()), Owner::Free);
+}

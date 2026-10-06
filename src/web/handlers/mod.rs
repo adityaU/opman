@@ -11,6 +11,7 @@ mod acp_upsert;
 mod agents_handlers;
 mod ask_internal;
 mod auth_handlers;
+mod browser_device;
 mod browser_handlers;
 mod browser_internal;
 mod browser_ops;
@@ -88,6 +89,7 @@ pub use browser_handlers::{
     browser_resize, browser_screenshot, browser_scroll, browser_snapshot, browser_text,
     browser_type,
 };
+pub use browser_device::browser_device;
 pub use browser_internal::internal_browser;
 pub use pty_handlers::{pty_kill, pty_rename, pty_resize, pty_sessions, pty_write, spawn_pty};
 

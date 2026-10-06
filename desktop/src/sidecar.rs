@@ -111,6 +111,9 @@ impl Sidecar {
                 "--exit-on-stdin-eof",
                 "--web-bind",
                 "127.0.0.1",
+                // Browser panes use this device's own installed browser, headed on the real
+                // display with their windows parked off-screen — not a private Chromium.
+                "--device-browser",
             ])
             .arg("--web-port")
             .arg(port.0.to_string())

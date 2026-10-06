@@ -5,6 +5,7 @@ import type {
   TodoItem,
   OpenCodeEvent,
 } from "../types";
+import { apiUrl, IS_HOME } from "./base";
 
 export interface BrowserInstallCommand {
   readonly label: string;
@@ -92,14 +93,32 @@ export function authHeaders(): Record<string, string> {
  * lenient middle that would turn an empty read into `undefined`.
  */
 async function guard(res: Response): Promise<Response> {
-  if (res.status === 401) {
-    // The cookie is gone or expired. Reloading lands on the login page.
-    clearToken();
-    window.location.reload();
-    throw new Error("Unauthorized");
-  }
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw await apiError(res);
   return res;
+}
+
+/**
+ * React to a 401 from the backend, then throw.
+ *
+ * On home the cookie is gone or expired, and reloading lands on the login page. On a
+ * remote instance the 401 can mean either that home's own session ended — then the user
+ * belongs on home's login page, never a login form for the remote, whose credentials home
+ * holds — or that home could not authenticate to the remote, which no reload fixes. Home's
+ * verify endpoint tells the two apart.
+ */
+export function handleUnauthorized(): never {
+  clearToken();
+  if (IS_HOME) {
+    window.location.reload();
+  } else {
+    void fetch("/api/auth/verify", { credentials: "same-origin" })
+      .then((res) => {
+        if (!res.ok) window.location.assign("/");
+      })
+      .catch(() => undefined);
+  }
+  throw new ApiError("Unauthorized", { code: "unauthorized" });
 }
 
 /**
@@ -184,8 +203,13 @@ async function readJson<T>(res: Response): Promise<T> {
 /** A body that may legitimately be empty, as a write's often is. */
 async function maybeJson<T>(res: Response): Promise<T> {
   const text = await res.text();
-  if (text) return JSON.parse(text) as T;
-  return undefined as unknown as T;
+  if (!text) return undefined as unknown as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Same reason as `readJson`: an HTML page here is the SPA fallback, not an answer.
+    throw new Error("API error: the server did not return JSON");
+  }
 }
 
 function json(method: string, body?: unknown): RequestInit {
@@ -199,7 +223,7 @@ function json(method: string, body?: unknown): RequestInit {
 
 /** Typed GET fetch helper. `init` may override the method for a custom request. */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -209,22 +233,22 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
 /** POST helper */
 export async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
-  return maybeJson<T>(await guard(await fetch(`/api${path}`, json("POST", body))));
+  return maybeJson<T>(await guard(await fetch(apiUrl(path), json("POST", body))));
 }
 
 /** DELETE helper */
 export async function apiDelete(path: string): Promise<void> {
-  await guard(await fetch(`/api${path}`, { method: "DELETE", credentials: "same-origin" }));
+  await guard(await fetch(apiUrl(path), { method: "DELETE", credentials: "same-origin" }));
 }
 
 /** PATCH helper */
 export async function apiPatch<T = void>(path: string, body?: unknown): Promise<T> {
-  return maybeJson<T>(await guard(await fetch(`/api${path}`, json("PATCH", body))));
+  return maybeJson<T>(await guard(await fetch(apiUrl(path), json("PATCH", body))));
 }
 
 /** PUT helper */
 export async function apiPut<T = void>(path: string, body?: unknown): Promise<T> {
-  return maybeJson<T>(await guard(await fetch(`/api${path}`, json("PUT", body))));
+  return maybeJson<T>(await guard(await fetch(apiUrl(path), json("PUT", body))));
 }
 
 /**
@@ -234,10 +258,24 @@ export async function apiPut<T = void>(path: string, body?: unknown): Promise<T>
  * matches the body it generated.
  */
 export async function apiUpload<T = void>(path: string, body: FormData): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(apiUrl(path), {
     method: "POST",
     credentials: "same-origin",
     body,
   });
   return maybeJson<T>(await guard(res));
+}
+
+/**
+ * A JSON request to home itself, whichever server this instance talks to.
+ *
+ * For the few endpoints that only exist on home (`/api/servers`): the path is never
+ * prefixed with `BASE`, so a remote instance still manages home's server list.
+ */
+export async function homeRequest<T = void>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return maybeJson<T>(await guard(await fetch(`/api${path}`, json(method, body))));
 }

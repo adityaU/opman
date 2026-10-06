@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Minimize2,
   Rows2,
+  Server,
   SquareTerminal,
   X,
 } from "lucide-react";
@@ -50,6 +51,8 @@ export interface PaneHeaderProps {
   readonly projectName: string;
   /** Session title, file name, terminal tab or branch — whatever is live. */
   readonly subtitle: string | null;
+  /** The server a remote widget is on; null for this instance's own. */
+  readonly serverName?: string | null;
   readonly busy: boolean;
   readonly focused: boolean;
   /** Visible: the reveal chord is up, or the header itself holds focus. */
@@ -71,6 +74,7 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
   widget,
   projectName,
   subtitle,
+  serverName = null,
   busy,
   focused,
   peek,
@@ -107,6 +111,12 @@ export const PaneHeader: React.FC<PaneHeaderProps> = React.memo(function PaneHea
 
       {widget ? (
         <>
+          {serverName && (
+            <span className="wsp-head-server" title={`On ${serverName}`}>
+              <Server size={11} aria-hidden="true" />
+              <span className="wsp-head-server-name">{serverName}</span>
+            </span>
+          )}
           <ProjectBadge projectPath={widget.projectPath} name={projectName} busy={busy} />
           <span className="wsp-head-sep" aria-hidden="true" />
           <span

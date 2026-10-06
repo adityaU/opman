@@ -93,7 +93,7 @@ fn format_float_variants() {
     assert_eq!(format_float(30.0), "30");
     assert_eq!(format_float(-5.0), "-5");
     assert_eq!(format_float(0.0), "0");
-    assert_eq!(format_float(3.14), "3.14");
+    assert_eq!(format_float(2.75), "2.75");
     // Very large magnitude falls back to Rust's default formatting.
     assert_eq!(format_float(1e20), 1e20.to_string());
 }

@@ -1,4 +1,5 @@
-//! A small Chrome DevTools Protocol client over the browser-level websocket.
+//! A small Chrome DevTools Protocol client over the browser-level websocket — or over any
+//! pair of channels carrying the same JSON frames (see [`Cdp::from_channels`]).
 //!
 //! Flat session mode (`Target.attachToTarget { flatten: true }`) is what keeps this
 //! small: every page multiplexes onto the one socket and is addressed by `sessionId`,
@@ -22,6 +23,8 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 /// Event fan-out depth. Screencast frames are the fast producer; a slow consumer lags
 /// rather than blocking the reader.
 const EVENT_CHANNEL: usize = 256;
+/// Raw frames buffered between a transport and the client, each way.
+const FRAME_CHANNEL: usize = 256;
 
 /// A CDP event, already split into the page it came from.
 #[derive(Clone, Debug)]
@@ -50,11 +53,53 @@ pub struct Cdp {
 }
 
 impl Cdp {
-    /// Dial the endpoint printed by [`super::chrome::Chrome`] and start the pump.
+    /// Dial a browser-level DevTools websocket — the endpoint printed by
+    /// [`super::chrome::Chrome`] — and run the client over it.
     pub async fn connect(ws_url: &str) -> anyhow::Result<Self> {
         let (stream, _) = tokio_tungstenite::connect_async(ws_url).await?;
         let (mut sink, mut source) = stream.split();
+        let (outgoing, mut to_socket) = mpsc::channel::<String>(FRAME_CHANNEL);
+        let (from_socket, incoming) = mpsc::channel::<String>(FRAME_CHANNEL);
 
+        // One task for both directions, so a socket that dies in either drops both channel
+        // ends together and every pending call fails at once instead of timing out.
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    out = to_socket.recv() => {
+                        let Some(text) = out else { break };
+                        if sink.send(Message::Text(text.into())).await.is_err() {
+                            break;
+                        }
+                    }
+                    inbound = source.next() => match inbound {
+                        Some(Ok(Message::Text(text))) => {
+                            if from_socket.send(text.as_str().to_owned()).await.is_err() {
+                                break;
+                            }
+                        }
+                        Some(Ok(_)) => {}
+                        Some(Err(_)) | None => break,
+                    },
+                }
+            }
+            let _ = sink.close().await;
+        });
+
+        Ok(Self::from_channels(outgoing, incoming))
+    }
+
+    /// Run the client over any duplex carrying raw CDP JSON text: `outgoing` receives
+    /// every frame this client sends, and every frame pushed into `incoming` is routed to
+    /// its caller or to subscribers.
+    ///
+    /// This is what lets a pane drive a browser that is not on this machine — a device
+    /// link hands its frames over channels rather than a websocket this process dialled.
+    /// Closing either side fails every pending call rather than leaving it to time out.
+    pub fn from_channels(
+        outgoing: mpsc::Sender<String>,
+        mut incoming: mpsc::Receiver<String>,
+    ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel::<Call>();
         let (events, _) = broadcast::channel(EVENT_CHANNEL);
         let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
@@ -64,7 +109,7 @@ impl Cdp {
             while let Some(call) = rx.recv().await {
                 let text = call.payload.to_string();
                 writer_pending.lock().await.insert(call.id, call.reply);
-                if sink.send(Message::Text(text.into())).await.is_err() {
+                if outgoing.send(text).await.is_err() {
                     if let Some(reply) = writer_pending.lock().await.remove(&call.id) {
                         let _ = reply.send(Err("devtools socket closed".into()));
                     }
@@ -76,8 +121,7 @@ impl Cdp {
         let reader_events = events.clone();
         let reader_pending = Arc::clone(&pending);
         tokio::spawn(async move {
-            while let Some(Ok(msg)) = source.next().await {
-                let Message::Text(text) = msg else { continue };
+            while let Some(text) = incoming.recv().await {
                 let Ok(value) = serde_json::from_str::<Value>(&text) else {
                     continue;
                 };
@@ -89,11 +133,11 @@ impl Cdp {
             }
         });
 
-        Ok(Self {
+        Self {
             tx,
             events,
             next_id: Arc::new(AtomicI64::new(1)),
-        })
+        }
     }
 
     /// Subscribe to every event on every page. Filter by `session_id` at the consumer.

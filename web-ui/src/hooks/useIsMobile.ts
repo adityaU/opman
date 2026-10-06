@@ -14,11 +14,14 @@
  * hand.
  */
 import { useEffect, useState } from "react";
+import { IS_EMBED } from "../embed/embedMode";
 
 /** Must stay in step with the `max-width` in responsive-*.css. */
 export const MOBILE_QUERY = "(max-width: 768px)";
 
 function matches(): boolean {
+  // An embed is a desktop pane however narrow it is; see embed/wideViewport.ts.
+  if (IS_EMBED) return false;
   if (typeof window === "undefined" || !window.matchMedia) return false;
   return window.matchMedia(MOBILE_QUERY).matches;
 }
@@ -27,6 +30,7 @@ export function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(matches);
 
   useEffect(() => {
+    if (IS_EMBED) return;
     const query = window.matchMedia(MOBILE_QUERY);
     const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
     // Re-read on mount: the viewport can change between first render and here.

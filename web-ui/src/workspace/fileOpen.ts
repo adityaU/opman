@@ -68,16 +68,45 @@ export function planFileOpen(
   projects: readonly WorkspaceProject[],
 ): FileOpenPlan {
   const focused = panes.find((pane) => pane.id === focusedPaneId) ?? null;
-  const projectPath = projectForFile(open.path, projects, focused?.widget?.projectPath);
+  const fallback = focused?.widget?.server ? undefined : focused?.widget?.projectPath;
+  const projectPath = projectForFile(open.path, projects, fallback);
+  return planFileOpenIn(projectPath, undefined, open, panes, focusedPaneId);
+}
 
+/**
+ * The same rule once the project is already known — which it is when the
+ * request comes from another server's embedded pane, whose projects this
+ * instance cannot resolve paths against.
+ *
+ * A files pane is only reused on the server the file is on: two machines can
+ * hold a checkout at the same path, and a pane resolving the path against the
+ * other one would show a different file, or none.
+ */
+export function planFileOpenIn(
+  projectPath: string,
+  server: string | undefined,
+  open: FileOpenRequest,
+  panes: readonly PaneNode[],
+  focusedPaneId: PaneId,
+): FileOpenPlan {
+  const focused = panes.find((pane) => pane.id === focusedPaneId) ?? null;
   const existing = panes.find(
-    (pane) => pane.widget?.kind === "files" && pane.widget.projectPath === projectPath,
+    (pane) =>
+      pane.widget?.kind === "files"
+      && pane.widget.projectPath === projectPath
+      && pane.widget.server === server,
   );
   if (existing?.widget?.kind === "files") {
     return { action: "place", pane: existing.id, widget: { ...existing.widget, open } };
   }
 
-  const widget: WidgetState = { kind: "files", projectPath, sessionId: focusedPaneId, open };
+  const widget: WidgetState = {
+    kind: "files",
+    projectPath,
+    sessionId: focusedPaneId,
+    open,
+    ...(server ? { server } : {}),
+  };
   // An empty pane is a slot already waiting; splitting it would leave the empty
   // half behind.
   if (focused && !focused.widget) return { action: "place", pane: focused.id, widget };

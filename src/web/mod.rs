@@ -40,8 +40,10 @@ mod editor_ws;
 mod error;
 pub(crate) mod git;
 mod handlers;
+mod device_links;
 pub mod keybindings;
 mod mcp_ws;
+mod remote;
 pub mod pty_manager;
 mod request_log;
 mod routes;
@@ -49,6 +51,7 @@ mod runner_events;
 pub mod session_instructions;
 mod sse;
 mod static_files;
+mod stream_mux;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod tunnel;
@@ -80,6 +83,8 @@ pub struct WebConfig {
     pub instance_name: Option<String>,
     /// Active agent backend name ("opencode" or "claude-code").
     pub backend: String,
+    /// Whose browser backs the browser panes (`--device-browser`).
+    pub browser_mode: crate::browser::BrowserMode,
 }
 
 // ── Server startup ──────────────────────────────────────────────────
@@ -214,7 +219,7 @@ pub async fn start_web_server(
         pty_mgr,
         // Nothing launches until a browser pane is opened, so a workspace without one
         // never pays for Chromium.
-        browser: crate::browser::BrowserPool::new(http_client.clone()),
+        browser: crate::browser::BrowserPool::with_mode(http_client.clone(), config.browser_mode),
         http_client,
         lsp: lsp_pool,
         skills_registry,
@@ -229,8 +234,10 @@ pub async fn start_web_server(
         runner_registry,
         acp,
         mcp_logins: std::sync::Arc::default(),
+        remote: crate::remote::Registry::load(),
     };
 
+    device_links::spawn(shared_state.remote.clone(), shared_state.browser.clone());
     let app = routes::build_router(shared_state);
 
     // Bind synchronously to discover the actual port before returning

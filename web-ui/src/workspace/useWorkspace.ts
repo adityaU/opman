@@ -10,7 +10,7 @@ import { useEffect, useMemo, useReducer, useRef } from "react";
 import { loadWorkspace, saveWorkspace } from "./persistence";
 import { emptyWorkspace, workspaceReducer, type WorkspaceAction } from "./reducer";
 import { findPane, panes } from "./tree";
-import type { PaneNode, Workspace, WorkspaceWindow } from "./types";
+import type { PaneNode, WidgetState, Workspace, WorkspaceWindow } from "./types";
 
 const SAVE_DEBOUNCE_MS = 300;
 
@@ -23,16 +23,24 @@ export interface WorkspaceApi {
   readonly dispatch: (action: WorkspaceAction) => void;
 }
 
-export function useWorkspace(enabled: boolean): WorkspaceApi {
+/**
+ * `seed` makes an in-memory workspace of one pane showing it — an embed's. It
+ * is never read from or written to storage: the layout an embed would save is
+ * its parent's to keep, and writing it would overwrite the user's real desk.
+ */
+export function useWorkspace(enabled: boolean, seed: WidgetState | null = null): WorkspaceApi {
   // Mobile never reads the workspace, and parsing it there would be work done
   // for a surface that will not render.
   const [state, dispatch] = useReducer(
     workspaceReducer,
     enabled,
-    (on): Workspace => (on ? loadWorkspace() : emptyWorkspace()),
+    (on): Workspace => {
+      if (seed) return seededWorkspace(seed);
+      return on ? loadWorkspace() : emptyWorkspace();
+    },
   );
 
-  usePersist(state, enabled);
+  usePersist(state, enabled && seed === null);
 
   const window =
     state.windows.find((candidate) => candidate.id === state.activeWindowId) ?? state.windows[0];
@@ -47,6 +55,13 @@ export function useWorkspace(enabled: boolean): WorkspaceApi {
     () => ({ state, window, panes: paneList, focusedPane, dispatch }),
     [state, window, paneList, focusedPane],
   );
+}
+
+export function seededWorkspace(widget: WidgetState): Workspace {
+  const empty = emptyWorkspace();
+  const pane = empty.windows[0].focusedPaneId;
+  const seeded = workspaceReducer(empty, { type: "openWidget", pane, widget });
+  return { ...seeded, chrome: { ...seeded.chrome, rail: false } };
 }
 
 /** Debounced write-behind, with a final flush so a fast reload keeps the edit. */

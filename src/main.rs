@@ -37,6 +37,7 @@ mod nvim_rpc;
 mod preflight;
 mod process_health;
 mod pty;
+mod remote;
 mod runner;
 mod runner_handoff;
 mod runner_lazy;
@@ -181,6 +182,7 @@ async fn main() -> Result<()> {
     );
 
     let web_addr = std::net::SocketAddr::new(cli.web_bind, cli.web_port.unwrap_or(0));
+    let cli_browser_mode = cli.browser_mode();
     let web_user = cli.web_user.unwrap_or_default();
     let web_pass = cli.web_pass.unwrap_or_default();
     let web_only = cli.web_only;
@@ -531,6 +533,7 @@ async fn main() -> Result<()> {
         &web_pass,
         instance_name,
         backend.display_name(),
+        cli_browser_mode,
         runner_registry.clone(),
         mcp_registry.clone(),
         acp_supervisor,

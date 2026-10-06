@@ -1,4 +1,5 @@
 import { apiFetch, apiPatch, apiPost } from "./client";
+import { apiUrl } from "./base";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -104,6 +105,12 @@ export interface ThemeColors {
 
 // ── Auth ──────────────────────────────────────────────
 
+/**
+ * Log in to home.
+ *
+ * Always home's endpoint, never `apiUrl`: a remote's credentials live on home and the
+ * browser never logs in to a remote itself, so a remote instance has no login of its own.
+ */
 export async function login(
   username: string,
   password: string
@@ -121,6 +128,7 @@ export async function login(
   return data.token;
 }
 
+/** Whether home's auth cookie is valid. Home's, on every instance — see [`login`]. */
 export async function verifyToken(): Promise<boolean> {
   // With cookie auth the browser automatically sends the opman_token
   // cookie — no need to check sessionStorage first.
@@ -238,7 +246,7 @@ export interface BootstrapData {
  *  Used on the login page so the form renders with the active theme. */
 export async function fetchBootstrap(): Promise<BootstrapData> {
   try {
-    const res = await fetch("/api/public/bootstrap");
+    const res = await fetch(apiUrl("/public/bootstrap"));
     if (!res.ok) return { theme: null, instance_name: null };
     const raw: BootstrapData = await res.json();
     return raw;

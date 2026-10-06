@@ -68,6 +68,7 @@ export function sameTarget(a: WidgetState | null, b: WidgetState | null): boolea
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.kind !== b.kind || a.projectPath !== b.projectPath) return false;
+  if ((a.server ?? null) !== (b.server ?? null)) return false;
 
   switch (a.kind) {
     case "chat":

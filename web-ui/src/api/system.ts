@@ -1,3 +1,6 @@
+import { apiUrl } from "./base";
+import { openEventStream } from "./streamSocket";
+
 // ── Types ─────────────────────────────────────────────
 
 export interface ProcessInfo {
@@ -53,7 +56,7 @@ export function connectSystemStatsStream(
   onStats: (stats: SystemStats) => void,
   onError?: (err: Event) => void,
 ): EventSource {
-  const es = new EventSource("/api/system/stats/stream");
+  const es = openEventStream(apiUrl("/system/stats/stream"));
 
   es.addEventListener("system_stats", (e: MessageEvent) => {
     try {

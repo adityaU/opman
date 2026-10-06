@@ -8,11 +8,13 @@ import {
   addUserNote,
   abortTask,
   assetUrl,
+  attachmentHref,
   type Board,
   type Task,
   type TaskDetail,
   type PipelineRun,
 } from "../api/kanban";
+import { createEventsSSE } from "../api/pty";
 
 interface Props {
   board: Board;
@@ -61,7 +63,7 @@ export const TaskDetailModal: React.FC<Props> = function TaskDetailModal(p) {
 
   // Live-refresh notes/stages as the agent reports progress on this task.
   useEffect(() => {
-    const es = new EventSource("/api/events", { withCredentials: true });
+    const es = createEventsSSE();
     const onTask = (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data) as { task_id?: string };
@@ -218,11 +220,11 @@ export const TaskDetailModal: React.FC<Props> = function TaskDetailModal(p) {
               <div className="kanban-detail-attachments">
                 {detail.attachments.map((a) =>
                   a.kind === "image" ? (
-                    <a key={a.id} href={a.url} target="_blank" rel="noreferrer">
+                    <a key={a.id} href={attachmentHref(a.url)} target="_blank" rel="noreferrer">
                       <img src={assetUrl(p.taskId, a.filename)} alt={a.filename} />
                     </a>
                   ) : (
-                    <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="kanban-attach-file">
+                    <a key={a.id} href={attachmentHref(a.url)} target="_blank" rel="noreferrer" className="kanban-attach-file">
                       {a.filename}
                     </a>
                   ),

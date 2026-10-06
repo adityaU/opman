@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
 import "./styles/index.css";
+import { initEmbedMode } from "./embed/embedMode";
+
+initEmbedMode();
 
 // After a deployment, the old JS chunks may be gone. Vite fires this event
 // when a dynamic import fails because the chunk hash changed. Reloading

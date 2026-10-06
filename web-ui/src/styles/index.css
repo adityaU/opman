@@ -111,6 +111,7 @@
 @import './engine-picker.css';
 @import './composer-popover.css';
 @import './sidebar-redesign.css';
+@import './servers.css';
 @import './modern-shell.css';
 @import './floating-shell-polish.css';
 @import './mobile-shell.css';
@@ -127,6 +128,7 @@
 @import './workspace-6.css';
 @import './workspace-7.css';
 @import './workspace-8.css';
+@import './workspace-remote.css';
 /* After every workspace sheet: motion decorates what they lay out. */
 @import './workspace-zen.css';
 @import './workspace-motion.css';

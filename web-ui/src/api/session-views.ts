@@ -1,12 +1,14 @@
 import { apiFetch } from "./client";
 import type { OpenCodeEvent } from "../types";
 import type { SessionStats } from "./state";
+import { apiUrl } from "./base";
+import { openEventStream } from "./streamSocket";
 
 // ── Session events SSE ────────────────────────────────
 
 export function createSessionEventsSSE(): EventSource {
   // Cookie auth: browser sends opman_token cookie automatically.
-  return new EventSource(`/api/session/events`);
+  return openEventStream(apiUrl("/session/events"));
 }
 
 export function parseOpenCodeEvent(data: string): OpenCodeEvent | null {

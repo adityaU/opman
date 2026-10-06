@@ -1,26 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatTime } from "../sidebar/formatTime";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createShell } from "../terminal-panel/useShells";
-import type { PtySession } from "../api";
 import { EMPTY_DRAFT, toWidget, type OpenerDraft, type StepId } from "./opener/steps";
-import { browserIdForProject } from "../api/browser";
-import { planBrowserOpen } from "./browserOpen";
-import { nextRevealSeq, planFileOpen, projectForFile } from "./fileOpen";
-import type { DropEdge } from "./move";
-import { findPane } from "./tree";
-import { withViewTransition } from "./viewTransition";
+import { choicesForStep, describeWidget, widgetFor } from "./opener/choices";
+import { useServerProjects } from "./servers/useServerProjects";
+import { useExternalOpens } from "./useExternalOpens";
+import { usePaneDrag } from "./usePaneDrag";
 import { paneByOrdinal } from "./nav";
-import {
-  WIDGET_KINDS,
-  type FileOpenRequest,
-  type Node,
-  type PaneId,
-  type PaneNode,
-  type WidgetKind,
-  type WidgetForPane,
-  type WidgetState,
-  type WindowId,
-} from "./types";
+import type { Node, PaneId, PaneNode, WidgetKind, WidgetForPane, WidgetState } from "./types";
 import type { OpenerChoice } from "./opener/WidgetOpener";
 import type { WorkspaceAction } from "./reducer";
 import type { TargetRequest } from "./target/useTargeting";
@@ -62,9 +48,15 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
   const { dispatch, focusedPaneId, panes, projects, root, sessionsFor, shells, targeting } = deps;
 
   const [opener, setOpener] = useState<{ draft: OpenerDraft } | null>(null);
-  // Kept apart from `targeting`: the targeting commands (1-9, s/v, n) are gated
-  // on it, and a pointer drag must not arm a keymap the user cannot see.
-  const [dragSource, setDragSource] = useState<PaneId | null>(null);
+
+  // Every server's projects once there is more than one; with one, the plain
+  // list and no fetching at all.
+  const servers = useServerProjects(projects, opener !== null);
+  const { multi, serverName } = servers;
+  const describe = useCallback(
+    (widget: WidgetState) => describeWidget(widget, projects, serverName),
+    [projects, serverName],
+  );
 
   // Every route through this hook is the user pointing a pane at something, so
   // all of it records: the opener, a tool-card file link, a dropped target, a
@@ -145,11 +137,12 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
       // pre-answered. Same flow as chat choosing a session.
       if (kind === "terminal") {
         dispatch({ type: "focusPane", pane });
-        const projectPath = projects.length === 1 ? projects[0].path : null;
+        const projectPath = projects.length === 1 && !multi ? projects[0].path : null;
         setOpener({ draft: { ...EMPTY_DRAFT, kind, projectPath } });
         return;
       }
-      if (projects.length === 1) {
+      // One project is only "no question" while there is one server to have it on.
+      if (projects.length === 1 && !multi) {
         place(widgetFor(kind, projects[0].path, pane), pane);
         return;
       }
@@ -157,77 +150,19 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
       // Carry the kind through: the four buttons *are* step one.
       setOpener({ draft: { ...EMPTY_DRAFT, kind } });
     },
-    [dispatch, place, projects],
+    [dispatch, multi, place, projects],
   );
 
   // The shell's "open a files/terminal/git pane here" commands land in the
   // focused pane, which the caller does not know. A ref keeps the published
   // bridge callbacks stable while the focused pane moves under them.
-  const openHere = useRef({ onOpenWidgetKind, focusedPaneId, panes, projects });
-  openHere.current = { onOpenWidgetKind, focusedPaneId, panes, projects };
+  const openHere = useRef({ onOpenWidgetKind, focusedPaneId });
+  openHere.current = { onOpenWidgetKind, focusedPaneId };
   const openKindHere = useCallback((kind: WidgetKind) => {
     openHere.current.onOpenWidgetKind(openHere.current.focusedPaneId, kind);
   }, []);
 
-  /**
-   * Reveal a file, asked for from outside the workspace — a path clicked in a
-   * tool card, or an MCP editor-open event. `planFileOpen` decides where it
-   * goes; this only carries the answer to the reducer.
-   */
-  const openFileHere = useCallback(
-    (path: string, line: number | null) => {
-      const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
-      const open: FileOpenRequest = { path, line, seq: nextRevealSeq() };
-      const plan = planFileOpen(open, paneList, focused, projectList);
-      if (plan.action === "place") {
-        place(plan.widget, plan.pane);
-        return;
-      }
-      dispatch({ type: "splitPane", pane: plan.pane, dir: "row", widget: plan.widget });
-    },
-    [dispatch, place],
-  );
-
-  /**
-   * Reveal a file, but let the user say where it lands.
-   *
-   * The sibling of `openFileHere`, for the case where the caller is *in* the
-   * editor: jumping to a definition is as often "show me this beside what I am
-   * reading" as "replace what I am reading", and only the reader knows which.
-   * The pane is answered by the same overlay a session click uses, so the
-   * vocabulary — a number, a split, a new window — is one the user already has.
-   */
-  const openFileWhere = useCallback(
-    (path: string, line: number | null, label: string) => {
-      const { focusedPaneId: focused, panes: paneList, projects: projectList } = openHere.current;
-      const open: FileOpenRequest = { path, line, seq: nextRevealSeq() };
-      const projectPath = projectForFile(path, projectList, undefined)
-        || paneList.find((pane) => pane.id === focused)?.widget?.projectPath
-        || "";
-      const widgetForPane: WidgetForPane = (pane) => ({
-        kind: "files", projectPath, sessionId: pane, open,
-      });
-      armOrPlace({ widget: widgetForPane(focused), widgetForPane, label });
-    },
-    [armOrPlace],
-  );
-
-  /**
-   * Reveal the browser an agent just drove somewhere. Same contract as
-   * `openFileHere`: the caller knows what, the workspace knows where.
-   */
-  const openBrowserHere = useCallback(
-    (projectPath: string, url: string) => {
-      const { focusedPaneId: focused, panes: paneList } = openHere.current;
-      const plan = planBrowserOpen(projectPath, url, paneList, focused);
-      if (plan.action === "place") {
-        place(plan.widget, plan.pane);
-        return;
-      }
-      dispatch({ type: "splitPane", pane: plan.pane, dir: "row", widget: plan.widget });
-    },
-    [dispatch, place],
-  );
+  const external = useExternalOpens({ dispatch, place, armOrPlace, focusedPaneId, panes, projects });
 
   // Re-read the shells each time the opener opens, so the list it offers is
   // what is running now rather than what was running last time.
@@ -236,26 +171,26 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     if (opener) refreshShells();
   }, [opener, refreshShells]);
 
+  const { projectChoices, sessionChoices, prefetchSessions } = servers;
   const choicesFor = useCallback(
-    (step: StepId, draft: OpenerDraft): readonly OpenerChoice[] => {
-      if (step === "kind") {
-        return WIDGET_KINDS.map((kind) => ({ value: kind, label: KIND_LABEL[kind] }));
+    (step: StepId, draft: OpenerDraft): readonly OpenerChoice[] =>
+      choicesForStep(step, draft, {
+        projectChoices,
+        sessionsFor,
+        remoteSessions: sessionChoices,
+        shells: shells.shells,
+      }),
+    [projectChoices, sessionChoices, sessionsFor, shells],
+  );
+
+  /** Another server's sessions are fetched the moment its project is chosen. */
+  const onOpenerStep = useCallback(
+    (step: StepId, draft: OpenerDraft) => {
+      if (step === "session" && draft.server && draft.projectPath) {
+        prefetchSessions(draft.server, draft.projectPath);
       }
-      if (step === "project") {
-        return projects.map((p) => ({ value: p.path, label: p.name, hint: p.path }));
-      }
-      if (step === "shell") {
-        return shellChoices(shells.shells, draft.projectPath);
-      }
-      // Recency-sorted by `sessionsFor`; "New session" is pinned above it
-      // because it is the answer to a different question than "which one".
-      const sessions = draft.projectPath ? sessionsFor(draft.projectPath) : [];
-      return [
-        { value: null, label: "New session", hint: "created on first send" },
-        ...sessions.map((s) => ({ value: s.id, label: s.title, hint: formatTime(s.updated) })),
-      ];
     },
-    [projects, sessionsFor, shells],
+    [prefetchSessions],
   );
 
   const onOpenerDone = useCallback(
@@ -267,7 +202,8 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
       // so the pane opens straight onto a prompt rather than onto a second
       // picker asking the question the modal just asked.
       let resolved = draft;
-      if (draft.kind === "terminal" && draft.ptyId === null) {
+      // Another server's pane asks for itself, in that server's own picker.
+      if (draft.kind === "terminal" && draft.ptyId === null && !draft.server) {
         const ptyId = await createShell("shell", draft.projectPath).catch(() => null);
         if (!ptyId) return;
         resolved = { ...draft, ptyId };
@@ -283,47 +219,16 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
       // rather than silently replacing something the user is looking at.
       const focused = panes.find((pane) => pane.id === focusedPaneId);
       if (focused && !focused.widget) place(widget, focused.id);
-      else armOrPlace({ widget, widgetForPane: createWidget, label: describeWidget(widget, projects) });
+      else armOrPlace({
+        widget,
+        widgetForPane: createWidget,
+        label: describe(widget),
+      });
     },
-    [armOrPlace, focusedPaneId, panes, place, projects],
+    [armOrPlace, describe, focusedPaneId, panes, place],
   );
 
-  /**
-   * A pane dropped on another pane. The edge decides which drop it is; the
-   * reducer owns both, so this only has to end the gesture.
-   *
-   * Through a view transition, for the reason `WorkspaceRoot` gives for closing
-   * a pane: an edge drop re-seats one pane and leaves its old siblings growing
-   * into the space, and there is no element left to animate once React has
-   * moved it.
-   */
-  const dropWidget = useCallback(
-    (pane: PaneId, edge: DropEdge) => {
-      if (dragSource) {
-        withViewTransition(() =>
-          dispatch({ type: "dropPane", pane: dragSource, target: pane, edge }),
-        );
-      }
-      setDragSource(null);
-    },
-    [dispatch, dragSource],
-  );
-
-  /** The same drag, let go over another window — or over "new window". */
-  const dropOnWindow = useCallback(
-    (window: WindowId | "new") => {
-      if (dragSource) dispatch({ type: "movePaneToWindow", pane: dragSource, window });
-      setDragSource(null);
-    },
-    [dispatch, dragSource],
-  );
-  const endDrag = useCallback(() => setDragSource(null), []);
-
-  const draggedLabel = useMemo(() => {
-    if (!dragSource) return "";
-    const pane = findPane(root, dragSource);
-    return pane?.widget ? describeWidget(pane.widget, projects) : "";
-  }, [dragSource, projects, root]);
+  const drag = usePaneDrag(dispatch, root, describe);
 
   const openWidgetPicker = useCallback(() => setOpener({ draft: EMPTY_DRAFT }), []);
   const closeOpener = useCallback(() => setOpener(null), []);
@@ -333,86 +238,17 @@ export function useWorkspacePlacement(deps: PlacementDeps) {
     openWidgetPicker,
     closeOpener,
     choicesFor,
+    onOpenerStep,
     onOpenerDone,
+    serverName,
     onOpenWidgetKind,
     openKindHere,
-    openFileHere,
-    openFileWhere,
-    openBrowserHere,
+    ...external,
     armOrPlace,
     resolveTarget,
     resolveTargetByOrdinal,
     resolveTargetSplit,
     resolveTargetNewWindow,
-    dragSource,
-    setDragSource,
-    endDrag,
-    dropWidget,
-    dropOnWindow,
-    draggedLabel,
+    ...drag,
   };
-}
-
-// ── Helpers ─────────────────────────────────────────────
-
-const KIND_LABEL: Readonly<Record<WidgetKind, string>> = {
-  chat: "Chat",
-  files: "Files",
-  terminal: "Terminal",
-  git: "Git",
-  browser: "Browser",
-};
-
-function widgetFor(kind: WidgetKind, projectPath: string, paneId: PaneId): WidgetState {
-  switch (kind) {
-    case "chat":
-      return { kind: "chat", projectPath, sessionId: null, engine: null };
-    case "files":
-      return { kind: "files", projectPath, sessionId: paneId, open: null };
-    case "terminal":
-      // No shell chosen: the pane shows the picker, listing what is already
-      // running here alongside "new shell".
-      return { kind: "terminal", projectPath, ptyId: null };
-    case "git":
-      return { kind: "git", projectPath };
-    case "browser":
-      return {
-        kind: "browser",
-        projectPath,
-        browserId: browserIdForProject(projectPath),
-        url: null,
-        reveal: 0,
-      };
-  }
-}
-
-/**
- * The running shells in one project, busiest first, under "New shell".
- *
- * Busy first because the shell someone is looking for is usually the one with
- * work in it; a numbered label alone gives no reason to prefer any of them.
- */
-function shellChoices(
-  shells: readonly PtySession[],
-  projectPath: string | null,
-): readonly OpenerChoice[] {
-  const mine = projectPath ? shells.filter((shell) => shell.project === projectPath) : [];
-  const ordered = [...mine].sort((a, b) => {
-    if (a.activity !== b.activity) return a.activity === "running" ? -1 : 1;
-    return a.label.localeCompare(b.label, undefined, { numeric: true });
-  });
-  return [
-    { value: null, label: "New shell", hint: "started in the project root" },
-    ...ordered.map((shell) => ({
-      value: shell.id,
-      label: shell.label,
-      hint: shell.activity === "running" ? "running a command" : "idle",
-      busy: shell.activity === "running",
-    })),
-  ];
-}
-
-function describeWidget(widget: WidgetState, projects: readonly WorkspaceProject[]): string {
-  const project = projects.find((candidate) => candidate.path === widget.projectPath);
-  return `${KIND_LABEL[widget.kind]} · ${project?.name ?? widget.projectPath}`;
 }

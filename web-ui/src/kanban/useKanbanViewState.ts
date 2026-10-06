@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { appNavigate, onLocationChange, KANBAN_PATH } from "../utils/navigation";
+import { instancePathname } from "../api/base";
 
 /** Path-based route for the Kanban board. The board is its own destination
  *  (`/kanban`), mutually exclusive with the chat view by pathname — not a
@@ -23,7 +24,7 @@ export interface KanbanViewState {
 }
 
 function readView(): boolean {
-  return window.location.pathname.startsWith(KANBAN_PATH);
+  return instancePathname().startsWith(KANBAN_PATH);
 }
 
 function readTask(): string | null {

@@ -167,6 +167,9 @@ pub struct ServerState {
     /// the flow outlives the request that started it: the settings page gets the
     /// authorize URL back immediately and delivers the callback in a second call.
     pub mcp_logins: Arc<crate::web::handlers::LoginSessions>,
+    /// Remote opman servers this one proxies to (`/remote/{id}/api/*`). Also the handle
+    /// a per-server supervisor uses: see [`crate::remote`].
+    pub remote: crate::remote::Registry,
 }
 
 #[cfg(test)]

@@ -71,7 +71,7 @@ fn explicit_missing_override_is_authoritative() {
     let _override = browser_bin_override(Some(&path));
 
     assert!(matches!(
-        find(),
+        find(BrowserMode::Server),
         Err(BrowserUnavailable::OverrideMissing(found)) if found == path
     ));
 }
@@ -89,7 +89,7 @@ fn explicit_non_executable_override_is_rejected() {
     let _override = browser_bin_override(Some(&path));
 
     assert!(matches!(
-        find(),
+        find(BrowserMode::Server),
         Err(BrowserUnavailable::OverrideNotExecutable(found)) if found == path
     ));
 }
@@ -106,5 +106,8 @@ fn explicit_executable_override_is_selected() {
         .expect("set executable permissions");
     let _override = browser_bin_override(Some(&path));
 
-    assert_eq!(find().ok(), Some(path));
+    assert_eq!(find(BrowserMode::Server).ok(), Some(path.clone()));
+    // The override is authoritative in device mode too: it is how a person picks a
+    // browser the search would not have chosen.
+    assert_eq!(find(BrowserMode::Device).ok(), Some(path));
 }

@@ -28,6 +28,8 @@ export interface PaneProps {
   readonly canClose: boolean;
   readonly projectName: string;
   readonly subtitle: string | null;
+  /** The server a remote widget is on; null for this instance's own. */
+  readonly serverName?: string | null;
   readonly busy: boolean;
   readonly onFocus: (pane: PaneId) => void;
   readonly onSplit: (pane: PaneId, dir: "row" | "col") => void;
@@ -50,6 +52,7 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
   canClose,
   projectName,
   subtitle,
+  serverName = null,
   busy,
   onFocus,
   onSplit,
@@ -103,7 +106,8 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
       ref={ref}
       tabIndex={-1}
       data-pane-id={pane.id}
-      aria-label={paneLabel(pane.widget, projectName, ordinal)}
+      aria-label={paneLabel(pane.widget, projectName, ordinal, serverName)}
+      data-remote={serverName ? "" : undefined}
       className={
         `wsp-pane${focused ? " is-focused" : ""}` + (dragSource ? " is-drag-source" : "")
       }
@@ -117,6 +121,7 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
         widget={pane.widget}
         projectName={projectName}
         subtitle={subtitle}
+        serverName={serverName}
         busy={busy}
         focused={focused}
         peek={peekHeader}
@@ -152,9 +157,15 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
   );
 });
 
-function paneLabel(widget: WidgetState | null, projectName: string, ordinal: number): string {
+function paneLabel(
+  widget: WidgetState | null,
+  projectName: string,
+  ordinal: number,
+  serverName: string | null,
+): string {
   if (!widget) return `Pane ${ordinal}, empty`;
-  return `Pane ${ordinal}, ${widget.kind} in ${projectName}`;
+  const where = serverName ? ` on ${serverName}` : "";
+  return `Pane ${ordinal}, ${widget.kind} in ${projectName}${where}`;
 }
 
 /**

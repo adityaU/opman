@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { ProjectInfo } from "../api";
 import { KeyHint } from "../keybindings/hint/KeyHint";
+import { ServerDialog, type ServerDialogTarget } from "../servers/ServerDialog";
+import { AddServerItem, ServerBadge, ServerMenuList } from "../servers/ServerMenuSection";
 
 interface Props {
   projects: ProjectInfo[];
@@ -37,6 +39,7 @@ export function SidebarHeader({
   onSwitchProject, onOpenAddProject, onClose,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [serverDialog, setServerDialog] = useState<ServerDialogTarget | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const project = projects[activeProject];
 
@@ -55,6 +58,11 @@ export function SidebarHeader({
     };
   }, [menuOpen]);
 
+  const openServerDialog = (target: ServerDialogTarget) => {
+    setMenuOpen(false);
+    setServerDialog(target);
+  };
+
   return (
     <div className="sb-header">
       <div className="sb-project-switch" ref={wrapRef}>
@@ -69,12 +77,14 @@ export function SidebarHeader({
           {/* Name and count only. At the sidebar's real width the branch was
               stealing characters from the workspace name — the one thing this
               row exists to say. It is in the menu below, and in the git panel. */}
+          <ServerBadge />
           <span className="sb-project-label">{project?.name || "Sessions"}</span>
           {sessionCount > 0 && <span className="sb-project-count">{sessionCount}</span>}
           <ChevronDown size={11} className="sb-project-caret" />
         </button>
         {menuOpen && (
           <div className="sb-project-menu modal-popover-surface" role="menu">
+            <ServerMenuList onOpenDialog={openServerDialog} />
             {projects.map((entry, index) => (
               <button
                 key={entry.path || index}
@@ -102,7 +112,11 @@ export function SidebarHeader({
               <FolderPlus size={12} />
               <span>Add project…</span>
             </button>
+            <AddServerItem onOpenDialog={openServerDialog} />
           </div>
+        )}
+        {serverDialog && (
+          <ServerDialog target={serverDialog} onClose={() => setServerDialog(null)} />
         )}
       </div>
 

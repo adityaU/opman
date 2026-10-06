@@ -1,3 +1,5 @@
+import { appPath, instancePathname } from "../api/base";
+
 /** Single entry point for app-level history navigation.
  *
  *  `history.pushState`/`replaceState` do NOT emit any event, so independent
@@ -24,7 +26,7 @@ const PAGE_PATHS: readonly string[] = [KANBAN_PATH, SETTINGS_PATH];
 
 /** Whether the URL names a page of its own rather than the chat view. */
 export function onPageRoute(): boolean {
-  return PAGE_PATHS.some((path) => window.location.pathname.startsWith(path));
+  return PAGE_PATHS.some((path) => instancePathname().startsWith(path));
 }
 
 /**
@@ -41,8 +43,14 @@ function onModalHistoryEntry(): boolean {
   return Boolean(state && MODAL_HISTORY_KEY in state);
 }
 
-/** Push (or replace) a URL and notify location-derived hooks. */
-export function appNavigate(url: string, opts?: { replace?: boolean }): void {
+/**
+ * Push (or replace) a URL and notify location-derived hooks.
+ *
+ * `url` is a path inside this instance (`/settings`); on a remote instance it is placed
+ * under `/remote/<id>` so navigating never drops the user onto home.
+ */
+export function appNavigate(target: string, opts?: { replace?: boolean }): void {
+  const url = appPath(target);
   // A modal's entry is replaced rather than built on: the surface that pushed it is being
   // left behind, so it should not become a stop on the way back.
   if (opts?.replace || onModalHistoryEntry()) {

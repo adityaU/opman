@@ -92,3 +92,23 @@ fn an_absurd_pane_size_is_clamped_to_something_chromium_accepts() {
     let huge = Viewport::new(99_999, 99_999, None);
     assert_eq!((huge.width(), huge.height()), (3840, 2160));
 }
+
+#[test]
+fn a_one_to_one_device_caps_a_retina_pane() {
+    // Device mode does not force a scale: a 1x monitor's surface has 1x to give.
+    let viewport = Viewport::new(900, 600, Some(2.0)).within_surface(1.0);
+    assert_eq!(viewport.scale(), 1.0);
+    assert_eq!(viewport.capture_width(), 900);
+}
+
+#[test]
+fn a_surface_with_room_leaves_the_scale_alone() {
+    let viewport = Viewport::new(900, 600, Some(1.5)).within_surface(2.0);
+    assert_eq!(viewport.scale(), 1.5);
+}
+
+#[test]
+fn a_nonsense_surface_ratio_falls_back_to_one() {
+    let viewport = Viewport::new(900, 600, Some(2.0)).within_surface(f64::NAN);
+    assert_eq!(viewport.scale(), 1.0);
+}

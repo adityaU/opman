@@ -71,11 +71,17 @@ export interface PaneEngine {
  * `projectPath` is on every arm rather than on the pane: a pane's project is a
  * property of what it is showing, and moving a widget between panes must carry
  * the project with it.
+ *
+ * `server` is on every arm for the same reason: which opman server a widget's
+ * project lives on is part of what it is showing. Absent means the server this
+ * instance talks to; any other id renders the widget from that server's own
+ * instance, embedded (see `widgets/RemoteWidget.tsx`).
  */
 export type WidgetState =
   | {
       readonly kind: "chat";
       readonly projectPath: string;
+      readonly server?: string;
       readonly sessionId: string | null;
       /** Null until the pane's engine is changed away from the shell's. */
       readonly engine: PaneEngine | null;
@@ -88,6 +94,7 @@ export type WidgetState =
   | {
       readonly kind: "files";
       readonly projectPath: string;
+      readonly server?: string;
       /** The chat session this pane's language servers are scoped to. */
       readonly sessionId: string;
       readonly open: FileOpenRequest | null;
@@ -102,8 +109,13 @@ export type WidgetState =
    * the program on the other end; the pane simply re-attaches and repaints from
    * the retained scrollback.
    */
-  | { readonly kind: "terminal"; readonly projectPath: string; readonly ptyId: string | null }
-  | { readonly kind: "git"; readonly projectPath: string }
+  | {
+      readonly kind: "terminal";
+      readonly projectPath: string;
+      readonly server?: string;
+      readonly ptyId: string | null;
+    }
+  | { readonly kind: "git"; readonly projectPath: string; readonly server?: string }
   /**
    * A headless Chromium tab, addressed by `browserId`.
    *
@@ -125,6 +137,7 @@ export type WidgetState =
   | {
       readonly kind: "browser";
       readonly projectPath: string;
+      readonly server?: string;
       readonly browserId: string;
       readonly url: string | null;
       readonly reveal: number;

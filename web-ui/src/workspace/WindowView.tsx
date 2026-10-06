@@ -74,6 +74,7 @@ export const WindowView: React.FC<WindowViewProps> = React.memo(function WindowV
           canClose={total > 1}
           projectName={context.projectName}
           subtitle={context.subtitle}
+          serverName={context.serverName ?? null}
           busy={context.busy || busyPanes.has(pane.id)}
           onFocus={onFocus}
           onSplit={onSplit}

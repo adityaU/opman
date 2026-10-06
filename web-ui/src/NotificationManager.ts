@@ -6,6 +6,8 @@
  * open but may not be looking at it (document.hidden).
  */
 
+import { storageKey } from "./api/base";
+
 export type NotifyEventKind =
   | "session_complete"
   | "permission_request"
@@ -139,7 +141,7 @@ export function showNotification(
  * Persisted in sessionStorage (per-tab, not shared between tabs).
  */
 export function getClientId(): string {
-  const KEY = "opman_client_id";
+  const KEY = storageKey("opman_client_id");
   let id = sessionStorage.getItem(KEY);
   if (!id) {
     id = `web-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;

@@ -85,3 +85,47 @@ async fn a_reply_for_an_unknown_id_is_dropped_quietly() {
 
     assert!(rx.try_recv().is_err(), "a late reply is not an event");
 }
+
+/// A fake browser on the far end of [`Cdp::from_channels`]: answers every call with its own
+/// method name, and publishes one event per call.
+#[tokio::test]
+async fn a_client_over_channels_calls_and_subscribes() {
+    let (outgoing, mut to_peer) = mpsc::channel::<String>(8);
+    let (from_peer, incoming) = mpsc::channel::<String>(8);
+    tokio::spawn(async move {
+        while let Some(text) = to_peer.recv().await {
+            let frame: Value = serde_json::from_str(&text).expect("client sends JSON");
+            let event =
+                json!({ "method": "Fake.called", "sessionId": frame["sessionId"], "params": {} });
+            let _ = from_peer.send(event.to_string()).await;
+            let reply = json!({ "id": frame["id"], "result": { "echo": frame["method"] } });
+            let _ = from_peer.send(reply.to_string()).await;
+        }
+    });
+
+    let cdp = Cdp::from_channels(outgoing, incoming);
+    let mut events = cdp.subscribe();
+    let reply = cdp
+        .call_on("S9", "Page.enable", json!({}))
+        .await
+        .expect("answered");
+    assert_eq!(reply, json!({ "echo": "Page.enable" }));
+
+    let event = events.recv().await.expect("event delivered");
+    assert_eq!(&*event.method, "Fake.called");
+    assert_eq!(event.session_id.as_deref(), Some("S9"));
+}
+
+#[tokio::test]
+async fn a_peer_that_goes_away_fails_calls_instead_of_hanging() {
+    let (outgoing, to_peer) = mpsc::channel::<String>(8);
+    let (from_peer, incoming) = mpsc::channel::<String>(8);
+    drop(to_peer);
+    drop(from_peer);
+
+    let cdp = Cdp::from_channels(outgoing, incoming);
+    let started = std::time::Instant::now();
+    let error = cdp.call("Browser.getVersion", json!({})).await;
+    assert!(error.is_err());
+    assert!(started.elapsed() < Duration::from_secs(5), "failed fast");
+}

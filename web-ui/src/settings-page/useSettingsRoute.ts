@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { appNavigate, onLocationChange, SETTINGS_PATH } from "../utils/navigation";
+import { instancePathname } from "../api/base";
 
 /**
  * Path-based route for the settings page.
@@ -13,7 +14,14 @@ import { appNavigate, onLocationChange, SETTINGS_PATH } from "../utils/navigatio
 
 export { SETTINGS_PATH };
 
-export const SETTINGS_SECTIONS = ["appearance", "keybindings", "acp", "mcp", "skills"] as const;
+export const SETTINGS_SECTIONS = [
+  "appearance",
+  "keybindings",
+  "servers",
+  "acp",
+  "mcp",
+  "skills",
+] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
@@ -30,7 +38,7 @@ export interface SettingsRoute {
 }
 
 function readView(): boolean {
-  return window.location.pathname.startsWith(SETTINGS_PATH);
+  return instancePathname().startsWith(SETTINGS_PATH);
 }
 
 function readSection(): SettingsSection {

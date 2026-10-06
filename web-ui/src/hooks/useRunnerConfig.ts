@@ -13,6 +13,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import { DEFAULT_PERMISSION } from "../api/session";
+import { storageKey } from "../api/base";
 
 export interface ModelRef {
   providerID: string;
@@ -26,7 +27,7 @@ export interface RunnerConfig {
   permission: string;
 }
 
-const STORAGE_KEY = "opman-runner-config";
+const STORAGE_KEY = storageKey("opman-runner-config");
 
 export function emptyConfig(): RunnerConfig {
   return { model: null, agent: "", effort: null, permission: DEFAULT_PERMISSION };

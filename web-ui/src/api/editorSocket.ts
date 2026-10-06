@@ -1,4 +1,5 @@
 import { decode, encode } from "@msgpack/msgpack";
+import { apiUrl } from "./base";
 
 /**
  * The editor's binary channel.
@@ -107,7 +108,7 @@ class EditorSocket {
     this.closed = false;
     this.opening = new Promise<WebSocket>((resolve, reject) => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const socket = new WebSocket(`${protocol}//${window.location.host}/api/editor/ws`);
+      const socket = new WebSocket(`${protocol}//${window.location.host}${apiUrl("/editor/ws")}`);
       socket.binaryType = "arraybuffer";
 
       socket.addEventListener("open", () => {

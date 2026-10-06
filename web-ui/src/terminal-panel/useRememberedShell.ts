@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { storageKey } from "../api/base";
 
 /**
  * The shell a terminal without a pane came back to, remembered per project.
@@ -13,7 +14,7 @@ import { useCallback, useEffect, useState } from "react";
  * answer — a finished build should not look like a fresh prompt.
  */
 
-const KEY = "opman-term-shell";
+const KEY = storageKey("opman-term-shell");
 
 function read(): Record<string, string> {
   try {

@@ -70,6 +70,7 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/browser/resize", post(handlers::browser_resize))
         .route("/browser/close", post(handlers::browser_close))
         .route("/browser/list", get(handlers::browser_list))
+        .route("/browser/device", get(handlers::browser_device))
         .route(
             "/browser/stream",
             get(super::super::browser_sse::browser_stream),
@@ -282,6 +283,8 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/mcp/ws", get(mcp_ws::websocket_handler))
         // The editor's binary channel: every LSP query for one pane, multiplexed.
         .route("/editor/ws", get(editor_ws::websocket_handler))
+        // Every SSE stream of one frontend instance, multiplexed over one socket
+        .route("/stream/ws", get(super::super::stream_mux::stream_ws))
         // ── MCP Skills ───────────────────────────────────────────────
         .route("/mcp/servers", get(handlers::list_servers))
         .route(

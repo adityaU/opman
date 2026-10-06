@@ -1,5 +1,6 @@
 import { apiFetch, apiPost, apiUpload } from "./client";
 import { editorSocket, type EditorOp } from "./editorSocket";
+import { apiUrl } from "./base";
 
 /**
  * Every editor query goes over the binary channel rather than its own POST.
@@ -114,15 +115,15 @@ export async function writeFile(path: string, content: string): Promise<void> {
 }
 
 export function rawFileUrl(path: string): string {
-  return `/api/file/raw?path=${encodeURIComponent(path)}`;
+  return apiUrl(`/file/raw?path=${encodeURIComponent(path)}`);
 }
 
 export function fileDownloadUrl(path: string): string {
-  return `/api/file/download?path=${encodeURIComponent(path)}`;
+  return apiUrl(`/file/download?path=${encodeURIComponent(path)}`);
 }
 
 export function dirDownloadUrl(path: string): string {
-  return `/api/dir/download?path=${encodeURIComponent(path)}`;
+  return apiUrl(`/dir/download?path=${encodeURIComponent(path)}`);
 }
 
 // ── Document read (spreadsheet / docx) ────────────────

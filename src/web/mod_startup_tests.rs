@@ -77,6 +77,7 @@ async fn start_web_server_binds_random_port() {
         password: String::new(),
         instance_name: Some("test-instance".to_string()),
         backend: "claude-code".to_string(),
+        browser_mode: crate::browser::BrowserMode::Server,
     };
 
     let registry_arc = runner_registry();
@@ -113,6 +114,7 @@ async fn start_web_server_binds_loopback_with_free_port() {
         password: "p".to_string(),
         instance_name: None,
         backend: "opencode".to_string(),
+        browser_mode: crate::browser::BrowserMode::Server,
     };
     let registry_arc = runner_registry();
     let (port, _handle) = start_web_server(

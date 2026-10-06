@@ -8,6 +8,7 @@
 //! These are the tests that actually prove the token claim: the fixture page below is
 //! ~4 KB of HTML and its outline is a few hundred bytes.
 
+use super::mode::BrowserMode;
 use super::pool::BrowserPool;
 use super::types::SnapshotOptions;
 
@@ -47,7 +48,7 @@ const FIXTURE: &str = r#"<html><head><title>Fixture</title><style>.a{color:red}<
 /// A real HTTP origin rather than a `data:` URL, because `data:` is deliberately not
 /// navigable (see `normalize_url`) — and because serving it for real is what exercises
 /// the framing probe alongside the page load.
-async fn serve(body: &'static str) -> String {
+pub(super) async fn serve(body: &'static str) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("a loopback port");
@@ -240,12 +241,12 @@ async fn a_browser_outliving_its_parent_is_adopted_and_its_lock_later_cleared() 
     let profile = dir.path().join("profile");
     std::fs::create_dir_all(&profile).expect("the profile directory");
 
-    let orphan = Chrome::launch(&profile).await.expect("the first launch");
+    let orphan = Chrome::launch(&profile, BrowserMode::Server).await.expect("the first launch");
     let endpoint = orphan.ws_url().to_owned();
     // Exactly what a SIGKILLed parent leaves: a live browser and no handle to reap it.
     std::mem::forget(orphan);
 
-    let mut adopted = Chrome::launch(&profile).await.expect("the second launch");
+    let mut adopted = Chrome::launch(&profile, BrowserMode::Server).await.expect("the second launch");
     assert_eq!(adopted.ws_url(), endpoint, "it should join, not relaunch");
     assert!(adopted.is_alive());
 
@@ -270,7 +271,7 @@ async fn a_browser_outliving_its_parent_is_adopted_and_its_lock_later_cleared() 
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
-    let fresh = Chrome::launch(&profile)
+    let fresh = Chrome::launch(&profile, BrowserMode::Server)
         .await
         .expect("the stale lock is cleared");
     assert_ne!(

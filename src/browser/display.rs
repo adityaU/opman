@@ -41,6 +41,9 @@ pub enum Display {
         // This follows the server so its files are removed after `kill_on_drop` runs.
         _cleanup: VirtualDisplayCleanup,
     },
+    /// The device's own desktop — macOS, Windows, or a Wayland session — used as is.
+    /// Device mode only; nothing to start and nothing to point the child at.
+    Native,
     /// No X server and no way to start one: Chromium has to run headless after all.
     Headless,
 }
@@ -69,8 +72,20 @@ impl Display {
         match self {
             Self::Host(name) => Some(name),
             Self::Virtual { name, .. } => Some(name),
-            Self::Headless => None,
+            Self::Native | Self::Headless => None,
         }
+    }
+
+    /// Point the child at this display.
+    pub fn apply_env(&self, command: &mut Command) {
+        match (self, self.name()) {
+            (_, Some(name)) => command.env("DISPLAY", name),
+            // The desktop's own environment is exactly what the browser needs.
+            (Self::Native, None) => command,
+            // Inheriting a stale `DISPLAY` would send a headless fallback looking for an X
+            // server that is not there.
+            (_, None) => command.env_remove("DISPLAY"),
+        };
     }
 
     /// The launch flags this display implies.
@@ -80,7 +95,8 @@ impl Display {
     pub fn chrome_flags(&self) -> &'static [&'static str] {
         match self {
             Self::Headless => &["--headless=new", "--hide-scrollbars"],
-            _ => &["--ozone-platform=x11"],
+            Self::Native => super::display_device::NATIVE_FLAGS,
+            Self::Host(_) | Self::Virtual { .. } => &["--ozone-platform=x11"],
         }
     }
 
@@ -114,7 +130,7 @@ impl Display {
 }
 
 /// The session's own display, if it has one that is actually listening.
-fn host_display() -> Option<Box<str>> {
+pub(super) fn host_display() -> Option<Box<str>> {
     live_display(std::env::var("DISPLAY").ok()?.as_str())
 }
 

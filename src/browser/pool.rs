@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use tokio::sync::{Mutex, RwLock};
 
-use super::cdp::Cdp;
-use super::chrome::Chrome;
+use super::engine::{BrowserStatus, Engine};
+use super::mode::BrowserMode;
 use super::pane::Pane;
 use super::tab::Tab;
 use super::types::{PaneInfo, RenderMode, Viewport};
@@ -25,12 +25,6 @@ const DEFAULT_HEIGHT: u32 = 800;
 /// Framability probes must not hold up opening a pane; a slow site just gets an iframe
 /// attempt, which the pane can still flip to screencast by hand.
 const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(4);
-
-/// The running browser. Absent until the first pane opens.
-struct Running {
-    chrome: Chrome,
-    cdp: Cdp,
-}
 
 /// Whether [`BrowserPool::open`] created the tab or handed back a running one.
 ///
@@ -46,21 +40,34 @@ pub enum Opened {
 /// Shared, cloneable handle. Put one on `ServerState`.
 #[derive(Clone)]
 pub struct BrowserPool {
-    running: Arc<Mutex<Option<Running>>>,
+    engine: Arc<Mutex<Engine>>,
     panes: Arc<RwLock<HashMap<Arc<str>, Arc<Pane>>>>,
     http: reqwest::Client,
-    /// `None` means the shared per-user profile. Overridden by tests, which must not
-    /// contend for the profile lock with each other or with a running opman.
-    profile: Option<std::path::PathBuf>,
+    #[cfg_attr(not(test), allow(dead_code))]
+    mode: BrowserMode,
 }
 
 impl BrowserPool {
+    /// A pool in server mode — today's private Chromium on a virtual display.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn new(http: reqwest::Client) -> Self {
+        Self::with_mode(http, BrowserMode::Server)
+    }
+
+    pub fn with_mode(http: reqwest::Client, mode: BrowserMode) -> Self {
+        Self::build(http, mode, None)
+    }
+
+    fn build(
+        http: reqwest::Client,
+        mode: BrowserMode,
+        profile: Option<std::path::PathBuf>,
+    ) -> Self {
         Self {
-            running: Arc::new(Mutex::new(None)),
+            engine: Arc::new(Mutex::new(Engine::new(mode, profile))),
             panes: Arc::new(RwLock::new(HashMap::new())),
             http,
-            profile: None,
+            mode,
         }
     }
 
@@ -68,39 +75,44 @@ impl BrowserPool {
     /// profile, so two pools sharing one would leave the second unable to start.
     #[cfg(test)]
     pub fn with_profile(http: reqwest::Client, profile: std::path::PathBuf) -> Self {
-        Self {
-            profile: Some(profile),
-            ..Self::new(http)
-        }
+        Self::build(http, BrowserMode::Server, Some(profile))
     }
 
-    /// The DevTools client, launching Chromium if this is the first caller or if the
-    /// previous process died.
-    async fn cdp(&self) -> anyhow::Result<Cdp> {
-        let mut running = self.running.lock().await;
-        if let Some(existing) = running.as_mut() {
-            if existing.chrome.is_alive() {
-                return Ok(existing.cdp.clone());
-            }
-            // A crashed browser takes every tab with it; drop the stale pane map so the
-            // next open re-creates rather than talking to dead sessions.
+    #[cfg(test)]
+    pub fn with_mode_and_profile(
+        http: reqwest::Client,
+        mode: BrowserMode,
+        profile: std::path::PathBuf,
+    ) -> Self {
+        Self::build(http, mode, Some(profile))
+    }
+
+    // Read by the device-link relay, which the remote-server supervisor drives.
+    pub fn mode(&self) -> BrowserMode {
+        self.mode
+    }
+
+    /// Which browser the panes are on, for the UI.
+    pub async fn status(&self) -> BrowserStatus {
+        self.engine.lock().await.status()
+    }
+
+    /// A client to open a pane on. A browser that died since the last call takes every tab
+    /// with it, so the pane map is dropped whenever the epoch moved.
+    async fn lease(&self) -> anyhow::Result<super::engine::Lease> {
+        let mut engine = self.engine.lock().await;
+        let before = engine.epoch();
+        let lease = engine.lease().await;
+        if engine.epoch() != before {
             self.panes.write().await.clear();
         }
+        lease
+    }
 
-        let dir = match self.profile.clone() {
-            Some(dir) => {
-                std::fs::create_dir_all(&dir)?;
-                dir
-            }
-            None => user_data_dir()?,
-        };
-        let chrome = Chrome::launch(&dir).await?;
-        let cdp = Cdp::connect(chrome.ws_url()).await?;
-        *running = Some(Running {
-            chrome,
-            cdp: cdp.clone(),
-        });
-        Ok(cdp)
+    /// The local browser's browser-level DevTools endpoint, launching it if needed. What
+    /// [`super::relay`] dials to serve a remote's device link.
+    pub async fn local_endpoint(&self) -> anyhow::Result<String> {
+        self.engine.lock().await.local_endpoint().await
     }
 
     /// The pane's tab, creating it on first use.
@@ -112,11 +124,21 @@ impl BrowserPool {
             return Ok((Arc::clone(pane), Opened::Adopted));
         }
 
-        let cdp = self.cdp().await?;
-        let tab = Tab::open(cdp, Viewport::new(DEFAULT_WIDTH, DEFAULT_HEIGHT, None)).await?;
+        let lease = self.lease().await?;
+        let viewport = Viewport::new(DEFAULT_WIDTH, DEFAULT_HEIGHT, None);
+        let tab = Tab::open(lease.cdp, viewport, lease.placement).await?;
         let pane = Arc::new(Pane::new(tab, project));
 
+        let engine = self.engine.lock().await;
+        // The browser changed under the open (a link attached or dropped): this tab
+        // belongs to a browser the panes have already left.
+        if engine.epoch() != lease.epoch {
+            drop(engine);
+            pane.tab().close().await;
+            anyhow::bail!("the browser changed while the pane was opening; open it again");
+        }
         let mut panes = self.panes.write().await;
+        drop(engine);
         // Two panes racing on the same id: keep whoever landed first, close the loser's
         // tab rather than leaking it.
         if let Some(existing) = panes.get(pane_id) {
@@ -210,9 +232,7 @@ impl BrowserPool {
         for (_, pane) in self.panes.write().await.drain() {
             pane.tab().close().await;
         }
-        if let Some(running) = self.running.lock().await.take() {
-            running.chrome.shutdown().await;
-        }
+        self.engine.lock().await.shutdown().await;
     }
 }
 
@@ -224,17 +244,6 @@ impl BrowserPool {
 /// nothing has to be told an id for the agent and the pane to land on the same tab.
 pub fn pane_id_for_project(project: &str) -> String {
     format!("proj:{project}")
-}
-
-/// A dedicated profile directory, so browser panes never touch the user's real Chrome
-/// profile — and so cookies survive an opman restart.
-fn user_data_dir() -> anyhow::Result<std::path::PathBuf> {
-    let dir = dirs::data_dir()
-        .ok_or_else(|| anyhow::anyhow!("no data directory on this platform"))?
-        .join("opman")
-        .join("browser-profile");
-    std::fs::create_dir_all(&dir)?;
-    Ok(dir)
 }
 
 /// Accept what a person would type. A bare host is a URL with the scheme left off, not a
@@ -258,6 +267,9 @@ pub fn normalize_url(input: &str) -> anyhow::Result<String> {
         Err(e) => Err(anyhow::anyhow!("`{trimmed}` is not a URL: {e}")),
     }
 }
+
+#[path = "pool_link.rs"]
+mod pool_link;
 
 #[cfg(test)]
 #[path = "pool_tests.rs"]

@@ -1,4 +1,6 @@
 import { apiFetch, apiPost } from "./client";
+import { apiUrl } from "./base";
+import { openEventStream } from "./streamSocket";
 
 /**
  * Browser panes.
@@ -160,7 +162,5 @@ export function browserScroll(paneId: string, deltaY: number, x = 0, y = 0): Pro
  * other EventSource in the app.
  */
 export function createBrowserFrameSSE(paneId: string): EventSource {
-  return new EventSource(`/api/browser/stream?pane_id=${encodeURIComponent(paneId)}`, {
-    withCredentials: true,
-  });
+  return openEventStream(apiUrl(`/browser/stream?pane_id=${encodeURIComponent(paneId)}`));
 }

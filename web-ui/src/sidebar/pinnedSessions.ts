@@ -1,6 +1,8 @@
 // ── Pin persistence via localStorage ─────────────────
 
-const PINNED_KEY = "opman-pinned-sessions";
+import { storageKey } from "../api/base";
+
+const PINNED_KEY = storageKey("opman-pinned-sessions");
 
 export function loadPinnedSessions(): Set<string> {
   try {

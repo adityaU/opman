@@ -333,7 +333,7 @@ pub async fn set_mode(state: &ServerState, request: &ModeRequest) -> WebResult<V
 pub async fn resize(state: &ServerState, request: &ResizeRequest) -> WebResult<Value> {
     let pane = require(state, &request.pane_id).await?;
     let viewport = Viewport::new(request.width, request.height, request.scale);
-    pane.tab().resize(viewport).await.map_err(bad_request)?;
+    let viewport = pane.tab().resize(viewport).await.map_err(bad_request)?;
     // The applied scale, which the pane needs: a click on the frame is in device pixels
     // and the page expects CSS pixels, and the two only agree at one-to-one.
     Ok(json!({ "ok": true, "scale": viewport.scale() }))
@@ -365,7 +365,11 @@ pub async fn pane_for_project(state: &ServerState, project: &str) -> WebResult<S
 
 pub async fn list(state: &ServerState) -> WebResult<Value> {
     let panes = state.browser.list().await;
-    serde_json::to_value(json!({ "panes": panes })).map_err(|e| WebError::Internal(e.to_string()))
+    // `browser.device_link == "attached"` is the pane's cue to say it is showing the
+    // person's own device browser.
+    let browser = state.browser.status().await;
+    serde_json::to_value(json!({ "panes": panes, "browser": browser }))
+        .map_err(|e| WebError::Internal(e.to_string()))
 }
 
 /// The outline that follows an action, plus where the page ended up.

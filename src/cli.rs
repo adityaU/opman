@@ -203,6 +203,20 @@ pub(crate) struct Cli {
     /// Enable the UI render MCP server (A2UI)
     #[arg(long)]
     pub ui_mcp: bool,
+
+    // ── Browser panes ───────────────────────────────────────────────
+    /// Drive this device's own browser (Chrome → Edge → Brave → Chromium), headed on the
+    /// real display with its windows kept off-screen, instead of a private Chromium on a
+    /// virtual display. The desktop app passes this. Remote servers can borrow it through
+    /// a device link.
+    #[arg(
+        long,
+        env = "OPMAN_DEVICE_BROWSER",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        value_parser = parse_truthy,
+    )]
+    pub device_browser: bool,
 }
 
 #[derive(Subcommand)]
@@ -372,6 +386,11 @@ impl Cli {
     }
 
     /// Whether the web server should be enabled.
+    /// Which browser backs the browser panes.
+    pub fn browser_mode(&self) -> crate::browser::BrowserMode {
+        crate::browser::BrowserMode::from_device_flag(self.device_browser.into())
+    }
+
     pub fn enable_web(&self) -> bool {
         self.web_only
             || self.web

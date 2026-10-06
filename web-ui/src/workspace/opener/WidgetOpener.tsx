@@ -31,6 +31,14 @@ export interface WidgetOpenerProps {
   readonly initialDraft?: OpenerDraft;
   readonly onDone: (draft: OpenerDraft) => void;
   readonly onCancel: () => void;
+  /**
+   * Told each time the opener reaches a step, with the draft so far — so the
+   * caller can start fetching what that step will list (another server's
+   * sessions) before the user has to wait for it.
+   */
+  readonly onStep?: (step: StepId, draft: OpenerDraft) => void;
+  /** A server id's display name, for the crumb naming the chosen project's server. */
+  readonly serverName?: (id: string) => string;
 }
 
 const STEP_TITLE: Readonly<Record<StepId, string>> = {
@@ -68,6 +76,8 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
   initialDraft,
   onDone,
   onCancel,
+  onStep,
+  serverName,
 }) {
   const [draft, setDraft] = useState<OpenerDraft>(initialDraft ?? EMPTY_DRAFT);
   const [filter, setFilter] = useState("");
@@ -91,6 +101,10 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
     onDone(draft);
   }, [draft, onDone]);
 
+  useEffect(() => {
+    if (step !== null) onStep?.(step, draft);
+  }, [draft, onStep, step]);
+
   useEffect(() => setCursor(0), [step, filter]);
   useEffect(() => inputRef.current?.focus(), [step]);
 
@@ -101,8 +115,11 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
       ?.scrollIntoView({ block: "nearest" });
   }, [cursor, choices]);
 
-  const choose = useCallback((value: string | null) => {
-    setDraft((current) => advance(current, value));
+  const choose = useCallback((choice: OpenerChoice) => {
+    // A server that cannot be reached is listed so its absence is explained,
+    // not so it can be picked.
+    if (choice.disabled) return;
+    setDraft((current) => advance(current, choice.value));
     setFilter("");
   }, []);
 
@@ -116,7 +133,7 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
       else if (event.key === "ArrowUp" || (event.ctrlKey && event.key === "p")) move(-1);
       else if (event.key === "Enter") {
         const picked = choices[cursor];
-        if (picked) choose(picked.value);
+        if (picked) choose(picked);
       } else if (event.key === "Escape") onCancel();
       else if (event.key === "Backspace" && filter === "") {
         // Only when the filter is empty, so backspace still edits text first.
@@ -126,7 +143,7 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
         if (event.shiftKey) setDraft(retreat);
         else {
           const picked = choices[cursor];
-          if (picked) choose(picked.value);
+          if (picked) choose(picked);
         }
       } else return;
 
@@ -164,7 +181,7 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
           {choices.length > 8 && <span className="wsp-opener-count">{choices.length}</span>}
         </div>
 
-        <Crumbs draft={draft} />
+        <Crumbs draft={draft} serverName={serverName} />
 
         <div className="wsp-opener-search">
           <Search size={14} aria-hidden="true" />
@@ -189,6 +206,14 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
           )}
           {choices.map((choice, index) => (
             <React.Fragment key={choice.value ?? "__new__"}>
+              {choice.group && choice.group !== choices[index - 1]?.group && (
+                <li className="wsp-opener-group is-server" role="presentation">
+                  <span>{choice.group}</span>
+                  {choice.groupNote && (
+                    <span className="wsp-opener-group-note">{choice.groupNote}</span>
+                  )}
+                </li>
+              )}
               {index === 1 && choices[0].value === null && (
                 <li className="wsp-opener-group" role="presentation">
                   <span>{step === "shell" ? "Running" : "Recent"}</span>
@@ -202,9 +227,13 @@ export const WidgetOpener: React.FC<WidgetOpenerProps> = function WidgetOpener({
                   type="button"
                   role="option"
                   aria-selected={index === cursor}
-                  className={`${rowClass(step, choice)}${index === cursor ? " is-cursor" : ""}`}
+                  aria-disabled={choice.disabled || undefined}
+                  className={
+                    `${rowClass(step, choice)}${index === cursor ? " is-cursor" : ""}`
+                    + (choice.disabled ? " is-disabled" : "")
+                  }
                   onMouseEnter={() => setCursor(index)}
-                  onClick={() => choose(choice.value)}
+                  onClick={() => choose(choice)}
                 >
                   <RowBody step={step} choice={choice} />
                 </button>

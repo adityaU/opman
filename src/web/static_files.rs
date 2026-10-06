@@ -224,6 +224,21 @@ pub async fn serve_react(
     )
 }
 
+/// Serve the SPA's `index.html`, theme- and name-patched exactly as the `/` fallback
+/// does, regardless of the request path. Used for `/remote/{id}/…`, where every non-API
+/// path belongs to the client-side router.
+pub async fn serve_react_index(state: &ServerState, headers: &HeaderMap) -> axum::response::Response {
+    let theme = resolve_theme(state).await;
+    serve_ui(
+        state,
+        headers,
+        "",
+        ReactAssets::get,
+        &REACT_DEFAULTS,
+        &theme,
+    )
+}
+
 #[cfg(test)]
 #[path = "static_files_tests.rs"]
 mod static_files_tests;

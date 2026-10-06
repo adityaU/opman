@@ -20,17 +20,30 @@ export function planBrowserOpen(
   url: string,
   panes: readonly PaneNode[],
   focusedPaneId: PaneId,
+  server?: string,
 ): BrowserOpenPlan {
   const browserId = browserIdForProject(projectPath);
   // `reveal: 0` — this is a fresh request, not a step back through the pane's
   // history, and the panel navigates on its own for a live open.
-  const widget: WidgetState = { kind: "browser", projectPath, browserId, url, reveal: 0 };
+  const widget: WidgetState = {
+    kind: "browser",
+    projectPath,
+    browserId,
+    url,
+    reveal: 0,
+    ...(server ? { server } : {}),
+  };
 
   // Already on screen: update the URL it remembers and leave the pane where it
   // is. The panel is connected to the same tab, so it is already showing the
   // page — moving or recreating the pane would only lose the user's place.
+  // Browser ids are per project *on one server*: another server's tab with the
+  // same id is a different tab.
   const existing = panes.find(
-    (pane) => pane.widget?.kind === "browser" && pane.widget.browserId === browserId,
+    (pane) =>
+      pane.widget?.kind === "browser"
+      && pane.widget.browserId === browserId
+      && pane.widget.server === server,
   );
   if (existing) return { action: "place", pane: existing.id, widget };
 

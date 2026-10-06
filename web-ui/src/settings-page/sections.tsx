@@ -1,9 +1,9 @@
 import React from "react";
-import { Bot, Keyboard, Palette, Plug, Sparkles } from "lucide-react";
+import { Bot, Keyboard, Palette, Plug, Server, Sparkles } from "lucide-react";
 import type { SettingsSection } from "./useSettingsRoute";
 
 /**
- * The five things settings configures.
+ * The six things settings configures.
  *
  * Configuration only. Routines, session instructions and memory are content — they keep
  * their own surfaces, because the question "what does opman remember" is not the same
@@ -30,6 +30,13 @@ export const SECTIONS: readonly SectionMeta[] = [
     label: "Keybindings",
     summary: "Every shortcut, and what it is bound to",
     icon: <Keyboard size={15} />,
+  },
+  // The machines come before what runs on them.
+  {
+    id: "servers",
+    label: "Servers",
+    summary: "Other machines running opman",
+    icon: <Server size={15} />,
   },
   // Agents before servers: an agent is a runner, a server is something a runner uses, so
   // the thing that can exist on its own comes first.

@@ -14,6 +14,7 @@ fn web_config_construction() {
         password: "secret".to_string(),
         instance_name: Some("laptop".to_string()),
         backend: "claude-code".to_string(),
+        browser_mode: crate::browser::BrowserMode::Server,
     };
     assert_eq!(cfg.addr.port(), 8080);
     assert_eq!(cfg.username, "admin");
@@ -30,6 +31,7 @@ fn web_config_minimal() {
         password: String::new(),
         instance_name: None,
         backend: "opencode".to_string(),
+        browser_mode: crate::browser::BrowserMode::Server,
     };
     assert_eq!(cfg.addr.port(), 0);
     assert!(cfg.username.is_empty());

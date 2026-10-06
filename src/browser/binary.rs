@@ -9,6 +9,9 @@ use serde::Serialize;
 
 pub use super::install::install_guide;
 
+use super::candidates;
+use super::mode::BrowserMode;
+
 /// Override the automatic browser search when Chromium is installed outside PATH.
 pub const BROWSER_BIN_ENV: &str = "OPMAN_BROWSER_BIN";
 
@@ -89,16 +92,6 @@ enum BrowserOverride {
     NotExecutable(PathBuf),
 }
 
-/// Candidate binaries, in preference order. Playwright's bundled build is tried last:
-/// it is the most likely to exist on a dev box but the most likely to be pruned.
-const CANDIDATES: [&str; 5] = [
-    "chromium",
-    "chromium-browser",
-    "google-chrome",
-    "google-chrome-stable",
-    "brave-browser",
-];
-
 /// Find the selected browser binary, refusing a bad explicit override.
 ///
 /// Snap-packaged builds are deliberately last. Snap confinement limits file access to
@@ -106,7 +99,11 @@ const CANDIDATES: [&str; 5] = [
 /// and aborts on startup — it is a working browser for a person and a broken one for
 /// automation. Playwright's cached build, when present, is a plain unconfined binary and
 /// is the better default here even though it is not on `PATH`.
-pub fn find() -> Result<PathBuf, BrowserUnavailable> {
+///
+/// Device mode looks at the platform's installed browsers *before* `PATH`: on macOS and
+/// Windows that is where the person's Chrome or Edge lives, and it is the browser the mode
+/// exists to use.
+pub fn find(mode: BrowserMode) -> Result<PathBuf, BrowserUnavailable> {
     match browser_override() {
         BrowserOverride::Usable(path) => return Ok(path),
         BrowserOverride::Missing(path) => return Err(BrowserUnavailable::OverrideMissing(path)),
@@ -116,13 +113,17 @@ pub fn find() -> Result<PathBuf, BrowserUnavailable> {
         BrowserOverride::NotSet => {}
     }
 
-    let on_path: Vec<PathBuf> = CANDIDATES.iter().filter_map(|name| which(name)).collect();
-
-    on_path
+    let on_path: Vec<PathBuf> = candidates::path_names(mode)
         .iter()
-        .find(|path| !is_snap(path))
-        .cloned()
-        .or_else(platform_browser)
+        .filter_map(|name| which(name))
+        .collect();
+    let unconfined = || on_path.iter().find(|path| !is_snap(path)).cloned();
+
+    let preferred = match mode {
+        BrowserMode::Server => unconfined().or_else(|| platform_browser(mode)),
+        BrowserMode::Device => platform_browser(mode).or_else(unconfined),
+    };
+    preferred
         .or_else(playwright_chromium)
         .or_else(|| on_path.into_iter().next())
         .ok_or(BrowserUnavailable::NoBrowser)
@@ -168,38 +169,33 @@ fn is_executable(_metadata: &std::fs::Metadata) -> bool {
     true
 }
 
-fn platform_browser() -> Option<PathBuf> {
+#[cfg_attr(
+    not(any(target_os = "macos", target_os = "windows")),
+    allow(unused_variables)
+)]
+fn platform_browser(mode: BrowserMode) -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
-        return [
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-        ]
-        .into_iter()
-        .map(PathBuf::from)
-        .find(|path| path.is_file());
+        let mut roots = vec![PathBuf::from("/Applications")];
+        roots.extend(dirs::home_dir().map(|home| home.join("Applications")));
+        return candidates::expand(&roots, candidates::mac_bundles(mode))
+            .into_iter()
+            .find(|path| path.is_file());
     }
 
     #[cfg(target_os = "windows")]
     {
-        let roots = ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"];
-        let suffixes = [
-            "Google\\Chrome\\Application\\chrome.exe",
-            "Chromium\\Application\\chrome.exe",
-            "BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-        ];
-        return roots
+        let roots: Vec<PathBuf> = ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"]
             .into_iter()
             .filter_map(std::env::var_os)
-            .flat_map(|root| {
-                suffixes
-                    .iter()
-                    .map(move |suffix| PathBuf::from(&root).join(suffix))
-            })
+            .map(PathBuf::from)
+            .collect();
+        return candidates::expand(&roots, candidates::windows_suffixes(mode))
+            .into_iter()
             .find(|path| path.is_file());
     }
 
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     None
 }
 

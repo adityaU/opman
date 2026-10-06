@@ -2,8 +2,10 @@ use axum::extract::DefaultBodyLimit;
 use axum::Router;
 use tower_http::compression::CompressionLayer;
 
+use super::remote;
 use super::request_log;
 use super::static_files;
+use super::stream_mux;
 use super::types::ServerState;
 
 mod api;
@@ -20,17 +22,28 @@ pub(super) fn build_router(state: ServerState) -> Router {
         axum::routing::get(super::handlers::public_bootstrap),
     );
 
-    Router::new()
+    // The stream socket dispatches its subscriptions back into this same router.
+    let slot = stream_mux::RouterSlot::default();
+    let router = Router::new()
         .route("/health", axum::routing::get(super::handlers::health))
-        .nest("/api", public_routes.merge(api_routes))
+        .nest(
+            "/api",
+            public_routes
+                .merge(api_routes)
+                .merge(remote::api_routes()),
+        )
+        .merge(remote::remote_routes())
         .nest("/internal", internal_routes)
         .fallback(static_files::serve_react)
+        .layer(axum::Extension(slot.clone()))
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50 MB global body limit
         .layer(CompressionLayer::new().gzip(true))
         // Outermost, so it also logs body-limit/auth rejections and sees the
         // request future get dropped when a client disconnects mid-request.
         .layer(axum::middleware::from_fn(request_log::log_requests))
-        .with_state(state)
+        .with_state(state);
+    slot.fill(router.clone());
+    router
 }
 
 #[cfg(test)]

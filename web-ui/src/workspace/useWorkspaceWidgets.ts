@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import { PaneWidget } from "./widgets/PaneWidget";
 import { findPane } from "./tree";
+import { sameTarget } from "./history";
 import type { WorkspaceAction } from "./reducer";
 import type { WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
 import type { PaneEngine, PaneId, PaneNode, WidgetState, Workspace } from "./types";
@@ -157,6 +158,22 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
     [activePane, dispatch],
   );
 
+  /**
+   * Another server's pane telling us where its embed went. Same split as the
+   * local writes: a session arriving for a "new session" chat, or anything on
+   * the same target, amends; going somewhere else records.
+   */
+  const onRemoteWidgetChanged = useCallback(
+    (paneId: PaneId, widget: WidgetState) => {
+      const current = activePane(paneId)?.widget;
+      if (!current || current.server !== widget.server) return;
+      const bound = current.kind === "chat" && widget.kind === "chat" && !current.sessionId;
+      const type = bound || sameTarget(current, widget) ? "amendWidget" : "openWidget";
+      dispatch({ type, pane: paneId, widget });
+    },
+    [activePane, dispatch],
+  );
+
   const reportError = useCallback((message: string) => latest.current.onError(message), []);
 
   const renderWidget = useCallback(
@@ -171,9 +188,10 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
         onPtyIdChanged,
         onBrowserUrlChanged,
         onActiveFileChanged,
+        onRemoteWidgetChanged,
       });
     },
-    [onActiveFileChanged, onBrowserUrlChanged, onPtyIdChanged, reportError],
+    [onActiveFileChanged, onBrowserUrlChanged, onPtyIdChanged, onRemoteWidgetChanged, reportError],
   );
 
   return useMemo(() => ({ chatServices, renderWidget }), [chatServices, renderWidget]);

@@ -66,7 +66,9 @@ function terminalPanes(windows: readonly WorkspaceWindow[]): Map<PaneId, string>
   const owners = new Map<PaneId, string>();
   for (const window of windows) {
     for (const pane of panes(window.root)) {
-      if (pane.widget?.kind !== "terminal" || !pane.widget.ptyId) continue;
+      // Another server's shell is polled by that server's own instance, in the
+      // pane's iframe; its id means nothing to this one.
+      if (pane.widget?.kind !== "terminal" || !pane.widget.ptyId || pane.widget.server) continue;
       owners.set(pane.id, pane.widget.ptyId);
     }
   }

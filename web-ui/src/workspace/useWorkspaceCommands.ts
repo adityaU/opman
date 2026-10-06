@@ -43,6 +43,11 @@ export interface WorkspaceCommandDeps {
   readonly resolveTargetSplit: (dir: "row" | "col") => void;
   readonly resolveTargetNewWindow: () => void;
   readonly cancelTargeting: () => void;
+  /**
+   * Inside an embed the panes these commands act on are the parent's, so each
+   * one is handed to it by id instead of being run here.
+   */
+  readonly forward?: (command: string) => void;
 }
 
 export function useWorkspaceCommands(deps: WorkspaceCommandDeps): void {
@@ -108,7 +113,9 @@ export function useWorkspaceCommands(deps: WorkspaceCommandDeps): void {
       map[`workspace.targetPane${ordinal}`] = () => deps.resolveTargetByOrdinal(ordinal);
     }
 
-    return map;
+    const forward = deps.forward;
+    if (!forward) return map;
+    return Object.fromEntries(Object.keys(map).map((id) => [id, () => forward(id)]));
   }, [deps, dispatch, focusedPaneId]);
 
   useCommands(handlers);

@@ -19,7 +19,7 @@
 :is(.add-project-close, .settings-close, .theme-selector-close, .cheatsheet-close,
     .session-selector-close, .todo-panel-close, .ctx-window-close,
     .diff-review-close, .context-input-close, .command-palette-close,
-    .model-picker-close):hover{
+    .model-picker-close, .srv-dialog-close):hover{
     color: var(--color-text);
     background: color-mix(in srgb, var(--color-text) 8%, transparent);
     border-color: var(--modal-hairline);

@@ -9,6 +9,7 @@ import type { WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
 import { basename } from "../utils/path";
 import { targetLabel } from "./history";
 import type { PaneEngine, WidgetState } from "./types";
+import { useRemoteDescribe } from "./servers/useRemoteDescribe";
 
 /**
  * Assembles what the desktop workspace needs out of the app's state.
@@ -105,18 +106,17 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
 
   /**
    * A pane's chrome: which project, what it is showing, and whether its agent
-   * is working. Recomputed per render rather than memoised per pane — it reads
-   * three fields and memoising per widget identity would cost more than it saves.
-   *
-   * Deliberately *not* read through `latest`, unlike its neighbours here. A
-   * mounted window re-renders when this function's identity changes and at no
-   * other time (see `WindowView`), so a ref would freeze every pane header's
-   * subtitle and busy dot at whatever they were when the window was last
-   * touched. These two inputs are the whole reason it may change.
+   * is working. Deliberately *not* read through `latest`: a mounted window
+   * re-renders when this function's identity changes and at no other time (see
+   * `WindowView`), so a ref would freeze every header's subtitle and busy dot.
+   * Another server's widgets are described from the shared remote catalog.
    */
+  const describeRemote = useRemoteDescribe();
   const describe = useCallback(
     (widget: WidgetState | null): PaneContext => {
       if (!widget) return { projectName: "", subtitle: null, busy: false };
+      const foreign = describeRemote(widget);
+      if (foreign) return foreign;
       const project = (appState?.projects ?? []).find(
         (candidate: { path: string }) => candidate.path === widget.projectPath,
       );
@@ -142,7 +142,7 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
         busy: widget.sessionId ? deps.busySessions.has(widget.sessionId) : false,
       };
     },
-    [appState?.projects, deps.busySessions],
+    [appState?.projects, deps.busySessions, describeRemote],
   );
 
   /**
@@ -250,41 +250,25 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
     bridgeRef.current = api;
   }, []);
 
-  /** Returns false when the workspace is not mounted, so callers can fall back. */
-  const armTargeting = useCallback((request: TargetRequest) => {
-    if (!bridgeRef.current) return false;
-    bridgeRef.current.arm(request);
-    return true;
-  }, []);
-
-  const openKindHere = useCallback((kind: "files" | "terminal" | "git") => {
-    if (!bridgeRef.current) return false;
-    bridgeRef.current.openKindHere(kind);
-    return true;
-  }, []);
-
-  /** Returns false when the workspace is not mounted — mobile, or the board. */
-  const openFileInWorkspace = useCallback((path: string, line: number | null) => {
-    if (!bridgeRef.current) return false;
-    bridgeRef.current.openFile(path, line);
-    return true;
-  }, []);
-
-  /** Same as `openFileInWorkspace`, but the user answers which pane. */
-  const openFileWhereInWorkspace = useCallback(
-    (path: string, line: number | null, label: string) => {
-      if (!bridgeRef.current) return false;
-      bridgeRef.current.openFileWhere(path, line, label);
-      return true;
-    },
-    [],
-  );
-
-  const openBrowserInWorkspace = useCallback((projectPath: string, url: string) => {
-    if (!bridgeRef.current) return false;
-    bridgeRef.current.openBrowser(projectPath, url);
-    return true;
-  }, []);
+  // Each returns false when the workspace is not mounted — mobile, or the
+  // board — so callers can fall back. Built once: they read the ref.
+  const { armTargeting, openKindHere, openFileInWorkspace, openFileWhereInWorkspace, openBrowserInWorkspace } =
+    useMemo(() => {
+      const via = <A extends unknown[]>(run: (bridge: WorkspaceBridge, ...args: A) => void) =>
+        (...args: A): boolean => {
+          if (!bridgeRef.current) return false;
+          run(bridgeRef.current, ...args);
+          return true;
+        };
+      return {
+        armTargeting: via((b, request: TargetRequest) => b.arm(request)),
+        openKindHere: via((b, kind: "files" | "terminal" | "git") => b.openKindHere(kind)),
+        openFileInWorkspace: via((b, path: string, line: number | null) => b.openFile(path, line)),
+        openFileWhereInWorkspace: via((b, path: string, line: number | null, label: string) =>
+          b.openFileWhere(path, line, label)),
+        openBrowserInWorkspace: via((b, projectPath: string, url: string) => b.openBrowser(projectPath, url)),
+      };
+    }, []);
 
   return useMemo(
     () => ({

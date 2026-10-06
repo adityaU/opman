@@ -92,6 +92,21 @@ impl Viewport {
         }
     }
 
+    /// The same viewport, at no more device pixels per CSS pixel than the browser's
+    /// surface really has. A frame can only be downscaled; asking for more than the surface
+    /// holds would hand the pane a scale that no longer matches the frame it clicks on.
+    pub fn within_surface(self, surface_ratio: f64) -> Self {
+        let ceiling = if surface_ratio.is_finite() {
+            surface_ratio.max(1.0)
+        } else {
+            1.0
+        };
+        Self {
+            scale: self.scale.min(ceiling),
+            ..self
+        }
+    }
+
     pub fn width(self) -> u32 {
         self.width
     }

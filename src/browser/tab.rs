@@ -7,8 +7,10 @@ use std::time::Duration;
 use serde_json::{json, Value};
 
 use super::cdp::Cdp;
+use super::mode::Placement;
 use super::screencast::Screencast;
 use super::types::Viewport;
+use super::window;
 
 /// Longest a navigation may take before the caller gets the page as-is. A slow page is
 /// still worth snapshotting; a hung one must not hold the tool call open.
@@ -21,25 +23,22 @@ pub struct Tab {
     session_id: Arc<str>,
     target_id: String,
     screencast: Screencast,
+    /// Device pixels per CSS pixel the browser really renders at, measured at open. The
+    /// ceiling for any pane scale: see [`Viewport::within_surface`].
+    surface_ratio: f64,
 }
 
 impl Tab {
     /// Create a page and attach to it in flat mode.
-    pub async fn open(cdp: Cdp, viewport: Viewport) -> anyhow::Result<Self> {
+    pub async fn open(cdp: Cdp, viewport: Viewport, placement: Placement) -> anyhow::Result<Self> {
         // Every pane gets its own window, not a background tab in a shared one: a headed
         // browser paints only the foreground tab, so panes sharing a window would leave
-        // all but one screencast frozen. Nothing is visible either way — the windows live
-        // on a virtual display — and `Target.createTarget` accepts a size only for a new
-        // window, so this is also the one place the initial extent can be set.
+        // all but one screencast frozen. `Target.createTarget` accepts a size only for a
+        // new window, so this is also the one place the initial extent can be set.
         let created = cdp
             .call(
                 "Target.createTarget",
-                json!({
-                    "url": "about:blank",
-                    "newWindow": true,
-                    "width": viewport.width(),
-                    "height": viewport.height(),
-                }),
+                window::create_target_params(viewport, placement),
             )
             .await?;
         let target_id = created
@@ -47,6 +46,10 @@ impl Tab {
             .and_then(Value::as_str)
             .ok_or_else(|| anyhow::anyhow!("Target.createTarget returned no targetId"))?
             .to_owned();
+
+        if placement == Placement::OffScreen {
+            window::park(&cdp, &target_id, viewport).await;
+        }
 
         let attached = cdp
             .call(
@@ -60,16 +63,31 @@ impl Tab {
             .ok_or_else(|| anyhow::anyhow!("Target.attachToTarget returned no sessionId"))?
             .into();
 
-        let tab = Self {
+        let mut tab = Self {
             screencast: Screencast::new(cdp.clone(), Arc::clone(&session_id)),
             cdp,
             session_id,
             target_id,
+            surface_ratio: 1.0,
         };
         tab.call("Page.enable", json!({})).await?;
         tab.call("Runtime.enable", json!({})).await?;
+        tab.surface_ratio = tab.measure_surface_ratio().await;
         tab.resize(viewport).await?;
         Ok(tab)
+    }
+
+    /// The page's own `devicePixelRatio`, read before any emulation override replaces it:
+    /// what the window's surface is really rendered at. One-to-one when it cannot be read,
+    /// which costs sharpness but never click accuracy.
+    async fn measure_surface_ratio(&self) -> f64 {
+        match self
+            .eval_json::<f64>("JSON.stringify(window.devicePixelRatio)")
+            .await
+        {
+            Ok(ratio) if ratio.is_finite() && ratio >= 1.0 => ratio,
+            Ok(_) | Err(_) => 1.0,
+        }
     }
 
     pub fn session_id(&self) -> &Arc<str> {
@@ -78,6 +96,12 @@ impl Tab {
 
     pub fn screencast(&self) -> &Screencast {
         &self.screencast
+    }
+
+    /// The client and target behind this tab, for live tests that inspect its window.
+    #[cfg(test)]
+    pub(super) fn target(&self) -> (&Cdp, &str) {
+        (&self.cdp, &self.target_id)
     }
 
     async fn call(&self, method: &str, params: Value) -> anyhow::Result<Value> {
@@ -211,7 +235,11 @@ impl Tab {
     /// Two separate effects, easy to confuse: the override decides the page's *layout* and
     /// the `devicePixelRatio` it reports (so it picks retina assets), while the capture
     /// width decides how many pixels a screencast frame actually carries.
-    pub async fn resize(&self, viewport: Viewport) -> anyhow::Result<()> {
+    ///
+    /// Returns the viewport as applied — its scale capped at what the surface holds — which
+    /// is the scale the pane must use to map a click back onto the page.
+    pub async fn resize(&self, viewport: Viewport) -> anyhow::Result<Viewport> {
+        let viewport = viewport.within_surface(self.surface_ratio);
         self.call(
             "Emulation.setDeviceMetricsOverride",
             json!({
@@ -225,7 +253,7 @@ impl Tab {
         self.screencast
             .set_capture_width(viewport.capture_width())
             .await;
-        Ok(())
+        Ok(viewport)
     }
 
     /// Close the page. The pool drops the entry immediately afterwards, so nothing can

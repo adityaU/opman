@@ -5,6 +5,7 @@ import { DesktopWorkspace, type WorkspaceBridge, type WorkspaceProject } from ".
 import type { PaneContext } from "./WorkspaceRoot";
 import type { WorkspaceChatServices } from "./widgets/WorkspaceChatContext";
 import type { WidgetState } from "./types";
+import { EMBED_WIDGET } from "../embed/embedMode";
 
 /**
  * The desktop shell: the sidebar, and the workspace beside it.
@@ -53,6 +54,26 @@ export const DesktopShell: React.FC<DesktopShellProps> = function DesktopShell({
   }, []);
 
   const sidebarNode = useMemo(() => <ChatSidebar {...sidebar} />, [sidebar]);
+
+  // An embed is one widget inside another instance's pane: no sidebar, and the
+  // workspace is that widget alone.
+  if (EMBED_WIDGET) {
+    return (
+      <div className="chat-content wsp-embed" data-surface="chat">
+        <DesktopWorkspace
+          projects={projects}
+          sessionsFor={sessionsFor}
+          describe={describe}
+          busySessions={busySessions}
+          chat={chat}
+          onError={onError}
+          activeSessionId={activeSessionId}
+          targetingBridge={targetingBridge}
+          embed={EMBED_WIDGET}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="chat-content" data-surface="chat">

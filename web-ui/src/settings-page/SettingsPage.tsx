@@ -16,6 +16,9 @@ const AgentsSection = lazy(() =>
 const ServersSection = lazy(() =>
   import("./mcp/ServersSection").then((m) => ({ default: m.ServersSection })),
 );
+const RemoteServersSection = lazy(() =>
+  import("./servers/RemoteServersSection").then((m) => ({ default: m.RemoteServersSection })),
+);
 const SkillsSection = lazy(() =>
   import("./skills/SkillsSection").then((m) => ({ default: m.SkillsSection })),
 );
@@ -23,8 +26,8 @@ const SkillsSection = lazy(() =>
 /**
  * Settings: one destination for how opman is configured.
  *
- * Five editors — appearance, keybindings, ACP agents, MCP servers, skills — reached by a
- * rail rather than a stack of modals. What lives here is configuration; what opman
+ * Six editors — appearance, keybindings, opman servers, ACP agents, MCP servers,
+ * skills — reached by a rail rather than a stack of modals. What lives here is configuration; what opman
  * *remembers* (routines, session instructions, memory) is content and keeps its own
  * surfaces.
  */
@@ -105,6 +108,7 @@ export function SettingsPage(props: SettingsPageProps) {
                 />
               )}
               {section === "keybindings" && <KeybindingsPanel />}
+              {section === "servers" && <RemoteServersSection />}
               {section === "acp" && <AgentsSection onError={props.onError} />}
               {section === "mcp" && (
                 <ServersSection onError={props.onError} runners={props.runners} />

@@ -29,6 +29,34 @@ export interface OpenerChoice {
   readonly hint?: string;
   /** Marks a choice as actively working — a shell running a command. */
   readonly busy?: boolean;
+  /**
+   * The heading this row sits under. Consecutive rows sharing one share the
+   * heading — how projects are grouped by server once there is more than one.
+   */
+  readonly group?: string;
+  /** Muted text beside the group heading: a server's status, say. */
+  readonly groupNote?: string;
+  /** Shown but not choosable — a server that cannot be reached right now. */
+  readonly disabled?: boolean;
+}
+
+/**
+ * A project choice names a server as well as a path once there is more than
+ * one server, and a choice's value is one string. The own server's projects
+ * keep the bare path, so a single-server opener answers exactly as it always
+ * has; another server's are prefixed with a separator no path contains.
+ */
+const SERVER_MARK = "\u0001";
+
+export function projectChoiceValue(server: string | null | undefined, path: string): string {
+  return server ? `${SERVER_MARK}${server}${SERVER_MARK}${path}` : path;
+}
+
+export function decodeProjectChoice(value: string): { server: string | null; path: string } {
+  if (!value.startsWith(SERVER_MARK)) return { server: null, path: value };
+  const end = value.indexOf(SERVER_MARK, 1);
+  if (end < 0) return { server: null, path: value };
+  return { server: value.slice(1, end) || null, path: value.slice(end + 1) };
 }
 
 export interface OpenerDraft {
@@ -47,6 +75,8 @@ export interface OpenerDraft {
    * pane then starts, and is not the same as not having been asked.
    */
   readonly ptyId: string | null | undefined;
+  /** The server the project is on; absent or null is this instance's own. */
+  readonly server?: string | null;
 }
 
 export const EMPTY_DRAFT: OpenerDraft = {
@@ -54,6 +84,7 @@ export const EMPTY_DRAFT: OpenerDraft = {
   projectPath: null,
   sessionId: undefined,
   ptyId: undefined,
+  server: null,
 };
 
 /** The last step is what the kind is *of*: a conversation, or a shell. */
@@ -84,8 +115,11 @@ export function advance(draft: OpenerDraft, value: string | null): OpenerDraft {
       if (value === null || !WIDGET_KINDS.includes(value as WidgetKind)) return draft;
       return { ...draft, kind: value as WidgetKind };
     }
-    case "project":
-      return value === null ? draft : { ...draft, projectPath: value };
+    case "project": {
+      if (value === null) return draft;
+      const { server, path } = decodeProjectChoice(value);
+      return { ...draft, projectPath: path, server };
+    }
     case "session":
       return { ...draft, sessionId: value };
     case "shell":
@@ -109,7 +143,7 @@ export function retreat(draft: OpenerDraft): OpenerDraft {
   if (draft.kind === "terminal" && draft.ptyId !== undefined) {
     return { ...draft, ptyId: undefined };
   }
-  if (draft.projectPath !== null) return { ...draft, projectPath: null };
+  if (draft.projectPath !== null) return { ...draft, projectPath: null, server: null };
   return { ...draft, kind: null };
 }
 
@@ -121,6 +155,12 @@ export function retreat(draft: OpenerDraft): OpenerDraft {
  * still be holding from an abandoned chat branch.
  */
 export function toWidget(draft: OpenerDraft, paneId?: PaneId): WidgetState | null {
+  const widget = toLocalWidget(draft, paneId);
+  if (!widget || !draft.server) return widget;
+  return { ...widget, server: draft.server };
+}
+
+function toLocalWidget(draft: OpenerDraft, paneId?: PaneId): WidgetState | null {
   const { kind, projectPath } = draft;
   if (kind === null || projectPath === null || !isComplete(draft)) return null;
 

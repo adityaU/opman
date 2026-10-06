@@ -1,0 +1,246 @@
+/* ── Servers: selector rows, status dots, add/edit dialog ─────────────
+   The server half of the sidebar's workspace menu and the dialog that adds
+   one. Surfaces come from modal-shell.css (`.modal-popover-surface`,
+   `.modal-dialog-surface`, `.modal-backdrop`); this sheet only lays out the
+   interior. Tokens only — glassy and flat differ in the shell, not here. */
+
+/* ── Status dot ───────────────────────────────────────────────────── */
+
+.srv-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+}
+
+.srv-dot.is-ok { background: var(--color-success); }
+.srv-dot.is-unreachable { background: var(--color-error); }
+.srv-dot.is-auth_failed { background: var(--color-warning); }
+
+/* ── Trigger badge ────────────────────────────────────────────────── */
+
+.sb-server-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    /* Gives way before the project name does: that is what the row is for. */
+    flex: 0 4 auto;
+    min-width: 0;
+    max-width: 11ch;
+    padding: 1px 6px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 15px;
+}
+
+.sb-server-badge-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Menu section ─────────────────────────────────────────────────── */
+
+.sb-server-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-bottom: 3px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--modal-hairline);
+}
+
+.sb-server-eyebrow {
+    padding: 5px 8px 3px;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.sb-server-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sb-server-item { padding-right: 30px; }
+
+/* The host gives way first; the name is what a reader scans for. */
+.sb-server-item .sb-project-item-name {
+    flex-shrink: 0;
+    max-width: 60%;
+}
+
+/* On home only the dot: home is the default, its name adds width, not news. */
+.sb-server-badge.is-home {
+    padding: 4px;
+}
+
+.sb-server-host {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
+.sb-server-edit {
+    position: absolute;
+    right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.sb-server-row:hover .sb-server-edit,
+.sb-server-edit:focus-visible { opacity: 1; }
+
+.sb-server-edit:hover {
+    background: var(--theme-surface-hover);
+    color: var(--color-text);
+}
+
+.sb-server-edit:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* Two foot rows share one rule above them, not one each. */
+.sb-project-add + .sb-server-add {
+    margin-top: 0;
+    padding-top: 7px;
+    border-top: 0;
+}
+
+@media (hover: none) {
+    .sb-server-edit { opacity: 1; }
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────── */
+
+.srv-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+}
+
+.srv-dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 460px);
+    max-height: calc(100dvh - 2 * var(--space-4));
+    overflow: auto;
+    color: var(--color-text);
+}
+
+.srv-dialog-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--modal-header-h);
+    padding: 0 var(--modal-pad-x);
+    border-bottom: 1px solid var(--modal-hairline);
+}
+
+.srv-dialog-header h3 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+}
+
+.srv-dialog-close {
+    display: inline-flex;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.srv-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--modal-gap);
+    padding: var(--modal-gap) var(--modal-pad-x) var(--modal-pad-x);
+}
+
+.srv-dialog-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+}
+
+.srv-dialog-grid {
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.srv-dialog-grid .stg-field:nth-child(-n + 2) { grid-column: 1 / -1; }
+
+.srv-dialog-error {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    background: var(--theme-error-soft);
+    color: var(--color-error);
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.srv-dialog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding-top: var(--space-1);
+}
+
+.srv-dialog-remove { margin-right: auto; }
+
+.srv-dialog-confirm-text {
+    flex: 1;
+    min-width: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+}
+
+@media (max-width: 768px) {
+    .srv-dialog-backdrop {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .srv-dialog { width: 100%; }
+    .srv-dialog-grid { grid-template-columns: minmax(0, 1fr); }
+}
