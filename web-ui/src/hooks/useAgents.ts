@@ -21,8 +21,8 @@ const cache = new Map<string, { agents: AgentInfo[]; fetchedAt: number }>();
 const inFlight = new Map<string, Promise<AgentInfo[]>>();
 
 function load(runner: string): Promise<AgentInfo[]> {
-  const hit = cache.get(runner);
-  if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) return Promise.resolve(hit.agents);
+  const hit = fresh(runner);
+  if (hit) return Promise.resolve(hit);
 
   const pending = inFlight.get(runner);
   if (pending) return pending;
@@ -39,35 +39,43 @@ function load(runner: string): Promise<AgentInfo[]> {
   return request;
 }
 
+const NO_AGENTS: AgentInfo[] = [];
+
+function fresh(runner: string): AgentInfo[] | null {
+  const hit = cache.get(runner);
+  return hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS ? hit.agents : null;
+}
+
 export interface AgentCache {
   readonly agents: AgentInfo[];
   readonly loading: boolean;
 }
 
 export function useAgents(runner: string): AgentCache {
-  const hit = cache.get(runner);
-  const fresh = hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS;
-  const [agents, setAgents] = useState<AgentInfo[]>(fresh ? hit.agents : []);
-  const [loading, setLoading] = useState(!fresh);
+  // Tagged with the runner it describes: until the effect for a new runner has run, the
+  // state still holds the previous runner's agents, and the agent repair in
+  // `useEngineOptions` would "fix" the selection to one of them.
+  const [loaded, setLoaded] = useState<{ runner: string; agents: AgentInfo[] } | null>(() => {
+    const hit = fresh(runner);
+    return hit ? { runner, agents: hit } : null;
+  });
 
   useEffect(() => {
     let cancelled = false;
-    const cached = cache.get(runner);
-    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-      setAgents(cached.agents);
-      setLoading(false);
+    const hit = fresh(runner);
+    if (hit) {
+      setLoaded({ runner, agents: hit });
       return;
     }
-    setLoading(true);
-    void load(runner).then((next) => {
-      if (cancelled) return;
-      setAgents(next);
-      setLoading(false);
+    void load(runner).then((agents) => {
+      if (!cancelled) setLoaded({ runner, agents });
     });
     return () => {
       cancelled = true;
     };
   }, [runner]);
 
-  return { agents, loading };
+  if (loaded?.runner === runner) return { agents: loaded.agents, loading: false };
+  const hit = fresh(runner);
+  return hit ? { agents: hit, loading: false } : { agents: NO_AGENTS, loading: true };
 }

@@ -123,6 +123,11 @@ impl Sidecar {
             .stdout(log)
             .stderr(stderr);
         if let Some(path) = shell_path::login_path() {
+            // Absolute, so ACP agents launched through npx keep working even where a
+            // runner narrows the PATH it hands its own children.
+            if let Some(npx) = shell_path::find_in(&path, "npx") {
+                command.env("OPMAN_ACP_NPX", npx);
+            }
             command.env("PATH", path);
         }
         hide_console(&mut command);

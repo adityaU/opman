@@ -1,6 +1,6 @@
 [package]
 name = "opman-desktop"
-version = "0.9.60"
+version = "0.9.61"
 description = "Desktop shell for opman"
 edition = "2021"
 publish = false
@@ -28,3 +28,6 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[dev-dependencies]
+tempfile = "3"
