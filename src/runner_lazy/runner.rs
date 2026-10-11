@@ -10,6 +10,7 @@ use crate::runner::{
     Runner, RunnerFuture, RunnerKind, RunnerSession, RunnerStartOutcome, SlashCommand,
 };
 
+use super::disk::DiskSessions;
 use super::{LazyContext, LazyStart};
 
 type StartFuture = Pin<Box<dyn Future<Output = Result<LazyStart>> + Send>>;
@@ -24,6 +25,8 @@ pub struct LazyRunner {
     ctx: Arc<LazyContext>,
     inner: OnceCell<Arc<dyn Runner>>,
     start: StartFn,
+    /// Where the runner keeps its sessions, so they can be listed before it starts.
+    disk: Option<DiskSessions>,
 }
 
 impl LazyRunner {
@@ -38,7 +41,21 @@ impl LazyRunner {
             ctx,
             inner: OnceCell::new(),
             start: Box::new(move || Box::pin(start())),
+            disk: None,
         }
+    }
+
+    /// List sessions from `store` while the runner is not started.
+    pub fn with_disk_sessions(mut self, store: Option<crate::session_disk::SessionStore>) -> Self {
+        self.disk = store.map(DiskSessions::new);
+        self
+    }
+
+    /// Whether `session_id` was listed from disk, so acting on it needs the real runner.
+    fn listed_on_disk(&self, session_id: &str) -> bool {
+        self.disk
+            .as_ref()
+            .is_some_and(|disk| disk.listed(session_id))
     }
 
     /// Mark this slot as reserved for an ACP agent id.
@@ -87,6 +104,21 @@ impl LazyRunner {
             })
             .await
     }
+}
+
+/// Delegate to the started runner. A session listed from disk starts it — that session is
+/// real and only its runner can render or change it; anything else answers `$default`.
+macro_rules! if_started_or_listed {
+    ($self:ident, $session:expr, $default:expr, |$runner:ident| $call:expr) => {
+        Box::pin(async move {
+            let $runner = match $self.inner.get() {
+                Some(runner) => runner,
+                None if $self.listed_on_disk($session) => $self.ensure().await?,
+                None => return Ok($default),
+            };
+            $call.await
+        })
+    };
 }
 
 /// Delegate to the started runner, or answer `$default` without starting one.
@@ -157,11 +189,15 @@ impl Runner for LazyRunner {
         &'a self,
         directory: &'a str,
     ) -> RunnerFuture<'a, Vec<crate::app::SessionInfo>> {
-        if_started!(self, Vec::new(), |runner| runner.sessions(directory))
+        match (self.inner.get(), &self.disk) {
+            (Some(runner), _) => runner.sessions(directory),
+            (None, Some(disk)) => Box::pin(async move { Ok(disk.list(directory).await) }),
+            (None, None) => Box::pin(async { Ok(Vec::new()) }),
+        }
     }
 
     fn messages<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, Value> {
-        if_started!(self, json!([]), |runner| runner
+        if_started_or_listed!(self, session_id, json!([]), |runner| runner
             .messages(session_id, directory))
     }
 
@@ -191,7 +227,7 @@ impl Runner for LazyRunner {
         directory: &'a str,
         choices: &'a crate::app::EngineChoices,
     ) -> RunnerFuture<'a, bool> {
-        if_started!(self, false, |runner| runner
+        if_started_or_listed!(self, session_id, false, |runner| runner
             .configure(session_id, directory, choices))
     }
 
@@ -219,12 +255,13 @@ impl Runner for LazyRunner {
         title: &'a str,
         directory: &'a str,
     ) -> RunnerFuture<'a, bool> {
-        if_started!(self, false, |runner| runner
+        if_started_or_listed!(self, session_id, false, |runner| runner
             .rename(session_id, title, directory))
     }
 
     fn delete<'a>(&'a self, session_id: &'a str, directory: &'a str) -> RunnerFuture<'a, bool> {
-        if_started!(self, false, |runner| runner.delete(session_id, directory))
+        if_started_or_listed!(self, session_id, false, |runner| runner
+            .delete(session_id, directory))
     }
 
     fn reply_permission<'a>(

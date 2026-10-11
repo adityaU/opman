@@ -107,3 +107,20 @@ async fn a_warm_transcript_is_served_without_touching_the_agent() {
     assert_eq!(messages(&engine, &id).await.len(), 1);
     assert!(!engine.was_hydrated(&id));
 }
+
+/// Opening a session listed from disk is what starts its engine, so the read can arrive
+/// while the startup probe is still running. It must wait for the probe's answer instead of
+/// taking "unknown" as "cannot load" and rendering the session empty.
+#[tokio::test]
+async fn a_read_during_the_startup_probe_waits_for_its_answer() {
+    let engine = engine();
+    let id = cold_session(&engine, Some("acp-1"));
+    engine.probing.send_replace(true);
+    let probe = engine.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        probe.note_load_capable(true);
+        probe.probing.send_replace(false);
+    });
+    assert!(replayable(&engine, &id).await);
+}

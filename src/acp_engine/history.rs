@@ -64,10 +64,17 @@ async fn replayable(engine: &Arc<AcpEngine>, id: &str) -> bool {
         return false;
     };
     // Subagent rows are read from the agent's on-disk transcript and have no ACP session.
-    if session.is_subagent || engine.was_hydrated(id) || !engine.load_capable() {
+    if session.is_subagent || engine.was_hydrated(id) {
         return false;
     }
     if session.acp_session.unwrap_or_default().is_empty() {
+        return false;
+    }
+    // Opening a session listed from disk is what starts its runner, so this read can land
+    // while the startup probe is still asking the agent whether it can `loadSession`. Wait
+    // for that answer rather than reading "unknown" as "no" and rendering an empty session.
+    engine.await_probe(REPLAY_TIMEOUT).await;
+    if !engine.load_capable() {
         return false;
     }
     engine.conns.existing(id).await.is_none()
@@ -82,9 +89,9 @@ impl AcpEngine {
         }
     }
 
-    /// Whether the agent is known to support `session/load`. Unknown reads as `false`: the
-    /// probe runs at startup and settles the question long before a user opens a session,
-    /// and guessing yes would spawn a child to find out.
+    /// Whether the agent is known to support `session/load`. Unknown reads as `false`:
+    /// guessing yes would spawn a child to find out. `replayable` waits for the startup
+    /// probe first, since opening a session can be what started the engine.
     pub(super) fn load_capable(&self) -> bool {
         self.load_capable
             .lock()

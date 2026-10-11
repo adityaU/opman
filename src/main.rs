@@ -42,6 +42,7 @@ mod runner;
 mod runner_handoff;
 mod runner_lazy;
 mod server;
+mod session_disk;
 use integrations::slack;
 mod setup;
 mod sse;
@@ -346,6 +347,10 @@ async fn main() -> Result<()> {
         Some((id, _)) => default_lazy.for_acp_agent(id.clone()),
         None => default_lazy,
     };
+    let default_lazy = default_lazy.with_disk_sessions(session_disk::SessionStore::for_backend(
+        backend,
+        default_acp_agent.as_ref().map(|(id, _)| id.as_str()),
+    ));
     runner_impls.insert(default_runner.clone(), Arc::new(default_lazy));
 
     // The remaining runners are *declared* here, not started: each is a placeholder that
@@ -364,30 +369,33 @@ async fn main() -> Result<()> {
         let http = client.clone();
         runner_impls.insert(
             runner::RunnerKind::Opencode,
-            Arc::new(runner_lazy::LazyRunner::new(
-                runner::RunnerKind::Opencode,
-                lazy_ctx.clone(),
-                move || {
-                    let config = config.clone();
-                    let http = http.clone();
-                    async move {
-                        let (url, handle) = server::spawn_agent_server(
-                            crate::cli::AgentBackend::Opencode,
-                            Some(&config),
-                        )?;
-                        Ok(runner_lazy::LazyStart {
-                            runner: Arc::new(runner::HttpRunner::new(
-                                runner::RunnerKind::Opencode,
-                                url,
-                                http,
-                            )),
-                            handle: Some(handle),
-                            engine: None,
-                            base_url: None,
-                        })
-                    }
-                },
-            )),
+            Arc::new(
+                runner_lazy::LazyRunner::new(
+                    runner::RunnerKind::Opencode,
+                    lazy_ctx.clone(),
+                    move || {
+                        let config = config.clone();
+                        let http = http.clone();
+                        async move {
+                            let (url, handle) = server::spawn_agent_server(
+                                crate::cli::AgentBackend::Opencode,
+                                Some(&config),
+                            )?;
+                            Ok(runner_lazy::LazyStart {
+                                runner: Arc::new(runner::HttpRunner::new(
+                                    runner::RunnerKind::Opencode,
+                                    url,
+                                    http,
+                                )),
+                                handle: Some(handle),
+                                engine: None,
+                                base_url: None,
+                            })
+                        }
+                    },
+                )
+                .with_disk_sessions(session_disk::SessionStore::opencode()),
+            ),
         );
     }
     let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
@@ -402,27 +410,30 @@ async fn main() -> Result<()> {
         let http = client.clone();
         runner_impls.insert(
             runner::RunnerKind::ClaudeCode,
-            Arc::new(runner_lazy::LazyRunner::new(
-                runner::RunnerKind::ClaudeCode,
-                lazy_ctx.clone(),
-                move || {
-                    let mcp = mcp.clone();
-                    let http = http.clone();
-                    async move {
-                        let (url, handle) = claude_engine::start_embedded_server(mcp).await?;
-                        Ok(runner_lazy::LazyStart {
-                            runner: Arc::new(runner::HttpRunner::new(
-                                runner::RunnerKind::ClaudeCode,
-                                url,
-                                http,
-                            )),
-                            handle: Some(handle),
-                            engine: None,
-                            base_url: None,
-                        })
-                    }
-                },
-            )),
+            Arc::new(
+                runner_lazy::LazyRunner::new(
+                    runner::RunnerKind::ClaudeCode,
+                    lazy_ctx.clone(),
+                    move || {
+                        let mcp = mcp.clone();
+                        let http = http.clone();
+                        async move {
+                            let (url, handle) = claude_engine::start_embedded_server(mcp).await?;
+                            Ok(runner_lazy::LazyStart {
+                                runner: Arc::new(runner::HttpRunner::new(
+                                    runner::RunnerKind::ClaudeCode,
+                                    url,
+                                    http,
+                                )),
+                                handle: Some(handle),
+                                engine: None,
+                                base_url: None,
+                            })
+                        }
+                    },
+                )
+                .with_disk_sessions(session_disk::SessionStore::claude_engine()),
+            ),
         );
     }
 
@@ -468,7 +479,8 @@ async fn main() -> Result<()> {
                         })
                     }
                 })
-                .for_acp_agent(id.clone()),
+                .for_acp_agent(id.clone())
+                .with_disk_sessions(session_disk::SessionStore::acp(id)),
             ),
         );
     }

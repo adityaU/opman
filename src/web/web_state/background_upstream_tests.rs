@@ -2,14 +2,11 @@
 //! the existing single-iteration tests don't reach: the startup poll's
 //! "active session already set" and "no matching sessions" branches, and the
 //! recurring poll's busy-transition path that cancels a pending watcher timer.
-use super::*;
 use crate::api::ApiClient;
-use crate::web::types::*;
 use crate::web::web_state::background_hydration::StartupHydration;
 use crate::web::web_state::WebStateHandle;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 
 async fn mock_server(
     sessions: serde_json::Value,

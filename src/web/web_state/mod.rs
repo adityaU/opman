@@ -18,6 +18,7 @@ mod assistant_routine_exec;
 mod assistant_routines;
 mod assistant_send;
 mod background;
+mod background_disk;
 mod background_hydration;
 mod background_sessions;
 mod background_started;
@@ -444,3 +445,7 @@ mod mod_build_inner_tests;
 #[cfg(test)]
 #[path = "background_started_tests.rs"]
 mod background_started_tests;
+
+#[cfg(test)]
+#[path = "background_disk_tests.rs"]
+mod background_disk_tests;

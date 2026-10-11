@@ -8,12 +8,18 @@ use crate::app::{base_url_ready, try_base_url};
 use super::super::types::*;
 use super::background_hydration::StartupHydration;
 
+/// Combine freshly fetched sessions with the rows the fetch did not speak for.
+///
+/// `refreshed` names the one runner a partial refresh re-listed; every row owned by another
+/// runner — the default one included, whose rows carry no label — is kept as it was. A full
+/// refresh (`None`) fetched the default runner as well, so only labelled rows of the other
+/// runners survive it.
 pub(super) fn merge_runner_sessions(
     project: &super::WebProject,
     default_runner: &str,
     mut fetched: Vec<crate::app::SessionInfo>,
     session_runners: &std::collections::HashMap<String, String>,
-    excluding_runner: Option<&str>,
+    refreshed: Option<&str>,
 ) -> Vec<crate::app::SessionInfo> {
     let fetched_ids: HashSet<String> = fetched.iter().map(|session| session.id.clone()).collect();
     fetched.extend(
@@ -21,10 +27,14 @@ pub(super) fn merge_runner_sessions(
             .sessions
             .iter()
             .filter(|session| {
-                !fetched_ids.contains(&session.id)
-                    && session_runners.get(&session.id).is_some_and(|runner| {
-                        runner != default_runner && Some(runner.as_str()) != excluding_runner
-                    })
+                if fetched_ids.contains(&session.id) {
+                    return false;
+                }
+                let owner = session_runners.get(&session.id).map(String::as_str);
+                match refreshed {
+                    Some(refreshed) => owner.unwrap_or(default_runner) != refreshed,
+                    None => owner.is_some_and(|runner| runner != default_runner),
+                }
             })
             .cloned(),
     );
@@ -94,6 +104,7 @@ impl super::WebStateHandle {
     /// Run one eager startup attempt without waiting for a runner that has not started.
     pub(crate) async fn session_poll_startup(&self, client: &ApiClient) -> StartupHydration {
         let Some(base) = try_base_url() else {
+            self.hydrate_from_disk().await;
             let mut state = self.inner.write().await;
             state.startup_hydration = StartupHydration::NoRunner;
             return StartupHydration::NoRunner;
