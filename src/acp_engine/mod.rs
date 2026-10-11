@@ -30,6 +30,7 @@ mod emit;
 mod handshake;
 mod history;
 mod jsonrpc;
+mod launch;
 mod mcp_servers;
 mod options;
 pub mod patch;

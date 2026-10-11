@@ -8,16 +8,16 @@ use std::sync::Arc;
 use crate::acp_engine::{config, AcpEngine, Session};
 use crate::mcp_registry::{BuiltinFlags, McpRegistry, RegistryHandle};
 
-struct Harness {
-    engine: Arc<AcpEngine>,
-    root: tempfile::TempDir,
-    count: PathBuf,
-    sessions: PathBuf,
+pub(super) struct Harness {
+    pub(super) engine: Arc<AcpEngine>,
+    pub(super) root: tempfile::TempDir,
+    pub(super) count: PathBuf,
+    pub(super) sessions: PathBuf,
     events: PathBuf,
 }
 
 impl Harness {
-    fn new(shared_process: bool) -> Self {
+    pub(super) fn new(shared_process: bool) -> Self {
         let root = tempfile::tempdir().expect("tempdir");
         let script = root.path().join("fake-acp.sh");
         let count = root.path().join("initialize-count");
@@ -54,24 +54,24 @@ impl Harness {
         }
     }
 
-    fn dir(&self, name: &str) -> String {
+    pub(super) fn dir(&self, name: &str) -> String {
         let path = self.root.path().join(name);
         fs::create_dir_all(&path).expect("working directory");
         path.to_string_lossy().into_owned()
     }
 
-    fn sessions(&self, dirs: &[String]) -> Vec<Session> {
+    pub(super) fn sessions(&self, dirs: &[String]) -> Vec<Session> {
         dirs.iter()
             .enumerate()
             .map(|(i, dir)| self.engine.create_session(dir, "", &format!("s{i}")))
             .collect()
     }
 
-    fn initialize_count(&self) -> usize {
+    pub(super) fn initialize_count(&self) -> usize {
         fs::read(&self.count).map(|bytes| bytes.len()).unwrap_or(0)
     }
 
-    fn event_count(&self, event: &str) -> usize {
+    pub(super) fn event_count(&self, event: &str) -> usize {
         fs::read_to_string(&self.events)
             .unwrap_or_default()
             .lines()
@@ -79,7 +79,7 @@ impl Harness {
             .count()
     }
 
-    fn session_count(&self) -> usize {
+    pub(super) fn session_count(&self) -> usize {
         fs::read_to_string(&self.sessions)
             .ok()
             .and_then(|count| count.parse().ok())
@@ -214,43 +214,6 @@ async fn closing_one_session_detaches_and_closing_the_last_kills() {
     assert!(h.engine.conns.existing(&sessions[1].id).await.is_some());
     h.engine.conns.close(&sessions[1].id).await;
     assert!(h.engine.conns.existing(&sessions[1].id).await.is_none());
-}
-
-#[tokio::test]
-async fn eviction_unbinds_every_session_and_next_use_loads_on_a_new_process() {
-    let h = Harness::new(true);
-    let dir = h.dir("project");
-    let sessions = h.sessions(&[dir.clone(), dir]);
-    for session in &sessions {
-        h.engine.conns.ensure(&h.engine, &session.id).await.unwrap();
-    }
-    let affected = h.engine.conns.evict(&sessions[0].id).await;
-    assert_eq!(affected.len(), 1);
-    assert!(h.engine.conns.existing(&sessions[0].id).await.is_none());
-    assert!(h.engine.conns.existing(&sessions[1].id).await.is_none());
-    h.engine
-        .conns
-        .ensure(&h.engine, &sessions[0].id)
-        .await
-        .unwrap();
-    assert_eq!(h.initialize_count(), 2);
-    assert_eq!(h.event_count("load"), 1);
-    h.engine.conns.close_all().await;
-}
-
-#[tokio::test]
-async fn concurrent_first_use_spawns_and_initializes_once() {
-    let h = Harness::new(true);
-    let dir = h.dir("project");
-    let sessions = h.sessions(&[dir.clone(), dir]);
-    let (first, second) = tokio::join!(
-        h.engine.conns.ensure(&h.engine, &sessions[0].id),
-        h.engine.conns.ensure(&h.engine, &sessions[1].id),
-    );
-    assert!(first.is_ok());
-    assert!(second.is_ok());
-    assert_eq!(h.initialize_count(), 1);
-    h.engine.conns.close_all().await;
 }
 
 /// The assumption the whole pool rests on: a real agent serves two concurrent sessions on
