@@ -100,6 +100,10 @@ async fn finish(engine: &Arc<AcpEngine>, session_id: &str, outcome: Result<Value
         Err(e) => {
             let message = e.to_string();
             super::emit_system(engine, session_id, "error", &message);
+            let key_set = std::env::var_os("ANTHROPIC_API_KEY").is_some_and(|key| !key.is_empty());
+            if let Some(hint) = billing_hint(&message, key_set) {
+                super::emit_system(engine, session_id, "warning", &hint);
+            }
             // The connection is gone, not merely erroring; the next prompt must reconnect
             // and resume rather than write into a dead child.
             if message.contains("acp process exited") || message.contains("connection closed") {
@@ -172,3 +176,27 @@ pub async fn abort(engine: Arc<AcpEngine>, session_id: &str) {
     }
     engine.set_busy(session_id, false);
 }
+
+/// "Credit balance is too low" is the Anthropic API refusing a pay-as-you-go key, never a
+/// subscription: the agent found an API key before the user's Claude login. `key_set` says
+/// whether opman's own environment carries one, which is then the culprit.
+fn billing_hint(message: &str, key_set: bool) -> Option<String> {
+    if !message.contains("Credit balance is too low") {
+        return None;
+    }
+    let source = if key_set {
+        "ANTHROPIC_API_KEY is set in the environment opman runs in, and the agent inherits \
+         it. Unset it there (or add it to this agent's envRemove in ~/.config/opman/acp.json)."
+    } else {
+        "It is not ANTHROPIC_API_KEY in opman's environment, so look for `apiKeyHelper` or an \
+         `env` API key in ~/.claude/settings.json, or `primaryApiKey` in ~/.claude.json."
+    };
+    Some(format!(
+        "Claude is billing an Anthropic API key with no credit instead of your Claude \
+         subscription. {source} Then run `claude /login` once."
+    ))
+}
+
+#[cfg(test)]
+#[path = "turn_billing_tests.rs"]
+mod turn_billing_tests;
