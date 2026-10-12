@@ -145,6 +145,7 @@ fn tuned(id: &str, mut config: AgentConfig) -> AgentConfig {
             // Claude's ACP sessionId is the UUID of the transcript it writes under
             // `~/.claude/projects`, which is where its subagent conversations live.
             config.subagent_transcripts = true;
+            config.claude_key_choice = true;
         }
         // No `default_mode`: Codex's ACP modes are approval policies
         // (`read-only`/`agent`/`agent-full-access`), not agents, and the adapter already

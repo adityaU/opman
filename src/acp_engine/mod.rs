@@ -20,6 +20,7 @@
 mod attach;
 pub mod catalog;
 mod choices;
+mod claude_key;
 mod client;
 pub mod config;
 mod conn;

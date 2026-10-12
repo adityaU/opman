@@ -36,6 +36,9 @@ pub(super) fn spawn(agent: &AgentConfig, dir: &str) -> Result<Child> {
     for key in agent.env_removals() {
         cmd.env_remove(key);
     }
+    if agent.claude_key_choice && super::claude_key::unwanted() {
+        cmd.env_remove(super::claude_key::API_KEY_ENV);
+    }
     if let Some(path) = path_with_command_dir(&agent.command, std::env::var_os("PATH")) {
         cmd.env("PATH", path);
     }

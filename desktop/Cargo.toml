@@ -1,6 +1,6 @@
 [package]
 name = "opman-desktop"
-version = "0.9.65"
+version = "0.9.66"
 description = "Desktop shell for opman"
 edition = "2021"
 publish = false

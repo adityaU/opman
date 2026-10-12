@@ -83,6 +83,10 @@ pub struct AgentConfig {
     /// subagent sessions, so this is the one agent-specific enrichment opman keeps — off
     /// unless the agent is known to write Claude-format transcripts.
     pub subagent_transcripts: bool,
+    /// Honour Claude Code's own decision about `ANTHROPIC_API_KEY`. Interactive Claude uses
+    /// the key only if the user approved it, but the headless agent opman runs uses any key
+    /// it finds — billing an API account while the user expects their subscription.
+    pub claude_key_choice: bool,
     pub enabled: bool,
 }
 
@@ -102,6 +106,7 @@ impl Default for AgentConfig {
             default_model: String::new(),
             modes_are_agents: false,
             subagent_transcripts: false,
+            claude_key_choice: false,
             enabled: true,
         }
     }
