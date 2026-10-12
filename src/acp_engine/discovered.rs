@@ -118,6 +118,11 @@ impl AcpEngine {
         self.with_discovered(id, |d| d.setup["configOptions"] = list.clone());
     }
 
+    /// Drop what the agent last reported for `option`, so the next sync pushes it again.
+    pub fn forget_selected(&self, id: &str, option: &str) {
+        self.with_discovered(id, |d| options::clear_current(&mut d.setup, option));
+    }
+
     /// This session's `session/new` reply, for comparing against what the agent has now.
     /// Unlike [`Self::modes`] this is deliberately not cross-session: config options are
     /// per-session state, and reading another session's would push spurious changes.

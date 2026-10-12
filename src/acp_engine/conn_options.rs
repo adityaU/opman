@@ -25,6 +25,7 @@ pub(super) async fn apply_defaults(
 ) {
     for (option, value) in engine.desired_options(session_id) {
         let Some(channel) = super::options::channel_for(setup, &option, &value) else {
+            unoffered(engine, session_id, setup, &option, &value);
             continue;
         };
         push(
@@ -60,6 +61,7 @@ pub(super) async fn sync(
             continue;
         }
         let Some(channel) = super::options::channel_for(&setup, &option, &value) else {
+            unoffered(engine, session_id, &setup, &option, &value);
             continue;
         };
         push(
@@ -111,6 +113,7 @@ async fn push(
         .flatten();
     let Some(fallback) = fallback else {
         debug!(session = %session_id, %option, method = channel.method(), "acp set failed: {failure}");
+        refused(engine, session_id, option, value, &failure);
         return;
     };
     if let Err(failure) = send(
@@ -125,7 +128,35 @@ async fn push(
     .await
     {
         debug!(session = %session_id, %option, method = fallback.method(), "acp set failed: {failure}");
+        refused(engine, session_id, option, value, &failure);
     }
+}
+
+/// A model the session's agent does not list. Said out loud, because the turn would
+/// otherwise run on whatever model the agent was already on, under the chosen one's name.
+/// Other options are left quiet: an effort or mode the agent lacks changes nothing visible.
+fn unoffered(engine: &Arc<AcpEngine>, session_id: &str, setup: &Value, option: &str, value: &str) {
+    // An agent that has listed no models yet has not refused anything.
+    if option != super::options::MODEL || super::options::models(setup).is_empty() {
+        return;
+    }
+    let text = format!("The agent does not offer the model `{value}`; it keeps its current one.");
+    super::emit_system(engine, session_id, "warning", &text);
+}
+
+/// The agent refused a model switch: same reason to surface it as [`unoffered`].
+fn refused(
+    engine: &Arc<AcpEngine>,
+    session_id: &str,
+    option: &str,
+    value: &str,
+    why: &anyhow::Error,
+) {
+    if option != super::options::MODEL {
+        return;
+    }
+    let text = format!("Could not switch the model to `{value}`: {why}");
+    super::emit_system(engine, session_id, "warning", &text);
 }
 
 async fn send(

@@ -50,6 +50,7 @@ mod transcript;
 mod transcript_replay;
 mod turn;
 mod turn_state;
+mod usage;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

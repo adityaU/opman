@@ -62,6 +62,12 @@ export function EngineChip(props: Props) {
     || options.agents.find((a) => a.id === effectiveAgent);
   const agentLabel = agent?.label || effectiveAgent;
   const dot = agentColor(effectiveAgent, agent?.color);
+  // The runner's own name for the model ("Sonnet 5.5"), not its id ("sonnet"): an alias id
+  // reads like a different model than the one picked.
+  const modelLabel = props.currentModel
+    ? options.models.find((m) => m.modelId === props.currentModel)?.modelName
+      ?? shortModelName(props.currentModel)
+    : "Model";
 
   return (
     <>
@@ -77,7 +83,7 @@ export function EngineChip(props: Props) {
         <span className="engine-chip-runner">{RUNNER_LABELS[props.runner] || props.runner}</span>
         <span className="engine-chip-sep" aria-hidden="true" />
         <span className="engine-chip-model">
-          {props.currentModel ? shortModelName(props.currentModel) : "Model"}
+          {modelLabel}
         </span>
         {agentLabel && (
           <>

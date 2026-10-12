@@ -25,7 +25,7 @@ pub fn apply(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
         "user_message_chunk" => user_chunk(engine, session_id, update),
         "tool_call" | "tool_call_update" => tool(engine, session_id, update),
         "plan" => plan(engine, session_id, update),
-        "usage_update" => usage(engine, session_id, update),
+        "usage_update" => super::usage::apply(engine, session_id, update),
         "session_info_update" => info(engine, session_id, update),
         "available_commands_update" => commands(engine, session_id, update),
         "current_mode_update" => mode(engine, session_id, update),
@@ -209,28 +209,6 @@ fn plan_status(status: &str) -> &str {
 
 /// Context and cost for the turn. This is what the `claude -p` engine could never report:
 /// it had no channel for usage, so every session showed zero tokens and zero cost.
-fn usage(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
-    let used = update.get("used").and_then(Value::as_u64).unwrap_or(0);
-    let size = update.get("size").and_then(Value::as_u64).unwrap_or(0);
-    let cost = update
-        .get("cost")
-        .and_then(|c| c.get("amount"))
-        .and_then(Value::as_f64);
-    let tokens = json!({
-        "input": used,
-        "output": 0,
-        "reasoning": 0,
-        "context": { "used": used, "size": size },
-        "cache": { "read": 0, "write": 0 },
-    });
-    let emits = engine.with_transcript(session_id, |t| {
-        let mut out = Vec::new();
-        t.set_usage(tokens, cost, &mut out);
-        out
-    });
-    broadcast(engine, session_id, emits);
-}
-
 fn info(engine: &Arc<AcpEngine>, session_id: &str, update: &Value) {
     if let Some(title) = update.get("title").and_then(Value::as_str) {
         if !title.is_empty() {

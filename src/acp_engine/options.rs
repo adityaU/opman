@@ -8,6 +8,10 @@
 
 use serde_json::{json, Value};
 
+#[path = "options_payload.rs"]
+mod payload;
+pub use payload::provider_payload;
+
 /// Well-known `configOptions` ids. ACP does not reserve these, but they are the ids agents
 /// use in practice, and each maps onto a control opman already has.
 pub const MODE: &str = "mode";
@@ -181,6 +185,30 @@ pub fn selected(setup: &Value, option_id: &str) -> Option<String> {
     }
 }
 
+/// Forget the agent's reported value for one option, on both channels it may live on.
+pub fn clear_current(setup: &mut Value, option_id: &str) {
+    let spec_key = match option_id {
+        MODE => Some(("modes", "currentModeId")),
+        MODEL => Some(("models", "currentModelId")),
+        _ => None,
+    };
+    if let Some((group, key)) = spec_key {
+        if let Some(group) = setup.get_mut(group).and_then(Value::as_object_mut) {
+            group.remove(key);
+        }
+    }
+    let Some(list) = setup.get_mut("configOptions").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for entry in list {
+        if entry.get("id").and_then(Value::as_str) == Some(option_id) {
+            if let Some(entry) = entry.as_object_mut() {
+                entry.remove("currentValue");
+            }
+        }
+    }
+}
+
 /// Record a choice the agent accepted on a channel whose reply carries no state.
 /// `session/set_mode` and `session/set_model` answer with nothing at all, so without this the
 /// next sync would compare against a stale `currentModeId` and push the same value again.
@@ -201,64 +229,6 @@ pub fn note_current(setup: &mut Value, channel: Channel, value: &str) {
     }
 }
 
-/// Model catalog in the opencode `/provider` shape, so the engine picker renders an ACP
-/// agent's models with no special casing.
-///
-/// `permission_modes` rides along on the same payload rather than getting an endpoint of
-/// its own. The picker's permission list was a table keyed by runner name, which a
-/// config-declared agent could never appear in; carrying the agent's own modes here means a
-/// new ACP server arrives with its real modes and no frontend change.
-pub fn provider_payload(
-    agent_id: &str,
-    display_name: &str,
-    models: &[Choice],
-    current_model: Option<&str>,
-    permission_modes: &[Choice],
-    effort_choices: &[Choice],
-) -> Value {
-    let efforts: Vec<&str> = effort_choices
-        .iter()
-        .map(|choice| choice.id.as_str())
-        .collect();
-    // `default` stays listed under the agent's own label ("Default (recommended)"): it is
-    // what a session nobody configured actually runs. Hiding it left the picker showing some
-    // other model for such a session while the agent quietly ran its default.
-    let entries: serde_json::Map<String, Value> = models
-        .iter()
-        .map(|m| {
-            let entry = json!({
-                "id": m.id,
-                "providerID": agent_id,
-                "name": if m.name.is_empty() { &m.id } else { &m.name },
-                "description": m.description,
-                "limit": { "context": 0, "output": 0 },
-                "reasoningEfforts": efforts,
-            });
-            (m.id.clone(), entry)
-        })
-        .collect();
-    let modes: Vec<Value> = permission_modes
-        .iter()
-        .map(|m| {
-            json!({
-                "value": m.id,
-                "label": if m.name.is_empty() { &m.id } else { &m.name },
-                "description": m.description,
-            })
-        })
-        .collect();
-    // The model a fresh session starts on, when the list names it.
-    let default = current_model
-        .filter(|id| !id.is_empty() && entries.contains_key(*id))
-        .map(|id| json!({ agent_id: id }))
-        .unwrap_or_else(|| json!({}));
-    json!({
-        "all": [{ "id": agent_id, "name": display_name, "models": entries }],
-        "connected": [agent_id],
-        "default": default,
-        "permissionModes": modes,
-    })
-}
 
 fn choice_from_value(value: &Value) -> Choice {
     Choice {

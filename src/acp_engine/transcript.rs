@@ -61,6 +61,22 @@ impl Transcript {
         }
     }
 
+    /// Stamp the live message with the model the agent reports it actually ran on, which
+    /// beats the one opman asked for: a switch the agent refused is otherwise invisible.
+    /// Returns whether the stamp changed, so a mismatch is reported once per message.
+    pub fn note_ran_on(&mut self, model: &str, out: &mut Vec<Emit>) -> bool {
+        let Some(&idx) = self.live.as_ref().and_then(|mid| self.index.get(mid)) else {
+            return false;
+        };
+        let info = &mut self.messages[idx].info;
+        if info["model"] == model {
+            return false;
+        }
+        info["model"] = json!(model);
+        out.push(Emit::Message(info.clone()));
+        true
+    }
+
     /// Fold one streamed content chunk into the live assistant message.
     pub fn chunk(
         &mut self,
@@ -261,3 +277,7 @@ impl Transcript {
 #[cfg(test)]
 #[path = "transcript_tests.rs"]
 mod transcript_tests;
+
+#[cfg(test)]
+#[path = "transcript_model_tests.rs"]
+mod transcript_model_tests;
