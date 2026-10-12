@@ -227,14 +227,9 @@ fn provider_payload_shapes_models_like_the_picker_expects() {
     assert_eq!(payload["default"]["claude"], "opus[1m]");
 
     let entries = provider["models"].as_object().expect("models map");
-    // "default" is an alias for whatever the agent would have chosen; showing it next to
-    // the model it resolves to makes the picker ambiguous, so it is dropped.
-    assert!(
-        !entries.contains_key("default"),
-        "keys: {:?}",
-        entries.keys().collect::<Vec<_>>()
-    );
-    assert_eq!(entries.len(), 2);
+    // "default" is what an unconfigured session runs, so it is a real, labelled choice.
+    assert_eq!(entries["default"]["name"], "Default (recommended)");
+    assert_eq!(entries.len(), 3);
     assert_eq!(entries["opus[1m]"]["id"], "opus[1m]");
     assert_eq!(entries["opus[1m]"]["name"], "Opus (1M context)");
     assert_eq!(entries["sonnet"]["description"], "Efficient");
@@ -265,4 +260,23 @@ fn provider_payload_carries_the_agents_own_permission_modes() {
     assert_eq!(listed[0]["description"], "Bypass all checks");
     assert_eq!(listed[1]["value"], "plan");
     assert_eq!(listed[1]["label"], "plan");
+}
+
+/// The reported bug: a session nobody configured runs the agent's `default` (Fable on the
+/// user's account) while the picker, with `default` hidden, showed another model. With
+/// `default` listed and reported as the default, the picker names what will run.
+#[test]
+fn the_default_alias_is_offered_and_can_be_the_reported_default() {
+    let payload = provider_payload(
+        "claude",
+        "Claude",
+        &models(&setup()),
+        Some("default"),
+        &[],
+        &[],
+    );
+    assert_eq!(payload["default"]["claude"], "default");
+    assert!(payload["all"][0]["models"]
+        .as_object()
+        .is_some_and(|m| m.contains_key("default")));
 }

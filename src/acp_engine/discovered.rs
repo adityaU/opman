@@ -157,9 +157,17 @@ impl AcpEngine {
         self.any_session(options::efforts)
     }
 
-    /// The model the agent currently has selected, for the picker's default.
-    pub fn current_model(&self) -> Option<String> {
-        self.any_session(options::current_model)
+    /// The model a fresh session starts on, for the picker's default: the startup probe's,
+    /// never a live session's. A live session's model is whatever its user picked, and
+    /// offering that as the default made the composer show one model while an unconfigured
+    /// session ran another.
+    pub fn starting_model(&self) -> Option<String> {
+        let probed = self
+            .capabilities
+            .lock()
+            .ok()
+            .and_then(|setup| options::current_model(&setup));
+        probed.or_else(|| self.any_session(options::current_model))
     }
 
     /// The permission modes the agent offers, for the engine picker.

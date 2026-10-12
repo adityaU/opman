@@ -220,11 +220,11 @@ pub fn provider_payload(
         .iter()
         .map(|choice| choice.id.as_str())
         .collect();
+    // `default` stays listed under the agent's own label ("Default (recommended)"): it is
+    // what a session nobody configured actually runs. Hiding it left the picker showing some
+    // other model for such a session while the agent quietly ran its default.
     let entries: serde_json::Map<String, Value> = models
         .iter()
-        // "default" is an alias for whatever the agent would pick anyway; listing it beside
-        // the concrete models it resolves to only makes the picker ambiguous.
-        .filter(|m| m.id != "default")
         .map(|m| {
             let entry = json!({
                 "id": m.id,
@@ -247,10 +247,9 @@ pub fn provider_payload(
             })
         })
         .collect();
-    // The agent's selected model, unless it is the `default` alias — which names no entry in
-    // the list above and would leave the picker pointing at nothing.
+    // The model a fresh session starts on, when the list names it.
     let default = current_model
-        .filter(|id| !id.is_empty() && *id != "default" && entries.contains_key(*id))
+        .filter(|id| !id.is_empty() && entries.contains_key(*id))
         .map(|id| json!({ agent_id: id }))
         .unwrap_or_else(|| json!({}));
     json!({

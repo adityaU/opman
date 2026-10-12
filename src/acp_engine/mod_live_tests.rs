@@ -145,7 +145,7 @@ async fn live_capability_probe_populates_models_and_modes() {
         &engine.id,
         &engine.agent.display_name,
         &models,
-        engine.current_model().as_deref(),
+        engine.starting_model().as_deref(),
         &modes,
         &engine.efforts(),
     );

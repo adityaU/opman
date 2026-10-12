@@ -23,7 +23,7 @@ pub(super) async fn provider(State(engine): State<Engine>) -> Json<Value> {
     if engine.models().is_empty() {
         engine.await_probe(PROBE_WAIT).await;
     }
-    let current = engine.current_model();
+    let current = engine.starting_model();
     // An agent whose modes are really its agents has no permission model reachable over
     // ACP — its permissions live in its own config. Reporting an empty list says exactly
     // that, and the picker hides the dropdown rather than offering choices nothing reads.
