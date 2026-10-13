@@ -1,360 +1,115 @@
-
-.message-body table {
-    border-collapse: collapse;
-    margin-bottom: var(--space-2);
-    font-size: var(--font-size-sm)
-}
-
-.message-body th,.message-body td {
-    border: 1px solid var(--color-border-subtle);
-    padding: var(--space-1) var(--space-2)
-}
-
-.message-body th {
-    background: var(--color-bg-element);
-    font-weight: 600
-}
-
-.message-body hr {
-    border: none;
-    height: 1px;
-    background: var(--color-border-subtle);
-    margin: var(--space-4) 0
-}
-
-.message-body pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: var(--font-mono)!important
-}
-
-.message-body code {
-    font-family: var(--font-mono)!important
-}
-
-.inline-code {
-    background: var(--white-5);
-    border: .5px solid var(--white-8);
-    border-radius: var(--radius-sm);
-    padding: 1px 6px;
-    font-family: var(--font-mono);
-    font-size: .9em;
-    color: var(--color-primary)
-}
-
-.token.comment,.token.prolog,.token.doctype,.token.cdata {
-    color: var(--color-syntax-comment);
-    font-style: italic
-}
-
-.token.punctuation {
-    color: var(--color-syntax-punctuation)
-}
-
-.token.property,.token.tag,.token.boolean,.token.constant,.token.symbol,.token.deleted {
-    color: var(--color-syntax-tag)
-}
-
-.token.selector,.token.attr-name,.token.string,.token.char,.token.builtin,.token.inserted {
-    color: var(--color-syntax-string)
-}
-
-.token.operator,.token.entity,.token.url,.language-css .token.string,.style .token.string {
-    color: var(--color-syntax-operator)
-}
-
-.token.atrule,.token.attr-value,.token.keyword {
-    color: var(--color-syntax-keyword)
-}
-
-.token.function,.token.class-name {
-    color: var(--color-syntax-function)
-}
-
-.token.regex,.token.important,.token.variable {
-    color: var(--color-syntax-regex)
-}
-
-.token.number {
-    color: var(--color-syntax-number)
-}
-
-.token.important,.token.bold {
-    font-weight: 700
-}
-
-.token.italic {
-    font-style: italic
-}
-
-.token.entity {
-    cursor: help
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0)
-    }
-
-    to {
-        transform: rotate(360deg)
-    }
-}
-
-.message-turn-search-match {
-    background: color-mix(in srgb, var(--color-secondary) 6%, transparent);
-    border-top: 2px solid color-mix(in srgb, var(--color-secondary) 30%, transparent)
-}
-
-.message-turn-active-match {
-    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
-    border-top: 2px solid var(--color-primary)
-}
-
-.message-action-btn.bookmarked {
-    color: var(--color-warning)
-}
-
-/* ── Session retry banner ────────────────────────── */
-
-.session-retry-banner {
-    padding: var(--space-2) var(--space-4);
-    margin: 0 auto;
-    max-width: 52rem
-}
-
-.session-retry-inner {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-error) 20%, transparent)
-}
-
-.session-retry-spinner {
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--color-error);
-    animation: spin 1.2s linear infinite
-}
-
-.session-retry-content {
-    min-width: 0;
-    flex: 1
-}
-
-.session-retry-message {
-    display: flex;
+/* Memory toggle in user message header (same row as agent badge) */
+.memory-header-toggle {
+    margin-left: auto;
+    display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    color: var(--color-error);
-    font-size: var(--font-size-sm);
-    word-break: break-word
+    padding: 1px 8px 1px 4px;
+    border: .5px solid var(--white-6);
+    border-radius: var(--radius-full);
+    background: var(--white-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color .15s,border-color .15s
 }
 
-.session-retry-message svg {
+.memory-header-toggle:hover {
+    color: var(--color-text);
+    border-color: var(--white-10)
+}
+
+.memory-header-chevron {
+    transition: transform .15s;
     flex-shrink: 0
 }
 
-.session-retry-info {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    margin-top: 2px
+.memory-header-toggle.open .memory-header-chevron {
+    transform: rotate(90deg)
 }
 
-/* ── File context pills (user messages with @file mentions) ───── */
-
-.file-context-pills {
+.memory-accordion-body {
+    margin-top: var(--space-1);
+    margin-bottom: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--white-3);
+    border: .5px solid var(--white-6);
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 6px
+    flex-direction: column;
+    gap: var(--space-1)
 }
 
-.file-context-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: var(--radius);
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    background: var(--color-bg-element);
-    border: 1px solid var(--color-border-subtle);
+.memory-accordion-item {
+    font-size: var(--font-size-2xs);
+    line-height: 1.5;
+    color: var(--color-text-muted)
+}
+
+.memory-accordion-item-label {
+    font-weight: 600;
     color: var(--color-text-secondary)
 }
 
-.file-context-pill svg {
-    flex-shrink: 0;
-    opacity: .6
+.memory-accordion-item-content::before {
+    content: ": "
+}
+/* ── System notification bubble (claude engine: task-notifications, reminders) ── */
+.message-turn-notification {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-1) var(--space-4);
+}
+.message-turn-notification .notification-bubble {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 80%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-text-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-element);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  opacity: 0.85;
+}
+.message-turn-notification .notification-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.message-turn-notification .notification-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Surfaced claude system messages — warnings & errors get a colored, solid accent
+   so they stand apart from muted info notifications. */
+.message-turn-notification .notification-bubble.notification-warning {
+  border-style: solid;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  opacity: 1;
+}
+.message-turn-notification .notification-bubble.notification-error {
+  border-style: solid;
+  border-color: var(--color-error);
+  color: var(--color-error);
+  opacity: 1;
 }
 
-.file-context-pill-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 260px;
-    direction: rtl;
-    text-align: left
-}
-
-/* ── Image attachments in message turns ─────────────────── */
-
-.message-image-attachments {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 6px 0 4px;
-}
-
-.message-image-thumb {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    max-width: 200px;
-}
-
-.message-image-thumb img {
-    border-radius: var(--radius);
-    max-width: 200px;
-    max-height: 180px;
-    object-fit: cover;
-    border: 1px solid var(--color-border);
-    cursor: pointer;
-    transition: opacity .15s;
-}
-
-.message-image-thumb img:hover { opacity: .85 }
-
-.message-image-name {
-    font-size: 10px;
+/* Runner-handoff transcript: prior context, collapsed by default and rendered
+   as pre-formatted turns rather than as the user's own message. */
+.handoff-accordion-body {
+    max-height: 320px;
+    overflow: auto;
+    margin: var(--space-1) 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
     color: var(--color-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* ── Pending reply placeholder ─────────────────────────────────────────
-   Shown between submitting a prompt and the assistant's first visible output.
-   Runners that spawn a CLI (claude --bg) leave a multi-second gap there. Shares
-   the compaction banner's token-only construction so both the glassy and flat
-   themes are covered without an override. */
-.pending-reply {
-    padding: 0 var(--space-4) var(--space-3);
-    margin: 0 auto;
-    max-width: 52rem;
-    width: 100%;
-    animation: compaction-fade-in 0.2s ease;
-}
-
-/* One inline row, not a card: in flight is a transient state and a full-width
-   boxed banner costs a whole message's worth of vertical space to say so. */
-.pending-reply-inner {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-width: 0;
-    max-width: 100%;
-}
-
-.pending-reply-inner .tool-spin-icon,
-.pending-reply-icon {
-    flex-shrink: 0;
-    color: var(--color-accent);
-}
-
-/* Turn finished with no output — a verdict, so tint it as a caution rather than
-   leaving accent styling that still reads as "in progress". */
-.pending-reply-settled .pending-reply-inner {
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-full, 999px);
-    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-warning) 26%, transparent);
-}
-
-.pending-reply-settled .pending-reply-icon,
-.pending-reply-settled .pending-reply-label {
-    color: var(--color-warning);
-}
-
-.pending-reply-label {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.pending-reply-detail {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* ── Compaction: live banner + completed summary card ─────────────────
-   Compaction is a blocking summarization that streams nothing, so the banner is the
-   only in-flight signal. Built from plain --color-* tokens so it works in both the
-   glassy and flat themes with no per-theme override. */
-@keyframes compaction-fade-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.compaction-banner {
-    padding: var(--space-2) var(--space-4);
-    margin: 0 auto;
-    max-width: 52rem;
-    animation: compaction-fade-in 0.2s ease;
-}
-
-.compaction-banner-inner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
-}
-
-.compaction-banner-inner .tool-spin-icon {
-    flex-shrink: 0;
-    color: var(--color-accent);
-}
-
-.compaction-banner-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.compaction-banner-title {
-    color: var(--color-accent);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-}
-
-.compaction-banner-sub {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-    margin-top: 1px;
-}
-
-/* Completed compaction card — reuses the notification bubble shell with an accent tint. */
-.message-turn-notification .notification-bubble.notification-compact {
-    border-style: solid;
-    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-element));
-    color: var(--color-text);
-    opacity: 1;
-    align-items: center;
-}
-
-.notification-compact .compaction-summary-meta {
-    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }

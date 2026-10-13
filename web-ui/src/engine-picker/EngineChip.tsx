@@ -12,6 +12,8 @@ import type { AgentInfo } from "../api";
 import { agentColor, shortModelName, RUNNER_LABELS } from "../prompt-input/helpers";
 import { EnginePalette } from "./EnginePalette";
 import { useEngineOptions } from "./useEngineOptions";
+import { UsageRing } from "./UsageRing";
+import { useRunnerUsage } from "../usage/useUsage";
 
 interface Props {
   runner: string;
@@ -54,6 +56,11 @@ export function EngineChip(props: Props) {
     props.onPermissionChange,
   );
 
+  // The chip's usage glance. Loading here (deduplicated and cached for a minute by the
+  // store) means the gauge is on screen before anyone opens the palette.
+  const { account } = useRunnerUsage(props.runner);
+  const runnerName = RUNNER_LABELS[props.runner] || props.runner;
+
   // What the next prompt will actually run as. An unset agent means "the runner's own
   // default", which is the first agent it lists — so the chip names it rather than
   // writing it back into the session just to have something to show.
@@ -80,7 +87,10 @@ export function EngineChip(props: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="engine-chip-runner">{RUNNER_LABELS[props.runner] || props.runner}</span>
+        <span className="engine-chip-runner">
+          {runnerName}
+          <UsageRing account={account} runnerLabel={runnerName} />
+        </span>
         <span className="engine-chip-sep" aria-hidden="true" />
         <span className="engine-chip-model">
           {modelLabel}

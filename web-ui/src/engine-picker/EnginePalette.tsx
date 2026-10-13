@@ -6,16 +6,23 @@
  * one decision — which engine answers the next turn — and changing the runner
  * silently invalidated the other two. Here the dependency is visible: pick a
  * runner and the lists below reload for it, in place, without closing.
+ *
+ * Each runner row also shows how much its account has left, because "which
+ * runner" is partly "which one can still take the turn". Usage is read from a
+ * shared store (usage/usageStore.ts) that this surface refreshes on open.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, Check, Cpu, Bot, Zap } from "lucide-react";
-import type { AgentInfo } from "../api";
+import { Search, Cpu, Bot, Zap } from "lucide-react";
 import { useEscape } from "../hooks/useKeyboard";
 import { useFocusTrap } from "../hooks/useFocusTrap";
-import type { EngineOptions, ModelOption } from "./useEngineOptions";
+import { useUsage } from "../usage/useUsage";
+import { accountForRunner } from "../usage/format";
+import type { EngineOptions } from "./useEngineOptions";
 import { EngineSettingsRow } from "./EngineSettingsRow";
 import { startRunner } from "./startRunner";
+import { buildRows, runnerLabel, type Row } from "./paletteRows";
+import { ChoiceRow, GroupHeader, RowsSkeleton, RunnerRow, UsageHeaderStatus } from "./EngineRows";
 
 interface Props {
   runner: string;
@@ -40,17 +47,15 @@ interface Props {
   options: EngineOptions;
 }
 
-type Row =
-  | { kind: "runner"; id: string; label: string; selected: boolean }
-  | { kind: "model"; id: string; label: string; hint: string; selected: boolean; model: ModelOption }
-  | { kind: "agent"; id: string; label: string; hint: string; selected: boolean; agent: AgentInfo };
-
-const RUNNER_LABELS: Record<string, string> = {
-  opencode: "OpenCode",
-  "claude-code": "Claude Code",
-  claude: "Claude",
-  codex: "Codex",
-};
+/** A clock that moves while the palette is open, so "resets in 4m" does not freeze. */
+function useNow(intervalMs = 30_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(timer);
+  }, [intervalMs]);
+  return now;
+}
 
 export function EnginePalette(props: Props) {
   const [query, setQuery] = useState("");
@@ -60,6 +65,10 @@ export function EnginePalette(props: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [startingRunner, setStartingRunner] = useState<string | null>(null);
   const [runnerError, setRunnerError] = useState<string | null>(null);
+  // Opening the palette is the moment usage matters; the store makes this a no-op
+  // when the chip (or another composer) fetched it within the last minute.
+  const usage = useUsage();
+  const now = useNow();
 
   useEscape(props.onClose);
   useFocusTrap(panelRef);
@@ -76,47 +85,17 @@ export function EnginePalette(props: Props) {
     }
   }, []);
 
-  const { models, agents, permissionModes, loading } = props.options;
+  const { models, agents, permissionModes, loadingModels, loadingAgents } = props.options;
 
-  const rows = useMemo<Row[]>(() => {
-    const q = query.trim().toLowerCase();
-    const match = (...fields: string[]) =>
-      !q || fields.some((field) => field.toLowerCase().includes(q));
-
-    const runnerRows: Row[] = props.availableRunners
-      .filter((id) => match(id, RUNNER_LABELS[id] || id))
-      .map((id) => ({
-        kind: "runner" as const,
-        id,
-        label: RUNNER_LABELS[id] || id,
-        selected: id === props.runner,
-      }));
-
-    const modelRows: Row[] = models
-      .filter((m) => match(m.modelName, m.modelId, m.providerName))
-      .map((m) => ({
-        kind: "model" as const,
-        id: `${m.providerId}/${m.modelId}`,
-        label: m.modelName,
-        hint: m.providerName,
-        selected: props.selectedModel?.modelID === m.modelId
-          && props.selectedModel?.providerID === m.providerId,
-        model: m,
-      }));
-
-    const agentRows: Row[] = agents
-      .filter((a) => !a.hidden && match(a.label || a.id, a.id, a.description || ""))
-      .map((a) => ({
-        kind: "agent" as const,
-        id: a.id,
-        label: a.label || a.id,
-        hint: a.description || "",
-        selected: a.id === props.selectedAgent,
-        agent: a,
-      }));
-
-    return [...runnerRows, ...modelRows, ...agentRows];
-  }, [query, props.availableRunners, props.runner, models, agents, props.selectedModel, props.selectedAgent]);
+  const rows = useMemo<Row[]>(() => buildRows({
+    query,
+    runner: props.runner,
+    availableRunners: props.availableRunners,
+    models,
+    agents,
+    selectedModel: props.selectedModel,
+    selectedAgent: props.selectedAgent,
+  }), [query, props.availableRunners, props.runner, models, agents, props.selectedModel, props.selectedAgent]);
 
   useEffect(() => { setCursor(0); }, [query, props.runner]);
 
@@ -152,18 +131,38 @@ export function EnginePalette(props: Props) {
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setCursor((c) => Math.max(0, c - 1));
-    } else if (event.key === "Enter" && rows[cursor]) {
+    } else if (event.key === "Enter" && rows[cursor] && ownsEnter(event.target)) {
       event.preventDefault();
       void choose(rows[cursor]);
     }
   };
 
+  // Enter picks the cursor row from the search field, the panel, or a row — but not from
+  // the refresh button or the footer controls, which have their own Enter.
+  const ownsEnter = (target: EventTarget) =>
+    target === inputRef.current || target === panelRef.current
+    || (target instanceof HTMLElement && target.classList.contains("engine-row"));
+
   useEffect(() => {
     const active = listRef.current?.querySelector<HTMLElement>(".engine-row.is-cursor");
-    active?.scrollIntoView({ block: "nearest" });
+    active?.scrollIntoView?.({ block: "nearest" });
   }, [cursor]);
 
-  let lastKind = "";
+  const shell = (row: Row, index: number) => ({
+    index,
+    cursor,
+    onHover: setCursor,
+    onChoose: () => void choose(row),
+  });
+
+  const indexed = rows.map((row, index) => ({ row, index }));
+  const runnerRows = indexed.filter(({ row }) => row.kind === "runner");
+  const modelRows = indexed.filter(({ row }) => row.kind === "model");
+  const agentRows = indexed.filter(({ row }) => row.kind === "agent");
+  const label = runnerLabel(props.runner);
+  // Skeletons stand in for a list that is coming, never for a search that matched nothing.
+  const modelsPending = loadingModels && models.length === 0 && !query;
+  const agentsPending = loadingAgents && agents.length === 0 && !query;
 
   return createPortal(
     <div className="engine-palette-backdrop modal-backdrop" onMouseDown={props.onClose}>
@@ -177,7 +176,7 @@ export function EnginePalette(props: Props) {
         onKeyDown={onKeyDown}
       >
         <div className="engine-palette-search">
-          <Search size={14} />
+          <Search size={14} aria-hidden="true" />
           <input
             ref={inputRef}
             className="engine-palette-input"
@@ -188,47 +187,44 @@ export function EnginePalette(props: Props) {
           />
         </div>
 
-        <div className="engine-palette-list" ref={listRef} role="listbox">
-          {rows.length === 0 && (
-            <p className="engine-palette-empty">
-              {loading ? `Loading ${props.runner} options…` : `Nothing matches “${query}”.`}
-            </p>
-          )}
+        <div className="engine-palette-list" ref={listRef} role="listbox" aria-label="Runners, models and agents">
+          {runnerError && <p className="engine-palette-notice" role="alert">{runnerError}</p>}
           {startingRunner && (
-            <p className="engine-palette-empty" role="status">
-              Starting {RUNNER_LABELS[startingRunner] || startingRunner}…
-            </p>
+            <span className="skel-sr-only" role="status">Starting {runnerLabel(startingRunner)}…</span>
           )}
-          {runnerError && (
-            <p className="engine-palette-empty" role="alert">{runnerError}</p>
+
+          {runnerRows.length > 0 && (
+            <GroupHeader icon={<Zap size={11} aria-hidden="true" />} title="Runner">
+              <UsageHeaderStatus usage={usage} now={now} />
+            </GroupHeader>
           )}
-          {rows.map((row, index) => {
-            const header = row.kind !== lastKind ? row.kind : null;
-            lastKind = row.kind;
-            return (
-              <div key={`${row.kind}-${row.id}`}>
-                {header && (
-                  <div className="engine-group">
-                    {header === "runner" && <><Zap size={11} /> Runner</>}
-                    {header === "model" && <><Cpu size={11} /> Model · {props.runner}</>}
-                    {header === "agent" && <><Bot size={11} /> Agent · {props.runner}</>}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={row.selected}
-                  className={`engine-row${row.selected ? " is-selected" : ""}${index === cursor ? " is-cursor" : ""}`}
-                  onMouseEnter={() => setCursor(index)}
-                  onClick={() => void choose(row)}
-                >
-                  <span className="engine-row-label">{row.label}</span>
-                  {"hint" in row && row.hint && <span className="engine-row-hint">{row.hint}</span>}
-                  {row.selected && <Check size={13} className="engine-row-check" />}
-                </button>
-              </div>
-            );
-          })}
+          {runnerRows.map(({ row, index }) => row.kind === "runner" && (
+            <RunnerRow
+              key={row.id}
+              {...shell(row, index)}
+              row={row}
+              account={accountForRunner(usage.report, row.id)}
+              usage={usage}
+              starting={startingRunner === row.id}
+              now={now}
+            />
+          ))}
+
+          {(modelRows.length > 0 || modelsPending) && (
+            <GroupHeader icon={<Cpu size={11} aria-hidden="true" />} title="Model" context={label} />
+          )}
+          {modelsPending && <RowsSkeleton kind="model" label={`Loading ${label} models`} />}
+          {modelRows.map(({ row, index }) => row.kind === "model" && <ChoiceRow key={row.id} {...shell(row, index)} row={row} />)}
+
+          {(agentRows.length > 0 || agentsPending) && (
+            <GroupHeader icon={<Bot size={11} aria-hidden="true" />} title="Agent" context={label} />
+          )}
+          {agentsPending && <RowsSkeleton kind="agent" label={`Loading ${label} agents`} />}
+          {agentRows.map(({ row, index }) => row.kind === "agent" && <ChoiceRow key={row.id} {...shell(row, index)} row={row} />)}
+
+          {rows.length === 0 && !modelsPending && !agentsPending && (
+            <p className="engine-palette-empty">Nothing matches “{query}”.</p>
+          )}
         </div>
 
         <EngineSettingsRow

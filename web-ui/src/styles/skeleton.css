@@ -1,0 +1,94 @@
+/* ── Skeleton placeholders ────────────────────────────────────────────
+   Shape-matched loading blocks (skeleton/Skeleton.tsx). Every tone is mixed
+   from --color-text, so a block reads as "ink not yet printed" on any
+   surface: translucent glassy panels, opaque flat ones, light or dark. */
+
+.skel {
+    position: relative;
+    display: block;
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    /* A placeholder is never a target. */
+    pointer-events: none;
+    user-select: none;
+}
+
+.skel--pill { border-radius: var(--radius-full); }
+.skel--circle { border-radius: 50%; }
+
+/* The sweep: a soft band of the same ink crossing the block. Transform-only,
+   so it composites without touching layout. */
+.skel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+        transparent 100%
+    );
+    animation: skel-sweep 1.5s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+
+@keyframes skel-sweep {
+    to { transform: translateX(100%); }
+}
+
+/* Reduced motion: the block stays, the sweep goes. Both the media query and
+   the component's own data attribute, so neither path can be missed. */
+.skel[data-motion="static"]::after { content: none; animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .skel::after { content: none; animation: none; }
+}
+
+
+.skel-lines {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.skel-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── List-row placeholders (SkeletonRows) ────────────────────────────
+   Layout only; the real row class passed in supplies padding and height. */
+
+.skel-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: default;
+}
+
+.skel-row-text {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+}
+
+.skel-row--stacked .skel-row-text {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+/* Placeholders are not hover targets, whatever row class they borrowed. */
+.skel-rows .skel-row:hover { background: none; }

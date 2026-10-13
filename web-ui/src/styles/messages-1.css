@@ -241,16 +241,6 @@
     }
 }
 
-@keyframes shimmer {
-    0% {
-        transform: translate(-400px)
-    }
-
-    to {
-        transform: translate(400px)
-    }
-}
-
 .message-shimmer {
     width: 100%;
     flex: 1;
@@ -284,14 +274,4 @@
     align-items: center;
     gap: var(--space-2);
     margin-bottom: var(--space-1)
-}
-
-.shimmer-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--color-bg-element);
-    position: relative;
-    overflow: hidden
 }

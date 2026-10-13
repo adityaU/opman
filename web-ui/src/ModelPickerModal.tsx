@@ -3,6 +3,7 @@ import { useEscape } from "./hooks/useKeyboard";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { useProviders } from "./hooks/useProviders";
 import { Search, Cpu, Check, RefreshCw } from "lucide-react";
+import { SkeletonRows } from "./skeleton/Skeleton";
 
 interface Props {
   onClose: () => void;
@@ -170,7 +171,7 @@ export function ModelPickerModal({ onClose, onCloseSilent, sessionId, currentRun
         </div>
         <div className="model-picker-results" ref={listRef}>
           {providers.loading ? (
-            <div className="model-picker-empty">Loading providers...</div>
+            <SkeletonRows label="Loading models" count={6} rowClassName="model-picker-item" layout="stacked" />
           ) : providers.error ? (
             <div className="model-picker-empty model-picker-error">
               {providers.error}

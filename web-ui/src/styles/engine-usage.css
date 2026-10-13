@@ -1,0 +1,232 @@
+/* ── Engine palette: runner usage ─────────────────────────────────────
+   Runner rows carry their account's remaining usage (engine-picker/
+   RunnerUsage.tsx). Healthy windows are plain ink; colour is spent only on
+   a window running low, so the eye goes straight to trouble. */
+
+.engine-row.engine-runner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 14px;
+    align-items: center;
+    gap: 6px 18px;
+    min-height: 48px;
+    padding: 8px 8px 8px 10px;
+}
+
+.engine-runner-id {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.engine-runner-name {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.engine-runner .engine-row-label { max-width: none; }
+
+.engine-runner-plan {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    letter-spacing: .02em;
+}
+
+.engine-runner-detail:empty { display: none; }
+
+.engine-runner-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.engine-runner-meta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.engine-runner-meta svg { flex-shrink: 0; }
+.engine-runner-note.is-warning { color: var(--color-warning); }
+.engine-runner-meta.is-starting { color: var(--color-primary); }
+
+.engine-runner-meta code {
+    padding: 0 4px;
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+}
+
+/* ── Meters ───────────────────────────────────────────────────────────
+   One grid for all of a runner's windows; each meter's parts are grid
+   items (display: contents) so labels, bars and numbers align in columns. */
+
+.usage-meters {
+    display: grid;
+    grid-template-columns: auto 76px 4ch auto;
+    align-items: center;
+    gap: 5px 8px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 1.2;
+    transition: opacity var(--transition-fast);
+}
+
+.usage-meters.is-dim { opacity: .55; }
+.usage-meter { display: contents; }
+
+.usage-meter-label { white-space: nowrap; }
+
+.usage-meter-track {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 4px;
+    overflow: hidden;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-text) 11%, transparent);
+}
+
+/* Full width, scaled to what is left: transform animates on the compositor,
+   and the track's own radius and overflow round the end. */
+.usage-meter-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-origin: left center;
+    background: color-mix(in srgb, var(--color-text) 64%, transparent);
+    transition: transform .4s var(--ease-out-expo);
+}
+
+.usage-meter-value {
+    color: var(--color-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.usage-meter-reset {
+    min-width: 13ch;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.usage-meter[data-severity="warning"] .usage-meter-fill { background: var(--color-warning); }
+.usage-meter[data-severity="warning"] .usage-meter-value { color: var(--color-warning); }
+.usage-meter[data-severity="critical"] .usage-meter-fill { background: var(--color-error); }
+.usage-meter[data-severity="critical"] .usage-meter-value { color: var(--color-error); }
+
+/* Skeleton meters take the same columns; the bar placeholder fills its cell. */
+.usage-meters[data-loading] .skel.usage-meter-track { width: 100%; }
+.usage-meters[data-loading] .skel.usage-meter-reset { min-width: 0; }
+
+/* ── Runner header status ─────────────────────────────────────────── */
+
+.engine-usage-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: var(--color-text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.engine-usage-status > span + span::before {
+    content: "·";
+    margin-right: 6px;
+    opacity: .7;
+}
+
+.engine-usage-status .is-warning { color: var(--color-warning); }
+
+.engine-usage-refresh {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin: -4px -2px -4px 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--shell-radius-control);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.engine-usage-refresh:hover:not(:disabled) {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.engine-usage-refresh:disabled { cursor: default; }
+.engine-usage-refresh.is-busy svg { animation: engine-usage-spin .9s linear infinite; }
+
+.engine-usage-refresh:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+@keyframes engine-usage-spin { to { transform: rotate(360deg); } }
+
+/* ── Chip gauge ───────────────────────────────────────────────────── */
+
+.prompt-engine-chip .engine-chip-usage {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: 2px;
+    color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+.engine-chip-usage circle {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.engine-chip-usage-track { opacity: .22; }
+.engine-chip-usage-arc { stroke-linecap: round; transition: stroke-dasharray .4s var(--ease-out-expo); }
+
+.engine-chip-usage[data-severity="warning"],
+.engine-chip-usage.is-alert { color: var(--color-warning); }
+.engine-chip-usage[data-severity="critical"] { color: var(--color-error); }
+.engine-chip-usage.is-stale { opacity: .6; }
+
+@media (prefers-reduced-motion: reduce) {
+    .engine-usage-refresh.is-busy svg { animation: none; }
+    .usage-meter-fill,
+    .engine-chip-usage-arc { transition: none; }
+}
+
+/* ── Small screens: meters drop under the runner name, full width ─── */
+@media (max-width: 560px) {
+    .engine-row.engine-runner {
+        grid-template-columns: minmax(0, 1fr) 14px;
+        gap: 8px 10px;
+    }
+
+    .engine-runner-id { grid-column: 1; grid-row: 1; }
+    .engine-runner .engine-row-check { grid-column: 2; grid-row: 1; }
+
+    .engine-runner .usage-meters {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        grid-template-columns: auto minmax(48px, 1fr) 4ch auto;
+    }
+}

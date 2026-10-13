@@ -100,6 +100,10 @@
     font-size: var(--font-size-xs)
 }
 
+.subagent-skeleton {
+    padding: var(--space-3) var(--space-4);
+}
+
 /* ── A2UI inline loading placeholder ───────────────────────────── */
 
 .a2ui-loading {

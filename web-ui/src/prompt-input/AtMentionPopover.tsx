@@ -5,9 +5,10 @@
  * that file is a bag of small presentational pieces and this is no longer one.
  */
 import React from "react";
-import { AtSign, File, Folder, Loader2 } from "lucide-react";
+import { AtSign, File, Folder } from "lucide-react";
 import type { AgentInfo, FileSearchEntry } from "../api";
 import { agentColor } from "./helpers";
+import { SkeletonRows } from "../skeleton/Skeleton";
 
 
 interface AtMentionPopoverProps {
@@ -137,10 +138,7 @@ export function AtMentionPopover({
             );
           })}
           {fileLoading && !hasFiles && (
-            <div className="composer-popover-loading">
-              <Loader2 size={12} className="spinning" />
-              <span>Searching files…</span>
-            </div>
+            <SkeletonRows label="Searching files" count={3} rowClassName="composer-popover-row" lead="icon" />
           )}
         </>
       )}

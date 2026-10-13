@@ -50,6 +50,7 @@ mod theme;
 mod theme_gen;
 mod todo_db;
 mod ui;
+mod usage;
 mod util;
 mod vim_mode;
 mod web;

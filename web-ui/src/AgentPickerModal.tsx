@@ -4,6 +4,7 @@ import { useFocusTrap } from "./hooks/useFocusTrap";
 import { Search, Bot, Check } from "lucide-react";
 import { fetchAgents, type AgentInfo } from "./api";
 import { agentColor } from "./utils/theme";
+import { SkeletonRows } from "./skeleton/Skeleton";
 
 /**
  * Filter agents the same way opencode does: hide agents with mode "subagent"
@@ -138,7 +139,7 @@ export function AgentPickerModal({ onClose, currentAgent, currentRunner = "openc
         </div>
         <div className="agent-picker-results" ref={listRef}>
           {loading ? (
-            <div className="agent-picker-empty">Loading agents...</div>
+            <SkeletonRows label="Loading agents" count={4} rowClassName="agent-picker-item" lead="dot" layout="stacked" />
           ) : error ? (
             <div className="agent-picker-empty agent-picker-error">{error}</div>
           ) : filtered.length === 0 ? (

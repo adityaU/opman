@@ -9,6 +9,8 @@ use super::super::sse;
 
 #[path = "../handlers/runner_handlers.rs"]
 mod runner_handlers;
+#[path = "../handlers/usage_handlers.rs"]
+mod usage_handlers;
 
 pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
     let api_routes = Router::new()
@@ -34,6 +36,7 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/project/add", post(handlers::add_project))
         .route("/project/remove", post(handlers::remove_project))
         .route("/runner/select", post(runner_handlers::select_runner))
+        .route("/usage", get(usage_handlers::get_usage))
         // Directory browsing (for add-project picker)
         .route("/dirs/home", get(handlers::home_dir))
         .route("/dirs/browse", post(handlers::browse_dirs))

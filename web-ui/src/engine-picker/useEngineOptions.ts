@@ -40,6 +40,10 @@ export interface EngineOptions {
    */
   permissionModes: PermissionModeOption[] | null;
   loading: boolean;
+  /** The runner's model catalogue is still being read. */
+  loadingModels: boolean;
+  /** The runner's agent list is still being read. */
+  loadingAgents: boolean;
 }
 
 export function useEngineOptions(
@@ -125,5 +129,7 @@ export function useEngineOptions(
     agents,
     permissionModes,
     loading: providers.loading || loadingAgents,
+    loadingModels: providers.loading,
+    loadingAgents,
   };
 }

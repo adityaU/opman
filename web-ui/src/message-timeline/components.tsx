@@ -4,6 +4,7 @@ import { EXAMPLE_PROMPTS } from "./types";
 import { OpmanMark } from "../OpmanMark";
 import type { CommandId } from "../keybindings/types";
 import { useChordLabeller } from "../keybindings/useChord";
+import { Skeleton, SkeletonGroup } from "../skeleton/Skeleton";
 
 /**
  * Placeholder for a turn that is under way but has produced nothing visible
@@ -35,53 +36,33 @@ export function PendingReply({
   );
 }
 
-/** Shimmer skeleton shown while messages are loading. */
+/** The transcript's opening turns: role, then line widths. Fixed, so nothing jitters. */
+const SHIMMER_TURNS: Array<["user" | "assistant", string[]]> = [
+  ["user", ["55%", "35%"]],
+  ["assistant", ["90%", "75%", "60%", "45%"]],
+  ["user", ["40%"]],
+  ["assistant", ["80%", "65%", "50%"]],
+];
+
+/**
+ * Placeholder turns shown while a transcript loads, shaped like real turns. Built on the
+ * shared Skeleton, so the sweep respects `prefers-reduced-motion` like every other one.
+ */
 export function MessageShimmer() {
   return (
-    <div className="message-shimmer" aria-label="Loading messages">
-      <div className="shimmer-turn shimmer-user">
-        <div className="shimmer-content">
-          <div className="shimmer-header-row">
-            <div className="shimmer-avatar" />
-            <div className="shimmer-line shimmer-role-label" />
+    <SkeletonGroup label="Loading messages" className="message-shimmer">
+      {SHIMMER_TURNS.map(([role, lines], turn) => (
+        <div key={turn} className={`shimmer-turn shimmer-${role}`}>
+          <div className="shimmer-content">
+            <div className="shimmer-header-row">
+              <Skeleton shape="circle" width={24} height={24} />
+              <Skeleton width={60} height={10} />
+            </div>
+            {lines.map((width, line) => <Skeleton key={line} width={width} height={12} />)}
           </div>
-          <div className="shimmer-line shimmer-w-55" />
-          <div className="shimmer-line shimmer-w-35" />
         </div>
-      </div>
-      <div className="shimmer-turn shimmer-assistant">
-        <div className="shimmer-content">
-          <div className="shimmer-header-row">
-            <div className="shimmer-avatar" />
-            <div className="shimmer-line shimmer-role-label" />
-          </div>
-          <div className="shimmer-line shimmer-w-90" />
-          <div className="shimmer-line shimmer-w-75" />
-          <div className="shimmer-line shimmer-w-60" />
-          <div className="shimmer-line shimmer-w-45" />
-        </div>
-      </div>
-      <div className="shimmer-turn shimmer-user">
-        <div className="shimmer-content">
-          <div className="shimmer-header-row">
-            <div className="shimmer-avatar" />
-            <div className="shimmer-line shimmer-role-label" />
-          </div>
-          <div className="shimmer-line shimmer-w-40" />
-        </div>
-      </div>
-      <div className="shimmer-turn shimmer-assistant">
-        <div className="shimmer-content">
-          <div className="shimmer-header-row">
-            <div className="shimmer-avatar" />
-            <div className="shimmer-line shimmer-role-label" />
-          </div>
-          <div className="shimmer-line shimmer-w-80" />
-          <div className="shimmer-line shimmer-w-65" />
-          <div className="shimmer-line shimmer-w-50" />
-        </div>
-      </div>
-    </div>
+      ))}
+    </SkeletonGroup>
   );
 }
 

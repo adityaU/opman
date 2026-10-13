@@ -1,0 +1,124 @@
+/* ── Engine palette: settings footer ──────────────────────────────────
+   Effort and permission for the chosen runner. They are settings of the
+   engine, not choices in the list, so they sit in a recessed footer well
+   below it rather than competing with the rows. */
+
+.engine-settings {
+    display: flex;
+    align-items: center;
+    gap: 10px 20px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-top: 1px solid var(--modal-hairline);
+    background: color-mix(in srgb, var(--color-text) 3%, transparent);
+    flex-shrink: 0;
+}
+
+.engine-settings:empty { display: none; }
+
+.engine-setting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.engine-setting-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.engine-effort {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.engine-effort button {
+    padding: 3px 10px;
+    border: none;
+    border-radius: calc(var(--radius) - 2px);
+    background: none;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.engine-effort button:hover { color: var(--color-text); }
+
+.engine-effort button.is-selected {
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+.engine-permission {
+    /* The OS control paints its own light chrome and ignores the theme, so it
+       reads as a foreign object on a themed surface. Draw it ourselves and
+       supply the chevron the native appearance took with it. */
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 4px 26px 4px 9px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--shell-radius-control);
+    background-color: color-mix(in srgb, var(--color-text) 5%, transparent);
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 13px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px);
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.engine-permission:hover { border-color: var(--color-border); }
+
+/* The dropdown list itself is drawn by the OS: name its colours so it does not
+   fall back to white-on-white in a dark theme. */
+.engine-permission option {
+    background: var(--color-bg-panel);
+    color: var(--color-text);
+}
+
+.engine-effort button:focus-visible,
+.engine-permission:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+html.flat-theme .engine-settings { background: var(--color-bg-secondary); }
+
+html.flat-theme .engine-effort,
+html.flat-theme .engine-permission { background-color: var(--color-bg-element); }
+
+@media (max-width: 560px) {
+    .engine-settings {
+        gap: 10px 16px;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .engine-effort button {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
+
+    .engine-permission {
+        padding: 8px 30px 8px 12px;
+        font-size: 12px;
+    }
+}
+
+@media (pointer: coarse) {
+    .engine-effort button { min-height: 32px; }
+    .engine-permission { min-height: 34px; }
+}

@@ -4,6 +4,7 @@ import { MessageTimeline } from "./MessageTimeline";
 import { fetchSessionMessages } from "./api";
 import { SESSION_IDLE, SESSION_BUSY } from "./hooks/sse/types";
 import { Loader2, CheckCircle2, XCircle, Bot, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
+import { SkeletonGroup, SkeletonLines } from "./skeleton/Skeleton";
 
 interface SubagentSessionProps {
   sessionId: string;
@@ -157,10 +158,9 @@ export const SubagentSession = React.memo(function SubagentSession({
       {expanded && (
         <>
           {isFetching ? (
-            <div className="subagent-empty">
-              <Loader2 size={14} className="tool-spin-icon" />
-              <span>Loading task output...</span>
-            </div>
+            <SkeletonGroup label="Loading task output" className="subagent-skeleton">
+              <SkeletonLines lines={3} />
+            </SkeletonGroup>
           ) : !hasMessages ? (
             <div className="subagent-empty">
               {isRunning ? (

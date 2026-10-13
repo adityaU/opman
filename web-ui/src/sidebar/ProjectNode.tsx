@@ -12,6 +12,8 @@ import { TaskGroupNode, type TaskGroup } from "./TaskGroupNode";
 import { formatTime } from "./formatTime";
 import type { SessionTaskLink } from "./useSessionTaskLinks";
 import { groupSessions } from "./sessionGroups";
+import { groupByTask, splitSessionTree } from "./sessionTree";
+import { SkeletonRows } from "../skeleton/Skeleton";
 
 export interface ProjectNodeProps {
   project: ProjectInfo;
@@ -109,31 +111,12 @@ export function ProjectNode({
   expandedKanbanTask,
   onToggleKanbanTaskExpand,
 }: ProjectNodeProps) {
-  const { parentSessions, childrenMap, hasActive } = useMemo(() => {
-    const parents: SessionInfo[] = [];
-    const children: Map<string, SessionInfo[]> = new Map();
-
-    for (const s of project.sessions) {
-      if (!s.parentID || s.parentID === "") {
-        parents.push(s);
-      } else {
-        const list = children.get(s.parentID) || [];
-        list.push(s);
-        children.set(s.parentID, list);
-      }
-    }
-
-    // Recency only: pinned rows are lifted out by `groupSessions`, which holds them
-    // above the date headings rather than sorting them to the top of one.
-    parents.sort((a, b) => b.time.updated - a.time.updated);
-
-    let active = false;
-    for (const s of project.sessions) {
-      if (isSessionBusy(s.id)) { active = true; break; }
-    }
-
-    return { parentSessions: parents, childrenMap: children, hasActive: active };
-  }, [project.sessions, busyKey, pinnedSessions]);
+  const { parentSessions, childrenMap, hasActive } = useMemo(
+    () => splitSessionTree(project.sessions, isSessionBusy),
+    // busyKey stands in for isSessionBusy, which is a new function every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [project.sessions, busyKey, pinnedSessions],
+  );
 
   const filteredParents = useMemo(() => {
     const visible = listedAbove && listedAbove.size > 0
@@ -145,40 +128,11 @@ export function ProjectNode({
     );
   }, [parentSessions, searchQuery, listedAbove]);
 
-  // Split parents into kanban-task groups (shown grouped under the task title)
-  // and the rest. Task-linked sessions are pulled out of the plain list so they
-  // appear only under their task — keeping the normal list free of them.
-  const { taskGroups, ungroupedParents } = useMemo(() => {
-    if (!sessionTaskLinks || sessionTaskLinks.size === 0) {
-      return { taskGroups: [] as TaskGroup[], ungroupedParents: filteredParents };
-    }
-    const byTask = new Map<string, TaskGroup>();
-    const ungrouped: SessionInfo[] = [];
-    for (const s of filteredParents) {
-      const link = sessionTaskLinks.get(s.id);
-      if (!link) { ungrouped.push(s); continue; }
-      // Archived tasks (and their sessions) are hidden from the sidebar entirely.
-      if (link.archived) continue;
-      let group = byTask.get(link.taskId);
-      if (!group) {
-        group = {
-          taskId: link.taskId,
-          taskTitle: link.taskTitle || s.title || s.id.slice(0, 12),
-          // filteredParents is recency-sorted, so the first session seen carries
-          // the group's most-recent lane colour (the active stage in pipelines).
-          laneColor: link.laneColor,
-          lastUpdated: 0,
-          sessions: [],
-        };
-        byTask.set(link.taskId, group);
-      }
-      group.sessions.push(s);
-      if (s.time.updated > group.lastUpdated) group.lastUpdated = s.time.updated;
-    }
-    // filteredParents is already sorted (pinned, then recency), so group order
-    // and per-group order follow that ordering by first-seen insertion.
-    return { taskGroups: Array.from(byTask.values()), ungroupedParents: ungrouped };
-  }, [filteredParents, sessionTaskLinks]);
+  // Task-linked sessions appear only under their kanban task, not in the plain list.
+  const { taskGroups, ungroupedParents } = useMemo(
+    () => groupByTask(filteredParents, sessionTaskLinks),
+    [filteredParents, sessionTaskLinks],
+  );
 
   // Bucketed against the render's own clock rather than a ticking one: the
   // headings only need to be right when the list changes, and re-grouping every
@@ -318,13 +272,12 @@ export function ProjectNode({
             </React.Fragment>
           ))}
 
-          {hasMore && (
-            <button
-              className="sb-show-more"
-              onClick={onShowMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? "Loading…" : `Show ${remainingSessions} more`}
+          {hasMore && loadingMore && (
+            <SkeletonRows label="Loading more sessions" count={3} rowClassName="sb-session" layout="stacked" />
+          )}
+          {hasMore && !loadingMore && (
+            <button className="sb-show-more" onClick={onShowMore}>
+              {`Show ${remainingSessions} more`}
             </button>
           )}
         </div>
