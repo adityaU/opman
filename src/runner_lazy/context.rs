@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use crate::acp_engine::supervisor::AcpSupervisor;
 use crate::acp_engine::AcpEngine;
-use crate::runner::{Runner, RunnerRegistry};
+use crate::runner::{Runner, RunnerKind, RunnerRegistry};
 use crate::server::ServerHandle;
 
 /// Everything a successful start produced.
@@ -31,7 +31,9 @@ pub struct LazyStart {
 pub struct LazyContext {
     registry: OnceLock<Weak<RunnerRegistry>>,
     supervisor: OnceLock<Weak<AcpSupervisor>>,
-    handles: Mutex<Vec<ServerHandle>>,
+    /// Child processes, by the runner that started them, so one runner can be stopped
+    /// without touching the others.
+    handles: Mutex<Vec<(RunnerKind, ServerHandle)>>,
 }
 
 impl LazyContext {
@@ -49,18 +51,30 @@ impl LazyContext {
 
     /// Register a child process with the shutdown path. Servers started after boot have to
     /// end up in the same list the Ctrl+C handler walks, or they outlive opman.
-    pub fn push_handle(&self, handle: ServerHandle) {
+    pub fn push_handle(&self, kind: RunnerKind, handle: ServerHandle) {
         if let Ok(mut handles) = self.handles.lock() {
-            handles.push(handle);
+            handles.push((kind, handle));
         }
     }
 
     /// The handles registered so far, for the shutdown path to kill.
     pub fn handles(&self) -> Vec<ServerHandle> {
-        match self.handles.lock() {
-            Ok(handles) => handles.clone(),
-            Err(poisoned) => poisoned.into_inner().clone(),
-        }
+        let handles = match self.handles.lock() {
+            Ok(handles) => handles,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        handles.iter().map(|(_, handle)| handle.clone()).collect()
+    }
+
+    /// Remove and return one runner's handles, for stopping that runner alone.
+    pub fn take_handles(&self, kind: &RunnerKind) -> Vec<ServerHandle> {
+        let mut handles = match self.handles.lock() {
+            Ok(handles) => handles,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let (taken, kept) = handles.drain(..).partition(|(owner, _)| owner == kind);
+        *handles = kept;
+        taken.into_iter().map(|(_, handle)| handle).collect()
     }
 
     pub(crate) fn registry(&self) -> Option<Arc<RunnerRegistry>> {

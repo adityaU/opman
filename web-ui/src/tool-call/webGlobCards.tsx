@@ -210,7 +210,8 @@ export function GlobCard({ part }: { part: MessagePart }) {
   const isError = status === "error";
   const isRunning = status === "running" || status === "pending";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
-  const pattern = str(input.pattern || input.glob || input.regex || input.query);
+  // Agents that send no arguments (Codex) describe the search in the call's title instead.
+  const pattern = str(input.pattern || input.glob || input.regex || input.query) || str(state?.title);
   const path = str(input.path || input.dir || input.directory || input.cwd);
   const output = state?.output ?? "";
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;

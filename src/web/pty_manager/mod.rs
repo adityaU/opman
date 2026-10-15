@@ -27,7 +27,6 @@ pub use kind::{PtyKind, PtyProgram, SpawnSpec};
 pub use manager::start_web_pty_manager;
 pub use session::PtySession;
 
-#[cfg(test)]
 pub(crate) use buffer::RawOutputBuffer;
 #[cfg(test)]
 pub(crate) use manager::pty_test_support;

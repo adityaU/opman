@@ -180,7 +180,7 @@ fn clear_short_ids_drops_ids_and_ignores_empty() {
 fn spawn_reaper_disabled_returns_without_spawning() {
     let e = engine();
     // OPMAN_CLAUDE_REAP=0 short-circuits before any tokio::spawn (so no runtime needed).
-    with_env("OPMAN_CLAUDE_REAP", Some("0"), || spawn_reaper(e.clone()));
+    assert!(with_env("OPMAN_CLAUDE_REAP", Some("0"), || spawn_reaper(e.clone())).is_none());
 }
 
 // ---- reap_once full sweep via a stubbed binary ------------------------

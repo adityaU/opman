@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
-import { newSession, sendMessage, abortSession } from "../api";
+import { newSession, sendMessage, abortSession, readHandoff } from "../api";
 import type { AppState, ImageAttachment } from "../api";
 import type { Message, PermissionRequest, QuestionRequest } from "../types";
 import type { PaneContext } from "./WorkspaceRoot";
@@ -30,6 +30,8 @@ export interface WorkspaceShellDeps {
   readonly openAgentPicker: () => void;
   readonly runSlashCommand: (command: string, args?: string) => Promise<void> | void;
   readonly onError: (message: string) => void;
+  /** A pane's send moved its conversation to another runner. */
+  readonly onHandoff?: (runner: string | null) => void;
   readonly subagentMessages: Map<string, Message[]>;
   readonly isBookmarked: (messageId: string) => boolean;
   readonly toggleBookmark: (
@@ -179,7 +181,7 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
         }
       }
       try {
-        await sendMessage(
+        const reply = await sendMessage(
           sid,
           text,
           engine.model ?? undefined,
@@ -191,6 +193,13 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
           engine.effort ?? undefined,
           engine.permission || undefined,
         );
+        // A runner switch forks the conversation into a new session; the pane
+        // follows it there, or its next send would go back to the old runner.
+        const handoff = readHandoff(reply);
+        if (handoff) {
+          latest.current.onHandoff?.(handoff.runner);
+          return { ok: true, sessionId: handoff.sessionId };
+        }
         return { ok: true, sessionId: sid };
       } catch {
         latest.current.onError("Failed to send message");

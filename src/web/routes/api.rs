@@ -5,10 +5,13 @@ use axum::Router;
 use super::super::editor_ws;
 use super::super::handlers;
 use super::super::mcp_ws;
+use super::super::pty_stream;
 use super::super::sse;
 
 #[path = "../handlers/runner_handlers.rs"]
 mod runner_handlers;
+#[path = "../handlers/runner_limits_handlers.rs"]
+mod runner_limits_handlers;
 #[path = "../handlers/usage_handlers.rs"]
 mod usage_handlers;
 
@@ -37,6 +40,11 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/project/remove", post(handlers::remove_project))
         .route("/runner/select", post(runner_handlers::select_runner))
         .route("/usage", get(usage_handlers::get_usage))
+        .route(
+            "/runner-limits",
+            get(runner_limits_handlers::get_runner_limits)
+                .put(runner_limits_handlers::put_runner_limits),
+        )
         // Directory browsing (for add-project picker)
         .route("/dirs/home", get(handlers::home_dir))
         .route("/dirs/browse", post(handlers::browse_dirs))
@@ -52,7 +60,8 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/pty/rename", post(handlers::pty_rename))
         .route("/pty/kill", post(handlers::pty_kill))
         .route("/pty/sessions", get(handlers::pty_sessions))
-        .route("/pty/stream", get(sse::terminal_stream))
+        .route("/pty/stream", get(pty_stream::terminal_stream))
+        .route("/pty/ws", get(pty_stream::terminal_socket))
         // Browser panes: a headless Chromium tab per browser widget. Reads go out as a
         // compact `[ref=eN]` outline rather than HTML — see `crate::browser`.
         .route("/browser/open", post(handlers::browser_open))

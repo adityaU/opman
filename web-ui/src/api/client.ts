@@ -5,7 +5,7 @@ import type {
   TodoItem,
   OpenCodeEvent,
 } from "../types";
-import { apiUrl, IS_HOME } from "./base";
+import { apiUrl, IS_HOME, serverBase } from "./base";
 
 export interface BrowserInstallCommand {
   readonly label: string;
@@ -278,4 +278,17 @@ export async function homeRequest<T = void>(
   body?: unknown,
 ): Promise<T> {
   return maybeJson<T>(await guard(await fetch(`/api${path}`, json(method, body))));
+}
+
+/**
+ * A JSON request to one particular server, home or a relayed remote, whichever server
+ * this page is on — how settings reads and sets each server's own configuration.
+ */
+export async function serverRequest<T = void>(
+  serverId: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return maybeJson<T>(await guard(await fetch(`${serverBase(serverId)}/api${path}`, json(method, body))));
 }

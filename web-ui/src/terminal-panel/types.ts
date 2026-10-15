@@ -1,3 +1,4 @@
+import type { PtyConnection } from "./ptyConnection";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -37,7 +38,8 @@ export interface TerminalRuntime {
   term: Terminal;
   fit: FitAddon;
   search: SearchAddon;
-  sse: EventSource | null;
+  /** The line to the PTY; null until the shell is reached. */
+  connection: PtyConnection | null;
   observer: ResizeObserver | null;
 }
 

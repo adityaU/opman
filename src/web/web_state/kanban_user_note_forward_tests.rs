@@ -10,7 +10,7 @@ use crate::web::types::default_board;
 use crate::web::web_state::WebStateHandle;
 
 fn ensure_base_url() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:9".to_string());
+    crate::app::init_base_url("http://127.0.0.1:9".to_string());
 }
 
 fn seed_board(h: &WebStateHandle, board_id: &str, project: &str) {

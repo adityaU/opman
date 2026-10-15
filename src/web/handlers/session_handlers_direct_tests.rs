@@ -15,7 +15,7 @@ use serde_json::json;
 /// Point the global upstream base-url at an unreachable loopback port so proxy
 /// requests fail fast (connection refused) instead of panicking.
 fn init_base_url() {
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1/".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1/".to_string());
 }
 
 /// Redirect config/state writes to a throwaway temp dir (once per process) so

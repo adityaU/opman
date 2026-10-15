@@ -608,6 +608,11 @@ pub fn parse_str(content: &str, session_id: &str) -> ParsedSession {
                     } else {
                         errtext
                     };
+                    // A spent plan reads "Claude AI usage limit reached|<ts>": tag it so
+                    // the UI can offer a runner that still has allowance.
+                    if let Some(limit) = crate::usage::limit_error::tag(&errtext) {
+                        out.messages[idx].info["limit"] = limit;
+                    }
                     out.messages[idx].info["error"] = json!(errtext);
                 }
             }
@@ -1198,3 +1203,7 @@ mod jsonl_parsing_tests;
 #[cfg(test)]
 #[path = "jsonl_fs_tests.rs"]
 mod jsonl_fs_tests;
+
+#[cfg(test)]
+#[path = "jsonl_limit_tests.rs"]
+mod jsonl_limit_tests;

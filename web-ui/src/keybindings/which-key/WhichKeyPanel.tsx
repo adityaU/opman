@@ -43,6 +43,7 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
   const [elapsed, setElapsed] = useState(false);
 
   const delay = config.whichKey.delayMs;
+  const visible = Boolean(config.whichKey.enabled && pending && (elapsed || revealed));
 
   useEffect(() => {
     if (!pending) {
@@ -55,6 +56,12 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
     const timer = setTimeout(() => setElapsed(true), delay);
     return () => clearTimeout(timer);
   }, [pending, delay]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    const timer = setTimeout(listener.cancel, config.whichKey.timeoutMs);
+    return () => clearTimeout(timer);
+  }, [visible, pending, revealed, config.whichKey.timeoutMs, listener.cancel]);
 
   const groups = useMemo(() => {
     if (!pending) return [];
@@ -70,7 +77,7 @@ export function WhichKeyPanel({ listener }: WhichKeyPanelProps) {
   }, [pending, keymap, mode, context, config.whichKey.sortBy]);
 
   if (!config.whichKey.enabled) return null;
-  if (!pending || (!elapsed && !revealed)) return null;
+  if (!pending || !visible) return null;
   if (groups.length === 0) return null;
 
   const breadcrumb = pending.steps.map((step) => displayStep(step, host.platform, mode)).join(" ");

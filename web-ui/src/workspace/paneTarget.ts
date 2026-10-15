@@ -16,7 +16,7 @@ import {
   jumpHistory,
   recordTarget,
 } from "./history";
-import { mapPane } from "./tree";
+import { mapPane, panes } from "./tree";
 import type { Node, PaneId, PaneNode, WidgetState } from "./types";
 
 /**
@@ -62,4 +62,20 @@ export function jumpPaneHistory(node: Node, id: PaneId, index: number, seq: numb
 function moveTo(pane: PaneNode, index: number, seq: number): PaneNode {
   const moved = jumpHistory(pane.history, index, seq);
   return moved ? { ...pane, widget: moved.widget, history: moved.history } : pane;
+}
+
+/**
+ * Move every chat pane on conversation `from` to `to`, recorded in each pane's trail.
+ *
+ * A runner switch forks the conversation into a new session; the panes that were
+ * showing it go with it, and Back returns to the session they left.
+ */
+export function followSession(node: Node, from: string, to: string): Node {
+  let root = node;
+  for (const pane of panes(node)) {
+    const widget = pane.widget;
+    if (widget?.kind !== "chat" || widget.sessionId !== from) continue;
+    root = openWidget(root, pane.id, { ...widget, sessionId: to });
+  }
+  return root;
 }

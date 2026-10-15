@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState, useLayoutEffect } from "react";
+import { SelectionAsk } from "../selection-ask/SelectionAsk";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, Loader2 } from "lucide-react";
 import type { SessionInfo } from "../api";
@@ -435,6 +436,7 @@ export function MessageTimeline({
         {compactionBanner}
         {pendingIndicator}
         {jumpButton}
+        <SelectionAsk containerRef={containerRef} sessionId={activeSessionId ?? null} onSend={onSendPrompt} />
       </div>
     );
   }
@@ -452,6 +454,7 @@ export function MessageTimeline({
         {pendingIndicator}
       </div>
       {jumpButton}
+      <SelectionAsk containerRef={containerRef} sessionId={activeSessionId ?? null} onSend={onSendPrompt} />
     </div>
   );
 }

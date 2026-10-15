@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_CONFIG } from "../keybindings/config";
+import { DEFAULT_CONFIG, pendingChordTimeout } from "../keybindings/config";
 import { KeymapProvider } from "../keybindings/KeymapContext";
 import { useCommand, useCommands, useWhenContext } from "../keybindings/useCommand";
 import { useKeymapListener } from "../keybindings/useKeymapListener";
@@ -100,7 +100,7 @@ describe("keymap dispatch", () => {
       expect(screen.getByTestId("pending").textContent).toBe("1");
 
       act(() => {
-        vi.advanceTimersByTime(DEFAULT_CONFIG.chordTimeoutMs + 10);
+        vi.advanceTimersByTime(pendingChordTimeout(DEFAULT_CONFIG) + 10);
       });
       expect(screen.getByTestId("pending").textContent).toBe("0");
     } finally {

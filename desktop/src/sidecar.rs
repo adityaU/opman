@@ -3,13 +3,14 @@
 use std::fmt;
 use std::fs::File;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::port::Port;
 use crate::shell_path;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -19,27 +20,6 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
 /// Nothing is sent before the kill on Windows, so there is nothing to wait for.
 #[cfg(not(unix))]
 const SHUTDOWN_GRACE: Duration = Duration::ZERO;
-
-/// A loopback port opman serves its web UI on.
-#[derive(Clone, Copy)]
-pub struct Port(u16);
-
-impl Port {
-    /// Asks the OS for a free port. Another process could take it before opman
-    /// binds it, but opman then exits and the splash reports it.
-    pub fn ephemeral() -> io::Result<Self> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-        Ok(Self(listener.local_addr()?.port()))
-    }
-
-    fn addr(self) -> SocketAddr {
-        SocketAddr::from((Ipv4Addr::LOCALHOST, self.0))
-    }
-
-    pub fn url(self) -> Result<url::Url, url::ParseError> {
-        url::Url::parse(&format!("http://{}/", self.addr()))
-    }
-}
 
 pub enum SidecarError {
     Port(io::Error),
@@ -116,7 +96,7 @@ impl Sidecar {
                 "--device-browser",
             ])
             .arg("--web-port")
-            .arg(port.0.to_string())
+            .arg(port.number().to_string())
             // The child holds the write end; when this app dies for any reason the
             // pipe closes and opman exits instead of lingering.
             .stdin(Stdio::piped())

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { browserOwnsKey } from "../browser-panel/capture";
 import { editorOwnsKey } from "../code-editor/capture";
 import { stepFromEvent } from "./chord";
+import { pendingChordTimeout } from "./config";
 import { useKeymapContext } from "./KeymapContext";
 import type { Keymap, MatchContext } from "./matcher";
 import type { ChordStep } from "./types";
@@ -95,8 +96,8 @@ export function useKeymapListener(): KeymapListenerState {
     [],
   );
 
+  const timeoutMs = pendingChordTimeout(config);
   useEffect(() => {
-    const timeoutMs = config.chordTimeoutMs;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const clearTimer = () => {
@@ -188,7 +189,7 @@ export function useKeymapListener(): KeymapListenerState {
       document.removeEventListener("keydown", onKeyDown, true);
       clearTimer();
     };
-  }, [config.chordTimeoutMs, ascend]);
+  }, [timeoutMs, ascend]);
 
   return { pending, revealed, cancel, ascend };
 }

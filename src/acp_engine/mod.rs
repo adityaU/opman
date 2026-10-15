@@ -18,6 +18,7 @@
 //! [`routes`] the opencode-compatible REST + SSE surface.
 
 mod attach;
+mod archive;
 pub mod catalog;
 mod choices;
 mod claude_key;
@@ -47,6 +48,8 @@ pub mod supervisor;
 mod terminal;
 mod terminal_io;
 mod tool;
+mod tool_kind;
+mod tool_output;
 mod transcript;
 mod transcript_replay;
 mod turn;
@@ -234,15 +237,19 @@ fn emit_system(engine: &Arc<AcpEngine>, session_id: &str, level: &str, text: &st
     };
     let ts = now_ms();
     let mid = format!("msg_sys_{session_id}_{ts}");
-    engine.emit(
-        &session.directory,
-        "message.updated",
-        json!({ "info": {
-            "role": "system", "variant": variant, "level": level,
-            "id": mid, "sessionID": session_id,
-            "time": { "created": ts, "completed": ts },
-        }}),
-    );
+    let mut info = json!({
+        "role": "system", "variant": variant, "level": level,
+        "id": mid, "sessionID": session_id,
+        "time": { "created": ts, "completed": ts },
+    });
+    // A provider limit is tagged here, once, so the UI can offer another runner without
+    // reading the prose itself.
+    if variant == "error" {
+        if let Some(limit) = crate::usage::limit_error::tag(text) {
+            info["limit"] = limit;
+        }
+    }
+    engine.emit(&session.directory, "message.updated", json!({ "info": info }));
     engine.emit(
         &session.directory,
         "message.part.updated",
@@ -305,3 +312,7 @@ pub async fn start_embedded_server(
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod mod_tests;
+
+#[cfg(test)]
+#[path = "emit_limit_tests.rs"]
+mod emit_limit_tests;

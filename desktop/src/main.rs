@@ -3,6 +3,7 @@
 
 mod boot;
 mod chrome;
+mod port;
 mod shell_path;
 mod sidecar;
 mod splash;

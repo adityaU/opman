@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager, WebviewWindow};
 
-use crate::sidecar::{Port, Sidecar, SidecarError};
+use crate::port::Port;
+use crate::sidecar::{Sidecar, SidecarError};
 use crate::splash::Splash;
 
 pub const MAIN_WINDOW: &str = "main";
@@ -85,7 +86,8 @@ fn log_path(app: &AppHandle) -> Result<PathBuf, BootError> {
 
 fn start(app: &AppHandle, window: &WebviewWindow, log_path: &Path) -> Result<(), BootError> {
     let sidecar = app.state::<Sidecar>();
-    let port = Port::ephemeral().map_err(SidecarError::Port)?;
+    // The same port as last launch, so the page keeps its saved windows and panes.
+    let port = Port::remembered(&app.path().app_data_dir()?.join("port")).map_err(SidecarError::Port)?;
     sidecar.spawn(port, log_path)?;
     sidecar.wait_until_ready(port, STARTUP_TIMEOUT)?;
     window.navigate(port.url()?)?;

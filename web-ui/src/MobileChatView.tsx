@@ -141,6 +141,7 @@ export const MobileChatView: React.FC<MobileChatViewProps> = function MobileChat
         currentRunner={p.selectedRunner}
         availableRunners={p.availableRunners}
         onRunnerChange={p.handleRunnerChange}
+        messages={p.messages}
         supportedEfforts={p.supportedEfforts}
         effort={p.effort}
         permission={p.permission}

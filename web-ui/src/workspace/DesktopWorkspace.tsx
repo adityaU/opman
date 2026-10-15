@@ -13,6 +13,7 @@ import { useWorkspacePlacement } from "./useWorkspacePlacement";
 import { useWorkspaceBridge } from "./useWorkspaceBridge";
 import { useBusyWindows, useTargetSlots } from "./useWorkspaceSlots";
 import { postToParent } from "../embed/embedMode";
+import { useFollowHandoffs } from "./useFollowHandoffs";
 import { useWorkspaceWidgets } from "./useWorkspaceWidgets";
 import { useWorkspace } from "./useWorkspace";
 import { useTerminalActivity } from "./useTerminalActivity";
@@ -118,6 +119,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = function Deskto
   });
 
   const { chatServices, renderWidget } = useWorkspaceWidgets({ state, dispatch, chat, onError });
+  useFollowHandoffs(dispatch);
 
   const placement = useWorkspacePlacement({
     projects,

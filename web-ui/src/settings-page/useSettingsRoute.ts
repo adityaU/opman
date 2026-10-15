@@ -18,7 +18,9 @@ export const SETTINGS_SECTIONS = [
   "appearance",
   "keybindings",
   "servers",
+  "projects",
   "acp",
+  "limits",
   "mcp",
   "skills",
 ] as const;

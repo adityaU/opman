@@ -26,6 +26,7 @@ pub(in super::super) async fn probe_capabilities(engine: &Arc<AcpEngine>) -> Res
     std::fs::create_dir_all(&dir)?;
     let dir = dir.to_string_lossy().to_string();
 
+    super::super::archive::ensure_installed(&engine.agent).await?;
     let mut child = launch::spawn(&engine.agent, &dir)?;
     let stdin = child.stdin.take().context("acp probe child has no stdin")?;
     let stdout = child
@@ -51,6 +52,8 @@ pub(in super::super) async fn probe_capabilities(engine: &Arc<AcpEngine>) -> Res
 
 /// Spawn the configured server and negotiate the process-wide capabilities.
 pub(super) async fn spawn_and_negotiate(engine: &Arc<AcpEngine>, dir: &str) -> Result<Pooled> {
+    // An agent that ships as an archive is downloaded on its first start.
+    super::super::archive::ensure_installed(&engine.agent).await?;
     let mut child = launch::spawn(&engine.agent, dir)?;
     let stdin = child.stdin.take().context("acp child has no stdin")?;
     let stdout = child.stdout.take().context("acp child has no stdout")?;

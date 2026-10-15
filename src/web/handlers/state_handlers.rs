@@ -103,12 +103,9 @@ pub async fn list_themes(
     State(_state): State<ServerState>,
     _auth: AuthUser,
 ) -> WebResult<impl IntoResponse> {
-    use include_dir::{include_dir, Dir};
-    static OPENCODE_THEMES: Dir = include_dir!("$CARGO_MANIFEST_DIR/opencode-themes");
-
     let mut themes: Vec<ThemePreview> = Vec::new();
 
-    for entry in OPENCODE_THEMES.files() {
+    for entry in crate::theme::builtin::files() {
         if let Some(name) = entry.path().file_stem() {
             let name_str = name.to_string_lossy().to_string();
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(entry.contents()) {

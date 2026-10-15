@@ -1,0 +1,216 @@
+/* Runner usage limits: the composer strip (rlim-bar) and the settings list.
+
+   The strip sits on the composer's top edge and takes its tint from the level:
+   warning for "running low", error for "out", primary for "moved". Glassy keeps
+   the tint translucent over the blur, like the composer card under it; flat uses
+   the opaque soft tokens with a hairline border. */
+
+.rlim-bar {
+    --rlim-tone: var(--color-warning);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    /* Same axis and width as the composer card under it. */
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--composer-max-width, var(--chat-max-width));
+    margin: 0 auto var(--space-2);
+    padding: 6px 8px 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--rlim-tone) 34%, transparent);
+    border-radius: var(--radius);
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+}
+
+.rlim-bar--out { --rlim-tone: var(--color-error); }
+.rlim-bar--moved { --rlim-tone: var(--color-primary); }
+
+html:not(.flat-theme) .rlim-bar {
+    background: color-mix(in srgb, var(--rlim-tone) 12%,
+        color-mix(in srgb, var(--color-bg-panel) 76%, transparent));
+    backdrop-filter: blur(14px);
+}
+
+html.flat-theme .rlim-bar {
+    background: color-mix(in srgb, var(--rlim-tone) 10%, var(--color-bg-element));
+    border-color: color-mix(in srgb, var(--rlim-tone) 28%, var(--color-border));
+}
+
+.rlim-icon {
+    flex-shrink: 0;
+    color: var(--rlim-tone);
+}
+
+.rlim-text {
+    display: flex;
+    flex: 1 1 180px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--space-2);
+    min-width: 0;
+}
+
+.rlim-head {
+    font-weight: 600;
+}
+
+.rlim-sub {
+    color: var(--color-text-muted);
+}
+
+.rlim-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    min-width: 0;
+}
+
+.rlim-select {
+    max-width: 260px;
+    min-width: 0;
+    padding: 3px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    color: var(--color-text);
+    font: inherit;
+    text-overflow: ellipsis;
+}
+
+.rlim-select:focus-visible,
+.rlim-btn:focus-visible,
+.rlim-icon-btn:focus-visible {
+    outline: 1px solid var(--color-border-active);
+    outline-offset: 1px;
+}
+
+.rlim-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.rlim-btn:hover:not(:disabled) {
+    background: var(--theme-surface-hover);
+}
+
+.rlim-btn--primary {
+    border-color: transparent;
+    background: var(--rlim-tone);
+    color: var(--color-on-accent);
+    font-weight: 600;
+}
+
+.rlim-btn--primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--rlim-tone) 84%, var(--color-text));
+}
+
+.rlim-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.rlim-icon-btn {
+    display: inline-flex;
+    padding: 4px;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.rlim-icon-btn:hover {
+    color: var(--color-text);
+    background: var(--theme-surface-hover);
+}
+
+@media (max-width: 768px) {
+    .rlim-actions {
+        flex: 1 1 100%;
+    }
+
+    .rlim-select {
+        flex: 1;
+        max-width: none;
+    }
+}
+
+/* ── Settings: the fallback list ──────────────────────────────────── */
+
+.rlim-empty {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.rlim-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rlim-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 6px 8px;
+    border: 1px solid var(--modal-hairline);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    font-size: var(--font-size-sm);
+}
+
+.rlim-rank {
+    width: 18px;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+.rlim-runner {
+    font-weight: 600;
+}
+
+.rlim-model {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rlim-item-actions {
+    display: inline-flex;
+    gap: 2px;
+}
+
+/* Two pickers share the row; the button keeps its own width. */
+.rlim-adder {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    margin-top: var(--space-3);
+    align-items: end;
+}
+
+.rlim-adder-action {
+    align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+    .rlim-adder {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

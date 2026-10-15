@@ -241,8 +241,10 @@ pub(crate) fn tick_tailer(
 const ABSENT_POLLS_BEFORE_IDLE: u32 = 3;
 
 /// Poll `claude agents --json` and reconcile busy/idle for all known sessions.
-pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
-    tokio::spawn(async move {
+///
+/// Returns the task's abort handle, so disabling the runner can stop the poller.
+pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) -> tokio::task::AbortHandle {
+    let task = tokio::spawn(async move {
         // uuid → consecutive polls missing from the agent list (debounce, see above).
         let mut absent: HashMap<String, u32> = HashMap::new();
         // uuids we've observed actively running this process — so we only surface a
@@ -271,6 +273,7 @@ pub fn spawn_status_poller(engine: Arc<ClaudeEngine>) {
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
+    task.abort_handle()
 }
 
 /// Run one reconciliation pass of the status poller over an already-fetched agent list.

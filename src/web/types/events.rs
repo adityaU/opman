@@ -98,6 +98,15 @@ pub enum WebEvent {
         /// One of: "info", "success", "warning", "error".
         level: String,
     },
+    /// The "runner running low" settings changed, so every open client re-reads them.
+    RunnerLimitsChanged,
+    /// opman moved a session to another runner on its own (its plan ran out). Panes and
+    /// the shell showing `from` follow the conversation to `to`.
+    SessionHandoff {
+        from: String,
+        to: String,
+        runner: String,
+    },
     /// Initial value — never sent to clients.
     #[allow(dead_code)]
     Noop,

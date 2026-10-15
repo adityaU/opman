@@ -149,7 +149,7 @@ async fn launch_task_board_missing_is_404() {
 
 #[tokio::test]
 async fn launch_task_single_mode_upstream_down_is_500() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_ls");
     state
@@ -168,7 +168,7 @@ async fn launch_task_single_mode_upstream_down_is_500() {
 
 #[tokio::test]
 async fn launch_task_pipeline_mode_is_400() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_lp");
     state
@@ -223,7 +223,7 @@ async fn abort_task_no_session_ok() {
 
 #[tokio::test]
 async fn abort_task_with_session_ok() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_abs");
     let mut task = mk_task("tsk_abs", "brd_abs", "lane_todo");
@@ -285,7 +285,7 @@ async fn add_user_note_ok() {
 
 #[tokio::test]
 async fn add_user_note_live_session_delivers() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_nl");
     let mut task = mk_task("tsk_nl", "brd_nl", "lane_todo");

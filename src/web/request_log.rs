@@ -38,6 +38,9 @@ pub(crate) enum Traffic {
     Stream,
     /// Static frontend asset served by the fallback. Logged at debug.
     Asset,
+    /// A terminal keystroke (`POST /pty/write`). Logged at debug: a typing user sends
+    /// several a second, and two info lines each drowned the log and cost every key.
+    Keystroke,
 }
 
 /// Classify a request path for log verbosity.
@@ -51,6 +54,9 @@ pub(crate) fn classify(path: &str) -> Traffic {
     }
     if path.ends_with("/events") || path.ends_with("/stream") || path.ends_with("/ws") {
         return Traffic::Stream;
+    }
+    if path.ends_with("/pty/write") {
+        return Traffic::Keystroke;
     }
     Traffic::Api
 }

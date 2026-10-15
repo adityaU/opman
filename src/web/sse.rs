@@ -14,14 +14,12 @@
 //! `?token=<jwt>` query parameter (since `EventSource` doesn't support headers).
 
 use std::convert::Infallible;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::response::IntoResponse;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 use super::auth::check_auth_manual;
 use super::error::WebError;
@@ -128,6 +126,17 @@ fn render_web_event(event: &WebEvent) -> Option<SseEvent> {
                     .data(payload.to_string()),
             )
         }
+        WebEvent::RunnerLimitsChanged => {
+            Some(SseEvent::default().event("runner_limits_changed").data(""))
+        }
+        WebEvent::SessionHandoff { from, to, runner } => {
+            let payload = serde_json::json!({ "from": from, "to": to, "runner": runner });
+            Some(
+                SseEvent::default()
+                    .event("session_handoff")
+                    .data(payload.to_string()),
+            )
+        }
         WebEvent::Toast { message, level } => {
             let payload = serde_json::json!({ "message": message, "level": level });
             Some(SseEvent::default().event("toast").data(payload.to_string()))
@@ -181,70 +190,6 @@ fn render_editor_event(event: &EditorEvent) -> Option<SseEvent> {
     serde_json::to_string(event)
         .ok()
         .map(|json| SseEvent::default().event("file_changed").data(json))
-}
-
-// ── Terminal output stream (raw bytes from web-owned PTY) ───────────
-
-pub async fn terminal_stream(
-    State(state): State<ServerState>,
-    headers: HeaderMap,
-    Query(params): Query<SseTokenQuery>,
-) -> Result<impl IntoResponse, WebError> {
-    // SSE endpoints use manual auth check (EventSource can't set headers)
-    if !check_auth_manual(&state, &headers, &params.token) {
-        return Err(WebError::Unauthorized);
-    }
-
-    let pty_id = params
-        .id
-        .ok_or(WebError::BadRequest("Missing 'id' parameter".into()))?;
-
-    // Get the raw output buffer from the web PTY manager
-    let output = state
-        .pty_mgr
-        .get_output(&pty_id)
-        .await
-        .ok_or(WebError::NotFound("PTY not found or not spawned yet"))?;
-
-    let replay = params.replay;
-
-    // Stream that polls the raw output buffer at ~20fps.
-    // The frontend coalesces output via requestAnimationFrame, so even
-    // if multiple SSE events arrive within a single frame they are
-    // processed as a single batch. This interval provides a good
-    // balance between latency and CPU usage.
-    let stream = async_stream::stream! {
-        // A re-attaching tab leads with the retained scrollback so the PTY it
-        // rejoined repaints instead of coming back blank. `snapshot` also seeks
-        // the reader to the tip, so the poll loop below never repeats it.
-        if replay == Replay::Yes {
-            let history = output.snapshot();
-            if !history.is_empty() {
-                let encoded = BASE64.encode(&history);
-                yield Ok::<_, Infallible>(SseEvent::default().event("output").data(encoded));
-            }
-        }
-
-        let mut interval = tokio::time::interval(Duration::from_millis(50));
-
-        loop {
-            interval.tick().await;
-
-            // Only check when dirty flag is set (new output arrived)
-            if !output.dirty.load(Ordering::Acquire) {
-                continue;
-            }
-
-            // Drain new bytes from the buffer
-            let new_bytes = output.drain_new();
-            if !new_bytes.is_empty() {
-                let encoded = BASE64.encode(&new_bytes);
-                yield Ok::<_, Infallible>(SseEvent::default().event("output").data(encoded));
-            }
-        }
-    };
-
-    Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
 #[cfg(test)]

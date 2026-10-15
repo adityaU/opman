@@ -64,7 +64,7 @@ async fn all_spawn_arms_insert_ptys() {
     for name in ["nvim", "gitui", "opencode", "claude"] {
         write_fake_bin(dir.path(), name, "while true; do sleep 1; done");
     }
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let mut env = EnvRestore::new();
     env.remove("OPMAN_CLAUDE_BIN"); // fall back to PATH "claude"
     env.prepend_path(dir.path());

@@ -460,7 +460,7 @@ async fn archive_task_no_session_ok() {
 #[tokio::test]
 async fn archive_task_with_session_stops_agent() {
     // Exercises the stop_task_agent Some(session) branch + pipeline stop.
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_ars");
     let mut task = mk_task("tsk_ars", "brd_ars", "lane_todo");
@@ -498,7 +498,7 @@ async fn delete_task_ok_and_missing() {
 
 #[tokio::test]
 async fn delete_task_with_session_stops_agent() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let state = test_server_state();
     seed_board(&state, "brd_ds");
     let mut task = mk_task("tsk_ds", "brd_ds", "lane_todo");

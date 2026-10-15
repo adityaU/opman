@@ -31,10 +31,10 @@ fn task_and_agent_tool_names_map_onto_the_opencode_task_tool() {
 }
 
 #[test]
-fn kind_is_the_tool_name_fallback_but_the_other_category_is_ignored() {
+fn kind_names_the_card_that_renders_it_but_the_other_category_is_ignored() {
     let mut part = tool_part();
     merge(&mut part, &json!({"kind":"execute"}));
-    assert_eq!(part["tool"], "execute");
+    assert_eq!(part["tool"], "bash");
 
     // "other" carries no information, so the caller's default name must survive.
     let mut generic = tool_part();
@@ -103,7 +103,9 @@ fn a_prose_opening_title_falls_back_to_the_acp_kind() {
     // Agents that put a sentence in the opening title must not have it taken for a name.
     for title in ["Read package.json", "", "Running the test suite"] {
         let mut part = tool_part();
-        merge(&mut part, &opening(title, "read"));
+        let mut frame = opening(title, "read");
+        frame["locations"] = json!([{"path":"/tmp/package.json"}]);
+        merge(&mut part, &frame);
         assert_eq!(part["tool"], "read", "title {title:?} is not a tool name");
     }
 }
@@ -141,7 +143,7 @@ fn a_later_update_still_names_a_part_that_has_no_name_yet() {
         &mut part,
         &json!({"sessionUpdate":"tool_call_update","kind":"fetch"}),
     );
-    assert_eq!(part["tool"], "fetch");
+    assert_eq!(part["tool"], "webfetch");
 }
 
 #[test]
@@ -215,8 +217,8 @@ fn raw_output_is_used_verbatim_when_a_string_and_serialized_when_structured() {
 
     // Structured results still have to reach the UI, which only renders text.
     let mut structured = tool_part();
-    merge(&mut structured, &json!({"rawOutput":{"exitCode":0}}));
-    assert_eq!(structured["state"]["output"], "{\"exitCode\":0}");
+    merge(&mut structured, &json!({"rawOutput":{"rows":2}}));
+    assert_eq!(structured["state"]["output"], "{\"rows\":2}");
 }
 
 #[test]

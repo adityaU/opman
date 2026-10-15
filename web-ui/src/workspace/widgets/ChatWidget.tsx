@@ -67,10 +67,12 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
         };
         const result = await services.send(target, text, images);
         if (controls.switchRunner) controls.runnerSent();
-        // A "new session" pane learns its id from its own first send. Without
-        // this the pane would still be sessionless on the next reload and the
-        // conversation it started would be unreachable from here.
-        if (result.ok && !sessionId && result.sessionId) {
+        // A "new session" pane learns its id from its own first send, and a
+        // runner switch moves the conversation to a new session. Either way the
+        // pane binds to where the conversation now lives — otherwise a new pane
+        // would be sessionless on reload, and a handed-off one would keep
+        // showing (and sending to) the session it just left.
+        if (result.ok && result.sessionId && result.sessionId !== sessionId) {
           services.bindSession(paneId, result.sessionId);
         }
         return result.ok;
@@ -198,6 +200,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
         stats={view.stats}
         progressText={activeProgressText(view.messages, busy)}
         sessionTitle={sessionTitle}
+        messages={view.messages}
         currentModel={controls.engine.model?.modelID ?? null}
         selectedModel={controls.engine.model}
         onModelSelected={controls.setModel}

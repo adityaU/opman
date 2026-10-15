@@ -160,3 +160,9 @@ async fn dropping_inflight_request_is_clean() {
     handle.abort();
     assert!(handle.await.unwrap_err().is_cancelled());
 }
+
+#[test]
+fn classify_terminal_keystrokes_are_quiet() {
+    assert_eq!(classify("/api/pty/write"), Traffic::Keystroke);
+    assert_eq!(classify("/api/pty/ws"), Traffic::Stream);
+}

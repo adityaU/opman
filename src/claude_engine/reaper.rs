@@ -51,12 +51,15 @@ fn ttl_ms() -> u64 {
 }
 
 /// Spawn the periodic reaper. First tick fires immediately, clearing any backlog.
-pub fn spawn_reaper(engine: Arc<ClaudeEngine>) {
+///
+/// Returns the task's abort handle (none when the reaper is turned off), so disabling the
+/// runner can stop it.
+pub fn spawn_reaper(engine: Arc<ClaudeEngine>) -> Option<tokio::task::AbortHandle> {
     if !enabled() {
         info!("claude agent reaper disabled (OPMAN_CLAUDE_REAP=0)");
-        return;
+        return None;
     }
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
         let mut ticker = interval(REAP_INTERVAL);
         loop {
             ticker.tick().await;
@@ -66,6 +69,7 @@ pub fn spawn_reaper(engine: Arc<ClaudeEngine>) {
             }
         }
     });
+    Some(task.abort_handle())
 }
 
 /// The live target a session's current turn resumes into, plus the facts that decide

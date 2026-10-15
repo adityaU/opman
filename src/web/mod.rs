@@ -45,6 +45,7 @@ pub mod keybindings;
 mod mcp_ws;
 mod remote;
 pub mod pty_manager;
+mod pty_stream;
 mod request_log;
 mod routes;
 mod runner_events;
@@ -238,6 +239,9 @@ pub async fn start_web_server(
     };
 
     device_links::spawn(shared_state.remote.clone(), shared_state.browser.clone());
+    // Keeps a reading of every account so a session can move off a runner that runs low
+    // even when no browser is open.
+    crate::runner_limits::spawn_poller(shared_state.http_client.clone());
     let app = routes::build_router(shared_state);
 
     // Bind synchronously to discover the actual port before returning

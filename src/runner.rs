@@ -19,6 +19,10 @@ pub type RunnerFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + '
 pub use opman_backend_contracts::{
     is_valid_acp_id, register_acp_runners, ProjectDirectory, RunnerKind, SessionId,
 };
+pub use choice::RunnerDisabled;
+
+#[path = "runner_choice.rs"]
+mod choice;
 
 /// The result of asking a runner slot to be available for use.
 ///
@@ -55,6 +59,11 @@ pub trait Runner: Send + Sync {
     /// the first is the supervisor's to take over, the second is a clash to report.
     fn pending_acp_agent(&self) -> Option<String> {
         None
+    }
+    /// The slot is switched off in settings. Its sessions are still listed, read-only, and
+    /// every other request is refused with [`RunnerDisabled`].
+    fn is_disabled(&self) -> bool {
+        false
     }
     fn event_url(&self) -> Option<String> {
         None
@@ -786,7 +795,12 @@ type RunnerMap = Arc<HashMap<RunnerKind, Arc<dyn Runner>>>;
 /// runner underneath sessions already in flight. Writes copy the map and swap the pointer,
 /// which is the right trade when reads happen on every request and writes on a config edit.
 pub struct RunnerRegistry {
-    default: RunnerKind,
+    /// The runner opman started on: its URL is the process-wide base URL, and sessions
+    /// opman has no binding for belong to it. Fixed for the life of the process.
+    primary: RunnerKind,
+    /// The runner a new session goes to when nobody names one, once the user has chosen
+    /// (or disabling a runner chose for them). See [`Self::default_kind`].
+    preferred: std::sync::RwLock<Option<RunnerKind>>,
     runners: std::sync::RwLock<RunnerMap>,
     bindings: RwLock<HashMap<String, Binding>>,
     /// Called once for each runner that starts after boot.
@@ -802,9 +816,10 @@ pub struct RunnerRegistry {
 pub type StartedHook = Arc<dyn Fn(&RunnerKind, &Arc<dyn Runner>) + Send + Sync>;
 
 impl RunnerRegistry {
-    pub fn new(default: RunnerKind, runners: HashMap<RunnerKind, Arc<dyn Runner>>) -> Self {
+    pub fn new(primary: RunnerKind, runners: HashMap<RunnerKind, Arc<dyn Runner>>) -> Self {
         Self {
-            default,
+            primary,
+            preferred: std::sync::RwLock::new(None),
             runners: std::sync::RwLock::new(Arc::new(runners)),
             bindings: RwLock::new(HashMap::new()),
             on_runner_started: std::sync::RwLock::new(Vec::new()),
@@ -894,12 +909,14 @@ impl RunnerRegistry {
         self.runner(kind)?.ensure_started().await
     }
 
-    pub fn default_kind(&self) -> RunnerKind {
-        self.default.clone()
-    }
-
+    /// Runners a user can pick: served, and not switched off.
     pub fn available(&self) -> Vec<RunnerKind> {
-        let mut runners: Vec<_> = self.snapshot().keys().cloned().collect();
+        let mut runners: Vec<_> = self
+            .snapshot()
+            .iter()
+            .filter(|(_, runner)| !runner.is_disabled())
+            .map(|(kind, _)| kind.clone())
+            .collect();
         runners.sort_by(|a, b| a.display_name().cmp(&b.display_name()));
         runners
     }
@@ -945,7 +962,7 @@ impl RunnerRegistry {
             .await
             .get(session_id)
             .map(|b| b.runner.clone())
-            .unwrap_or_else(|| self.default.clone())
+            .unwrap_or_else(|| self.primary.clone())
     }
 
     async fn binding(&self, session_id: &str, directory: &str) -> Binding {
@@ -953,7 +970,7 @@ impl RunnerRegistry {
             return binding;
         }
         let binding = Binding {
-            runner: self.default.clone(),
+            runner: self.primary.clone(),
             physical_id: session_id.to_string(),
             directory: directory.to_string(),
         };
@@ -1057,7 +1074,7 @@ impl RunnerRegistry {
         let mut all = Vec::new();
         let runners = self.snapshot();
         for (kind, runner) in runners.iter() {
-            if scope == SessionScope::ExceptDefault && kind == &self.default {
+            if scope == SessionScope::ExceptDefault && kind == &self.primary {
                 continue;
             }
             let Ok(sessions) = runner.sessions(directory).await else {
@@ -1192,16 +1209,39 @@ impl RunnerRegistry {
         requested: Option<RunnerKind>,
         body: Value,
     ) -> Result<SendOutcome> {
+        // A session an automatic switch moved on is answered where it continues, so a
+        // caller still holding the old id (kanban, the agent-manager) does not fork it again.
+        let forwarded = match requested {
+            Some(_) => None,
+            None => crate::runner_limits::watch::global().forward_of(session_id),
+        };
+        let moved = forwarded.is_some();
+        let session_id = forwarded.as_deref().unwrap_or(session_id);
         let (session_id, directory) = validate_location(session_id, directory)?;
         let logical_session_id = session_id.to_string();
         let directory = directory
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
         let current = self.binding(&logical_session_id, directory).await;
-        let target_kind = requested.unwrap_or_else(|| current.runner.clone());
+        // A send that names no runner goes elsewhere when the user asked opman to move
+        // sessions off a runner that is running low.
+        let mut body = body;
+        let redirected = match requested {
+            Some(_) => None,
+            None => crate::runner_limits::redirect(&current.runner, &self.available(), &mut body),
+        };
+        let automatic = redirected.is_some();
+        let target_kind = requested
+            .or(redirected)
+            .unwrap_or_else(|| current.runner.clone());
         let target = self
             .runner(&target_kind)
             .context("requested runner is not available")?;
+        // Refuse before anything is read or created: a handoff into a disabled runner would
+        // otherwise read the whole transcript only to fail at the last step.
+        if target.is_disabled() {
+            return Err(RunnerDisabled::new(target_kind).into());
+        }
         if target_kind == current.runner {
             let response = target
                 .send_message(&current.physical_id, directory, body)
@@ -1209,7 +1249,7 @@ impl RunnerRegistry {
             return Ok(SendOutcome {
                 session_id: logical_session_id,
                 runner: target_kind,
-                switched: false,
+                switched: moved,
                 response,
             });
         }
@@ -1242,6 +1282,9 @@ impl RunnerRegistry {
                 directory: directory.to_string(),
             },
         );
+        if automatic {
+            crate::runner_limits::watch::global().record_forward(&logical_session_id, &session.id);
+        }
         Ok(SendOutcome {
             session_id: session.id,
             runner: target_kind,

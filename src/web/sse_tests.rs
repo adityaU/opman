@@ -7,6 +7,7 @@
 //! any stream is constructed, and confirm the authorized entry points return Ok.
 
 use super::*;
+use crate::web::pty_stream::terminal_stream;
 use crate::web::test_support::{test_server_state, test_server_state_with_auth};
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;

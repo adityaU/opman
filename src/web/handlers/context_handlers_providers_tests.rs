@@ -11,7 +11,7 @@ use crate::web::test_support::{send_json, test_router, test_server_state};
 use serde_json::json;
 
 fn init_base_url() {
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1/".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1/".to_string());
 }
 
 fn sess(id: &str, dir: &str) -> crate::app::SessionInfo {

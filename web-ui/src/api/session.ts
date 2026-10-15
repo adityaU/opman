@@ -97,6 +97,33 @@ export async function sendMessage(
   return apiPost(`/session/${sessionId}/message`, body);
 }
 
+/** Window event for a handoff opman made on its own; `detail` is a {@link HandoffEvent}. */
+export const SESSION_HANDOFF = "opman:session-handoff";
+
+export interface HandoffEvent {
+  readonly from: string;
+  readonly to: string;
+  readonly runner: string;
+}
+
+/** Where a send that switched runners moved the conversation. */
+export interface Handoff {
+  readonly sessionId: string;
+  readonly runner: string | null;
+}
+
+/**
+ * The handoff a `sendMessage` reply reports, or null when the message stayed in its
+ * session. A runner switch forks the conversation into a new session, and every caller
+ * has to follow it there — otherwise the next send goes back to the old one.
+ */
+export function readHandoff(reply: unknown): Handoff | null {
+  if (typeof reply !== "object" || reply === null) return null;
+  const { switched, session_id: sessionId, runner } = reply as Record<string, unknown>;
+  if (switched !== true || typeof sessionId !== "string" || !sessionId) return null;
+  return { sessionId, runner: typeof runner === "string" && runner ? runner : null };
+}
+
 export async function abortSession(sessionId: string): Promise<void> {
   return apiPost(`/session/${sessionId}/abort`);
 }

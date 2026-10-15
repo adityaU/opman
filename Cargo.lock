@@ -3320,7 +3320,7 @@ dependencies = [
 
 [[package]]
 name = "opman"
-version = "0.9.67"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-stream",

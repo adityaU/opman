@@ -3,8 +3,9 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
-import { createPtySSE, ptyResize, spawnPty } from "../api";
-import { writeToPty } from "./writes";
+import { WebglAddon } from "@xterm/addon-webgl";
+import { ptyResize, spawnPty } from "../api";
+import { connectPty } from "./ptyConnection";
 import { shellExists } from "./useShells";
 import { getTerminalTheme, TERM_OPTIONS, type PtyKind, type ShellStatus, type TerminalRuntime } from "./types";
 import { THEME_CHANGED_EVENT } from "../utils/theme";
@@ -61,13 +62,16 @@ export function useTerminalSession(
     term.loadAddon(new WebLinksAddon());
     term.loadAddon(search);
     term.open(container);
+    loadGpuRenderer(term);
     fit.fit();
 
+    // Keys typed before the shell is reached wait here, in order.
+    let early = "";
     term.onData((data) => {
       const transform = transformRef?.current;
-      // Through the ordered queue, never straight to a POST: keystrokes must
-      // reach the shell in the order they were typed. See ./writes.ts.
-      writeToPty(ptyId, transform ? transform(data) : data);
+      const keys = transform ? transform(data) : data;
+      if (runtime.connection) runtime.connection.send(keys);
+      else early += keys;
     });
     term.onResize(({ rows, cols }) => {
       void ptyResize(ptyId, rows, cols).catch(() => {});
@@ -82,18 +86,16 @@ export function useTerminalSession(
     });
     observer.observe(container);
 
-    const runtime: TerminalRuntime = { term, fit, search, sse: null, observer };
+    const runtime: TerminalRuntime = { term, fit, search, connection: null, observer };
     runtimeRef.current = runtime;
 
     attach(ptyId, kind, term.rows, term.cols, projectPath, attachTo.current)
       .then((replay) => {
         if (!live) return;
         setStatus("ready");
-        const sse = createPtySSE(ptyId, replay);
-        runtime.sse = sse;
-        sse.addEventListener("output", (event) => {
-          write(term, (event as MessageEvent<string>).data);
-        });
+        runtime.connection = connectPty(ptyId, replay, (bytes) => term.write(bytes));
+        if (early) runtime.connection.send(early);
+        early = "";
       })
       .catch(() => {
         if (!live) return;
@@ -105,7 +107,7 @@ export function useTerminalSession(
       live = false;
       // Detach only. The program on the other end keeps running.
       observer.disconnect();
-      runtime.sse?.close();
+      runtime.connection?.close();
       term.dispose();
       runtimeRef.current = null;
     };
@@ -160,14 +162,17 @@ async function attach(
   return false;
 }
 
-/** PTY output arrives base64-encoded so genuine escape bytes survive JSON. */
-function write(term: Terminal, data: string): void {
+/**
+ * Draw with WebGL when the browser offers it: the DOM renderer re-lays-out every cell it
+ * touches, which is what made full-screen programs (nvim, htop) and long builds crawl.
+ * A lost GPU context drops back to the DOM renderer instead of leaving a blank pane.
+ */
+function loadGpuRenderer(term: Terminal): void {
   try {
-    const raw = atob(data);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-    term.write(bytes);
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => webgl.dispose());
+    term.loadAddon(webgl);
   } catch {
-    term.write(data);
+    /* no WebGL here: the DOM renderer stays */
   }
 }

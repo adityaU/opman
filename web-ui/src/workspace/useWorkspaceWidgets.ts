@@ -70,7 +70,14 @@ export function useWorkspaceWidgets(deps: WorkspaceWidgetsDeps): WorkspaceWidget
   const bindSession = useCallback(
     (paneId: string, sessionId: string) => {
       const pane = activePane(paneId);
-      if (pane?.widget?.kind !== "chat" || pane.widget.sessionId) return;
+      if (pane?.widget?.kind !== "chat" || pane.widget.sessionId === sessionId) return;
+      // A pane that already had a session is following a runner handoff into a new
+      // one: that is going somewhere, so it is recorded and Back returns to the old one.
+      const previous = pane.widget.sessionId;
+      if (previous) {
+        dispatch({ type: "followSession", from: previous, to: sessionId });
+        return;
+      }
       dispatch({ type: "amendWidget", pane: pane.id, widget: { ...pane.widget, sessionId } });
     },
     [activePane, dispatch],

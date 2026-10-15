@@ -3,6 +3,7 @@ import { useSSE } from "./hooks/useSSE";
 import { useToast } from "./hooks/useToast";
 import { useProviders } from "./hooks/useProviders";
 import { useBookmarks } from "./hooks/useBookmarks";
+import { useShellFollowHandoff } from "./hooks/useShellFollowHandoff";
 import { useModalState } from "./hooks/useModalState";
 import type { ModalName } from "./hooks/useModalState";
 import { useSidebarState } from "./hooks/useSidebarState";
@@ -424,6 +425,7 @@ export function ChatLayout() {
     openAgentPicker,
     runSlashCommand: (command: string, args?: string) => handlers.handleCommand(command, args),
     onError: (message: string) => addToast(message, "error"),
+    onHandoff: (runner: string | null) => addToast(`Session handed off to ${runner || "new runner"}`, "success"),
     subagentMessages,
     isBookmarked,
     toggleBookmark,
@@ -533,6 +535,8 @@ export function ChatLayout() {
     },
     [appState, handlers, targetChat],
   );
+
+  useShellFollowHandoff(activeSessionId, activeProjectIndex, handlers.handleSelectSession);
 
   /**
    * Starting a new session — the same gesture, one step earlier. It has no id

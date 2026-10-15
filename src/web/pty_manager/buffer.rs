@@ -15,6 +15,8 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use tokio::sync::Notify;
+
 /// Hard limit on total buffer size. If the buffer exceeds this, older
 /// data is discarded to keep memory bounded — retention does not override it.
 const MAX_BUFFER_BYTES: usize = 4 * 1024 * 1024; // 4 MiB
@@ -38,6 +40,10 @@ const LINE_ALIGN_WINDOW: usize = 8 * 1024; // 8 KiB
 pub struct RawOutputBuffer {
     inner: Arc<Mutex<RawOutputInner>>,
     pub dirty: Arc<AtomicBool>,
+    /// Woken on every push, so a reader sends output the moment it exists instead of on
+    /// a timer. `notify_one` keeps a permit when nobody is waiting, so a push that lands
+    /// between two reads is never missed.
+    arrived: Arc<Notify>,
 }
 
 #[derive(Debug)]
@@ -79,7 +85,13 @@ impl RawOutputBuffer {
                 read_pos: 0,
             })),
             dirty: Arc::new(AtomicBool::new(false)),
+            arrived: Arc::new(Notify::new()),
         }
+    }
+
+    /// Wait until output has been pushed since the last wait.
+    pub async fn arrived(&self) {
+        self.arrived.notified().await;
     }
 
     /// Append raw bytes (called from PTY reader thread).
@@ -90,6 +102,8 @@ impl RawOutputBuffer {
         inner.buf.extend_from_slice(data);
         inner.compact();
         self.dirty.store(true, Ordering::Release);
+        drop(inner);
+        self.arrived.notify_one();
     }
 
     /// Read any new bytes since last call. Returns empty vec if nothing new.

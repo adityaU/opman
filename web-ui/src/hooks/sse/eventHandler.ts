@@ -2,6 +2,8 @@ import type { PermissionRequest, QuestionRequest, OpenCodeEvent } from "../../ty
 import type { SessionStats, ClientPresence, ThemePair } from "../../api";
 import { ACP_AGENTS_CHANGED } from "../../api/acp";
 import { MCP_SERVERS_CHANGED } from "../../api/mcp";
+import { RUNNER_LIMITS_CHANGED } from "../../api/runnerLimits";
+import { SESSION_HANDOFF, type HandoffEvent } from "../../api/session";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
 import type { WatcherStatus, McpAgentActivity, McpEditorOpen, SessionStatus } from "./types";
@@ -559,6 +561,20 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
   appSSE.addEventListener("acp_agents_changed", () => {
     window.dispatchEvent(new CustomEvent(ACP_AGENTS_CHANGED));
     ctx.refreshState();
+  });
+
+  // opman moved a session to another runner on its own (its plan ran out). Every view
+  // showing the old session follows it.
+  appSSE.addEventListener("session_handoff", (e: MessageEvent) => {
+    try {
+      const detail = JSON.parse(e.data) as HandoffEvent;
+      if (detail.from && detail.to) window.dispatchEvent(new CustomEvent(SESSION_HANDOFF, { detail }));
+    } catch { /* ignore */ }
+    ctx.refreshState();
+  });
+
+  appSSE.addEventListener("runner_limits_changed", () => {
+    window.dispatchEvent(new CustomEvent(RUNNER_LIMITS_CHANGED));
   });
 
   // Toast notifications from TUI

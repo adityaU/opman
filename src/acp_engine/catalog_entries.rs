@@ -5,7 +5,9 @@
 //! adding a harness is one row here and nothing else — and keeping it apart is what makes
 //! that visible at a glance.
 
+use super::archives::ANTIGRAVITY;
 use super::{row, Entry, Launch, CLAUDE_ACP_PACKAGE, CODEX_ACP_PACKAGE};
+
 
 /// The agents listed at <https://agentclientprotocol.com/get-started/agents>, in that
 /// page's order. Ids are the runner slots every persisted session is stored against, so
@@ -17,6 +19,14 @@ pub const ENTRIES: &[Entry] = &[
         Launch::Uvx("agentpool@latest"),
         &["serve-acp"],
         "https://phil65.github.io/agentpool/advanced/acp-integration/",
+    ),
+    // Off until the user turns it on; the first start downloads ~320 MB.
+    row(
+        "antigravity",
+        "Google Antigravity",
+        Launch::Archive(&ANTIGRAVITY),
+        &[],
+        "https://antigravity.google/docs/ide/extensions/zed/",
     ),
     row(
         "augment",

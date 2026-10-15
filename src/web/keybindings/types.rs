@@ -23,6 +23,7 @@ pub enum Mode {
 pub struct WhichKey {
     pub enabled: bool,
     pub delay_ms: u32,
+    pub timeout_ms: u32,
     pub sort_by: SortBy,
 }
 
@@ -31,6 +32,7 @@ impl Default for WhichKey {
         Self {
             enabled: true,
             delay_ms: 400,
+            timeout_ms: 10_000,
             sort_by: SortBy::Group,
         }
     }

@@ -7,6 +7,9 @@
 //! and the `Lagged` refresh arms) execute.
 
 use super::*;
+use crate::web::pty_stream::terminal_stream;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use std::sync::atomic::Ordering;
 use crate::web::test_support::test_server_state;
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;

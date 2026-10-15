@@ -12,6 +12,7 @@ import type { BindingSpec, Layer, Mode } from "./types";
 export interface WhichKeyConfig {
   readonly enabled: boolean;
   readonly delayMs: number;
+  readonly timeoutMs: number;
   readonly sortBy: "group" | "key" | "label";
 }
 
@@ -41,7 +42,7 @@ export const DEFAULT_CONFIG: KeybindingsConfig = {
   leader: "<space>",
   localLeader: ",",
   chordTimeoutMs: 1500,
-  whichKey: { enabled: true, delayMs: 400, sortBy: "group" },
+  whichKey: { enabled: true, delayMs: 400, timeoutMs: 10_000, sortBy: "group" },
   bindings: [],
 };
 
@@ -107,6 +108,16 @@ function parseBinding(
   };
 }
 
+/**
+ * How long a half-typed chord waits for its next key. With the which-key panel on, the
+ * chord lives as long as the panel does — the panel would otherwise list keys that no
+ * longer do anything.
+ */
+export function pendingChordTimeout(config: KeybindingsConfig): number {
+  const { enabled, delayMs, timeoutMs } = config.whichKey;
+  return enabled ? Math.max(config.chordTimeoutMs, delayMs + timeoutMs) : config.chordTimeoutMs;
+}
+
 export interface ParsedConfig {
   readonly config: KeybindingsConfig;
   readonly diagnostics: readonly ConfigDiagnostic[];
@@ -145,6 +156,10 @@ export function parseConfig(raw: unknown): ParsedConfig {
           typeof whichKey.delayMs === "number" && whichKey.delayMs >= 0
             ? whichKey.delayMs
             : DEFAULT_CONFIG.whichKey.delayMs,
+        timeoutMs:
+          typeof whichKey.timeoutMs === "number" && whichKey.timeoutMs >= 1_000
+            ? Math.min(whichKey.timeoutMs, 60_000)
+            : DEFAULT_CONFIG.whichKey.timeoutMs,
         sortBy:
           enumField<WhichKeyConfig["sortBy"]>(
             whichKey.sortBy,

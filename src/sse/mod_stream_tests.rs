@@ -170,7 +170,7 @@ async fn run_sse_stream_connection_refused_errors() {
 async fn connect_sse_error_arm_then_would_sleep() {
     // base_url() is a dead port in tests → run_sse_stream errors fast → the
     // reconnect (warn + 3s sleep) arm runs; we cut it off with a timeout.
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let (tx, _rx) = mpsc::unbounded_channel::<BackgroundEvent>();
     let r = tokio::time::timeout(
         Duration::from_millis(300),

@@ -91,6 +91,20 @@ export function KeybindingsPanel() {
         </div>
       </div>
 
+      <label className="kbv-timeout-setting">
+        <span>Which-key panel stays open</span>
+        <select
+          value={editor.config.whichKey.timeoutMs}
+          onChange={(event) => editor.setWhichKey({ timeoutMs: Number(event.target.value) })}
+        >
+          <option value={3_000}>3 seconds</option>
+          <option value={5_000}>5 seconds</option>
+          <option value={10_000}>10 seconds</option>
+          <option value={15_000}>15 seconds</option>
+          <option value={30_000}>30 seconds</option>
+        </select>
+      </label>
+
       {tab === "bindings" ? (
         <>
           <div className="kbv-controls">

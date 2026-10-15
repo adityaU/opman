@@ -21,16 +21,66 @@ pub enum InputMode {
     FuzzyPicker,
 }
 
-/// The base URL for the managed OpenCode server (set at startup after spawning).
-pub static BASE_URL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+/// The primary runner's URL, while it is running.
+///
+/// Not a `OnceLock` any more: a runner can be disabled from the settings page, which stops
+/// its server, and enabling it again starts a new one on a new port. Each published URL is
+/// leaked so readers keep getting a `&'static str` — a handful of bytes per runner start.
+static BASE_URL: std::sync::RwLock<Option<&'static str>> = std::sync::RwLock::new(None);
+
+/// Bumped on every publish and clear, so a long-lived listener can notice the primary
+/// runner moved without waiting out its reconnect interval.
+static BASE_URL_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Publish the default runner's URL. Called from the lazy start path rather than from
 /// boot, so a second call is a lost race between two concurrent first uses rather than a
 /// bug: whichever engine won is the live one, and the loser is discarded with it.
 pub fn init_base_url(url: String) {
-    if let Err(url) = BASE_URL.set(url) {
-        if BASE_URL.get().map(String::as_str) != Some(url.as_str()) {
+    let mut guard = match BASE_URL.write() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if let Some(current) = *guard {
+        if current != url {
             tracing::warn!(%url, "ignoring a second base URL; the first engine to start owns it");
+        }
+        return;
+    }
+    *guard = Some(Box::leak(url.into_boxed_str()));
+    BASE_URL_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// Forget the primary runner's URL because its server was stopped.
+///
+/// Anything waiting in [`base_url_ready`] parks until the runner is enabled and started
+/// again, rather than retrying a closed port.
+pub fn clear_base_url() {
+    let mut guard = match BASE_URL.write() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if guard.take().is_some() {
+        BASE_URL_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// Changes whenever the primary runner's URL is published or cleared.
+pub fn base_url_generation() -> u64 {
+    BASE_URL_GENERATION.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Sleep for up to `limit`, waking early when the primary runner's URL changes.
+///
+/// For the reconnect loops that follow the primary runner: their interval is minutes long,
+/// and a runner re-enabled from the settings page should not stream into nothing until it
+/// elapses.
+pub async fn sleep_until_base_url_changes(limit: std::time::Duration) {
+    let start = base_url_generation();
+    let deadline = tokio::time::Instant::now() + limit;
+    while tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        if base_url_generation() != start {
+            return;
         }
     }
 }
@@ -78,7 +128,10 @@ pub fn try_base_url() -> Option<&'static str> {
             }
         }
     }
-    BASE_URL.get().map(String::as_str)
+    match BASE_URL.read() {
+        Ok(guard) => *guard,
+        Err(poisoned) => *poisoned.into_inner(),
+    }
 }
 
 /// Wait until the default runner has been started, then return its URL.

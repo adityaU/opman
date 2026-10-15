@@ -1,9 +1,9 @@
 import React from "react";
-import { Bot, Keyboard, Palette, Plug, Server, Sparkles } from "lucide-react";
+import { Bot, FolderGit2, Gauge, Keyboard, Palette, Plug, Server, Sparkles } from "lucide-react";
 import type { SettingsSection } from "./useSettingsRoute";
 
 /**
- * The six things settings configures.
+ * The eight things settings configures.
  *
  * Configuration only. Routines, session instructions and memory are content — they keep
  * their own surfaces, because the question "what does opman remember" is not the same
@@ -35,8 +35,14 @@ export const SECTIONS: readonly SectionMeta[] = [
   {
     id: "servers",
     label: "Servers",
-    summary: "Other machines running opman",
+    summary: "Other machines, and each one's theme",
     icon: <Server size={15} />,
+  },
+  {
+    id: "projects",
+    label: "Projects",
+    summary: "The folders opman works in",
+    icon: <FolderGit2 size={15} />,
   },
   // Agents before servers: an agent is a runner, a server is something a runner uses, so
   // the thing that can exist on its own comes first.
@@ -45,6 +51,13 @@ export const SECTIONS: readonly SectionMeta[] = [
     label: "Agents",
     summary: "The engines opman can drive",
     icon: <Bot size={15} />,
+  },
+  // Straight after the agents: it decides how a conversation moves between them.
+  {
+    id: "limits",
+    label: "Usage limits",
+    summary: "Where a chat goes when a runner runs low",
+    icon: <Gauge size={15} />,
   },
   {
     id: "mcp",

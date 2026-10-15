@@ -15,6 +15,7 @@
 //! be filled in on the settings page. Shipping a guessed command instead would spawn the
 //! wrong binary under the agent's name, which is worse than shipping none.
 
+use super::archive::Archive;
 use super::config::AgentConfig;
 
 /// The npm package implementing Claude's ACP server. `@zed-industries/claude-code-acp`
@@ -28,6 +29,8 @@ const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp@latest";
 
 #[path = "catalog_entries.rs"]
 pub mod entries;
+#[path = "catalog_archives.rs"]
+mod archives;
 
 pub use entries::ENTRIES;
 
@@ -40,6 +43,8 @@ pub enum Launch {
     Uvx(&'static str),
     /// A binary the user installs themselves, invoked by name off `PATH`.
     Bin(&'static str),
+    /// A per-platform archive opman downloads and unpacks itself on first start.
+    Archive(&'static Archive),
     /// Implements ACP, but its published documentation does not state the command. The
     /// row ships anyway so the agent is a form-fill rather than a code change.
     Undocumented,
@@ -48,11 +53,13 @@ pub enum Launch {
 impl Launch {
     /// The executable and its leading arguments. An empty command marks the agent
     /// unlaunchable, which is exactly what [`Launch::Undocumented`] means.
-    fn resolve(self) -> (String, Vec<String>) {
+    fn resolve(self, id: &str) -> (String, Vec<String>) {
         match self {
             Self::Npm(package) => (node_runner(), vec!["-y".to_string(), package.to_string()]),
             Self::Uvx(package) => ("uvx".to_string(), vec![package.to_string()]),
             Self::Bin(binary) => (binary.to_string(), Vec::new()),
+            // No build for this machine is the same answer as no documented command.
+            Self::Archive(archive) => archive.launch(id).unwrap_or_default(),
             Self::Undocumented => (String::new(), Vec::new()),
         }
     }
@@ -105,6 +112,14 @@ pub fn is_builtin(id: &str) -> bool {
     ENTRIES.iter().any(|entry| entry.id == id)
 }
 
+/// The archive opman downloads for this agent, when it ships as one.
+pub fn archive_for(id: &str) -> Option<&'static Archive> {
+    ENTRIES.iter().find(|entry| entry.id == id).and_then(|entry| match entry.launch {
+        Launch::Archive(archive) => Some(archive),
+        _ => None,
+    })
+}
+
 /// Where this agent's launch command was documented, if opman ships the agent.
 pub fn docs_for(id: &str) -> Option<&'static str> {
     ENTRIES
@@ -116,7 +131,7 @@ pub fn docs_for(id: &str) -> Option<&'static str> {
 impl Entry {
     /// This row as the engine reads it.
     pub fn config(&self) -> AgentConfig {
-        let (command, mut args) = self.launch.resolve();
+        let (command, mut args) = self.launch.resolve(self.id);
         args.extend(self.args.iter().map(|arg| (*arg).to_string()));
         let base = AgentConfig {
             display_name: self.name.to_string(),

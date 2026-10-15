@@ -1,0 +1,87 @@
+/* The bar over text selected in an assistant reply (selection-ask/SelectionAsk.tsx).
+   The surface — border, blur, shadow, and its glassy/flat variants — comes from
+   `.modal-popover-surface` in modal-shell.css; this sheet only places and lays it out. */
+
+.sel-ask {
+    position: fixed;
+    z-index: var(--z-overlay);
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius);
+    font-size: var(--font-size-xs);
+}
+
+.sel-ask-btn,
+.sel-ask-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sel-ask-btn {
+    padding: 4px 9px;
+}
+
+.sel-ask-icon {
+    padding: 4px;
+    color: var(--color-text-muted);
+}
+
+.sel-ask-btn:hover:not(:disabled),
+.sel-ask-icon:hover {
+    background: var(--theme-surface-hover);
+    color: var(--color-text);
+}
+
+.sel-ask-btn:focus-visible,
+.sel-ask-icon:focus-visible,
+.sel-ask-input:focus-visible {
+    outline: 1px solid var(--color-border-active);
+    outline-offset: 1px;
+}
+
+.sel-ask-btn--primary {
+    padding: 4px 7px;
+    background: var(--color-primary);
+    color: var(--color-on-accent);
+}
+
+.sel-ask-btn--primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 84%, var(--color-text));
+    color: var(--color-on-accent);
+}
+
+.sel-ask-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.sel-ask-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.sel-ask-input {
+    width: min(320px, 70vw);
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    color: var(--color-text);
+    font: inherit;
+}
+
+.sel-ask-input::placeholder {
+    color: var(--color-text-muted);
+}

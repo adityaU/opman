@@ -1,12 +1,14 @@
 import { isMobileViewport } from "../hooks/useIsMobile";
 import React, { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 import type { ImageAttachment, FileSearchEntry, SessionStats } from "../api";
-import type { SlashCommand } from "../types";
+import type { Message, SlashCommand } from "../types";
+import { RunnerLimitBar } from "../runner-limit/RunnerLimitBar";
 import { SlashCommandPopover } from "../SlashCommandPopover";
 import { takesArguments } from "./helpers";
 import { useAgents, useAttachments, useAtMention } from "./hooks";
 import { useFileMention } from "./useFileMention";
 import { useMessageQueue } from "./useMessageQueue";
+import { useComposerInsert } from "./useComposerInsert";
 import { QueuePanel } from "./QueueControls";
 import {
   SelectorChips, AgentMentionPills, FileMentionPills, AttachmentPreviews,
@@ -52,6 +54,8 @@ interface Props {
   progressText?: string | null;
   /** Name of the session this composer writes to; editable in place. */
   sessionTitle?: string | null;
+  /** The session's transcript, read for a turn that failed on a usage limit. */
+  messages?: readonly Message[];
 }
 
 export function PromptInput({
@@ -61,7 +65,7 @@ export function PromptInput({
   currentAgent, onAgentChange, activeMemoryLabels = [], onOpenMemory, onContentChange,
   backend, stats, currentRunner = "opencode", availableRunners = ["opencode", "claude-code", "claude", "codex"], onRunnerChange,
   supportedEfforts = [], effort = null, permission = "default", onEffortChange, onPermissionChange,
-  progressText = null, sessionTitle = null,
+  progressText = null, sessionTitle = null, messages,
 }: Props) {
   const [text, setText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -79,6 +83,7 @@ export function PromptInput({
   const atMention = useAtMention(allAgents, mentionableAgents, textareaRef, text, setText);
   const fileMention = useFileMention();
   const submittingRef = useRef(false);
+  useComposerInsert(sessionId, setText, textareaRef, onContentChange);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -222,6 +227,9 @@ export function PromptInput({
         <QueuePanel queued={queue.queued} onRemove={queue.removeAt}
           onClear={queue.clearAll} onClose={() => setShowQueue(false)} />
       )}
+      <RunnerLimitBar sessionId={sessionId} runner={currentRunner} availableRunners={availableRunners}
+        messages={messages} selectedModel={selectedModel} isBusy={isBusy}
+        onRunnerChange={onRunnerChange} onModelSelected={onModelSelected} onSend={onSend} />
       <div className="prompt-input-wrapper">
         <SessionLine title={sessionTitle} sessionId={sessionId} busy={isBusy} progressText={progressText} />
         <AgentMentionPills agentMentions={atMention.agentMentions} allAgents={allAgents}

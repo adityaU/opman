@@ -89,8 +89,7 @@ fn command_for(program: &PtyProgram, project: &std::path::Path) -> Result<Comman
             let mut cmd = CommandBuilder::new("opencode");
             cmd.arg("attach");
             cmd.arg(
-                crate::app::BASE_URL
-                    .get()
+                crate::app::try_base_url()
                     .ok_or_else(|| anyhow::anyhow!("Runner is not started"))?,
             );
             cmd.arg("--dir");

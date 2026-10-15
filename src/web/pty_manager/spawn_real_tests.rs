@@ -107,7 +107,7 @@ fn gitui_pty_error_when_absent() {
 fn opencode_pty_success_new_and_existing_session() {
     let _g = env_lock();
     // base_url() must be initialized or it panics; set once (ignored if present).
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let dir = tempfile::tempdir().unwrap();
     write_fake_bin(dir.path(), "opencode", "exit 0");
     let mut env = EnvRestore::new();
@@ -139,7 +139,7 @@ fn opencode_pty_success_new_and_existing_session() {
 #[test]
 fn opencode_pty_error_when_absent() {
     let _g = env_lock();
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1".to_string());
     let empty = tempfile::tempdir().unwrap();
     let mut env = EnvRestore::new();
     env.set("PATH", &empty.path().display().to_string());

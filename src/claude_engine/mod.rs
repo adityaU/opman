@@ -12,6 +12,7 @@
 pub(crate) mod claude_cli;
 mod command_meta;
 mod events;
+mod lifecycle;
 pub(crate) mod jsonl;
 pub(crate) mod models;
 mod reaper;
@@ -21,7 +22,7 @@ mod tailer;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 use tokio::sync::{broadcast, oneshot};
@@ -89,14 +90,10 @@ pub struct ClaudeEngine {
     model_probe: ModelProbe,
 }
 
-static ENGINE: OnceLock<Arc<ClaudeEngine>> = OnceLock::new();
-
 type ModelProbe = fn() -> Option<Vec<claude_cli::ModelInfo>>;
 
 /// Global accessor (used by the PTY layer to resolve a session's `claude` short id).
-pub fn engine() -> Option<Arc<ClaudeEngine>> {
-    ENGINE.get().cloned()
-}
+pub use lifecycle::{engine, shutdown_embedded};
 
 /// The current `claude` background short id for a session (for `claude attach`).
 pub fn short_id_for_session(session_id: &str) -> Option<String> {
@@ -459,15 +456,17 @@ impl ClaudeEngine {
         };
         let ts = now_ms();
         let mid = format!("msg_sys_{session_id}_{ts}");
-        self.emit(
-            &dir,
-            "message.updated",
-            serde_json::json!({ "info": {
-                "role": "system", "variant": variant, "level": level,
-                "id": mid, "sessionID": session_id,
-                "time": { "created": ts, "completed": ts },
-            }}),
-        );
+        let mut info = serde_json::json!({
+            "role": "system", "variant": variant, "level": level,
+            "id": mid, "sessionID": session_id,
+            "time": { "created": ts, "completed": ts },
+        });
+        if variant == "error" {
+            if let Some(limit) = crate::usage::limit_error::tag(text) {
+                info["limit"] = limit;
+            }
+        }
+        self.emit(&dir, "message.updated", serde_json::json!({ "info": info }));
         self.emit(
             &dir,
             "message.part.updated",
@@ -1268,7 +1267,7 @@ async fn start_embedded_server_with_model_probe(
         mcp,
         model_probe,
     ));
-    let _ = ENGINE.set(engine.clone());
+    lifecycle::publish(&engine);
 
     // Fetch available models once at startup in a background task so the
     // /provider route is ready without blocking server startup.
@@ -1287,11 +1286,13 @@ async fn start_embedded_server_with_model_probe(
     }
 
     // Background poller: reconcile busy/idle from `claude agents --json`.
-    tailer::spawn_status_poller(engine.clone());
+    lifecycle::track(tailer::spawn_status_poller(engine.clone()));
 
     // Background reaper: stop finished/untracked/stale-idle background agents so their
     // warm claude daemon/spare processes don't accumulate and slow the host over time.
-    reaper::spawn_reaper(engine.clone());
+    if let Some(task) = reaper::spawn_reaper(engine.clone()) {
+        lifecycle::track(task);
+    }
 
     let app = routes::router(engine.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -1302,13 +1303,14 @@ async fn start_embedded_server_with_model_probe(
     engine.set_url(&url);
     info!(%url, "Claude engine (embedded opencode adapter) ready");
 
-    tokio::spawn(async move {
+    let server = tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {
             tracing::error!("Claude engine server error: {e}");
         }
     });
+    lifecycle::track(server.abort_handle());
 
-    // No external child process to manage; shutdown is implicit on exit.
+    // No external child process to manage: [`shutdown_embedded`] stops the tasks above.
     let handle: ServerHandle = Arc::new(std::sync::Mutex::new(None));
     Ok((url, handle))
 }

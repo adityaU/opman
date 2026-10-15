@@ -1,20 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchThemes } from "../../api";
 import { ExternalLink, Pencil, Plus, RefreshCw } from "lucide-react";
 import { SERVER_ID } from "../../api/base";
 import { useServers } from "../../hooks/useServers";
 import { ServerDialog, type ServerDialogTarget } from "../../servers/ServerDialog";
 import { STATUS_LABEL, ServerStatusDot, serverHost, switchToServer } from "../../servers/status";
+import { ServerThemePicker } from "./ServerThemePicker";
 
 /**
  * Servers: other machines running opman that this one relays.
  *
  * The same list as the sidebar's workspace menu, with room to say why a server is
  * unreachable. Adding and editing share the sidebar's dialog, so there is one form.
+ * Each reachable server also picks its own theme, which its panes paint with.
  */
 
 export function RemoteServersSection() {
   const { servers, loading, error, refresh } = useServers();
   const [dialog, setDialog] = useState<ServerDialogTarget | null>(null);
+  const [themes, setThemes] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchThemes()
+      .then((list) => setThemes(list.map((theme) => theme.name).sort((a, b) => a.localeCompare(b))))
+      .catch(() => setThemes([]));
+  }, []);
 
   return (
     <div className="stg-stack">
@@ -63,6 +73,9 @@ export function RemoteServersSection() {
                     <span className="stg-row-origin">{server.url ?? serverHost(server)}</span>
                   </div>
                   <div className="stg-row-actions">
+                    {server.status === "ok" && themes.length > 0 && (
+                      <ServerThemePicker serverId={server.id} serverName={server.name} themes={themes} />
+                    )}
                     {!current && (
                       <button
                         type="button"

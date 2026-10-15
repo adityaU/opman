@@ -93,6 +93,9 @@ pub(crate) async fn handle_web_sse_event(
                 }
 
                 let _ = event_tx.send(WebEvent::StatsUpdated(stats));
+                if info.get("limit").is_some_and(|limit| !limit.is_null()) {
+                    continue_after_limit(handle, info, &session_id, project_dir);
+                }
             }
         }
         "session.created" => {
@@ -412,3 +415,43 @@ mod sse_handler_permissions_tests;
 #[cfg(test)]
 #[path = "sse_handler_more_events_tests.rs"]
 mod sse_handler_more_events_tests;
+
+/// A turn failed on a usage limit: when the user chose "switch on its own", move the
+/// session to the next runner of their list and tell every client to follow it. Runs off
+/// the event loop, because the handoff reads the whole transcript and starts a turn.
+fn continue_after_limit(
+    handle: &super::WebStateHandle,
+    info: &serde_json::Value,
+    session_id: &str,
+    project_dir: &str,
+) {
+    let Some(registry) = handle.runner_registry.clone() else {
+        return;
+    };
+    let message_id = info
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(session_id)
+        .to_string();
+    let event_tx = handle.event_tx.clone();
+    let session_id = session_id.to_string();
+    let directory = project_dir.to_string();
+    tokio::spawn(async move {
+        let Some(moved) =
+            crate::runner_limits::on_limit_hit(&registry, &session_id, &directory, &message_id)
+                .await
+        else {
+            return;
+        };
+        let runner = moved.runner.display_name().into_owned();
+        let _ = event_tx.send(WebEvent::Toast {
+            message: format!("Out of usage — moved the session to {runner}"),
+            level: "info".to_string(),
+        });
+        let _ = event_tx.send(WebEvent::SessionHandoff {
+            from: moved.from,
+            to: moved.to,
+            runner,
+        });
+    });
+}

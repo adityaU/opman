@@ -1,6 +1,6 @@
 import {
   sendMessage, abortSession, executeCommand,
-  replyPermission, replyQuestion, rejectQuestion, newSession,
+  replyPermission, replyQuestion, rejectQuestion, newSession, readHandoff,
 } from "./api";
 import type { ImageAttachment } from "./api";
 import type { Message } from "./types";
@@ -134,7 +134,7 @@ export function createHandleSend(deps: HandlerDeps) {
         deps.selectedEffort || undefined,
         deps.selectedPermission || undefined,
       );
-      const handoff = result as { session_id?: string; switched?: boolean; runner?: string } | undefined;
+      const handoff = readHandoff(result);
       // HTTP runners normally update the transcript through SSE. The Codex
       // adapter completes synchronously, so refresh here also covers that
       // runner and makes a handoff immediately visible.
@@ -142,11 +142,11 @@ export function createHandleSend(deps: HandlerDeps) {
       // another conversation while this request was in flight, refresh that
       // session's transcript in the background instead of pulling them back.
       await deps.refreshMessages(sid, { adoptView: createdSession });
-      if (handoff?.switched && handoff.session_id) {
-        deps.setUrlSession(handoff.session_id, deps.activeProjectIndex);
+      if (handoff) {
+        deps.setUrlSession(handoff.sessionId, deps.activeProjectIndex);
         // Move the pick onto the session that now serves it. Leaving it armed on
         // the old session would re-request the switch and fork again.
-        deps.bindRunnerChoice(handoff.session_id, handoff.runner || deps.runnerForNewSession);
+        deps.bindRunnerChoice(handoff.sessionId, handoff.runner || deps.runnerForNewSession);
         deps.addToast(`Session handed off to ${handoff.runner || "new runner"}`, "success");
       }
       return true;

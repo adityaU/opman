@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 fn ensure_base_url() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:9".to_string());
+    crate::app::init_base_url("http://127.0.0.1:9".to_string());
 }
 
 fn req(session_id: &str, project_idx: usize, timeout: u64) -> WatcherConfigRequest {

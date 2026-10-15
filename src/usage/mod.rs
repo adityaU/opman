@@ -9,6 +9,7 @@ pub mod cache;
 pub mod claude;
 pub mod codex;
 pub mod credentials;
+pub mod limit_error;
 pub mod rollout;
 pub mod types;
 

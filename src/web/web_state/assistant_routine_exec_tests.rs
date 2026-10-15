@@ -19,7 +19,7 @@ fn mk_create_routine(name: &str, trigger: RoutineTrigger) -> CreateRoutineReques
 }
 
 fn ensure_base_url() {
-    let _ = crate::app::BASE_URL.set("http://127.0.0.1:1/".to_string());
+    crate::app::init_base_url("http://127.0.0.1:1/".to_string());
 }
 
 async fn get_routine(h: &WebStateHandle, id: &str) -> RoutineDefinition {

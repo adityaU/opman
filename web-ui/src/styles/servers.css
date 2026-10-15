@@ -244,3 +244,18 @@
     .srv-dialog { width: 100%; }
     .srv-dialog-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* A server row's theme picker (settings → Servers). */
+.srv-theme {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    color: var(--color-text-muted);
+}
+
+.srv-theme-select {
+    width: auto;
+    max-width: 180px;
+    padding: 3px 6px;
+    font-size: var(--font-size-xs);
+}

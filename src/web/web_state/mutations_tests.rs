@@ -7,7 +7,7 @@ use std::sync::Mutex;
 // ── Test helpers ────────────────────────────────────────────────────
 
 fn ensure_base_url() {
-    let _ = crate::app::BASE_URL.get_or_init(|| "http://127.0.0.1:9".to_string());
+    crate::app::init_base_url("http://127.0.0.1:9".to_string());
 }
 
 fn tc() -> WebThemeColors {

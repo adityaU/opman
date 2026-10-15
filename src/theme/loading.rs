@@ -220,6 +220,12 @@ fn load_theme_json(name: &str) -> Result<Value> {
         }
     }
 
+    // Last: the themes opman itself ships, the same set the web picker lists.
+    if let Some(parsed) = super::builtin::theme(name) {
+        debug!(theme = %name, "Loading built-in theme");
+        return Ok(parsed);
+    }
+
     anyhow::bail!(
         "Theme '{}' not found in any search path: {:?}",
         name,

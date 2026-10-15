@@ -76,7 +76,7 @@ impl LazyRunner {
                 let started = (self.start)().await?;
                 let handle = started.handle;
                 if let Some(handle) = &handle {
-                    self.ctx.push_handle(Arc::clone(handle));
+                    self.ctx.push_handle(self.kind.clone(), Arc::clone(handle));
                 }
                 if let Err(error) = started.runner.wait_until_ready().await {
                     if let Some(handle) = &handle {
@@ -84,12 +84,20 @@ impl LazyRunner {
                     }
                     return Err(error);
                 }
-                if let Some(url) = started.base_url {
-                    crate::app::init_base_url(url);
-                }
                 let registry = self.ctx.registry();
                 if let Some(registry) = &registry {
-                    registry.install(self.kind.clone(), started.runner.clone());
+                    // Switched off while it was starting: the user's choice wins, and the
+                    // server that just came up goes back down.
+                    if !registry.install_unless_disabled(self.kind.clone(), started.runner.clone())
+                    {
+                        if let Some(handle) = &handle {
+                            crate::server::kill_server(handle);
+                        }
+                        return Err(crate::runner::RunnerDisabled::new(self.kind.clone()).into());
+                    }
+                }
+                if let Some(url) = started.base_url {
+                    crate::app::init_base_url(url);
                 }
                 if let (Some(supervisor), Some((id, engine))) =
                     (self.ctx.supervisor(), started.engine)

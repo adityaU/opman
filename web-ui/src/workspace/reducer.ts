@@ -10,6 +10,7 @@
 import { uuid } from "../utils/uuid";
 import type { DropEdge } from "./move";
 import { emptyWindow, reduceWindow } from "./reducerWindow";
+import { followSession } from "./paneTarget";
 import { findPane, newPane, paneCount, splitPane } from "./tree";
 import {
   asWindowId,
@@ -44,6 +45,8 @@ export type WorkspaceAction =
   | { type: "openWidget"; pane: PaneId; widget: WidgetState | null }
   /** Add detail to the place a pane is already on. Never recorded. */
   | { type: "amendWidget"; pane: PaneId; widget: WidgetState | null }
+  /** A conversation moved to a new session: every pane on it, in every window, follows. */
+  | { type: "followSession"; from: string; to: string }
   /**
    * Walk a pane's trail. `seq` is minted by the caller — the reducer stays pure
    * — and re-arms the entry so a panel that has already handled it acts again.
@@ -157,6 +160,16 @@ export function workspaceReducer(state: Workspace, action: WorkspaceAction): Wor
 
     case "movePaneToWindow":
       return movePaneToWindow(state, action.pane, action.window);
+
+    case "followSession": {
+      const windows = state.windows.map((window) => {
+        const root = followSession(window.root, action.from, action.to);
+        return root === window.root ? window : { ...window, root };
+      });
+      return windows.some((window, index) => window !== state.windows[index])
+        ? { ...state, windows }
+        : state;
+    }
 
     default: {
       const next = mapActive(state, (window) => reduceWindow(window, action));
