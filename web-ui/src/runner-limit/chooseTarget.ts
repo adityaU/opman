@@ -17,6 +17,7 @@ export type TargetSource = "preselected" | "suggested";
 export interface LimitTarget {
   readonly runner: string;
   readonly model: FallbackModel | null;
+  readonly permission?: string | null;
   readonly source: TargetSource;
   /** Percent left on the target's tightest window; null when it reports no usage. */
   readonly leftPercent: number | null;
@@ -43,7 +44,7 @@ export function limitOptions(input: TargetInput): LimitTarget[] {
   for (const pair of input.pairs) {
     const alt = viable.get(pair.runner);
     if (!alt) continue;
-    options.push({ runner: pair.runner, model: pair.model, source: "preselected", leftPercent: alt.leftPercent });
+    options.push({ ...pair, source: "preselected", leftPercent: alt.leftPercent });
   }
   const listed = new Set(options.map((option) => option.runner));
   for (const alt of ranked) {

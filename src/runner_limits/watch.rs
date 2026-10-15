@@ -48,19 +48,31 @@ pub struct LimitWatch {
 
 impl LimitWatch {
     pub fn accounts(&self) -> Arc<Accounts> {
-        let guard = self.accounts.read().unwrap_or_else(|poison| poison.into_inner());
+        let guard = self
+            .accounts
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner());
         Arc::clone(&guard)
     }
 
     pub fn store(&self, accounts: Vec<Account>) {
-        let next: Accounts = accounts.into_iter().map(|account| (account.id, account)).collect();
-        let mut guard = self.accounts.write().unwrap_or_else(|poison| poison.into_inner());
+        let next: Accounts = accounts
+            .into_iter()
+            .map(|account| (account.id, account))
+            .collect();
+        let mut guard = self
+            .accounts
+            .write()
+            .unwrap_or_else(|poison| poison.into_inner());
         *guard = Arc::new(next);
     }
 
     /// Where a session moved to, following a chain of moves to its end.
     pub fn forward_of(&self, session_id: &str) -> Option<String> {
-        let forwards = self.forwards.lock().unwrap_or_else(|poison| poison.into_inner());
+        let forwards = self
+            .forwards
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         let mut current = forwards.get(session_id)?;
         // Bounded by the table size, so a cycle (which `record_forward` never creates)
         // could not spin forever.
@@ -77,13 +89,19 @@ impl LimitWatch {
         if from == to {
             return;
         }
-        let mut forwards = self.forwards.lock().unwrap_or_else(|poison| poison.into_inner());
+        let mut forwards = self
+            .forwards
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         forwards.insert(from.to_string(), to.to_string());
     }
 
     /// True the first time an id is seen, so one failure is acted on once.
     fn first_time(&self, id: &str) -> bool {
-        let mut handled = self.handled.lock().unwrap_or_else(|poison| poison.into_inner());
+        let mut handled = self
+            .handled
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         if handled.iter().any(|seen| seen == id) {
             return false;
         }
@@ -116,14 +134,17 @@ pub fn spawn_poller(client: reqwest::Client) {
 }
 
 /// Point a send body at `pair`. Agent and effort name things in the old runner's
-/// catalogue, so they are dropped rather than carried across; the permission is already
-/// checked against the target by the handoff itself.
+/// catalogue, so they are dropped rather than carried across. A configured permission
+/// replaces the caller's choice; the handoff checks it against the target catalogue.
 fn retarget(body: &mut Value, pair: &FallbackPair) {
     let Some(object) = body.as_object_mut() else {
         return;
     };
     object.remove("agent");
     object.remove("effort");
+    if let Some(permission) = &pair.permission {
+        object.insert("permission".into(), Value::String(permission.clone()));
+    }
     match &pair.model {
         Some(model) => {
             object.insert(
@@ -140,7 +161,11 @@ fn retarget(body: &mut Value, pair: &FallbackPair) {
 /// The runner a message to a low runner should go to instead, with `body` rewritten for
 /// it. `None` leaves the send alone: the policy is not "auto", the runner has room, or no
 /// pair of the user's list would get further.
-pub fn redirect(current: &RunnerKind, available: &[RunnerKind], body: &mut Value) -> Option<RunnerKind> {
+pub fn redirect(
+    current: &RunnerKind,
+    available: &[RunnerKind],
+    body: &mut Value,
+) -> Option<RunnerKind> {
     let settings = settings::global().get();
     if settings.policy != LimitPolicy::Auto {
         return None;
@@ -177,7 +202,10 @@ pub async fn on_limit_hit(
     )?;
     let mut body = json!({ "parts": [{ "type": "text", "text": CONTINUE_PROMPT }] });
     retarget(&mut body, pair);
-    match registry.send_message(session_id, directory, Some(kind), body).await {
+    match registry
+        .send_message(session_id, directory, Some(kind), body)
+        .await
+    {
         Ok(outcome) if outcome.switched => {
             global().record_forward(session_id, &outcome.session_id);
             Some(Handoff {
@@ -197,3 +225,7 @@ pub async fn on_limit_hit(
 #[cfg(test)]
 #[path = "watch_tests.rs"]
 mod watch_tests;
+
+#[cfg(test)]
+#[path = "handoff_tests.rs"]
+mod handoff_tests;

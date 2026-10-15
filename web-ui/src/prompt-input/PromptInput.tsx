@@ -229,6 +229,7 @@ export function PromptInput({
       )}
       <RunnerLimitBar sessionId={sessionId} runner={currentRunner} availableRunners={availableRunners}
         messages={messages} selectedModel={selectedModel} isBusy={isBusy}
+        selectedPermission={permission} onPermissionChange={onPermissionChange}
         onRunnerChange={onRunnerChange} onModelSelected={onModelSelected} onSend={onSend} />
       <div className="prompt-input-wrapper">
         <SessionLine title={sessionTitle} sessionId={sessionId} busy={isBusy} progressText={progressText} />

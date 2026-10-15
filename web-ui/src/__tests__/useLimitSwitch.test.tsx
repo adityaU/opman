@@ -54,6 +54,43 @@ describe("useLimitSwitch", () => {
     expect(result.current.switching).toBe(false);
   });
 
+  it("waits for the selected permission after the runner and model before retrying", () => {
+    const start = host({ selectedPermission: "default", onPermissionChange: vi.fn() });
+    const { result, rerender } = renderHook((props: LimitSwitchHost) => useLimitSwitch(props), { initialProps: start });
+    act(() => result.current.switchTo({ runner: "codex", model: GPT, permission: "read-only" }, "fix it"));
+    expect(start.onPermissionChange).not.toHaveBeenCalled();
+    rerender({ ...start, currentRunner: "codex", selectedModel: null });
+    expect(start.onPermissionChange).not.toHaveBeenCalled();
+    rerender({ ...start, currentRunner: "codex", selectedModel: GPT });
+    expect(start.onPermissionChange).toHaveBeenCalledWith("read-only");
+    expect(start.onSend).not.toHaveBeenCalled();
+    rerender({ ...start, currentRunner: "codex", selectedModel: GPT, selectedPermission: "read-only" });
+    expect(start.onSend).toHaveBeenCalledWith("fix it");
+  });
+
+  it("keeps the existing permission when no override was chosen", () => {
+    const start = host({ currentRunner: "codex", selectedPermission: "read-only", onPermissionChange: vi.fn() });
+    const { result } = renderHook(() => useLimitSwitch(start));
+    act(() => result.current.switchTo({ runner: "codex", model: null, permission: null }, "fix it"));
+    expect(start.onPermissionChange).not.toHaveBeenCalled();
+    expect(start.onSend).toHaveBeenCalledWith("fix it");
+  });
+
+  it("does not retry when the host cannot apply the chosen permission", () => {
+    vi.useFakeTimers();
+    try {
+      const start = host({ currentRunner: "codex", selectedPermission: "default", onPermissionChange: vi.fn() });
+      const { result } = renderHook(() => useLimitSwitch(start));
+      act(() => result.current.switchTo({ runner: "codex", model: null, permission: "read-only" }, "fix it"));
+      act(() => vi.advanceTimersByTime(MODEL_WAIT_MS));
+      expect(start.onSend).not.toHaveBeenCalled();
+      expect(result.current.switching).toBe(false);
+      expect(result.current.error).toContain("Permission could not be applied");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("re-applies the model when the composer swaps in another, a few times at most", () => {
     const start = host({ currentRunner: "codex", selectedModel: null });
     const { result, rerender } = renderHook((props: LimitSwitchHost) => useLimitSwitch(props), {

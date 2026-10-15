@@ -80,7 +80,7 @@ pub async fn new_session(
             .runner_registry
             .create_session(runner.clone(), &dir, "")
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         let now = chrono::Utc::now().timestamp_millis().max(0) as u64;
         // Configure before the row is published: the session list is what the composer reads
         // back, and a row that briefly reports the engine's default would overwrite the very

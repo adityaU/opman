@@ -17,6 +17,8 @@ export interface FallbackPair {
   readonly runner: string;
   /** Null: whatever the runner picks by default. */
   readonly model: FallbackModel | null;
+  /** Null/omitted keeps the current permission when compatible with the target. */
+  readonly permission?: string | null;
 }
 
 export interface RunnerLimitSettings {

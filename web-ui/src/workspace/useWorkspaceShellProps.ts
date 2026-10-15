@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import { newSession, sendMessage, abortSession, readHandoff } from "../api";
 import type { AppState, ImageAttachment } from "../api";
+import { sendFailureMessage } from "../api/runnerSettings";
 import type { Message, PermissionRequest, QuestionRequest } from "../types";
 import type { PaneContext } from "./WorkspaceRoot";
 import type { WorkspaceBridge, WorkspaceProject } from "./DesktopWorkspace";
@@ -175,8 +176,8 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
               ...(engine.permission ? { permissionMode: engine.permission } : {}),
             })
           ).session_id;
-        } catch {
-          latest.current.onError("Failed to create session");
+        } catch (error) {
+          latest.current.onError(sendFailureMessage(error, "Failed to create session"));
           return { ok: false, sessionId: null };
         }
       }
@@ -201,8 +202,8 @@ export function useWorkspaceShellProps(deps: WorkspaceShellDeps) {
           return { ok: true, sessionId: handoff.sessionId };
         }
         return { ok: true, sessionId: sid };
-      } catch {
-        latest.current.onError("Failed to send message");
+      } catch (error) {
+        latest.current.onError(sendFailureMessage(error, "Failed to send message"));
         // The session exists even though the send failed, so hand it back: the
         // pane should bind to it rather than create a second one on retry.
         return { ok: false, sessionId: sid };

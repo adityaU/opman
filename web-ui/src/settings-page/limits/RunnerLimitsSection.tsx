@@ -11,6 +11,7 @@ import {
 } from "../../runner-limit/fallbacks";
 import { useLimitPolicy, type LimitPolicy } from "../../runner-limit/limitPolicy";
 import { FallbackAdder } from "./FallbackAdder";
+import { FallbackPermission } from "./FallbackPermission";
 
 const POLICIES: readonly [LimitPolicy, string][] = [
   ["ask", "Ask me"],
@@ -46,7 +47,11 @@ export function RunnerLimitsSection({ runners }: RunnerLimitsSectionProps) {
     [settings],
   );
   const add = (pair: FallbackPair) => {
-    if (pairs.some((existing) => samePair(existing, pair))) return;
+    const index = pairs.findIndex((existing) => samePair(existing, pair));
+    if (index >= 0) {
+      setPairs(pairs.map((existing, at) => at === index ? pair : existing));
+      return;
+    }
     setPairs([...pairs, pair]);
   };
   const move = (index: number, by: -1 | 1) => {
@@ -105,6 +110,7 @@ export function RunnerLimitsSection({ runners }: RunnerLimitsSectionProps) {
         </div>
         <p className="stg-card-note">
           Tried top to bottom. Skipped when its runner is also low or uses the same account.
+          {" "}Choose a permission for each handoff, or keep the current one when the next runner supports it.
         </p>
         {pairs.length === 0 ? (
           <p className="rlim-empty">Nothing chosen yet — opman will suggest the runner with the most left.</p>
@@ -117,6 +123,9 @@ export function RunnerLimitsSection({ runners }: RunnerLimitsSectionProps) {
                 <span className="rlim-model">
                   {pair.model ? shortModelName(pair.model.modelID) : "default model"}
                 </span>
+                <FallbackPermission runner={pair.runner} permission={pair.permission} index={index}
+                  onChange={(permission) => setPairs(pairs.map((entry, at) =>
+                    at === index ? { ...entry, permission } : entry))} />
                 <span className="rlim-item-actions">
                   <button type="button" className="stg-icon-btn" aria-label="Move up"
                     disabled={index === 0} onClick={() => move(index, -1)}>

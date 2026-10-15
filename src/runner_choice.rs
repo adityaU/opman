@@ -40,7 +40,7 @@ impl Display for RunnerDisabled {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
-            "The {} runner is turned off. Turn it on in Settings → Runners to use it.",
+            "The {} runner is turned off. Turn it on in Settings → Agents to use it.",
             self.kind.display_name()
         )
     }

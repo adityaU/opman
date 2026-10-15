@@ -45,7 +45,7 @@ pub async fn set_session_engine(
         .runner_registry
         .configure(&session_id, &dir, &choices)
         .await
-        .map_err(|error| WebError::Internal(format!("Runner error: {error}")))?;
+        .map_err(WebError::runner)?;
 
     // Reflect it locally too. The session list is refreshed from the engines on a poll, so
     // without this the client would read its own change back as the old value for as long

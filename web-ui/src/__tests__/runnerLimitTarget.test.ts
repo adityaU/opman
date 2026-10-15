@@ -62,13 +62,14 @@ describe("limitOptions", () => {
   it("puts the user's list first, in their order, with their model", () => {
     const model = { providerID: "openai", modelID: "gpt-5.6-sol" };
     const options = limitOptions(input({
-      pairs: [{ runner: "opencode", model: null }, { runner: "codex", model }],
+      pairs: [{ runner: "opencode", model: null }, { runner: "codex", model, permission: "read-only" }],
     }));
     expect(options.map((o) => [o.runner, o.source])).toEqual([
       ["opencode", "preselected"],
       ["codex", "preselected"],
     ]);
     expect(options[1].model).toEqual(model);
+    expect(options[1].permission).toBe("read-only");
   });
 
   it("skips a listed runner that would fail the same way or is not served", () => {

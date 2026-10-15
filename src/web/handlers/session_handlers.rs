@@ -56,7 +56,7 @@ pub async fn get_session_messages(
             .runner_registry
             .messages(&session_id, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         return Ok(Json(paginate_messages(
             body,
             page.limit.unwrap_or(0),
@@ -255,7 +255,7 @@ pub async fn send_message(
             .runner_registry
             .send_message(&session_id, &dir, requested, request_body)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         state
             .web_state
             .set_session_runner(&outcome.session_id, &outcome.runner.display_name())
@@ -367,7 +367,7 @@ pub async fn abort_session(
             .runner_registry
             .abort(&session_id, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         return Ok(StatusCode::OK);
     }
     let base = default_base_url(&state).await?;
@@ -463,7 +463,7 @@ pub async fn delete_session(
             .runner_registry
             .delete(&session_id, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+            .map_err(WebError::runner)?
     {
         return Ok(StatusCode::OK);
     }
@@ -516,7 +516,7 @@ pub async fn rename_session(
             .runner_registry
             .rename(&session_id, &req.title, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+            .map_err(WebError::runner)?
     {
         return Ok(Json(serde_json::json!({ "ok": true, "title": req.title })));
     }
@@ -576,7 +576,7 @@ pub async fn execute_command(
                 ),
             )
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         // A command is a turn: mark it dispatched so the session reads as running for the
         // beat before the runner reports the turn it just accepted.
         state.web_state.mark_turn_dispatched(&session_id).await;
@@ -639,7 +639,7 @@ pub async fn get_providers(
             .runner_registry
             .providers(runner, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         return Ok(Json(providers));
     }
     let base = default_base_url(&state).await?;
@@ -680,7 +680,7 @@ pub async fn get_commands(
             .runner_registry
             .commands(runner, &dir)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         return Ok(Json(commands));
     }
     let base = default_base_url(&state).await?;
@@ -710,7 +710,7 @@ pub async fn reply_permission(
         .runner_registry
         .reply_permission(&request_id, &req.reply)
         .await
-        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+        .map_err(WebError::runner)?
     {
         return Ok(StatusCode::OK);
     }
@@ -742,7 +742,7 @@ pub async fn reply_question(
         .runner_registry
         .reply_question(&request_id, &answers)
         .await
-        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?
+        .map_err(WebError::runner)?
     {
         return Ok(StatusCode::OK);
     }
@@ -794,7 +794,7 @@ pub async fn reject_question(
         .runner_registry
         .reject_question(&request_id)
         .await
-        .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+        .map_err(WebError::runner)?;
     Ok(StatusCode::OK)
 }
 
@@ -854,7 +854,7 @@ pub async fn a2ui_callback(
             .runner_registry
             .send_message(&session_id, &dir, None, msg_body)
             .await
-            .map_err(|e| WebError::Internal(format!("Runner error: {e}")))?;
+            .map_err(WebError::runner)?;
         return a2ui_callback_result(StatusCode::OK, serde_json::Value::Null);
     }
     let base = default_base_url(&state).await?;

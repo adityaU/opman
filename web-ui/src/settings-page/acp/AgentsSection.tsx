@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { AgentForm } from "./AgentForm";
 import { AgentList } from "./AgentList";
+import { BuiltinRunnersCard } from "./BuiltinRunnersCard";
 import { useAcpAgents, WHOLE_CONFIG } from "./useAcpAgents";
 
 /**
@@ -80,6 +81,7 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
 
   return (
     <div className="stg-stack">
+      <BuiltinRunnersCard onError={onError} />
       <section className="stg-card">
         <div className="stg-card-head">
           <div>

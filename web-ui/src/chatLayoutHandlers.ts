@@ -3,6 +3,7 @@ import {
   replyPermission, replyQuestion, rejectQuestion, newSession, readHandoff,
 } from "./api";
 import type { ImageAttachment } from "./api";
+import { sendFailureMessage } from "./api/runnerSettings";
 import type { Message } from "./types";
 import { isMobileViewport } from "./hooks/useIsMobile";
 import { findSlashCommand } from "./keybindings/commands";
@@ -150,11 +151,11 @@ export function createHandleSend(deps: HandlerDeps) {
         deps.addToast(`Session handed off to ${handoff.runner || "new runner"}`, "success");
       }
       return true;
-    } catch {
+    } catch (error) {
       // Retire only this send's placeholder: a blanket purge would also drop a
       // queued prompt on another session that never failed.
       if (placeholderId) deps.clearOptimistic(sid, placeholderId);
-      deps.addToast("Failed to send message", "error");
+      deps.addToast(sendFailureMessage(error, "Failed to send message"), "error");
       return false;
     } finally {
       deps.setSending(false, sid);

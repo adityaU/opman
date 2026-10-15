@@ -61,6 +61,7 @@ html.flat-theme .rlim-bar {
 
 .rlim-actions {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-1-5);
     min-width: 0;
@@ -138,7 +139,8 @@ html.flat-theme .rlim-bar {
     }
 
     .rlim-select {
-        flex: 1;
+        flex: 1 1 100%;
+        width: 100%;
         max-width: none;
     }
 }
@@ -162,6 +164,7 @@ html.flat-theme .rlim-bar {
 
 .rlim-item {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3);
     padding: 6px 8px;
@@ -198,9 +201,14 @@ html.flat-theme .rlim-bar {
     gap: 2px;
 }
 
-/* Two pickers share the row; the button keeps its own width. */
+.rlim-permission {
+    flex: 0 1 210px;
+    min-width: 0;
+}
+
+/* Pickers use two columns on desktop and stack on narrow screens. */
 .rlim-adder {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     margin-top: var(--space-3);
     align-items: end;
 }
@@ -210,6 +218,15 @@ html.flat-theme .rlim-bar {
 }
 
 @media (max-width: 768px) {
+    .rlim-permission {
+        flex: 1 1 100%;
+        order: 1;
+    }
+
+    .rlim-item-actions {
+        margin-left: auto;
+    }
+
     .rlim-adder {
         grid-template-columns: minmax(0, 1fr);
     }

@@ -10,6 +10,7 @@ import type { FallbackModel } from "./fallbacks";
 import type { RunnerLimit } from "./limitState";
 import { useLimitSwitch } from "./useLimitSwitch";
 import { useRunnerLimit } from "./useRunnerLimit";
+import { useProviders } from "../hooks/useProviders";
 
 export interface RunnerLimitBarProps {
   readonly sessionId: string | null;
@@ -17,9 +18,11 @@ export interface RunnerLimitBarProps {
   readonly availableRunners: readonly string[];
   readonly messages?: readonly Message[];
   readonly selectedModel: FallbackModel | null;
+  readonly selectedPermission?: string;
   readonly isBusy: boolean;
   readonly onRunnerChange?: (runner: string) => void;
   readonly onModelSelected?: (modelId: string, providerId: string) => void;
+  readonly onPermissionChange?: (permission: string) => void;
   readonly onSend: (text: string) => Promise<boolean>;
 }
 
@@ -61,27 +64,45 @@ export function RunnerLimitBar(props: RunnerLimitBarProps) {
   const { sessionId, runner, availableRunners, messages, isBusy } = props;
   const view = useRunnerLimit(sessionId, runner, availableRunners, messages);
   const { limit, options, policy, dismissed, dismiss } = view;
-  const { switchTo, switching } = useLimitSwitch({
+  const { switchTo, switching, error, clearError } = useLimitSwitch({
     currentRunner: runner,
     selectedModel: props.selectedModel,
     onRunnerChange: props.onRunnerChange,
     onModelSelected: props.onModelSelected,
+    selectedPermission: props.selectedPermission,
+    onPermissionChange: props.onPermissionChange,
     onSend: props.onSend,
   });
   const [picked, setPicked] = useState<string | null>(null);
+  const [pickedPermission, setPickedPermission] = useState<{ key: string; permission: string | null } | null>(null);
 
   const chosen = useMemo(
     () => options.find((option) => optionKey(option) === picked) ?? options[0] ?? null,
     [options, picked],
   );
+  const { permissionModes, loading: permissionsLoading } = useProviders(chosen?.runner ?? runner);
+  const permission = chosen && pickedPermission?.key === optionKey(chosen)
+    ? pickedPermission.permission : chosen?.permission ?? null;
+  const permissionSupported = !permission || Boolean(permissionModes?.some((mode) => mode.value === permission));
   // Only a turn that failed and is not running can be re-sent; the prompt is the one it lost.
   const retryPrompt = !isBusy && limit.failed?.prompt ? limit.failed.prompt : null;
   const go = (target: LimitTarget) => {
-    dismiss();
-    switchTo(target, retryPrompt);
+    switchTo({ ...target, permission }, retryPrompt);
   };
 
-  if (policy === "off" || limit.level === "ok" || dismissed) return null;
+  if (policy === "off" || dismissed) return null;
+  if (error) {
+    return (
+      <div className="rlim-bar rlim-bar--out" role="alert">
+        <AlertTriangle size={13} className="rlim-icon" aria-hidden="true" />
+        <span className="rlim-text">{error}</span>
+        <button type="button" className="rlim-icon-btn" aria-label="Hide" onClick={clearError}>
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+  if (limit.level === "ok") return null;
 
   const auto = policy === "auto" && options[0]?.source === "preselected" ? options[0] : null;
   if (auto) {
@@ -127,7 +148,8 @@ export function RunnerLimitBar(props: RunnerLimitBarProps) {
               className="rlim-select"
               aria-label="Move this chat to"
               value={optionKey(chosen)}
-              onChange={(event) => setPicked(event.target.value)}
+              disabled={switching}
+              onChange={(event) => { setPicked(event.target.value); setPickedPermission(null); }}
             >
               {options.map((option) => (
                 <option key={optionKey(option)} value={optionKey(option)}>
@@ -135,7 +157,17 @@ export function RunnerLimitBar(props: RunnerLimitBarProps) {
                 </option>
               ))}
             </select>
-            <button type="button" className="rlim-btn rlim-btn--primary" disabled={switching} onClick={() => go(chosen)}>
+            {(Boolean(permissionModes?.length) || Boolean(permission)) && (
+              <select className="rlim-select" aria-label="Handoff permission"
+                value={permission ?? ""} disabled={switching || permissionsLoading}
+                onChange={(event) => setPickedPermission({ key: optionKey(chosen), permission: event.target.value || null })}>
+                <option value="">Keep compatible permission</option>
+                {permission && !permissionSupported && <option value={permission} disabled>Unavailable: {permission}</option>}
+                {permissionModes?.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+              </select>
+            )}
+            <button type="button" className="rlim-btn rlim-btn--primary"
+              disabled={switching || !permissionSupported || Boolean(permission && permissionsLoading)} onClick={() => go(chosen)}>
               {retryPrompt ? "Switch & retry" : "Switch"}
             </button>
           </>

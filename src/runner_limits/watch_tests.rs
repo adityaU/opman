@@ -35,10 +35,49 @@ fn retargeting_drops_the_old_runners_choices_and_names_the_new_model() {
             provider_id: "openai".into(),
             model_id: "gpt-5.6-sol".into(),
         }),
+        permission: None,
     };
     retarget(&mut body, &pair);
-    assert_eq!(body, json!({"parts":[], "model":{"providerID":"openai","modelID":"gpt-5.6-sol"}}));
+    assert_eq!(
+        body,
+        json!({"parts":[], "model":{"providerID":"openai","modelID":"gpt-5.6-sol"}})
+    );
 
-    retarget(&mut body, &FallbackPair { runner: "opencode".into(), model: None });
+    retarget(
+        &mut body,
+        &FallbackPair {
+            runner: "opencode".into(),
+            model: None,
+            permission: None,
+        },
+    );
     assert_eq!(body, json!({"parts":[]}));
+}
+
+#[test]
+fn a_configured_target_permission_replaces_the_source_permission() {
+    let pair = FallbackPair {
+        runner: "codex".into(),
+        model: None,
+        permission: Some("read-only".into()),
+    };
+    for mut body in [
+        json!({"parts": []}),
+        json!({"permission": "bypassPermissions"}),
+    ] {
+        retarget(&mut body, &pair);
+        assert_eq!(body["permission"], "read-only");
+    }
+}
+
+#[test]
+fn an_old_fallback_keeps_the_callers_permission_for_target_validation() {
+    let pair = FallbackPair {
+        runner: "codex".into(),
+        model: None,
+        permission: None,
+    };
+    let mut body = json!({"permission": "read-only"});
+    retarget(&mut body, &pair);
+    assert_eq!(body["permission"], "read-only");
 }

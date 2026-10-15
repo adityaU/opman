@@ -12,6 +12,8 @@ use super::super::sse;
 mod runner_handlers;
 #[path = "../handlers/runner_limits_handlers.rs"]
 mod runner_limits_handlers;
+#[path = "../handlers/runner_settings_handlers.rs"]
+mod runner_settings_handlers;
 #[path = "../handlers/usage_handlers.rs"]
 mod usage_handlers;
 
@@ -40,6 +42,12 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         .route("/project/remove", post(handlers::remove_project))
         .route("/runner/select", post(runner_handlers::select_runner))
         .route("/usage", get(usage_handlers::get_usage))
+        .route("/runners/settings", get(runner_settings_handlers::get_runner_settings))
+        .route(
+            "/runners/settings/{id}",
+            put(runner_settings_handlers::put_runner_enabled),
+        )
+        .route("/runners/default", put(runner_settings_handlers::put_default_runner))
         .route(
             "/runner-limits",
             get(runner_limits_handlers::get_runner_limits)

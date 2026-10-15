@@ -77,6 +77,9 @@ pub struct FallbackPair {
     pub runner: String,
     #[serde(default)]
     pub model: Option<ModelRef>,
+    /// Target runner's permission-mode id. Omitted values keep the caller's choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permission: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,7 +110,10 @@ impl SettingsStore {
     }
 
     pub fn get(&self) -> Arc<LimitSettings> {
-        let guard = self.current.read().unwrap_or_else(|poison| poison.into_inner());
+        let guard = self
+            .current
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner());
         Arc::clone(&guard)
     }
 
@@ -117,7 +123,10 @@ impl SettingsStore {
             write(path, &next)?;
         }
         let next = Arc::new(next);
-        let mut guard = self.current.write().unwrap_or_else(|poison| poison.into_inner());
+        let mut guard = self
+            .current
+            .write()
+            .unwrap_or_else(|poison| poison.into_inner());
         *guard = Arc::clone(&next);
         Ok(next)
     }

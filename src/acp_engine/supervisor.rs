@@ -117,7 +117,9 @@ impl AcpSupervisor {
         register_acp_runners(cfg.active().map(|(id, _)| id.clone()));
 
         let mut changes = AcpChanges::default();
-        let (retired, deferred) = retire(&mut live, cfg, &self.registry.default_kind());
+        // The primary runner serves the process-wide base URL, so its agent cannot be swapped
+        // live. The default for new sessions can move freely and is not protected here.
+        let (retired, deferred) = retire(&mut live, cfg, &self.registry.primary_kind());
         changes.deferred = deferred;
         for entry in retired {
             self.registry.uninstall(&entry.kind);
@@ -166,10 +168,10 @@ impl AcpSupervisor {
             .collect()
     }
 
-    /// The agent serving opman's default runner, if that runner is an ACP agent at all.
+    /// The agent serving opman's primary runner, if that runner is an ACP agent at all.
     /// Its row is the one that cannot take an edit live.
     pub async fn default_agent(&self) -> Option<String> {
-        let default = self.registry.default_kind();
+        let default = self.registry.primary_kind();
         self.live
             .lock()
             .await

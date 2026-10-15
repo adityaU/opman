@@ -42,6 +42,7 @@ mod runner;
 mod runner_handoff;
 mod runner_lazy;
 mod runner_limits;
+mod runner_settings;
 mod server;
 mod session_disk;
 use integrations::slack;
@@ -285,158 +286,53 @@ async fn main() -> Result<()> {
     let lazy_ctx = runner_lazy::LazyContext::new();
     let opencode_config = Arc::new(opencode_config);
 
-    // The default backend is lazy too. opencode runs as an external `opencode serve`
-    // process; claude-code is served by an in-process adapter that speaks the same
-    // opencode REST + SSE contract (backed by `claude` background agents); the `claude`
-    // slot is served by the generic ACP engine. Whichever it is, its URL is published to
-    // the TUI and the REST helpers at the moment it starts rather than at boot — which is
-    // why `crate::app::base_url` now has a non-panicking sibling.
-    let mut runner_impls: HashMap<runner::RunnerKind, Arc<dyn runner::Runner>> = HashMap::new();
-    let default_lazy = {
+    // The built-in runners (OpenCode, Claude Code) come from the settings page's
+    // `runners.json`: each is a lazy slot that starts its server on first use, or a
+    // placeholder when switched off. The primary runner is the CLI's choice unless that
+    // runner is switched off; its URL becomes the process-wide base URL when it starts.
+    let builtin_factory = Arc::new(runner_settings::BuiltinFactory::new(
+        lazy_ctx.clone(),
+        mcp_registry.clone(),
+        client.clone(),
+        opencode_config.clone(),
+    ));
+    let runner_settings = Arc::new(runner_settings::RunnerSettings::boot(
+        runner_settings::config_path(),
+        builtin_factory,
+        default_runner.clone(),
+    ));
+    let default_runner = runner_settings.primary().clone();
+    let mut runner_impls: HashMap<runner::RunnerKind, Arc<dyn runner::Runner>> =
+        runner_settings.slots().into_iter().collect();
+
+    // The `claude` slot is served by the generic ACP engine. When it is the primary it is
+    // built here rather than from `acp.json`, so its URL is published as the base URL.
+    if let Some((id, agent)) = default_acp_agent.filter(|_| default_runner == runner::RunnerKind::Claude) {
         let kind = default_runner.clone();
         let mcp = mcp_registry.clone();
         let http = client.clone();
-        let config = opencode_config.clone();
-        let acp_agent = default_acp_agent.clone();
-        runner_lazy::LazyRunner::new(default_runner.clone(), lazy_ctx.clone(), move || {
+        let agent_id = id.clone();
+        let primary = runner_lazy::LazyRunner::new(kind.clone(), lazy_ctx.clone(), move || {
             let kind = kind.clone();
             let mcp = mcp.clone();
             let http = http.clone();
-            let config = config.clone();
-            let acp_agent = acp_agent.clone();
+            let agent_id = agent_id.clone();
+            let agent = agent.clone();
             async move {
-                let (url, handle, engine) = match backend {
-                    crate::cli::AgentBackend::ClaudeCode => {
-                        let (url, handle) = claude_engine::start_embedded_server(mcp)
-                            .await
-                            .context("Failed to start embedded claude engine")?;
-                        (url, handle, None)
-                    }
-                    crate::cli::AgentBackend::ClaudeAcp => {
-                        let (id, agent) = acp_agent
-                            .context("No ACP agent is configured for the `claude` runner")?;
-                        let (url, handle, engine) =
-                            acp_engine::start_embedded_server(&id, agent, mcp)
-                                .await
-                                .with_context(|| format!("Failed to start ACP engine `{id}`"))?;
-                        (url, handle, Some((id, engine)))
-                    }
-                    crate::cli::AgentBackend::Opencode => {
-                        let (url, handle) = server::spawn_agent_server(backend, Some(&config))
-                            .context("Failed to start agent server")?;
-                        (url, handle, None)
-                    }
-                };
-                let real: Arc<dyn runner::Runner> = match &engine {
-                    Some((_, engine)) => Arc::new(runner::AcpRunner::new(
-                        kind,
-                        url.clone(),
-                        http,
-                        engine.clone(),
-                    )),
-                    None => Arc::new(runner::HttpRunner::new(kind, url.clone(), http)),
-                };
+                let (url, handle, engine) = acp_engine::start_embedded_server(&agent_id, agent, mcp)
+                    .await
+                    .with_context(|| format!("Failed to start ACP engine `{agent_id}`"))?;
                 Ok(runner_lazy::LazyStart {
-                    runner: real,
+                    runner: Arc::new(runner::AcpRunner::new(kind, url.clone(), http, engine.clone())),
                     handle: Some(handle),
-                    engine,
+                    engine: Some((agent_id, engine)),
                     base_url: Some(url),
                 })
             }
         })
-    };
-    let default_lazy = match &default_acp_agent {
-        Some((id, _)) => default_lazy.for_acp_agent(id.clone()),
-        None => default_lazy,
-    };
-    let default_lazy = default_lazy.with_disk_sessions(session_disk::SessionStore::for_backend(
-        backend,
-        default_acp_agent.as_ref().map(|(id, _)| id.as_str()),
-    ));
-    runner_impls.insert(default_runner.clone(), Arc::new(default_lazy));
-
-    // The remaining runners are *declared* here, not started: each is a placeholder that
-    // spawns its server the first time a session is created on it or a message is sent to
-    // it. A user who only ever talks to one runner no longer pays for the others.
-    if !runner_impls.contains_key(&runner::RunnerKind::Opencode)
-        && std::process::Command::new("opencode")
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-    {
-        // The availability probe stays eager: it is a short-lived `--version` check, not a
-        // server, and without it the picker would list runners that cannot start at all.
-        let config = opencode_config.clone();
-        let http = client.clone();
-        runner_impls.insert(
-            runner::RunnerKind::Opencode,
-            Arc::new(
-                runner_lazy::LazyRunner::new(
-                    runner::RunnerKind::Opencode,
-                    lazy_ctx.clone(),
-                    move || {
-                        let config = config.clone();
-                        let http = http.clone();
-                        async move {
-                            let (url, handle) = server::spawn_agent_server(
-                                crate::cli::AgentBackend::Opencode,
-                                Some(&config),
-                            )?;
-                            Ok(runner_lazy::LazyStart {
-                                runner: Arc::new(runner::HttpRunner::new(
-                                    runner::RunnerKind::Opencode,
-                                    url,
-                                    http,
-                                )),
-                                handle: Some(handle),
-                                engine: None,
-                                base_url: None,
-                            })
-                        }
-                    },
-                )
-                .with_disk_sessions(session_disk::SessionStore::opencode()),
-            ),
-        );
-    }
-    let claude_bin = std::env::var("OPMAN_CLAUDE_BIN").unwrap_or_else(|_| "claude".to_string());
-    if !runner_impls.contains_key(&runner::RunnerKind::ClaudeCode)
-        && std::process::Command::new(&claude_bin)
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-    {
-        let mcp = mcp_registry.clone();
-        let http = client.clone();
-        runner_impls.insert(
-            runner::RunnerKind::ClaudeCode,
-            Arc::new(
-                runner_lazy::LazyRunner::new(
-                    runner::RunnerKind::ClaudeCode,
-                    lazy_ctx.clone(),
-                    move || {
-                        let mcp = mcp.clone();
-                        let http = http.clone();
-                        async move {
-                            let (url, handle) = claude_engine::start_embedded_server(mcp).await?;
-                            Ok(runner_lazy::LazyStart {
-                                runner: Arc::new(runner::HttpRunner::new(
-                                    runner::RunnerKind::ClaudeCode,
-                                    url,
-                                    http,
-                                )),
-                                handle: Some(handle),
-                                engine: None,
-                                base_url: None,
-                            })
-                        }
-                    },
-                )
-                .with_disk_sessions(session_disk::SessionStore::claude_engine()),
-            ),
-        );
+        .for_acp_agent(id.clone())
+        .with_disk_sessions(session_disk::SessionStore::acp(&id));
+        runner_impls.insert(default_runner.clone(), Arc::new(primary));
     }
 
     // Every configured ACP agent becomes a runner. This is the whole cost of adding one:
@@ -487,6 +383,8 @@ async fn main() -> Result<()> {
         );
     }
     let runner_registry = Arc::new(runner::RunnerRegistry::new(default_runner, runner_impls));
+    runner_registry.set_preferred(runner_settings.saved_default());
+    runner_settings::install_global(runner_settings);
 
     // Hand the engines started above to the supervisor, so a later edit to `acp.json` can
     // start, restart or drop an agent against the same runner slots rather than fighting

@@ -5,7 +5,8 @@
  */
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MODEL_WAIT_MS } from "../runner-limit/useLimitSwitch";
 import { RunnerLimitBar, type RunnerLimitBarProps } from "../runner-limit/RunnerLimitBar";
 import { DISMISS_KEY } from "../runner-limit/dismissals";
 import { resetSettingsStore } from "../runner-limit/settingsStore";
@@ -37,15 +38,26 @@ vi.mock("../usage/useUsage", () => ({
   useUsage: () => ({ report: REPORT, status: "ready", error: null, loadedAt: 0, refreshing: false, refresh: vi.fn() }),
 }));
 
+const catalogues = vi.hoisted(() => ({
+  modes: {
+    codex: [{ value: "read-only", label: "Read only" }, { value: "workspace-write", label: "Workspace write" }],
+  } as Record<string, { value: string; label: string }[]>,
+}));
+vi.mock("../hooks/useProviders", () => ({
+  useProviders: (runner: string) => ({ permissionModes: catalogues.modes[runner] ?? null, loading: false }),
+}));
+
 function props(overrides: Partial<RunnerLimitBarProps> = {}): RunnerLimitBarProps {
   return {
     sessionId: "s1",
     runner: "claude",
     availableRunners: ["claude", "codex"],
     selectedModel: null,
+    selectedPermission: "default",
     isBusy: false,
     onRunnerChange: vi.fn(),
     onModelSelected: vi.fn(),
+    onPermissionChange: vi.fn(),
     onSend: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
@@ -96,5 +108,53 @@ describe("RunnerLimitBar", () => {
     settings({ policy: "off" });
     const { container } = render(<RunnerLimitBar {...props()} />);
     expect(container.textContent).toBe("");
+  });
+
+  it("uses the saved target permission and lets the user change it before switching", () => {
+    settings({ pairs: [{ runner: "codex", model: null, permission: "workspace-write" }] });
+    const p = props();
+    const view = render(<RunnerLimitBar {...p} />);
+    const permission = screen.getByRole("combobox", { name: "Handoff permission" }) as HTMLSelectElement;
+    expect(permission.value).toBe("workspace-write");
+    fireEvent.change(permission, { target: { value: "read-only" } });
+    fireEvent.click(screen.getByRole("button", { name: "Switch" }));
+    expect(p.onPermissionChange).not.toHaveBeenCalled();
+    view.rerender(<RunnerLimitBar {...p} runner="codex" />);
+    expect(p.onPermissionChange).toHaveBeenCalledWith("read-only");
+    expect(p.onSend).not.toHaveBeenCalled();
+  });
+
+  it("shows only the chosen runner's reported permissions", () => {
+    render(<RunnerLimitBar {...props({ availableRunners: ["claude", "codex", "opencode"] })} />);
+    expect(screen.getByRole("option", { name: "Read only" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "Move this chat to" }), { target: { value: "opencode" } });
+    expect(screen.queryByRole("combobox", { name: "Handoff permission" })).toBeNull();
+  });
+
+  it("requires a new choice when a saved permission is no longer reported", () => {
+    settings({ pairs: [{ runner: "codex", model: null, permission: "removed-mode" }] });
+    render(<RunnerLimitBar {...props()} />);
+    const switchButton = screen.getByRole("button", { name: "Switch" }) as HTMLButtonElement;
+    expect(switchButton.disabled).toBe(true);
+    fireEvent.change(screen.getByRole("combobox", { name: "Handoff permission" }), { target: { value: "read-only" } });
+    expect(switchButton.disabled).toBe(false);
+  });
+
+  it("shows a failed permission change after moving to a healthy runner", () => {
+    vi.useFakeTimers();
+    try {
+      settings({ pairs: [{ runner: "codex", model: null, permission: "read-only" }] });
+      const p = props();
+      const view = render(<RunnerLimitBar {...p} />);
+      fireEvent.click(screen.getByRole("button", { name: "Switch" }));
+      view.rerender(<RunnerLimitBar {...p} runner="codex" />);
+      act(() => vi.advanceTimersByTime(MODEL_WAIT_MS));
+      expect(screen.getByRole("alert").textContent).toContain("Permission could not be applied");
+      expect(p.onSend).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

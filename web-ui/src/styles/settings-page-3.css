@@ -263,3 +263,13 @@
 .stg-check input {
     accent-color: var(--color-accent);
 }
+
+.stg-switch:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* Settings → Agents: the default-runner picker under the built-in runners. */
+.rnr-default {
+    margin-top: var(--space-3);
+}
