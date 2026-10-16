@@ -56,6 +56,7 @@ pub(super) struct McpRequest {
     pub method: String,
     #[serde(default)]
     pub params: Option<serde_json::Value>,
+    #[serde(default)]
     pub id: serde_json::Value,
 }
 
@@ -210,5 +211,19 @@ async fn write_response_shared(
     }
     if let Err(e) = out.flush().await {
         eprintln!("MCP neovim bridge: stdout flush error: {}", e);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpRequest;
+
+    #[test]
+    fn initialized_notification_accepts_missing_id() -> Result<(), serde_json::Error> {
+        let request: McpRequest =
+            serde_json::from_str(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)?;
+        assert_eq!(request.method, "notifications/initialized");
+        assert!(request.id.is_null());
+        Ok(())
     }
 }

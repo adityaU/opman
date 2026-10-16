@@ -18,6 +18,7 @@ struct McpJsonRpcRequest {
     method: String,
     #[serde(default)]
     params: Option<serde_json::Value>,
+    #[serde(default)]
     id: serde_json::Value,
 }
 

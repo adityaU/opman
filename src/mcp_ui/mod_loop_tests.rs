@@ -17,7 +17,7 @@ fn handle_line_parse_error() {
 
 #[test]
 fn handle_line_notification_none() {
-    let line = r#"{"jsonrpc":"2.0","method":"notifications/initialized","id":0}"#;
+    let line = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
     assert!(handle_line(line).is_none());
 }
 
@@ -27,7 +27,7 @@ async fn run_ui_bridge_drives_full_loop() {
         "   \n",
         "not-json\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1}\n",
-        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"id\":0}\n",
+        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":2}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"ui_render\",\"arguments\":{\"title\":\"T\",\"blocks\":[{\"type\":\"card\",\"data\":{}}]}},\"id\":3}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"weird\",\"id\":4}\n",

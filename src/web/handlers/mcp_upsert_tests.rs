@@ -53,7 +53,7 @@ async fn a_new_entry_with_no_transport_is_rejected() {
 }
 
 /// A built-in needs no command of its own: an entry naming one is a patch on opman's
-/// definition, so scoping it to two runners must not demand a transport as well.
+/// definition, so scoping it to a runner must not demand a transport as well.
 #[tokio::test]
 async fn a_builtin_can_be_patched_without_declaring_a_transport() {
     let redirect = ConfigRedirect::new();
@@ -62,7 +62,7 @@ async fn a_builtin_can_be_patched_without_declaring_a_transport() {
         &state,
         "time",
         UpsertServer {
-            runners: Some(vec!["codex".into()]),
+            runners: Some(vec!["opencode".into()]),
             ..UpsertServer::default()
         },
     )
@@ -72,6 +72,7 @@ async fn a_builtin_can_be_patched_without_declaring_a_transport() {
     let entry = &redirect.document().servers["time"];
     assert!(entry.command.is_empty());
     assert_eq!(entry.runners.len(), 1);
+    assert_eq!(entry.runners[0], crate::runner::RunnerKind::Opencode);
 }
 
 #[tokio::test]

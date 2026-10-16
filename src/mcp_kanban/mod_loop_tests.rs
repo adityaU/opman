@@ -122,7 +122,7 @@ async fn run_kanban_bridge_drives_loop() {
         "\n",
         "{oops\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1}\n",
-        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"id\":0}\n",
+        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":2}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"kanban_get_task\",\"arguments\":{\"task_id\":\"tsk_1\"}},\"id\":3}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"huh\",\"id\":4}\n",

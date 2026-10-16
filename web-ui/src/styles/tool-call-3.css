@@ -242,6 +242,9 @@
     color: var(--color-text-muted);
     padding: 1px var(--space-1);
     border-radius: var(--radius);
+    /* overflow:hidden drops the min-height floor, so without this the
+       rows shrink to fit the list's max-height instead of scrolling */
+    flex-shrink: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

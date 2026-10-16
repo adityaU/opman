@@ -21,7 +21,7 @@ async fn run_bridge_over_non_tool_methods() {
         "\n",
         "garbage-not-json\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1}\n",
-        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"id\":0}\n",
+        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":2}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"bogus\",\"id\":3}\n",
     );

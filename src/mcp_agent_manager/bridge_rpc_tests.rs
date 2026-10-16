@@ -79,13 +79,33 @@ async fn listing_returns_every_tool_the_manager_implements() {
 #[tokio::test]
 async fn the_initialized_notification_is_answered_with_silence() {
     let replies = converse(&[
-        json!({ "jsonrpc": "2.0", "id": 0, "method": "notifications/initialized" }),
+        json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
     ])
     .await;
 
     assert_eq!(replies.len(), 1, "only the initialize should answer");
     assert_eq!(replies[0]["id"], 1);
+}
+
+/// Strict MCP clients reject unsolicited error replies to the initialized notification
+/// while awaiting tools/list. Exercise their full handshake with string request ids.
+#[tokio::test]
+async fn initialization_then_listing_has_no_unsolicited_notification_reply() {
+    let replies = converse(&[
+        json!({ "jsonrpc": "2.0", "id": "initialize", "method": "initialize",
+            "params": { "protocolVersion": "2024-11-05", "capabilities": {},
+                "clientInfo": { "name": "strict-client", "version": "1" } } }),
+        json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
+        json!({ "jsonrpc": "2.0", "id": "tools", "method": "tools/list", "params": {} }),
+    ])
+    .await;
+
+    assert_eq!(replies.len(), 2, "unsolicited reply: {replies:?}");
+    assert_eq!(replies[0]["id"], "initialize");
+    assert_eq!(replies[1]["id"], "tools");
+    assert!(replies[1]["result"]["tools"].is_array());
+    assert!(replies.iter().all(|reply| reply.get("error").is_none()));
 }
 
 #[tokio::test]

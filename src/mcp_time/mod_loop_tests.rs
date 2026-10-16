@@ -21,7 +21,7 @@ fn handle_line_parse_error() {
 
 #[test]
 fn handle_line_notification_is_none() {
-    let line = r#"{"jsonrpc":"2.0","method":"notifications/initialized","id":null}"#;
+    let line = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
     assert!(handle_line(line).is_none());
 }
 
@@ -40,7 +40,7 @@ async fn run_time_bridge_drives_full_loop() {
         "\n",
         "{ bad json\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1}\n",
-        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"id\":null}\n",
+        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":2}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"time_now\",\"arguments\":{}},\"id\":3}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"nope\",\"id\":4}\n",

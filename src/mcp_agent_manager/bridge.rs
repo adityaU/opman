@@ -25,6 +25,8 @@ struct RpcRequest {
     method: String,
     #[serde(default)]
     params: Option<Value>,
+    // JSON-RPC notifications have no request id and must not receive a reply.
+    #[serde(default)]
     id: Value,
 }
 
