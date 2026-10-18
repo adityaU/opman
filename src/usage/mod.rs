@@ -5,6 +5,7 @@
 //! single-use, so refreshing would sign the user out of their CLI); a token is only
 //! ever sent to its own provider; tokens are never logged or returned.
 
+pub mod antigravity;
 pub mod cache;
 pub mod claude;
 pub mod codex;
@@ -14,18 +15,21 @@ pub mod rollout;
 pub mod types;
 
 use std::collections::BTreeMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use reqwest::Client;
 
 use crate::runner::RunnerKind;
 use cache::Cached;
+use antigravity::AntigravitySource;
 use claude::ClaudeSource;
 use codex::CodexSource;
 pub use types::{Account, AccountId, UsageReport};
 
 const TTL: Duration = Duration::from_secs(60);
+/// Antigravity usage costs a process start, so it is read less often.
+const AGENT_TTL: Duration = Duration::from_secs(300);
 /// A failed read is retried this soon, so a network blip does not hide usage for a minute.
 const ERROR_TTL: Duration = Duration::from_secs(10);
 /// The most one account may hold up a request, login lookup included.
@@ -37,6 +41,7 @@ const BUDGET: Duration = Duration::from_secs(6);
 pub struct Sources {
     pub claude: ClaudeSource,
     pub codex: CodexSource,
+    pub antigravity: AntigravitySource,
 }
 
 impl Sources {
@@ -53,6 +58,7 @@ impl Sources {
                 timeout: codex::TIMEOUT,
                 home: credentials::codex_home(),
             },
+            antigravity: AntigravitySource::default(),
         }
     }
 }
@@ -64,10 +70,24 @@ fn account_ttl(account: &Account) -> Duration {
     }
 }
 
+fn agent_ttl(account: &Option<Account>) -> Duration {
+    match account {
+        Some(account) if account.state == types::AccountState::Error => ERROR_TTL,
+        _ => AGENT_TTL,
+    }
+}
+
+fn disabled(id: AccountId) -> Account {
+    Account::new(id, types::AccountState::SignedOut).with_note("Not enabled in Settings")
+}
+
 pub struct UsageService {
     sources: Sources,
     claude: Cached<Account>,
     codex: Cached<Account>,
+    /// `None` inside means the user has not enabled Antigravity. Shared so a read that
+    /// outlives a request's budget can finish in the background and fill the cache.
+    antigravity: Arc<Cached<Option<Account>>>,
 }
 
 impl UsageService {
@@ -76,27 +96,54 @@ impl UsageService {
             sources,
             claude: Cached::new(account_ttl),
             codex: Cached::new(account_ttl),
+            antigravity: Arc::new(Cached::new(agent_ttl)),
         }
     }
 
     /// Every account, fetched concurrently.
     pub async fn accounts(&self, client: &Client, refresh: bool) -> Vec<Account> {
-        let (claude, codex) = tokio::join!(
+        let (claude, codex, antigravity) = tokio::join!(
             self.account(client, AccountId::Claude, refresh),
             self.account(client, AccountId::Codex, refresh),
+            self.antigravity(refresh),
         );
-        vec![claude, codex]
+        let mut accounts = vec![claude, codex];
+        accounts.extend(antigravity);
+        accounts
+    }
+
+    /// Antigravity's account, if it is enabled. Starting the agent can take longer than a
+    /// request may wait, so the read runs on its own task: a slow first read shows a
+    /// placeholder now and the real numbers on the next request.
+    async fn antigravity(&self, refresh: bool) -> Option<Account> {
+        let (cache, source) = (self.antigravity.clone(), self.sources.antigravity.clone());
+        let read = tokio::spawn(async move {
+            let fetch = || antigravity::account(&source);
+            cache.get(refresh, fetch).await
+        });
+        match tokio::time::timeout(BUDGET, read).await {
+            Ok(Ok(account)) => account,
+            Ok(Err(_)) => None,
+            Err(_) => Some(
+                Account::new(AccountId::Antigravity, types::AccountState::Error)
+                    .with_note("Reading Antigravity usage; it will appear on the next refresh"),
+            ),
+        }
     }
 
     pub async fn account(&self, client: &Client, id: AccountId, refresh: bool) -> Account {
         let cached = match id {
             AccountId::Claude => &self.claude,
             AccountId::Codex => &self.codex,
+            AccountId::Antigravity => {
+                return self.antigravity(refresh).await.unwrap_or_else(|| disabled(id));
+            }
         };
         let fetch = || async {
             match id {
                 AccountId::Claude => claude::account(client, &self.sources.claude).await,
                 AccountId::Codex => codex::account(client, &self.sources.codex).await,
+                AccountId::Antigravity => disabled(id),
             }
         };
         tokio::time::timeout(BUDGET, cached.get(refresh, fetch))
@@ -130,6 +177,7 @@ pub fn account_for(kind: &RunnerKind) -> Option<AccountId> {
         RunnerKind::Claude | RunnerKind::ClaudeCode => Some(AccountId::Claude),
         RunnerKind::Acp(id) if id == "claude" => Some(AccountId::Claude),
         RunnerKind::Acp(id) if id == "codex" => Some(AccountId::Codex),
+        RunnerKind::Acp(id) if id == antigravity::RUNNER => Some(AccountId::Antigravity),
         RunnerKind::Acp(_) | RunnerKind::Opencode => None,
     }
 }

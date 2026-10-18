@@ -41,6 +41,7 @@ mod git_sync;
 mod git_workdir;
 mod git_worktree;
 mod health_handlers;
+mod internal_scheduler;
 mod kanban_handlers;
 mod kanban_internal;
 mod kanban_internal_query;
@@ -72,6 +73,7 @@ mod handler_tests;
 // continues to work from the router in `super::mod`.
 
 pub use auth_handlers::{health, login, verify};
+pub use internal_scheduler::internal_scheduler;
 pub use keybindings_handlers::{get_keybindings, put_keybindings};
 
 pub use state_handlers::{

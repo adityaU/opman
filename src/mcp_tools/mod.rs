@@ -1,7 +1,7 @@
 //! `opman mcp-tools`: common coding tools as a stdio MCP server.
 //!
 //! Tools: `bash`, `read_file`, `write_file`, `edit_file`, `list_dir`, `glob`, `grep` and
-//! `web_fetch`. Each has a JSON input schema and an output schema, and returns both a
+//! `web_fetch`, `wait`, and `scheduler_*`. Each has input and output schemas and returns both a
 //! readable text block and `structuredContent`, so agents and code-mode runners can use
 //! them the same way.
 //!
@@ -13,6 +13,7 @@
 
 mod atomic;
 mod bash;
+mod bash_job;
 mod call;
 mod capture;
 mod catalog;
@@ -31,7 +32,10 @@ mod process;
 mod read_file;
 mod rpc;
 mod schema;
+mod scheduler;
+mod scheduler_schema;
 mod walk;
+mod wait;
 mod web_fetch;
 mod workspace;
 mod write_file;
@@ -137,6 +141,9 @@ async fn write_replies<W: AsyncWrite + Unpin>(mut writer: W, mut inbox: mpsc::Re
 #[path = "bash_tests.rs"]
 mod bash_tests;
 #[cfg(test)]
+#[path = "bash_job_tests.rs"]
+mod bash_job_tests;
+#[cfg(test)]
 #[path = "capture_tests.rs"]
 mod capture_tests;
 #[cfg(test)]
@@ -151,6 +158,9 @@ mod protocol_tests;
 #[cfg(test)]
 #[path = "search_tests.rs"]
 mod search_tests;
+#[cfg(test)]
+#[path = "scheduler_tests.rs"]
+mod scheduler_tests;
 #[cfg(test)]
 #[path = "web_fetch_tests.rs"]
 mod web_fetch_tests;

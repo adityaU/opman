@@ -8,6 +8,10 @@ fn service(base: &str, dir: &std::path::Path, claude_token: &str) -> UsageServic
     UsageService::new(Sources {
         claude: claude_source(base, &dir.join("claude"), claude_token, 4_102_444_800_000),
         codex: codex_source(base, &dir.join("codex"), Some(chatgpt_auth("codex"))),
+        antigravity: AntigravitySource {
+            agent: antigravity::Agent::Off,
+            ..AntigravitySource::default()
+        },
     })
 }
 

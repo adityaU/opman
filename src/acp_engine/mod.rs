@@ -39,6 +39,7 @@ mod mcp_servers;
 pub mod native_tools;
 mod native_tools_catalog;
 mod native_tools_render;
+pub(crate) mod oneshot;
 mod options;
 pub mod patch;
 mod pending;

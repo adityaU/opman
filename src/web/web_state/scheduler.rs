@@ -11,6 +11,11 @@ use tracing::{debug, info, warn};
 use super::super::types::*;
 
 impl super::WebStateHandle {
+    /// Validate schedules against the same parser and clock used by the scheduler.
+    pub(crate) fn next_routine_run(cron: &str, timezone: Option<&str>) -> Option<DateTime<Utc>> {
+        compute_next_run(cron, timezone)
+    }
+
     /// Spawn the routine scheduler background task.
     ///
     /// Checks every 30 seconds for scheduled routines whose `next_run_at`

@@ -9,6 +9,7 @@ pub(super) fn internal_routes() -> Router<super::super::types::ServerState> {
     Router::new()
         .route("/ask", post(handlers::internal_ask))
         .route("/browser", post(handlers::internal_browser))
+        .route("/scheduler", post(handlers::internal_scheduler))
         .route("/kanban/task/{task_id}", get(handlers::internal_get_task))
         .route(
             "/kanban/task/{task_id}/status",

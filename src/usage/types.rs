@@ -12,6 +12,7 @@ use serde::Serialize;
 pub enum AccountId {
     Claude,
     Codex,
+    Antigravity,
 }
 
 impl AccountId {
@@ -19,6 +20,7 @@ impl AccountId {
         match self {
             AccountId::Claude => "Claude",
             AccountId::Codex => "Codex",
+            AccountId::Antigravity => "Antigravity",
         }
     }
 
@@ -28,6 +30,7 @@ impl AccountId {
         match self {
             AccountId::Claude => "Open `claude` once to refresh its login",
             AccountId::Codex => "Open `codex` once to refresh its login",
+            AccountId::Antigravity => "Log in to the Antigravity agent; `opman doctor --agent antigravity` shows how",
         }
     }
 }
@@ -176,6 +179,11 @@ pub fn normalize_iso(value: &str) -> Option<String> {
             .with_timezone(&Utc)
             .to_rfc3339_opts(SecondsFormat::Secs, true),
     )
+}
+
+/// A UTC time in the one canonical ISO form.
+pub fn iso_from(at: DateTime<Utc>) -> String {
+    at.to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
 pub fn unix_to_iso(seconds: i64) -> Option<String> {

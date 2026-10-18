@@ -128,9 +128,17 @@ fn session_check(id: &str, agent: &AgentConfig, hello: &Hello, session: &Session
         Session::LoginRequired => {
             let methods = hello.auth_methods.join(", ");
             Check::warn(format!("{id}: login required before a session can start"))
-                .detail(format!("The agent answered `session/new` with auth_required. Log in with the agent's own CLI. Auth methods: {methods}"))
+                .detail(format!("The agent answered `session/new` with auth_required. Its login is separate from its CLI's: a CLI login is not shared with the ACP server. {} Auth methods: {methods}", login_help(id)))
         }
         Session::Failed(reason) => Check::fail(format!("{id}: session/new failed")).detail(reason),
+    }
+}
+
+/// How to log an agent in, when opman knows a way that works on a headless machine.
+fn login_help(id: &str) -> &'static str {
+    match id {
+        "antigravity" => "Its Google login needs a browser on this machine, so on a server set `auth.type` to `gemini-api-key` in ~/.gemini/antigravity-acp/settings.json and export GEMINI_API_KEY, or relay the 127.0.0.1 redirect of the login link to this machine.",
+        _ => "Log in with the agent's own CLI.",
     }
 }
 

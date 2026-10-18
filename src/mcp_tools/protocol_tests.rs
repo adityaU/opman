@@ -75,7 +75,13 @@ async fn handshake_list_and_call() {
             "list_dir",
             "glob",
             "grep",
-            "web_fetch"
+            "web_fetch",
+            "wait",
+            "scheduler_list",
+            "scheduler_create",
+            "scheduler_update",
+            "scheduler_delete",
+            "scheduler_run"
         ]
     );
     for tool in tools {
@@ -147,4 +153,30 @@ async fn a_slow_call_does_not_block_others_and_cancel_stops_it() {
     c.send(json!({"jsonrpc":"2.0","id":12,"method":"ping"}))
         .await;
     assert_eq!(c.next().await["id"], 12);
+}
+
+#[tokio::test]
+async fn wait_is_concurrent_and_accepts_cancellation() {
+    let mut c = start();
+    c.send(json!({"jsonrpc":"2.0","id":20,"method":"tools/call",
+        "params":{"name":"wait","arguments":{"seconds":600}}}))
+        .await;
+    c.send(json!({"jsonrpc":"2.0","id":21,"method":"ping"}))
+        .await;
+    let ping = tokio::time::timeout(std::time::Duration::from_secs(3), c.next())
+        .await
+        .expect("wait must not block the request loop");
+    assert_eq!(ping["id"], 21);
+    c.send(json!({"jsonrpc":"2.0","method":"notifications/cancelled",
+        "params":{"requestId":20}}))
+        .await;
+    c.send(json!({"jsonrpc":"2.0","id":22,"method":"tools/call",
+        "params":{"name":"wait","arguments":{"seconds":0}}}))
+        .await;
+    let completed = tokio::time::timeout(std::time::Duration::from_secs(3), c.next())
+        .await
+        .expect("a fresh wait should complete after cancellation");
+    assert_eq!(completed["id"], 22);
+    assert_eq!(completed["result"]["isError"], false);
+    assert!(completed["result"]["structuredContent"]["waited_seconds"].is_number());
 }

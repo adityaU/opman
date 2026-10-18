@@ -1,6 +1,8 @@
 //! The tools this server offers, and the one place that turns a call into a result.
 
 use super::output::{ToolError, ToolResult};
+use super::scheduler::SchedulerTool;
+use super::wait;
 use super::workspace::Workspace;
 use super::{bash, edit_file, glob, grep, list_dir, read_file, web_fetch, write_file};
 use super::{catalog_files as files, catalog_search as search};
@@ -17,10 +19,12 @@ pub enum Tool {
     Glob,
     Grep,
     WebFetch,
+    Wait,
+    Scheduler(SchedulerTool),
 }
 
 impl Tool {
-    pub const ALL: [Tool; 8] = [
+    pub const ALL: [Tool; 14] = [
         Tool::Bash,
         Tool::ReadFile,
         Tool::WriteFile,
@@ -29,6 +33,12 @@ impl Tool {
         Tool::Glob,
         Tool::Grep,
         Tool::WebFetch,
+        Tool::Wait,
+        Tool::Scheduler(SchedulerTool::List),
+        Tool::Scheduler(SchedulerTool::Create),
+        Tool::Scheduler(SchedulerTool::Update),
+        Tool::Scheduler(SchedulerTool::Delete),
+        Tool::Scheduler(SchedulerTool::Run),
     ];
 
     pub fn parse(name: &str) -> Option<Self> {
@@ -45,6 +55,8 @@ impl Tool {
             Tool::Glob => "glob",
             Tool::Grep => "grep",
             Tool::WebFetch => "web_fetch",
+            Tool::Wait => "wait",
+            Tool::Scheduler(tool) => tool.name(),
         }
     }
 
@@ -58,6 +70,8 @@ impl Tool {
             Tool::Glob => search::glob(),
             Tool::Grep => search::grep(),
             Tool::WebFetch => search::web_fetch(),
+            Tool::Wait => wait::definition(),
+            Tool::Scheduler(tool) => tool.definition(),
         }
     }
 
@@ -71,6 +85,8 @@ impl Tool {
             Tool::Glob => glob::run(workspace, parse(arguments)?).await,
             Tool::Grep => grep::run(workspace, parse(arguments)?).await,
             Tool::WebFetch => web_fetch::run(parse(arguments)?).await,
+            Tool::Wait => wait::run(parse(arguments)?).await,
+            Tool::Scheduler(tool) => tool.call(workspace, arguments).await,
         }
     }
 }

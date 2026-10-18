@@ -112,6 +112,10 @@ ACP agents receive the `opman-tools` MCP server with shell, file, search and web
 
 Start with `opman --code-mcp` (or `--all-mcp`) to add the `execute` tool. It runs JavaScript that calls your enabled MCP tools with `await tools.<server>.<tool>(input)`. Its output card shows each inner call's input, output, error and duration. Read results can also preview images, video, audio, PDF and STL files.
 
+The same `opman-tools` server also offers `wait` and `scheduler_list`, `scheduler_create`, `scheduler_update`, `scheduler_delete`, and `scheduler_run`. `wait` pauses for up to 600 seconds without starting a shell. Scheduler tools use the app's saved Routines, including cron schedules and timezones, so changes appear in the app and survive restarts. They need an opman web server running on this machine. Call these tools directly or through `tools.opman_tools` in code mode.
+
+`bash` does not kill a command that runs past 10 minutes. It moves the command to the background, saves its output to files under the temp folder, writes the result to an `.exit` file when it ends, and tells the agent how to follow it with `tail` and `wait` and to report progress to its caller. A `timeout_ms` of 10 minutes or less still kills the command when it expires.
+
 ### From source (Linux / macOS)
 
 ```bash

@@ -46,6 +46,8 @@ pub fn initialize_result(params: &Value) -> Value {
         "serverInfo": { "name": "opman-tools", "version": env!("CARGO_PKG_VERSION") },
         "instructions": "Common coding tools: run shell commands, read, write and edit files, \
                          list folders, find files, search text, and fetch web pages. Relative \
-                         paths start at the project folder.",
+                         paths start at the project folder. Use wait for a cancellable pause \
+                         and scheduler_* to manage persistent app Routines through the running \
+                         opman server.",
     })
 }

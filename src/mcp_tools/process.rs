@@ -87,3 +87,13 @@ fn kill_group(pid: u32) {
 
 #[cfg(not(unix))]
 fn kill_group(_pid: u32) {}
+
+#[cfg(unix)]
+pub fn signal_of(status: &std::process::ExitStatus) -> Option<i32> {
+    std::os::unix::process::ExitStatusExt::signal(status)
+}
+
+#[cfg(not(unix))]
+pub fn signal_of(_status: &std::process::ExitStatus) -> Option<i32> {
+    None
+}

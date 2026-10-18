@@ -9,8 +9,11 @@ pub fn bash() -> Value {
         "Run a shell command and return its output and exit code. It runs in the project \
          folder (or cwd) with your shell, with no input attached, so a command that waits \
          for input will hang until it times out. Output over about 30 KB per stream is cut \
-         in the middle and says so. On timeout the command and everything it started are \
-         killed. A non-zero exit code is a normal result, not a tool error. For reading, \
+         in the middle and says so. A command still running after 10 minutes is not \
+         killed: it moves to the background and the result tells you the log files and how \
+         to follow it (tail the log, use wait between checks, and report progress to your \
+         caller every few minutes). A timeout_ms of 10 minutes or less kills the command \
+         and everything it started when it expires. A non-zero exit code is a normal result, not a tool error. For reading, \
          searching and editing files, prefer read_file, grep, glob and edit_file.",
         object(
             vec![
@@ -18,7 +21,7 @@ pub fn bash() -> Value {
                 ("cwd", string("Folder to run in. Default: the project folder.")),
                 (
                     "timeout_ms",
-                    integer("Kill the command after this many milliseconds. Default 120000, at most 600000."),
+                    integer("Kill the command after this many milliseconds. Default: none; after 10 minutes it moves to the background. A value over 600000 sets when a background job is killed (at most 24 hours)."),
                 ),
                 ("description", string("A few words saying what the command does, for the user.")),
             ],
@@ -34,6 +37,8 @@ pub fn bash() -> Value {
                 ("stdout_omitted_bytes", integer("Bytes cut from stdout.")),
                 ("stderr_omitted_bytes", integer("Bytes cut from stderr.")),
                 ("duration_ms", integer("How long it ran.")),
+                ("background", boolean("True when the command moved to the background and is still running.")),
+                ("job", json!({ "type": "object", "description": "Present when background is true: id, pid, stdout_file, stderr_file and exit_file (written when it ends).", "additionalProperties": true })),
             ],
             &["exit_code", "timed_out", "stdout", "stderr", "stdout_omitted_bytes", "stderr_omitted_bytes", "duration_ms"],
         ),

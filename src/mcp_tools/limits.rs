@@ -46,3 +46,44 @@ impl Timeout {
         Self(Duration::from_millis(asked.max(1)).min(max.0))
     }
 }
+
+/// What happens to a command that runs long.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunLimit {
+    /// Kill it at this point.
+    Kill(Timeout),
+    /// Move it to the background at `after`. If `kill_at` is set, kill it that long after
+    /// it started.
+    Background {
+        after: Timeout,
+        kill_at: Option<Timeout>,
+    },
+}
+
+impl RunLimit {
+    /// No timeout means "background it at `after`". A timeout up to `after` is a hard kill.
+    /// A longer one still backgrounds at `after`, then kills at the timeout, kept to `hard_max`.
+    pub fn requested_ms(asked: Option<u64>, after: Timeout, hard_max: Timeout) -> Self {
+        let Some(ms) = asked else {
+            return Self::Background {
+                after,
+                kill_at: None,
+            };
+        };
+        if Duration::from_millis(ms) <= after.get() {
+            return Self::Kill(Timeout::requested_ms(Some(ms), after, after));
+        }
+        Self::Background {
+            after,
+            kill_at: Some(Timeout::requested_ms(Some(ms), hard_max, hard_max)),
+        }
+    }
+
+    /// How long the command runs before this limit acts.
+    pub fn first_deadline(self) -> Duration {
+        match self {
+            Self::Kill(timeout) => timeout.get(),
+            Self::Background { after, .. } => after.get(),
+        }
+    }
+}
