@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use clap::{Parser, ValueEnum};
 
-use clap::{Parser, Subcommand, ValueEnum};
-
-use crate::web::TunnelMode;
+mod commands;
+mod options;
+pub(crate) use commands::{Commands, SkillsCommands};
 
 /// Parse a "truthy" string into a bool.
 /// Accepts: `1`, `true`, `yes`, `on`, `quick` → `true`.
@@ -62,6 +62,10 @@ fn parse_truthy(s: &str) -> Result<bool, String> {
 pub(crate) struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
+
+    /// Write debug-level logs to ~/.config/opman/opman.log (beats RUST_LOG)
+    #[arg(long, global = true, env = "OPMAN_DEBUG", value_parser = clap::builder::BoolishValueParser::new())]
+    pub debug: bool,
 
     // ── Web UI ──────────────────────────────────────────────────────
     /// Enable the web UI server
@@ -184,7 +188,7 @@ pub(crate) struct Cli {
     #[arg(long = "acp", alias = "claudep")]
     pub acp: bool,
 
-    /// Enable all MCP integrations (terminal, neovim, time, ui)
+    /// Enable all MCP integrations (terminal, neovim, time, ui, code)
     #[arg(long)]
     pub all_mcp: bool,
 
@@ -204,6 +208,10 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub ui_mcp: bool,
 
+    /// Enable the code MCP server (one `execute` tool that scripts the other servers)
+    #[arg(long)]
+    pub code_mcp: bool,
+
     // ── Browser panes ───────────────────────────────────────────────
     /// Drive this device's own browser (Chrome → Edge → Brave → Chromium), headed on the
     /// real display with its windows kept off-screen, instead of a private Chromium on a
@@ -217,210 +225,4 @@ pub(crate) struct Cli {
         value_parser = parse_truthy,
     )]
     pub device_browser: bool,
-}
-
-#[derive(Subcommand)]
-pub(crate) enum Commands {
-    /// Run the MCP stdio bridge for a project
-    Mcp {
-        /// Path to the project directory
-        project_path: Option<PathBuf>,
-    },
-
-    /// Front an OAuth-protected remote MCP server over stdio.
-    ///
-    /// Not for direct use: opman substitutes this for a remote server whenever the target
-    /// runner cannot dial the endpoint, or the credential must be minted per request.
-    McpProxy {
-        /// Registry name of the server to front.
-        name: String,
-    },
-
-    /// Run the skills MCP bridge (exposes `~/.config/opman/skills` to any runner)
-    McpSkills,
-
-    /// Run the time MCP bridge
-    McpTime,
-
-    /// Run the UI render MCP bridge (A2UI)
-    McpUi,
-
-    /// Run the Kanban MCP bridge (task lane/notes updates for launched tasks)
-    McpKanban,
-
-    /// Run the browser MCP bridge (drives the workspace's browser panes)
-    McpBrowser {
-        /// Path to the project directory — its browser is the one the tools default to
-        project_path: Option<PathBuf>,
-    },
-
-    /// Run the ask MCP bridge (asks the user a structured question and waits)
-    McpAsk {
-        /// Path to the project directory
-        project_path: Option<PathBuf>,
-    },
-
-    /// Run the agent-manager MCP bridge for a project
-    McpAgentManager {
-        /// Path to the project directory
-        project_path: Option<PathBuf>,
-    },
-
-    /// Internal: PreToolUse permission/question hook relay for the Claude engine.
-    /// Reads the hook payload on stdin, asks the running opman (via
-    /// `OPMAN_ENGINE_URL`), and prints the permission decision. Not for direct use.
-    ClaudeHook,
-
-    /// Run the neovim MCP bridge for a project
-    McpNvim {
-        /// Path to the project directory
-        project_path: Option<PathBuf>,
-    },
-
-    /// Print the Slack app manifest and copy to clipboard
-    SlackManifest,
-
-    /// Manage skills
-    Skills {
-        #[command(subcommand)]
-        subcommand: SkillsCommands,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum SkillsCommands {
-    /// List all skills
-    List,
-
-    /// Create a new skill
-    Create {
-        /// Skill name
-        name: String,
-        /// Skill description
-        description: String,
-        /// Skill content
-        content: String,
-    },
-
-    /// Update an existing skill
-    Update {
-        /// Skill name
-        name: String,
-        /// New description
-        description: String,
-        /// New content
-        content: String,
-    },
-
-    /// Delete a skill
-    Delete {
-        /// Skill name
-        name: String,
-    },
-
-    /// Show a skill
-    Show {
-        /// Skill name
-        name: String,
-    },
-}
-
-impl Cli {
-    /// Which of opman's own MCP servers the user asked for, with `--all-mcp` folded over
-    /// the individual flags.
-    ///
-    /// One method rather than a tuple built at each call site: the tuple used to be
-    /// constructed twice in `main`, and the second copy was assembled by hand from the
-    /// same four booleans instead of reusing the first.
-    pub fn builtin_mcp(&self) -> crate::mcp_registry::BuiltinFlags {
-        if self.all_mcp {
-            return crate::mcp_registry::BuiltinFlags::ALL;
-        }
-        crate::mcp_registry::BuiltinFlags {
-            terminal: self.terminal_mcp,
-            neovim: self.neovim_mcp,
-            time: self.time_mcp,
-            ui: self.ui_mcp,
-        }
-    }
-
-    /// Determine the tunnel mode from CLI flags and env vars.
-    ///
-    /// Priority: `--tunnel-hostname` > `--tunnel-token` > `--tunnel`.
-    /// Env vars (`OPMAN_CF_TUNNEL_HOSTNAME`, `OPMAN_CF_TUNNEL_TOKEN`,
-    /// `OPMAN_CF_TUNNEL`) are handled by clap's `env` attribute.
-    pub fn tunnel_mode(&self) -> Option<TunnelMode> {
-        // Local-managed tunnel: user provides hostname, we handle everything
-        if let Some(ref hostname) = self.tunnel_hostname {
-            let hostname = hostname.trim().to_string();
-            if !hostname.is_empty() {
-                return Some(TunnelMode::LocalManaged {
-                    hostname,
-                    tunnel_name: self.tunnel_name.clone(),
-                });
-            }
-        }
-        // Remote-managed tunnel: user provides dashboard token
-        if let Some(ref token) = self.tunnel_token {
-            let token = token.trim().to_string();
-            if !token.is_empty() {
-                return Some(TunnelMode::Named { token });
-            }
-        }
-        if self.tunnel {
-            return Some(TunnelMode::Quick);
-        }
-        None
-    }
-
-    /// The effective backend. `--acp` wins over `--claude`, which wins over
-    /// `--backend`.
-    pub fn resolved_backend(&self) -> AgentBackend {
-        if self.acp {
-            AgentBackend::ClaudeAcp
-        } else if self.claude {
-            AgentBackend::ClaudeCode
-        } else {
-            self.backend
-        }
-    }
-
-    /// Whether the web server should be enabled.
-    /// Which browser backs the browser panes.
-    pub fn browser_mode(&self) -> crate::browser::BrowserMode {
-        crate::browser::BrowserMode::from_device_flag(self.device_browser.into())
-    }
-
-    pub fn enable_web(&self) -> bool {
-        self.web_only
-            || self.web
-            || self.web_port.is_some()
-            || self.web_user.as_deref().is_some_and(|u| !u.is_empty())
-            || self.tunnel_mode().is_some()
-    }
-
-    /// Validate CLI argument combinations. Returns an error message on failure.
-    pub fn validate(&self) -> Result<(), String> {
-        let tunnel = self.tunnel_mode();
-
-        // Tunnel requires authentication
-        if tunnel.is_some() {
-            let has_user = self.web_user.as_deref().is_some_and(|u| !u.is_empty());
-            let has_pass = self.web_pass.as_deref().is_some_and(|p| !p.is_empty());
-            if !has_user || !has_pass {
-                return Err("Cloudflare tunnel requires authentication.\n\
-                     Provide --web-user and --web-pass (or OPMAN_WEB_USER / OPMAN_WEB_PASS)\n\
-                     to secure the web UI before exposing it via tunnel."
-                    .to_string());
-            }
-        }
-
-        // web-only implies web
-        if self.web_only && !self.enable_web() {
-            // This can't really happen since web_only => enable_web(), but just in case.
-            return Err("--web-only requires the web server to be enabled.".to_string());
-        }
-
-        Ok(())
-    }
 }

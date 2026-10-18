@@ -64,3 +64,23 @@ fn server_mode_keeps_its_container_flags() {
     assert!(flags.contains(&"--disable-dev-shm-usage"));
     assert!(flags.contains(&"--disable-background-networking"));
 }
+
+#[test]
+fn only_server_mode_asks_for_software_gl() {
+    assert!(flags(BrowserMode::Server).contains(&"--use-angle=swiftshader"));
+    assert!(!flags(BrowserMode::Device)
+        .iter()
+        .any(|flag| flag.contains("swiftshader")));
+}
+
+#[test]
+fn no_launch_flag_announces_automation() {
+    for mode in [BrowserMode::Server, BrowserMode::Device] {
+        for flag in flags(mode) {
+            assert!(!flag.contains("enable-automation"), "{flag}");
+            assert!(!flag.starts_with("--headless"), "{flag}");
+            assert!(!flag.starts_with("--user-agent"), "{flag}");
+            assert!(!flag.starts_with("--disable-extensions"), "{flag}");
+        }
+    }
+}

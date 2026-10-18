@@ -9,6 +9,7 @@ use tokio::process::Child;
 use tokio::sync::{Mutex, OnceCell};
 
 use super::super::attach::PromptCaps;
+use super::super::failure::StderrTail;
 use super::super::jsonrpc::Peer;
 use super::super::AcpEngine;
 
@@ -22,6 +23,8 @@ pub(super) static NEXT_INSTANCE_ID: AtomicU64 = AtomicU64::new(1);
 pub(super) struct Pooled {
     pub(super) peer: Peer,
     pub(super) child: Child,
+    /// The end of the child's stderr, for explaining a failure.
+    pub(super) stderr: StderrTail,
     /// Monotonic identity of this live child, distinct from its pool key.
     pub(super) instance: u64,
     /// Capabilities settled by the process handshake, reused by every session it serves.

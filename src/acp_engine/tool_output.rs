@@ -69,8 +69,7 @@ pub fn absorb_terminal(state: &mut Map<String, Value>, update: &Value) {
         metadata.insert("exit".into(), json!(code));
     }
     let Some(chunk) = chunk else { return };
-    if let (Chunk::Append(data), Some(Value::String(live))) = (&chunk, metadata.get_mut("output"))
-    {
+    if let (Chunk::Append(data), Some(Value::String(live))) = (&chunk, metadata.get_mut("output")) {
         live.push_str(data);
         return;
     }

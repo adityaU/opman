@@ -81,6 +81,37 @@ curl -fsSL https://raw.githubusercontent.com/adityaU/opman/develop/install.sh | 
 
 This downloads the latest release binary for your platform and installs it to `~/.local/bin`.
 
+### Desktop app
+
+Always the newest release. These links never need editing: every release publishes its installers under these fixed names.
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [`opman-desktop-latest-macos-arm64.dmg`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-macos-arm64.dmg) |
+| macOS (Intel) | [`opman-desktop-latest-macos-x64.dmg`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-macos-x64.dmg) |
+| Windows (x64) | [`opman-desktop-latest-windows-x64-setup.exe`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-windows-x64-setup.exe) · [`.msi`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-windows-x64.msi) |
+| Linux (x64) | [`.AppImage`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-x64.AppImage) · [`.deb`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-x64.deb) · [`.rpm`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-x64.rpm) |
+| Linux (arm64) | [`.AppImage`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-arm64.AppImage) · [`.deb`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-arm64.deb) · [`.rpm`](https://github.com/adityaU/opman/releases/latest/download/opman-desktop-latest-linux-arm64.rpm) |
+
+Older versions: [all releases](https://github.com/adityaU/opman/releases).
+
+### Update and downgrade
+
+```bash
+opman update                  # install the latest release
+opman update --version 0.10.1 # install one exact version
+opman downgrade               # list older releases
+opman downgrade 0.10.1        # go back to an older release
+```
+
+Each download is checked against its published SHA-256 before it replaces the binary. Restart any running opman afterwards.
+
+### Shared tools and code mode
+
+ACP agents receive the `opman-tools` MCP server with shell, file, search and web-fetch tools. In Settings → ACP agents, expand an enabled agent to switch its supported native tools on or off, together or individually. Changes apply to new sessions; agents without a supported control show that limit.
+
+Start with `opman --code-mcp` (or `--all-mcp`) to add the `execute` tool. It runs JavaScript that calls your enabled MCP tools with `await tools.<server>.<tool>(input)`. Its output card shows each inner call's input, output, error and duration. Read results can also preview images, video, audio, PDF and STL files.
+
 ### From source (Linux / macOS)
 
 ```bash
@@ -116,6 +147,13 @@ opman
 
 # Start with web UI on a specific port
 opman --web-port 8080
+
+# Debug logging (or set OPMAN_DEBUG=1). Logs go to ~/.config/opman/opman.log
+opman --debug
+
+# Find startup, model, agent, permission, MCP, and server problems
+opman doctor
+opman doctor --agent claude --json
 ```
 
 ## Configuration

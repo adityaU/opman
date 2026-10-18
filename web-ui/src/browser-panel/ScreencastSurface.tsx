@@ -7,6 +7,7 @@ import {
   browserTextInput,
   createBrowserFrameSSE,
   type BrowserMouseKind,
+  type BrowserPage,
 } from "../api/browser";
 
 /**
@@ -20,6 +21,7 @@ import {
  */
 
 interface ScreencastSurfaceProps {
+  readonly onPageChanged?: (page: BrowserPage) => void;
   readonly paneId: string;
   readonly focused: boolean;
   /**
@@ -33,17 +35,22 @@ interface ScreencastSurfaceProps {
 }
 
 export const ScreencastSurface: React.FC<ScreencastSurfaceProps> = React.memo(
-  function ScreencastSurface({ paneId, focused, scale, onCaptureChange }) {
+  function ScreencastSurface({ paneId, focused, scale, onCaptureChange, onPageChanged }) {
     const [frame, setFrame] = useState<string | null>(null);
     const surfaceRef = useRef<HTMLDivElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
     /** When Escape was last pressed, for the double-tap that releases focus. */
     const lastEscape = useRef<number | undefined>(undefined);
+    const pageChanged = useRef(onPageChanged);
+    pageChanged.current = onPageChanged;
 
     useEffect(() => {
       const source = createBrowserFrameSSE(paneId);
       source.addEventListener("frame", (event) => {
         setFrame((event as MessageEvent<string>).data);
+      });
+      source.addEventListener("page", event => {
+        try { pageChanged.current?.(JSON.parse((event as MessageEvent<string>).data)); } catch { /* Ignore malformed stream events. */ }
       });
       return () => source.close();
     }, [paneId]);

@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::catalog;
+use super::native_tools::{NativeTools, ToolSet};
 use super::patch::{load_document, AcpDocument};
 
 /// Environment variables stripped from every ACP child by default. Claude's adapter
@@ -87,6 +88,13 @@ pub struct AgentConfig {
     /// the key only if the user approved it, but the headless agent opman runs uses any key
     /// it finds — billing an API account while the user expects their subscription.
     pub claude_key_choice: bool,
+    /// Which of the agent's own built-in tools are switched off. Applied when the agent
+    /// starts and when a session opens, so an edit reaches new sessions.
+    pub native_tools: NativeTools,
+    /// What opman can switch off for this agent, from the catalogue. `None` for a harness
+    /// with no known mechanism. Derived from the agent id, never read from the file.
+    #[serde(skip)]
+    pub tool_set: Option<&'static ToolSet>,
     pub enabled: bool,
 }
 
@@ -107,6 +115,8 @@ impl Default for AgentConfig {
             modes_are_agents: false,
             subagent_transcripts: false,
             claude_key_choice: false,
+            native_tools: NativeTools::default(),
+            tool_set: None,
             enabled: true,
         }
     }
@@ -177,6 +187,7 @@ fn finish(mut cfg: AcpConfig) -> AcpConfig {
         if entry.runner.is_empty() {
             entry.runner = id.clone();
         }
+        entry.tool_set = super::native_tools_catalog::tool_set_for(id);
     }
     cfg
 }

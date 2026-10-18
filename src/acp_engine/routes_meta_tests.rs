@@ -107,7 +107,10 @@ async fn provider_waits_for_an_inflight_probe() {
         probe.probing.send_replace(false);
     });
     let Json(payload) = provider(State(engine)).await;
-    assert!(payload["all"][0]["models"].get("opus").is_some(), "{payload}");
+    assert!(
+        payload["all"][0]["models"].get("opus").is_some(),
+        "{payload}"
+    );
 }
 
 /// An engine that never probed answers at once, empty, instead of waiting out the timeout.

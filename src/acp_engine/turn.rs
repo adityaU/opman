@@ -41,8 +41,11 @@ pub fn prompt(
         engine.set_busy(&session_id, true);
 
         if let Err(e) = send(&engine, &session_id, &prompt).await {
-            warn!(session = %session_id, "acp prompt failed: {e}");
-            super::emit_system(&engine, &session_id, "error", &e.to_string());
+            // `{:#}` joins the whole chain; the plain text is only its outermost layer.
+            let reason = format!("{e:#}");
+            warn!(session = %session_id, "acp prompt failed: {reason}");
+            engine.note_failure(reason.clone());
+            super::emit_system(&engine, &session_id, "error", &reason);
             engine.set_busy(&session_id, false);
         }
     })
@@ -50,6 +53,7 @@ pub fn prompt(
 
 async fn send(engine: &Arc<AcpEngine>, session_id: &str, prompt: &Prompt) -> Result<()> {
     let ready = engine.conns.ensure(engine, session_id).await?;
+    engine.note_started();
     let (peer, acp_session) = (ready.peer, ready.acp_session);
     super::conn_options::sync(engine, &peer, session_id, &acp_session).await;
 
@@ -98,7 +102,7 @@ async fn finish(engine: &Arc<AcpEngine>, session_id: &str, outcome: Result<Value
             }
         }
         Err(e) => {
-            let message = e.to_string();
+            let message = format!("{e:#}");
             super::emit_system(engine, session_id, "error", &message);
             let key_set = std::env::var_os("ANTHROPIC_API_KEY").is_some_and(|key| !key.is_empty());
             if let Some(hint) = billing_hint(&message, key_set) {

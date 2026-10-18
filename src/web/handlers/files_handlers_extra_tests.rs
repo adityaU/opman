@@ -136,6 +136,7 @@ async fn read_file_raw_absolute_path_traversal_400() {
             Query(FileReadQuery {
                 path: outside.to_string_lossy().to_string(),
             }),
+            axum::http::HeaderMap::new(),
         )
         .await,
     )

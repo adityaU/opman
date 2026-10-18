@@ -46,8 +46,11 @@ fn device_mode_ordering_holds_on_windows() {
 }
 
 #[test]
-fn server_mode_still_prefers_plain_chromium() {
-    assert_eq!(path_names(BrowserMode::Server).first(), Some(&"chromium"));
+fn server_mode_prefers_real_chrome_over_chromium() {
+    let names = path_names(BrowserMode::Server);
+    assert_eq!(names.first(), Some(&"google-chrome-stable"));
+    let position = |name: &str| names.iter().position(|n| *n == name);
+    assert!(position("google-chrome") < position("chromium"));
 }
 
 #[test]

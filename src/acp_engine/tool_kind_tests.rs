@@ -22,10 +22,12 @@ fn merged(frames: &[Value]) -> Value {
 #[test]
 fn a_codex_command_renders_as_bash_even_when_its_title_looks_like_a_name() {
     // `pwd` passes the identifier check, but it is the command, not the tool.
-    let part = merged(&[json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"execute",
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"execute",
         "title":"pwd","status":"in_progress",
         "content":[{"type":"terminal","terminalId":"exec-1"}],
-        "rawInput":{"command":"pwd","cwd":"/tmp/p"}})]);
+        "rawInput":{"command":"pwd","cwd":"/tmp/p"}}),
+    ]);
     assert_eq!(part["tool"], "bash");
     assert_eq!(part["state"]["input"]["command"], "pwd");
     assert_eq!(part["state"]["title"], "pwd");
@@ -33,17 +35,21 @@ fn a_codex_command_renders_as_bash_even_when_its_title_looks_like_a_name() {
 
 #[test]
 fn a_codex_file_read_renders_as_read_with_the_location_as_its_path() {
-    let part = merged(&[json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"read",
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"read",
         "title":"Read file '/tmp/p/a.txt'","status":"in_progress",
-        "locations":[{"path":"/tmp/p/a.txt"}]})]);
+        "locations":[{"path":"/tmp/p/a.txt"}]}),
+    ]);
     assert_eq!(part["tool"], "read");
     assert_eq!(part["state"]["input"]["file_path"], "/tmp/p/a.txt");
 }
 
 #[test]
 fn a_read_with_no_file_is_a_listing() {
-    let part = merged(&[json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"read",
-        "title":"List files","status":"in_progress"})]);
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","name":"exec_command","kind":"read",
+        "title":"List files","status":"in_progress"}),
+    ]);
     assert_eq!(part["tool"], "ls");
 }
 
@@ -66,9 +72,11 @@ fn a_codex_search_renders_as_grep_and_a_web_search_as_websearch() {
 
 #[test]
 fn a_codex_patch_on_an_existing_file_becomes_edit_arguments() {
-    let part = merged(&[json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
         "status":"in_progress","content":[{"type":"diff","oldText":"hello\nworld\n",
-        "newText":"hello\nthere\n","path":"/tmp/p/a.txt","_meta":{"kind":"update"}}]})]);
+        "newText":"hello\nthere\n","path":"/tmp/p/a.txt","_meta":{"kind":"update"}}]}),
+    ]);
     assert_eq!(part["tool"], "edit");
     assert_eq!(
         part["state"]["input"],
@@ -78,9 +86,11 @@ fn a_codex_patch_on_an_existing_file_becomes_edit_arguments() {
 
 #[test]
 fn a_codex_patch_that_adds_a_file_becomes_write_arguments() {
-    let part = merged(&[json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
         "status":"in_progress","content":[{"type":"diff","oldText":null,"newText":"hi\n",
-        "path":"/tmp/p/b.txt","_meta":{"kind":"add"}}]})]);
+        "path":"/tmp/p/b.txt","_meta":{"kind":"add"}}]}),
+    ]);
     assert_eq!(part["tool"], "write");
     assert_eq!(
         part["state"]["input"],
@@ -90,9 +100,12 @@ fn a_codex_patch_that_adds_a_file_becomes_write_arguments() {
 
 #[test]
 fn a_patch_with_several_hunks_becomes_multi_edit_arguments() {
-    let diff = |old: &str, new: &str| json!({"type":"diff","oldText":old,"newText":new,"path":"/a.rs"});
-    let part = merged(&[json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
-        "content":[diff("a","b"), diff("c","d")]})]);
+    let diff =
+        |old: &str, new: &str| json!({"type":"diff","oldText":old,"newText":new,"path":"/a.rs"});
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","kind":"edit","title":"Editing files",
+        "content":[diff("a","b"), diff("c","d")]}),
+    ]);
     assert_eq!(part["tool"], "edit");
     assert_eq!(part["state"]["input"]["file_path"], "/a.rs");
     assert_eq!(part["state"]["input"]["edits"][1]["new_string"], "d");
@@ -101,10 +114,12 @@ fn a_patch_with_several_hunks_becomes_multi_edit_arguments() {
 #[test]
 fn a_native_edit_input_is_never_overwritten_by_its_diff() {
     // Claude names its tool and sends native arguments alongside the ACP diff.
-    let part = merged(&[json!({"sessionUpdate":"tool_call","kind":"edit","title":"Edit a.rs",
+    let part = merged(&[
+        json!({"sessionUpdate":"tool_call","kind":"edit","title":"Edit a.rs",
         "_meta":{"claudeCode":{"toolName":"Edit"}},
         "rawInput":{"file_path":"/a.rs","old_string":"x","new_string":"y"},
-        "content":[{"type":"diff","oldText":"q","newText":"r","path":"/a.rs"}]})]);
+        "content":[{"type":"diff","oldText":"q","newText":"r","path":"/a.rs"}]}),
+    ]);
     assert_eq!(part["tool"], "Edit");
     assert_eq!(part["state"]["input"]["old_string"], "x");
 }

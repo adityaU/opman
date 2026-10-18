@@ -33,7 +33,8 @@ fn default_is_matched_by_the_model_it_describes() {
 
 #[test]
 fn a_dated_id_still_matches() {
-    let (_, slug) = expectation(&claude_models(), "claude-haiku-4-5-20251001").expect("expectation");
+    let (_, slug) =
+        expectation(&claude_models(), "claude-haiku-4-5-20251001").expect("expectation");
     assert!("claude-haiku-4-5-20251001".contains(&slug));
 }
 

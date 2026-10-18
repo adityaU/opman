@@ -7,10 +7,9 @@ import { useBrowserPane } from "./useBrowserPane";
 /**
  * A browser in a pane.
  *
- * The page runs as a Chromium tab in the opman process, not in this document. What changes between the two render modes is only how the pane
- * *shows* it: an iframe when the site permits framing (cheap, crisp, native
- * scrolling) and a live mirror of the real tab when it does not. Either way the
- * agent's `browser_*` tools act on that same tab, which is what lets a person
+ * The page runs as a native Chromium tab in the opman process. A live mirror
+ * preserves the browser's cookies, sign-in state, and normal page behavior.
+ * The agent's `browser_*` tools act on that same tab, which lets a person
  * watch an agent work and take the keyboard back mid-task.
  */
 
@@ -31,7 +30,7 @@ export interface BrowserPanelProps {
   readonly onUrlChanged: (url: string) => void;
 }
 
-export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function BrowserPanel({
+export const BrowserTabPanel: React.FC<BrowserPanelProps> = React.memo(function BrowserTabPanel({
   paneId,
   project,
   url,
@@ -66,12 +65,10 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
       <UrlBar
         url={pane.url}
         loading={pane.loading}
-        mode={pane.mode}
         onGo={pane.go}
         onBack={pane.back}
         onForward={pane.forward}
         onReload={pane.reload}
-        onToggleMode={pane.toggleMode}
         onEndSession={pane.endSession}
         capturing={capturing}
       />
@@ -88,22 +85,15 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
               </button>
             </div>
           )
-        ) : pane.mode === "iframe" && pane.url ? (
-          <iframe
-            className="bwp-iframe"
-            src={pane.url}
-            title="Browser pane"
-            // The page is a stranger: give it no access to this document and no
-            // ambient permissions it did not ask for.
-            sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
-            referrerPolicy="no-referrer"
-          />
+        ) : pane.loading && !pane.url ? (
+          <div className="bwp-error" role="status">Opening browser…</div>
         ) : (
           <ScreencastSurface
             paneId={paneId}
             focused={focused}
             scale={pane.scale}
             onCaptureChange={setCapturing}
+            onPageChanged={pane.adopt}
           />
         )}
       </div>
@@ -111,4 +101,5 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = React.memo(function Bro
   );
 });
 
-export default BrowserPanel;
+export { BrowserPanel } from "./BrowserTabs";
+export { BrowserPanel as default } from "./BrowserTabs";

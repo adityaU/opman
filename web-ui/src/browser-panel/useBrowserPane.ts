@@ -41,6 +41,7 @@ const BLANK: BrowserPaneState = {
 };
 
 export interface BrowserPaneControls extends BrowserPaneState {
+  readonly adopt: (page: BrowserPage) => void;
   /** Device pixels per CSS pixel in the captured frames, as the server applied it. */
   readonly scale: number;
   readonly go: (url: string) => void;
@@ -61,7 +62,7 @@ export function useBrowserPane(
   reveal: number,
   onUrlChanged: (url: string) => void,
 ): BrowserPaneControls {
-  const [state, setState] = useState<BrowserPaneState>(BLANK);
+  const [state, setState] = useState<BrowserPaneState>({ ...BLANK, loading: true });
   const [scale, setScale] = useState(1);
   // Kept in a ref as well so the resize observer can read it without becoming a
   // dependency that re-subscribes on every navigation.
@@ -222,5 +223,5 @@ export function useBrowserPane(
       .catch(() => {});
   }, [paneId, project, settle]);
 
-  return { ...state, scale, go, back, forward, reload, retry, toggleMode, resize, endSession };
+  return { ...state, adopt: settle, scale, go, back, forward, reload, retry, toggleMode, resize, endSession };
 }

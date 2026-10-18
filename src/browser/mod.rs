@@ -60,11 +60,11 @@ pub use engine::{LinkId, LinkState};
 pub use mode::BrowserMode;
 // The home side of a device link. Called by the remote-server supervisor, which keeps one
 // relay per configured remote while this opman runs with `--device-browser`.
-#[allow(unused_imports)]
-pub use relay::{run_device_link, run_device_link_loop, RelayEnd, RelayError};
 pub use input::MouseKind;
 pub use pane::Pane;
 pub use pool::{normalize_url, pane_id_for_project, BrowserPool, Opened, BLANK};
+#[allow(unused_imports)]
+pub use relay::{run_device_link, run_device_link_loop, RelayEnd, RelayError};
 pub use screencast::{Screencast, Viewer};
 pub use tab::Tab;
 pub use types::{PageSnapshot, PageText, PaneInfo, RenderMode, SnapshotOptions, Viewport};

@@ -9,6 +9,7 @@
  */
 
 import { browserIdForProject } from "../api/browser";
+import { nextRevealSeq } from "./fileOpen";
 import type { PaneId, PaneNode, WidgetState } from "./types";
 
 export type BrowserOpenPlan =
@@ -30,7 +31,7 @@ export function planBrowserOpen(
     projectPath,
     browserId,
     url,
-    reveal: 0,
+    reveal: nextRevealSeq(),
     ...(server ? { server } : {}),
   };
 

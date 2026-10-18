@@ -22,9 +22,6 @@ pub const BLANK: &str = "about:blank";
 
 const DEFAULT_WIDTH: u32 = 1280;
 const DEFAULT_HEIGHT: u32 = 800;
-/// Framability probes must not hold up opening a pane; a slow site just gets an iframe
-/// attempt, which the pane can still flip to screencast by hand.
-const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(4);
 
 /// Whether [`BrowserPool::open`] created the tab or handed back a running one.
 ///
@@ -42,7 +39,6 @@ pub enum Opened {
 pub struct BrowserPool {
     engine: Arc<Mutex<Engine>>,
     panes: Arc<RwLock<HashMap<Arc<str>, Arc<Pane>>>>,
-    http: reqwest::Client,
     #[cfg_attr(not(test), allow(dead_code))]
     mode: BrowserMode,
 }
@@ -59,14 +55,13 @@ impl BrowserPool {
     }
 
     fn build(
-        http: reqwest::Client,
+        _http: reqwest::Client,
         mode: BrowserMode,
         profile: Option<std::path::PathBuf>,
     ) -> Self {
         Self {
             engine: Arc::new(Mutex::new(Engine::new(mode, profile))),
             panes: Arc::new(RwLock::new(HashMap::new())),
-            http,
             mode,
         }
     }
@@ -156,9 +151,11 @@ impl BrowserPool {
     /// Browsers are per project rather than per pane, so this is how an agent reaches
     /// "the browser for the repo I am working in" without being told an opaque id.
     pub async fn for_project(&self, project: &str) -> Option<(Arc<str>, Arc<Pane>)> {
-        self.panes
-            .read()
-            .await
+        let panes = self.panes.read().await;
+        if let Some((id, pane)) = panes.get_key_value(format!("proj:{project}").as_str()) {
+            return Some((Arc::clone(id), Arc::clone(pane)));
+        }
+        panes
             .iter()
             .find(|(_, pane)| pane.project().as_ref() == project)
             .map(|(id, pane)| (Arc::clone(id), Arc::clone(pane)))
@@ -170,8 +167,7 @@ impl BrowserPool {
         self.panes.read().await.get(pane_id).cloned()
     }
 
-    /// Navigate a pane and record where it ended up, including whether the destination
-    /// can be shown in an iframe.
+    /// Navigate the native tab and record where it ended up.
     pub async fn navigate(
         &self,
         pane_id: &str,
@@ -181,10 +177,10 @@ impl BrowserPool {
         let url = normalize_url(url)?;
         let (pane, _) = self.open(pane_id, project).await?;
 
-        // Probe and navigate together: the probe is a plain HTTP round trip and has no
-        // reason to serialise behind the page load.
-        let (mode, navigated) = tokio::join!(self.probe(&url), pane.tab().navigate(&url));
-        navigated?;
+        pane.tab().navigate(&url).await?;
+        // Always show the real browser tab, including its cookies and sign-in state.
+        // An iframe would load a second, unrelated page in the frontend browser.
+        let mode = RenderMode::Screencast;
 
         let snapshot = pane.tab().snapshot(Default::default()).await;
         let (final_url, title) = match snapshot {
@@ -193,18 +189,6 @@ impl BrowserPool {
         };
         pane.record(final_url, title, mode).await;
         Ok(mode)
-    }
-
-    /// Ask the site whether it allows framing. Failures resolve to screencast — the mode
-    /// that always works — so an unreachable probe never leaves a pane blank.
-    async fn probe(&self, url: &str) -> RenderMode {
-        let request = self.http.get(url).timeout(PROBE_TIMEOUT).send();
-        let Ok(response) = request.await else {
-            return RenderMode::Screencast;
-        };
-        let headers = response.headers();
-        let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-        RenderMode::from_headers(header("x-frame-options"), header("content-security-policy"))
     }
 
     /// Every open pane, for `browser_list_panes`.

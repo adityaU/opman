@@ -112,7 +112,16 @@ pub(super) async fn mouse(
 pub(super) async fn click(cdp: &Cdp, session: &str, x: i64, y: i64) -> anyhow::Result<()> {
     mouse(cdp, session, MouseKind::Move, x, y).await?;
     mouse(cdp, session, MouseKind::Down, x, y).await?;
+    // A real press is never zero-length; an instant down/up pair is a bot tell.
+    tokio::time::sleep(press_length(x, y)).await;
     mouse(cdp, session, MouseKind::Up, x, y).await
+}
+
+/// How long a click holds the button: 40-89 ms, varied by position so repeated clicks do
+/// not share one timing. Derived from the point, so it needs no random source.
+fn press_length(x: i64, y: i64) -> std::time::Duration {
+    let spread = x.unsigned_abs().wrapping_add(y.unsigned_abs()) % 50;
+    std::time::Duration::from_millis(40 + spread)
 }
 
 pub(super) async fn scroll(

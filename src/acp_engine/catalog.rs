@@ -27,10 +27,10 @@ const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp@latest";
 /// the `@zed-industries/*` name is the deprecated one; this is its rename.
 const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp@latest";
 
-#[path = "catalog_entries.rs"]
-pub mod entries;
 #[path = "catalog_archives.rs"]
 mod archives;
+#[path = "catalog_entries.rs"]
+pub mod entries;
 
 pub use entries::ENTRIES;
 
@@ -114,10 +114,13 @@ pub fn is_builtin(id: &str) -> bool {
 
 /// The archive opman downloads for this agent, when it ships as one.
 pub fn archive_for(id: &str) -> Option<&'static Archive> {
-    ENTRIES.iter().find(|entry| entry.id == id).and_then(|entry| match entry.launch {
-        Launch::Archive(archive) => Some(archive),
-        _ => None,
-    })
+    ENTRIES
+        .iter()
+        .find(|entry| entry.id == id)
+        .and_then(|entry| match entry.launch {
+            Launch::Archive(archive) => Some(archive),
+            _ => None,
+        })
 }
 
 /// Where this agent's launch command was documented, if opman ships the agent.

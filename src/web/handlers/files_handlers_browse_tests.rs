@@ -26,24 +26,24 @@ async fn parts<T: IntoResponse>(r: Result<T, WebError>) -> (axum::http::StatusCo
     let status = resp.status();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
         .await
-        .unwrap()
+        .expect("test setup succeeds")
         .to_vec();
     (status, bytes)
 }
 
 fn json(bytes: &[u8]) -> serde_json::Value {
-    serde_json::from_slice(bytes).unwrap()
+    serde_json::from_slice(bytes).expect("test setup succeeds")
 }
 
 // ── browse_files ───────────────────────────────────────────────────
 
 #[tokio::test]
 async fn browse_root_lists_sorted_skips_hidden() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::write(tmp.path().join("zebra.txt"), "z").unwrap();
-    std::fs::write(tmp.path().join("apple.txt"), "a").unwrap();
-    std::fs::write(tmp.path().join(".hidden"), "h").unwrap();
-    std::fs::create_dir(tmp.path().join("dir1")).unwrap();
+    let tmp = tempfile::TempDir::new().expect("test setup succeeds");
+    std::fs::write(tmp.path().join("zebra.txt"), "z").expect("test setup succeeds");
+    std::fs::write(tmp.path().join("apple.txt"), "a").expect("test setup succeeds");
+    std::fs::write(tmp.path().join(".hidden"), "h").expect("test setup succeeds");
+    std::fs::create_dir(tmp.path().join("dir1")).expect("test setup succeeds");
     let state = state_dir(tmp.path());
 
     let (st, body) = parts(
@@ -59,13 +59,13 @@ async fn browse_root_lists_sorted_skips_hidden() {
     .await;
     assert_eq!(st, axum::http::StatusCode::OK);
     let v = json(&body);
-    let entries = v["entries"].as_array().unwrap();
+    let entries = v["entries"].as_array().expect("test setup succeeds");
     // dir first, hidden excluded
     assert_eq!(entries[0]["name"], "dir1");
-    assert!(entries[0]["is_dir"].as_bool().unwrap());
+    assert!(entries[0]["is_dir"].as_bool().expect("test setup succeeds"));
     let names: Vec<_> = entries
         .iter()
-        .map(|e| e["name"].as_str().unwrap())
+        .map(|e| e["name"].as_str().expect("test setup succeeds"))
         .collect();
     assert!(!names.contains(&".hidden"));
     assert!(names.contains(&"apple.txt"));
@@ -73,9 +73,9 @@ async fn browse_root_lists_sorted_skips_hidden() {
 
 #[tokio::test]
 async fn browse_subdir_path() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::create_dir(tmp.path().join("sub")).unwrap();
-    std::fs::write(tmp.path().join("sub/inner.txt"), "x").unwrap();
+    let tmp = tempfile::TempDir::new().expect("test setup succeeds");
+    std::fs::create_dir(tmp.path().join("sub")).expect("test setup succeeds");
+    std::fs::write(tmp.path().join("sub/inner.txt"), "x").expect("test setup succeeds");
     let state = state_dir(tmp.path());
     let (st, body) = parts(
         browse_files(
@@ -94,7 +94,7 @@ async fn browse_subdir_path() {
 
 #[tokio::test]
 async fn browse_missing_dir_404() {
-    let tmp = tempfile::TempDir::new().unwrap();
+    let tmp = tempfile::TempDir::new().expect("test setup succeeds");
     let state = state_dir(tmp.path());
     let (st, _) = parts(
         browse_files(
@@ -112,9 +112,9 @@ async fn browse_missing_dir_404() {
 
 #[tokio::test]
 async fn browse_traversal_400() {
-    let root = tempfile::TempDir::new().unwrap();
+    let root = tempfile::TempDir::new().expect("test setup succeeds");
     let proj = root.path().join("proj");
-    std::fs::create_dir(&proj).unwrap();
+    std::fs::create_dir(&proj).expect("test setup succeeds");
     let state = state_dir(&proj);
     let (st, _) = parts(
         browse_files(
@@ -147,15 +147,15 @@ async fn browse_no_project_400() {
 
 #[tokio::test]
 async fn browse_skips_symlink_escaping_project() {
-    let root = tempfile::TempDir::new().unwrap();
+    let root = tempfile::TempDir::new().expect("test setup succeeds");
     let proj = root.path().join("proj");
-    std::fs::create_dir(&proj).unwrap();
+    std::fs::create_dir(&proj).expect("test setup succeeds");
     let outside = root.path().join("outside.txt");
-    std::fs::write(&outside, "secret").unwrap();
+    std::fs::write(&outside, "secret").expect("test setup succeeds");
     // symlink inside project pointing outside → should be skipped
     #[cfg(unix)]
-    std::os::unix::fs::symlink(&outside, proj.join("escape")).unwrap();
-    std::fs::write(proj.join("normal.txt"), "ok").unwrap();
+    std::os::unix::fs::symlink(&outside, proj.join("escape")).expect("test setup succeeds");
+    std::fs::write(proj.join("normal.txt"), "ok").expect("test setup succeeds");
     let state = state_dir(&proj);
     let (st, body) = parts(
         browse_files(
@@ -172,9 +172,9 @@ async fn browse_skips_symlink_escaping_project() {
     let v = json(&body);
     let names: Vec<_> = v["entries"]
         .as_array()
-        .unwrap()
+        .expect("test setup succeeds")
         .iter()
-        .map(|e| e["name"].as_str().unwrap().to_string())
+        .map(|e| e["name"].as_str().expect("test setup succeeds").to_string())
         .collect();
     assert!(names.contains(&"normal.txt".to_string()));
     assert!(!names.contains(&"escape".to_string()));
@@ -182,10 +182,11 @@ async fn browse_skips_symlink_escaping_project() {
 
 #[tokio::test]
 async fn browse_keeps_symlink_inside_project() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::write(tmp.path().join("target.txt"), "t").unwrap();
+    let tmp = tempfile::TempDir::new().expect("test setup succeeds");
+    std::fs::write(tmp.path().join("target.txt"), "t").expect("test setup succeeds");
     #[cfg(unix)]
-    std::os::unix::fs::symlink(tmp.path().join("target.txt"), tmp.path().join("link.txt")).unwrap();
+    std::os::unix::fs::symlink(tmp.path().join("target.txt"), tmp.path().join("link.txt"))
+        .expect("test setup succeeds");
     let state = state_dir(tmp.path());
     let (st, body) = parts(
         browse_files(
@@ -202,279 +203,12 @@ async fn browse_keeps_symlink_inside_project() {
     let v = json(&body);
     let names: Vec<_> = v["entries"]
         .as_array()
-        .unwrap()
+        .expect("test setup succeeds")
         .iter()
-        .map(|e| e["name"].as_str().unwrap().to_string())
+        .map(|e| e["name"].as_str().expect("test setup succeeds").to_string())
         .collect();
     assert!(names.contains(&"link.txt".to_string()));
 }
 
-// ── read_file / read_file_raw ──────────────────────────────────────
-
-#[tokio::test]
-async fn read_file_ok() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::write(tmp.path().join("main.rs"), "fn main() {}").unwrap();
-    let state = state_dir(tmp.path());
-    let (st, body) = parts(
-        read_file(
-            State(state),
-            auth(),
-            Query(FileReadQuery {
-                path: "main.rs".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::OK);
-    let v = json(&body);
-    assert_eq!(v["content"], "fn main() {}");
-    assert_eq!(v["language"], "rust");
-}
-
-#[tokio::test]
-async fn read_file_missing_404() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        read_file(
-            State(state),
-            auth(),
-            Query(FileReadQuery {
-                path: "ghost.rs".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn read_file_raw_ok_content_type() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::write(tmp.path().join("img.png"), [1u8, 2, 3]).unwrap();
-    let state = state_dir(tmp.path());
-    let resp = read_file_raw(
-        State(state),
-        auth(),
-        Query(FileReadQuery {
-            path: "img.png".into(),
-        }),
-    )
-    .await
-    .unwrap()
-    .into_response();
-    assert_eq!(resp.status(), axum::http::StatusCode::OK);
-    assert_eq!(
-        resp.headers()
-            .get(axum::http::header::CONTENT_TYPE)
-            .unwrap(),
-        "image/png"
-    );
-}
-
-#[tokio::test]
-async fn read_file_raw_missing_404() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        read_file_raw(
-            State(state),
-            auth(),
-            Query(FileReadQuery {
-                path: "no.png".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
-}
-
-// ── write_file ─────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn write_file_ok() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        write_file(
-            State(state),
-            auth(),
-            axum::Json(FileWriteRequest {
-                path: "new.txt".into(),
-                content: "hello".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::OK);
-    assert_eq!(
-        std::fs::read_to_string(tmp.path().join("new.txt")).unwrap(),
-        "hello"
-    );
-}
-
-#[tokio::test]
-async fn write_file_missing_parent_404() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        write_file(
-            State(state),
-            auth(),
-            axum::Json(FileWriteRequest {
-                path: "no/such/dir/f.txt".into(),
-                content: "x".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn write_file_traversal_400() {
-    let root = tempfile::TempDir::new().unwrap();
-    let proj = root.path().join("proj");
-    std::fs::create_dir(&proj).unwrap();
-    let state = state_dir(&proj);
-    let (st, _) = parts(
-        write_file(
-            State(state),
-            auth(),
-            axum::Json(FileWriteRequest {
-                path: "../evil.txt".into(),
-                content: "x".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-// ── create_file ────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn create_file_ok_201() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        create_file(
-            State(state),
-            auth(),
-            axum::Json(FileCreateRequest {
-                path: "fresh.txt".into(),
-                content: "c".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::CREATED);
-    assert!(tmp.path().join("fresh.txt").exists());
-}
-
-#[tokio::test]
-async fn create_file_already_exists_400() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::write(tmp.path().join("dup.txt"), "old").unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        create_file(
-            State(state),
-            auth(),
-            axum::Json(FileCreateRequest {
-                path: "dup.txt".into(),
-                content: "new".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn create_file_missing_parent_404() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        create_file(
-            State(state),
-            auth(),
-            axum::Json(FileCreateRequest {
-                path: "ghostdir/f.txt".into(),
-                content: "x".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::NOT_FOUND);
-}
-
-// ── create_dir ─────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn create_dir_ok_nested_201() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        create_dir(
-            State(state),
-            auth(),
-            axum::Json(DirCreateRequest {
-                path: "a/b/c".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::CREATED);
-    assert!(tmp.path().join("a/b/c").is_dir());
-}
-
-#[tokio::test]
-async fn create_dir_already_exists_400() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    std::fs::create_dir(tmp.path().join("exists")).unwrap();
-    let state = state_dir(tmp.path());
-    let (st, _) = parts(
-        create_dir(
-            State(state),
-            auth(),
-            axum::Json(DirCreateRequest {
-                path: "exists".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn create_dir_traversal_400() {
-    let root = tempfile::TempDir::new().unwrap();
-    let proj = root.path().join("proj");
-    std::fs::create_dir(&proj).unwrap();
-    let state = state_dir(&proj);
-    let (st, _) = parts(
-        create_dir(
-            State(state),
-            auth(),
-            axum::Json(DirCreateRequest {
-                path: "../sneaky".into(),
-            }),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(st, axum::http::StatusCode::BAD_REQUEST);
-}
+#[path = "files_handlers_read_write_tests.rs"]
+mod extra;

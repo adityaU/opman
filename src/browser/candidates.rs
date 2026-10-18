@@ -9,16 +9,18 @@ use super::mode::BrowserMode;
 
 /// Names looked up on `PATH`.
 ///
-/// Server mode wants an unbranded, automation-friendly Chromium first. Device mode wants
+/// Server mode wants the real Google Chrome first, then Chromium. Device mode wants
 /// the browser the person actually uses — Chrome, then Edge, then Brave — and settles for
 /// Chromium last.
 pub fn path_names(mode: BrowserMode) -> &'static [&'static str] {
     match mode {
+        // Real Chrome first: its client hints say "Google Chrome", it ships the codecs a
+        // site probes for, and Google trusts it. Chromium is the fallback.
         BrowserMode::Server => &[
+            "google-chrome-stable",
+            "google-chrome",
             "chromium",
             "chromium-browser",
-            "google-chrome",
-            "google-chrome-stable",
             "brave-browser",
             "microsoft-edge",
             "microsoft-edge-stable",

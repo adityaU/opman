@@ -159,7 +159,8 @@ impl ConnMap {
             .acp_session
             .filter(|_| pooled.negotiated.loads)
             .filter(|id| !id.is_empty());
-        let (acp_session, setup) = match resume {
+        let meta = engine.agent.session_meta();
+        let opened = match resume {
             Some(prior) => {
                 load_session(
                     engine,
@@ -169,10 +170,27 @@ impl ConnMap {
                     &prior,
                     &pooled.negotiated,
                     &servers,
+                    meta.as_ref(),
                 )
-                .await?
+                .await
             }
-            None => open_session(&pooled.peer, &pooled.negotiated.init, &dir, &servers).await?,
+            None => {
+                open_session(
+                    &pooled.peer,
+                    &pooled.negotiated.init,
+                    &dir,
+                    &servers,
+                    meta.as_ref(),
+                )
+                .await
+            }
+        };
+        let (acp_session, setup) = match opened {
+            Ok(opened) => opened,
+            Err(error) => {
+                let exit = pooled.child.try_wait().ok().flatten();
+                return Err(super::failure::explain(error, &pooled.stderr, exit).await);
+            }
         };
         engine.bind_acp_session(session_id, &acp_session);
         engine.merge_session_setup(session_id, &setup);

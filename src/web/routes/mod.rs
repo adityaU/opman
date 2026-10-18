@@ -9,6 +9,7 @@ use super::stream_mux;
 use super::types::ServerState;
 
 mod api;
+mod api_extra;
 mod internal;
 
 pub(super) fn build_router(state: ServerState) -> Router {

@@ -39,7 +39,9 @@ impl Archive {
     /// The build for the machine opman runs on.
     pub fn build(&self) -> Option<&'static Build> {
         let (os, arch) = (std::env::consts::OS, std::env::consts::ARCH);
-        self.builds.iter().find(|build| build.os == os && build.arch == arch)
+        self.builds
+            .iter()
+            .find(|build| build.os == os && build.arch == arch)
     }
 
     /// Where this version unpacks: `<data dir>/opman/acp/<id>/<version>`.
@@ -77,7 +79,12 @@ pub async fn ensure_installed(agent: &AgentConfig) -> Result<()> {
     if command.is_file() {
         return Ok(());
     }
-    tracing::info!("installing ACP agent {} {} from {}", agent.runner, archive.version, build.url);
+    tracing::info!(
+        "installing ACP agent {} {} from {}",
+        agent.runner,
+        archive.version,
+        build.url
+    );
     install(build.url, &dir)
         .await
         .with_context(|| format!("installing {} {}", agent.display_name, archive.version))

@@ -74,6 +74,7 @@
 @import './settings-page-4.css';
 @import './settings-page-5.css';
 @import './settings-page-6.css';
+@import './settings-page-7.css';
 @import './sidebar-1.css';
 @import './sidebar-2.css';
 @import './sidebar-3.css';
@@ -94,6 +95,7 @@
 @import './tool-cards.css';
 @import './tool-call-3.css';
 @import './tool-call-4.css';
+@import './read-viewer.css';
 @import './kanban-tool-card.css';
 @import './agent-manager-tool-card.css';
 @import './browser-tool-card.css';

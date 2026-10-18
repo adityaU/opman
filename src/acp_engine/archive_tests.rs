@@ -21,12 +21,19 @@ fn zip_with(entries: &[(&str, u32, &[u8])]) -> tempfile::NamedTempFile {
 #[test]
 fn unpacking_keeps_the_execute_bit() {
     use std::os::unix::fs::PermissionsExt;
-    let zip = zip_with(&[("agy_acp_server.par", 0o775, b"#!/bin/sh\n"), ("notes.txt", 0o644, b"hi")]);
+    let zip = zip_with(&[
+        ("agy_acp_server.par", 0o775, b"#!/bin/sh\n"),
+        ("notes.txt", 0o644, b"hi"),
+    ]);
     let into = tempfile::tempdir().expect("temp dir");
     let target = into.path().join("out");
     unpack(zip.path(), &target).expect("unpacks");
     let mode = |name: &str| {
-        std::fs::metadata(target.join(name)).expect("exists").permissions().mode() & 0o777
+        std::fs::metadata(target.join(name))
+            .expect("exists")
+            .permissions()
+            .mode()
+            & 0o777
     };
     assert_eq!(mode("agy_acp_server.par"), 0o775);
     assert_eq!(mode("notes.txt"), 0o644);
@@ -41,7 +48,8 @@ fn an_entry_that_escapes_the_folder_is_refused() {
 
 #[test]
 fn antigravity_resolves_to_the_unpacked_binary_and_ships_off() {
-    let archive = super::super::catalog::archive_for("antigravity").expect("antigravity ships as an archive");
+    let archive =
+        super::super::catalog::archive_for("antigravity").expect("antigravity ships as an archive");
     let entry = super::super::catalog::ENTRIES
         .iter()
         .find(|entry| entry.id == "antigravity")

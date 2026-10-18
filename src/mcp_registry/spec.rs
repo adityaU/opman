@@ -24,6 +24,8 @@ pub struct ServerSpec {
     /// them. Anything that holds a call open — an OAuth wait, most obviously — has to
     /// raise this rather than hope.
     pub(crate) timeout_secs: Option<u32>,
+    /// Whether the `code` server may mount this one under `tools.<name>`.
+    pub(crate) code_mode: bool,
 }
 
 /// Where a server's tools actually come from.
@@ -189,6 +191,12 @@ impl ServerSpec {
         &self.transport
     }
 
+    /// Reachable from the `code` server's `execute` tool. On unless `mcp.json` says
+    /// `"codeMode": false`.
+    pub fn code_mode(&self) -> bool {
+        self.code_mode
+    }
+
     pub(crate) fn timeout_secs(&self) -> Option<u32> {
         self.timeout_secs
     }
@@ -237,6 +245,7 @@ impl ServerSpec {
             presence: Presence::Always,
             scope: RunnerScope::default(),
             timeout_secs: None,
+            code_mode: true,
         }
     }
 

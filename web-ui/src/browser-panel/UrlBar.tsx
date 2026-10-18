@@ -3,12 +3,10 @@ import {
   ArrowLeft,
   ArrowRight,
   Keyboard,
-  Monitor,
   Power,
   RotateCw,
   SquareArrowOutUpRight,
 } from "lucide-react";
-import type { BrowserMode } from "../api/browser";
 
 /**
  * The pane's address bar.
@@ -22,12 +20,10 @@ import type { BrowserMode } from "../api/browser";
 interface UrlBarProps {
   readonly url: string;
   readonly loading: boolean;
-  readonly mode: BrowserMode;
   readonly onGo: (url: string) => void;
   readonly onBack: () => void;
   readonly onForward: () => void;
   readonly onReload: () => void;
-  readonly onToggleMode: () => void;
   readonly onEndSession: () => void;
   /** True while the page has the keyboard and the app's chords are standing down. */
   readonly capturing: boolean;
@@ -36,12 +32,10 @@ interface UrlBarProps {
 export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
   url,
   loading,
-  mode,
   onGo,
   onBack,
   onForward,
   onReload,
-  onToggleMode,
   onEndSession,
   capturing,
 }) {
@@ -60,7 +54,13 @@ export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
       onSubmit={(event) => {
         event.preventDefault();
         setEditing(false);
-        onGo(draft);
+        const value = draft.trim();
+        if (!value) return;
+        const target = /^(https?:\/\/|about:blank$)/i.test(value) ? value
+          : /^(localhost|[\w-]+(?:\.[\w-]+)+)(:\d+)?([/?#].*)?$/.test(value)
+            ? `http${value.startsWith("localhost") ? "" : "s"}://${value}`
+            : `https://www.google.com/search?q=${encodeURIComponent(value)}`;
+        onGo(target);
       }}
     >
       <button type="button" className="bwp-nav" onClick={onBack} title="Back" aria-label="Back">
@@ -90,7 +90,7 @@ export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
         value={draft}
         spellCheck={false}
         autoComplete="off"
-        placeholder="Enter a URL"
+        placeholder="Search or enter a URL"
         aria-label="Address"
         onChange={(event) => setDraft(event.target.value)}
         onFocus={(event) => {
@@ -112,23 +112,9 @@ export const UrlBar: React.FC<UrlBarProps> = React.memo(function UrlBar({
 
       <button
         type="button"
-        className={`bwp-nav${mode === "screencast" ? " is-active" : ""}`}
-        onClick={onToggleMode}
-        title={
-          mode === "screencast"
-            ? "Mirroring the page — click to try an embedded frame"
-            : "Embedded frame — click to mirror the real page instead"
-        }
-        aria-label="Toggle rendering mode"
-        aria-pressed={mode === "screencast"}
-      >
-        <Monitor size={14} />
-      </button>
-      <button
-        type="button"
         className="bwp-nav"
         onClick={onEndSession}
-        title="End this browser session — clears cookies and history for the project"
+        title="Restart this tab"
         aria-label="End browser session"
       >
         <Power size={14} />

@@ -58,6 +58,9 @@ pub struct ServerConfig {
     /// Per-server tool-call ceiling in seconds, mapped to each runner's own key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_secs: Option<u32>,
+    /// `false` hides this server from the `code` server's `execute` tool.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_mode: Option<bool>,
     pub enabled: bool,
 
     // -- OAuth identity, read by `mcp_oauth`. Kept here so one file describes a server.
@@ -94,6 +97,7 @@ impl Default for ServerConfig {
             runners: Vec::new(),
             exclude_runners: Vec::new(),
             timeout_secs: None,
+            code_mode: None,
             enabled: true,
             client_id: String::new(),
             client_secret: String::new(),
@@ -129,6 +133,9 @@ impl ServerConfig {
         }
         if !self.runners.is_empty() || !self.exclude_runners.is_empty() {
             spec.scope = RunnerScope::new(self.runners.clone(), self.exclude_runners.clone());
+        }
+        if let Some(code_mode) = self.code_mode {
+            spec.code_mode = code_mode;
         }
         if !self.requires_env.is_empty() {
             spec.presence = self.presence();
@@ -215,6 +222,7 @@ impl ServerConfig {
             presence: self.presence(),
             scope: RunnerScope::new(self.runners.clone(), self.exclude_runners.clone()),
             timeout_secs,
+            code_mode: self.code_mode.unwrap_or(true),
         })
     }
 }

@@ -18,6 +18,8 @@ import { GenericToolCard } from "./GenericToolCard";
 import { AgentManagerToolCard, isAgentManagerTool } from "./agent-manager";
 import { BrowserToolCard, isBrowserTool } from "./BrowserToolCard";
 import { useAutoOpen } from "../hooks/useAutoOpen";
+import { CodeModeCard } from "./CodeModeCard";
+import { isCodeModeTool } from "./codeModeParse";
 
 export const ToolCall = React.memo(function ToolCall({
   part,
@@ -110,6 +112,10 @@ export const ToolCall = React.memo(function ToolCall({
         Rendering...
       </div>
     );
+  }
+
+  if (isCodeModeTool(toolName) || state?.output?.includes("<opman-code-calls>")) {
+    return <CodeModeCard part={part} />;
   }
 
   // Agent-manager MCP tools render as routing/progress cards instead of generic JSON.

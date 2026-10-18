@@ -42,6 +42,15 @@ const COMMON: &[&str] = &[
     "--window-size=1280,800",
 ];
 
+/// Software GL for a server with no GPU. Without it `WebGL` is simply absent, and a browser
+/// with no WebGL context is one of the first things a bot check notices. The renderer
+/// string will say SwiftShader; that is a smaller tell than having no renderer at all.
+const SOFTWARE_GL: &[&str] = &[
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+];
+
 const SERVER: &[&str] = &[
     "--disable-background-networking",
     "--disable-dev-shm-usage",
@@ -69,7 +78,12 @@ pub fn launch_flags(mode: BrowserMode) -> impl Iterator<Item = &'static str> {
         BrowserMode::Server => SERVER,
         BrowserMode::Device => DEVICE,
     };
-    COMMON.iter().chain(specific).copied()
+    // Device mode has the person's real GPU; only a server needs the software fallback.
+    let gl = match mode {
+        BrowserMode::Server => SOFTWARE_GL,
+        BrowserMode::Device => &[],
+    };
+    COMMON.iter().chain(specific).chain(gl).copied()
 }
 
 #[cfg(test)]

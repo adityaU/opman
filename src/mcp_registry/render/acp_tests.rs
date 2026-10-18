@@ -20,6 +20,7 @@ fn remote(kind: RemoteKind) -> ServerSpec {
         presence: Presence::Always,
         scope: RunnerScope::default(),
         timeout_secs: None,
+        code_mode: true,
     }
 }
 

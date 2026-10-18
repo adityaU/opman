@@ -80,7 +80,10 @@ fn a_snapshot_replaces_the_live_output() {
 fn a_final_output_from_the_agent_wins_over_the_streamed_copy() {
     let mut part = bash_part();
     merge(&mut part, &chunk("streamed"));
-    merge(&mut part, &json!({"status":"completed","rawOutput":"final"}));
+    merge(
+        &mut part,
+        &json!({"status":"completed","rawOutput":"final"}),
+    );
     assert_eq!(part["state"]["output"], "final");
     assert!(part["state"]["metadata"].get("output").is_none());
 }
@@ -93,4 +96,21 @@ fn an_mcp_result_is_unwrapped_to_its_text() {
 
     let failed = json!({"rawOutput":{"result":null,"error":{"message":"no such tool"}}});
     assert_eq!(raw_output(&failed).as_deref(), Some("no such tool"));
+}
+
+#[test]
+fn acp_and_mcp_media_content_survives_as_a_tool_preview() {
+    let media = json!({"type":"image","mimeType":"image/png","data":"YWJjZA=="});
+    for frame in [
+        json!({"content":[{"type":"content","content":media}]}),
+        json!({"rawOutput":{"result":{"content":[media]}}}),
+        json!({"rawOutput":{"content":[media]}}),
+    ] {
+        let mut part = bash_part();
+        merge(&mut part, &frame);
+        assert_eq!(
+            part["state"]["metadata"]["preview"],
+            "data:image/png;base64,YWJjZA=="
+        );
+    }
 }

@@ -218,8 +218,9 @@ export function GlobCard({ part }: { part: MessagePart }) {
 
   const files = useMemo(() => parseFileList(output), [output]);
 
-  const lname = toolName.toLowerCase();
-  const label = lname.includes("grep") ? "Grep" : lname.includes("ls") || lname.includes("list") ? "LS" : "Glob";
+  // Judge the tool's own name: an MCP prefix like `mcp__opman-tools__` contains "ls".
+  const lname = (toolName.toLowerCase().split("__").pop() ?? "");
+  const label = lname.includes("grep") ? "Grep" : lname === "ls" || lname.includes("list") ? "LS" : "Glob";
 
   const toggle = () => setExpanded(e => !e);
 

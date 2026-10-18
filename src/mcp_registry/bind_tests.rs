@@ -15,6 +15,7 @@ fn remote_spec(kind: RemoteKind, auth: Auth) -> ServerSpec {
         presence: Presence::Always,
         scope: RunnerScope::default(),
         timeout_secs: None,
+        code_mode: true,
     }
 }
 

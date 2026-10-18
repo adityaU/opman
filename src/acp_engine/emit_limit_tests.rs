@@ -32,7 +32,10 @@ fn emitted_info(level: &str, text: &str) -> Value {
 
 #[test]
 fn a_usage_limit_error_is_tagged() {
-    let info = emitted_info("error", "Internal error: Claude AI usage limit reached|1760000000");
+    let info = emitted_info(
+        "error",
+        "Internal error: Claude AI usage limit reached|1760000000",
+    );
     assert_eq!(info["variant"], "error");
     assert_eq!(info["limit"]["kind"], "usage");
     assert_eq!(info["limit"]["resetsAt"], "2025-10-09T08:53:20Z");
@@ -40,7 +43,10 @@ fn a_usage_limit_error_is_tagged() {
 
 #[test]
 fn a_codex_limit_error_is_tagged() {
-    let info = emitted_info("error", "You've hit your usage limit. Try again at 3:05 PM.");
+    let info = emitted_info(
+        "error",
+        "You've hit your usage limit. Try again at 3:05 PM.",
+    );
     assert_eq!(info["limit"]["kind"], "usage");
 }
 
@@ -54,6 +60,9 @@ fn other_errors_carry_no_limit() {
 #[test]
 fn warnings_are_never_tagged() {
     // A warning that merely mentions a limit is advice, not a failed turn.
-    let info = emitted_info("warning", "You are close to your usage limit reached threshold");
+    let info = emitted_info(
+        "warning",
+        "You are close to your usage limit reached threshold",
+    );
     assert!(info.get("limit").is_none());
 }

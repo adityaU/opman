@@ -28,6 +28,28 @@ export const NO_CLIENT_CAPS: AcpClientCaps = {
   terminal: false,
 };
 
+/**
+ * Which of an agent's own built-in tools are off. Spelled as the config file spells it:
+ * every tool on, every tool off, or an explicit list of the ones that are off.
+ */
+export type NativeToolsSetting = "all" | "off" | { disabled: string[] };
+
+export interface NativeTool {
+  /** The harness's own name for the tool. */
+  id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
+/** The tools opman can switch off for one agent. */
+export interface NativeToolsInfo {
+  setting: NativeToolsSetting;
+  /** Where the switch is applied, in one sentence. */
+  note: string;
+  tools: NativeTool[];
+}
+
 export interface AcpAgent {
   /** Config key. Also the provider id and the default runner slot. */
   id: string;
@@ -47,6 +69,8 @@ export interface AcpAgent {
   modesAreAgents: boolean;
   subagentTranscripts: boolean;
   enabled: boolean;
+  /** Absent when opman has no way to switch this agent's own tools off. */
+  nativeTools: NativeToolsInfo | null;
   /** opman ships this one. Removing its entry restores the default rather than deleting it. */
   builtin: boolean;
   /**
@@ -70,6 +94,8 @@ export interface AcpAgent {
    * immediately — that engine's address went to the TUI once, at startup.
    */
   isDefault: boolean;
+  /** The exact reason the agent last failed to start, verbatim. Empty when it has not. */
+  lastError: string;
 }
 
 /**
@@ -125,6 +151,7 @@ export async function fetchAcpAgents(): Promise<AcpAgent[]> {
     modesAreAgents: false,
     subagentTranscripts: false,
     enabled: true,
+    nativeTools: null,
     builtin: false,
     docs: "",
     customized: false,
@@ -132,6 +159,7 @@ export async function fetchAcpAgents(): Promise<AcpAgent[]> {
     launchable: false,
     slotTaken: false,
     isDefault: false,
+    lastError: "",
     ...entry,
     id: entry.id ?? "",
     args: entry.args ?? [],
@@ -153,6 +181,17 @@ export async function saveAcpAgent(id: string, draft: AcpAgentDraft): Promise<Ac
  */
 export async function setAcpAgentEnabled(id: string, enabled: boolean): Promise<AcpWriteResult> {
   return apiPost<AcpWriteResult>(`${agent(id)}/enabled`, { enabled });
+}
+
+/**
+ * Switch an agent's own built-in tools. Reaches sessions started after the write; one that
+ * is already open keeps the tools it began with.
+ */
+export async function setAcpNativeTools(
+  id: string,
+  setting: NativeToolsSetting,
+): Promise<AcpWriteResult> {
+  return apiPost<AcpWriteResult>(`${agent(id)}/native-tools`, { setting });
 }
 
 /**

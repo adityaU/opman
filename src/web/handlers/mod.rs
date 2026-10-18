@@ -7,6 +7,7 @@
 //! Terminal I/O goes directly to the `WebPtyManager` (independent web PTYs).
 
 mod acp_handlers;
+mod acp_native_tools;
 mod acp_upsert;
 mod agents_handlers;
 mod ask_internal;
@@ -25,6 +26,7 @@ mod doc_writers;
 mod doc_writers_html;
 mod download_handlers;
 mod editor_handlers;
+mod raw_range;
 pub(crate) use editor_handlers::editor_target;
 mod files_handlers;
 mod git_branch;
@@ -83,13 +85,13 @@ pub use project_handlers::{
     toggle_panel,
 };
 
+pub use browser_device::browser_device;
 pub use browser_handlers::{
     browser_back, browser_click, browser_close, browser_forward, browser_insert_text, browser_key,
     browser_list, browser_mode, browser_mouse, browser_navigate, browser_open, browser_reload,
     browser_resize, browser_screenshot, browser_scroll, browser_snapshot, browser_text,
     browser_type,
 };
-pub use browser_device::browser_device;
 pub use browser_internal::internal_browser;
 pub use pty_handlers::{pty_kill, pty_rename, pty_resize, pty_sessions, pty_write, spawn_pty};
 
@@ -170,6 +172,7 @@ pub use routines_handlers::{
 pub use system_handlers::get_system_stats;
 
 pub use acp_handlers::{delete_agent, list_agents, reset_agents, set_agent_enabled};
+pub use acp_native_tools::set_native_tools;
 pub use acp_upsert::upsert_agent;
 pub use mcp_handlers::{delete_server, list_servers, set_enabled};
 pub use mcp_login::{finish_login, logout_server, start_login};

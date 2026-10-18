@@ -29,6 +29,15 @@ pub struct Tab {
 }
 
 impl Tab {
+    pub fn events(&self) -> tokio::sync::broadcast::Receiver<super::cdp::CdpEvent> {
+        self.cdp.subscribe()
+    }
+
+    pub async fn page_info(&self) -> anyhow::Result<(String, String)> {
+        self.eval_json("JSON.stringify([location.href, document.title])")
+            .await
+    }
+
     /// Create a page and attach to it in flat mode.
     pub async fn open(cdp: Cdp, viewport: Viewport, placement: Placement) -> anyhow::Result<Self> {
         // Every pane gets its own window, not a background tab in a shared one: a headed

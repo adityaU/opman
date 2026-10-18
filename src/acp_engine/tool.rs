@@ -114,6 +114,24 @@ fn apply_status(state: &mut serde_json::Map<String, Value>, status: &str) {
 /// of their own into `state.metadata`, where the UI can surface them.
 fn merge_metadata(state: &mut serde_json::Map<String, Value>, update: &Value) {
     let mut pending: Vec<(&str, Value)> = Vec::new();
+    let blocks = update.get("content").and_then(Value::as_array);
+    let raw = update.get("rawOutput");
+    let mcp_blocks = raw
+        .and_then(|raw| raw.get("result").unwrap_or(raw).get("content"))
+        .and_then(Value::as_array);
+    let preview = blocks
+        .into_iter()
+        .flatten()
+        .map(|block| block.get("content").unwrap_or(block))
+        .chain(mcp_blocks.into_iter().flatten())
+        .filter_map(super::content::render)
+        .find_map(|rendered| match rendered {
+            super::content::Rendered::File { url, .. } => Some(Value::String(url)),
+            super::content::Rendered::Text(_) => None,
+        });
+    if let Some(preview) = preview {
+        pending.push(("preview", preview));
+    }
     if let Some(kind) = update.get("kind").and_then(Value::as_str) {
         pending.push(("kind", Value::String(kind.to_string())));
     }

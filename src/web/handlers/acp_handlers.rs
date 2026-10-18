@@ -45,6 +45,9 @@ pub struct AgentView {
     pub modes_are_agents: bool,
     pub subagent_transcripts: bool,
     pub enabled: bool,
+    /// The agent's own tools opman can switch off, and which are off. Absent when opman
+    /// has no way to control this agent's tools.
+    pub native_tools: Option<super::acp_native_tools::NativeToolsView>,
     /// opman ships this agent, so removing its entry restores it rather than deleting it.
     pub builtin: bool,
     /// Where opman read this agent's launch command from. Empty for an agent the user
@@ -64,6 +67,9 @@ pub struct AgentView {
     /// This agent serves opman's default runner, so an edit to it lands on the next start
     /// rather than immediately. Its URL went to the TUI once, at startup.
     pub is_default: bool,
+    /// The exact reason the agent last failed to start or to answer, verbatim. Empty when
+    /// it has not failed.
+    pub last_error: String,
 }
 
 /// The runtime facts a row needs that the config file cannot answer.
@@ -73,6 +79,18 @@ struct Liveness {
     running: bool,
     slot_taken: bool,
     is_default: bool,
+}
+
+/// `Liveness` plus the one fact that is text rather than a flag.
+fn view_with(
+    id: &str,
+    entry: &AgentConfig,
+    live: Liveness,
+    last_error: Option<&String>,
+) -> AgentView {
+    let mut row = view(id, entry, live);
+    row.last_error = last_error.cloned().unwrap_or_default();
+    row
 }
 
 fn view(id: &str, entry: &AgentConfig, live: Liveness) -> AgentView {
@@ -97,6 +115,7 @@ fn view(id: &str, entry: &AgentConfig, live: Liveness) -> AgentView {
         modes_are_agents: entry.modes_are_agents,
         subagent_transcripts: entry.subagent_transcripts,
         enabled: entry.enabled,
+        native_tools: super::acp_native_tools::native_tools_view(entry),
         builtin: config::is_builtin(id),
         docs: catalog::docs_for(id).unwrap_or_default().to_string(),
         customized,
@@ -104,6 +123,7 @@ fn view(id: &str, entry: &AgentConfig, live: Liveness) -> AgentView {
         launchable: entry.launchable(),
         slot_taken,
         is_default,
+        last_error: String::new(),
     }
 }
 
@@ -116,12 +136,13 @@ pub async fn list_agents(
     let resolved = config::resolve(document.clone());
     let running = state.acp.running().await;
     let default = state.acp.default_agent().await;
+    let failures = state.acp.failures().await;
     let views = resolved
         .agents
         .iter()
         .map(|(id, entry)| {
             let is_running = running.contains_key(id);
-            view(
+            view_with(
                 id,
                 entry,
                 Liveness {
@@ -139,6 +160,7 @@ pub async fn list_agents(
                         }),
                     is_default: default.as_deref() == Some(id.as_str()),
                 },
+                failures.get(id),
             )
         })
         .collect();

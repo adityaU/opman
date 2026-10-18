@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use super::config::{AgentConfig, ClientCaps};
+use super::native_tools::NativeTools;
 
 /// One agent as the user wrote it. Every field is an override; absent means untouched.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -48,6 +49,8 @@ pub struct AgentPatch {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subagent_transcripts: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_tools: Option<NativeTools>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
 }
 
@@ -75,6 +78,7 @@ impl AgentPatch {
         set(&mut target.default_model, self.default_model);
         set(&mut target.modes_are_agents, self.modes_are_agents);
         set(&mut target.subagent_transcripts, self.subagent_transcripts);
+        set(&mut target.native_tools, self.native_tools);
         set(&mut target.enabled, self.enabled);
     }
 

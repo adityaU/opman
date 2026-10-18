@@ -46,12 +46,17 @@ pub(super) fn spawn(agent: &AgentConfig, dir: &str) -> Result<Child> {
     for (key, value) in &agent.env {
         cmd.env(key, value);
     }
+    // After the explicit env: it merges over what the user wrote for the same variable.
+    if let Some((key, value)) = agent.tool_env() {
+        cmd.env(key, value);
+    }
     cmd.current_dir(dir)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        // The agent's own logs are its business; keeping them off opman's stdout avoids
-        // interleaving them with the TUI.
-        .stderr(std::process::Stdio::null())
+        // Piped, never inherited: the agent's logs must not interleave with the TUI, and
+        // the tail of them is the reason it gives when it fails to start. The caller
+        // must read it (see `failure::StderrTail`).
+        .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
     cmd.spawn().map_err(|error| {
         let fault = diagnose(&agent.command, Path::new(dir), &error);

@@ -18,7 +18,14 @@ fn names(flags: BuiltinFlags) -> Vec<String> {
 fn no_flags_still_yields_the_unflagged_servers() {
     assert_eq!(
         names(BuiltinFlags::default()),
-        ["skills", "kanban", "ask", "browser", "agent-manager"]
+        [
+            "skills",
+            "kanban",
+            "ask",
+            "browser",
+            "opman-tools",
+            "agent-manager"
+        ]
     );
 }
 
@@ -36,6 +43,7 @@ fn every_flag_adds_exactly_its_own_server() {
             "kanban",
             "ask",
             "browser",
+            "opman-tools",
             "agent-manager"
         ]
     );
@@ -49,11 +57,13 @@ fn all_flags_yield_every_builtin() {
             "terminal",
             "neovim",
             "time",
+            "code",
             "ui",
             "skills",
             "kanban",
             "ask",
             "browser",
+            "opman-tools",
             "agent-manager"
         ]
     );
@@ -169,4 +179,24 @@ fn every_builtin_launches_opman_itself() {
 fn flags_any_reports_whether_anything_was_asked_for() {
     assert!(!BuiltinFlags::default().any());
     assert!(BuiltinFlags::ALL.any());
+}
+
+/// The coding tools are on without a flag, take the project directory, and carry the long
+/// ceiling because a shell command may run for minutes.
+#[test]
+fn opman_tools_is_always_on_and_takes_the_project_directory() {
+    let specs = servers("/opman", BuiltinFlags::default());
+    let tools = specs
+        .iter()
+        .find(|s| s.name() == "opman-tools")
+        .expect("opman-tools is a built-in");
+    assert_eq!(tools.presence, Presence::Always);
+    assert!(!tools.binds_session());
+    assert_eq!(tools.timeout_secs(), Some(PROXY_TIMEOUT_SECS));
+    let Transport::Stdio(stdio) = tools.transport() else {
+        panic!("opman-tools should be stdio");
+    };
+    assert_eq!(stdio.args[0], Arg::lit("mcp-tools"));
+    assert_eq!(stdio.args[1], Arg::Dir);
+    assert!(crate::mcp_registry::builtin::is_builtin("opman-tools"));
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { BookOpen, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import type { AcpAgent } from "../../api/acp";
+import type { AcpAgent, NativeToolsSetting } from "../../api/acp";
+import { NativeToolsPanel } from "./NativeToolsPanel";
 import { originOf, statusOf } from "./status";
 
 /**
@@ -17,6 +18,7 @@ export interface AgentRowProps {
   readonly editing: boolean;
   readonly onToggle: () => void;
   readonly onEdit: () => void;
+  readonly onNativeTools: (setting: NativeToolsSetting) => void;
   /** Remove the user's entry: a delete for a declared agent, a reset for a built-in. */
   readonly onRemove: () => void;
 }
@@ -41,7 +43,7 @@ function facts(agent: AcpAgent): string[] {
   ].filter((entry): entry is string => Boolean(entry));
 }
 
-export function AgentRow({ agent, busy, editing, onToggle, onEdit, onRemove }: AgentRowProps) {
+export function AgentRow({ agent, busy, editing, onToggle, onEdit, onNativeTools, onRemove }: AgentRowProps) {
   const status = statusOf(agent);
 
   return (
@@ -89,6 +91,22 @@ export function AgentRow({ agent, busy, editing, onToggle, onEdit, onRemove }: A
             The <code>{agent.runner}</code> runner is served by another engine, so this agent
             cannot claim it. Give it a slot of its own and it will start.
           </p>
+        )}
+
+        {agent.lastError && (
+          <div className="stg-row-failure" role="alert">
+            <span className="stg-row-failure-title">Failed to start</span>
+            <pre className="stg-row-failure-text">{agent.lastError}</pre>
+          </div>
+        )}
+
+        {agent.enabled && (
+          <NativeToolsPanel
+            agentName={agent.displayName}
+            info={agent.nativeTools}
+            disabled={busy}
+            onChange={onNativeTools}
+          />
         )}
 
         {agent.isDefault && (

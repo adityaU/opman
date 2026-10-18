@@ -45,6 +45,7 @@ export function AgentList({
             editing={editing === agent.id}
             onToggle={() => state.toggle(agent)}
             onEdit={() => onEdit(agent.id)}
+            onNativeTools={(setting) => state.setNativeTools(agent, setting)}
             onRemove={() => onConfirm(agent.id)}
           />
           {confirming === agent.id && (

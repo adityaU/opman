@@ -168,6 +168,16 @@ impl AcpSupervisor {
             .collect()
     }
 
+    /// Why each running agent last failed to start, for agents that have a reason.
+    pub async fn failures(&self) -> HashMap<String, String> {
+        self.live
+            .lock()
+            .await
+            .iter()
+            .filter_map(|(id, entry)| Some((id.clone(), entry.engine.last_failure()?)))
+            .collect()
+    }
+
     /// The agent serving opman's primary runner, if that runner is an ACP agent at all.
     /// Its row is the one that cannot take an edit live.
     pub async fn default_agent(&self) -> Option<String> {

@@ -1,0 +1,39 @@
+.code-mode-call {
+  border-top: 1px solid var(--color-border-subtle);
+  min-width: 0;
+}
+
+.code-mode-call > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.code-mode-call > summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.code-mode-tool {
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.code-mode-call-body {
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+@media (max-width: 480px) {
+  .code-mode-call > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

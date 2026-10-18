@@ -1,6 +1,6 @@
 [package]
 name = "opman"
-version = "0.10.2"
+version = "0.10.3"
 edition = "2021"
 description = "Terminal multiplexer wrapper for the opencode CLI — multi-project management"
 
@@ -64,9 +64,16 @@ clap = { version = "4", features = ["derive", "env"] }
 sysinfo = "0.33"
 libc = "0.2"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# `opman update` / `opman downgrade` unpack the release tarball.
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
 calamine = "0.34"
 rust_xlsxwriter = "0.94"
 quick-xml = "0.37"
+# Sandbox for the `code` MCP server's `execute` tool: QuickJS, one C file set built by `cc`
+# (pre-generated bindings ship for every release target, so no bindgen/libclang).
+rquickjs = { version = "0.14", features = ["futures", "parallel"] }
+regex = "1"
 
 [dev-dependencies]
 tempfile = "3"

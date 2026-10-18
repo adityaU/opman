@@ -26,9 +26,11 @@ const READY_POLL: Duration = Duration::from_millis(50);
 const FIRST_DISPLAY: u8 = 99;
 const LAST_DISPLAY: u8 = 119;
 
-/// The framebuffer a virtual display advertises. Larger than any pane so a browser window
-/// is never clipped by the screen it lives on.
-const SCREEN: &str = "1920x1200x24";
+/// The framebuffer a virtual display advertises: 1440x900 CSS pixels at the forced scale
+/// of 2, a common laptop screen. A smaller one (the old 1920x1200 gave a 960x600 screen)
+/// is an odd size for a real person's browser, and it is large enough that a window is
+/// never clipped by the screen it lives on.
+const SCREEN: &str = "2880x1800x24";
 
 /// Where Chromium should draw.
 pub enum Display {

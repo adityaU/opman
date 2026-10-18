@@ -6,10 +6,13 @@ import {
   resetAcpConfig,
   saveAcpAgent,
   setAcpAgentEnabled,
+  setAcpNativeTools,
   type AcpAgent,
   type AcpAgentDraft,
   type AcpWriteResult,
+  type NativeToolsSetting,
 } from "../../api/acp";
+import { applySetting } from "./nativeToolsModel";
 
 /**
  * The declared ACP agents, kept in step with `acp.json`.
@@ -32,6 +35,7 @@ export interface AcpAgentsState {
   readonly dismissNotice: () => void;
   readonly refresh: () => void;
   readonly toggle: (agent: AcpAgent) => Promise<void>;
+  readonly setNativeTools: (agent: AcpAgent, setting: NativeToolsSetting) => Promise<void>;
   readonly save: (id: string, draft: AcpAgentDraft) => Promise<boolean>;
   readonly remove: (id: string) => Promise<void>;
   /** Delete `acp.json` outright, putting every agent back to how opman ships it. */
@@ -134,6 +138,18 @@ export function useAcpAgents(onError: (message: string) => void): AcpAgentsState
     [write],
   );
 
+  const setNativeTools = useCallback(
+    async (agent: AcpAgent, setting: NativeToolsSetting) => {
+      if (!agent.nativeTools) return;
+      const next = applySetting(agent.nativeTools, setting);
+      setAgents((list) =>
+        list.map((entry) => (entry.id === agent.id ? { ...entry, nativeTools: next } : entry)),
+      );
+      await write(agent.id, () => setAcpNativeTools(agent.id, setting));
+    },
+    [write],
+  );
+
   const save = useCallback(
     (id: string, draft: AcpAgentDraft) => write(id, () => saveAcpAgent(id, draft)),
     [write],
@@ -167,6 +183,7 @@ export function useAcpAgents(onError: (message: string) => void): AcpAgentsState
     dismissNotice,
     refresh,
     toggle,
+    setNativeTools,
     save,
     remove,
     resetConfig,

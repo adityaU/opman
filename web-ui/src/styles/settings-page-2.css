@@ -111,6 +111,33 @@
     margin-top: 2px;
 }
 
+/* The agent's own words about why it would not start, kept exactly as it said them. */
+.stg-row-failure {
+    margin: var(--space-1) 0 0;
+    max-width: 76ch;
+    font-size: var(--font-size-2xs);
+    color: var(--color-error);
+}
+
+.stg-row-failure-title {
+    font-weight: 600;
+}
+
+.stg-row-failure-text {
+    margin: var(--space-1) 0 0;
+    padding: var(--space-1-5) var(--space-2);
+    max-height: 160px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    color: var(--color-text);
+    background: var(--color-bg-element);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-sm);
+}
+
 .stg-row-actions {
     display: flex;
     align-items: center;

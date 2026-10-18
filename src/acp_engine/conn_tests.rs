@@ -34,7 +34,7 @@ async fn a_refused_session_is_retried_after_authenticating() {
     });
 
     let init = json!({ "authMethods": [{ "id": "oauth", "name": "Log in with the browser" }] });
-    let (id, _setup) = open_session(&peer, &init, "/tmp", &json!([]))
+    let (id, _setup) = open_session(&peer, &init, "/tmp", &json!([]), None)
         .await
         .expect("the session should open after logging in");
 
@@ -66,7 +66,7 @@ async fn the_advertised_method_id_is_what_gets_sent() {
     });
 
     let init = json!({ "authMethods": [{ "id": "api-key" }] });
-    open_session(&peer, &init, "/tmp", &json!([]))
+    open_session(&peer, &init, "/tmp", &json!([]), None)
         .await
         .expect("session");
     assert_eq!(calls(&log), vec!["api-key"]);
@@ -80,7 +80,7 @@ async fn a_login_with_no_advertised_method_says_where_to_go() {
         Err(json!({ "code": jsonrpc::AUTH_REQUIRED, "message": "Authentication required" }))
     });
 
-    let refused = open_session(&peer, &json!({}), "/tmp", &json!([])).await;
+    let refused = open_session(&peer, &json!({}), "/tmp", &json!([]), None).await;
     let message = refused.err().map(|e| e.to_string()).unwrap_or_default();
     assert!(message.contains("authMethods"), "{message}");
     assert!(message.contains("own CLI"), "{message}");
@@ -99,7 +99,7 @@ async fn an_ordinary_failure_is_not_retried() {
         Err(json!({ "code": -32603, "message": "no such directory" }))
     });
 
-    let refused = open_session(&peer, &json!({}), "/tmp", &json!([])).await;
+    let refused = open_session(&peer, &json!({}), "/tmp", &json!([]), None).await;
     assert!(refused.is_err());
     assert_eq!(calls(&log), vec!["session/new"]);
 }
@@ -116,7 +116,7 @@ async fn an_agent_that_needs_no_login_is_asked_once() {
         Ok(json!({ "sessionId": "s-1", "configOptions": [] }))
     });
 
-    let (id, setup) = open_session(&peer, &json!({}), "/tmp", &json!([]))
+    let (id, setup) = open_session(&peer, &json!({}), "/tmp", &json!([]), None)
         .await
         .expect("session");
     assert_eq!(id, "s-1");
@@ -128,7 +128,7 @@ async fn an_agent_that_needs_no_login_is_asked_once() {
 #[tokio::test]
 async fn a_reply_without_a_session_id_is_an_error() {
     let peer = jsonrpc::fake_agent(|_method, _params| Ok(json!({})));
-    assert!(open_session(&peer, &json!({}), "/tmp", &json!([]))
+    assert!(open_session(&peer, &json!({}), "/tmp", &json!([]), None)
         .await
         .is_err());
 }

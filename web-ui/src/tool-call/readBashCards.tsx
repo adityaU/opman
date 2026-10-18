@@ -7,6 +7,7 @@ import { str, asObj, TcStatus } from "./tcUtils";
 import { EditDiffView } from "./components";
 import { useAutoOpen, classifyTool } from "../hooks/useAutoOpen";
 import { useOpenFileInEditor } from "./EditorOpenContext";
+import { ReadViewer, chooseViewer } from "./read-viewer";
 
 // Clickable file path that opens the file in the editor panel. Renders as a plain
 // span (not a button) since it lives inside the card's toggle <button>; stops
@@ -37,7 +38,9 @@ function FilePath({ path, line }: { path: string; line?: number | null }) {
 
 export function isReadTool(name: string): boolean {
   const n = name.toLowerCase();
-  return n.includes("read") && !n.includes("neovim") && !n.includes("todo") && !n.includes("note");
+  if (n.includes("read")) return !n.includes("neovim") && !n.includes("todo") && !n.includes("note");
+  // File viewers some agents name differently (`view`, `cat`, `open_file`).
+  return n === "view" || n === "cat" || n.endsWith("__view") || n.endsWith("__cat") || n.endsWith("open_file") || n.endsWith("view_image");
 }
 
 const CODE_STYLE = {
@@ -58,9 +61,11 @@ export function ReadCard({ part }: { part: MessagePart }) {
   const state = part.state;
   const status = state?.status || "pending";
   const isError = status === "error";
-  const isRunning = status === "running" || status === "pending";
+  const isRunning = status === "running" || status === "pending" || status === "in_progress";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
-  const filePath = str(input.file_path || input.filePath || input.path);
+  const locations = state?.metadata?.locations;
+  const filePath = str(input.file_path || input.filePath || input.path || input.filename || input.absolute_path
+    || (Array.isArray(locations) ? locations[0] : undefined));
   const offset = input.offset != null ? Number(input.offset) : null;
   const limit = input.limit != null ? Number(input.limit) : null;
   const output = state?.output ?? "";
@@ -70,6 +75,8 @@ export function ReadCard({ part }: { part: MessagePart }) {
   const displayPath = filePath || parsed.path || "file";
 
   const toggle = () => { setUserToggled(true); setExpanded(e => !e); };
+  const preview = str(state?.metadata?.preview) || output;
+  const viewer = useMemo(() => chooseViewer(filePath || parsed.path, preview), [filePath, parsed.path, preview]);
 
   return (
     <div className={`tc-card tc-read${isError ? " tool-call-error" : ""}`}>
@@ -99,7 +106,13 @@ export function ReadCard({ part }: { part: MessagePart }) {
         </div>
       )}
 
-      {expanded && !isError && output.length > 0 && (
+      {expanded && !isRunning && viewer && (
+        <div className="tc-card-body tc-card-body-flush">
+          <ReadViewer kind={viewer.kind} path={filePath || parsed.path} source={viewer.source} />
+        </div>
+      )}
+
+      {expanded && !isError && !(viewer && !isRunning) && output.length > 0 && (
         <div className="tc-card-body tc-card-body-flush">
           {parsed.type === "file" ? (
             <SyntaxHighlighter

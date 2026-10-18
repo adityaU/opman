@@ -152,6 +152,10 @@ jobs:
           path: desktop-dist
           merge-multiple: true
 
+      # Fixed-name copies, so README links to `releases/latest/download/...` stay correct.
+      - name: Add fixed-name desktop installers
+        run: .github/scripts/stable-desktop-names.sh desktop-dist
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -171,3 +175,4 @@ jobs:
             desktop-dist/opman-desktop-*.deb.sha256
             desktop-dist/opman-desktop-*.rpm
             desktop-dist/opman-desktop-*.rpm.sha256
+            desktop-dist/latest/opman-desktop-latest-*

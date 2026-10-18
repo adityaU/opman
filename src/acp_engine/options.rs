@@ -229,7 +229,6 @@ pub fn note_current(setup: &mut Value, channel: Channel, value: &str) {
     }
 }
 
-
 fn choice_from_value(value: &Value) -> Choice {
     Choice {
         id: string_at(value, "value"),

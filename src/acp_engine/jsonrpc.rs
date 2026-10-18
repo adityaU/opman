@@ -222,10 +222,7 @@ fn response_outcome(frame: &Value) -> Result<Value> {
         .get("message")
         .and_then(Value::as_str)
         .unwrap_or("unknown error");
-    let details = err
-        .get("data")
-        .and_then(|d| d.get("details"))
-        .and_then(Value::as_str);
+    let details = super::rpc_detail::detail(err);
     Err(RpcError {
         code: err.get("code").and_then(Value::as_i64).unwrap_or(0),
         message: match details {

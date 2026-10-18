@@ -24,6 +24,8 @@ pub struct BuiltinFlags {
     pub neovim: bool,
     pub time: bool,
     pub ui: bool,
+    /// The `code` server: one `execute` tool that scripts the other servers.
+    pub code: bool,
 }
 
 impl BuiltinFlags {
@@ -32,16 +34,17 @@ impl BuiltinFlags {
         neovim: true,
         time: true,
         ui: true,
+        code: true,
     };
 
     pub fn any(self) -> bool {
-        self.terminal || self.neovim || self.time || self.ui
+        self.terminal || self.neovim || self.time || self.ui || self.code
     }
 }
 
 /// Names opman ships. The settings page marks these as toggleable but not removable:
 /// deleting the config entry only restores the built-in.
-pub const BUILTIN_NAMES: [&str; 9] = [
+pub const BUILTIN_NAMES: [&str; 11] = [
     "terminal",
     "neovim",
     "time",
@@ -51,6 +54,8 @@ pub const BUILTIN_NAMES: [&str; 9] = [
     "agent-manager",
     "ask",
     "browser",
+    "opman-tools",
+    "code",
 ];
 
 pub fn is_builtin(name: &str) -> bool {
@@ -90,6 +95,19 @@ pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
             vec![Arg::lit("mcp-time")],
             Vec::new(),
         ));
+    }
+    // Opt-in: it adds a second way to reach every other server, which most sessions do not
+    // want. The long ceiling is for scripts that wait on slow tools.
+    if flags.code {
+        specs.push(
+            ServerSpec::stdio(
+                "code",
+                exe,
+                vec![Arg::lit("mcp-code"), Arg::Dir],
+                vec![session()],
+            )
+            .with_timeout(PROXY_TIMEOUT_SECS),
+        );
     }
     if flags.ui {
         specs.push(ServerSpec::stdio(
@@ -136,6 +154,19 @@ pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
             Vec::new(),
         )
         .with_presence(Presence::LoopbackDescriptor)
+        .with_timeout(PROXY_TIMEOUT_SECS),
+    );
+    // Common coding tools (bash, files, search, web fetch). Unconditional and harmless: the
+    // tools only act when an agent calls them, and the user can switch the server off with
+    // `{"opman-tools": {"enabled": false}}`. A command may run for minutes, so it gets the
+    // long ceiling; it also sends progress, which keeps OpenCode's 60 s clock alive.
+    specs.push(
+        ServerSpec::stdio(
+            "opman-tools",
+            exe,
+            vec![Arg::lit("mcp-tools"), Arg::Dir],
+            Vec::new(),
+        )
         .with_timeout(PROXY_TIMEOUT_SECS),
     );
     specs.push(

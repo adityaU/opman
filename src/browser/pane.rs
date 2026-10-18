@@ -55,6 +55,14 @@ impl Pane {
         self.meta.lock().await.url.clone()
     }
 
+    pub async fn refresh_page(&self) -> anyhow::Result<(String, String)> {
+        let (url, title) = self.tab.page_info().await?;
+        let mut meta = self.meta.lock().await;
+        meta.url.clone_from(&url);
+        meta.title.clone_from(&title);
+        Ok((url, title))
+    }
+
     pub async fn mode(&self) -> RenderMode {
         self.meta.lock().await.mode
     }

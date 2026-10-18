@@ -8,7 +8,6 @@
 use super::archives::ANTIGRAVITY;
 use super::{row, Entry, Launch, CLAUDE_ACP_PACKAGE, CODEX_ACP_PACKAGE};
 
-
 /// The agents listed at <https://agentclientprotocol.com/get-started/agents>, in that
 /// page's order. Ids are the runner slots every persisted session is stored against, so
 /// they are stable: rename one and its sessions lose their engine.

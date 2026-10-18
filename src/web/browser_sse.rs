@@ -48,6 +48,7 @@ pub async fn browser_stream(
         let _viewer = screencast.viewer().await;
 
         let mut seen = 0_u64;
+        let mut events = pane.tab().events();
         // Lead with whatever is already rendered so a reconnecting pane is not blank until
         // the page next changes.
         if let Some((frame, version)) = screencast.latest().await {
@@ -56,11 +57,26 @@ pub async fn browser_stream(
         }
 
         loop {
-            let Some((frame, version)) = screencast.next_after(seen).await else {
-                continue;
-            };
-            seen = version;
-            yield Ok::<_, Infallible>(SseEvent::default().event("frame").data(frame.as_ref()));
+            tokio::select! {
+                next = screencast.next_after(seen) => {
+                    let Some((frame, version)) = next else { break };
+                    seen = version;
+                    yield Ok::<_, Infallible>(SseEvent::default().event("frame").data(frame.as_ref()));
+                }
+                event = events.recv() => {
+                    let event = match event {
+                        Ok(event) => event,
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    };
+                    if event.session_id.as_ref() != Some(pane.tab().session_id()) { continue; }
+                    if !matches!(event.method.as_ref(), "Page.domContentEventFired" | "Page.navigatedWithinDocument") { continue; }
+                    if let Ok((url, title)) = pane.refresh_page().await {
+                        let page = serde_json::json!({ "url": url, "title": title });
+                        yield Ok::<_, Infallible>(SseEvent::default().event("page").data(page.to_string()));
+                    }
+                }
+            }
         }
     };
 
