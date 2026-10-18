@@ -136,3 +136,26 @@ fn codex_merges_over_the_users_config() {
     );
     assert_eq!(value["model"], "m");
 }
+
+#[test]
+fn antigravity_gets_disabled_tools_in_session_meta_and_no_env() {
+    let antigravity = agent("antigravity", off(&["run_command", "run_workflow"]));
+    assert_eq!(
+        antigravity.session_meta(),
+        Some(json!({"antigravity":{"disabledTools":["run_command","run_workflow"]}}))
+    );
+    assert!(antigravity.tool_env().is_none());
+}
+
+#[test]
+fn antigravity_off_lists_every_tool_and_all_on_lists_none() {
+    let meta = agent("antigravity", NativeTools::Off)
+        .session_meta()
+        .expect("meta");
+    let list = &meta["antigravity"]["disabledTools"];
+    assert_eq!(
+        list.as_array().map(Vec::len),
+        tool_set_for("antigravity").map(|s| s.tools.len())
+    );
+    assert!(agent("antigravity", NativeTools::All).session_meta().is_none());
+}

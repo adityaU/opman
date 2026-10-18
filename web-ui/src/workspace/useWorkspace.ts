@@ -6,10 +6,11 @@
  * become a performance problem.
  */
 
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { loadWorkspace, saveWorkspace } from "./persistence";
 import { emptyWorkspace, workspaceReducer, type WorkspaceAction } from "./reducer";
 import { findPane, panes } from "./tree";
+import { isStructural, withViewTransition } from "./viewTransition";
 import type { PaneNode, WidgetState, Workspace, WorkspaceWindow } from "./types";
 
 const SAVE_DEBOUNCE_MS = 300;
@@ -31,13 +32,23 @@ export interface WorkspaceApi {
 export function useWorkspace(enabled: boolean, seed: WidgetState | null = null): WorkspaceApi {
   // Mobile never reads the workspace, and parsing it there would be work done
   // for a surface that will not render.
-  const [state, dispatch] = useReducer(
+  const [state, rawDispatch] = useReducer(
     workspaceReducer,
     enabled,
     (on): Workspace => {
       if (seed) return seededWorkspace(seed);
       return on ? loadWorkspace() : emptyWorkspace();
     },
+  );
+
+  // Every way of adding or removing a pane or a window — a chord, the pane menu, a file
+  // link, the rail — comes through here, so animating them here covers all of them.
+  const dispatch = useCallback(
+    (action: WorkspaceAction) =>
+      isStructural(action.type)
+        ? withViewTransition(() => rawDispatch(action))
+        : rawDispatch(action),
+    [],
   );
 
   usePersist(state, enabled && seed === null);

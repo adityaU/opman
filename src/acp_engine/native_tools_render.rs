@@ -16,10 +16,13 @@ impl AgentConfig {
     /// its disabled tools there.
     pub fn session_meta(&self) -> Option<Value> {
         let (set, ids) = self.disabled_ids()?;
-        if set.mechanism != Mechanism::ClaudeSessionMeta {
-            return None;
+        match set.mechanism {
+            Mechanism::ClaudeSessionMeta => {
+                Some(json!({ "claudeCode": { "options": { "disallowedTools": ids } } }))
+            }
+            Mechanism::AntigravityMeta => Some(json!({ "antigravity": { "disabledTools": ids } })),
+            Mechanism::OpencodePermission | Mechanism::CodexConfig => None,
         }
-        Some(json!({ "claudeCode": { "options": { "disallowedTools": ids } } }))
     }
 
     /// An environment variable to set on the child, when this agent takes its disabled
@@ -28,7 +31,7 @@ impl AgentConfig {
     pub fn tool_env(&self) -> Option<(&'static str, String)> {
         let (set, ids) = self.disabled_ids()?;
         let (key, overlay) = match set.mechanism {
-            Mechanism::ClaudeSessionMeta => return None,
+            Mechanism::ClaudeSessionMeta | Mechanism::AntigravityMeta => return None,
             Mechanism::OpencodePermission => (OPENCODE_ENV, opencode_overlay(&ids)),
             Mechanism::CodexConfig => (CODEX_ENV, codex_overlay(&ids)),
         };

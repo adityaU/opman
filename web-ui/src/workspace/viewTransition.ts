@@ -21,11 +21,30 @@ interface ViewTransitionCapable {
 /** Set while a transition is running so CSS can suppress the enter animations. */
 const ACTIVE_ATTR = "data-wsp-transition";
 
+/** The workspace actions that add or remove panes and windows, and so want animating. */
+const STRUCTURAL = new Set([
+  "splitPane",
+  "closePane",
+  "closeOthers",
+  "movePane",
+  "movePaneToWindow",
+  "dropPane",
+  "newWindow",
+  "closeWindow",
+]);
+
+export function isStructural(type: string): boolean {
+  return STRUCTURAL.has(type);
+}
+
 export function withViewTransition(mutate: () => void): void {
   const doc = document as Document & ViewTransitionCapable;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  if (reduced || typeof doc.startViewTransition !== "function") {
+  // Already inside one (a caller wrapped an action the dispatch also wraps): a second
+  // transition would cancel the first, so just make the change.
+  const nested = document.documentElement.hasAttribute(ACTIVE_ATTR);
+  if (nested || reduced || typeof doc.startViewTransition !== "function") {
     mutate();
     return;
   }

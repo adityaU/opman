@@ -129,6 +129,24 @@
     animation-timing-function: var(--ease-out-expo)
 }
 
+/* Each pane is its own group: it moves and resizes to where the layout puts it, and a
+   pane that is new or gone fades. */
+::view-transition-group(*) {
+    animation-duration: .24s;
+    animation-timing-function: var(--ease-out-expo)
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+    animation-duration: .24s;
+    animation-timing-function: var(--ease-out-expo)
+}
+
+/* The root and the pane area keep their own, shorter fade. */
+::view-transition-group(root) {
+    animation-duration: 0s
+}
+
 /* The entrances above would play on the new snapshot while the transition is
    already cross-fading it, which reads as the same element animating twice. */
 html[data-wsp-transition] :is(.wsp-pane, .wsp-empty-block) {

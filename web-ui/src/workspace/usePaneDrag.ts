@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import type { DropEdge } from "./move";
 import type { WorkspaceAction } from "./reducer";
 import { findPane } from "./tree";
-import { withViewTransition } from "./viewTransition";
 import type { Node, PaneId, WidgetState, WindowId } from "./types";
 
 /**
@@ -30,9 +29,7 @@ export function usePaneDrag(
   const dropWidget = useCallback(
     (pane: PaneId, edge: DropEdge) => {
       if (dragSource) {
-        withViewTransition(() =>
-          dispatch({ type: "dropPane", pane: dragSource, target: pane, edge }),
-        );
+        dispatch({ type: "dropPane", pane: dragSource, target: pane, edge });
       }
       setDragSource(null);
     },

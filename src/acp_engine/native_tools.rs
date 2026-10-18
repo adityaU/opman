@@ -82,6 +82,9 @@ pub enum Mechanism {
     /// Claude: `_meta.claudeCode.options.disallowedTools` on `session/new` and
     /// `session/load`. A disallowed tool is not offered to the model at all.
     ClaudeSessionMeta,
+    /// Antigravity: `_meta.antigravity.disabledTools` on `session/new` and `session/load`.
+    /// A disabled tool is not offered to the model, which then says it has no such tool.
+    AntigravityMeta,
     /// opencode: `permission.<tool> = "deny"` merged into `OPENCODE_CONFIG_CONTENT`.
     OpencodePermission,
     /// Codex: a JSON object in `CODEX_CONFIG`, merged into the session config.
@@ -93,6 +96,7 @@ impl Mechanism {
     pub fn note(self) -> &'static str {
         match self {
             Self::ClaudeSessionMeta => "Sent to Claude as disallowed tools when a session starts.",
+            Self::AntigravityMeta => "Sent to Antigravity as disabled tools when a session starts.",
             Self::OpencodePermission => "Set as deny rules in the opencode config for the agent.",
             Self::CodexConfig => "Set in the Codex config for the agent.",
         }

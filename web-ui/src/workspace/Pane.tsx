@@ -111,7 +111,12 @@ export const Pane: React.FC<PaneProps> = React.memo(function Pane({
       className={
         `wsp-pane${focused ? " is-focused" : ""}` + (dragSource ? " is-drag-source" : "")
       }
-      style={pane.widget ? projectColorVars(pane.widget.projectPath) : undefined}
+      style={{
+        ...(pane.widget ? projectColorVars(pane.widget.projectPath) : undefined),
+        // Its own transition group: during a split, close or window change the pane
+        // slides to its new size, a new one fades in and a closed one fades out.
+        viewTransitionName: `wsp-pane-${pane.id}`,
+      }}
       onPointerDownCapture={claim}
       onFocusCapture={claim}
     >

@@ -105,6 +105,46 @@ static OPENCODE: ToolSet = ToolSet {
     ],
 };
 
+/// Antigravity's built-in tool names, as `disabledTools` spells them (checked against the
+/// real server: a disabled tool is gone, and the model reports it has no such tool).
+///
+/// Shell is not only `run_command`: with it off, the model ran the command through
+/// `run_workflow`. Turn off Workflows and Subagents as well to close that way round.
+static ANTIGRAVITY: ToolSet = ToolSet {
+    mechanism: Mechanism::AntigravityMeta,
+    tools: &[
+        tool("run_command", "Shell", "Run shell commands."),
+        tool(
+            "run_workflow",
+            "Workflows",
+            "Run a multi-step script. It can run commands, so turn it off with Shell.",
+        ),
+        tool(
+            "invoke_subagent",
+            "Subagents",
+            "Start a helper agent. It can run commands, so turn it off with Shell.",
+        ),
+        tool("view_file", "Read files", "Read files from disk."),
+        tool("create_file", "Write files", "Create a file."),
+        tool("edit_file", "Edit files", "Change part of an existing file."),
+        tool("list_directory", "List folders", "List a folder's contents."),
+        tool(
+            "search_directory",
+            "Search file contents",
+            "Search inside files.",
+        ),
+        tool("find_file", "Find files", "Find files by name."),
+        tool("search_web", "Web search", "Search the web."),
+        tool(
+            "read_url_content",
+            "Fetch web pages",
+            "Download and read a URL.",
+        ),
+        tool("generate_image", "Image generation", "Create or edit images."),
+        tool("schedule", "Schedule", "Set a timer or a recurring job."),
+    ],
+};
+
 /// Codex config paths. Only the three that were seen to remove the tool are listed.
 static CODEX: ToolSet = ToolSet {
     mechanism: Mechanism::CodexConfig,
@@ -119,11 +159,22 @@ static CODEX: ToolSet = ToolSet {
     ],
 };
 
+/// The tools opman can switch off for an agent, found by its id first and then by the
+/// program it launches. The second lookup is what covers an agent the user declared
+/// themselves, such as `opencode-acp`, which is `opencode acp` under another name.
+pub fn tool_set_for_agent(id: &str, command: &str) -> Option<&'static ToolSet> {
+    tool_set_for(id).or_else(|| {
+        let program = std::path::Path::new(command).file_name()?.to_str()?;
+        (program == "opencode").then_some(&OPENCODE)
+    })
+}
+
 /// The tools opman can switch off for the catalogue agent `id`, if it can for that agent.
 pub fn tool_set_for(id: &str) -> Option<&'static ToolSet> {
     match id {
         "claude" => Some(&CLAUDE),
         "opencode" => Some(&OPENCODE),
+        "antigravity" => Some(&ANTIGRAVITY),
         "codex" => Some(&CODEX),
         _ => None,
     }

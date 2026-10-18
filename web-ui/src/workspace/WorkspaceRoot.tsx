@@ -153,17 +153,15 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
 
   const onFocus = useCallback((pane: PaneId) => dispatch({ type: "focusPane", pane }), [dispatch]);
 
-  // Structural changes go through a view transition: closing a pane has no
-  // element left to animate once React unmounts it, and what wants animating
-  // is the siblings growing into the space anyway. Focus and resize are left
-  // alone — one is not a structural change and the other is a live drag.
+  // Structural changes animate through a view transition, applied once in
+  // `useWorkspace`'s dispatch. Focus and resize are left alone — one is not a
+  // structural change and the other is a live drag.
   const onClose = useCallback(
-    (pane: PaneId) => withViewTransition(() => dispatch({ type: "closePane", pane })),
+    (pane: PaneId) => dispatch({ type: "closePane", pane }),
     [dispatch],
   );
   const onSplit = useCallback(
-    (pane: PaneId, dir: "row" | "col") =>
-      withViewTransition(() => dispatch({ type: "splitPane", pane, dir })),
+    (pane: PaneId, dir: "row" | "col") => dispatch({ type: "splitPane", pane, dir }),
     [dispatch],
   );
   const onResize = useCallback(
@@ -178,7 +176,7 @@ export const WorkspaceRoot: React.FC<WorkspaceRootProps> = function WorkspaceRoo
   );
   const onNewWindow = useCallback(() => dispatch({ type: "newWindow" }), [dispatch]);
   const onCloseWindow = useCallback(
-    (id: WindowId) => withViewTransition(() => dispatch({ type: "closeWindow", window: id })),
+    (id: WindowId) => dispatch({ type: "closeWindow", window: id }),
     [dispatch],
   );
   const onReorderWindow = useCallback(

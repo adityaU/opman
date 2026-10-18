@@ -83,7 +83,7 @@ fn canonical_has_one_spelling_per_state() {
 
 #[test]
 fn only_harnesses_with_a_tested_mechanism_have_tools() {
-    for id in ["claude", "codex", "opencode"] {
+    for id in ["claude", "codex", "opencode", "antigravity"] {
         assert!(tool_set_for(id).is_some(), "{id}");
     }
     assert!(tool_set_for("gemini").is_none());
@@ -92,7 +92,7 @@ fn only_harnesses_with_a_tested_mechanism_have_tools() {
 
 #[test]
 fn every_catalogue_id_is_unique_within_its_harness() {
-    for id in ["claude", "codex", "opencode"] {
+    for id in ["claude", "codex", "opencode", "antigravity"] {
         let set = tool_set_for(id).expect("set");
         let mut ids: Vec<&str> = set.tools.iter().map(|t| t.id).collect();
         ids.sort_unstable();
@@ -112,4 +112,24 @@ fn builtin_agents_get_their_tool_set_and_others_do_not() {
     assert!(cfg.agents["opencode"].tool_set.is_some());
     assert!(catalog::is_builtin("gemini"));
     assert!(cfg.agents["gemini"].tool_set.is_none());
+}
+
+#[test]
+fn an_agent_the_user_declared_is_found_by_the_program_it_runs() {
+    use super::super::native_tools_catalog::tool_set_for_agent;
+    let opencode = tool_set_for_agent("opencode-acp", "/home/u/.opencode/bin/opencode");
+    assert_eq!(opencode, tool_set_for("opencode"));
+    assert!(opencode.is_some());
+    assert!(tool_set_for_agent("homegrown", "/bin/homegrown").is_none());
+    assert!(tool_set_for_agent("x", "").is_none());
+}
+
+#[test]
+fn a_declared_opencode_agent_gets_the_switch_in_its_resolved_config() {
+    let document: AcpDocument = serde_json::from_str(
+        r#"{"agents":{"opencode-acp":{"command":"/home/u/.opencode/bin/opencode","args":["acp"]}}}"#,
+    )
+    .expect("valid acp.json");
+    let cfg = config::resolve(document);
+    assert!(cfg.agents["opencode-acp"].tool_set.is_some());
 }

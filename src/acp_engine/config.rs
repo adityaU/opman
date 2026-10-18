@@ -187,7 +187,7 @@ fn finish(mut cfg: AcpConfig) -> AcpConfig {
         if entry.runner.is_empty() {
             entry.runner = id.clone();
         }
-        entry.tool_set = super::native_tools_catalog::tool_set_for(id);
+        entry.tool_set = super::native_tools_catalog::tool_set_for_agent(id, &entry.command);
     }
     cfg
 }

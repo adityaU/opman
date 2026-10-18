@@ -1,5 +1,7 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Gutter } from "./Gutter";
+import { panes as panesOf } from "./tree";
 import type { Node, PaneId, PaneNode, SplitId } from "./types";
 
 /**
@@ -21,22 +23,69 @@ interface PaneTreeProps {
   readonly zoomedPaneId: PaneId | null;
 }
 
+/**
+ * A pane's content lives in a host element of its own, created once per pane and rendered
+ * into through a portal. The tree only decides where the host sits (a [`Slot`]).
+ *
+ * That is what keeps a pane alive when the layout changes around it. React remounts
+ * anything whose parent chain changes, and splitting a pane wraps it in a new split: its
+ * chat, terminal or editor would be thrown away and rebuilt. With the content in a stable
+ * portal the wrapper can change freely; only the host element is moved in the DOM.
+ */
 export const PaneTree: React.FC<PaneTreeProps> = function PaneTree(props) {
-  const { node, zoomedPaneId } = props;
+  const { node, zoomedPaneId, renderPane } = props;
+  const hosts = useRef(new Map<PaneId, HTMLDivElement>());
+  const hostOf = (id: PaneId): HTMLDivElement => {
+    const known = hosts.current.get(id);
+    if (known) return known;
+    const created = document.createElement("div");
+    created.style.display = "contents";
+    hosts.current.set(id, created);
+    return created;
+  };
 
-  if (zoomedPaneId) {
-    const zoomed = findLeaf(node, zoomedPaneId);
-    if (zoomed) return <div className="wsp-tree wsp-tree-zoomed">{props.renderPane(zoomed)}</div>;
-  }
-  return <Branch {...props} node={node} depth={0} />;
+  const zoomed = zoomedPaneId ? findLeaf(node, zoomedPaneId) : null;
+  const shown = zoomed ? [zoomed] : panesOf(node);
+
+  // Forget the hosts of panes that no longer exist.
+  useEffect(() => {
+    const alive = new Set(panesOf(node).map((pane) => pane.id));
+    for (const id of hosts.current.keys()) {
+      if (!alive.has(id)) hosts.current.delete(id);
+    }
+  }, [node]);
+
+  return (
+    <>
+      {zoomed ? (
+        <div className="wsp-tree wsp-tree-zoomed">
+          <Slot host={hostOf(zoomed.id)} />
+        </div>
+      ) : (
+        <Branch {...props} node={node} depth={0} hostOf={hostOf} />
+      )}
+      {shown.map((pane) => createPortal(renderPane(pane), hostOf(pane.id), pane.id))}
+    </>
+  );
+};
+
+/** Where a pane's host sits in the layout. Moves the host in; never owns its content. */
+const Slot: React.FC<{ readonly host: HTMLElement }> = function Slot({ host }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const slot = ref.current;
+    if (slot && host.parentNode !== slot) slot.appendChild(host);
+  }, [host]);
+  return <div ref={ref} className="wsp-slot" style={{ display: "contents" }} />;
 };
 
 interface BranchProps extends PaneTreeProps {
   readonly depth: number;
+  readonly hostOf: (id: PaneId) => HTMLElement;
 }
 
 const Branch: React.FC<BranchProps> = function Branch({ node, depth, ...rest }) {
-  if (node.type === "leaf") return <>{rest.renderPane(node)}</>;
+  if (node.type === "leaf") return <Slot host={rest.hostOf(node.id)} />;
 
   return <Split node={node} depth={depth} {...rest} />;
 };
