@@ -31,8 +31,7 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
     let enable_web = cli.enable_web();
     let tunnel_mode = cli.tunnel_mode();
 
-    let mcp_flags = cli.builtin_mcp();
-    let enable_any_mcp = mcp_flags.any();
+    cli.warn_deprecated_mcp_flags();
 
     // Publish the path before starting any external runner process; OpenCode
     // serve inherits its environment and later launches the MCP child.
@@ -92,7 +91,12 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
         mcp: mcp_registry,
         supervisor: acp_supervisor,
         context: lazy_ctx,
-    } = runners::boot(backend, mcp_flags).await?;
+    } = runners::boot(backend).await?;
+    // Whether the terminal or Neovim bridge (both switched on in Settings) left sockets to clean up.
+    let socket_mcp = {
+        let servers = mcp_registry.current();
+        servers.has("terminal") || servers.has("neovim")
+    };
     // The agent-manager MCP is attached to every runner.  MCP child processes
     // inherit this per-opman socket path and use it to reach the shared
     // registry, so cross-runner sends do not depend on which runner spawned
@@ -194,7 +198,7 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
         info!("Running in web-only mode (no TUI)");
 
         // Still need MCP + session setup (headless=true skips PTY spawning)
-        setup::setup_initial_projects(&mut app, mcp_flags, true);
+        setup::setup_initial_projects(&mut app, &mcp_registry.current(), true);
 
         println!(
             "opman web-only mode — web UI at http://localhost:{}",
@@ -217,7 +221,7 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
         }
 
         // Clean up MCP socket files
-        if enable_any_mcp {
+        if socket_mcp {
             for project in &app.projects {
                 mcp::cleanup_socket(&project.path);
             }
@@ -249,7 +253,7 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
     let (watcher_rx, _watcher) = setup::setup_kv_watcher()?;
 
     // Kick off initial data loading for all projects
-    setup::setup_initial_projects(&mut app, mcp_flags, false);
+    setup::setup_initial_projects(&mut app, &mcp_registry.current(), false);
 
     // Start Slack integration if enabled
     setup::setup_slack(&mut app);
@@ -278,7 +282,7 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
     }
 
     // Clean up MCP socket files
-    if enable_any_mcp {
+    if socket_mcp {
         for project in &app.projects {
             mcp::cleanup_socket(&project.path);
         }

@@ -3,6 +3,7 @@ import type { AcpAgent } from "../../api/acp";
 import { AgentForm } from "./AgentForm";
 import { AgentRow } from "./AgentRow";
 import type { AcpAgentsState } from "./useAcpAgents";
+import type { AcpAuthState } from "./useAcpAuth";
 
 /**
  * One list of agents, with the confirm and the edit form that belong to a row.
@@ -23,6 +24,8 @@ export interface AgentListProps {
   readonly confirming: string | undefined;
   readonly onConfirm: (id: string | undefined) => void;
   readonly onRemove: (id: string) => void;
+  readonly auth: AcpAuthState;
+  readonly onLogin: (agent: AcpAgent, command: string) => void;
 }
 
 export function AgentList({
@@ -34,6 +37,8 @@ export function AgentList({
   confirming,
   onConfirm,
   onRemove,
+  auth,
+  onLogin,
 }: AgentListProps) {
   return (
     <ul className="stg-rows">
@@ -47,6 +52,9 @@ export function AgentList({
             onEdit={() => onEdit(agent.id)}
             onNativeTools={(setting) => state.setNativeTools(agent, setting)}
             onRemove={() => onConfirm(agent.id)}
+            auth={agent.enabled ? auth.entries[agent.id] : undefined}
+            onLogin={(command) => onLogin(agent, command)}
+            onRecheck={() => auth.recheck(agent.id)}
           />
           {confirming === agent.id && (
             <li className="stg-confirm">

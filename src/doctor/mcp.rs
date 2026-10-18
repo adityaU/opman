@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use crate::mcp_probe::{self, Catalog};
-use crate::mcp_registry::{BuiltinFlags, McpRegistry};
+use crate::mcp_registry::McpRegistry;
 
 use super::report::{Check, Section};
 
@@ -11,7 +11,7 @@ use super::report::{Check, Section};
 const OUTER_LIMIT: Duration = Duration::from_secs(25);
 
 pub(super) async fn section() -> Section {
-    let registry = McpRegistry::load(BuiltinFlags::default());
+    let registry = McpRegistry::load();
     let dir = std::env::current_dir()
         .map(|dir| dir.to_string_lossy().into_owned())
         .unwrap_or_else(|_| ".".to_string());

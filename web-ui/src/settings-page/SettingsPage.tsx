@@ -51,6 +51,8 @@ export interface SettingsPageProps {
   readonly onError: (message: string) => void;
   /** Runner slots on offer, so an MCP server can be scoped to any of them. */
   readonly runners: readonly string[];
+  /** The open project, where a login terminal starts. */
+  readonly projectPath: string | null;
 }
 
 /** Keep the active rail item in view without a layout-thrashing effect. */
@@ -116,7 +118,7 @@ export function SettingsPage(props: SettingsPageProps) {
               {section === "keybindings" && <KeybindingsPanel />}
               {section === "servers" && <RemoteServersSection />}
               {section === "projects" && <ProjectsSection onError={props.onError} />}
-              {section === "acp" && <AgentsSection onError={props.onError} />}
+              {section === "acp" && <AgentsSection onError={props.onError} projectPath={props.projectPath} onLeave={onExit} />}
               {section === "limits" && <RunnerLimitsSection runners={props.runners} />}
               {section === "mcp" && (
                 <ServersSection onError={props.onError} runners={props.runners} />

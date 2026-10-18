@@ -188,28 +188,28 @@ pub(crate) struct Cli {
     #[arg(long = "acp", alias = "claudep")]
     pub acp: bool,
 
-    /// Enable all MCP integrations (terminal, neovim, time, ui, code)
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub all_mcp: bool,
 
-    /// Enable the terminal MCP server
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub terminal_mcp: bool,
 
-    /// Enable the neovim MCP server
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub neovim_mcp: bool,
 
-    /// Enable the time MCP server
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub time_mcp: bool,
 
-    /// Enable the UI render MCP server (A2UI)
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub ui_mcp: bool,
 
-    /// Enable the code MCP server (one `execute` tool that scripts the other servers)
-    #[arg(long)]
+    /// Deprecated and ignored: MCP servers are switched on and off in Settings.
+    #[arg(long, hide = true)]
     pub code_mcp: bool,
 
     // ── Browser panes ───────────────────────────────────────────────

@@ -63,6 +63,7 @@ export function ChatLayout() {
           onThemeApplied={callbacks.handleThemeApplied}
           onError={(message) => addToast(message, "error")}
           runners={availableRunners}
+          projectPath={activeProject?.path ?? null}
         />
         <ToastContainer toasts={toasts} onDismiss={removeToast} />
       </div>

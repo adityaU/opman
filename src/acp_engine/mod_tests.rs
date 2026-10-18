@@ -3,17 +3,14 @@
 use super::*;
 
 fn test_engine(agent: config::AgentConfig) -> Arc<AcpEngine> {
-    engine_with_mcp(agent, crate::mcp_registry::BuiltinFlags::default())
+    engine_with_mcp(agent, crate::mcp_registry::McpRegistry::builtins())
 }
 
 fn engine_with_mcp(
     agent: config::AgentConfig,
-    flags: crate::mcp_registry::BuiltinFlags,
+    servers: crate::mcp_registry::McpRegistry,
 ) -> Arc<AcpEngine> {
-    let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
-    );
+    let registry = crate::mcp_registry::RegistryHandle::new(Arc::new(servers));
     Arc::new(AcpEngine::new("test".to_string(), agent, None, registry))
 }
 
@@ -64,12 +61,10 @@ fn mcp_servers_use_the_acp_list_shape() {
         inject_mcp: true,
         ..Default::default()
     };
-    let flags = crate::mcp_registry::BuiltinFlags {
-        terminal: true,
-        time: true,
-        ..Default::default()
-    };
-    let engine = engine_with_mcp(agent, flags);
+    // `time` is on by default; the terminal bridge is switched on the way Settings does it.
+    let user = serde_json::from_str(r#"{"servers":{"terminal":{"enabled":true}}}"#)
+        .expect("valid mcp.json");
+    let engine = engine_with_mcp(agent, crate::mcp_registry::McpRegistry::from_config(user));
     let servers = engine.mcp_servers("/tmp/project", "ses1", mcp_servers::McpCaps::default());
     let list = servers.as_array().expect("expected a list of servers");
 

@@ -7,6 +7,7 @@ import type { MessagePart, Message, SessionInfo } from "./types";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { ThinkingAccordion } from "./ThinkingAccordion";
 import { formatDuration } from "../tool-call/helpers";
+import { opmanDisplayName } from "../tool-call/opmanTools";
 
 type ToolEntry = {
   part: MessagePart;
@@ -24,7 +25,8 @@ function toolType(part: MessagePart): string {
     return "unknown:" + (part.id || part.callID || part.toolCallId || "part");
   }
 
-  const normalized = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  // opman's tools group with the built-ins of the same job, under the built-ins' names.
+  const normalized = (opmanDisplayName(name) ?? name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
   // A ui_render call *is* its output — the rendered blocks are the point of it.
   // Collapsing several into "3 Ui render calls" hides the only thing they
@@ -91,7 +93,7 @@ function toolDisplayName(part: MessagePart, type: string): string {
   const raw = part as MessagePart & Record<string, unknown>;
   const name = raw.tool || raw.toolName || raw.tool_name || raw.name;
   if (typeof name !== "string" || !name.trim()) return toolLabel(type);
-  const trimmed = name.trim();
+  const trimmed = opmanDisplayName(name) ?? name.trim();
   if (/[_\-\s]/.test(trimmed)) return toolLabel(trimmed.toLowerCase());
   if (/[A-Z]/.test(trimmed.slice(1))) return trimmed;
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);

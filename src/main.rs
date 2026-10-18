@@ -152,6 +152,15 @@ async fn main() -> Result<()> {
         Some(Commands::Doctor { json, agent }) => {
             return doctor::run(json, agent).await;
         }
+        Some(Commands::AcpLogin { id, method }) => {
+            let outcome = acp_engine::login::run(&id, method.as_deref()).await;
+            if let Err(error) = &outcome {
+                eprintln!("\nLogin failed: {error:#}");
+            }
+            // A read of the terminal may still be waiting for a line, and the runtime would
+            // wait for it on the way out.
+            std::process::exit(i32::from(outcome.is_err()));
+        }
         None => {} // Default mode: run the TUI
     }
 

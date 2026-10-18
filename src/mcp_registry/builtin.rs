@@ -15,31 +15,14 @@ const SESSION_ENV: &str = "OPENCODE_SESSION_ID";
 /// agent-manager listener exists to talk to.
 const MANAGER_SOCKET: &str = crate::mcp_agent_manager::SOCKET_ENV;
 
-/// Which of opman's own servers the user asked for. Replaces the `(bool, bool, bool,
-/// bool)` tuple that used to be threaded through four call sites and rebuilt inline in a
-/// fifth.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct BuiltinFlags {
-    pub terminal: bool,
-    pub neovim: bool,
-    pub time: bool,
-    pub ui: bool,
-    /// The `code` server: one `execute` tool that scripts the other servers.
-    pub code: bool,
-}
+/// Built-ins that stay off until the user turns them on in Settings. Each one changes how the
+/// agent works (a second shell, a Neovim editing path), so neither is something to switch on
+/// for someone who did not ask.
+const OFF_UNTIL_ENABLED: [&str; 2] = ["terminal", "neovim"];
 
-impl BuiltinFlags {
-    pub const ALL: Self = Self {
-        terminal: true,
-        neovim: true,
-        time: true,
-        ui: true,
-        code: true,
-    };
-
-    pub fn any(self) -> bool {
-        self.terminal || self.neovim || self.time || self.ui || self.code
-    }
+/// Whether a built-in is absent until the user enables it.
+pub fn is_off_until_enabled(name: &str) -> bool {
+    OFF_UNTIL_ENABLED.contains(&name)
 }
 
 /// Names opman ships. The settings page marks these as toggleable but not removable:
@@ -62,61 +45,51 @@ pub fn is_builtin(name: &str) -> bool {
     BUILTIN_NAMES.contains(&name)
 }
 
-/// opman's servers for these flags, in stable order.
+/// Every server opman ships, in stable order. Which of them a session gets is decided
+/// by the user's `mcp.json` (the Settings page writes it) and by [`is_off_until_enabled`],
+/// never by a launch flag.
 ///
-/// `terminal`/`neovim`/`time`/`ui` appear only when flagged. `kanban`, `ask` and
-/// `agent-manager` are unconditional but carry a [`Presence`] that is re-checked at
+/// `kanban`, `ask` and `agent-manager` carry a [`Presence`] that is re-checked at
 /// bind — which is what preserves the Claude engine's ability to pick up kanban after
 /// the web server writes `internal.json` partway through a run.
-pub fn servers(exe: &str, flags: BuiltinFlags) -> Vec<ServerSpec> {
+pub fn servers(exe: &str) -> Vec<ServerSpec> {
     let session = || (SESSION_ENV.into(), Arg::SessionId);
     let mut specs = Vec::with_capacity(BUILTIN_NAMES.len());
 
-    if flags.terminal {
-        specs.push(ServerSpec::stdio(
-            "terminal",
+    specs.push(ServerSpec::stdio(
+        "terminal",
+        exe,
+        vec![Arg::lit("mcp"), Arg::Dir],
+        vec![session()],
+    ));
+    specs.push(ServerSpec::stdio(
+        "neovim",
+        exe,
+        vec![Arg::lit("mcp-nvim"), Arg::Dir],
+        vec![session()],
+    ));
+    specs.push(ServerSpec::stdio(
+        "time",
+        exe,
+        vec![Arg::lit("mcp-time")],
+        Vec::new(),
+    ));
+    // The long ceiling is for scripts that wait on slow tools.
+    specs.push(
+        ServerSpec::stdio(
+            "code",
             exe,
-            vec![Arg::lit("mcp"), Arg::Dir],
+            vec![Arg::lit("mcp-code"), Arg::Dir],
             vec![session()],
-        ));
-    }
-    if flags.neovim {
-        specs.push(ServerSpec::stdio(
-            "neovim",
-            exe,
-            vec![Arg::lit("mcp-nvim"), Arg::Dir],
-            vec![session()],
-        ));
-    }
-    if flags.time {
-        specs.push(ServerSpec::stdio(
-            "time",
-            exe,
-            vec![Arg::lit("mcp-time")],
-            Vec::new(),
-        ));
-    }
-    // Opt-in: it adds a second way to reach every other server, which most sessions do not
-    // want. The long ceiling is for scripts that wait on slow tools.
-    if flags.code {
-        specs.push(
-            ServerSpec::stdio(
-                "code",
-                exe,
-                vec![Arg::lit("mcp-code"), Arg::Dir],
-                vec![session()],
-            )
-            .with_timeout(PROXY_TIMEOUT_SECS),
-        );
-    }
-    if flags.ui {
-        specs.push(ServerSpec::stdio(
-            "ui",
-            exe,
-            vec![Arg::lit("mcp-ui")],
-            Vec::new(),
-        ));
-    }
+        )
+        .with_timeout(PROXY_TIMEOUT_SECS),
+    );
+    specs.push(ServerSpec::stdio(
+        "ui",
+        exe,
+        vec![Arg::lit("mcp-ui")],
+        Vec::new(),
+    ));
     // Always offered: skills reaching no runner at all is the bug this fixes, and the
     // server answers gracefully when there are none.
     specs.push(ServerSpec::stdio(

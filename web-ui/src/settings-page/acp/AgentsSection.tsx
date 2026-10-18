@@ -3,7 +3,10 @@ import { Plus, Trash2, X } from "lucide-react";
 import { AgentForm } from "./AgentForm";
 import { AgentList } from "./AgentList";
 import { BuiltinRunnersCard } from "./BuiltinRunnersCard";
+import type { AcpAgent } from "../../api/acp";
+import { startLogin } from "./startLogin";
 import { useAcpAgents, WHOLE_CONFIG } from "./useAcpAgents";
+import { useAcpAuth } from "./useAcpAuth";
 
 /**
  * ACP agents: the engines opman can drive.
@@ -21,12 +24,17 @@ import { useAcpAgents, WHOLE_CONFIG } from "./useAcpAgents";
 
 export interface AgentsSectionProps {
   readonly onError: (message: string) => void;
+  /** Where a login terminal starts. Null when no project is open: login is not offered. */
+  readonly projectPath: string | null;
+  /** Leave settings so the workspace, and the terminal just opened in it, is on screen. */
+  readonly onLeave: () => void;
 }
 
 type Editing = { readonly kind: "none" } | { readonly kind: "new" } | { readonly kind: "agent"; readonly id: string };
 
-export function AgentsSection({ onError }: AgentsSectionProps) {
+export function AgentsSection({ onError, projectPath, onLeave }: AgentsSectionProps) {
   const state = useAcpAgents(onError);
+  const auth = useAcpAuth(state.agents);
   const [editing, setEditing] = useState<Editing>({ kind: "none" });
   const [confirming, setConfirming] = useState<string>();
   const [resetting, setResetting] = useState(false);
@@ -68,6 +76,22 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
     [state.agents],
   );
 
+  const login = useCallback(
+    async (agent: AcpAgent, command: string) => {
+      if (!projectPath) {
+        onError("Open a project first: the login terminal starts in one.");
+        return;
+      }
+      try {
+        await startLogin(agent, command, projectPath);
+        onLeave();
+      } catch (cause) {
+        onError(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+    [onError, onLeave, projectPath],
+  );
+
   const openId = editing.kind === "agent" ? editing.id : undefined;
   const listProps = {
     state,
@@ -77,6 +101,8 @@ export function AgentsSection({ onError }: AgentsSectionProps) {
     confirming,
     onConfirm: setConfirming,
     onRemove: remove,
+    auth,
+    onLogin: login,
   };
 
   return (

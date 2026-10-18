@@ -7,10 +7,8 @@ use crate::acp_engine::terminal;
 
 /// An engine with one session, bound to the ACP session id these updates arrive under.
 fn engine() -> (Arc<AcpEngine>, String) {
-    let flags = crate::mcp_registry::BuiltinFlags::default();
     let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
+        Arc::new(crate::mcp_registry::McpRegistry::builtins())
     );
     let agent = AgentConfig {
         client_caps: ClientCaps {

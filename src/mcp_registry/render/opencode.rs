@@ -12,18 +12,19 @@
 use serde_json::{json, Map, Value};
 
 use super::super::bind::{Bind, RemoteCaps, Wire};
-use super::super::builtin::BuiltinFlags;
 use super::super::spec::ServerSpec;
 use super::{env_object, header_object};
 
 pub fn config<'a>(
     servers: impl IntoIterator<Item = &'a ServerSpec>,
     at: Bind<'a>,
-    flags: BuiltinFlags,
 ) -> anyhow::Result<String> {
     let mut root = Map::new();
     let mut mcp = Map::new();
+    let (mut terminal, mut neovim) = (false, false);
     for spec in servers {
+        terminal |= spec.name() == "terminal";
+        neovim |= spec.name() == "neovim";
         match spec.bind(at, RemoteCaps::HTTP_ONLY) {
             Some(wire) => {
                 mcp.insert(spec.name().to_string(), entry(spec, &wire));
@@ -37,13 +38,13 @@ pub fn config<'a>(
     root.insert("mcp".into(), Value::Object(mcp));
 
     // Enabling opman's terminal or neovim bridge means denying OpenCode's own bash/edit,
-    // or the model has two ways to do one thing. Derived from the flags, not the server
-    // list, because a user-declared server should not change OpenCode's permissions.
+    // or the model has two ways to do one thing. Both servers are opman's own, switched on
+    // in Settings.
     let mut permission = Map::new();
-    if flags.terminal {
+    if terminal {
         permission.insert("bash".into(), json!("deny"));
     }
-    if flags.neovim {
+    if neovim {
         permission.insert("edit".into(), json!("deny"));
     }
     if !permission.is_empty() {

@@ -10,7 +10,6 @@ pub(super) struct Runners {
 }
 pub(super) async fn boot(
     backend: crate::cli::AgentBackend,
-    mcp_flags: mcp_registry::BuiltinFlags,
 ) -> Result<Runners> {
     // ACP agents are declared in config, so the set of runners is known only at runtime.
     // Register the ids before anything parses a runner label, or a perfectly valid agent
@@ -21,7 +20,7 @@ pub(super) async fn boot(
     // Load after the ACP ids are registered, so `runners`/`excludeRunners` in mcp.json can
     // name an ACP agent, and after OPMAN_AGENT_MANAGER_SOCKET is published above, so the
     // agent-manager server's presence check resolves.
-    let mcp_registry = mcp_registry::RegistryHandle::load(mcp_flags);
+    let mcp_registry = mcp_registry::RegistryHandle::load();
     // OpenCode's payload is handed to `opencode serve` once at spawn, so unlike the
     // other runners it does not pick up later `mcp.json` edits without a restart.
     let opencode_registry = mcp_registry.current();
@@ -30,7 +29,6 @@ pub(super) async fn boot(
         // OpenCode's config is process-wide: it is built once for `opencode serve`, so it
         // binds with the child's own working directory and no session id.
         opencode_registry.bind(".", None),
-        mcp_flags,
     )
     .context("Failed to build OpenCode MCP configuration")?;
 

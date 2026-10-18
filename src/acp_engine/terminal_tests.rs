@@ -4,10 +4,8 @@ use crate::acp_engine::config::{AgentConfig, ClientCaps};
 
 /// An engine with one session, bound to the ACP session id the requests below name.
 fn engine(terminal: bool) -> Arc<AcpEngine> {
-    let flags = crate::mcp_registry::BuiltinFlags::default();
     let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
+        Arc::new(crate::mcp_registry::McpRegistry::builtins())
     );
     let agent = AgentConfig {
         client_caps: ClientCaps {

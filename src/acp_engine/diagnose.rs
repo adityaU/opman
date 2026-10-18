@@ -94,11 +94,9 @@ async fn run(id: &str, agent: &AgentConfig, dir: &str, limit: Duration) -> Resul
 }
 
 fn engine(id: &str, agent: &AgentConfig) -> Arc<AcpEngine> {
-    let flags = crate::mcp_registry::BuiltinFlags::default();
-    let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
-    );
+    let registry = crate::mcp_registry::RegistryHandle::new(Arc::new(
+        crate::mcp_registry::McpRegistry::builtins(),
+    ));
     Arc::new(AcpEngine::new(
         id.to_string(),
         agent.clone(),

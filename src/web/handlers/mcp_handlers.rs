@@ -89,6 +89,27 @@ fn view(name: &str, entry: &ServerConfig, builtin: bool, authenticated: bool) ->
     }
 }
 
+/// A built-in the user has not written an entry for.
+fn builtin_row(name: &str, enabled: bool, timeout_secs: Option<u32>) -> ServerView {
+    ServerView {
+        name: name.to_string(),
+        transport: "stdio".to_string(),
+        auth: "none".to_string(),
+        enabled,
+        builtin: true,
+        url: None,
+        command: None,
+        args: Vec::new(),
+        env_names: Vec::new(),
+        header_names: Vec::new(),
+        timeout_secs,
+        proxied: false,
+        runners: Vec::new(),
+        needs_opencode_restart: true,
+        authenticated: false,
+    }
+}
+
 /// Whether `name` has a usable OAuth credential right now.
 ///
 /// The store is opened per listing rather than held in state: it is a directory of files
@@ -116,28 +137,17 @@ pub async fn list_servers(
         views.push(view(name, entry, builtin, signed_in));
     }
     // Built-ins with no entry of their own still belong in the list, so they can be
-    // toggled without the user first having to write a stub.
-    for spec in registry.all() {
-        if declared.servers.contains_key(spec.name()) {
+    // toggled without the user first having to write a stub. One that is off until enabled
+    // is not in the registry, and is listed as off.
+    for name in crate::mcp_registry::builtin::BUILTIN_NAMES {
+        if declared.servers.contains_key(name) {
             continue;
         }
-        views.push(ServerView {
-            name: spec.name().to_string(),
-            transport: "stdio".to_string(),
-            auth: "none".to_string(),
-            enabled: true,
-            builtin: crate::mcp_registry::builtin::is_builtin(spec.name()),
-            url: None,
-            command: None,
-            args: Vec::new(),
-            env_names: Vec::new(),
-            header_names: Vec::new(),
-            timeout_secs: None,
-            proxied: false,
-            runners: Vec::new(),
-            needs_opencode_restart: true,
-            authenticated: false,
-        });
+        let Some(spec) = registry.get(name) else {
+            views.push(builtin_row(name, false, None));
+            continue;
+        };
+        views.push(builtin_row(name, true, spec.timeout_secs()));
     }
     views.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(Json(views))

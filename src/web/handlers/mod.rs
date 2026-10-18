@@ -6,6 +6,7 @@
 //! State queries use the independent `WebStateHandle` (no TUI dependency).
 //! Terminal I/O goes directly to the `WebPtyManager` (independent web PTYs).
 
+mod acp_auth;
 mod acp_handlers;
 mod acp_native_tools;
 mod acp_upsert;
@@ -173,6 +174,7 @@ pub use routines_handlers::{
 
 pub use system_handlers::get_system_stats;
 
+pub use acp_auth::agent_auth;
 pub use acp_handlers::{delete_agent, list_agents, reset_agents, set_agent_enabled};
 pub use acp_native_tools::set_native_tools;
 pub use acp_upsert::upsert_agent;

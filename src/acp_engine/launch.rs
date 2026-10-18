@@ -31,6 +31,22 @@ pub(super) enum LaunchFault {
 
 /// Spawn `agent` in `dir` with piped stdio.
 pub(super) fn spawn(agent: &AgentConfig, dir: &str) -> Result<Child> {
+    let mut cmd = command(agent, dir);
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        // Piped, never inherited: the agent's logs must not interleave with the TUI, and
+        // the tail of them is the reason it gives when it fails to start. The caller
+        // must read it (see `failure::StderrTail`).
+        .stderr(std::process::Stdio::piped());
+    cmd.spawn().map_err(|error| {
+        let fault = diagnose(&agent.command, Path::new(dir), &error);
+        anyhow!(describe(&agent.command, &fault, &error))
+    })
+}
+
+/// The agent's command with its arguments, environment and working directory, and no stdio
+/// chosen yet. A login that needs the user's terminal runs this with the terminal's stdio.
+pub(super) fn command(agent: &AgentConfig, dir: &str) -> Command {
     let mut cmd = Command::new(&agent.command);
     cmd.args(&agent.args);
     for key in agent.env_removals() {
@@ -50,18 +66,8 @@ pub(super) fn spawn(agent: &AgentConfig, dir: &str) -> Result<Child> {
     if let Some((key, value)) = agent.tool_env() {
         cmd.env(key, value);
     }
-    cmd.current_dir(dir)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        // Piped, never inherited: the agent's logs must not interleave with the TUI, and
-        // the tail of them is the reason it gives when it fails to start. The caller
-        // must read it (see `failure::StderrTail`).
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
-    cmd.spawn().map_err(|error| {
-        let fault = diagnose(&agent.command, Path::new(dir), &error);
-        anyhow!(describe(&agent.command, &fault, &error))
-    })
+    cmd.current_dir(dir).kill_on_drop(true);
+    cmd
 }
 
 /// The PATH with the command's directory in front, when the command is a path.

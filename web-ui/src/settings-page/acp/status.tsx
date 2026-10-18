@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, CircleSlash, Play, TriangleAlert } from "lucide-react";
 import type { AcpAgent } from "../../api/acp";
+import type { AuthEntry } from "./useAcpAuth";
 
 /**
  * The one question a row has to answer at a glance: is this agent usable right now.
@@ -40,4 +41,35 @@ export function statusOf(agent: AcpAgent): AgentStatus {
 /** The command line as it will be spawned, for the row's second line. */
 export function originOf(agent: AcpAgent): string {
   return [agent.command, ...agent.args].filter(Boolean).join(" ") || "No launch command";
+}
+
+/** Connected or not connected, and what is known about why. */
+export interface AuthStatus {
+  readonly label: string;
+  readonly tone: "success" | "muted" | "warning";
+  readonly checking: boolean;
+  readonly connected: boolean;
+  readonly detail: string;
+  /** The shell command that logs the agent in, when one can. */
+  readonly command: string | null;
+}
+
+export function authStatusOf(entry: AuthEntry): AuthStatus {
+  switch (entry.status) {
+    case "checking":
+      return { label: "Checking…", tone: "muted", checking: true, connected: false, detail: "", command: null };
+    case "failed":
+      return { label: "Not connected", tone: "warning", checking: false, connected: false, detail: entry.message, command: null };
+    case "known":
+      return entry.auth.state === "connected"
+        ? { label: "Connected", tone: "success", checking: false, connected: true, detail: "", command: null }
+        : {
+            label: "Not connected",
+            tone: "warning",
+            checking: false,
+            connected: false,
+            detail: entry.auth.detail,
+            command: entry.auth.loginCommand,
+          };
+  }
 }

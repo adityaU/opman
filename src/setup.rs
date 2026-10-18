@@ -142,7 +142,7 @@ pub(crate) fn setup_kv_watcher() -> Result<(std::sync::mpsc::Receiver<notify::Ev
 /// Kick off initial data loading for all projects.
 pub(crate) fn setup_initial_projects(
     app: &mut App,
-    flags: crate::mcp_registry::BuiltinFlags,
+    mcp: &crate::mcp_registry::McpRegistry,
     headless: bool,
 ) {
     if app.projects.is_empty() {
@@ -160,11 +160,14 @@ pub(crate) fn setup_initial_projects(
         sse::spawn_provider_fetcher(&app.bg_tx, i, dir);
     }
 
+    // Which of the two bridges that need a socket are switched on in Settings.
+    let (terminal, neovim) = (mcp.has("terminal"), mcp.has("neovim"));
+
     // Spawn terminal/neovim socket servers. Runner MCP configuration is passed
     // to each runner process at launch rather than written into project files.
     for i in 0..app.projects.len() {
         let project_path = app.projects[i].path.clone();
-        if flags.terminal || flags.neovim {
+        if terminal || neovim {
             mcp::spawn_socket_server(
                 &project_path,
                 app.bg_tx.clone(),
@@ -176,7 +179,7 @@ pub(crate) fn setup_initial_projects(
     }
 
     // When neovim MCP is enabled, store flag on App (disables follow-edits)
-    if flags.neovim {
+    if neovim {
         app.neovim_mcp_enabled = true;
     }
 
@@ -199,7 +202,7 @@ pub(crate) fn setup_initial_projects(
     spawn_activate_project(&app.bg_tx, 0, path, inner_rows, inner_cols, theme_envs);
 
     // Auto-start neovim PTY for all projects when neovim MCP is enabled
-    if flags.neovim {
+    if neovim {
         let saved = app.active_project;
         for i in 0..app.projects.len() {
             app.active_project = i;

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useEmbedBridge, useEmbedSync } from "../embed/useEmbedSync";
 import type { WorkspaceBridge, WorkspaceProject } from "./DesktopWorkspace";
 import type { WorkspaceAction } from "./reducer";
 import type { PaneNode, WidgetState } from "./types";
+import { takeQueuedWidgets } from "./pendingOpen";
 import { useEmbedRequests } from "./useEmbedRequests";
 
 /**
@@ -31,6 +32,15 @@ export function useWorkspaceBridge(deps: BridgeDeps): void {
   const forwarding = useEmbedBridge(embed, projects);
   useEmbedSync(embedded, focusedPane?.id ?? ("" as PaneNode["id"]), focusedPane?.widget ?? null, dispatch);
   useEmbedRequests(!embedded, placement.openForeignWidget);
+
+  // Widgets queued while the workspace was off screen, such as the terminal Settings opens for
+  // an agent login. Once, as the workspace mounts; an embed is not the place for them.
+  const open = useRef(placement.openForeignWidget);
+  open.current = placement.openForeignWidget;
+  useEffect(() => {
+    if (embedded) return;
+    for (const widget of takeQueuedWidgets()) open.current(widget);
+  }, [embedded]);
 
   // Hand the shell a way to arm targeting when a session is clicked in the
   // sidebar. A callback rather than a context: the sidebar is not inside this

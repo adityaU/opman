@@ -58,7 +58,7 @@ The settings page launches each configured server and lists its real tools and s
 
 | Tool | When needed |
 |------|-------------|
-| [Neovim](https://neovim.io/) (`nvim`) | Neovim editor pane and MCP bridge (`--neovim-mcp`) |
+| [Neovim](https://neovim.io/) (`nvim`) | Neovim MCP bridge (switch it on in Settings → MCP) |
 | [Node.js](https://nodejs.org/) / [uv](https://docs.astral.sh/uv/) | Launching ACP agents distributed as npx/uvx packages |
 | [gitui](https://github.com/extrawurst/gitui) | Git panel TUI (spawned inside a terminal pane) |
 | [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) | Exposing the web UI via a Cloudflare tunnel (`--tunnel`) |
@@ -110,7 +110,9 @@ Each download is checked against its published SHA-256 before it replaces the bi
 
 ACP agents receive the `opman-tools` MCP server with shell, file, search and web-fetch tools. In Settings → ACP agents, expand an enabled agent to switch its supported native tools on or off, together or individually. Changes apply to new sessions; agents without a supported control show that limit.
 
-Start with `opman --code-mcp` (or `--all-mcp`) to add the `execute` tool. It runs JavaScript that calls your enabled MCP tools with `await tools.<server>.<tool>(input)`. Its output card shows each inner call's input, output, error and duration. Read results can also preview images, video, audio, PDF and STL files.
+The `code` server is on by default and adds the `execute` tool; switch it off in Settings → MCP. It runs JavaScript that calls your enabled MCP tools with `await tools.<server>.<tool>(input)`. Its output card shows each inner call's input, output, error and duration. Read results can also preview images, video, audio, PDF and STL files.
+
+Which of opman's own MCP servers are on is set in Settings → MCP. `terminal` and `neovim` are off until you turn them on; the rest are on. The old `--*-mcp` launch flags are deprecated and ignored.
 
 The same `opman-tools` server also offers `wait` and `scheduler_list`, `scheduler_create`, `scheduler_update`, `scheduler_delete`, and `scheduler_run`. `wait` pauses for up to 600 seconds without starting a shell. Scheduler tools use the app's saved Routines, including cron schedules and timezones, so changes appear in the app and survive restarts. They need an opman web server running on this machine. Call these tools directly or through `tools.opman_tools` in code mode.
 

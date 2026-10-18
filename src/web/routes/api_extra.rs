@@ -168,6 +168,7 @@ pub(super) fn routes(
             "/acp/agents/{id}/enabled",
             post(handlers::set_agent_enabled),
         )
+        .route("/acp/agents/{id}/auth", get(handlers::agent_auth))
         .route(
             "/acp/agents/{id}/native-tools",
             post(handlers::set_native_tools),

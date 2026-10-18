@@ -28,10 +28,8 @@ fn setup() -> Value {
 }
 
 fn engine() -> (Arc<AcpEngine>, String) {
-    let flags = crate::mcp_registry::BuiltinFlags::default();
     let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
+        Arc::new(crate::mcp_registry::McpRegistry::builtins())
     );
     let engine = Arc::new(AcpEngine::new(
         "test".to_string(),

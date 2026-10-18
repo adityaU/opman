@@ -3,6 +3,7 @@
 //! This is for reading something the agent only offers as a command, such as Antigravity's
 //! `/usage`. It starts its own short-lived process, so it never touches a running session.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -13,6 +14,9 @@ use super::config::AgentConfig;
 use super::failure::StderrTail;
 use super::jsonrpc::AUTH_REQUIRED;
 use super::launch;
+
+/// Numbers each call's folder, so one call cleaning up cannot remove another's.
+static NEXT_DIR: AtomicU64 = AtomicU64::new(1);
 
 /// What the agent said, and what it told us about itself when the session opened.
 #[derive(Debug, PartialEq)]
@@ -39,7 +43,8 @@ impl From<String> for Failure {
 /// Start `agent`, send it `command` as a prompt, and collect its reply. The whole exchange
 /// has `limit` to finish.
 pub async fn ask(agent: &AgentConfig, command: &str, limit: Duration) -> Result<Answer, Failure> {
-    let dir = std::env::temp_dir().join(format!("opman-oneshot-{}", std::process::id()));
+    let number = NEXT_DIR.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("opman-oneshot-{}-{number}", std::process::id()));
     std::fs::create_dir_all(&dir).map_err(|e| format!("cannot make {}: {e}", dir.display()))?;
     let outcome = start(agent, command, &dir.to_string_lossy(), limit).await;
     let _ = std::fs::remove_dir(&dir);

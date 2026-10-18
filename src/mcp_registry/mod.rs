@@ -22,7 +22,6 @@ use std::sync::Arc;
 use opman_backend_contracts::RunnerKind;
 
 pub use bind::{Bind, RemoteCaps};
-pub use builtin::BuiltinFlags;
 pub use handle::RegistryHandle;
 pub use spec::ServerSpec;
 
@@ -43,27 +42,26 @@ pub struct McpRegistry {
     /// injection sites. Every built-in launches it, and so does every proxy.
     exe: Box<str>,
     servers: Box<[ServerSpec]>,
-    flags: BuiltinFlags,
 }
 
 impl McpRegistry {
-    /// Built-ins for `flags` with the user's `mcp.json` merged over them.
+    /// Built-ins with the user's `mcp.json` merged over them.
     ///
     /// Must run after opman has set `OPMAN_AGENT_MANAGER_SOCKET` and after ACP agents are
     /// registered, so presence checks and `RunnerKind` scoping both resolve.
-    pub fn load(flags: BuiltinFlags) -> Self {
-        Self::from_config(flags, config::load())
+    pub fn load() -> Self {
+        Self::from_config(config::load())
     }
 
     /// Just the built-ins, ignoring any user config. For tests and for callers that
     /// need a registry before the config directory is meaningful.
-    pub fn builtins(flags: BuiltinFlags) -> Self {
-        Self::from_config(flags, config::McpConfig::default())
+    pub fn builtins() -> Self {
+        Self::from_config(config::McpConfig::default())
     }
 
-    pub(crate) fn from_config(flags: BuiltinFlags, user: config::McpConfig) -> Self {
+    pub(crate) fn from_config(user: config::McpConfig) -> Self {
         let exe = current_exe();
-        let mut builtins = builtin::servers(&exe, flags);
+        let mut builtins = builtin::servers(&exe);
         let mut specs: Vec<ServerSpec> = Vec::new();
 
         // A user entry that names a built-in either patches it (no transport of its own)
@@ -83,22 +81,22 @@ impl McpRegistry {
                 None => specs.extend(entry.to_spec(name)),
             }
         }
+        // What is left has no entry of its own: the ones that need switching on stay out.
+        builtins.retain(|spec| !builtin::is_off_until_enabled(spec.name()));
         specs.append(&mut builtins);
         specs.sort_by(|a, b| a.name().cmp(b.name()));
         Self {
             exe: exe.into(),
             servers: specs.into_boxed_slice(),
-            flags,
         }
     }
 
     /// Test constructor: an exact server set, no filesystem, no environment.
     #[cfg(test)]
-    pub(crate) fn from_specs(servers: Vec<ServerSpec>, flags: BuiltinFlags) -> Self {
+    pub(crate) fn from_specs(servers: Vec<ServerSpec>) -> Self {
         Self {
             exe: "/opman".into(),
             servers: servers.into_boxed_slice(),
-            flags,
         }
     }
 
@@ -116,8 +114,9 @@ impl McpRegistry {
         self.servers.iter().filter(move |spec| spec.admits(runner))
     }
 
-    pub fn flags(&self) -> BuiltinFlags {
-        self.flags
+    /// Whether a server of this name is on offer to anyone.
+    pub fn has(&self, name: &str) -> bool {
+        self.get(name).is_some()
     }
 
     pub fn is_empty(&self) -> bool {

@@ -11,32 +11,30 @@
 
 use std::sync::{Arc, RwLock};
 
-use super::{BuiltinFlags, McpRegistry};
+use super::McpRegistry;
 
 /// A registry that can be replaced underneath its readers.
 #[derive(Clone, Debug)]
 pub struct RegistryHandle {
     inner: Arc<RwLock<Arc<McpRegistry>>>,
-    flags: BuiltinFlags,
 }
 
 impl Default for RegistryHandle {
     fn default() -> Self {
-        Self::new(Arc::new(McpRegistry::default()), BuiltinFlags::default())
+        Self::new(Arc::new(McpRegistry::default()))
     }
 }
 
 impl RegistryHandle {
-    pub fn new(registry: Arc<McpRegistry>, flags: BuiltinFlags) -> Self {
+    pub fn new(registry: Arc<McpRegistry>) -> Self {
         Self {
             inner: Arc::new(RwLock::new(registry)),
-            flags,
         }
     }
 
     /// Load `mcp.json` now and hold the result.
-    pub fn load(flags: BuiltinFlags) -> Self {
-        Self::new(Arc::new(McpRegistry::load(flags)), flags)
+    pub fn load() -> Self {
+        Self::new(Arc::new(McpRegistry::load()))
     }
 
     /// The registry as of this moment.
@@ -55,7 +53,7 @@ impl RegistryHandle {
     /// Sessions created after this see the new set; sessions already running see it on
     /// their next turn, because Claude and Codex rebuild their payload per turn.
     pub fn reload(&self) -> Arc<McpRegistry> {
-        let next = Arc::new(McpRegistry::load(self.flags));
+        let next = Arc::new(McpRegistry::load());
         self.replace(Arc::clone(&next));
         next
     }
@@ -65,10 +63,6 @@ impl RegistryHandle {
             Ok(mut guard) => *guard = registry,
             Err(poisoned) => *poisoned.into_inner() = registry,
         }
-    }
-
-    pub fn flags(&self) -> BuiltinFlags {
-        self.flags
     }
 }
 

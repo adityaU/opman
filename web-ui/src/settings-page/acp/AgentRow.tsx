@@ -1,8 +1,9 @@
 import React from "react";
-import { BookOpen, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { BookOpen, CircleCheck, CircleX, LogIn, Loader, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import type { AcpAgent, NativeToolsSetting } from "../../api/acp";
 import { NativeToolsPanel } from "./NativeToolsPanel";
-import { originOf, statusOf } from "./status";
+import { authStatusOf, originOf, statusOf } from "./status";
+import type { AuthEntry } from "./useAcpAuth";
 
 /**
  * One declared agent.
@@ -19,6 +20,11 @@ export interface AgentRowProps {
   readonly onToggle: () => void;
   readonly onEdit: () => void;
   readonly onNativeTools: (setting: NativeToolsSetting) => void;
+  /** Login state, once asked. Absent for an agent that is off. */
+  readonly auth?: AuthEntry;
+  /** Open a terminal pane running this agent's login command. */
+  readonly onLogin: (command: string) => void;
+  readonly onRecheck: () => void;
   /** Remove the user's entry: a delete for a declared agent, a reset for a built-in. */
   readonly onRemove: () => void;
 }
@@ -43,8 +49,11 @@ function facts(agent: AcpAgent): string[] {
   ].filter((entry): entry is string => Boolean(entry));
 }
 
-export function AgentRow({ agent, busy, editing, onToggle, onEdit, onNativeTools, onRemove }: AgentRowProps) {
+export function AgentRow({
+  agent, busy, editing, onToggle, onEdit, onNativeTools, onRemove, auth, onLogin, onRecheck,
+}: AgentRowProps) {
   const status = statusOf(agent);
+  const login = auth ? authStatusOf(auth) : undefined;
 
   return (
     <li className={busy ? "stg-row is-busy" : "stg-row"}>
@@ -59,7 +68,17 @@ export function AgentRow({ agent, busy, editing, onToggle, onEdit, onNativeTools
             {status.icon}
             {status.label}
           </span>
+          {login && (
+            <span className={`stg-pill is-${login.tone}`} role="status">
+              {login.checking ? <Loader size={11} aria-hidden="true" /> : login.connected ? <CircleCheck size={11} aria-hidden="true" /> : <CircleX size={11} aria-hidden="true" />}
+              {login.label}
+            </span>
+          )}
         </div>
+
+        {login && !login.checking && !login.connected && login.detail && (
+          <p className="stg-row-caveat">{login.detail}</p>
+        )}
 
         <p className="stg-row-origin" title={originOf(agent)}>
           {originOf(agent)}
@@ -119,6 +138,29 @@ export function AgentRow({ agent, busy, editing, onToggle, onEdit, onNativeTools
       </div>
 
       <div className="stg-row-actions">
+        {login?.command && (
+          <button
+            type="button"
+            className="stg-btn is-primary"
+            onClick={() => onLogin(login.command ?? "")}
+            title="Opens a terminal pane that logs this agent in"
+          >
+            <LogIn size={13} aria-hidden="true" />
+            Log in
+          </button>
+        )}
+        {login && !login.checking && (
+          <button
+            type="button"
+            className="stg-icon-btn"
+            onClick={onRecheck}
+            aria-label={`Check ${agent.displayName}'s login again`}
+            title="Check the login again"
+          >
+            <RefreshCw size={14} />
+          </button>
+        )}
+
         <button
           type="button"
           className="stg-switch"

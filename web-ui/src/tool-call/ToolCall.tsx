@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -20,13 +20,16 @@ import { BrowserToolCard, isBrowserTool } from "./BrowserToolCard";
 import { useAutoOpen } from "../hooks/useAutoOpen";
 import { CodeModeCard } from "./CodeModeCard";
 import { isCodeModeTool } from "./codeModeParse";
+import { withReadableOutput } from "./opmanTools";
 
 export const ToolCall = React.memo(function ToolCall({
-  part,
+  part: rawPart,
   childSession,
   subagentMessages,
   onOpenSession,
 }: ToolCallProps) {
+  // opman's own coding tools answer in JSON; the cards below want the text a built-in gives.
+  const part = useMemo(() => withReadableOutput(rawPart), [rawPart]);
   const toolName = part.tool || part.toolName || "unknown";
   const { shouldAutoOpen } = useAutoOpen();
 

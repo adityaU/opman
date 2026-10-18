@@ -98,6 +98,15 @@ pub(crate) enum Commands {
         agent: Option<String>,
     },
 
+    /// Log an ACP agent in from this terminal (Settings opens a terminal pane running this)
+    AcpLogin {
+        /// The agent's id, e.g. `antigravity`
+        id: String,
+        /// Use this login method instead of asking
+        #[arg(long, value_name = "METHOD")]
+        method: Option<String>,
+    },
+
     /// Manage skills
     Skills {
         #[command(subcommand)]

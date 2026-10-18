@@ -215,3 +215,30 @@ export async function deleteAcpAgent(id: string): Promise<AcpWriteResult> {
 export async function resetAcpConfig(): Promise<AcpWriteResult> {
   return apiFetch<AcpWriteResult>("/acp/agents", { method: "DELETE" });
 }
+
+/**
+ * Whether an agent is logged in, found by asking the agent itself.
+ *
+ * `loginCommand` is a shell command that logs it in. It runs in a terminal, because a login
+ * can need a keyboard or a pasted browser redirect that this page cannot give it.
+ */
+export interface AcpAuth {
+  state: "connected" | "not_connected";
+  /** Why it is not connected, in the agent's words where it gave any. */
+  detail: string;
+  /** The login methods the agent offers, by display name. */
+  methods: string[];
+  /** Present only when a login is possible. */
+  loginCommand: string | null;
+}
+
+/** Starts the agent briefly to ask it, so this takes a few seconds. */
+export async function fetchAcpAuth(id: string): Promise<AcpAuth> {
+  const raw = await apiFetch<Partial<AcpAuth>>(`${agent(id)}/auth`);
+  return {
+    state: raw.state === "connected" ? "connected" : "not_connected",
+    detail: raw.detail ?? "",
+    methods: raw.methods ?? [],
+    loginCommand: raw.loginCommand ?? null,
+  };
+}

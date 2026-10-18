@@ -1,7 +1,7 @@
 use super::*;
 use crate::mcp_registry::config::ServerConfig;
 use crate::mcp_registry::spec::{Arg, ServerSpec};
-use crate::mcp_registry::{BuiltinFlags, McpRegistry};
+use crate::mcp_registry::{McpRegistry};
 
 fn stdio(name: &str) -> ServerSpec {
     ServerSpec::stdio(name, "/bin/true", vec![Arg::lit("x")], Vec::new())
@@ -33,7 +33,6 @@ fn excluded_and_hidden_servers_are_not_mounted() {
             stdio("opman-tools"),
             hidden,
         ],
-        BuiltinFlags::ALL,
     );
     let pool = pool_from_registry(&registry, "/work", None);
     assert_eq!(pool.namespaces(), ["time", "opman_tools"]);
@@ -47,7 +46,7 @@ fn remote_servers_are_mounted_through_the_proxy() {
     }
     .to_spec("my-remote")
     .expect("spec");
-    let registry = McpRegistry::from_specs(vec![remote], BuiltinFlags::default());
+    let registry = McpRegistry::from_specs(vec![remote]);
     let pool = pool_from_registry(&registry, "/work", None);
     assert_eq!(pool.namespaces(), ["my_remote"]);
 }
@@ -55,7 +54,7 @@ fn remote_servers_are_mounted_through_the_proxy() {
 #[test]
 fn colliding_names_get_distinct_namespaces() {
     let registry =
-        McpRegistry::from_specs(vec![stdio("a-b"), stdio("a_b")], BuiltinFlags::default());
+        McpRegistry::from_specs(vec![stdio("a-b"), stdio("a_b")]);
     let pool = pool_from_registry(&registry, "/work", None);
     assert_eq!(pool.namespaces(), ["a_b", "a_b_2"]);
 }

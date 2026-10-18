@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::acp_engine::{config, AcpEngine, Session};
-use crate::mcp_registry::{BuiltinFlags, McpRegistry, RegistryHandle};
+use crate::mcp_registry::{McpRegistry, RegistryHandle};
 
 pub(super) struct Harness {
     pub(super) engine: Arc<AcpEngine>,
@@ -37,8 +37,7 @@ impl Harness {
             shared_process,
             ..Default::default()
         };
-        let flags = BuiltinFlags::default();
-        let registry = RegistryHandle::new(Arc::new(McpRegistry::builtins(flags)), flags);
+        let registry = RegistryHandle::new(Arc::new(McpRegistry::builtins()));
         let engine = Arc::new(AcpEngine::new(
             "pool-test".to_string(),
             agent,
@@ -226,8 +225,7 @@ async fn live_two_sessions_share_one_child_and_answer_independently() {
 
     let cfg = config::load();
     let (_, agent) = cfg.for_runner("claude").expect("claude agent");
-    let flags = BuiltinFlags::default();
-    let registry = RegistryHandle::new(Arc::new(McpRegistry::builtins(flags)), flags);
+    let registry = RegistryHandle::new(Arc::new(McpRegistry::builtins()));
     let engine = Arc::new(AcpEngine::new(
         "live-pool".to_string(),
         agent.clone(),

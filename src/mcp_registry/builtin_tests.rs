@@ -4,55 +4,19 @@
 use super::*;
 use crate::mcp_registry::spec::Transport;
 
-fn names(flags: BuiltinFlags) -> Vec<String> {
-    servers("/opman", flags)
+fn names() -> Vec<String> {
+    servers("/opman")
         .iter()
         .map(|spec| spec.name().to_string())
         .collect()
 }
 
-/// `skills` is unflagged: skills reaching no runner at all is the bug this fixes.
-/// `kanban`, `ask`, `browser` and `agent-manager` are unconditional in the list and gated
-/// at bind time.
+/// Every built-in is always declared. `kanban`, `ask`, `browser` and `agent-manager` are
+/// gated at bind time; `terminal` and `neovim` are held back by the registry until enabled.
 #[test]
-fn no_flags_still_yields_the_unflagged_servers() {
+fn every_builtin_is_declared_in_a_stable_order() {
     assert_eq!(
-        names(BuiltinFlags::default()),
-        [
-            "skills",
-            "kanban",
-            "ask",
-            "browser",
-            "opman-tools",
-            "agent-manager"
-        ]
-    );
-}
-
-#[test]
-fn every_flag_adds_exactly_its_own_server() {
-    let flags = BuiltinFlags {
-        terminal: true,
-        ..BuiltinFlags::default()
-    };
-    assert_eq!(
-        names(flags),
-        [
-            "terminal",
-            "skills",
-            "kanban",
-            "ask",
-            "browser",
-            "opman-tools",
-            "agent-manager"
-        ]
-    );
-}
-
-#[test]
-fn all_flags_yield_every_builtin() {
-    assert_eq!(
-        names(BuiltinFlags::ALL),
+        names(),
         [
             "terminal",
             "neovim",
@@ -69,11 +33,20 @@ fn all_flags_yield_every_builtin() {
     );
 }
 
+#[test]
+fn only_terminal_and_neovim_are_off_until_enabled() {
+    let off: Vec<String> = names()
+        .into_iter()
+        .filter(|name| is_off_until_enabled(name))
+        .collect();
+    assert_eq!(off, ["terminal", "neovim"]);
+}
+
 /// Browser panes live in the web server, so the tools are worth offering only when it is
 /// there to own them — the same bind-time gate kanban uses.
 #[test]
 fn browser_is_gated_on_the_loopback_descriptor_at_bind_time() {
-    let specs = servers("/opman", BuiltinFlags::default());
+    let specs = servers("/opman");
     let browser = specs
         .iter()
         .find(|spec| spec.name() == "browser")
@@ -87,7 +60,7 @@ fn browser_is_gated_on_the_loopback_descriptor_at_bind_time() {
 fn kanban_is_gated_on_the_loopback_descriptor_at_bind_time() {
     // Bind-time rather than load-time is what lets a runner pick kanban up after the
     // web server starts, without restarting opman.
-    let specs = servers("/opman", BuiltinFlags::default());
+    let specs = servers("/opman");
     let kanban = specs.iter().find(|s| s.name() == "kanban").expect("kanban");
     assert_eq!(kanban.presence, Presence::LoopbackDescriptor);
 }
@@ -97,7 +70,7 @@ fn kanban_is_gated_on_the_loopback_descriptor_at_bind_time() {
 /// 60s a silent call gets by default.
 #[test]
 fn ask_is_gated_on_the_loopback_and_carries_a_long_ceiling() {
-    let specs = servers("/opman", BuiltinFlags::default());
+    let specs = servers("/opman");
     let ask = specs.iter().find(|s| s.name() == "ask").expect("ask");
     assert_eq!(ask.presence, Presence::LoopbackDescriptor);
     assert_eq!(ask.timeout_secs(), Some(PROXY_TIMEOUT_SECS));
@@ -113,7 +86,7 @@ fn ask_is_gated_on_the_loopback_and_carries_a_long_ceiling() {
 
 #[test]
 fn agent_manager_is_gated_on_the_socket_variable() {
-    let specs = servers("/opman", BuiltinFlags::default());
+    let specs = servers("/opman");
     let manager = specs
         .iter()
         .find(|s| s.name() == "agent-manager")
@@ -124,7 +97,7 @@ fn agent_manager_is_gated_on_the_socket_variable() {
 
 #[test]
 fn the_bridges_that_route_by_session_declare_the_session_variable() {
-    let specs = servers("/opman", BuiltinFlags::ALL);
+    let specs = servers("/opman");
     for name in ["terminal", "neovim", "agent-manager", "ask"] {
         let spec = specs.iter().find(|s| s.name() == name).expect(name);
         assert!(spec.binds_session(), "{name} should carry the session id");
@@ -141,7 +114,7 @@ fn the_bridges_that_route_by_session_declare_the_session_variable() {
 
 #[test]
 fn the_project_bridges_take_the_directory_positionally() {
-    let specs = servers("/opman", BuiltinFlags::ALL);
+    let specs = servers("/opman");
     for (name, subcommand) in [
         ("terminal", "mcp"),
         ("neovim", "mcp-nvim"),
@@ -158,8 +131,8 @@ fn the_project_bridges_take_the_directory_positionally() {
 }
 
 #[test]
-fn skills_is_offered_without_a_flag() {
-    let specs = servers("/opman", BuiltinFlags::default());
+fn skills_is_always_offered() {
+    let specs = servers("/opman");
     let skills = specs.iter().find(|s| s.name() == "skills").expect("skills");
     assert_eq!(skills.presence, Presence::Always);
     assert!(!skills.binds_session());
@@ -167,7 +140,7 @@ fn skills_is_offered_without_a_flag() {
 
 #[test]
 fn every_builtin_launches_opman_itself() {
-    for spec in servers("/opman/bin", BuiltinFlags::ALL) {
+    for spec in servers("/opman/bin") {
         let Transport::Stdio(stdio) = spec.transport() else {
             panic!("built-ins are all stdio");
         };
@@ -175,17 +148,11 @@ fn every_builtin_launches_opman_itself() {
     }
 }
 
-#[test]
-fn flags_any_reports_whether_anything_was_asked_for() {
-    assert!(!BuiltinFlags::default().any());
-    assert!(BuiltinFlags::ALL.any());
-}
-
-/// The coding tools are on without a flag, take the project directory, and carry the long
+/// The coding tools are on by default, take the project directory, and carry the long
 /// ceiling because a shell command may run for minutes.
 #[test]
 fn opman_tools_is_always_on_and_takes_the_project_directory() {
-    let specs = servers("/opman", BuiltinFlags::default());
+    let specs = servers("/opman");
     let tools = specs
         .iter()
         .find(|s| s.name() == "opman-tools")

@@ -3,11 +3,10 @@
 use serde_json::json;
 
 use super::*;
-use crate::mcp_registry::builtin::BuiltinFlags;
 use crate::mcp_registry::spec::{Arg, Presence, ServerSpec};
 
 fn registry(spec: ServerSpec) -> McpRegistry {
-    McpRegistry::from_specs(vec![spec], BuiltinFlags::default())
+    McpRegistry::from_specs(vec![spec])
 }
 
 #[tokio::test]

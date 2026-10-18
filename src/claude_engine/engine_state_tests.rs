@@ -2,16 +2,18 @@
 use super::registry::SessionEntry;
 use super::*;
 
-use crate::mcp_registry::{BuiltinFlags, McpRegistry, RegistryHandle};
+use crate::mcp_registry::{McpRegistry, RegistryHandle};
 
 fn engine() -> Arc<ClaudeEngine> {
-    engine_with(BuiltinFlags::default())
+    engine_with("{}")
 }
 
-fn engine_with(flags: BuiltinFlags) -> Arc<ClaudeEngine> {
+/// An engine whose registry is the built-ins with this `mcp.json` merged over them.
+fn engine_with(mcp_json: &str) -> Arc<ClaudeEngine> {
+    let user = serde_json::from_str(mcp_json).expect("valid mcp.json");
     Arc::new(ClaudeEngine::new(
         None,
-        RegistryHandle::new(Arc::new(McpRegistry::builtins(flags)), flags),
+        RegistryHandle::new(Arc::new(McpRegistry::from_config(user))),
     ))
 }
 
@@ -66,8 +68,8 @@ fn mcp_config_none_when_nothing_is_offered() {
     assert!(engine.mcp_config_json("/d", "ses1").is_none());
 }
 
-fn config_for(flags: BuiltinFlags) -> serde_json::Value {
-    let payload = engine_with(flags)
+fn config_for(mcp_json: &str) -> serde_json::Value {
+    let payload = engine_with(mcp_json)
         .mcp_config_json("/dir", "ses1")
         .expect("a payload when at least one server is enabled");
     serde_json::from_str(&payload).expect("valid json")
@@ -75,32 +77,20 @@ fn config_for(flags: BuiltinFlags) -> serde_json::Value {
 
 #[test]
 fn mcp_config_builds_each_server() {
-    let cfg = config_for(BuiltinFlags {
-        terminal: true,
-        ..BuiltinFlags::default()
-    });
+    let cfg = config_for(r#"{"servers":{"terminal":{"enabled":true}}}"#);
     let terminal = &cfg["mcpServers"]["terminal"];
     assert!(terminal["command"].is_string());
     assert_eq!(terminal["args"][0], "mcp");
     assert_eq!(terminal["args"][1], "/dir");
     assert_eq!(terminal["env"]["OPENCODE_SESSION_ID"], "ses1");
 
-    let cfg = config_for(BuiltinFlags {
-        neovim: true,
-        ..BuiltinFlags::default()
-    });
+    let cfg = config_for(r#"{"servers":{"neovim":{"enabled":true}}}"#);
     assert_eq!(cfg["mcpServers"]["neovim"]["args"][0], "mcp-nvim");
 
-    let cfg = config_for(BuiltinFlags {
-        time: true,
-        ..BuiltinFlags::default()
-    });
+    let cfg = config_for("{}");
     assert_eq!(cfg["mcpServers"]["time"]["args"][0], "mcp-time");
 
-    let cfg = config_for(BuiltinFlags {
-        ui: true,
-        ..BuiltinFlags::default()
-    });
+    let cfg = config_for("{}");
     assert_eq!(cfg["mcpServers"]["ui"]["args"][0], "mcp-ui");
 }
 

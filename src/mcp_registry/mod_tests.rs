@@ -11,29 +11,34 @@ fn user(raw: &str) -> McpConfig {
 
 #[test]
 fn builtins_load_when_the_user_has_no_config() {
-    let registry = McpRegistry::from_config(BuiltinFlags::ALL, McpConfig::default());
+    let registry = McpRegistry::from_config(McpConfig::default());
     let all = RunnerKind::Opencode;
     let names: Vec<_> = registry.for_runner(&all).map(ServerSpec::name).collect();
-    assert!(names.contains(&"terminal"));
-    assert!(names.contains(&"time"));
+    for on in ["time", "code", "ui", "opman-tools"] {
+        assert!(names.contains(&on), "{on} is on by default");
+    }
+    for off in ["terminal", "neovim"] {
+        assert!(!names.contains(&off), "{off} is off until enabled");
+    }
+}
+
+#[test]
+fn a_bare_enable_switches_on_a_builtin_that_is_off_by_default() {
+    let registry = McpRegistry::from_config(user(r#"{"servers":{"terminal":{"enabled":true}}}"#));
+    assert!(registry.has("terminal"));
+    assert!(!registry.has("neovim"));
 }
 
 #[test]
 fn a_bare_toggle_disables_a_builtin_without_restating_it() {
-    let registry = McpRegistry::from_config(
-        BuiltinFlags::ALL,
-        user(r#"{"servers":{"time":{"enabled":false}}}"#),
-    );
+    let registry = McpRegistry::from_config(user(r#"{"servers":{"time":{"enabled":false}}}"#));
     assert!(registry.get("time").is_none());
-    assert!(registry.get("terminal").is_some());
+    assert!(registry.get("ui").is_some());
 }
 
 #[test]
 fn a_bare_enable_leaves_the_builtin_launch_command_intact() {
-    let registry = McpRegistry::from_config(
-        BuiltinFlags::ALL,
-        user(r#"{"servers":{"time":{"enabled":true}}}"#),
-    );
+    let registry = McpRegistry::from_config(user(r#"{"servers":{"time":{"enabled":true}}}"#));
     let time = registry.get("time").expect("time survives");
     assert!(time.binds_session() == false);
     let Transport::Stdio(stdio) = time.transport() else {
@@ -44,19 +49,17 @@ fn a_bare_enable_leaves_the_builtin_launch_command_intact() {
 
 #[test]
 fn a_user_entry_with_a_new_name_is_added() {
-    let registry = McpRegistry::from_config(
-        BuiltinFlags::default(),
-        user(r#"{"servers":{"linear":{"url":"https://mcp.linear.app/mcp","auth":"oauth"}}}"#),
-    );
+    let registry = McpRegistry::from_config(user(
+        r#"{"servers":{"linear":{"url":"https://mcp.linear.app/mcp","auth":"oauth"}}}"#,
+    ));
     assert!(registry.get("linear").is_some());
 }
 
 #[test]
 fn runner_scoping_is_honoured() {
-    let registry = McpRegistry::from_config(
-        BuiltinFlags::default(),
-        user(r#"{"servers":{"only-codex":{"command":"x","runners":["codex"]}}}"#),
-    );
+    let registry = McpRegistry::from_config(user(
+        r#"{"servers":{"only-codex":{"command":"x","runners":["codex"]}}}"#,
+    ));
     let codex = RunnerKind::Acp("codex".into());
     let in_codex: Vec<_> = registry.for_runner(&codex).map(ServerSpec::name).collect();
     let in_opencode: Vec<_> = registry
@@ -71,18 +74,15 @@ fn runner_scoping_is_honoured() {
 /// the injection sites were hand-rolled, which is exactly why they drifted.
 #[test]
 fn one_registry_renders_every_runner_with_the_same_server_set() {
-    let registry = McpRegistry::from_specs(
-        vec![
-            ServerSpec::stdio("time", "/opman", vec![Arg::lit("mcp-time")], Vec::new()),
-            ServerSpec::stdio(
-                "ext",
-                "npx",
-                vec![Arg::lit("-y"), Arg::lit("pkg")],
-                Vec::new(),
-            ),
-        ],
-        BuiltinFlags::default(),
-    );
+    let registry = McpRegistry::from_specs(vec![
+        ServerSpec::stdio("time", "/opman", vec![Arg::lit("mcp-time")], Vec::new()),
+        ServerSpec::stdio(
+            "ext",
+            "npx",
+            vec![Arg::lit("-y"), Arg::lit("pkg")],
+            Vec::new(),
+        ),
+    ]);
     let at = Bind::new("/opman", "/proj", Some("ses1"));
 
     let claude = render::claude_mcp_config(registry.for_runner(&RunnerKind::ClaudeCode), at)
@@ -93,12 +93,8 @@ fn one_registry_renders_every_runner_with_the_same_server_set() {
         at,
         RemoteCaps::STDIO_ONLY,
     );
-    let opencode = render::opencode_config(
-        registry.for_runner(&RunnerKind::Opencode),
-        at,
-        BuiltinFlags::default(),
-    )
-    .expect("opencode payload");
+    let opencode = render::opencode_config(registry.for_runner(&RunnerKind::Opencode), at)
+        .expect("opencode payload");
     let opencode: serde_json::Value = serde_json::from_str(&opencode).expect("opencode json");
 
     let mut claude_names: Vec<_> = claude["mcpServers"]

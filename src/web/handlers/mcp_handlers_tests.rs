@@ -69,7 +69,7 @@ async fn delete_removes_the_entry() {
 async fn listing_includes_builtins_with_no_entry_of_their_own() {
     let _redirect = ConfigRedirect::new();
     let mut state = test_server_state();
-    state.mcp = crate::mcp_registry::RegistryHandle::load(crate::mcp_registry::BuiltinFlags::ALL);
+    state.mcp = crate::mcp_registry::RegistryHandle::load();
     let Json(list) = list_servers(open(), State(state)).await.expect("ok");
     let names: Vec<_> = list.iter().map(|s| s.name.as_str()).collect();
     // Toggleable without the user first having to hand-write a stub entry.

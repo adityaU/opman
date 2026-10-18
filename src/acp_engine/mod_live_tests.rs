@@ -9,10 +9,8 @@
 use crate::acp_engine::*;
 
 fn test_engine(agent: config::AgentConfig) -> Arc<AcpEngine> {
-    let flags = crate::mcp_registry::BuiltinFlags::default();
     let registry = crate::mcp_registry::RegistryHandle::new(
-        Arc::new(crate::mcp_registry::McpRegistry::builtins(flags)),
-        flags,
+        Arc::new(crate::mcp_registry::McpRegistry::builtins())
     );
     Arc::new(AcpEngine::new("test".to_string(), agent, None, registry))
 }

@@ -35,6 +35,7 @@ mod handshake;
 mod history;
 mod jsonrpc;
 mod launch;
+pub(crate) mod login;
 mod mcp_servers;
 pub mod native_tools;
 mod native_tools_catalog;

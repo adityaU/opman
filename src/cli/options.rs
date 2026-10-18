@@ -2,22 +2,21 @@ use super::{AgentBackend, Cli};
 use crate::web::TunnelMode;
 
 impl Cli {
-    /// Which of opman's own MCP servers the user asked for, with `--all-mcp` folded over
-    /// the individual flags.
-    ///
-    /// One method rather than a tuple built at each call site: the tuple used to be
-    /// constructed twice in `main`, and the second copy was assembled by hand from the
-    /// same four booleans instead of reusing the first.
-    pub fn builtin_mcp(&self) -> crate::mcp_registry::BuiltinFlags {
-        if self.all_mcp {
-            return crate::mcp_registry::BuiltinFlags::ALL;
-        }
-        crate::mcp_registry::BuiltinFlags {
-            terminal: self.terminal_mcp,
-            neovim: self.neovim_mcp,
-            time: self.time_mcp,
-            ui: self.ui_mcp,
-            code: self.code_mcp,
+    /// Say so when a launch still passes one of the old MCP flags. They do nothing now:
+    /// which of opman's own MCP servers are on is decided in Settings.
+    pub fn warn_deprecated_mcp_flags(&self) {
+        let given = [
+            ("--all-mcp", self.all_mcp),
+            ("--terminal-mcp", self.terminal_mcp),
+            ("--neovim-mcp", self.neovim_mcp),
+            ("--time-mcp", self.time_mcp),
+            ("--ui-mcp", self.ui_mcp),
+            ("--code-mcp", self.code_mcp),
+        ];
+        for (flag, set) in given {
+            if set {
+                tracing::warn!("{flag} is deprecated and ignored; turn MCP servers on and off in Settings");
+            }
         }
     }
 

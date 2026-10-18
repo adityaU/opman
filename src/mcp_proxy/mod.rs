@@ -59,7 +59,7 @@ impl DegradedReason {
 impl Mode {
     async fn resolve(name: &ServerName) -> Self {
         let registry =
-            crate::mcp_registry::McpRegistry::load(crate::mcp_registry::BuiltinFlags::default());
+            crate::mcp_registry::McpRegistry::load();
         let Some(spec) = registry.get(name.as_str()) else {
             return Self::Degraded(DegradedReason::NotConfigured);
         };
