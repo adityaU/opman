@@ -79,3 +79,9 @@ fn no_auth_methods_means_nothing_to_send() {
     assert_eq!(first_auth_method(&json!({ "authMethods": [] })), None);
     assert_eq!(first_auth_method(&json!({})), None);
 }
+
+#[test]
+fn the_client_name_defaults_to_opman_and_can_be_set() {
+    assert_eq!(super::client_name(""), "opman");
+    assert_eq!(super::client_name("zed"), "zed");
+}

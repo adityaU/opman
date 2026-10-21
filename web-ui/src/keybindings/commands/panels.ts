@@ -15,9 +15,15 @@ export const TERMINAL_COMMANDS: readonly CommandDef[] = [
   { id: "terminal.findNext", title: "Next Terminal Match", category: "Terminal", when: "terminalFindOpen" },
   { id: "terminal.findPrevious", title: "Previous Terminal Match", category: "Terminal", when: "terminalFindOpen" },
   { id: "terminal.clear", title: "Clear Terminal", category: "Terminal", when: "terminalOpen", label: "clear" },
-  { id: "terminal.copy", title: "Copy Selection", category: "Terminal", when: "focus==terminal" },
-  { id: "terminal.paste", title: "Paste", category: "Terminal", when: "focus==terminal" },
-  { id: "terminal.copyMode", title: "Enter Copy Mode", category: "Terminal", when: "focus==terminal" },
+  { id: "terminal.copy", title: "Copy Selection", category: "Terminal", when: "terminalOpen", label: "copy", paletteOnly: true },
+  { id: "terminal.paste", title: "Paste", category: "Terminal", when: "terminalOpen", label: "paste", paletteOnly: true },
+  { id: "terminal.selectAll", title: "Select All in Terminal", category: "Terminal", when: "terminalOpen", label: "select all", paletteOnly: true },
+  { id: "terminal.zoomIn", title: "Terminal Font Bigger", category: "Terminal", when: "terminalOpen", label: "bigger", paletteOnly: true },
+  { id: "terminal.zoomOut", title: "Terminal Font Smaller", category: "Terminal", when: "terminalOpen", label: "smaller", paletteOnly: true },
+  { id: "terminal.zoomReset", title: "Reset Terminal Font Size", category: "Terminal", when: "terminalOpen", label: "reset font", paletteOnly: true },
+  { id: "terminal.scrollTop", title: "Scroll Terminal to Top", category: "Terminal", when: "terminalOpen", paletteOnly: true },
+  { id: "terminal.scrollBottom", title: "Scroll Terminal to Bottom", category: "Terminal", when: "terminalOpen", paletteOnly: true },
+  { id: "terminal.copyMode", title: "Enter Copy Mode", category: "Terminal", when: "terminalOpen", label: "copy mode" },
   { id: "terminal.leaveFocus", title: "Leave Terminal Focus", category: "Terminal", when: "focus==terminal" },
 ];
 

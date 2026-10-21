@@ -102,3 +102,59 @@
     color: var(--color-text);
     background: var(--white-6)
 }
+
+/* A short line over the terminal: "Copied", or the mode the keyboard is in. It sits on
+   the surface's top-right corner and never takes pointer events, so it cannot get between
+   the user and the text. Colours come from the theme tokens, so glassy and flat both fit. */
+.terminal-badge {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-3);
+    z-index: 3;
+    max-width: calc(100% - var(--space-6));
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-panel);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    pointer-events: none;
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--color-bg-panel) 60%, transparent)
+}
+
+.terminal-badge.is-notice {
+    color: var(--color-success)
+}
+
+.term-search-toggle {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono, monospace);
+    font-size: var(--font-size-2xs);
+    cursor: pointer
+}
+
+.term-search-toggle:hover {
+    color: var(--color-text);
+    background: var(--white-6)
+}
+
+.term-search-toggle[aria-pressed="true"] {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent)
+}
+
+.term-search-count {
+    flex-shrink: 0;
+    min-width: 48px;
+    text-align: right;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    font-variant-numeric: tabular-nums
+}

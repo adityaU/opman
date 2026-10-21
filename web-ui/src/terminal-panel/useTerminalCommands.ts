@@ -21,6 +21,14 @@ export interface TerminalCommandDeps {
   readonly clear: () => void;
   readonly expand: () => void;
   readonly find: () => void;
+  readonly copy: () => void;
+  readonly paste: () => void;
+  readonly selectAll: () => void;
+  readonly copyMode: () => void;
+  readonly leaveFocus: () => void;
+  readonly zoom: (step: -1 | 0 | 1) => void;
+  readonly scrollTop: () => void;
+  readonly scrollBottom: () => void;
 }
 
 export function useTerminalCommands(deps: TerminalCommandDeps): void {
@@ -41,5 +49,15 @@ export function useTerminalCommands(deps: TerminalCommandDeps): void {
     "terminal.clear": whenShown(deps.clear),
     "terminal.expand": deps.expand,
     "terminal.find": deps.find,
+    "terminal.copy": whenShown(deps.copy),
+    "terminal.paste": whenShown(deps.paste),
+    "terminal.selectAll": whenShown(deps.selectAll),
+    "terminal.copyMode": whenShown(deps.copyMode),
+    "terminal.leaveFocus": whenShown(deps.leaveFocus),
+    "terminal.zoomIn": whenShown(() => deps.zoom(1)),
+    "terminal.zoomOut": whenShown(() => deps.zoom(-1)),
+    "terminal.zoomReset": whenShown(() => deps.zoom(0)),
+    "terminal.scrollTop": whenShown(deps.scrollTop),
+    "terminal.scrollBottom": whenShown(deps.scrollBottom),
   });
 }

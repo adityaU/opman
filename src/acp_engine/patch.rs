@@ -49,6 +49,8 @@ pub struct AgentPatch {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subagent_transcripts: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub native_tools: Option<NativeTools>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
@@ -78,6 +80,7 @@ impl AgentPatch {
         set(&mut target.default_model, self.default_model);
         set(&mut target.modes_are_agents, self.modes_are_agents);
         set(&mut target.subagent_transcripts, self.subagent_transcripts);
+        set(&mut target.client_name, self.client_name);
         set(&mut target.native_tools, self.native_tools);
         set(&mut target.enabled, self.enabled);
     }

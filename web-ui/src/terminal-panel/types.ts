@@ -2,6 +2,7 @@ import type { PtyConnection } from "./ptyConnection";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
+import type { TerminalActions } from "./features";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ export interface TerminalRuntime {
   /** The line to the PTY; null until the shell is reached. */
   connection: PtyConnection | null;
   observer: ResizeObserver | null;
+  /** Copy, paste, zoom and the rest; set once the terminal has been built. */
+  actions: TerminalActions | null;
 }
 
 // ── Constants ──────────────────────────────────────────
@@ -61,6 +64,14 @@ export const TERM_OPTIONS = {
   lineHeight: 1.2,
   allowTransparency: true,
   allowProposedApi: true,
+  // The default 1000 lines is a few screens of build output.
+  scrollback: 10_000,
+  // Alt+key sends Escape+key, which is what shells and editors expect of Meta.
+  macOptionIsMeta: true,
+  // Hold Alt to scroll ten times faster; right-click on a word selects it.
+  fastScrollModifier: "alt" as const,
+  rightClickSelectsWord: true,
+  scrollOnUserInput: true,
 };
 
 /** The kinds a user may start by hand. `claude-attach` needs a live agent. */

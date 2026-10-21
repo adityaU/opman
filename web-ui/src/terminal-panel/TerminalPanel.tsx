@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
 import type { TerminalPanelProps } from "./types";
 import { useActiveShell } from "./useActiveShell";
@@ -9,6 +9,10 @@ import { ShellPicker } from "./ShellPicker";
 import { MobileKeyBar } from "./mobile/MobileKeyBar";
 import { useTerminalCommands } from "./useTerminalCommands";
 import { useMobileKeys } from "./mobile/useMobileKeys";
+import { TerminalMenu } from "./TerminalMenu";
+import type { FeatureHooks, TerminalActions } from "./features";
+
+const NOTICE_MS = 2200;
 
 /**
  * One terminal showing one shell, and nothing else on screen.
@@ -40,6 +44,23 @@ export function TerminalPanel({
   // data path reads the transform from this ref.
   const transformRef = useRef<((data: string) => string) | null>(null);
 
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [copyMode, setCopyMode] = useState(false);
+  const hooks = useMemo<FeatureHooks>(
+    () => ({
+      onMenu: (x, y) => setMenu({ x, y }),
+      onNotice: setNotice,
+      onCopyMode: setCopyMode,
+    }),
+    [],
+  );
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const { status, runtimeRef } = useTerminalSession(
     active.ptyId,
     active.shell?.kind ?? "shell",
@@ -48,6 +69,14 @@ export function TerminalPanel({
     containerRef,
     visible && !active.choosing,
     transformRef,
+    hooks,
+  );
+  const act = useCallback(
+    <T,>(run: (actions: TerminalActions) => T) => {
+      const actions = runtimeRef.current?.actions;
+      return actions ? run(actions) : undefined;
+    },
+    [runtimeRef],
   );
 
   const mobileKeys = useMobileKeys(active.ptyId, runtimeRef, transformRef, isMobile);
@@ -62,6 +91,14 @@ export function TerminalPanel({
     clear: () => runtimeRef.current?.term.clear(),
     expand: () => setExpanded((on) => !on),
     find: search.toggleSearch,
+    copy: () => act((a) => void a.copy()),
+    paste: () => act((a) => void a.paste()),
+    selectAll: () => act((a) => a.selectAll()),
+    copyMode: () => act((a) => a.copyMode()),
+    leaveFocus: () => act((a) => a.leaveFocus()),
+    zoom: (step) => act((a) => a.zoom(step)),
+    scrollTop: () => act((a) => a.scrollTop()),
+    scrollBottom: () => act((a) => a.scrollBottom()),
   });
 
   return (
@@ -72,6 +109,9 @@ export function TerminalPanel({
       {search.searchOpen && !active.choosing && (
         <SearchBar
           searchQuery={search.searchQuery}
+          options={search.options}
+          results={search.results}
+          onToggle={search.toggle}
           searchInputRef={search.searchInputRef}
           onSearchChange={search.handleSearchChange}
           onSearchNext={search.searchNext}
@@ -88,6 +128,16 @@ export function TerminalPanel({
           className="term-surface"
           style={{ display: active.choosing ? "none" : "block" }}
         >
+          {copyMode && (
+            <div className="terminal-badge" role="status">
+              Copy mode — j/k move, v select, y copy, q quit
+            </div>
+          )}
+          {notice && (
+            <div className="terminal-badge is-notice" role="status">
+              {notice}
+            </div>
+          )}
           {status === "connecting" && <div className="terminal-overlay">Opening terminal…</div>}
           {status === "error" && (
             <div className="terminal-overlay error">This terminal could not be opened</div>
@@ -107,6 +157,24 @@ export function TerminalPanel({
           />
         )}
       </div>
+
+      {menu && (
+        <TerminalMenu
+          x={menu.x}
+          y={menu.y}
+          canCopy={runtimeRef.current?.actions?.hasSelection() ?? false}
+          onCopy={() => act((a) => void a.copy())}
+          onPaste={() => act((a) => void a.paste())}
+          onSelectAll={() => act((a) => a.selectAll())}
+          onFind={search.toggleSearch}
+          onCopyMode={() => act((a) => a.copyMode())}
+          onClear={() => runtimeRef.current?.term.clear()}
+          onClose={() => {
+            setMenu(null);
+            runtimeRef.current?.term.focus();
+          }}
+        />
+      )}
 
       {isMobile && !active.choosing && <MobileKeyBar keys={mobileKeys} />}
     </div>

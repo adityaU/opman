@@ -12,8 +12,10 @@ export const BASE_TERMINAL: readonly BindingSpec[] = [
   { key: "mod+f", command: "terminal.find", when: "focus==terminal" },
   { key: "enter", command: "terminal.findNext", when: "terminalFindOpen" },
   { key: "shift+enter", command: "terminal.findPrevious", when: "terminalFindOpen" },
-  { key: "mod+c", command: "terminal.copy", when: "focus==terminal" },
-  { key: "mod+v", command: "terminal.paste", when: "focus==terminal" },
+  // Copy and paste are deliberately not bound here. A binding is matched before the terminal
+  // sees the key, and on Windows and Linux `mod+c` is Ctrl+C: the interrupt signal. The
+  // terminal settles them itself (see terminal-panel/keys.ts): Cmd+C/V on a Mac, Ctrl+Shift+C/V
+  // elsewhere, and Ctrl+C copies only while text is selected.
   { key: "ctrl+escape", command: "terminal.leaveFocus", when: "focus==terminal" },
 ];
 

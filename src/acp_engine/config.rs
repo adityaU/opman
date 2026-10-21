@@ -88,6 +88,11 @@ pub struct AgentConfig {
     /// the key only if the user approved it, but the headless agent opman runs uses any key
     /// it finds — billing an API account while the user expects their subscription.
     pub claude_key_choice: bool,
+    /// The name sent as `clientInfo.name` on `initialize`; empty means `opman`. Some agents
+    /// decide what to offer from it. Antigravity lists its Claude and GPT models only to the
+    /// clients it recognises, and a list it builds itself reaches opman complete, so every
+    /// group it adds later shows up with no change here.
+    pub client_name: String,
     /// Which of the agent's own built-in tools are switched off. Applied when the agent
     /// starts and when a session opens, so an edit reaches new sessions.
     pub native_tools: NativeTools,
@@ -115,6 +120,7 @@ impl Default for AgentConfig {
             modes_are_agents: false,
             subagent_transcripts: false,
             claude_key_choice: false,
+            client_name: String::new(),
             native_tools: NativeTools::default(),
             tool_set: None,
             enabled: true,

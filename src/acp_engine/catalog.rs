@@ -172,6 +172,10 @@ fn tuned(id: &str, mut config: AgentConfig) -> AgentConfig {
         "codex" => config.enabled = true,
         // opencode fills the ACP `mode` slot with its own agents (`build`/`plan`) rather
         // than with permission modes, so those belong in the agent picker.
+        // Antigravity builds its model list from who is asking, and keeps Claude and GPT
+        // for clients it knows by name. Naming one of them gets the full list, whatever
+        // groups it holds.
+        "antigravity" => config.client_name = "zed".to_string(),
         "opencode" => {
             config.modes_are_agents = true;
             config.default_mode = "build".to_string();

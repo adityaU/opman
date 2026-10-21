@@ -81,3 +81,10 @@ fn launch_kinds_resolve() {
     // An unset runner slot defaults to the id, so the catalogue never spells it twice.
     assert_eq!(bin.runner, "goose");
 }
+
+#[test]
+fn antigravity_identifies_as_a_client_it_lists_every_model_for() {
+    let cfg = super::super::config::resolve(super::super::patch::AcpDocument::default());
+    assert_eq!(cfg.agents["antigravity"].client_name, "zed");
+    assert!(cfg.agents["claude"].client_name.is_empty());
+}

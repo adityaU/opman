@@ -9,6 +9,8 @@ import { connectPty } from "./ptyConnection";
 import { shellExists } from "./useShells";
 import { getTerminalTheme, TERM_OPTIONS, type PtyKind, type ShellStatus, type TerminalRuntime } from "./types";
 import { THEME_CHANGED_EVENT } from "../utils/theme";
+import { installFeatures, type FeatureHooks } from "./features";
+import { loadFontSize } from "./fontSize";
 
 /**
  * Show one shell in one container.
@@ -39,6 +41,8 @@ export function useTerminalSession(
    *  how the touch key bar's sticky Ctrl/Alt reach the soft keyboard's output.
    *  Held in a ref so arming a modifier never re-installs the data handler. */
   transformRef?: React.MutableRefObject<((data: string) => string) | null>,
+  /** What the panel shows for the terminal's own events: menu, notices, copy mode. */
+  hooks?: FeatureHooks,
 ): TerminalSession {
   const [status, setStatus] = useState<ShellStatus>("connecting");
   const runtimeRef = useRef<TerminalRuntime | null>(null);
@@ -47,6 +51,8 @@ export function useTerminalSession(
   // reading it through a ref keeps a chat switch from rebuilding the terminal.
   const attachTo = useRef(sessionId);
   attachTo.current = sessionId;
+  const hooksRef = useRef(hooks);
+  hooksRef.current = hooks;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -55,7 +61,11 @@ export function useTerminalSession(
     let live = true;
     setStatus("connecting");
 
-    const term = new Terminal({ ...TERM_OPTIONS, theme: getTerminalTheme() });
+    const term = new Terminal({
+      ...TERM_OPTIONS,
+      fontSize: loadFontSize(),
+      theme: getTerminalTheme(),
+    });
     const fit = new FitAddon();
     const search = new SearchAddon();
     term.loadAddon(fit);
@@ -64,6 +74,11 @@ export function useTerminalSession(
     term.open(container);
     loadGpuRenderer(term);
     fit.fit();
+    const features = installFeatures(term, container, fit, {
+      onMenu: (x, y) => hooksRef.current?.onMenu(x, y),
+      onNotice: (text) => hooksRef.current?.onNotice(text),
+      onCopyMode: (active) => hooksRef.current?.onCopyMode(active),
+    });
 
     // Keys typed before the shell is reached wait here, in order.
     let early = "";
@@ -86,7 +101,14 @@ export function useTerminalSession(
     });
     observer.observe(container);
 
-    const runtime: TerminalRuntime = { term, fit, search, connection: null, observer };
+    const runtime: TerminalRuntime = {
+      term,
+      fit,
+      search,
+      connection: null,
+      observer,
+      actions: features.actions,
+    };
     runtimeRef.current = runtime;
 
     attach(ptyId, kind, term.rows, term.cols, projectPath, attachTo.current)
@@ -107,6 +129,7 @@ export function useTerminalSession(
       live = false;
       // Detach only. The program on the other end keeps running.
       observer.disconnect();
+      features.dispose();
       runtime.connection?.close();
       term.dispose();
       runtimeRef.current = null;

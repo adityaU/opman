@@ -49,6 +49,15 @@ pub(super) async fn negotiate(engine: &Arc<AcpEngine>, peer: &Peer) -> Result<Ne
     })
 }
 
+/// The configured client name, or `opman` when none is set.
+fn client_name(configured: &str) -> &str {
+    if configured.is_empty() {
+        "opman"
+    } else {
+        configured
+    }
+}
+
 fn params(engine: &Arc<AcpEngine>) -> Value {
     let caps = &engine.agent.client_caps;
     json!({
@@ -60,7 +69,7 @@ fn params(engine: &Arc<AcpEngine>) -> Value {
             },
             "terminal": caps.terminal,
         },
-        "clientInfo": { "name": "opman", "version": env!("CARGO_PKG_VERSION") },
+        "clientInfo": { "name": client_name(&engine.agent.client_name), "version": env!("CARGO_PKG_VERSION") },
     })
 }
 
