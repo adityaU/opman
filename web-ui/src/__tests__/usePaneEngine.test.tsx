@@ -13,6 +13,7 @@ import {
   type WorkspaceChatServices,
 } from "../workspace/widgets/WorkspaceChatContext";
 import type { PaneEngine } from "../workspace/types";
+import { setSessionEngine } from "../api";
 
 // The pane resolves a session's bare model id against this catalogue. Stubbed so the
 // tests do not depend on a network fetch settling mid-assertion.
@@ -129,5 +130,15 @@ describe("usePaneEngine", () => {
       ...own,
       model: { providerID: "openai", modelID: "gpt-5" },
     });
+  });
+
+  it("keeps the target model and permission off the source during a handoff", () => {
+    vi.mocked(setSessionEngine).mockClear();
+    const { result } = harness(SHELL, vi.fn(), { id: "source", runner: "opencode" });
+    act(() => result.current.setRunner("codex"));
+    act(() => result.current.setModel("sol", "openai"));
+    act(() => result.current.setPermission("read-only"));
+    expect(setSessionEngine).not.toHaveBeenCalled();
+    expect(result.current.switchRunner).toBe(true);
   });
 });

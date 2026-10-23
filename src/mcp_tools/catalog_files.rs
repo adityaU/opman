@@ -93,12 +93,38 @@ pub fn write_file() -> Value {
 }
 
 pub fn edit_file() -> Value {
+    let hunk = object(
+        vec![
+            (
+                "old_string",
+                string("The exact text to replace in this hunk."),
+            ),
+            (
+                "new_string",
+                string("The text to put in its place."),
+            ),
+            (
+                "replace_all",
+                boolean("Replace every occurrence of old_string in this hunk. Default false."),
+            ),
+            (
+                "start_line",
+                integer("Optional 1-based start line for line-range replacement."),
+            ),
+            (
+                "end_line",
+                integer("Optional 1-based end line (inclusive) for line-range replacement."),
+            ),
+        ],
+        &["new_string"],
+    );
     tool(
         "edit_file",
-        "Replace exact text in an existing file. old_string must match the file exactly, \
-         including spaces, tabs and line breaks, and must appear once; if it appears more \
-         than once, add surrounding lines to make it unique, or set replace_all to change \
-         every occurrence. Read the file first so you can copy the text. Returns a short diff.",
+        "Replace exact text (or a 1-based line range) in an existing file. Pass old_string and \
+         new_string for a single edit, start_line/end_line and new_string to replace a line \
+         range, or edits ([{old_string, new_string, replace_all?}]) to apply multiple edits \
+         atomically in one call. old_string must match the file exactly, including spaces, tabs \
+         and line breaks, and must appear once unless replace_all is true. Returns a short diff.",
         object(
             vec![
                 (
@@ -107,7 +133,7 @@ pub fn edit_file() -> Value {
                 ),
                 (
                     "old_string",
-                    string("The exact text to replace. Must not be empty."),
+                    string("The exact text to replace. Required unless edits or start_line is used."),
                 ),
                 (
                     "new_string",
@@ -117,8 +143,20 @@ pub fn edit_file() -> Value {
                     "replace_all",
                     boolean("Replace every occurrence. Default false."),
                 ),
+                (
+                    "start_line",
+                    integer("Optional 1-based start line to replace instead of matching old_string."),
+                ),
+                (
+                    "end_line",
+                    integer("Optional 1-based end line (inclusive) to replace."),
+                ),
+                (
+                    "edits",
+                    list_of(hunk, "Optional list of edits to apply sequentially in one atomic write."),
+                ),
             ],
-            &["path", "old_string", "new_string"],
+            &["path"],
         ),
         object(
             vec![

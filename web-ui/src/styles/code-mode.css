@@ -31,6 +31,13 @@
   padding-bottom: var(--space-3);
 }
 
+.code-mode-children {
+  min-width: 0;
+  margin-inline-start: var(--space-3);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 1px solid var(--color-border-subtle);
+}
+
 @media (max-width: 480px) {
   .code-mode-call > summary {
     align-items: flex-start;

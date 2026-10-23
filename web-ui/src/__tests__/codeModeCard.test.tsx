@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CodeModeCard } from "../tool-call/CodeModeCard";
 import { isCodeModeTool, parseCodeResult } from "../tool-call/codeModeParse";
 
@@ -42,16 +42,60 @@ describe("code mode output", () => {
     expect(parseCodeResult("<opman-code-calls>{\"version\":1,\"calls\":[null]}</opman-code-calls>").calls).toEqual([]);
   });
 
-  it("shows input, error, duration and truncation inside each inner call", () => {
+  it("shows input, error, duration and truncation inside each inner call", async () => {
     render(<CodeModeCard part={{ type: "tool", tool: "code_execute", state: {
       status: "completed", input: { code: "return await tools.opman_tools.read_file({path:'a.rs'})" },
       output: marked,
     } }} />);
     expect(screen.getByText("1 tool call")).toBeTruthy();
     expect(screen.getByText("Error · 42ms")).toBeTruthy();
-    fireEvent.click(screen.getByText("opman_tools.read_file"));
-    expect(screen.getByText(input.text)).toBeTruthy();
+    fireEvent.click(screen.getByText("Read"));
+    expect(await screen.findByText(input.text)).toBeTruthy();
     expect(screen.getByText(output.text)).toBeTruthy();
     expect(screen.getByText(/9999 bytes total/)).toBeTruthy();
+  });
+
+  it("highlights Bash stdout inside execute without showing its JSON envelope", async () => {
+    const calls = [{ tool: "opman_tools.bash",
+      input: { text: '{"command":"cat main.py"}', truncated: false, bytes: 25 },
+      output: { text: '{"stdout":"return 3","stderr":"","exit_code":0}', truncated: false, bytes: 46 },
+      ok: true, finished: true, durationMs: 3 }];
+    const { container } = render(<CodeModeCard part={{ type: "tool", tool: "code_execute",
+      state: { status: "completed", output: "", metadata: { structuredContent: { version: 1, calls } } },
+    }} />);
+    fireEvent.click(screen.getByText("Bash"));
+    await waitFor(() => expect(container.querySelector(".bash-output")).toBeTruthy());
+    expect(container.querySelector(".bash-output .token.keyword")).toHaveTextContent("return");
+    expect(container.querySelector(".bash-output")).toHaveTextContent("return 3");
+    expect(container.querySelector(".bash-output")).not.toHaveTextContent("stdout");
+  });
+
+  it("formats Grep and Edit inner tool calls without raw JSON envelopes", async () => {
+    const calls = [
+      {
+        tool: "opman_tools.grep",
+        input: { text: '{"pattern":"fn main","path":"src"}', truncated: false, bytes: 35 },
+        output: {
+          text: '{"mode":"content","results":[{"path":"src/main.rs","line":1,"text":"fn main() {}"}],"truncated":false}',
+          truncated: false,
+          bytes: 98,
+        },
+        ok: true,
+        finished: true,
+        durationMs: 4,
+      },
+    ];
+    render(
+      <CodeModeCard
+        part={{
+          type: "tool",
+          tool: "code_execute",
+          state: { status: "completed", output: "", metadata: { structuredContent: { version: 1, calls } } },
+        }}
+      />
+    );
+    expect(screen.getByText("fn main")).toBeTruthy();
+    fireEvent.click(screen.getByText("Grep"));
+    expect(await screen.findByText("src/main.rs:1:fn main() {}")).toBeTruthy();
   });
 });

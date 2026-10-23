@@ -20,13 +20,14 @@ no filesystem, network, or process access of its own; everything goes through `t
 
 const WORKFLOW: &str = "## Workflow\n\
 1. Look at the tools listed below, or call `tools.$codemode.search({ query })` to find some.\n\
-2. Write code that calls them with `await tools.<namespace>.<tool>(input)`.\n\
+2. Write code that calls them with `await tools.<namespace>.<tool>(input)` (coding tools on `opman_tools` are also available directly on `tools.<tool>`, e.g. `await tools.read_file(...)`, `await tools.edit_file(...)`, `await tools.write_file(...)`, `await tools.bash(...)`, `await tools.grep(...)`, `await tools.glob(...)`, `await tools.list_dir(...)`).\n\
 3. Return only what you need. The returned value is printed as JSON (strings as-is).";
 
 const RULES: &str = "## Rules\n\
 - Only the tools listed here exist. Do not invent others.\n\
 - Filter and aggregate in code; return just the fields you need, not whole payloads.\n\
 - Run independent calls in parallel with `Promise.all`.\n\
+- For multi-place edits in one file, pass `edits: [{ old_string, new_string }, ...]` to `edit_file` (or `tools.multi_edit(path, edits)`) to apply them atomically.\n\
 - `Object.keys(tools)` lists the namespaces; `Object.keys(tools.<namespace>)` lists its tools.\n\
 - A failed tool call throws an Error holding the tool's message; catch it if you can recover.\n\
 - Results are `unknown` unless a type is shown: check a value before reading its fields.\n\

@@ -13,7 +13,14 @@ export function isWebSearchCard(name: string): boolean {
 
 export function isWebFetchCard(name: string): boolean {
   const n = name.toLowerCase();
-  return n.includes("webfetch") || n.includes("web_fetch") || n.includes("fetch_url") || n.includes("url_fetch");
+  return (
+    n.includes("webfetch") ||
+    n.includes("web_fetch") ||
+    n.includes("fetch_url") ||
+    n.includes("url_fetch") ||
+    n.includes("read_url_content") ||
+    n.includes("url_context")
+  );
 }
 
 export function isGlobCard(name: string): boolean {
@@ -23,7 +30,10 @@ export function isGlobCard(name: string): boolean {
     n.includes("grep") ||
     n.includes("ls") ||
     n.includes("list_dir") ||
+    n.includes("list_directory") ||
     n.includes("find_files") ||
+    n.includes("find_file") ||
+    n.includes("find_by_name") ||
     (n.includes("search") && !n.includes("web") && !n.includes("cross"))
   );
 }
@@ -133,7 +143,7 @@ export function WebFetchCard({ part }: { part: MessagePart }) {
   const isError = status === "error";
   const isRunning = status === "running" || status === "pending";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
-  const url = str(input.url || input.href || input.uri);
+  const url = str(input.url || input.Url || input.href || input.uri);
   const output = state?.output ?? "";
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
 
@@ -211,8 +221,30 @@ export function GlobCard({ part }: { part: MessagePart }) {
   const isRunning = status === "running" || status === "pending";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
   // Agents that send no arguments (Codex) describe the search in the call's title instead.
-  const pattern = str(input.pattern || input.glob || input.regex || input.query) || str(state?.title);
-  const path = str(input.path || input.dir || input.directory || input.cwd);
+  const pattern =
+    str(
+      input.pattern ||
+        input.glob ||
+        input.regex ||
+        input.query ||
+        input.SearchPattern ||
+        input.search_pattern ||
+        input.Pattern ||
+        input.Query ||
+        input.file_pattern
+    ) || str(state?.title);
+  const path = str(
+    input.path ||
+      input.dir ||
+      input.directory ||
+      input.cwd ||
+      input.SearchPath ||
+      input.search_path ||
+      input.SearchDirectory ||
+      input.search_directory ||
+      input.DirectoryPath ||
+      input.directory_path
+  );
   const output = state?.output ?? "";
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
 

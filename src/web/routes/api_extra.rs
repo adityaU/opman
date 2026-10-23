@@ -184,6 +184,7 @@ pub(super) fn routes(
                 .delete(handlers::delete_skill),
         )
         .route("/skills/upload", post(handlers::upload_skills))
+        .route("/skills/import", post(handlers::import_skills))
         // ── System Monitor ──────────────────────────────────────────
         .route("/system/stats", get(handlers::get_system_stats))
         .route("/system/stats/stream", get(sse::system_stats_stream))

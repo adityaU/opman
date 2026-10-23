@@ -9,37 +9,20 @@ use crate::mcp_code::names::Namespace;
 
 use std::collections::HashSet;
 
-/// Servers that never appear in the sandbox, as a closed set.
+/// Servers that cannot appear in the sandbox, as a closed set.
 ///
-/// `Code` would recurse. The others act on the user's live session in the UI — asking a
-/// question, rendering a card, spawning agents, moving a board task — which a script
-/// running unattended must not do on its own.
+/// `Code` would recurse. Every other MCP server remains reachable so code mode can act as
+/// the single gateway and use the management server to enable or configure MCP servers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Excluded {
     Code,
-    Ask,
-    Ui,
-    AgentManager,
-    Kanban,
 }
 
 impl Excluded {
-    pub const ALL: [Self; 5] = [
-        Self::Code,
-        Self::Ask,
-        Self::Ui,
-        Self::AgentManager,
-        Self::Kanban,
-    ];
+    pub const ALL: [Self; 1] = [Self::Code];
 
     pub const fn server(self) -> &'static str {
-        match self {
-            Self::Code => "code",
-            Self::Ask => "ask",
-            Self::Ui => "ui",
-            Self::AgentManager => "agent-manager",
-            Self::Kanban => "kanban",
-        }
+        "code"
     }
 
     pub fn names(name: &str) -> bool {

@@ -48,6 +48,20 @@ describe("followSession", () => {
     expect(sessionsOf(state)).toEqual(["old"]);
   });
 
+  it("reads the target session's engine after a handoff instead of keeping the source", () => {
+    const start = emptyWorkspace();
+    const pane = paneIds(start.windows[0].root)[0];
+    const widget: WidgetState = {
+      kind: "chat", projectPath: "/repo", sessionId: "old",
+      engine: { runner: "claude", model: { providerID: "anthropic", modelID: "opus" },
+        agent: "", effort: null, permission: "default" },
+    };
+    const state = run(start, { type: "openWidget", pane, widget },
+      { type: "followSession", from: "old", to: "new" });
+    const target = findPane(state.windows[0].root, pane)?.widget;
+    expect(target?.kind === "chat" ? target.engine : "missing").toBeNull();
+  });
+
   it("returns the same state when no pane shows the session", () => {
     const start = emptyWorkspace();
     expect(workspaceReducer(start, { type: "followSession", from: "a", to: "b" })).toBe(start);

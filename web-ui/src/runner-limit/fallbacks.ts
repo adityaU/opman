@@ -4,7 +4,7 @@
  * `settingsStore.ts` — and read here by the composer and the settings page.
  */
 import { useSyncExternalStore } from "react";
-import type { FallbackModel, FallbackPair } from "../api/runnerLimits";
+import type { FallbackModel, FallbackPair, ModelSet } from "../api/runnerLimits";
 import { getSettings, subscribeSettings, updateSettings } from "./settingsStore";
 
 export type { FallbackModel, FallbackPair };
@@ -15,6 +15,7 @@ export const NEAR_PERCENT_CHOICES = [2, 5, 10, 15, 20, 25] as const;
 export interface FallbackSettings {
   readonly nearPercent: number;
   readonly pairs: readonly FallbackPair[];
+  readonly modelSets?: readonly ModelSet[];
 }
 
 /** Same runner and same model: listing a pair twice would only try it twice. */

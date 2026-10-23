@@ -41,10 +41,11 @@ function useModelChoices(providers: ProviderCache): { choices: ModelChoice[]; lo
 export interface FallbackAdderProps {
   readonly runners: readonly string[];
   readonly onAdd: (pair: FallbackPair) => void;
+  readonly requireModel?: boolean;
 }
 
 /** Pick a runner, then one of its models (or its default), and add the pair to the list. */
-export function FallbackAdder({ runners, onAdd }: FallbackAdderProps) {
+export function FallbackAdder({ runners, onAdd, requireModel = false }: FallbackAdderProps) {
   const [runner, setRunner] = useState(runners[0] ?? "");
   const [modelKey, setModelKey] = useState(DEFAULT_MODEL);
   const [permission, setPermission] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function FallbackAdder({ runners, onAdd }: FallbackAdderProps) {
   const add = () => {
     if (!runner) return;
     const choice = choices.find((entry) => entry.key === modelKey);
+    if (requireModel && !choice) return;
     const selectedPermission = providers.permissionModes?.some((mode) => mode.value === permission)
       ? permission : null;
     onAdd({ runner, model: choice ? { providerID: choice.providerID, modelID: choice.modelID } : null,
@@ -93,7 +95,7 @@ export function FallbackAdder({ runners, onAdd }: FallbackAdderProps) {
           disabled={!runner}
           onChange={(event) => setModelKey(event.target.value)}
         >
-          <option value={DEFAULT_MODEL}>{loading ? "Loading models…" : "Runner's default"}</option>
+          <option value={DEFAULT_MODEL}>{loading ? "Loading models…" : requireModel ? "Choose a model" : "Runner's default"}</option>
           {choices.map((choice) => (
             <option key={choice.key} value={choice.key}>{choice.label}</option>
           ))}
@@ -105,7 +107,8 @@ export function FallbackAdder({ runners, onAdd }: FallbackAdderProps) {
           loading={loading} label="Permission for new fallback" onChange={setPermission} />
       </label>
       <div className="stg-field rlim-adder-action">
-        <button type="button" className="stg-btn is-primary" onClick={add} disabled={!runner}>
+        <button type="button" className="stg-btn is-primary" onClick={add}
+          disabled={!runner || (requireModel && !choices.some(choice => choice.key === modelKey))}>
           <Plus size={13} /> Add
         </button>
       </div>

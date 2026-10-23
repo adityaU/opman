@@ -1,0 +1,19 @@
+.code-block-views { display: flex; align-items: center; gap: var(--space-1); margin-left: auto }
+.code-block-views [aria-pressed="true"] {
+    color: var(--color-text);
+    background: var(--color-bg-selected)
+}
+.code-block-action-btn:disabled { opacity: .45; cursor: default }
+.code-block-header { flex-wrap: wrap }
+.code-block-render {
+    max-height: 520px;
+    overflow: auto;
+    color: var(--color-text);
+    background: var(--color-bg-panel)
+}
+.code-block-render .markdown-viewer { height: auto; padding: var(--space-3) var(--space-4) }
+.code-block-render .html-viewer-frame { display: block; width: 100%; height: 360px; border: 0 }
+.code-block-render .csv-viewer { overflow: auto; max-width: 100% }
+.code-block-render .svg-viewer, .code-block-render .mermaid-viewer { padding: var(--space-3) }
+.svg-viewer img { display: block; max-width: 100%; max-height: 100%; object-fit: contain }
+.code-block-source { min-width: 0 }

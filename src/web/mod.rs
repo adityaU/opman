@@ -70,9 +70,8 @@ use tokio::sync::broadcast;
 use tracing::{error, info};
 
 use crate::config::Config;
+use crate::loopback::publish as write_internal_descriptor;
 use types::WebEvent;
-
-// ── Public configuration ────────────────────────────────────────────
 
 /// Configuration for the web server, parsed from CLI args / env vars.
 pub struct WebConfig {
@@ -290,22 +289,6 @@ async fn label_created_session(web_state: &WebStateHandle, data: &str, runner: &
     web_state
         .set_session_runner_if_absent(session_id, runner)
         .await;
-}
-
-/// Write `~/.config/opman/internal.json` = `{ "url": ..., "token": ... }`.
-/// Read by `opman mcp-kanban` to call the internal Kanban API.
-fn write_internal_descriptor(port: u16, token: &str) {
-    let Some(dir) = dirs::config_dir().map(|d| d.join("opman")) else {
-        return;
-    };
-    let _ = std::fs::create_dir_all(&dir);
-    let payload = serde_json::json!({
-        "url": format!("http://127.0.0.1:{port}"),
-        "token": token,
-    });
-    if let Ok(s) = serde_json::to_string_pretty(&payload) {
-        let _ = std::fs::write(dir.join("internal.json"), s);
-    }
 }
 
 #[cfg(test)]

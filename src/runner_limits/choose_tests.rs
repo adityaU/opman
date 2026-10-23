@@ -36,6 +36,7 @@ fn settings(pairs: &[&str]) -> LimitSettings {
                 permission: None,
             })
             .collect(),
+        model_sets: vec![],
     }
 }
 

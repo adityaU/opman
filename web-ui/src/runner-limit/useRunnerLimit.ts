@@ -12,7 +12,7 @@ import type { Message } from "../types";
 import { useUsage } from "../usage/useUsage";
 import { limitOptions, type LimitTarget } from "./chooseTarget";
 import { dismiss as storeDismissal, isDismissed } from "./dismissals";
-import { useFallbacks } from "./fallbacks";
+import { useFallbacks, type FallbackModel } from "./fallbacks";
 import { useLimitPolicy, type LimitPolicy } from "./limitPolicy";
 import { lastTurnLimit, runnerLimit, type RunnerLimit } from "./limitState";
 
@@ -44,10 +44,11 @@ export function useRunnerLimit(
   runner: string,
   available: readonly string[],
   messages: readonly Message[] = NO_MESSAGES,
+  currentModel?: FallbackModel | null,
 ): RunnerLimitView {
   const usage = useUsage();
   const [policy] = useLimitPolicy();
-  const { nearPercent, pairs } = useFallbacks();
+  const { nearPercent, pairs, modelSets } = useFallbacks();
   const now = useNow();
   // Bumped by a dismissal so the stored record is re-read without waiting for the clock.
   const [revision, setRevision] = useState(0);
@@ -60,8 +61,9 @@ export function useRunnerLimit(
   const options = useMemo(
     () => limitOptions({
       report: usage.report, current: runner, level: limit.level, pairs, available, now, nearPercent,
+      currentModel, modelSets,
     }),
-    [usage.report, runner, limit.level, pairs, available, now, nearPercent],
+    [usage.report, runner, limit.level, pairs, available, now, nearPercent, currentModel, modelSets],
   );
 
   // Scoped to the runner as well as the session: "not now" about Claude says nothing

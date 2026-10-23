@@ -13,6 +13,9 @@ use crate::api::ApiClient;
 use crate::runner::RunnerKind;
 use crate::web::session_instructions;
 
+#[path = "session_handoff.rs"]
+mod handoff;
+
 /// Query parameters for paginated message fetching.
 #[derive(serde::Deserialize)]
 pub struct MessagePageQuery {
@@ -261,44 +264,7 @@ pub async fn send_message(
             .set_session_runner(&outcome.session_id, &outcome.runner.display_name())
             .await;
 
-        // A handoff creates a runner-native session. Add it to the same
-        // project immediately so the sidebar can render the new runner before
-        // the normal session poller sees it.
-        if outcome.switched {
-            let project_idx = state.web_state.active_project_index().await;
-            let now = chrono::Utc::now().timestamp_millis() as u64;
-            state
-                .web_state
-                .add_and_activate_session(
-                    project_idx,
-                    crate::app::SessionInfo {
-                        id: outcome.session_id.clone(),
-                        title: "Handoff session".to_string(),
-                        directory: dir.clone(),
-                        time: crate::app::SessionTime {
-                            created: now,
-                            updated: now,
-                        },
-                        ..Default::default()
-                    },
-                )
-                .await;
-            state
-                .web_state
-                .set_session_runner(&outcome.session_id, &outcome.runner.display_name())
-                .await;
-            // The handoff prompt was this session's opening turn.
-            state
-                .web_state
-                .mark_instructions_delivered(&outcome.session_id)
-                .await;
-            // The turn moved to the new session; the one being left is done.
-            state.web_state.mark_turn_settled(&session_id).await;
-            state
-                .web_state
-                .mark_turn_dispatched(&outcome.session_id)
-                .await;
-        }
+        handoff::publish(&state, &session_id, &dir, &outcome).await;
         return Ok(Json(serde_json::json!({
             "ok": true,
             "session_id": outcome.session_id,

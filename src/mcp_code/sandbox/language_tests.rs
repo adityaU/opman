@@ -120,3 +120,9 @@ async fn timeout_request_is_clamped() {
         Duration::from_secs(60)
     );
 }
+
+#[tokio::test]
+async fn search_accepts_string_shorthand() {
+    let report = exec("return await tools.$codemode.search('hello')", 0, quick()).await;
+    assert!(value(&report).contains("tools.m.echo"));
+}

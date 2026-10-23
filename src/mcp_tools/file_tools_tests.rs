@@ -266,3 +266,28 @@ async fn paths_outside_the_project_are_allowed() {
         "out"
     );
 }
+
+#[tokio::test]
+async fn edit_supports_multi_hunk_and_line_range_replacements() {
+    let (dir, ws) = ws();
+    let file = dir.path().join("multi.rs");
+    std::fs::write(&file, "fn one() {}\nfn two() {}\nfn three() {}\n")
+        .expect("test fixture or assertion");
+    let out = edit(
+        &ws,
+        from::<EditArgs>(json!({
+            "path": "multi.rs",
+            "edits": [
+                {"old_string": "fn one() {}", "new_string": "fn first() {}"},
+                {"start_line": 3, "end_line": 3, "new_string": "fn third() {}"}
+            ]
+        })),
+    )
+    .await
+    .expect("test fixture or assertion");
+    assert_eq!(out.data["replacements"], 2);
+    assert_eq!(
+        std::fs::read_to_string(&file).expect("test fixture or assertion"),
+        "fn first() {}\nfn two() {}\nfn third() {}\n"
+    );
+}

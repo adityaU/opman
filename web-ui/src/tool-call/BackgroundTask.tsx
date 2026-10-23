@@ -127,7 +127,7 @@ export const BackgroundTask = React.memo(function BackgroundTask({ part }: Backg
 
           {hasOutput ? (
             <div className="background-task-output" ref={outRef}>
-              <ToolOutput output={output!} toolName="bash" isLive={isRunning} />
+              <ToolOutput output={output!} toolName="bash" command={command} isLive={isRunning} />
             </div>
           ) : isRunning ? (
             <div className="background-task-waiting">

@@ -13,7 +13,7 @@ use crate::runner::RunnerKind;
 use crate::usage::types::{Account, AccountState, Window};
 use crate::usage::{account_for, AccountId};
 
-use super::settings::{FallbackPair, LimitSettings, NearPercent};
+use super::settings::{FallbackPair, LimitSettings, ModelRef, NearPercent};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Level {
@@ -81,27 +81,51 @@ pub fn choose<'a>(
     accounts: &Accounts,
     now: DateTime<Utc>,
 ) -> Option<(RunnerKind, &'a FallbackPair)> {
+    choose_for_model(
+        settings,
+        current,
+        None,
+        current_level,
+        available,
+        accounts,
+        now,
+    )
+}
+
+/// Match the current model's set before applying the account and usage checks.
+pub fn choose_for_model<'a>(
+    settings: &'a LimitSettings,
+    current: &RunnerKind,
+    model: Option<&ModelRef>,
+    current_level: Level,
+    available: &[RunnerKind],
+    accounts: &Accounts,
+    now: DateTime<Utc>,
+) -> Option<(RunnerKind, &'a FallbackPair)> {
     if current_level == Level::Ok {
         return None;
     }
     let current_account = account_for(current);
-    settings.pairs.iter().find_map(|pair| {
-        // Matched by the name the browser shows, among the runners actually served.
-        let kind = available
-            .iter()
-            .find(|kind| kind.display_name() == pair.runner.as_str())?;
-        if kind == current {
-            return None;
-        }
-        if current_account.is_some() && account_for(kind) == current_account {
-            return None;
-        }
-        match runner_level(kind, accounts, settings.near_percent, now) {
-            Some(Level::Out) => None,
-            Some(Level::Near) if current_level != Level::Out => None,
-            _ => Some((kind.clone(), pair)),
-        }
-    })
+    settings
+        .candidates(&current.display_name(), model)
+        .iter()
+        .find_map(|pair| {
+            // Matched by the name the browser shows, among the runners actually served.
+            let kind = available
+                .iter()
+                .find(|kind| kind.display_name() == pair.runner.as_str())?;
+            if kind == current {
+                return None;
+            }
+            if current_account.is_some() && account_for(kind) == current_account {
+                return None;
+            }
+            match runner_level(kind, accounts, settings.near_percent, now) {
+                Some(Level::Out) => None,
+                Some(Level::Near) if current_level != Level::Out => None,
+                _ => Some((kind.clone(), pair)),
+            }
+        })
 }
 
 #[cfg(test)]

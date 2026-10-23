@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { FileText, Terminal, Pencil, AlertTriangle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
+import { SyntaxHighlighter } from "../utils/syntax";
 import type { MessagePart } from "../types";
 import { parseOutput, guessLanguage } from "./helpers";
 import { str, asObj, TcStatus } from "./tcUtils";
@@ -8,6 +8,9 @@ import { EditDiffView } from "./components";
 import { useAutoOpen, classifyTool } from "../hooks/useAutoOpen";
 import { useOpenFileInEditor } from "./EditorOpenContext";
 import { ReadViewer, chooseViewer } from "./read-viewer";
+import { BashOutput } from "./BashOutput";
+import { CodeBlock } from "../message-turn/CodeBlock";
+import { codePreviewKind } from "../message-turn/codePreviewKind";
 
 // Clickable file path that opens the file in the editor panel. Renders as a plain
 // span (not a button) since it lives inside the card's toggle <button>; stops
@@ -38,9 +41,21 @@ function FilePath({ path, line }: { path: string; line?: number | null }) {
 
 export function isReadTool(name: string): boolean {
   const n = name.toLowerCase();
-  if (n.includes("read")) return !n.includes("neovim") && !n.includes("todo") && !n.includes("note");
-  // File viewers some agents name differently (`view`, `cat`, `open_file`).
-  return n === "view" || n === "cat" || n.endsWith("__view") || n.endsWith("__cat") || n.endsWith("open_file") || n.endsWith("view_image");
+  if (n.includes("read")) {
+    return !n.includes("neovim") && !n.includes("todo") && !n.includes("note") && !n.includes("url");
+  }
+  // File viewers some agents name differently (`view`, `cat`, `view_file`, `open_file`).
+  return (
+    n === "view" ||
+    n === "cat" ||
+    n === "view_file" ||
+    n === "client_view_file" ||
+    n.endsWith("__view") ||
+    n.endsWith("__cat") ||
+    n.endsWith("view_file") ||
+    n.endsWith("open_file") ||
+    n.endsWith("view_image")
+  );
 }
 
 const CODE_STYLE = {
@@ -64,10 +79,26 @@ export function ReadCard({ part }: { part: MessagePart }) {
   const isRunning = status === "running" || status === "pending" || status === "in_progress";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
   const locations = state?.metadata?.locations;
-  const filePath = str(input.file_path || input.filePath || input.path || input.filename || input.absolute_path
-    || (Array.isArray(locations) ? locations[0] : undefined));
-  const offset = input.offset != null ? Number(input.offset) : null;
-  const limit = input.limit != null ? Number(input.limit) : null;
+  const filePath = str(
+    input.file_path ||
+      input.filePath ||
+      input.path ||
+      input.filename ||
+      input.absolute_path ||
+      input.AbsolutePath ||
+      input.TargetFile ||
+      input.target_file ||
+      (Array.isArray(locations) ? locations[0] : undefined)
+  );
+  const rawOffset = input.offset ?? input.start_line ?? input.StartLine;
+  const offset = rawOffset != null ? Number(rawOffset) : null;
+  const rawEnd = input.end_line ?? input.EndLine;
+  const limit =
+    input.limit != null
+      ? Number(input.limit)
+      : rawEnd != null && offset != null
+      ? Math.max(1, Number(rawEnd) - offset + 1)
+      : null;
   const output = state?.output ?? "";
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
   const parsed = useMemo(() => parseOutput(output), [output]);
@@ -114,7 +145,9 @@ export function ReadCard({ part }: { part: MessagePart }) {
 
       {expanded && !isError && !(viewer && !isRunning) && output.length > 0 && (
         <div className="tc-card-body tc-card-body-flush">
-          {parsed.type === "file" ? (
+          {codePreviewKind(lang) ? (
+            <CodeBlock language={lang} code={parsed.type === "file" ? parsed.content : output} />
+          ) : parsed.type === "file" || lang !== "text" ? (
             <SyntaxHighlighter
               useInlineStyles={false}
               language={lang}
@@ -123,7 +156,7 @@ export function ReadCard({ part }: { part: MessagePart }) {
               codeTagProps={CODE_TAG}
               customStyle={CODE_STYLE}
             >
-              {parsed.content}
+              {parsed.type === "file" ? parsed.content : output}
             </SyntaxHighlighter>
           ) : (
             <pre className="tool-call-pre" style={{ maxHeight: 280, borderRadius: 0, border: "none" }}>
@@ -148,7 +181,13 @@ export function ReadCard({ part }: { part: MessagePart }) {
 
 export function isBashCard(name: string): boolean {
   const n = name.toLowerCase();
-  return (n.includes("bash") || n.includes("shell")) && !n.includes("neovim");
+  return (
+    (n.includes("bash") ||
+      n.includes("shell") ||
+      n.includes("run_command") ||
+      n === "exec_command") &&
+    !n.includes("neovim")
+  );
 }
 
 export function BashCard({ part }: { part: MessagePart }) {
@@ -163,24 +202,19 @@ export function BashCard({ part }: { part: MessagePart }) {
   const isRunning = status === "running" || status === "pending";
   const input = useMemo(() => asObj(state?.input), [state?.input]);
   const command =
-    str(input.command || input.cmd) ||
+    str(input.command || input.cmd || input.CommandLine || input.command_line) ||
     (typeof state?.input === "string" ? state.input : "");
-  const description = str(input.description);
+  const description = str(input.description || input.toolSummary);
   const finalOutput = state?.output ?? "";
   const liveOutput =
     typeof state?.metadata?.output === "string" ? state.metadata.output : "";
   const output = finalOutput.length > 0 ? finalOutput : liveOutput;
   const durationMs = state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
-  const liveRef = React.useRef<HTMLPreElement>(null);
 
   // Auto-expand when running (matches old accordion behavior)
   useEffect(() => {
     if (!userToggled && isRunning) setExpanded(true);
   }, [userToggled, isRunning]);
-
-  useEffect(() => {
-    if (isRunning && liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight;
-  }, [output, isRunning]);
 
   const toggle = () => { setUserToggled(true); setExpanded(e => !e); };
 
@@ -205,13 +239,7 @@ export function BashCard({ part }: { part: MessagePart }) {
           )}
 
           {output.length > 0 && (
-            <pre
-              ref={liveRef}
-              className={`tool-call-pre${isRunning ? " tool-call-live-output" : ""}`}
-              style={{ maxHeight: 300 }}
-            >
-              {output}
-            </pre>
+            <BashOutput output={output} command={command} isLive={isRunning} />
           )}
 
           {!output && isRunning && (
@@ -240,7 +268,10 @@ export function isEditCard(name: string): boolean {
     !n.includes("neovim") &&
     !n.includes("todo") &&
     !n.includes("notebook") &&
-    (n.includes("edit") || n.includes("write"))
+    (n.includes("edit") ||
+      n.includes("write") ||
+      n.includes("create_file") ||
+      n.includes("replace_file_content"))
   );
 }
 
@@ -256,14 +287,25 @@ export function EditCard({ part }: { part: MessagePart }) {
     state?.time?.start && state?.time?.end ? state.time.end - state.time.start : null;
 
   const input = useMemo(() => asObj(state?.input), [state?.input]);
-  const filePath = str(input.filePath || input.file_path || input.path);
+  const filePath = str(
+    input.filePath ||
+      input.file_path ||
+      input.path ||
+      input.TargetFile ||
+      input.target_file ||
+      input.AbsolutePath ||
+      input.absolute_path
+  );
 
   const lname = toolName.toLowerCase();
-  const label = lname.includes("write")
-    ? "Write"
-    : lname.includes("multiedit") || lname.includes("multi_edit")
-    ? "MultiEdit"
-    : "Edit";
+  const label =
+    lname.includes("write") || lname.includes("create_file")
+      ? "Write"
+      : lname.includes("multiedit") ||
+        lname.includes("multi_edit") ||
+        lname.includes("multi_replace")
+      ? "MultiEdit"
+      : "Edit";
 
   const toggle = () => setExpanded(e => !e);
 

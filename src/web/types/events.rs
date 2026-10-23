@@ -13,6 +13,10 @@ use super::watchers::WatcherStatusEvent;
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum WebEvent {
+    PreferencesChanged(serde_json::Value),
+    SettingsChanged {
+        section: String,
+    },
     StateChanged,
     /// The MCP server set changed, so any open settings view should re-read it.
     McpServersChanged,

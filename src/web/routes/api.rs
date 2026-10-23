@@ -32,6 +32,10 @@ pub(super) fn api_routes() -> Router<super::super::types::ServerState> {
         )
         .route("/theme", get(handlers::get_theme))
         .route("/themes", get(handlers::list_themes))
+        .route(
+            "/preferences",
+            get(super::preferences::get).put(super::preferences::put),
+        )
         .route("/theme/switch", post(handlers::switch_theme))
         // Actions (independent web state)
         .route("/project/switch", post(handlers::switch_project))

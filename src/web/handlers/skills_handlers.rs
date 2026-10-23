@@ -129,28 +129,8 @@ pub async fn upload_skills(
             let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
             let skills_dir = crate::mcp_skills::get_skills_dir();
 
-            // Extract ZIP
-            let cursor = std::io::Cursor::new(data);
-            let mut archive = zip::ZipArchive::new(cursor).map_err(|_| StatusCode::BAD_REQUEST)?;
-
-            for i in 0..archive.len() {
-                let mut file = archive
-                    .by_index(i)
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                let outpath = skills_dir.join(file.name());
-
-                if file.name().ends_with('/') {
-                    std::fs::create_dir_all(&outpath).ok();
-                } else {
-                    if let Some(p) = outpath.parent() {
-                        std::fs::create_dir_all(p).ok();
-                    }
-                    let mut outfile = std::fs::File::create(&outpath)
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                    std::io::copy(&mut file, &mut outfile)
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                }
-            }
+            super::skills_archive::extract(&data, &skills_dir)
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
 
             // Send reload signal
             let _ = state.reload_tx.send(());

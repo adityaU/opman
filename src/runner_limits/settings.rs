@@ -89,6 +89,8 @@ pub struct LimitSettings {
     pub near_percent: NearPercent,
     /// Tried top to bottom.
     pub pairs: Vec<FallbackPair>,
+    /// Models with the same role, across runners. Members are tried in their saved order.
+    pub model_sets: Vec<super::model_sets::ModelSet>,
 }
 
 /// The settings file and the copy every reader shares. A read is an `Arc` clone under a
@@ -119,6 +121,7 @@ impl SettingsStore {
 
     /// Persist then publish, so what readers see is always what is on disk.
     pub fn set(&self, next: LimitSettings) -> Result<Arc<LimitSettings>> {
+        next.validate()?;
         if let Some(path) = &self.path {
             write(path, &next)?;
         }
@@ -134,7 +137,10 @@ impl SettingsStore {
 
 fn read(path: &Path) -> Option<LimitSettings> {
     let raw = std::fs::read_to_string(path).ok()?;
-    match serde_json::from_str(&raw) {
+    match serde_json::from_str::<LimitSettings>(&raw).and_then(|settings| {
+        settings.validate().map_err(serde::de::Error::custom)?;
+        Ok(settings)
+    }) {
         Ok(settings) => Some(settings),
         Err(error) => {
             tracing::warn!("ignoring {}: {error}", path.display());

@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
+import { SyntaxHighlighter } from "../utils/syntax";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { markdownComponents, REMARK_PLUGINS } from "../message-turn/CodeBlock";
+import { guessLanguage } from "./helpers";
 
 /** How much room an argument needs in the generic tool card. */
 function isBlockValue(value: unknown): boolean {
@@ -12,6 +13,17 @@ function isBlockValue(value: unknown): boolean {
 
 /** Arguments that read as code rather than prose. */
 const CODE_KEYS = /^(command|cmd|script|code|query|sql|pattern|regex|path|file_path|url|snippet|content|diff)$/i;
+const CODE_STYLE = { margin: 0, padding: 0, background: "transparent", fontSize: "inherit",
+  fontFamily: "var(--font-mono)", maxHeight: 300, overflow: "auto" };
+
+function codeLanguage(key: string, data: Record<string, unknown>): string | null {
+  if (/^(command|cmd)$/i.test(key)) return "bash";
+  if (/^(query|sql)$/i.test(key)) return "sql";
+  if (/^(script|code)$/i.test(key)) return typeof data.language === "string" ? data.language : "javascript";
+  if (!/^(snippet|content)$/i.test(key)) return null;
+  const path = data.file_path ?? data.filePath ?? data.path ?? data.filename;
+  return typeof path === "string" ? guessLanguage(path) : null;
+}
 
 export function InputView({ data }: { data: Record<string, unknown> | string }) {
   if (typeof data === "string") return <pre className="gmc-pre">{data}</pre>;
@@ -21,10 +33,14 @@ export function InputView({ data }: { data: Record<string, unknown> | string }) 
     <dl className="gmc-args">
       {entries.map(([key, value]) => {
         const block = isBlockValue(value);
+        const language = typeof value === "string" ? codeLanguage(key, data) : null;
         return (
           <div key={key} className={`gmc-arg${block ? " is-block" : " is-inline"}${CODE_KEYS.test(key) ? " is-code" : ""}`}>
             <dt className="gmc-arg-key">{key}</dt>
-            <dd className="gmc-arg-val"><KvValue value={value} /></dd>
+            <dd className="gmc-arg-val">{language && typeof value === "string"
+              ? <SyntaxHighlighter language={language} useInlineStyles={false} PreTag="div"
+                  customStyle={CODE_STYLE}>{value}</SyntaxHighlighter>
+              : <KvValue value={value} />}</dd>
           </div>
         );
       })}

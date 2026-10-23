@@ -38,12 +38,13 @@ pub fn merge(part: &mut Value, update: &Value) {
         .and_then(Value::as_str)
         .is_some_and(|name| name != super::emit::UNNAMED_TOOL);
     let named = tool_name(update, known);
-    // A title that was just adopted as the tool's name is not also a description of the
-    // call; storing it would print the same word twice in the card header.
+    // A title that was just adopted as the tool's name (or is Antigravity's auto-generated
+    // "Running <tool>" / "Run <tool>?" wrapper) is not also a description of the call;
+    // storing it would print the tool name twice in the card header.
     let title = update
         .get("title")
         .and_then(Value::as_str)
-        .filter(|title| named.as_deref() != Some(*title));
+        .filter(|t| !t.is_empty() && !is_generated_title(t, named.as_deref()));
     if let Some(name) = named {
         part["tool"] = Value::String(name);
     }
@@ -53,15 +54,31 @@ pub fn merge(part: &mut Value, update: &Value) {
     };
 
     // `rawInput` grows as the agent streams the call's arguments, so the last one wins.
-    if let Some(input) = update.get("rawInput").filter(|input| !input.is_null()) {
-        state.insert("input".into(), input.clone());
+    // Antigravity's historical replay sends `rawInput` as a JSON string (`arguments_json`).
+    if let Some(input) = parsed_raw_input(update) {
+        let keep_existing = input.as_object().is_some_and(|o| o.is_empty())
+            && state
+                .get("input")
+                .and_then(Value::as_object)
+                .is_some_and(|o| !o.is_empty());
+        if !keep_existing {
+            state.insert("input".into(), input);
+        }
+    }
+    if let Some(output) = raw_output(update) {
+        state.insert("output".into(), Value::String(output));
     }
     fill_input(state, shape, update);
     if let Some(title) = title {
         state.insert("title".into(), Value::String(title.to_string()));
-    }
-    if let Some(output) = raw_output(update) {
-        state.insert("output".into(), Value::String(output));
+    } else if !state.contains_key("title") {
+        if let Some(prompt) = update
+            .pointer("/_meta/prompt")
+            .and_then(Value::as_str)
+            .filter(|p| !p.is_empty())
+        {
+            state.insert("title".into(), Value::String(prompt.to_string()));
+        }
     }
     absorb_terminal(state, update);
     if let Some(status) = update.get("status").and_then(Value::as_str) {
@@ -116,6 +133,20 @@ fn merge_metadata(state: &mut serde_json::Map<String, Value>, update: &Value) {
     let mut pending: Vec<(&str, Value)> = Vec::new();
     let blocks = update.get("content").and_then(Value::as_array);
     let raw = update.get("rawOutput");
+    if let Some(structured) =
+        raw.and_then(|raw| raw.get("result").unwrap_or(raw).get("structuredContent"))
+    {
+        pending.push(("structuredContent", structured.clone()));
+    }
+    let parent_keys = ["parentCallID", "parentToolCallId", "parent_tool_call_id"];
+    if let Some(parent) = [Some(update), update.get("_meta")]
+        .into_iter()
+        .flatten()
+        .find_map(|source| parent_keys.iter().find_map(|key| source.get(key)?.as_str()))
+        .filter(|parent| !parent.is_empty())
+    {
+        pending.push(("parentCallID", Value::String(parent.to_string())));
+    }
     let mcp_blocks = raw
         .and_then(|raw| raw.get("result").unwrap_or(raw).get("content"))
         .and_then(Value::as_array);
@@ -198,18 +229,18 @@ fn tool_name(update: &Value, known: bool) -> Option<String> {
         .and_then(Value::as_str)
         .filter(|name| !name.is_empty());
     if let Some(name) = claude {
-        return Some(canonical(name));
+        return Some(canonical(name, update));
     }
     if let Some(name) = mcp_name(update) {
         return Some(name);
     }
-    if is_opening(update) {
-        if let Some(title) = update
-            .get("title")
-            .and_then(Value::as_str)
-            .filter(|title| is_tool_name(title) && !is_its_command(update, title))
-        {
-            return Some(canonical(title));
+    if is_opening(update) || !known {
+        if let Some(title) = update.get("title").and_then(Value::as_str) {
+            if let Some(name) = title_tool_name(title, is_opening(update)) {
+                if !is_its_command(update, name) {
+                    return Some(canonical(name, update));
+                }
+            }
         }
     }
     if known {
@@ -218,26 +249,122 @@ fn tool_name(update: &Value, known: bool) -> Option<String> {
     Kind::of(update).map(|kind| kind.tool_name(update).to_string())
 }
 
-/// Codex flags an MCP call in `_meta` and names it `{server, tool}` in the input. opman's
-/// MCP cards key on Claude's `mcp__<server>__<tool>` spelling, so it is given that name.
+/// Codex flags an MCP call in `_meta` and names it `{server, tool}` in `rawInput`.
+/// Antigravity puts `{server, tool}` in `_meta.mcp` and/or formats `title` as
+/// `"<server>: <tool> (Running <tool>)"`. opman's MCP cards key on Claude's
+/// `mcp__<server>__<tool>` spelling, so all are normalized to that name.
 fn mcp_name(update: &Value) -> Option<String> {
-    let meta = update.get("_meta")?.get("is_mcp_tool_call")?;
-    if meta.as_bool() != Some(true) {
+    if let Some(mcp) = update.pointer("/_meta/mcp") {
+        let server = mcp.get("server")?.as_str()?;
+        let tool = mcp.get("tool")?.as_str()?;
+        if !server.is_empty() && !tool.is_empty() {
+            return Some(format!("mcp__{server}__{tool}"));
+        }
+    }
+    let is_mcp = update
+        .pointer("/_meta/is_mcp_tool_call")
+        .and_then(Value::as_bool)
+        == Some(true);
+    if is_mcp {
+        if let Some(input) = update.get("rawInput") {
+            if let (Some(server), Some(tool)) = (
+                input.get("server").and_then(Value::as_str),
+                input.get("tool").and_then(Value::as_str),
+            ) {
+                return Some(format!("mcp__{server}__{tool}"));
+            }
+        }
+    }
+    if let Some(title) = update.get("title").and_then(Value::as_str) {
+        if let Some((server, tool)) = parse_mcp_title(title) {
+            return Some(format!("mcp__{server}__{tool}"));
+        }
+    }
+    None
+}
+
+/// Parse Antigravity's `"<server>: <tool> (Running ...)"` or `"<server>: <tool> (Run ...?)"` title.
+fn parse_mcp_title(title: &str) -> Option<(&str, &str)> {
+    let (prefix, rest) = title.split_once(" (")?;
+    if !rest.ends_with(')') || (!rest.starts_with("Running ") && !rest.starts_with("Run ")) {
         return None;
     }
-    let input = update.get("rawInput")?;
-    let server = input.get("server")?.as_str()?;
-    let tool = input.get("tool")?.as_str()?;
-    Some(format!("mcp__{server}__{tool}"))
+    let (server, tool) = prefix.split_once(": ")?;
+    if is_tool_name(server) && is_tool_name(tool) {
+        Some((server, tool))
+    } else {
+        None
+    }
+}
+
+/// Extract a tool identifier from `title`.
+///
+/// On opening frames, a bare identifier (`"bash"`, `"read"`, `"todowrite"`) is accepted.
+/// On both opening and unnamed update frames, Antigravity's `"Running <tool>"` and
+/// `"Run <tool>?"` wrappers are unwrapped when `<tool>` is a tool identifier.
+fn title_tool_name(title: &str, allow_bare: bool) -> Option<&str> {
+    if allow_bare && is_tool_name(title) {
+        return Some(title);
+    }
+    let stripped = title
+        .strip_prefix("Running ")
+        .or_else(|| title.strip_prefix("Run ").and_then(|s| s.strip_suffix('?')))?;
+    is_prefixed_tool_name(stripped).then_some(stripped)
+}
+
+fn is_prefixed_tool_name(name: &str) -> bool {
+    if !is_tool_name(name) {
+        return false;
+    }
+    name.contains(['_', '-', '.'])
+        || matches!(
+            name,
+            "execute"
+                | "bash"
+                | "shell"
+                | "glob"
+                | "grep"
+                | "read"
+                | "write"
+                | "edit"
+                | "ls"
+                | "wait"
+                | "schedule"
+                | "task"
+                | "webfetch"
+                | "websearch"
+                | "todowrite"
+                | "todoread"
+                | "skill"
+        )
+}
+
+fn is_generated_title(title: &str, named: Option<&str>) -> bool {
+    named == Some(title)
+        || title_tool_name(title, false).is_some()
+        || parse_mcp_title(title).is_some()
+        || (title.starts_with("Run `") && title.ends_with("`?"))
+}
+
+fn parsed_raw_input(update: &Value) -> Option<Value> {
+    let raw = update.get("rawInput").filter(|input| !input.is_null())?;
+    if let Some(text) = raw.as_str() {
+        if let Ok(parsed @ Value::Object(_)) = serde_json::from_str::<Value>(text) {
+            return Some(parsed);
+        }
+    }
+    Some(raw.clone())
 }
 
 /// A title that is the very command the call runs is prose, however much it looks like a
 /// name: Codex titles `pwd` as `pwd`.
 fn is_its_command(update: &Value, title: &str) -> bool {
-    update
-        .get("rawInput")
-        .and_then(|input| input.get("command"))
-        .and_then(Value::as_str)
+    let Some(input) = update.get("rawInput") else {
+        return false;
+    };
+    ["command", "CommandLine", "command_line", "cmd"]
+        .iter()
+        .find_map(|k| input.get(*k).and_then(Value::as_str))
         == Some(title)
 }
 
@@ -256,12 +383,25 @@ fn is_tool_name(title: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
 }
 
-/// opman renders subagent launches as opencode's `task` tool, whatever the agent calls it.
-fn canonical(name: &str) -> String {
+/// opman renders subagent launches as opencode's `task` tool, whatever the agent calls it,
+/// and bare `execute` calls carrying `{code}` as `code_execute`.
+fn canonical(name: &str, update: &Value) -> String {
     match name {
         "Agent" | "Task" => "task".to_string(),
+        "execute" if has_code_input(update) => "code_execute".to_string(),
         other => other.to_string(),
     }
+}
+
+fn has_code_input(update: &Value) -> bool {
+    let Some(raw) = parsed_raw_input(update) else {
+        return false;
+    };
+    raw.get("code").is_some()
+        || raw
+            .get("arguments")
+            .and_then(|a| a.get("code"))
+            .is_some()
 }
 
 fn is_type(value: &Value, expected: &str) -> bool {
@@ -271,3 +411,7 @@ fn is_type(value: &Value, expected: &str) -> bool {
 #[cfg(test)]
 #[path = "tool_tests.rs"]
 mod tool_tests;
+
+#[cfg(test)]
+#[path = "tool_nested_tests.rs"]
+mod nested_tests;

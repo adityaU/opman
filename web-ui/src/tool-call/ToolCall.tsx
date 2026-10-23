@@ -21,8 +21,25 @@ import { useAutoOpen } from "../hooks/useAutoOpen";
 import { CodeModeCard } from "./CodeModeCard";
 import { isCodeModeTool } from "./codeModeParse";
 import { withReadableOutput } from "./opmanTools";
+import { NestedToolCalls } from "./NestedToolCalls";
 
-export const ToolCall = React.memo(function ToolCall({
+export const ToolCall = React.memo(function ToolCall(props: ToolCallProps) {
+  const content = <ToolCallBody {...props} />;
+  const name = props.part.tool || props.part.toolName || "";
+  const hasCodeInput =
+    name.toLowerCase() === "execute" &&
+    typeof (props.part.state?.input as Record<string, unknown> | undefined)?.code === "string";
+  if (
+    !props.part.toolChildren?.length ||
+    isCodeModeTool(name) ||
+    hasCodeInput ||
+    props.part.state?.output?.includes("<opman-code-calls>")
+  )
+    return content;
+  return <div>{content}<NestedToolCalls parts={props.part.toolChildren} /></div>;
+});
+
+function ToolCallBody({
   part: rawPart,
   childSession,
   subagentMessages,
@@ -117,7 +134,10 @@ export const ToolCall = React.memo(function ToolCall({
     );
   }
 
-  if (isCodeModeTool(toolName) || state?.output?.includes("<opman-code-calls>")) {
+  const isBareCodeExecute =
+    lname === "execute" &&
+    typeof (state?.input as Record<string, unknown> | undefined)?.code === "string";
+  if (isCodeModeTool(toolName) || isBareCodeExecute || state?.output?.includes("<opman-code-calls>")) {
     return <CodeModeCard part={part} />;
   }
 
@@ -248,4 +268,4 @@ export const ToolCall = React.memo(function ToolCall({
 
   // Everything else — generic MCP tool card (no raw JSON)
   return <GenericToolCard part={part} />;
-});
+}

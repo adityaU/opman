@@ -31,6 +31,9 @@ pub(crate) enum Commands {
     /// Run the Kanban MCP bridge (task lane/notes updates for launched tasks)
     McpKanban,
 
+    /// Run the authenticated opman Settings management MCP bridge
+    McpManagement,
+
     /// Run the browser MCP bridge (drives the workspace's browser panes)
     McpBrowser {
         /// Path to the project directory — its browser is the one the tools default to

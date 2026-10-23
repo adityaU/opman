@@ -38,6 +38,7 @@ pub struct AgentView {
     /// Inherited variables stripped from the child, on top of opman's own list.
     pub env_remove: Vec<String>,
     pub runner: String,
+    pub client_name: String,
     pub client_caps: ClientCaps,
     pub inject_mcp: bool,
     pub default_mode: String,
@@ -108,6 +109,7 @@ fn view(id: &str, entry: &AgentConfig, live: Liveness) -> AgentView {
         env_names: entry.env.keys().cloned().collect(),
         env_remove: entry.env_remove.clone(),
         runner: entry.runner.clone(),
+        client_name: entry.client_name.clone(),
         client_caps: entry.client_caps,
         inject_mcp: entry.inject_mcp,
         default_mode: entry.default_mode.clone(),

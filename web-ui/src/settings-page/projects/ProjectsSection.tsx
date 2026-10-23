@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { FolderGit2, Plus, Trash2 } from "lucide-react";
 import { fetchAppState, removeProject, type ProjectInfo } from "../../api";
 import { AddProjectModal } from "../../AddProjectModal";
+import { useSettingsRefresh } from "../useSettingsRefresh";
 
 function sessionCount(project: ProjectInfo): string {
   const count = project.session_count ?? project.sessions.length;
@@ -33,6 +34,7 @@ export function ProjectsSection({ onError }: ProjectsSectionProps) {
   useEffect(() => {
     void reload();
   }, [reload]);
+  useSettingsRefresh("projects", reload);
 
   const remove = async (index: number) => {
     setConfirming(null);

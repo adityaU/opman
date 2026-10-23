@@ -16,10 +16,14 @@ const LINE_LIMIT: usize = 2000;
 
 #[derive(Debug, Deserialize)]
 pub struct ReadArgs {
+    #[serde(alias = "file_path", alias = "filePath")]
     path: String,
     /// First line to return, counting from 1.
+    #[serde(alias = "start_line", alias = "startLine")]
     offset: Option<u64>,
     limit: Option<u64>,
+    #[serde(alias = "endLine")]
+    end_line: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -67,7 +71,10 @@ pub async fn run(workspace: &Workspace, args: ReadArgs) -> ToolResult {
     }
 
     let first = args.offset.unwrap_or(1).max(1);
-    let wanted = usize::try_from(args.limit.unwrap_or(DEFAULT_LINES as u64))
+    let computed_limit = args
+        .limit
+        .or_else(|| args.end_line.map(|end| end.saturating_sub(first) + 1));
+    let wanted = usize::try_from(computed_limit.unwrap_or(DEFAULT_LINES as u64))
         .unwrap_or(MAX_LINES)
         .clamp(1, MAX_LINES);
     let mut numbered = String::new();

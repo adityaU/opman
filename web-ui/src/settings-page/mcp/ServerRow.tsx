@@ -3,7 +3,7 @@ import { Lock, Pencil, RefreshCw, Trash2, Wrench } from "lucide-react";
 import type { McpServer } from "../../api/mcp";
 import { LoginFlow } from "./LoginFlow";
 import { originOf, statusOf } from "./status";
-import { ToolCatalog } from "./ToolCatalog";
+import { toolCatalogId, ToolCatalog } from "./ToolCatalog";
 
 /**
  * One declared server.
@@ -35,7 +35,12 @@ export function ServerRow(props: ServerRowProps) {
     <li className={busy ? "stg-row is-busy" : "stg-row"}>
       <div className="stg-row-main">
         <div className="stg-row-head">
-          <span className="stg-row-name">{server.name}</span>
+          <span className="stg-row-name" title={server.name}>
+            {server.name === "opman-management" ? "Opman management" : server.name}
+          </span>
+          {server.name === "opman-management" && (
+            <span className="stg-tag is-accent">settings and MCP tools</span>
+          )}
           <span className="stg-tag">{server.transport}</span>
           {server.builtin && <span className="stg-tag">built-in</span>}
           {server.proxied && (
@@ -95,6 +100,7 @@ export function ServerRow(props: ServerRowProps) {
           onClick={props.onShowTools}
           aria-label={`${showingTools ? "Hide" : "Show"} the tools ${server.name} offers`}
           aria-expanded={showingTools}
+          aria-controls={toolCatalogId(server.name)}
           title="Tools this server offers"
         >
           <Wrench size={14} />

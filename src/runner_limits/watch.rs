@@ -17,8 +17,8 @@ use serde_json::{json, Value};
 use crate::runner::{RunnerKind, RunnerRegistry};
 use crate::usage::types::Account;
 
-use super::choose::{choose, runner_level, Accounts, Level};
-use super::settings::{self, FallbackPair, LimitPolicy};
+use super::choose::{choose_for_model, runner_level, Accounts, Level};
+use super::settings::{self, FallbackPair, LimitPolicy, ModelRef};
 
 /// How often the accounts are re-read. The usage service caches for the same minute, so a
 /// browser asking in between costs nothing extra.
@@ -158,13 +158,12 @@ fn retarget(body: &mut Value, pair: &FallbackPair) {
     }
 }
 
-/// The runner a message to a low runner should go to instead, with `body` rewritten for
-/// it. `None` leaves the send alone: the policy is not "auto", the runner has room, or no
-/// pair of the user's list would get further.
-pub fn redirect(
+/// A model from saved session state fills in a send that omits its model choice.
+pub fn redirect_with_model(
     current: &RunnerKind,
     available: &[RunnerKind],
     body: &mut Value,
+    session_model: Option<&ModelRef>,
 ) -> Option<RunnerKind> {
     let settings = settings::global().get();
     if settings.policy != LimitPolicy::Auto {
@@ -173,7 +172,16 @@ pub fn redirect(
     let accounts = global().accounts();
     let now = Utc::now();
     let level = runner_level(current, &accounts, settings.near_percent, now)?;
-    let (kind, pair) = choose(&settings, current, level, available, &accounts, now)?;
+    let model = super::model_state::model_ref(body.get("model"));
+    let (kind, pair) = choose_for_model(
+        &settings,
+        current,
+        model.as_ref().or(session_model),
+        level,
+        available,
+        &accounts,
+        now,
+    )?;
     retarget(body, pair);
     Some(kind)
 }
@@ -191,10 +199,32 @@ pub async fn on_limit_hit(
         return None;
     }
     let current = registry.runner_for(session_id).await;
+    let mut model = if settings.model_sets.is_empty() {
+        None
+    } else {
+        registry
+            .messages(session_id, directory)
+            .await
+            .ok()
+            .as_ref()
+            .and_then(session_model)
+    };
+    if model.is_none() && !settings.model_sets.is_empty() {
+        model = registry
+            .session_engine(session_id, directory)
+            .await
+            .ok()
+            .and_then(|engine| engine.model)
+            .map(|model| ModelRef {
+                provider_id: String::new(),
+                model_id: model.as_str().into(),
+            });
+    }
     let accounts = global().accounts();
-    let (kind, pair) = choose(
+    let (kind, pair) = choose_for_model(
         &settings,
         &current,
+        model.as_ref(),
         Level::Out,
         &registry.available(),
         &accounts,
@@ -221,6 +251,8 @@ pub async fn on_limit_hit(
         }
     }
 }
+
+pub use super::model_state::session_model;
 
 #[cfg(test)]
 #[path = "watch_tests.rs"]

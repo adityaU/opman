@@ -17,13 +17,14 @@ import { fieldsOf, type Field } from "./schema";
 
 export interface ToolDefinitionProps {
   readonly tool: McpTool;
+  readonly id?: string;
 }
 
-export function ToolDefinition({ tool }: ToolDefinitionProps) {
+export function ToolDefinition({ tool, id }: ToolDefinitionProps) {
   const fields = fieldsOf(tool.inputSchema);
 
   return (
-    <div className="mcpt-def">
+    <div className="mcpt-def" id={id}>
       {tool.description && <p className="mcpt-def-prose">{tool.description}</p>}
 
       {fields.length === 0 ? (

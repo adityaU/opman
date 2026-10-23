@@ -15,6 +15,7 @@ import type { Appearance } from "./utils/appearance";
 import { useSettingsRoute } from "./settings-page";
 import { useKanbanViewState } from "./kanban/useKanbanViewState";
 import { useSessionTaskLinks } from "./sidebar/useSessionTaskLinks";
+import { useServerPreferences } from "./hooks/useServerPreferences";
 
 export function useChatBase() {
   // Latches once the app has painted for the first time; see the startup gate
@@ -97,6 +98,7 @@ export function useChatBase() {
   }, []);
 
   // ── Modals / Toast / Providers / Bookmarks ──
+  useServerPreferences(setAppearanceState, setThemeMode);
   const modalState = useModalState({ onOpen: sse.blockSessionAdoption });
   const { toasts, addToast, removeToast } = useToast();
   // A runner pick belongs to the session it was made on: if it outlived that

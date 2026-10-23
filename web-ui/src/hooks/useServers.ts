@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { SERVER_ID } from "../api/base";
 import { listServers, type ServerInfo } from "../api/servers";
+import { useSettingsRefresh } from "../settings-page/useSettingsRefresh";
 
 interface Snapshot {
   readonly servers: readonly ServerInfo[];
@@ -72,6 +73,7 @@ export interface ServersState {
 
 export function useServers(): ServersState {
   const state = useSyncExternalStore(subscribe, () => snapshot);
+  useSettingsRefresh("servers", refreshServers);
 
   useEffect(() => {
     if (snapshot.loaded || inflight) return;

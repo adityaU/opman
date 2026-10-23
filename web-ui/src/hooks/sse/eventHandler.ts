@@ -3,6 +3,8 @@ import type { SessionStats, ClientPresence, ThemePair } from "../../api";
 import { ACP_AGENTS_CHANGED } from "../../api/acp";
 import { MCP_SERVERS_CHANGED } from "../../api/mcp";
 import { RUNNER_LIMITS_CHANGED } from "../../api/runnerLimits";
+import { publishPreferences } from "../../api/preferences";
+import { SETTINGS_CHANGED } from "../../settings-page/useSettingsRefresh";
 import { SESSION_HANDOFF, type HandoffEvent } from "../../api/session";
 import { applyThemeToCss } from "../../utils/theme";
 import { getPersistedAppearance, resolveThemeColors, storeThemePair } from "../../utils/appearance";
@@ -575,6 +577,17 @@ export function setupAppSSEListeners(appSSE: EventSource, ctx: AppSSEContext): v
 
   appSSE.addEventListener("runner_limits_changed", () => {
     window.dispatchEvent(new CustomEvent(RUNNER_LIMITS_CHANGED));
+  });
+
+  appSSE.addEventListener("preferences_changed", (event: MessageEvent) => {
+    try { publishPreferences(JSON.parse(event.data)); } catch { /* Ignore malformed events. */ }
+  });
+
+  appSSE.addEventListener("settings_changed", (event: MessageEvent) => {
+    try {
+      window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED, { detail: JSON.parse(event.data) }));
+      ctx.refreshState();
+    } catch { /* Ignore malformed events. */ }
   });
 
   // Toast notifications from TUI

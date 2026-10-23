@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { AlertTriangle, ChevronRight, PlugZap, RotateCw } from "lucide-react";
-import type { McpCatalog, McpTool } from "../../api/mcp";
+import { AlertTriangle, ChevronRight, PlugZap, RotateCw, Search, X } from "lucide-react";
+import type { McpTool } from "../../api/mcp";
 import { signatureOf } from "./schema";
 import { ToolDefinition } from "./ToolDefinition";
 import { useServerTools } from "./useServerTools";
@@ -21,9 +21,14 @@ export interface ToolCatalogProps {
   readonly open: boolean;
 }
 
+export function toolCatalogId(name: string): string {
+  return `mcpt-list-${encodeURIComponent(name)}`;
+}
+
 export function ToolCatalog({ name, open }: ToolCatalogProps) {
   const { state, retry } = useServerTools(name, open);
   const [expanded, setExpanded] = useState<string>();
+  const [query, setQuery] = useState("");
 
   if (!open || !state) return null;
 
@@ -50,10 +55,23 @@ export function ToolCatalog({ name, open }: ToolCatalogProps) {
     return <Problem title={`${name} did not answer`} detail={catalog.reason} onRetry={retry} />;
   }
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const tools = normalizedQuery
+    ? catalog.tools.filter((tool) =>
+        [tool.name, tool.title, tool.description, signatureOf(tool.name, tool.inputSchema)]
+          .filter((value): value is string => typeof value === "string")
+          .some((value) => value.toLowerCase().includes(normalizedQuery)),
+      )
+    : catalog.tools;
+  const catalogId = toolCatalogId(name);
+
   return (
-    <div className="mcpt">
+    <section className="mcpt" aria-labelledby={`${catalogId}-heading`}>
+      <h3 className="mcpt-heading" id={`${catalogId}-heading`}>
+        {name === "opman-management" ? "Opman management tools" : `${name} tools`}
+      </h3>
       <p className="mcpt-status">
-        <Count tools={catalog.tools} />
+        <Count shown={tools.length} total={catalog.tools.length} />
         {catalog.server?.name && catalog.server.name !== name && (
           <span className="mcpt-ident">
             reported as {catalog.server.name}
@@ -68,43 +86,93 @@ export function ToolCatalog({ name, open }: ToolCatalogProps) {
           offers resources or prompts instead.
         </p>
       ) : (
-        <ul className="mcpt-list">
-          {catalog.tools.map((tool) => (
-            <ToolEntry
-              key={tool.name}
-              tool={tool}
-              open={expanded === tool.name}
-              onToggle={() =>
-                setExpanded((current) => (current === tool.name ? undefined : tool.name))
-              }
-            />
-          ))}
-        </ul>
+        <>
+          {catalog.tools.length > 8 && (
+            <div className="mcpt-filter">
+              <label className="mcpt-filter-label" htmlFor={`${catalogId}-search`}>
+                <Search size={14} aria-hidden="true" />
+                <span>Filter tools</span>
+              </label>
+              <div className="mcpt-filter-control">
+                <input
+                  id={`${catalogId}-search`}
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.currentTarget.value)}
+                  placeholder="Name or description"
+                  aria-controls={catalogId}
+                />
+                {query.trim() && (
+                  <button
+                    type="button"
+                    className="mcpt-filter-clear"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear tool filter"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {normalizedQuery && (
+                <span className="mcpt-filter-count" role="status" aria-live="polite">
+                  {tools.length} of {catalog.tools.length} tools
+                </span>
+              )}
+            </div>
+          )}
+          <div className="mcpt-results" id={catalogId}>
+            {tools.length === 0 ? (
+              <p className="mcpt-empty">No tools match “{query.trim()}”.</p>
+            ) : (
+              <ul className="mcpt-list" aria-label={`${name} tools`}>
+                {tools.map((tool) => (
+                  <ToolEntry
+                    key={tool.name}
+                    tool={tool}
+                    definitionId={`${catalogId}-${encodeURIComponent(tool.name)}`}
+                    open={expanded === tool.name}
+                    onToggle={() =>
+                      setExpanded((current) => (current === tool.name ? undefined : tool.name))
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
-    </div>
+    </section>
   );
 }
 
-function Count({ tools }: { readonly tools: readonly McpTool[] }) {
+function Count({ shown, total }: { readonly shown: number; readonly total: number }) {
   return (
     <>
-      <strong>{tools.length}</strong> {tools.length === 1 ? "tool" : "tools"}
+      <strong>{shown}</strong> of {total} {total === 1 ? "tool" : "tools"}
     </>
   );
 }
 
 function ToolEntry({
   tool,
+  definitionId,
   open,
   onToggle,
 }: {
   readonly tool: McpTool;
+  readonly definitionId: string;
   readonly open: boolean;
   readonly onToggle: () => void;
 }) {
   return (
     <li className={open ? "mcpt-item is-open" : "mcpt-item"}>
-      <button type="button" className="mcpt-item-head" onClick={onToggle} aria-expanded={open}>
+      <button
+        type="button"
+        className="mcpt-item-head"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={definitionId}
+      >
         <ChevronRight size={13} className="mcpt-chevron" aria-hidden="true" />
         <span className="mcpt-item-text">
           <code className="mcpt-sig">{signatureOf(tool.name, tool.inputSchema)}</code>
@@ -113,7 +181,7 @@ function ToolEntry({
           )}
         </span>
       </button>
-      {open && <ToolDefinition tool={tool} />}
+      {open && <ToolDefinition tool={tool} id={definitionId} />}
     </li>
   );
 }

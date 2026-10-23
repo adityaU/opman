@@ -9,6 +9,44 @@
 
 use std::path::{Path, PathBuf};
 
+/// Publish the local capability without making it readable by other OS users.
+pub(crate) fn publish(port: u16, token: &str) {
+    let Some(path) = descriptor_path() else {
+        return;
+    };
+    if let Err(error) = publish_to(&path, port, token) {
+        tracing::error!(%error, "Cannot publish authenticated opman endpoint");
+    }
+}
+
+fn publish_to(path: &Path, port: u16, token: &str) -> anyhow::Result<()> {
+    use std::io::Write;
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("No descriptor directory"))?;
+    std::fs::create_dir_all(parent)?;
+    let temporary = parent.join(format!(".internal-{:032x}.json", rand::random::<u128>()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temporary)?;
+    let result = (|| -> anyhow::Result<()> {
+        let payload = serde_json::json!({"url":format!("http://127.0.0.1:{port}"),"token":token});
+        file.write_all(serde_json::to_string(&payload)?.as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
+}
+
 /// Where the web server publishes its loopback URL and token.
 pub fn descriptor_path() -> Option<PathBuf> {
     Some(dirs::config_dir()?.join("opman").join("internal.json"))

@@ -76,6 +76,7 @@ fn a_save_is_read_back_by_a_new_store() {
             model: None,
             permission: Some("read-only".into()),
         }],
+        model_sets: vec![],
     };
     store.set(next.clone()).expect("saves");
     assert_eq!(*store.get(), next);

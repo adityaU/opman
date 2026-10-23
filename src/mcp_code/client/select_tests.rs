@@ -8,17 +8,27 @@ fn stdio(name: &str) -> ServerSpec {
 }
 
 #[test]
-fn the_exclusion_list_is_explicit() {
-    for name in ["code", "ask", "ui", "agent-manager", "kanban"] {
+fn only_code_is_excluded_to_prevent_recursion() {
+    for name in ["code"] {
         assert!(Excluded::names(name), "{name}");
     }
-    for name in ["time", "terminal", "opman-tools", "skills", "browser"] {
+    for name in [
+        "ask",
+        "ui",
+        "agent-manager",
+        "kanban",
+        "time",
+        "terminal",
+        "opman-tools",
+        "skills",
+        "browser",
+    ] {
         assert!(!Excluded::names(name), "{name}");
     }
 }
 
 #[test]
-fn excluded_and_hidden_servers_are_not_mounted() {
+fn only_code_and_explicitly_hidden_servers_are_not_mounted() {
     let hidden = ServerConfig {
         code_mode: Some(false),
         ..ServerConfig::default()
@@ -27,15 +37,15 @@ fn excluded_and_hidden_servers_are_not_mounted() {
     .expect("patched");
     let registry = McpRegistry::from_specs(
         vec![
-            stdio("time"),
             stdio("ask"),
+            stdio("time"),
             stdio("code"),
             stdio("opman-tools"),
             hidden,
         ],
     );
     let pool = pool_from_registry(&registry, "/work", None);
-    assert_eq!(pool.namespaces(), ["time", "opman_tools"]);
+    assert_eq!(pool.namespaces(), ["ask", "time", "opman_tools"]);
 }
 
 #[test]

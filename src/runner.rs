@@ -16,13 +16,16 @@ use serde_json::{json, Value};
 use tokio::sync::{broadcast, RwLock};
 
 pub type RunnerFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+pub use choice::RunnerDisabled;
 pub use opman_backend_contracts::{
     is_valid_acp_id, register_acp_runners, ProjectDirectory, RunnerKind, SessionId,
 };
-pub use choice::RunnerDisabled;
 
 #[path = "runner_choice.rs"]
 mod choice;
+
+#[path = "runner_dispatch.rs"]
+mod dispatch;
 
 /// The result of asking a runner slot to be available for use.
 ///
@@ -803,6 +806,7 @@ pub struct RunnerRegistry {
     preferred: std::sync::RwLock<Option<RunnerKind>>,
     runners: std::sync::RwLock<RunnerMap>,
     bindings: RwLock<HashMap<String, Binding>>,
+    handoff_guards: dispatch::guard::HandoffGuards,
     /// Called once for each runner that starts after boot.
     ///
     /// Almost everything looks a runner up per request and so needs no telling. The SSE
@@ -822,6 +826,7 @@ impl RunnerRegistry {
             preferred: std::sync::RwLock::new(None),
             runners: std::sync::RwLock::new(Arc::new(runners)),
             bindings: RwLock::new(HashMap::new()),
+            handoff_guards: dispatch::guard::HandoffGuards::default(),
             on_runner_started: std::sync::RwLock::new(Vec::new()),
         }
     }
@@ -1200,129 +1205,6 @@ impl RunnerRegistry {
     pub async fn commands(&self, kind: RunnerKind, directory: &str) -> Result<Value> {
         self.catalog(kind, directory, |runner, dir| runner.commands(dir))
             .await
-    }
-
-    pub async fn send_message(
-        &self,
-        session_id: &str,
-        directory: &str,
-        requested: Option<RunnerKind>,
-        body: Value,
-    ) -> Result<SendOutcome> {
-        // A session an automatic switch moved on is answered where it continues, so a
-        // caller still holding the old id (kanban, the agent-manager) does not fork it again.
-        let forwarded = match requested {
-            Some(_) => None,
-            None => crate::runner_limits::watch::global().forward_of(session_id),
-        };
-        let moved = forwarded.is_some();
-        let session_id = forwarded.as_deref().unwrap_or(session_id);
-        let (session_id, directory) = validate_location(session_id, directory)?;
-        let logical_session_id = session_id.to_string();
-        let directory = directory
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("project directory is not valid UTF-8"))?;
-        let current = self.binding(&logical_session_id, directory).await;
-        // A send that names no runner goes elsewhere when the user asked opman to move
-        // sessions off a runner that is running low.
-        let mut body = body;
-        let redirected = match requested {
-            Some(_) => None,
-            None => crate::runner_limits::redirect(&current.runner, &self.available(), &mut body),
-        };
-        let automatic = redirected.is_some();
-        let target_kind = requested
-            .or(redirected)
-            .unwrap_or_else(|| current.runner.clone());
-        let target = self
-            .runner(&target_kind)
-            .context("requested runner is not available")?;
-        // Refuse before anything is read or created: a handoff into a disabled runner would
-        // otherwise read the whole transcript only to fail at the last step.
-        if target.is_disabled() {
-            return Err(RunnerDisabled::new(target_kind).into());
-        }
-        if target_kind == current.runner {
-            let response = target
-                .send_message(&current.physical_id, directory, body)
-                .await?;
-            return Ok(SendOutcome {
-                session_id: logical_session_id,
-                runner: target_kind,
-                switched: moved,
-                response,
-            });
-        }
-
-        let history = self
-            .runner(&current.runner)
-            .context("current runner is not available")?
-            .messages(&current.physical_id, &current.directory)
-            .await?;
-        let transcript = crate::runner_handoff::render_transcript(&history);
-        let user_text = extract_text(&body);
-        let handoff = crate::runner_handoff::build_prompt(
-            &current.runner.display_name(),
-            &transcript,
-            &user_text,
-        );
-        let session = target.create_session(directory, "Handoff session").await?;
-        let mut handoff_body = body;
-        handoff_body["parts"] = json!([{ "type": "text", "text": handoff }]);
-        self.carry_permission(&target_kind, directory, &session.id, &mut handoff_body)
-            .await;
-        let response = target
-            .send_message(&session.id, directory, handoff_body)
-            .await?;
-        self.bindings.write().await.insert(
-            session.id.clone(),
-            Binding {
-                runner: target_kind.clone(),
-                physical_id: session.id.clone(),
-                directory: directory.to_string(),
-            },
-        );
-        if automatic {
-            crate::runner_limits::watch::global().record_forward(&logical_session_id, &session.id);
-        }
-        Ok(SendOutcome {
-            session_id: session.id,
-            runner: target_kind,
-            switched: true,
-            response,
-        })
-    }
-
-    /// Carry the composer's permission mode onto a freshly created handoff session.
-    ///
-    /// A mode is a name in one runner's vocabulary — `bypassPermissions` means nothing to
-    /// codex — so one the target does not publish is dropped rather than forwarded: an
-    /// unrecognised mode is stored, pushed and silently ignored, and the handed-off session
-    /// spends the conversation asking for permissions the user already granted. One the
-    /// target does publish is also recorded on the session, so it outlives the first turn
-    /// the way it would have on the runner the user chose it on.
-    async fn carry_permission(
-        &self,
-        kind: &RunnerKind,
-        directory: &str,
-        session_id: &str,
-        body: &mut Value,
-    ) {
-        let Some(object) = body.as_object_mut() else {
-            return;
-        };
-        let Some(requested) = object.get("permission").and_then(Value::as_str) else {
-            return;
-        };
-        let offered = self.permission_modes(kind.clone(), directory).await;
-        if !offered.is_empty() && !offered.iter().any(|mode| mode == requested) {
-            object.remove("permission");
-            return;
-        }
-        let choices = crate::app::EngineChoices::from_parts(None, None, None, Some(requested));
-        if let Ok(runner) = self.runner(kind) {
-            let _ = runner.configure(session_id, directory, &choices).await;
-        }
     }
 
     /// Run a slash command on the runner that owns this session.

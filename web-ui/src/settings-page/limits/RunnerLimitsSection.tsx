@@ -12,6 +12,7 @@ import {
 import { useLimitPolicy, type LimitPolicy } from "../../runner-limit/limitPolicy";
 import { FallbackAdder } from "./FallbackAdder";
 import { FallbackPermission } from "./FallbackPermission";
+import { ModelSetsSection } from "./ModelSetsSection";
 
 const POLICIES: readonly [LimitPolicy, string][] = [
   ["ask", "Ask me"],
@@ -21,7 +22,7 @@ const POLICIES: readonly [LimitPolicy, string][] = [
 
 const POLICY_NOTES: Record<LimitPolicy, string> = {
   ask: "The composer shows a note with the runner to move to. Nothing changes until you pick it.",
-  auto: "opman moves the chat to the first runner in your list that has room — also with no browser open. With an empty list, it only suggests one.",
+  auto: "opman moves the chat to the first runner with room in the matching model set or fallback list — also with no browser open. Without either, it only suggests one.",
   off: "No warnings. A turn that fails on a limit still shows its error.",
 };
 
@@ -102,6 +103,8 @@ export function RunnerLimitsSection({ runners }: RunnerLimitsSectionProps) {
           Checked against the tightest window of the runner's plan (5-hour, weekly…), every minute.
         </p>
       </section>
+
+      <ModelSetsSection runners={runners} />
 
       <section className="stg-card">
         <div className="stg-card-head">

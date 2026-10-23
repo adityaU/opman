@@ -270,3 +270,75 @@ fn settle_only_moves_a_running_tool_part() {
     let mut text = json!({"type":"text","text":"hi"});
     assert!(!settle(&mut text, 99));
 }
+
+#[test]
+fn antigravity_running_titles_and_mcp_meta_map_to_named_tools_and_clean_outputs() {
+    let mut view = tool_part();
+    merge(
+        &mut view,
+        &json!({
+            "sessionUpdate": "tool_call",
+            "title": "Running view_file",
+            "kind": "read",
+            "status": "completed",
+            "rawInput": {
+                "AbsolutePath": "/workspace/src/main.rs",
+                "StartLine": 1,
+                "EndLine": 10,
+                "content": "fn main() {}\n"
+            }
+        }),
+    );
+    assert_eq!(view["tool"], "view_file");
+    assert!(view["state"].get("title").is_none());
+    assert_eq!(view["state"]["input"]["file_path"], "/workspace/src/main.rs");
+    assert_eq!(view["state"]["output"], "fn main() {}\n");
+    assert!(view["state"]["input"].get("content").is_none());
+
+    let mut cmd = tool_part();
+    merge(
+        &mut cmd,
+        &json!({
+            "sessionUpdate": "tool_call",
+            "title": "cargo test",
+            "kind": "execute",
+            "status": "completed",
+            "_meta": { "prompt": "Run test suite" },
+            "rawInput": { "CommandLine": "cargo test", "WorkingDir": "/workspace" },
+            "rawOutput": {
+                "commandLine": "cargo test",
+                "workingDir": "/workspace",
+                "exitCode": 0,
+                "exit_code": 0,
+                "combinedOutput": "test result: ok.\n"
+            }
+        }),
+    );
+    assert_eq!(cmd["tool"], "bash");
+    assert_eq!(cmd["state"]["input"]["command"], "cargo test");
+    assert_eq!(cmd["state"]["input"]["cwd"], "/workspace");
+    assert_eq!(cmd["state"]["output"], "test result: ok.\n");
+    assert_eq!(cmd["state"]["metadata"]["exit"], 0);
+
+    let mut mcp = tool_part();
+    merge(
+        &mut mcp,
+        &json!({
+            "sessionUpdate": "tool_call",
+            "title": "opman-code: execute (Running execute)",
+            "kind": "other",
+            "status": "in_progress",
+            "_meta": {
+                "is_mcp_tool_call": true,
+                "mcp": { "server": "opman-code", "tool": "execute" }
+            },
+            "rawInput": {
+                "arguments": { "code": "return 1" },
+                "code": "return 1"
+            }
+        }),
+    );
+    assert_eq!(mcp["tool"], "mcp__opman-code__execute");
+    assert!(mcp["state"].get("title").is_none());
+    assert_eq!(mcp["state"]["input"], json!({ "code": "return 1" }));
+}

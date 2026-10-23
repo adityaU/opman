@@ -51,8 +51,9 @@ pub async fn run_mcp_code_bridge(project_path: PathBuf) -> anyhow::Result<()> {
         .to_string_lossy()
         .into_owned();
     let session = std::env::var(SESSION_ENV).ok().filter(|id| !id.is_empty());
-    // Every built-in is visible to the registry here; `eligible` decides what is mounted.
-    let registry = crate::mcp_registry::McpRegistry::load();
+    // Code mode is the management gateway: it sees every built-in even when a runner
+    // setting currently keeps that server out of direct MCP registration.
+    let registry = crate::mcp_registry::McpRegistry::load_for_code_mode();
     let pool = client::pool_from_registry(&registry, &directory, session.as_deref());
     serve(
         Arc::new(pool),

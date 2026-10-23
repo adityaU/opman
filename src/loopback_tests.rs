@@ -53,3 +53,20 @@ fn descriptor_path_ends_at_the_published_file() {
     let path = descriptor_path().expect("a config dir exists on this platform");
     assert!(path.ends_with("opman/internal.json"), "{path:?}");
 }
+
+#[cfg(unix)]
+#[test]
+fn published_capability_is_private_even_when_replacing_an_old_public_file() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("internal.json");
+    std::fs::write(&path, "old token")?;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644))?;
+    publish_to(&path, 12345, "new private token")?;
+    let mode = std::fs::metadata(&path)?.permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600);
+    let parsed: serde_json::Value = serde_json::from_slice(&std::fs::read(&path)?)?;
+    assert_eq!(parsed["token"], "new private token");
+    assert_eq!(std::fs::read_dir(dir.path())?.count(), 1);
+    Ok(())
+}

@@ -9,7 +9,9 @@ const MAX_FILES: usize = 1000;
 
 #[derive(Debug, Deserialize)]
 pub struct GlobArgs {
+    #[serde(alias = "query", alias = "file_pattern")]
     pattern: String,
+    #[serde(alias = "search_directory", alias = "directory")]
     path: Option<String>,
 }
 

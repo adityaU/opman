@@ -75,7 +75,7 @@ export function followSession(node: Node, from: string, to: string): Node {
   for (const pane of panes(node)) {
     const widget = pane.widget;
     if (widget?.kind !== "chat" || widget.sessionId !== from) continue;
-    root = openWidget(root, pane.id, { ...widget, sessionId: to });
+    root = openWidget(root, pane.id, { ...widget, sessionId: to, engine: null });
   }
   return root;
 }

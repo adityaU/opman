@@ -7,6 +7,7 @@ import {
 import type { ConfigDiagnostic, KeybindingsConfig } from "../keybindings/config";
 import { DEFAULT_CONFIG } from "../keybindings/config";
 import type { BindingSpec, CommandId, Mode } from "../keybindings/types";
+import { useSettingsRefresh } from "../settings-page/useSettingsRefresh";
 
 /**
  * Editing state for the keybindings view.
@@ -65,6 +66,7 @@ export function useKeybindingsEditor(): KeybindingsEditor {
   }, []);
 
   useEffect(() => reload(), [reload]);
+  useSettingsRefresh("keybindings", reload);
 
   /**
    * Persist optimistically: the local config updates first so the table never

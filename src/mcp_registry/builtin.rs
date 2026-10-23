@@ -27,7 +27,7 @@ pub fn is_off_until_enabled(name: &str) -> bool {
 
 /// Names opman ships. The settings page marks these as toggleable but not removable:
 /// deleting the config entry only restores the built-in.
-pub const BUILTIN_NAMES: [&str; 11] = [
+pub const BUILTIN_NAMES: [&str; 12] = [
     "terminal",
     "neovim",
     "time",
@@ -39,6 +39,7 @@ pub const BUILTIN_NAMES: [&str; 11] = [
     "browser",
     "opman-tools",
     "code",
+    "opman-management",
 ];
 
 pub fn is_builtin(name: &str) -> bool {
@@ -55,6 +56,16 @@ pub fn is_builtin(name: &str) -> bool {
 pub fn servers(exe: &str) -> Vec<ServerSpec> {
     let session = || (SESSION_ENV.into(), Arg::SessionId);
     let mut specs = Vec::with_capacity(BUILTIN_NAMES.len());
+    specs.push(
+        ServerSpec::stdio(
+            "opman-management",
+            exe,
+            vec![Arg::lit("mcp-management")],
+            Vec::new(),
+        )
+        .with_presence(Presence::LoopbackDescriptor)
+        .with_timeout(PROXY_TIMEOUT_SECS),
+    );
 
     specs.push(ServerSpec::stdio(
         "terminal",

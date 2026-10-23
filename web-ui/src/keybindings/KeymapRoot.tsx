@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   KEYBINDINGS_CHANGED,
   loadKeybindingsOrDefault,
+  publishKeybindings,
   type KeybindingsChanged,
 } from "../api/keybindings";
 import { DEFAULT_CONFIG } from "./config";
@@ -12,6 +13,7 @@ import { useDirectionalNav } from "./useDirectionalNav";
 import { useKeymapListener } from "./useKeymapListener";
 import { useSurfaceFocus } from "./useSurfaceFocus";
 import { PendingChordStrip, WhichKeyPanel } from "./which-key/WhichKeyPanel";
+import { useSettingsRefresh } from "../settings-page/useSettingsRefresh";
 
 /**
  * Mounts the keymap for the whole app.
@@ -23,6 +25,9 @@ import { PendingChordStrip, WhichKeyPanel } from "./which-key/WhichKeyPanel";
 
 export function KeymapRoot({ children }: { readonly children: ReactNode }) {
   const [config, setConfig] = useState<KeybindingsConfig>(DEFAULT_CONFIG);
+  useSettingsRefresh("keybindings", () => {
+    void loadKeybindingsOrDefault().then(response => publishKeybindings(response.config));
+  });
 
   useEffect(() => {
     let cancelled = false;

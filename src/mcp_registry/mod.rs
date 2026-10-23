@@ -53,6 +53,12 @@ impl McpRegistry {
         Self::from_config(config::load())
     }
 
+    /// Registry used by `mcp-code`. It keeps user-defined servers from the normal
+    /// configuration and adds every built-in so code mode can manage and enable them.
+    pub fn load_for_code_mode() -> Self {
+        Self::load().with_all_builtins()
+    }
+
     /// Just the built-ins, ignoring any user config. For tests and for callers that
     /// need a registry before the config directory is meaningful.
     pub fn builtins() -> Self {
@@ -126,6 +132,21 @@ impl McpRegistry {
     /// Every server, for the management API's listing.
     pub fn all(&self) -> impl Iterator<Item = &ServerSpec> {
         self.servers.iter()
+    }
+
+    fn with_all_builtins(mut self) -> Self {
+        let existing = std::mem::take(&mut self.servers);
+        let exe = self.exe.as_ref();
+        let mut merged = builtin::servers(exe);
+        for spec in existing {
+            if !merged.iter().any(|builtin| builtin.name() == spec.name()) {
+                merged.push(spec);
+            }
+        }
+        self.servers = merged.into_boxed_slice();
+        self.servers
+            .sort_by(|left, right| left.name().cmp(right.name()));
+        self
     }
 
     /// Look one server up by name, for the proxy and the management API.

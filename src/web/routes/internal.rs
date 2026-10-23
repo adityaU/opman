@@ -7,6 +7,7 @@ pub(super) fn internal_routes() -> Router<super::super::types::ServerState> {
     // Internal loopback API for opman's own stdio MCP servers. It uses the
     // shared token checked by the handlers, not the browser AuthUser extractor.
     Router::new()
+        .route("/management", post(super::management::call))
         .route("/ask", post(handlers::internal_ask))
         .route("/browser", post(handlers::internal_browser))
         .route("/scheduler", post(handlers::internal_scheduler))

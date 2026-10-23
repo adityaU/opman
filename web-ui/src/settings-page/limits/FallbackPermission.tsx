@@ -31,16 +31,17 @@ interface FallbackPermissionProps {
   readonly runner: string;
   readonly permission: string | null | undefined;
   readonly index: number;
+  readonly label?: string;
   readonly onChange: (permission: string | null) => void;
 }
 
-export function FallbackPermission({ runner, permission, index, onChange }: FallbackPermissionProps) {
+export function FallbackPermission({ runner, permission, index, onChange, label }: FallbackPermissionProps) {
   const { permissionModes, loading } = useProviders(runner);
   return (
     <label className="stg-field rlim-permission">
       <span className="stg-label">Permission</span>
       <PermissionSelect permission={permission} modes={permissionModes} loading={loading}
-        label={`Permission for fallback ${index + 1}, ${runnerLabel(runner)}`} onChange={onChange} />
+        label={label ?? `Permission for fallback ${index + 1}, ${runnerLabel(runner)}`} onChange={onChange} />
     </label>
   );
 }

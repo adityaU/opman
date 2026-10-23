@@ -15,6 +15,10 @@ export interface MessagePart {
   // Tool part (type: "tool") – actual API structure
   tool?: string;          // tool name, e.g. "neovim_neovim_edit_and_save"
   callID?: string;        // tool call ID
+  /** Explicit upstream parent call; never inferred from the JavaScript source. */
+  parentCallID?: string;
+  /** Children attached while arranging the transcript, without changing stored parts. */
+  toolChildren?: readonly MessagePart[];
   state?: ToolPartState;  // input/output/status
 
   // Step parts (type: "step-start" / "step-finish")

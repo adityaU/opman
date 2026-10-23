@@ -23,11 +23,14 @@ const PIPE_GRACE: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Deserialize)]
 pub struct BashArgs {
+    #[serde(alias = "cmd", alias = "command_line", alias = "CommandLine")]
     command: String,
+    #[serde(alias = "workdir", alias = "working_dir", alias = "workingDir")]
     cwd: Option<String>,
     timeout_ms: Option<u64>,
     /// Only for the user's activity log; it never changes what runs.
     #[allow(dead_code)]
+    #[serde(alias = "toolSummary")]
     description: Option<String>,
 }
 

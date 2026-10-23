@@ -22,6 +22,8 @@ pub(crate) async fn put_runner_limits(
     _auth: AuthUser,
     Json(next): Json<LimitSettings>,
 ) -> Result<Json<LimitSettings>, (StatusCode, String)> {
+    next.validate()
+        .map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
     let saved = settings::global()
         .set(next)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;

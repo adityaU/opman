@@ -26,11 +26,23 @@ describe("files read inside code mode", () => {
     }
   });
 
-  it("ignores other tools and text files", () => {
+  it("ignores unrelated tools", () => {
     const { container } = render(<>
-      <CodeReadPreview call={inner("opman_tools.write_file", { path: "a.png" })} />
-      <CodeReadPreview call={inner("opman_tools.read_file", { path: "a.rs" })} />
+      <CodeReadPreview call={inner("opman_tools.bash", { command: "pwd" })} />
     </>);
     expect(container.textContent).toBe("");
+  });
+
+  it("highlights text files and edits inside execute", () => {
+    const read = inner("opman_tools.read_file", { path: "a.rs" });
+    read.output.text = JSON.stringify({ path: "a.rs", content: "let count = 1;" });
+    const { container } = render(<>
+      <CodeReadPreview call={read} />
+      <CodeReadPreview call={inner("opman_tools.edit_file", {
+        path: "a.rs", old_string: "let count = 1;", new_string: "let count = 2;",
+      })} />
+    </>);
+    expect(container.querySelector(".token.keyword")).toHaveTextContent("let");
+    expect(container.querySelector(".added .token.number")).toHaveTextContent("2");
   });
 });

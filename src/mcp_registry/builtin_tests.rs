@@ -18,6 +18,7 @@ fn every_builtin_is_declared_in_a_stable_order() {
     assert_eq!(
         names(),
         [
+            "opman-management",
             "terminal",
             "neovim",
             "time",

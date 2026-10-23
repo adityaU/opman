@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlignJustify, Rows2, Rows3, Search } from "lucide-react";
 import { fetchThemes, switchTheme } from "../api";
 import type { ThemeColors, ThemePreview } from "../api";
-import { applyThemeToCss } from "../utils/theme";
+import { applyThemeToCss, THEME_CHANGED_EVENT } from "../utils/theme";
 import {
   activeThemeName,
   applyAppearanceClass,
@@ -17,6 +17,7 @@ import { applyThemeMode, persistThemeMode } from "../theme-selector/persistence"
 import type { ThemeMode } from "../theme-selector/persistence";
 import { applyDensity, loadDensity, persistDensity } from "../utils/density";
 import type { Density } from "../utils/density";
+import { savePreferences, PREFERENCES_CHANGED, parsePreferences } from "../api/preferences";
 
 /**
  * Density picker.
@@ -30,6 +31,11 @@ const DENSITIES: readonly [Density, typeof Rows3, string, string][] = [
   ["default", Rows2, "Default", "12px between surfaces"],
   ["roomy", AlignJustify, "Roomy", "20px between surfaces"],
 ];
+
+function reportPreferenceError(cause: unknown): void {
+  const message = cause instanceof Error ? cause.message : "Could not save appearance settings.";
+  window.dispatchEvent(new CustomEvent("opman:toast", { detail: { message, level: "error" } }));
+}
 
 function DensitySwitcher({
   value,
@@ -91,6 +97,14 @@ export function AppearanceSection(props: AppearanceSectionProps) {
   // cursor onto a different palette.
   const activeRef = useRef(activeName);
   activeRef.current = activeName;
+  useEffect(() => {
+    const changed = () => {
+      const name = activeThemeName();
+      setActiveName(name);
+    };
+    window.addEventListener(THEME_CHANGED_EVENT, changed);
+    return () => window.removeEventListener(THEME_CHANGED_EVENT, changed);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -167,6 +181,7 @@ export function AppearanceSection(props: AppearanceSectionProps) {
       onAppearanceChange(next);
       applyAppearanceClass(next);
       persistAppearance(next);
+      void savePreferences({ appearance: next }).catch(reportPreferenceError);
       // Repaint on the shown palette so a light/dark switch stays truthful.
       const shown = themes.find((theme) => theme.name === (cursor || activeName));
       if (shown) applyThemeToCss(previewColors(shown, next));
@@ -179,6 +194,7 @@ export function AppearanceSection(props: AppearanceSectionProps) {
       onThemeModeChange(mode);
       applyThemeMode(mode);
       persistThemeMode(mode);
+      void savePreferences({ themeMode: mode }).catch(reportPreferenceError);
     },
     [onThemeModeChange],
   );
@@ -187,11 +203,20 @@ export function AppearanceSection(props: AppearanceSectionProps) {
   // know it — it lives on <html> as a custom property and the cascade does the
   // rest, so lifting it into App would buy nothing.
   const [density, setDensity] = useState<Density>(loadDensity);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const next = parsePreferences((event as CustomEvent).detail);
+      if (next.density) setDensity(next.density);
+    };
+    window.addEventListener(PREFERENCES_CHANGED, changed);
+    return () => window.removeEventListener(PREFERENCES_CHANGED, changed);
+  }, []);
 
   const changeDensity = useCallback((next: Density) => {
     setDensity(next);
     applyDensity(next);
     persistDensity(next);
+    void savePreferences({ density: next }).catch(reportPreferenceError);
   }, []);
 
   return (

@@ -2,6 +2,15 @@
 
 use super::*;
 
+#[test]
+fn client_name_can_be_changed_from_settings() -> anyhow::Result<()> {
+    let mut target = AgentPatch::default();
+    let request: UpsertAgent = serde_json::from_value(serde_json::json!({"clientName":"opman"}))?;
+    apply(&mut target, request).map_err(|status| anyhow::anyhow!(status.to_string()))?;
+    assert_eq!(target.client_name.as_deref(), Some("opman"));
+    Ok(())
+}
+
 fn body(json: serde_json::Value) -> UpsertAgent {
     serde_json::from_value(json).expect("deserialize body")
 }

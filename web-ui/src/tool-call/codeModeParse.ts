@@ -18,12 +18,15 @@ export interface CodeResult {
   calls: InnerCall[];
 }
 
-const OPEN = "<opman-code-calls>";
-const CLOSE = "</opman-code-calls>";
+const RECORDS = /<opman-code-calls>([\s\S]*?)<\/opman-code-calls>/g;
 
 export function isCodeModeTool(name: string): boolean {
-  return /^(?:mcp__)?code(?:__|_)execute$/i.test(name)
-    || /^mcp__opman[-_]code__execute$/i.test(name);
+  return /^(?:mcp__)?(?:opman[-_]code|code)(?:__|[_.])execute$/i.test(name.trim())
+    || isNodeReplTool(name);
+}
+
+export function isNodeReplTool(name: string): boolean {
+  return /^(?:mcp__)?node[-_]repl(?:__|[_.])js$/i.test(name.trim());
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -53,22 +56,29 @@ export function parseCodeResult(raw: string, metadata?: unknown): CodeResult {
   let recorded = calls(metadata);
   try {
     const parsed: unknown = JSON.parse(raw);
-    const content = object(parsed) ? parsed.content : parsed;
+    const envelope = object(parsed) && object(parsed.result) ? parsed.result : parsed;
+    const content = object(envelope) ? envelope.content : envelope;
     if (Array.isArray(content)) {
       output = content.filter(object).filter(block => block.type === "text")
         .map(block => typeof block.text === "string" ? block.text : "").join("\n");
     }
-    if (object(parsed)) recorded = calls(parsed.structuredContent) ?? recorded;
+    if (object(envelope)) recorded = calls(envelope.structuredContent) ?? recorded;
   } catch { /* Plain output is the usual ACP representation. */ }
 
-  const start = output.indexOf(OPEN);
-  const end = start < 0 ? -1 : output.indexOf(CLOSE, start + OPEN.length);
-  if (start < 0 || end < 0) return { output, calls: recorded ?? [] };
-  try {
-    const inner: unknown = JSON.parse(output.slice(start + OPEN.length, end));
-    recorded = calls(inner) ?? recorded;
-    if (recorded === null) return { output, calls: [] };
-    output = `${output.slice(0, start)}${output.slice(end + CLOSE.length)}`.trim();
-  } catch { /* Preserve malformed output for inspection. */ }
+  const markedCalls: InnerCall[] = [];
+  let found = false;
+  output = output.replace(RECORDS, (block, json: string) => {
+    try {
+      const inner = calls(JSON.parse(json));
+      if (inner === null) return block;
+      markedCalls.push(...inner);
+      found = true;
+      return "";
+    } catch { return block; }
+  });
+  if (found) {
+    recorded = markedCalls;
+    output = output.trim();
+  }
   return { output, calls: recorded ?? [] };
 }

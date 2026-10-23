@@ -10,6 +10,7 @@ import {
   type SkillDraft,
   type SkillSummary,
 } from "../../api/skills";
+import { useSettingsRefresh } from "../useSettingsRefresh";
 
 /**
  * The installed skills.
@@ -60,6 +61,7 @@ export function useSkills(onError: (message: string) => void): SkillsState {
       alive.current = false;
     };
   }, [refresh]);
+  useSettingsRefresh("skills", refresh);
 
   const load = useCallback(
     async (name: string) => {

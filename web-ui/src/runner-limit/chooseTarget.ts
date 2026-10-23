@@ -11,6 +11,7 @@ import type { UsageReport } from "../usage/usageClient";
 import { rankAlternatives, type Alternative } from "./alternatives";
 import type { FallbackModel, FallbackPair } from "./fallbacks";
 import type { LimitLevel } from "./limitState";
+import type { ModelSet } from "../api/runnerLimits";
 
 export type TargetSource = "preselected" | "suggested";
 
@@ -31,6 +32,8 @@ export interface TargetInput {
   readonly available: readonly string[];
   readonly now: number;
   readonly nearPercent: number;
+  readonly currentModel?: FallbackModel | null;
+  readonly modelSets?: readonly ModelSet[];
 }
 
 /** Every viable option, best first. Empty when there is nowhere better to go. */
@@ -41,11 +44,15 @@ export function limitOptions(input: TargetInput): LimitTarget[] {
   );
   const viable = new Map<string, Alternative>(ranked.map((alt) => [alt.runner, alt]));
   const options: LimitTarget[] = [];
-  for (const pair of input.pairs) {
+  const matchingSet = input.currentModel ? input.modelSets?.find(set => set.members.some(member =>
+    member.runner === input.current && member.model?.providerID === input.currentModel?.providerID
+      && member.model?.modelID === input.currentModel?.modelID)) : undefined;
+  for (const pair of matchingSet?.members ?? input.pairs) {
     const alt = viable.get(pair.runner);
     if (!alt) continue;
     options.push({ ...pair, source: "preselected", leftPercent: alt.leftPercent });
   }
+  if (matchingSet) return options;
   const listed = new Set(options.map((option) => option.runner));
   for (const alt of ranked) {
     if (listed.has(alt.runner)) continue;

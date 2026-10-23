@@ -26,6 +26,14 @@ export interface RunnerLimitSettings {
   /** Percent left at or under which a runner counts as running low. 1–99. */
   readonly nearPercent: number;
   readonly pairs: readonly FallbackPair[];
+  /** Absent only when connected to an older server. */
+  readonly modelSets?: readonly ModelSet[];
+}
+
+export interface ModelSet {
+  readonly id: string;
+  readonly name: string;
+  readonly members: readonly FallbackPair[];
 }
 
 /** Window event fired when another tab or device changed the settings. */

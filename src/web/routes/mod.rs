@@ -11,6 +11,9 @@ use super::types::ServerState;
 mod api;
 mod api_extra;
 mod internal;
+mod management;
+#[path = "../preferences.rs"]
+mod preferences;
 
 pub(super) fn build_router(state: ServerState) -> Router {
     let api_routes = api::api_routes();

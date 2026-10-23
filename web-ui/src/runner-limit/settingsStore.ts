@@ -40,7 +40,8 @@ const isPolicy = (value: unknown): value is LimitPolicy =>
 function isDefault(settings: RunnerLimitSettings): boolean {
   return settings.policy === DEFAULT_SETTINGS.policy
     && settings.nearPercent === DEFAULT_SETTINGS.nearPercent
-    && settings.pairs.length === 0;
+    && settings.pairs.length === 0
+    && !settings.modelSets?.length;
 }
 
 /** This browser's old copy, if it has one worth keeping. Clears it either way. */
@@ -87,9 +88,20 @@ export function getSettings(): RunnerLimitSettings {
 
 /** Apply an edit now and save it; a failed save puts the server's copy back. */
 export function updateSettings(change: Partial<RunnerLimitSettings>): void {
+  void saveSettings(change).catch(() => void reloadSettings());
+}
+
+/** Save with an error result for editors that must keep an unsaved draft visible. */
+export async function saveSettings(change: Partial<RunnerLimitSettings>): Promise<void> {
   const next = { ...snapshot, ...change };
   publish(next);
-  saveRunnerLimits(next).then(publish, () => void reloadSettings());
+  try {
+    const saved = await saveRunnerLimits(next);
+    if (snapshot === next) publish(saved);
+  } catch (error) {
+    if (snapshot === next) await reloadSettings();
+    throw error;
+  }
 }
 
 /** Tests only. */

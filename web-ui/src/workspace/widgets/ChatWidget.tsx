@@ -66,7 +66,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = function ChatWidget({
           switchRunner: controls.switchRunner,
         };
         const result = await services.send(target, text, images);
-        if (controls.switchRunner) controls.runnerSent();
+        if (result.ok && controls.switchRunner) controls.runnerSent();
         // A "new session" pane learns its id from its own first send, and a
         // runner switch moves the conversation to a new session. Either way the
         // pane binds to where the conversation now lives — otherwise a new pane

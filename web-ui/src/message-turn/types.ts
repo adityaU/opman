@@ -37,4 +37,5 @@ export const LANG_EXTENSIONS: Record<string, string> = {
   cpp: "cpp", c: "c", html: "html", css: "css", json: "json", yaml: "yml",
   toml: "toml", markdown: "md", bash: "sh", shell: "sh", sql: "sql",
   xml: "xml", jsx: "jsx", tsx: "tsx", php: "php", lua: "lua", zig: "zig",
+  md: "md", htm: "html", svg: "svg", csv: "csv", mermaid: "mmd", mmd: "mmd",
 };

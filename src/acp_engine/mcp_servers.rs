@@ -27,11 +27,21 @@ pub(super) struct McpCaps {
 
 impl McpCaps {
     pub(super) fn from_initialize(init: &Value) -> Self {
-        let caps = init.pointer("/agentCapabilities/mcpCapabilities");
+        let caps = [
+            "/agentCapabilities/mcpCapabilities",
+            "/agentCapabilities/mcp",
+            "/mcpCapabilities",
+            "/capabilities/mcpCapabilities",
+        ]
+        .into_iter()
+        .find_map(|path| init.pointer(path));
         let flag = |key: &str| {
-            caps.and_then(|caps| caps.get(key))
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
+            caps.and_then(|caps| caps.get(key)).is_some_and(|value| match value {
+                Value::Bool(value) => *value,
+                // A few ACP bridges publish capability objects instead of booleans.
+                Value::Object(_) => true,
+                _ => false,
+            })
         };
         Self {
             http: flag("http"),
@@ -41,6 +51,30 @@ impl McpCaps {
 
     fn remote(self) -> RemoteCaps {
         RemoteCaps::new(self.http, self.sse)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpCaps;
+    use serde_json::json;
+
+    #[test]
+    fn accepts_standard_and_bridge_capability_locations() {
+        for init in [
+            json!({"agentCapabilities":{"mcpCapabilities":{"http":true,"sse":true}}}),
+            json!({"agentCapabilities":{"mcp":{"http":true,"sse":true}}}),
+            json!({"mcpCapabilities":{"http":true,"sse":true}}),
+            json!({"capabilities":{"mcpCapabilities":{"http":true,"sse":true}}}),
+        ] {
+            assert_eq!(McpCaps::from_initialize(&init), McpCaps { http: true, sse: true });
+        }
+    }
+
+    #[test]
+    fn object_capabilities_are_supported() {
+        let init = json!({"agentCapabilities":{"mcpCapabilities":{"http":{},"sse":false}}});
+        assert_eq!(McpCaps::from_initialize(&init), McpCaps { http: true, sse: false });
     }
 }
 

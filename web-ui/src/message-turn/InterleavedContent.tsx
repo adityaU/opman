@@ -7,41 +7,14 @@ import type { MessagePart, Message, SessionInfo } from "./types";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
 import { ThinkingAccordion } from "./ThinkingAccordion";
 import { formatDuration } from "../tool-call/helpers";
-import { opmanDisplayName } from "../tool-call/opmanTools";
+import { isToolPart, toolDisplayName, toolType } from "./toolLabels";
+import { nestToolParts } from "./nestToolParts";
 
 type ToolEntry = {
   part: MessagePart;
   childSession: SessionInfo | null;
 };
 
-function isToolPart(part: MessagePart): boolean {
-  return part.type === "tool" || part.type === "tool-call" || part.type === "tool_call";
-}
-
-function toolType(part: MessagePart): string {
-  const raw = part as MessagePart & Record<string, unknown>;
-  const name = raw.tool || raw.toolName || raw.tool_name || raw.name || (raw.call as Record<string, unknown> | undefined)?.name;
-  if (typeof name !== "string" || !name.trim()) {
-    return "unknown:" + (part.id || part.callID || part.toolCallId || "part");
-  }
-
-  // opman's tools group with the built-ins of the same job, under the built-ins' names.
-  const normalized = (opmanDisplayName(name) ?? name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
-
-  // A ui_render call *is* its output — the rendered blocks are the point of it.
-  // Collapsing several into "3 Ui render calls" hides the only thing they
-  // produced, so each one gets a key of its own and can never join a run.
-  if (normalized.includes("ui_render") || normalized === "a2ui") {
-    return "a2ui:" + (part.id || part.callID || part.toolCallId || name);
-  }
-
-  const bashAliases = new Set(["bash", "shell", "sh", "zsh", "exec", "exec_command", "run_command", "command_execution", "terminal"]);
-  const leaf = normalized.split("_").filter(Boolean).pop() || normalized;
-  if (bashAliases.has(normalized) || bashAliases.has(leaf)) {
-    return "bash";
-  }
-  return normalized;
-}
 
 /**
  * The prose a soft part carries, or `null` if the part is not a prose part.
@@ -76,28 +49,6 @@ function isTransparentPart(part: MessagePart): boolean {
   return prose !== null && prose.trim() === "";
 }
 
-function toolLabel(name: string): string {
-  const label = name.replace(/[_-]+/g, " ").trim();
-  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Tool";
-}
-
-/**
- * The tool's name as its author wrote it.
- *
- * Grouping keys are normalised to lowercase so aliases collapse together, but
- * a name is not a key: rendering the key turned `TaskStop` into `Taskstop`.
- * Snake_case becomes words; anything that already carries capitals keeps them.
- */
-function toolDisplayName(part: MessagePart, type: string): string {
-  if (type === "bash") return "Bash";
-  const raw = part as MessagePart & Record<string, unknown>;
-  const name = raw.tool || raw.toolName || raw.tool_name || raw.name;
-  if (typeof name !== "string" || !name.trim()) return toolLabel(type);
-  const trimmed = opmanDisplayName(name) ?? name.trim();
-  if (/[_\-\s]/.test(trimmed)) return toolLabel(trimmed.toLowerCase());
-  if (/[A-Z]/.test(trimmed.slice(1))) return trimmed;
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-}
 
 function renderTool(entry: ToolEntry, key: string, subagentMessages?: Map<string, Message[]>, onOpenSession?: (sessionId: string) => void) {
   return (
@@ -201,11 +152,12 @@ function groupDuration(entries: ToolEntry[]): number | null {
  * Task calls still consume child sessions while the group is being built.
  */
 export function renderInterleavedContent(
-  allParts: { part: MessagePart; msgIdx: number }[],
+  rawParts: { part: MessagePart; msgIdx: number }[],
   childSessions: SessionInfo[],
   subagentMessages?: Map<string, Message[]>,
   onOpenSession?: (sessionId: string) => void,
 ) {
+  const allParts = nestToolParts(rawParts);
   const elements: React.ReactNode[] = [];
   let currentTextChunks: string[] = [];
   let key = 0;

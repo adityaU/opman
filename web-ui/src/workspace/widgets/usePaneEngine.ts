@@ -70,8 +70,8 @@ export function usePaneEngine(
 
   // Read the live engine through a ref so the setters keep one identity — the
   // composer's chip row is memoised on them.
-  const latest = useRef({ engine, sessionId });
-  latest.current = { engine, sessionId };
+  const latest = useRef({ engine, sessionId, switchRunner });
+  latest.current = { engine, sessionId, switchRunner };
 
   const patch = useCallback(
     (change: Partial<PaneEngine>, choices: Partial<EngineChoices>) => {
@@ -79,7 +79,8 @@ export function usePaneEngine(
       const target = latest.current.sessionId;
       // A failed write is not worth interrupting the user for: the same values ride along
       // with the next send, which is the path that always worked.
-      if (target) void setSessionEngine(target, choices).catch(() => {});
+      // The pending target's model and permission must never configure the source.
+      if (target && !latest.current.switchRunner) void setSessionEngine(target, choices).catch(() => {});
     },
     [paneId, services],
   );

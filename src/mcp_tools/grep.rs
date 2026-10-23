@@ -37,7 +37,9 @@ pub enum OutputMode {
 
 #[derive(Debug, Deserialize)]
 pub struct GrepArgs {
+    #[serde(alias = "query", alias = "search_pattern")]
     pattern: String,
+    #[serde(alias = "search_path", alias = "directory")]
     path: Option<String>,
     glob: Option<String>,
     #[serde(default)]

@@ -64,10 +64,16 @@ impl Kind {
 pub enum Shape {
     /// `mcp__<server>__<tool>`: the card reads the MCP arguments themselves.
     Mcp,
-    /// Read / LS: a `file_path`.
+    /// Read / LS: a `file_path` or `path`.
     File,
     /// Edit / Write: a `file_path` plus the before and after text.
     Diff,
+    /// Bash / RunCommand: `command`, `cwd`, `description`.
+    Exec,
+    /// Grep / Glob / WebSearch: `pattern` or `query`, `path`.
+    Search,
+    /// WebFetch / ReadUrlContent: `url`.
+    Fetch,
     /// Anything else, whose input is used as the agent sent it.
     Native,
 }
@@ -75,8 +81,24 @@ pub enum Shape {
 impl Shape {
     pub fn of(tool: &str) -> Self {
         match tool {
-            "read" | "ls" => Self::File,
-            "edit" | "write" => Self::Diff,
+            "read" | "ls" | "view_file" | "client_view_file" | "read_file" | "list_directory"
+            | "list_dir" => Self::File,
+            "edit"
+            | "write"
+            | "edit_file"
+            | "client_edit_file"
+            | "create_file"
+            | "client_create_file"
+            | "write_file"
+            | "write_to_file"
+            | "replace_file_content"
+            | "multi_replace_file_content" => Self::Diff,
+            "bash" | "run_command" | "shell" | "exec_command" => Self::Exec,
+            "grep" | "glob" | "grep_search" | "search_directory" | "code_search"
+            | "find_by_name" | "find_file" | "find_files" | "search_web" | "websearch" => {
+                Self::Search
+            }
+            "webfetch" | "web_fetch" | "read_url_content" | "url_context" => Self::Fetch,
             mcp if mcp.starts_with("mcp__") => Self::Mcp,
             _ => Self::Native,
         }
@@ -85,35 +107,210 @@ impl Shape {
 
 /// Fill `state.input` with the fields the tool's card reads, from what this frame carried.
 pub fn fill_input(state: &mut Map<String, Value>, shape: Shape, update: &Value) {
-    if matches!(shape, Shape::Native) {
+    let has_output = state
+        .get("output")
+        .and_then(Value::as_str)
+        .is_some_and(|s| !s.is_empty());
+    let input = state.entry("input").or_insert_with(|| json!({}));
+    if input.as_object().is_none() {
         return;
     }
-    let input = state.entry("input").or_insert_with(|| json!({}));
+    unwrap_mcp_arguments(input, shape, update);
     let Some(fields) = input.as_object_mut() else {
         return;
     };
-    if let Shape::Mcp = shape {
-        // Codex wraps an MCP call's arguments as `{server, tool, arguments}`.
-        if fields.contains_key("server") {
-            if let Some(arguments) = fields.remove("arguments") {
-                *input = arguments;
-            }
+    match shape {
+        Shape::Mcp | Shape::Native => {}
+        Shape::File => fill_file_input(fields, update, has_output),
+        Shape::Diff => fill_diff_input(fields, update),
+        Shape::Exec => fill_exec_input(fields),
+        Shape::Search => fill_search_input(fields),
+        Shape::Fetch => {
+            alias(fields, &["Url"], "url");
+        }
+    }
+}
+
+fn unwrap_mcp_arguments(input: &mut Value, shape: Shape, update: &Value) {
+    let is_mcp = matches!(shape, Shape::Mcp)
+        || update
+            .pointer("/_meta/is_mcp_tool_call")
+            .and_then(Value::as_bool)
+            == Some(true);
+    if !is_mcp {
+        return;
+    }
+    let Some(fields) = input.as_object_mut() else {
+        return;
+    };
+    // Codex wraps an MCP call's arguments as `{server, tool, arguments}`.
+    if fields.contains_key("server") {
+        if let Some(arguments) = fields.remove("arguments") {
+            *input = arguments;
         }
         return;
     }
-    if ["file_path", "filePath", "path"]
-        .iter()
-        .any(|key| fields.contains_key(*key))
-    {
-        return;
+    // Antigravity spreads arguments into `rawInput` alongside `"arguments": {...}`.
+    if let Some(Value::Object(nested)) = fields.remove("arguments") {
+        for (k, v) in nested {
+            fields.entry(k).or_insert(v);
+        }
     }
-    if let Shape::Diff = shape {
+}
+
+fn fill_file_input(fields: &mut Map<String, Value>, update: &Value, has_output: bool) {
+    if !has_any(fields, &["file_path", "filePath", "path"]) {
+        if !alias(
+            fields,
+            &["AbsolutePath", "absolute_path", "TargetFile", "target_file"],
+            "file_path",
+        ) {
+            alias(fields, &["DirectoryPath", "directory_path"], "path");
+        }
+    }
+    alias(fields, &["StartLine"], "start_line");
+    alias(fields, &["EndLine"], "end_line");
+    if has_output {
+        for key in ["content", "entries", "results"] {
+            fields.remove(key);
+        }
+    }
+    if !has_any(fields, &["file_path", "filePath", "path"]) {
+        if let Some(path) = first_location(update) {
+            fields.insert("file_path".into(), path.clone());
+        }
+    }
+}
+
+fn fill_diff_input(fields: &mut Map<String, Value>, update: &Value) {
+    if !has_any(fields, &["file_path", "filePath", "path"]) {
+        alias(
+            fields,
+            &["TargetFile", "target_file", "AbsolutePath", "absolute_path"],
+            "file_path",
+        );
+    }
+    alias(fields, &["CodeContent", "code_content", "file_text"], "content");
+    alias(
+        fields,
+        &["TargetContent", "target_content", "old_str", "oldText"],
+        "old_string",
+    );
+    alias(
+        fields,
+        &[
+            "ReplacementContent",
+            "replacement_content",
+            "new_str",
+            "newText",
+        ],
+        "new_string",
+    );
+    if !fields.contains_key("edits") {
+        if let Some(chunks) = fields
+            .get("ReplacementChunks")
+            .or_else(|| fields.get("replacement_chunks"))
+            .and_then(Value::as_array)
+        {
+            let edits: Vec<Value> = chunks
+                .iter()
+                .filter_map(|chunk| {
+                    let old = chunk
+                        .get("TargetContent")
+                        .or_else(|| chunk.get("target_content"))
+                        .or_else(|| chunk.get("old_string"))?
+                        .as_str()?;
+                    let new = chunk
+                        .get("ReplacementContent")
+                        .or_else(|| chunk.get("replacement_content"))
+                        .or_else(|| chunk.get("new_string"))?
+                        .as_str()?;
+                    Some(json!({ "old_string": old, "new_string": new }))
+                })
+                .collect();
+            if !edits.is_empty() {
+                fields.insert("edits".into(), Value::Array(edits));
+            }
+        }
+    }
+    if !has_any(
+        fields,
+        &["old_string", "new_string", "content", "edits", "diff"],
+    ) {
         fill_from_diffs(fields, update);
-        return;
     }
-    if let Some(path) = first_location(update) {
-        fields.insert("file_path".into(), path.clone());
+    if !has_any(fields, &["file_path", "filePath", "path"]) {
+        if let Some(path) = first_location(update) {
+            fields.insert("file_path".into(), path.clone());
+        }
     }
+}
+
+fn fill_exec_input(fields: &mut Map<String, Value>) {
+    if !has_any(fields, &["command", "cmd"]) {
+        alias(fields, &["CommandLine", "command_line"], "command");
+    }
+    alias(
+        fields,
+        &[
+            "WorkingDir",
+            "workingDir",
+            "working_dir",
+            "DirectoryPath",
+            "directory",
+        ],
+        "cwd",
+    );
+    alias(fields, &["toolSummary"], "description");
+}
+
+fn fill_search_input(fields: &mut Map<String, Value>) {
+    if !has_any(fields, &["pattern", "query"]) {
+        alias(
+            fields,
+            &[
+                "SearchPattern",
+                "search_pattern",
+                "Pattern",
+                "Query",
+                "file_pattern",
+            ],
+            "pattern",
+        );
+    }
+    alias(fields, &["Query"], "query");
+    alias(
+        fields,
+        &[
+            "SearchPath",
+            "search_path",
+            "SearchDirectory",
+            "search_directory",
+            "DirectoryPath",
+            "directory_path",
+        ],
+        "path",
+    );
+    for key in ["results", "files", "output"] {
+        fields.remove(key);
+    }
+}
+
+fn has_any(fields: &Map<String, Value>, keys: &[&str]) -> bool {
+    keys.iter().any(|k| fields.contains_key(*k))
+}
+
+fn alias(fields: &mut Map<String, Value>, from: &[&str], to: &str) -> bool {
+    if fields.contains_key(to) {
+        return true;
+    }
+    for key in from {
+        if let Some(val) = fields.get(*key).filter(|v| !v.is_null()).cloned() {
+            fields.insert(to.into(), val);
+            return true;
+        }
+    }
+    false
 }
 
 /// Turn ACP diff blocks into Edit / Write / MultiEdit arguments.
@@ -122,8 +319,10 @@ fn fill_from_diffs(fields: &mut Map<String, Value>, update: &Value) {
     let Some(first) = diffs.first() else {
         return;
     };
-    if let Some(path) = first.get("path") {
-        fields.insert("file_path".into(), path.clone());
+    if !has_any(fields, &["file_path", "filePath", "path"]) {
+        if let Some(path) = first.get("path") {
+            fields.insert("file_path".into(), path.clone());
+        }
     }
     if diffs.len() > 1 {
         let edits = diffs.into_iter().map(hunk).collect();

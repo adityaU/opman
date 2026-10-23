@@ -1,0 +1,116 @@
+/* MCP settings tool catalog. All colors come from theme tokens so the same
+   controls work in glassy and flat themes. */
+
+.mcpt-heading {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.mcpt-filter {
+    display: grid;
+    grid-template-columns: auto minmax(160px, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: 620px;
+}
+
+.mcpt-filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.mcpt-filter-label svg {
+    flex: 0 0 auto;
+}
+
+.mcpt-filter-control {
+    position: relative;
+    min-width: 0;
+}
+
+.mcpt-filter-control input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 34px;
+    padding: var(--space-1-5) 34px var(--space-1-5) var(--space-2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius);
+    background: var(--color-bg-element);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.mcpt-filter-control input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+}
+
+.mcpt-filter-control input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.mcpt-filter-control input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.mcpt-filter-clear {
+    position: absolute;
+    top: 50%;
+    right: var(--space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.mcpt-filter-clear:hover {
+    background: var(--theme-surface-hover);
+    color: var(--color-text);
+}
+
+.mcpt-filter-clear:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.mcpt-filter-count {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xs);
+    white-space: nowrap;
+}
+
+.mcpt-item-head:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+@media (max-width: 560px) {
+    .mcpt-filter {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .mcpt-filter-label {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mcpt-item {
+        transition: none;
+    }
+}

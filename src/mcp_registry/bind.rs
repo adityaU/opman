@@ -24,6 +24,10 @@ impl<'a> Bind<'a> {
     pub fn new(exe: &'a str, dir: &'a str, session: Option<&'a str>) -> Self {
         Self { exe, dir, session }
     }
+
+    pub(crate) fn dir(self) -> &'a str {
+        self.dir
+    }
 }
 
 /// Which remote transports the target runner can dial for itself. Anything it cannot

@@ -620,16 +620,16 @@ async fn an_unadopted_session_still_hands_off_when_a_runner_is_named(
         .sessions
         .write()
         .await
-        .insert("orphan".into(), json!([]));
+        .insert("unadopted_orphan".into(), json!([]));
     let outcome = registry
         .send_message(
-            "orphan",
+            "unadopted_orphan",
             "/project",
             Some(RunnerKind::Claude),
             json!({ "parts": [{ "type": "text", "text": "resume" }] }),
         )
         .await?;
     assert!(outcome.switched);
-    assert_ne!(outcome.session_id, "orphan");
+    assert_ne!(outcome.session_id, "unadopted_orphan");
     Ok(())
 }

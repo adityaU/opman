@@ -15,10 +15,13 @@ pub const CALLS_OPEN: &str = "<opman-code-calls>";
 pub const CALLS_CLOSE: &str = "</opman-code-calls>";
 
 pub fn to_mcp(report: &Report, max_result: usize) -> Value {
-    let (main, failed) = main_text(&report.finish, max_result);
+    let (main, failed) = main_text(report, max_result);
     let mut model_text = main;
     if !report.logs.is_empty() {
-        model_text.push_str("\n\nConsole:\n");
+        if !model_text.is_empty() {
+            model_text.push_str("\n\n");
+        }
+        model_text.push_str("Console:\n");
         for line in &report.logs {
             model_text.push_str(&format!("[{}] {}\n", line.level, line.text));
         }
@@ -42,25 +45,62 @@ pub fn to_mcp(report: &Report, max_result: usize) -> Value {
     })
 }
 
-fn main_text(finish: &Finish, max_result: usize) -> (String, bool) {
-    match finish {
-        Finish::Value(text) if text.is_empty() => ("(the script returned nothing)".into(), false),
-        Finish::Value(text) => {
-            let (kept, cut) = truncate(text, max_result);
-            if !cut {
-                return (kept.to_string(), false);
+fn main_text(report: &Report, max_result: usize) -> (String, bool) {
+    match &report.finish {
+        Finish::Value(text) if text.is_empty() => {
+            if !report.calls.is_empty() {
+                let fallback = summarize_calls(&report.calls);
+                return truncate_with_note(&fallback, max_result);
             }
-            let note = format!(
-                "\n\n[output truncated: showing {} of {} bytes. Return less, or filter in code.]",
-                kept.len(),
-                text.len()
-            );
-            (format!("{kept}{note}"), false)
+            if !report.logs.is_empty() {
+                return (String::new(), false);
+            }
+            ("(the script returned nothing)".into(), false)
         }
+        Finish::Value(text) => truncate_with_note(text, max_result),
         Finish::Failed(failure) => (failure.to_string(), true),
         Finish::TimedOut => ("Execution timed out.".into(), true),
         Finish::Cancelled => ("Execution cancelled.".into(), true),
     }
+}
+
+fn truncate_with_note(text: &str, max_result: usize) -> (String, bool) {
+    let (kept, cut) = truncate(text, max_result);
+    if !cut {
+        return (kept.to_string(), false);
+    }
+    let note = format!(
+        "\n\n[output truncated: showing {} of {} bytes. Return less, or filter in code.]",
+        kept.len(),
+        text.len()
+    );
+    (format!("{kept}{note}"), false)
+}
+
+/// When a script executes tool calls without an explicit `return`, surface the last completed
+/// call's output (or a compact summary) so the model receives the result instead of nothing.
+fn summarize_calls(calls: &[CallRecord]) -> String {
+    if let [single] = calls {
+        if !single.output.text.is_empty() {
+            return single.output.text.clone();
+        }
+    }
+    let mut lines = Vec::new();
+    for call in calls {
+        let status = if !call.finished {
+            "cancelled"
+        } else if call.ok {
+            "ok"
+        } else {
+            "error"
+        };
+        if call.output.text.is_empty() {
+            lines.push(format!("[{} ({status})]", call.tool));
+        } else {
+            lines.push(format!("[{} ({status})]\n{}", call.tool, call.output.text));
+        }
+    }
+    lines.join("\n\n")
 }
 
 /// The call log, as it appears in `structuredContent` and in the user-only block.

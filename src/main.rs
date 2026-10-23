@@ -27,6 +27,7 @@ mod mcp_ask;
 mod mcp_browser;
 mod mcp_code;
 mod mcp_kanban;
+mod mcp_management;
 mod mcp_neovim;
 mod mcp_oauth;
 mod mcp_probe;
@@ -99,6 +100,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::McpKanban) => {
             return mcp_kanban::run_mcp_kanban_bridge().await;
+        }
+        Some(Commands::McpManagement) => {
+            return mcp_management::run_bridge().await;
         }
         Some(Commands::McpBrowser { project_path }) => {
             return mcp_browser::run_mcp_browser_bridge(

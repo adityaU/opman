@@ -62,10 +62,11 @@ function detail(limit: RunnerLimit, now: number): string | null {
  */
 export function RunnerLimitBar(props: RunnerLimitBarProps) {
   const { sessionId, runner, availableRunners, messages, isBusy } = props;
-  const view = useRunnerLimit(sessionId, runner, availableRunners, messages);
+  const view = useRunnerLimit(sessionId, runner, availableRunners, messages, props.selectedModel);
   const { limit, options, policy, dismissed, dismiss } = view;
   const { switchTo, switching, error, clearError } = useLimitSwitch({
     currentRunner: runner,
+    hasSession: sessionId !== null,
     selectedModel: props.selectedModel,
     onRunnerChange: props.onRunnerChange,
     onModelSelected: props.onModelSelected,
@@ -87,7 +88,9 @@ export function RunnerLimitBar(props: RunnerLimitBarProps) {
   // Only a turn that failed and is not running can be re-sent; the prompt is the one it lost.
   const retryPrompt = !isBusy && limit.failed?.prompt ? limit.failed.prompt : null;
   const go = (target: LimitTarget) => {
-    switchTo({ ...target, permission }, retryPrompt);
+    const compatibleSource = permissionModes?.some(mode => mode.value === props.selectedPermission)
+      ? props.selectedPermission : null;
+    switchTo({ ...target, permission: permission ?? compatibleSource }, retryPrompt);
   };
 
   if (policy === "off" || dismissed) return null;
@@ -167,7 +170,7 @@ export function RunnerLimitBar(props: RunnerLimitBarProps) {
               </select>
             )}
             <button type="button" className="rlim-btn rlim-btn--primary"
-              disabled={switching || !permissionSupported || Boolean(permission && permissionsLoading)} onClick={() => go(chosen)}>
+              disabled={switching || !permissionSupported || permissionsLoading} onClick={() => go(chosen)}>
               {retryPrompt ? "Switch & retry" : "Switch"}
             </button>
           </>
