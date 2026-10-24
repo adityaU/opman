@@ -1,0 +1,162 @@
+name: Build release artifacts
+
+on:
+  workflow_call:
+    inputs:
+      source-ref:
+        description: Source ref for default-branch cache warm-ups
+        type: string
+        default: ''
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Build React frontend (platform-independent) ──────────
+  build-frontend:
+    runs-on: ubuntu-latest
+    outputs:
+      source-sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          show-progress: false
+          ref: ${{ inputs.source-ref || github.sha }}
+
+      - name: Pin source revision for all platform jobs
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web-ui/package-lock.json
+
+      - name: Install React UI npm deps
+        run: npm ci
+        working-directory: web-ui
+
+      - name: Build React UI
+        run: npm run build
+        working-directory: web-ui
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: frontend-dist
+          path: web-ui/dist/
+          retention-days: 1
+
+  # ── Build backend for each target ──────────────────────────────
+  build-backend:
+    needs: build-frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+          - runner: macos-14
+            target: x86_64-apple-darwin
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          show-progress: false
+          ref: ${{ needs.build-frontend.outputs.source-sha }}
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: frontend-dist
+          path: web-ui/dist
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.0
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          prefix-key: opman-rust-v1
+          shared-key: backend-${{ matrix.runner }}-${{ matrix.target }}
+          cache-bin: false
+
+      - name: Install zigbuild (Linux cross-compilation)
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - name: Install Zig (Linux cross-compilation)
+        if: runner.os == 'Linux'
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Build release binary
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: 1
+        run: |
+          set -euxo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            cargo zigbuild --locked --release --target "${{ matrix.target }}" -vv
+          else
+            cargo build --locked --release --target "${{ matrix.target }}" -vv
+          fi
+
+      - name: Package binary
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../opman-${{ matrix.target }}.tar.gz opman
+          cd ../../..
+          shasum -a 256 opman-${{ matrix.target }}.tar.gz > opman-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-${{ matrix.target }}
+          path: |
+            opman-${{ matrix.target }}.tar.gz
+            opman-${{ matrix.target }}.tar.gz.sha256
+          retention-days: 1
+
+  # ── Desktop apps (macOS + Windows) ─────────────────────
+  desktop:
+    needs: build-frontend
+    uses: ./.github/workflows/desktop.yml
+    with:
+      frontend-artifact: frontend-dist
+      source-ref: ${{ needs.build-frontend.outputs.source-sha }}
+    # Cache warm-ups must not receive signing credentials.
+    secrets:
+      APPLE_CERTIFICATE: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_CERTIFICATE || '' }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+      APPLE_SIGNING_IDENTITY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_SIGNING_IDENTITY || '' }}
+      APPLE_ID: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_ID || '' }}
+      APPLE_PASSWORD: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && secrets.APPLE_TEAM_ID || '' }}

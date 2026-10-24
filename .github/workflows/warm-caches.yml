@@ -1,0 +1,22 @@
+name: Warm build caches
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warm-build-caches-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    if: github.ref == 'refs/heads/master'
+    # Cache scope follows this workflow's master ref, while source and build
+    # definitions follow develop. No app-history merge or release is needed.
+    uses: adityaU/opman/.github/workflows/builds.yml@develop
+    with:
+      source-ref: develop
