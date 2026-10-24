@@ -9,8 +9,8 @@ const STYLE = { margin: 0, padding: 0, background: "transparent", fontFamily: "v
   fontSize: "inherit", whiteSpace: "pre-wrap" as const, overflowWrap: "anywhere" as const };
 
 export const BashOutput = React.memo(function BashOutput({
-  output, command = "", isLive = false,
-}: { output: string; command?: string; isLive?: boolean }) {
+  output, command = "", isLive = false, wrap = false,
+}: { output: string; command?: string; isLive?: boolean; wrap?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const formatted = useMemo(() => {
     const text = stripTerminalControls(output);
@@ -38,6 +38,7 @@ export const BashOutput = React.memo(function BashOutput({
       : formatted.text.length > 200_000
         ? <pre style={STYLE}>{formatted.text}</pre>
         : <SyntaxHighlighter language={formatted.language} useInlineStyles={false}
-            PreTag="div" customStyle={STYLE}>{formatted.text}</SyntaxHighlighter>}
+            PreTag="div" customStyle={STYLE}
+            codeTagProps={wrap ? { style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } } : undefined}>{formatted.text}</SyntaxHighlighter>}
   </div>;
 });

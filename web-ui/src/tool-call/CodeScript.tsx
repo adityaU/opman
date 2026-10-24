@@ -22,10 +22,11 @@ export function scriptArguments(input: Record<string, unknown> | string): Record
     : args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : input;
 }
 
-export function CodeScript({ input }: { input: Record<string, unknown> | string }) {
+export function CodeScript({ input, wrap = false }: { input: Record<string, unknown> | string; wrap?: boolean }) {
   const args = scriptArguments(input);
   const code = typeof args === "string" ? args : args.code ?? args.script;
   if (typeof code !== "string") return <InputView data={args} />;
   return <SyntaxHighlighter language="javascript" useInlineStyles={false}
-    PreTag="div" customStyle={STYLE}>{code}</SyntaxHighlighter>;
+    PreTag="div" customStyle={STYLE}
+    codeTagProps={wrap ? { style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } } : undefined}>{code}</SyntaxHighlighter>;
 }

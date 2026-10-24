@@ -7,6 +7,9 @@
 
 use serde_json::{json, Map, Value};
 
+#[path = "tool_output_result.rs"]
+mod result;
+
 /// The chunk channels an agent streams a command's output on. `terminal_output` is a whole
 /// snapshot; `terminal_output_delta` appends.
 enum Chunk<'a> {
@@ -37,8 +40,11 @@ pub fn raw_output(update: &Value) -> Option<String> {
         if let Some(cmd_out) = command_output(raw) {
             return (!cmd_out.is_empty()).then_some(cmd_out);
         }
-        if let Some(text) = mcp_text(raw) {
+        if let Some(text) = result::mcp_text(raw) {
             return Some(text);
+        }
+        if result::is_call_log(raw) {
+            return None;
         }
         if let Some(text) = content_text(update) {
             return Some(text);
@@ -163,8 +169,16 @@ fn local_step_output(update: &Value) -> Option<String> {
                         .or_else(|| r.get("file"))
                         .or_else(|| r.get("file_path"))
                         .and_then(Value::as_str)?;
-                    if let Some(line) = r.get("line").or_else(|| r.get("line_number")).and_then(Value::as_u64) {
-                        let text = r.get("text").or_else(|| r.get("content")).and_then(Value::as_str).unwrap_or("");
+                    if let Some(line) = r
+                        .get("line")
+                        .or_else(|| r.get("line_number"))
+                        .and_then(Value::as_u64)
+                    {
+                        let text = r
+                            .get("text")
+                            .or_else(|| r.get("content"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
                         Some(format!("{path}:{line}:{text}"))
                     } else {
                         Some(path.to_string())
@@ -236,6 +250,12 @@ pub fn finish(state: &mut Map<String, Value>) {
     }
 }
 
+/// Select output before terminal metadata is absorbed. Native rawOutput remains authoritative
+/// across later content-only frames, including frames received after completion.
+pub(super) fn merge_output(state: &mut Map<String, Value>, update: &Value) {
+    result::merge_output(state, update);
+}
+
 /// The exit code a finished command reported, if it was one.
 pub fn exit_code(state: &Map<String, Value>) -> Option<i64> {
     state.get("metadata")?.get("exit")?.as_i64()
@@ -258,36 +278,10 @@ fn command_exit_code(raw: &Value) -> Option<i64> {
         .as_i64()
 }
 
-/// An MCP `CallToolResult` (`{result: {content: [...]}, error}`, `{content: [...]}`, or
-/// `[{type: "text", text: "..."}]`) as its text.
-fn mcp_text(raw: &Value) -> Option<String> {
-    if let Some(error) = raw.get("error").filter(|e| !e.is_null()) {
-        return Some(match error.get("message").and_then(Value::as_str) {
-            Some(message) => message.to_string(),
-            None => error.to_string(),
-        });
-    }
-    let blocks = raw
-        .get("result")
-        .and_then(|r| r.get("content"))
-        .or_else(|| raw.get("content"))
-        .and_then(Value::as_array)
-        .or_else(|| {
-            raw.as_array().filter(|arr| {
-                !arr.is_empty()
-                    && arr
-                        .iter()
-                        .all(|b| b.get("type").and_then(Value::as_str).is_some())
-            })
-        })?;
-    let joined = blocks
-        .iter()
-        .filter_map(|b| b.get("text")?.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    Some(joined)
-}
-
 #[cfg(test)]
 #[path = "tool_output_tests.rs"]
 mod tool_output_tests;
+
+#[cfg(test)]
+#[path = "tool_output_result_tests.rs"]
+mod result_tests;

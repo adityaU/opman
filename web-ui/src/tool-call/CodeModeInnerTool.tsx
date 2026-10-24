@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight, CircleStop, X } from "lucide-react";
 import { OutputView } from "./GenericToolViews";
 import { formatDuration } from "./helpers";
 import { isCodeModeTool, parseCodeResult, type CappedText, type InnerCall } from "./codeModeParse";
@@ -14,7 +14,7 @@ function CallText({ label, value, shellCommand }: {
   return <div>
     <div className="gmc-section-label">{label}</div>
     {shellCommand !== undefined
-      ? <BashOutput output={value.text || "(empty)"} command={shellCommand} />
+      ? <BashOutput output={value.text || "(empty)"} command={shellCommand} wrap />
       : <OutputView output={value.text || "(empty)"} />}
     {value.truncated && <p className="tc-card-muted">{label} cut short ({value.bytes} bytes total).</p>}
   </div>;
@@ -35,7 +35,7 @@ function summarizeInput(inputText: string): string {
       args.url;
     if (typeof target === "string" && target.trim()) {
       const clean = target.trim();
-      return clean.length > 56 ? `${clean.slice(0, 56)}…` : clean;
+      return clean;
     }
   } catch { /* ignore */ }
   return "";
@@ -71,15 +71,20 @@ export function CodeModeInnerTool({ call, depth = 0 }: { call: InnerCall; depth?
       <span className="code-mode-call-name"><ChevronRight size={12} className="code-mode-call-chevron" aria-hidden="true" />
         <span className="code-mode-tool">{label}</span>
       </span>
-      {targetSummary && <span className="tc-card-muted code-mode-call-target">{targetSummary}</span>}
-      <span className={call.finished && !call.ok ? "tool-call-error-banner" : "tc-card-muted"}>
+      {targetSummary && <span className="code-mode-call-target" title={targetSummary}>{targetSummary}</span>}
+      <span className={`code-mode-call-meta${call.finished && !call.ok ? " is-error" : ""}`}>
+        {!call.finished ? <CircleStop size={12} aria-hidden="true" />
+          : call.ok ? <Check size={12} className="code-mode-call-success" aria-hidden="true" />
+          : <X size={12} aria-hidden="true" />}
         {status} · {formatDuration(call.durationMs)}
       </span>
     </summary>
     {opened && <div className="code-mode-call-body">
       {isCodeModeTool(call.tool)
-        ? <div><div className="gmc-section-label">Script</div><CodeScript input={call.input.text} /></div>
-        : <CallText label="Input" value={call.input} />}
+        ? <div><div className="gmc-section-label">Script</div><CodeScript input={call.input.text} wrap /></div>
+        : <details className="code-mode-arguments"><summary><ChevronRight size={10} aria-hidden="true" />Arguments</summary>
+          <CallText label="Input" value={call.input} />
+        </details>}
       {Boolean(result?.calls.length) && <section className="code-mode-children" aria-label="Internal tool calls">
         {result?.calls.map((child, index) => <CodeModeInnerTool key={index} call={child} depth={depth + 1} />)}
       </section>}
@@ -87,6 +92,9 @@ export function CodeModeInnerTool({ call, depth = 0 }: { call: InnerCall; depth?
         <CallText label={!call.finished || call.ok ? "Output" : "Error"} value={output} shellCommand={call.ok ? shellCommand : undefined} />
       )}
       <CodeReadPreview call={call} />
+      {(output.text !== call.output.text || richPreview) && <details className="code-mode-arguments">
+        <summary><ChevronRight size={10} aria-hidden="true" />Raw result</summary><pre className="code-mode-raw">{call.output.text}</pre>
+      </details>}
     </div>}
   </details>;
 }

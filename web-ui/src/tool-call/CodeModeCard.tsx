@@ -1,19 +1,21 @@
-import React, { useMemo, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 import "../styles/code-mode.css";
 import { ChevronDown, ChevronRight, Code2 } from "lucide-react";
 import type { MessagePart } from "../types";
 import { useAutoOpen } from "../hooks/useAutoOpen";
-import { OutputView } from "./GenericToolViews";
 import { TcStatus } from "./tcUtils";
 import { isNodeReplTool, parseCodeResult } from "./codeModeParse";
 import { CodeModeInnerTool } from "./CodeModeInnerTool";
 import { CodeScript } from "./CodeScript";
 import { NestedToolCalls } from "./NestedToolCalls";
+import { CodeModeResult } from "./CodeModeResult";
 
 export function CodeModeCard({ part }: { part: MessagePart }) {
   const name = part.tool || part.toolName || "code_execute";
   const { shouldAutoOpen } = useAutoOpen();
   const [expanded, setExpanded] = useState(() => shouldAutoOpen(name));
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const bodyId = useId();
   const state = part.state;
   const raw = state?.output || state?.metadata?.output || "";
   const result = useMemo(() => parseCodeResult(raw, state?.metadata?.structuredContent),
@@ -23,24 +25,27 @@ export function CodeModeCard({ part }: { part: MessagePart }) {
     ? state.time.end - state.time.start : null;
   const count = result.calls.length + (part.toolChildren?.length ?? 0);
   const showOutput = Boolean(result.output) || status === "completed";
-  return <div className={`gmc-card${status === "error" ? " gmc-card-error" : ""}`}>
+  return <div className={`gmc-card code-mode-card${status === "error" ? " gmc-card-error" : ""}`}>
     <button type="button" className="gmc-card-head gmc-card-head-btn"
-      aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+      aria-expanded={expanded} aria-controls={bodyId} onClick={() => setExpanded(value => !value)}>
       <span className="gmc-card-chevron">{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
       <Code2 size={12} className="gmc-card-icon" />
       <span className="gmc-card-name">{isNodeReplTool(name) ? "JavaScript" : "Execute"}</span>
       <span className="gmc-card-title">{count > 0 ? `${count} tool ${count === 1 ? "call" : "calls"}` : "Code mode"}</span>
       <span className="gmc-card-status"><TcStatus status={status} durationMs={duration} /></span>
     </button>
-    {expanded && <div className="gmc-card-body">
-      {state?.input && <div><div className="gmc-section-label">Script</div><CodeScript input={state.input} /></div>}
+    {expanded && <div className="gmc-card-body" id={bodyId}>
+      {state?.input && <details className="code-mode-script" onToggle={event => setScriptOpen(event.currentTarget.open)}>
+        <summary><ChevronRight size={12} aria-hidden="true" />View script{!isNodeReplTool(name) && <span>JavaScript</span>}</summary>
+        {scriptOpen && <div className="code-mode-script-source"><CodeScript input={state.input} wrap /></div>}
+      </details>}
       {result.calls.length > 0 && <section className="code-mode-children" aria-label="Internal tool calls">
-        <div className="gmc-section-label">Internal tool calls</div>
+        <div className="code-mode-section-title">Tool calls</div>
         {result.calls.map((call, index) => <CodeModeInnerTool key={index} call={call} />)}
       </section>}
       <NestedToolCalls parts={part.toolChildren} />
-      {showOutput && <section aria-label="Final code mode output"><div className="gmc-section-label">Final output</div><OutputView output={result.output || "(no output returned)"} /></section>}
       {state?.error && <div className="tool-call-error-banner">{state.error}</div>}
+      {showOutput && <CodeModeResult output={result.output} />}
     </div>}
   </div>;
 }
