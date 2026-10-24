@@ -10,6 +10,7 @@
 
 mod rpc;
 
+use std::borrow::Cow;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -37,7 +38,7 @@ const PROBE_SESSION: &str = "probe";
 /// The schema fields pass through untouched: the page renders a parameter table from
 /// `inputSchema` *and* offers the source, so anything dropped here would be a definition
 /// the user asked for and did not get.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ToolDef {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -93,12 +94,22 @@ pub enum Catalog {
 /// Ask one declared server for its tools.
 pub async fn catalog(registry: &McpRegistry, name: &str, dir: &str) -> Catalog {
     let at = registry.bind(dir, Some(PROBE_SESSION));
-    let Some(launch) = registry.stdio_launch(name, at) else {
+    let Some(mut launch) = registry.stdio_launch(name, at) else {
         return Catalog::Unavailable {
             reason: "This server is not launchable right now — its presence condition is \
                      unmet, or an argument references something that does not exist.",
         };
     };
+    if registry.get(name).is_some_and(|spec| {
+        matches!(
+            spec.transport(),
+            crate::mcp_registry::spec::Transport::Remote(_)
+        )
+    }) {
+        launch
+            .env
+            .push((crate::mcp_proxy::CODE_MODE_PROXY_ENV, Cow::Borrowed("1")));
+    }
     match tokio::time::timeout(PROBE_TIMEOUT, rpc::list_tools(&launch)).await {
         Ok(Ok(listing)) => Catalog::Listed {
             server: listing.server,

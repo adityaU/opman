@@ -56,7 +56,7 @@ impl McpRegistry {
     /// Registry used by `mcp-code`. It keeps user-defined servers from the normal
     /// configuration and adds every built-in so code mode can manage and enable them.
     pub fn load_for_code_mode() -> Self {
-        Self::load().with_all_builtins()
+        Self::from_config_for_code_mode(config::load())
     }
 
     /// Just the built-ins, ignoring any user config. For tests and for callers that
@@ -66,6 +66,14 @@ impl McpRegistry {
     }
 
     pub(crate) fn from_config(user: config::McpConfig) -> Self {
+        Self::merge_config(user, false)
+    }
+
+    fn from_config_for_code_mode(user: config::McpConfig) -> Self {
+        Self::merge_config(user, true)
+    }
+
+    fn merge_config(user: config::McpConfig, code_mode: bool) -> Self {
         let exe = current_exe();
         let mut builtins = builtin::servers(&exe);
         let mut specs: Vec<ServerSpec> = Vec::new();
@@ -78,17 +86,32 @@ impl McpRegistry {
                 .position(|spec| spec.name() == name.as_str())
             {
                 Some(index) if !entry.defines_transport() => {
-                    specs.extend(entry.patch(builtins.remove(index)));
+                    let builtin = builtins.remove(index);
+                    if code_mode {
+                        specs.extend(entry.patch_for_code_mode(builtin));
+                    } else {
+                        specs.extend(entry.patch(builtin));
+                    }
                 }
                 Some(index) => {
                     builtins.remove(index);
-                    specs.extend(entry.to_spec(name));
+                    specs.extend(if code_mode {
+                        entry.to_spec_for_code_mode(name)
+                    } else {
+                        entry.to_spec(name)
+                    });
                 }
-                None => specs.extend(entry.to_spec(name)),
+                None => specs.extend(if code_mode {
+                    entry.to_spec_for_code_mode(name)
+                } else {
+                    entry.to_spec(name)
+                }),
             }
         }
         // What is left has no entry of its own: the ones that need switching on stay out.
-        builtins.retain(|spec| !builtin::is_off_until_enabled(spec.name()));
+        if !code_mode {
+            builtins.retain(|spec| !builtin::is_off_until_enabled(spec.name()));
+        }
         specs.append(&mut builtins);
         specs.sort_by(|a, b| a.name().cmp(b.name()));
         Self {
@@ -132,21 +155,6 @@ impl McpRegistry {
     /// Every server, for the management API's listing.
     pub fn all(&self) -> impl Iterator<Item = &ServerSpec> {
         self.servers.iter()
-    }
-
-    fn with_all_builtins(mut self) -> Self {
-        let existing = std::mem::take(&mut self.servers);
-        let exe = self.exe.as_ref();
-        let mut merged = builtin::servers(exe);
-        for spec in existing {
-            if !merged.iter().any(|builtin| builtin.name() == spec.name()) {
-                merged.push(spec);
-            }
-        }
-        self.servers = merged.into_boxed_slice();
-        self.servers
-            .sort_by(|left, right| left.name().cmp(right.name()));
-        self
     }
 
     /// Look one server up by name, for the proxy and the management API.

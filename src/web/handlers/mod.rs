@@ -60,6 +60,9 @@ mod routines_handlers;
 mod search_handlers;
 mod session_engine;
 mod session_handlers;
+#[cfg(test)]
+#[path = "session_instruction_delivery_tests.rs"]
+mod session_instruction_delivery_tests;
 mod skills_archive;
 mod skills_handlers;
 pub use skills_archive::import_skills;

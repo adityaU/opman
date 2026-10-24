@@ -3362,7 +3362,7 @@ dependencies = [
 
 [[package]]
 name = "opman"
-version = "0.10.8"
+version = "0.10.9"
 dependencies = [
  "anyhow",
  "async-stream",

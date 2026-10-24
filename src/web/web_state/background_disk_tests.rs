@@ -51,7 +51,10 @@ fn lazy(kind: RunnerKind, store: SessionStore, starts: &Arc<AtomicUsize>) -> Arc
 fn registry(dir: &Path, starts: &Arc<AtomicUsize>) -> Arc<RunnerRegistry> {
     let (opencode, acp) = stores(dir);
     let mut runners = HashMap::new();
-    runners.insert(RunnerKind::Opencode, lazy(RunnerKind::Opencode, opencode, starts));
+    runners.insert(
+        RunnerKind::Opencode,
+        lazy(RunnerKind::Opencode, opencode, starts),
+    );
     runners.insert(RunnerKind::Claude, lazy(RunnerKind::Claude, acp, starts));
     Arc::new(RunnerRegistry::new(RunnerKind::Opencode, runners))
 }
@@ -65,7 +68,11 @@ async fn boot(handle: &WebStateHandle) -> StartupHydration {
 
 async fn ids(handle: &WebStateHandle) -> Vec<String> {
     let state = handle.inner.read().await;
-    state.projects[0].sessions.iter().map(|s| s.id.clone()).collect()
+    state.projects[0]
+        .sessions
+        .iter()
+        .map(|s| s.id.clone())
+        .collect()
 }
 
 #[tokio::test]
@@ -81,9 +88,19 @@ async fn boot_without_a_runner_lists_every_runner_from_disk_and_starts_none() {
     assert_eq!(listed, ["ses_acp", "ses_oc"]);
     {
         let state = handle.inner.read().await;
-        assert_eq!(state.session_runners.get("ses_acp").map(String::as_str), Some("claude"));
-        assert_eq!(state.session_runners.get("ses_oc"), None, "default rows carry no label");
-        assert_eq!(state.projects[0].active_session, None, "boot must not open a session");
+        assert_eq!(
+            state.session_runners.get("ses_acp").map(String::as_str),
+            Some("claude")
+        );
+        assert_eq!(
+            state.session_runners.get("ses_oc"),
+            None,
+            "default rows carry no label"
+        );
+        assert_eq!(
+            state.projects[0].active_session, None,
+            "boot must not open a session"
+        );
     }
 
     // An unstarted runner answers status with nothing running: disk rows are idle.
@@ -102,7 +119,9 @@ impl Runner for Live {
 
     fn sessions<'a>(&'a self, _: &'a str) -> RunnerFuture<'a, Vec<crate::app::SessionInfo>> {
         Box::pin(async {
-            Ok(vec![crate::web::test_support::test_session("ses_live", "", PROJECT, 30)])
+            Ok(vec![crate::web::test_support::test_session(
+                "ses_live", "", PROJECT, 30,
+            )])
         })
     }
 
@@ -137,7 +156,9 @@ async fn a_runner_starting_replaces_only_the_rows_it_owns() {
     boot(&handle).await;
 
     let live: Arc<dyn Runner> = Arc::new(Live);
-    handle.refresh_started_runner(&RunnerKind::Claude, &live).await;
+    handle
+        .refresh_started_runner(&RunnerKind::Claude, &live)
+        .await;
 
     let mut listed = ids(&handle).await;
     listed.sort();
@@ -181,6 +202,9 @@ async fn state_and_sessions_endpoints_serve_disk_sessions_before_any_runner_star
     .await;
     assert_eq!(status, axum::http::StatusCode::OK);
     let page: Value = serde_json::from_slice(&body).expect("json");
-    assert_eq!(page["sessions"][0]["id"], "ses_acp", "older row on the second page: {page}");
+    assert_eq!(
+        page["sessions"][0]["id"], "ses_acp",
+        "older row on the second page: {page}"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), 0);
 }

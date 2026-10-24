@@ -4,6 +4,7 @@ import type { McpServer } from "../../api/mcp";
 import { ServerForm } from "./ServerForm";
 import { ServerRow } from "./ServerRow";
 import { useMcpServers } from "./useMcpServers";
+import { CodeModeSettings } from "./CodeModeSettings";
 
 /**
  * MCP servers: the tools every runner can reach.
@@ -51,6 +52,7 @@ export function ServersSection({ onError, runners }: ServersSectionProps) {
 
   return (
     <div className="stg-stack">
+      {!state.loading && <CodeModeSettings servers={state.servers} busy={state.busy} save={state.save} />}
       <section className="stg-card">
         <div className="stg-card-head">
           <div>

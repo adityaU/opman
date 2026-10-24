@@ -2,10 +2,13 @@ import React from "react";
 import { Brain, ChevronDown } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { markdownComponents, REMARK_PLUGINS } from "./CodeBlock";
+import { useThinkingVisibility } from "../utils/thinkingVisibility";
 
 type Props = { text: string };
 
 export function ThinkingAccordion({ text }: Props) {
+  const showThinking = useThinkingVisibility();
+  if (!showThinking) return null;
   if (!text.trim()) return null;
   return (
     <details className="thinking-accordion">

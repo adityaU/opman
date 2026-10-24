@@ -43,6 +43,26 @@ fn parses_text_and_files_from_a_send_body() {
     assert_eq!(prompt.attachments[0].data, PNG);
 }
 
+/// ACP agents receive the same first-turn text that the web handler puts in `parts`.
+#[test]
+fn keeps_session_instructions_in_the_acp_text_block() {
+    let text = format!(
+        "{}\n- Style: Keep changes small\n\n{}\nBuild the feature",
+        crate::web::session_instructions::INSTRUCTIONS_MARKER,
+        crate::web::session_instructions::REQUEST_MARKER,
+    );
+    let prompt = Prompt::from_body(&body_with(vec![json!({ "type": "text", "text": text })]));
+    let blocks = prompt.content_blocks(NONE);
+
+    assert_eq!(blocks[0]["type"], "text");
+    assert!(blocks[0]["text"]
+        .as_str()
+        .is_some_and(|text| text.starts_with("[Session instructions]")));
+    assert!(blocks[0]["text"]
+        .as_str()
+        .is_some_and(|text| text.ends_with("Build the feature")));
+}
+
 /// The composer omits the text part when the user attaches without typing. That is still a
 /// turn, and treating it as empty is how an upload silently does nothing.
 #[test]

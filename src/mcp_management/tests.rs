@@ -24,6 +24,27 @@ fn management_catalog_covers_every_settings_section() {
 }
 
 #[test]
+fn mcp_upsert_schema_exposes_code_mode_controls() {
+    let operation = catalog::operations()
+        .into_iter()
+        .find(|operation| operation.name == "settings_mcp_upsert")
+        .expect("MCP upsert operation");
+    let schema = operation.definition()["inputSchema"].clone();
+    assert_eq!(
+        schema["properties"]["body"]["properties"]["codeMode"]["type"],
+        "boolean"
+    );
+    assert_eq!(
+        schema["properties"]["body"]["properties"]["codeModeDisabledTools"]["type"],
+        "array"
+    );
+    assert_eq!(
+        schema["properties"]["body"]["properties"]["codeModeDisabledTools"]["items"]["type"],
+        "string"
+    );
+}
+
+#[test]
 fn management_targets_cannot_escape_their_settings_route() -> anyhow::Result<()> {
     let operations = catalog::operations();
     let operation = operations

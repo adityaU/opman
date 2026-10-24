@@ -63,24 +63,6 @@ impl super::WebStateHandle {
         let _ = self.event_tx.send(WebEvent::StateChanged);
     }
 
-    /// Record that a session has been given its session instructions.
-    ///
-    /// Returns `true` the first time it is called for a session, so the caller
-    /// can claim delivery and inject in the same step without a second lookup.
-    pub async fn claim_instructions_delivery(&self, session_id: &str) -> bool {
-        let mut inner = self.inner.write().await;
-        inner.instructions_sent.insert(session_id.to_string())
-    }
-
-    /// Mark a session as already instructed without claiming a delivery.
-    ///
-    /// Used for a session discovered mid-conversation, and for the session a
-    /// handoff produced (its opening message already carried the block).
-    pub async fn mark_instructions_delivered(&self, session_id: &str) {
-        let mut inner = self.inner.write().await;
-        inner.instructions_sent.insert(session_id.to_string());
-    }
-
     /// Label a session with the runner that announced it, unless it already has
     /// a label.
     ///
@@ -299,72 +281,6 @@ impl super::WebStateHandle {
             }
             project.active_session = Some(session_id);
             let _ = self.event_tx.send(WebEvent::StateChanged);
-        }
-    }
-
-    /// Toggle a panel's visibility.
-    pub async fn toggle_panel(&self, panel: &str) -> bool {
-        let mut inner = self.inner.write().await;
-        let ok = match panel {
-            "Sidebar" | "sidebar" => {
-                inner.panels.sidebar = !inner.panels.sidebar;
-                true
-            }
-            "TerminalPane" | "terminal_pane" => {
-                inner.panels.terminal_pane = !inner.panels.terminal_pane;
-                true
-            }
-            "NeovimPane" | "neovim_pane" => {
-                inner.panels.neovim_pane = !inner.panels.neovim_pane;
-                true
-            }
-            "IntegratedTerminal" | "integrated_terminal" => {
-                inner.panels.integrated_terminal = !inner.panels.integrated_terminal;
-                true
-            }
-            "GitPanel" | "git_panel" => {
-                inner.panels.git_panel = !inner.panels.git_panel;
-                true
-            }
-            _ => false,
-        };
-        if ok {
-            let _ = self.event_tx.send(WebEvent::StateChanged);
-        }
-        ok
-    }
-
-    /// Set the focused panel.
-    pub async fn focus_panel(&self, panel: &str) -> bool {
-        let valid = matches!(
-            panel,
-            "Sidebar"
-                | "sidebar"
-                | "TerminalPane"
-                | "terminal_pane"
-                | "NeovimPane"
-                | "neovim_pane"
-                | "IntegratedTerminal"
-                | "integrated_terminal"
-                | "GitPanel"
-                | "git_panel"
-        );
-        if valid {
-            let mut inner = self.inner.write().await;
-            // Normalize to PascalCase
-            inner.focused = match panel {
-                "sidebar" => "Sidebar",
-                "terminal_pane" => "TerminalPane",
-                "neovim_pane" => "NeovimPane",
-                "integrated_terminal" => "IntegratedTerminal",
-                "git_panel" => "GitPanel",
-                other => other,
-            }
-            .to_string();
-            let _ = self.event_tx.send(WebEvent::StateChanged);
-            true
-        } else {
-            false
         }
     }
 }

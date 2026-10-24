@@ -4,6 +4,13 @@ import type { McpTool } from "../../api/mcp";
 import { signatureOf } from "./schema";
 import { ToolDefinition } from "./ToolDefinition";
 import { useServerTools } from "./useServerTools";
+import { CodeModeSwitch } from "./CodeModeSwitch";
+
+interface ToolControls {
+  readonly disabledTools: readonly string[];
+  readonly busy: boolean;
+  readonly onToggle: (tool: string, enabled: boolean) => void;
+}
 
 /**
  * What a server actually offers, under the row that declares it.
@@ -19,13 +26,14 @@ export interface ToolCatalogProps {
   readonly name: string;
   /** Mounted only while open — the probe launches a process, so it must not run early. */
   readonly open: boolean;
+  readonly controls?: ToolControls;
 }
 
 export function toolCatalogId(name: string): string {
   return `mcpt-list-${encodeURIComponent(name)}`;
 }
 
-export function ToolCatalog({ name, open }: ToolCatalogProps) {
+export function ToolCatalog({ name, open, controls }: ToolCatalogProps) {
   const { state, retry } = useServerTools(name, open);
   const [expanded, setExpanded] = useState<string>();
   const [query, setQuery] = useState("");
@@ -63,7 +71,7 @@ export function ToolCatalog({ name, open }: ToolCatalogProps) {
           .some((value) => value.toLowerCase().includes(normalizedQuery)),
       )
     : catalog.tools;
-  const catalogId = toolCatalogId(name);
+  const catalogId = `${toolCatalogId(name)}${controls ? "-code-mode" : ""}`;
 
   return (
     <section className="mcpt" aria-labelledby={`${catalogId}-heading`}>
@@ -129,6 +137,8 @@ export function ToolCatalog({ name, open }: ToolCatalogProps) {
                   <ToolEntry
                     key={tool.name}
                     tool={tool}
+                    controls={controls}
+                    serverName={name}
                     definitionId={`${catalogId}-${encodeURIComponent(tool.name)}`}
                     open={expanded === tool.name}
                     onToggle={() =>
@@ -158,14 +168,19 @@ function ToolEntry({
   definitionId,
   open,
   onToggle,
+  controls,
+  serverName,
 }: {
   readonly tool: McpTool;
   readonly definitionId: string;
   readonly open: boolean;
   readonly onToggle: () => void;
+  readonly controls?: ToolControls;
+  readonly serverName: string;
 }) {
   return (
     <li className={open ? "mcpt-item is-open" : "mcpt-item"}>
+      <div className="cm-settings-tool-head">
       <button
         type="button"
         className="mcpt-item-head"
@@ -181,6 +196,10 @@ function ToolEntry({
           )}
         </span>
       </button>
+      {controls && <CodeModeSwitch checked={!controls.disabledTools.includes(tool.name)}
+        label={`Use ${serverName}.${tool.name} in code mode`} busy={controls.busy}
+        onChange={enabled => controls.onToggle(tool.name, enabled)} />}
+      </div>
       {open && <ToolDefinition tool={tool} id={definitionId} />}
     </li>
   );

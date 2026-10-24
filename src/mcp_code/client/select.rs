@@ -1,6 +1,6 @@
 //! Which registry servers the sandbox may reach.
 
-use crate::mcp_registry::spec::ServerSpec;
+use crate::mcp_registry::spec::{ServerSpec, Transport};
 use crate::mcp_registry::McpRegistry;
 
 use super::launch::Launch;
@@ -30,9 +30,9 @@ impl Excluded {
     }
 }
 
-/// Whether `spec` may be mounted: not excluded, and not hidden by its `codeMode` setting.
+/// Whether `spec` may be mounted. Settings are checked live by the pool.
 pub fn eligible(spec: &ServerSpec) -> bool {
-    !Excluded::names(spec.name()) && spec.code_mode()
+    !Excluded::names(spec.name())
 }
 
 /// One pool entry per eligible, launchable server in `registry`.
@@ -45,7 +45,7 @@ pub fn pool_from_registry(registry: &McpRegistry, dir: &str, session: Option<&st
         let Some(wire) = spec.stdio_launch(at) else {
             continue;
         };
-        let launch = Launch::from(&wire);
+        let launch = code_mode_launch(spec, &wire);
         let namespace = Namespace::for_server(spec.name(), &taken);
         taken.insert(namespace.clone());
         let open: Opener = Box::new(move || {
@@ -54,7 +54,18 @@ pub fn pool_from_registry(registry: &McpRegistry, dir: &str, session: Option<&st
         });
         entries.push(Entry::new(namespace, spec.name(), open));
     }
-    Pool::new(entries)
+    Pool::with_live_settings(entries)
+}
+
+fn code_mode_launch(spec: &ServerSpec, wire: &crate::mcp_registry::bind::WireStdio<'_>) -> Launch {
+    let mut launch = Launch::from(wire);
+    if matches!(spec.transport(), Transport::Remote(_)) {
+        launch.env.push((
+            crate::mcp_proxy::CODE_MODE_PROXY_ENV.to_string(),
+            "1".to_string(),
+        ));
+    }
+    launch
 }
 
 #[cfg(test)]

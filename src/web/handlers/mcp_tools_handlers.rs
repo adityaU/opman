@@ -26,7 +26,9 @@ pub async fn list_tools(
 ) -> WebResult<Json<Catalog>> {
     let name = validate_name(&name)?;
     let dir = resolve_project_dir(&state).await?;
-    let registry = state.mcp.current();
+    // Settings must be able to inspect a server before enabling it for direct runner use.
+    // Code-mode loading retains configured disabled entries and their transport details.
+    let registry = crate::mcp_registry::McpRegistry::load_for_code_mode();
     Ok(Json(
         crate::mcp_probe::catalog(&registry, &name, &dir).await,
     ))

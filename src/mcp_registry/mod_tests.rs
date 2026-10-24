@@ -37,6 +37,43 @@ fn a_bare_toggle_disables_a_builtin_without_restating_it() {
 }
 
 #[test]
+fn code_mode_keeps_direct_disabled_servers_and_builtin_patches() {
+    let registry = McpRegistry::merge_config(
+        user(
+            r#"{"servers":{
+                "time":{"enabled":false,"timeoutSecs":123,"codeMode":false},
+                "terminal":{"enabled":true,"codeModeDisabledTools":["run"]},
+                "custom":{"command":"/bin/echo","enabled":false,"args":["hello"]}
+            }}"#,
+        ),
+        true,
+    );
+
+    let time = registry.get("time").expect("patched builtin remains");
+    assert_eq!(time.timeout_secs(), Some(123));
+    assert!(!time.code_mode());
+    let Transport::Stdio(stdio) = time.transport() else {
+        panic!("expected builtin stdio transport");
+    };
+    assert_eq!(stdio.args[0], Arg::lit("mcp-time"));
+
+    let terminal = registry.get("terminal").expect("enabled builtin remains");
+    let Transport::Stdio(stdio) = terminal.transport() else {
+        panic!("expected builtin stdio transport");
+    };
+    assert_eq!(stdio.args[0], Arg::lit("mcp"));
+
+    let custom = registry
+        .get("custom")
+        .expect("direct-disabled custom remains");
+    let Transport::Stdio(stdio) = custom.transport() else {
+        panic!("expected custom stdio transport");
+    };
+    assert_eq!(&*stdio.command, "/bin/echo");
+    assert_eq!(stdio.args[0], Arg::lit("hello"));
+}
+
+#[test]
 fn a_bare_enable_leaves_the_builtin_launch_command_intact() {
     let registry = McpRegistry::from_config(user(r#"{"servers":{"time":{"enabled":true}}}"#));
     let time = registry.get("time").expect("time survives");

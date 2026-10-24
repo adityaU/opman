@@ -22,11 +22,7 @@ export function CodeModeCard({ part }: { part: MessagePart }) {
   const duration = state?.time?.start != null && state?.time?.end != null
     ? state.time.end - state.time.start : null;
   const count = result.calls.length + (part.toolChildren?.length ?? 0);
-  const showOutput = Boolean(
-    result.output &&
-      !(count > 0 && result.output === "(the script returned nothing)") &&
-      !(result.calls.length === 1 && result.output === result.calls[0].output.text)
-  );
+  const showOutput = Boolean(result.output) || status === "completed";
   return <div className={`gmc-card${status === "error" ? " gmc-card-error" : ""}`}>
     <button type="button" className="gmc-card-head gmc-card-head-btn"
       aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
@@ -38,12 +34,12 @@ export function CodeModeCard({ part }: { part: MessagePart }) {
     </button>
     {expanded && <div className="gmc-card-body">
       {state?.input && <div><div className="gmc-section-label">Script</div><CodeScript input={state.input} /></div>}
-      {showOutput && <div><div className="gmc-section-label">Output</div><OutputView output={result.output} /></div>}
-      {result.calls.length > 0 && <section aria-label="Internal tool calls">
+      {result.calls.length > 0 && <section className="code-mode-children" aria-label="Internal tool calls">
         <div className="gmc-section-label">Internal tool calls</div>
         {result.calls.map((call, index) => <CodeModeInnerTool key={index} call={call} />)}
       </section>}
       <NestedToolCalls parts={part.toolChildren} />
+      {showOutput && <section aria-label="Final code mode output"><div className="gmc-section-label">Final output</div><OutputView output={result.output || "(no output returned)"} /></section>}
       {state?.error && <div className="tool-call-error-banner">{state.error}</div>}
     </div>}
   </div>;

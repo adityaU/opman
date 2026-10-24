@@ -28,6 +28,9 @@ export interface McpServer {
   transport: McpTransport;
   auth: McpAuth;
   enabled: boolean;
+  /** Availability through code mode, independent of direct MCP registration. */
+  codeMode?: boolean;
+  codeModeDisabledTools?: string[];
   /** opman ships this one. Toggleable, but removing the entry only restores the default. */
   builtin: boolean;
   url?: string;
@@ -58,6 +61,8 @@ export interface McpServer {
  * An empty array or an explicit `null` is a change; `undefined` is silence.
  */
 export interface McpServerDraft {
+  codeMode?: boolean;
+  codeModeDisabledTools?: string[];
   type?: McpTransport;
   command?: string;
   args?: string[];
@@ -98,12 +103,14 @@ export async function fetchMcpServers(): Promise<McpServer[]> {
     proxied: false,
     needsOpencodeRestart: true,
     authenticated: false,
+    codeMode: true,
     ...server,
     name: server.name ?? "",
     args: server.args ?? [],
     envNames: server.envNames ?? [],
     headerNames: server.headerNames ?? [],
     runners: server.runners ?? [],
+    codeModeDisabledTools: server.codeModeDisabledTools ?? [],
   }));
 }
 

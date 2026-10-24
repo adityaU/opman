@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -86,4 +87,113 @@ async fn unknown_namespace_is_an_error() {
     let pool = pool_with("s");
     let err = pool.call("zzz", "add", json!({})).await.expect_err("error");
     assert!(err.contains("zzz"));
+}
+
+#[tokio::test]
+async fn live_policy_hides_excluded_tools_from_catalog_and_calls() {
+    let blocked = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let policy_blocked = blocked.clone();
+    let ns = crate::mcp_code::names::Namespace::for_server("s", &Default::default());
+    let pool = Pool::with_policy(vec![Entry::new(ns, "s", fake_opener())], move || {
+        let mut policies = HashMap::new();
+        policies.insert(
+            "s".to_string(),
+            ServerPolicy {
+                enabled: true,
+                disabled_tools: if policy_blocked.load(Ordering::SeqCst) {
+                    ["add".to_string()].into_iter().collect()
+                } else {
+                    HashSet::new()
+                },
+            },
+        );
+        policies
+    });
+
+    let catalog = pool.catalog().await;
+    let group = catalog.group("s").expect("server listed");
+    assert!(group.tools.iter().all(|tool| tool.name != "add"));
+    assert!(pool
+        .call("s", "add", json!({"a": 1, "b": 2}))
+        .await
+        .is_err());
+
+    blocked.store(false, Ordering::SeqCst);
+    let catalog = pool.catalog().await;
+    let group = catalog.group("s").expect("server still listed");
+    assert!(group.tools.iter().any(|tool| tool.name == "add"));
+    assert_eq!(
+        pool.call("s", "add", json!({"a": 1, "b": 2}))
+            .await
+            .expect("enabled")
+            .value,
+        json!(3)
+    );
+}
+
+#[tokio::test]
+async fn live_server_disable_is_applied_to_catalog_and_invocation() {
+    let enabled = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let policy_enabled = enabled.clone();
+    let ns = crate::mcp_code::names::Namespace::for_server("s", &Default::default());
+    let pool = Pool::with_policy(vec![Entry::new(ns, "s", fake_opener())], move || {
+        let mut policies = HashMap::new();
+        policies.insert(
+            "s".to_string(),
+            ServerPolicy {
+                enabled: policy_enabled.load(Ordering::SeqCst),
+                disabled_tools: HashSet::new(),
+            },
+        );
+        policies
+    });
+    assert!(pool.catalog().await.group("s").is_some());
+
+    enabled.store(false, Ordering::SeqCst);
+    assert!(pool.catalog().await.group("s").is_none());
+    assert!(pool
+        .call("s", "add", json!({"a": 1, "b": 2}))
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn live_removal_blocks_a_custom_server_from_the_existing_pool() {
+    let opened = Arc::new(AtomicUsize::new(0));
+    let counter = opened.clone();
+    let ns = crate::mcp_code::names::Namespace::for_server("custom", &Default::default());
+    let pool = Pool::with_policy(
+        vec![Entry::new(
+            ns,
+            "custom",
+            Box::new(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async {
+                    let (reader, writer, _) = spawn_fake();
+                    Connection::open(reader, writer, None)
+                        .await
+                        .map_err(|error| error.to_string())
+                })
+            }),
+        )],
+        HashMap::new,
+    );
+
+    assert!(pool.catalog().await.groups.is_empty());
+    assert!(pool
+        .call("custom", "add", json!({"a": 1, "b": 2}))
+        .await
+        .is_err());
+    assert_eq!(opened.load(Ordering::SeqCst), 0);
+}
+
+fn fake_opener() -> Opener {
+    Box::new(|| {
+        Box::pin(async {
+            let (reader, writer, _) = spawn_fake();
+            Connection::open(reader, writer, None)
+                .await
+                .map_err(|error| error.to_string())
+        })
+    })
 }

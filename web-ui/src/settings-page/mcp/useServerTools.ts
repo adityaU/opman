@@ -39,16 +39,19 @@ export function useServerTools(name: string, open: boolean): {
 
   useEffect(() => {
     if (!open) return;
-    setState({ phase: "asking" });
+    let current = true;
+    // A settings save refreshes the catalog without removing the focused tool switch.
+    setState(previous => previous?.phase === "answered" ? previous : { phase: "asking" });
     fetchMcpServerTools(name)
-      .then((catalog) => alive.current && setState({ phase: "answered", catalog }))
+      .then((catalog) => current && alive.current && setState({ phase: "answered", catalog }))
       .catch((cause) => {
-        if (!alive.current) return;
+        if (!current || !alive.current) return;
         setState({
           phase: "unreachable",
           reason: cause instanceof Error ? cause.message : String(cause),
         });
       });
+    return () => { current = false; };
   }, [name, open, attempt]);
 
   // An edit to the entry can change which tools the server has, or whether it starts at

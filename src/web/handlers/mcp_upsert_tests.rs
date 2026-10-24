@@ -166,6 +166,49 @@ async fn an_empty_list_clears_where_an_absent_one_preserves() {
 }
 
 #[tokio::test]
+async fn code_mode_settings_round_trip_and_validate_tool_names() {
+    let redirect = ConfigRedirect::new();
+    redirect.declare(
+        "tools",
+        ServerConfig {
+            command: "npx".into(),
+            code_mode: Some(false),
+            code_mode_disabled_tools: vec!["old_tool".into()],
+            ..ServerConfig::default()
+        },
+    );
+    let state = test_server_state();
+    put(
+        &state,
+        "tools",
+        UpsertServer {
+            code_mode: Some(true),
+            code_mode_disabled_tools: Some(vec!["delete_item".into()]),
+            ..UpsertServer::default()
+        },
+    )
+    .await
+    .expect("saved");
+
+    let entry = &redirect.document().servers["tools"];
+    assert_eq!(entry.code_mode, Some(true));
+    assert_eq!(
+        entry.code_mode_disabled_tools,
+        vec!["delete_item".to_string()]
+    );
+    let result = put(
+        &state,
+        "tools",
+        UpsertServer {
+            code_mode_disabled_tools: Some(vec![" ".into()]),
+            ..UpsertServer::default()
+        },
+    )
+    .await;
+    assert!(matches!(result, Err(StatusCode::UNPROCESSABLE_ENTITY)));
+}
+
+#[tokio::test]
 async fn secrets_are_edited_by_name() {
     let redirect = ConfigRedirect::new();
     redirect.declare(

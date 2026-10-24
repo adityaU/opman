@@ -19,6 +19,8 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use crate::mcp_oauth::{ServerName, TokenStore};
 use upstream::{Upstream, UpstreamError};
 
+pub(crate) const CODE_MODE_PROXY_ENV: &str = "OPMAN_MCP_CODE_MODE_PROXY";
+
 pub async fn run_mcp_proxy(name: &str) -> anyhow::Result<()> {
     let server = ServerName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
     let mode = Mode::resolve(&server).await;
@@ -58,8 +60,7 @@ impl DegradedReason {
 
 impl Mode {
     async fn resolve(name: &ServerName) -> Self {
-        let registry =
-            crate::mcp_registry::McpRegistry::load();
+        let registry = registry_for_context();
         let Some(spec) = registry.get(name.as_str()) else {
             return Self::Degraded(DegradedReason::NotConfigured);
         };
@@ -71,6 +72,13 @@ impl Mode {
         };
         Self::Authenticated(Box::new(Upstream::new(name.clone(), remote, store)))
     }
+}
+
+fn registry_for_context() -> crate::mcp_registry::McpRegistry {
+    if std::env::var_os(CODE_MODE_PROXY_ENV).is_some() {
+        return crate::mcp_registry::McpRegistry::load_for_code_mode();
+    }
+    crate::mcp_registry::McpRegistry::load()
 }
 
 pub(crate) async fn run_proxy_over<R, W>(

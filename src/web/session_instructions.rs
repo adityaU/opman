@@ -57,6 +57,25 @@ pub fn carries_block(text: &str) -> bool {
     start.starts_with(INSTRUCTIONS_MARKER) || start.starts_with(LEGACY_MARKER)
 }
 
+/// Whether history contains an actual user turn rather than runner setup output.
+///
+/// ACP agents may emit system or assistant records while a new session is being
+/// prepared. Those records do not mean the user has already had an opening turn.
+pub fn has_user_turn(messages: &serde_json::Value) -> bool {
+    let is_user = |message: &serde_json::Value| {
+        message
+            .pointer("/info/role")
+            .or_else(|| message.get("role"))
+            .and_then(serde_json::Value::as_str)
+            == Some("user")
+    };
+    match messages {
+        serde_json::Value::Array(entries) => entries.iter().any(is_user),
+        serde_json::Value::Object(entries) => entries.values().any(is_user),
+        _ => false,
+    }
+}
+
 /// Prefix the first text part of a message body in place.
 ///
 /// Only the first text part is touched: the instructions belong at the very top

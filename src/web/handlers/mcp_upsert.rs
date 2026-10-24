@@ -33,6 +33,8 @@ pub struct UpsertServer {
     pub auth: Option<String>,
     pub runners: Option<Vec<String>>,
     pub timeout_secs: Option<Option<u32>>,
+    pub code_mode: Option<bool>,
+    pub code_mode_disabled_tools: Option<Vec<String>>,
     /// Variables to add or overwrite. Values never come back out of the API, so this is
     /// how one is changed.
     pub env_set: BTreeMap<String, String>,
@@ -83,6 +85,19 @@ pub(super) fn apply(
     }
     if let Some(timeout) = body.timeout_secs {
         target.timeout_secs = timeout;
+    }
+    if let Some(code_mode) = body.code_mode {
+        target.code_mode = Some(code_mode);
+    }
+    if let Some(tools) = body.code_mode_disabled_tools {
+        let mut unique = std::collections::HashSet::with_capacity(tools.len());
+        if tools
+            .iter()
+            .any(|tool| tool.trim().is_empty() || tool.len() > 128 || !unique.insert(tool))
+        {
+            return Err(StatusCode::UNPROCESSABLE_ENTITY);
+        }
+        target.code_mode_disabled_tools = tools;
     }
     patch_map(&mut target.env, body.env_set, &body.env_remove);
     patch_map(&mut target.headers, body.headers_set, &body.headers_remove);

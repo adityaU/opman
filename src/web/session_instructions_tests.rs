@@ -83,3 +83,24 @@ fn apply_to_parts_reports_nothing_written_without_instructions() {
     assert!(!apply_to_parts(&mut parts, &[]));
     assert_eq!(parts[0]["text"], "ship it");
 }
+
+#[test]
+fn setup_and_assistant_history_do_not_count_as_a_user_turn() {
+    let history = serde_json::json!([
+        { "info": { "role": "system" }, "parts": [{ "text": "setup" }] },
+        { "info": { "role": "assistant" }, "parts": [{ "text": "ready" }] }
+    ]);
+    assert!(!has_user_turn(&history));
+    assert!(!has_user_turn(&serde_json::json!({
+        "setup": { "role": "system" },
+        "assistant": { "role": "assistant" }
+    })));
+}
+
+#[test]
+fn user_history_counts_as_a_prior_turn() {
+    assert!(has_user_turn(&serde_json::json!([
+        { "info": { "role": "assistant" } },
+        { "info": { "role": "user" } }
+    ])));
+}

@@ -9,11 +9,24 @@ import { ThinkingAccordion } from "./ThinkingAccordion";
 import { formatDuration } from "../tool-call/helpers";
 import { isToolPart, toolDisplayName, toolType } from "./toolLabels";
 import { nestToolParts } from "./nestToolParts";
+import { useThinkingVisibility } from "../utils/thinkingVisibility";
 
 type ToolEntry = {
   part: MessagePart;
   childSession: SessionInfo | null;
 };
+
+function ReasoningBlock({ text }: { text: string }) {
+  const showThinking = useThinkingVisibility();
+  if (!showThinking) return null;
+  return (
+    <div className="message-body">
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 
 /**
@@ -192,7 +205,6 @@ export function renderInterleavedContent(
     }
 
     if (part.type === "reasoning" || part.type === "thinking" || part.type === "analysis") {
-      flushText();
       const reasoning: string[] = [];
       while (index < allParts.length && (allParts[index].part.type === "reasoning" || allParts[index].part.type === "thinking" || allParts[index].part.type === "analysis")) {
         const raw = allParts[index].part as MessagePart & Record<string, unknown>;
@@ -200,9 +212,10 @@ export function renderInterleavedContent(
         if (typeof value === "string") reasoning.push(value);
         index++;
       }
+      flushText();
       const text = reasoning.join("\n\n");
       if (part.type === "reasoning") {
-        elements.push(<div className="message-body" key={"reasoning-" + index}><ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>{text}</ReactMarkdown></div>);
+        elements.push(<ReasoningBlock key={`reasoning-${index}`} text={text} />);
       } else {
         elements.push(<ThinkingAccordion key={"thinking-" + index} text={text} />);
       }

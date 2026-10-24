@@ -125,6 +125,33 @@ async fn malformed_input_is_answered_and_the_loop_survives() {
     assert_eq!(out[0]["error"]["code"], -32700);
 }
 
+#[test]
+fn code_mode_proxy_resolves_a_direct_disabled_remote_server() {
+    let redirect = crate::web::test_support::ConfigRedirect::new();
+    redirect.declare(
+        "linear",
+        crate::mcp_registry::config::ServerConfig {
+            url: "https://mcp.example.test".into(),
+            enabled: false,
+            ..crate::mcp_registry::config::ServerConfig::default()
+        },
+    );
+
+    std::env::set_var(CODE_MODE_PROXY_ENV, "1");
+    let code_registry = registry_for_context();
+    std::env::remove_var(CODE_MODE_PROXY_ENV);
+    let direct_registry = registry_for_context();
+
+    assert!(matches!(
+        code_registry
+            .get("linear")
+            .expect("code-mode server")
+            .transport(),
+        crate::mcp_registry::spec::Transport::Remote(_)
+    ));
+    assert!(direct_registry.get("linear").is_none());
+}
+
 /// An authenticated-mode proxy with no credential yet must still answer the handshake
 /// locally, or the runner drops the server and the user never learns why.
 #[test]

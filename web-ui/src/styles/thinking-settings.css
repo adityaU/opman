@@ -1,0 +1,22 @@
+.stg-row.stg-thinking-row {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--space-3) 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.stg-thinking-row .stg-row-origin {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.stg-thinking-checkbox {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+}

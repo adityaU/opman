@@ -32,6 +32,8 @@ pub struct ServerView {
     /// `none` | `static` | `oauth`.
     pub auth: String,
     pub enabled: bool,
+    pub code_mode: bool,
+    pub code_mode_disabled_tools: Vec<String>,
     /// True when opman ships this server, so the UI can mark it as not removable.
     pub builtin: bool,
     /// Present for a remote server.
@@ -75,6 +77,8 @@ fn view(name: &str, entry: &ServerConfig, builtin: bool, authenticated: bool) ->
             entry.auth.clone()
         },
         enabled: entry.enabled,
+        code_mode: entry.code_mode.unwrap_or(true),
+        code_mode_disabled_tools: entry.code_mode_disabled_tools.clone(),
         builtin,
         url: (!entry.url.is_empty()).then(|| entry.url.clone()),
         command: (!entry.command.is_empty()).then(|| entry.command.clone()),
@@ -96,6 +100,8 @@ fn builtin_row(name: &str, enabled: bool, timeout_secs: Option<u32>) -> ServerVi
         transport: "stdio".to_string(),
         auth: "none".to_string(),
         enabled,
+        code_mode: true,
+        code_mode_disabled_tools: Vec::new(),
         builtin: true,
         url: None,
         command: None,

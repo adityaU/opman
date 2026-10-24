@@ -29,11 +29,36 @@ describe("code mode output", () => {
     expect(parseCodeResult(marked)).toEqual({ output: "Result", calls: log.calls });
   });
 
+  it("shows a script return that matches its nested call and keeps that call output", () => {
+    const returned = "the tool result";
+    const calls = [{ ...log.calls[0], tool: "custom.lookup", input: { ...input, text: "{}" },
+      output: { ...output, text: returned } }];
+    const result = ` ${returned}\n<opman-code-calls>${JSON.stringify({ version: 1, calls })}</opman-code-calls>`;
+    const { container } = render(<CodeModeCard part={{ type: "tool", tool: "code_execute", state: {
+      status: "completed", output: result,
+    } }} />);
+
+    expect(screen.getByText("Final output")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Final code mode output" })).toHaveTextContent(returned);
+    const body = container.querySelector(".gmc-card-body");
+    expect(body?.lastElementChild).toHaveAttribute("aria-label", "Final code mode output");
+    expect(parseCodeResult(result).calls[0].output.text).toBe(returned);
+  });
+
   it("supports MCP result envelopes and content arrays", () => {
     const content = [{ type: "text", text: marked }];
     expect(parseCodeResult(JSON.stringify(content)).calls).toEqual(log.calls);
     expect(parseCodeResult(JSON.stringify({ content, structuredContent: log })).output).toBe("Result");
     expect(parseCodeResult("Result", log).calls).toEqual(log.calls);
+  });
+
+  it("keeps a final output section when a completed script returns no text", () => {
+    render(<CodeModeCard part={{ type: "tool", tool: "code_execute", state: {
+      status: "completed", output: "", metadata: { structuredContent: log },
+    } }} />);
+    expect(screen.getByRole("region", { name: "Final code mode output" }))
+      .toHaveTextContent("(no output returned)");
+    expect(screen.getByLabelText("Internal tool calls")).toBeTruthy();
   });
 
   it("keeps invalid records visible without crashing", () => {

@@ -42,7 +42,7 @@ export function useMcpServers(onError: (message: string) => void): McpServersSta
   const alive = useRef(true);
 
   const refresh = useCallback(() => {
-    fetchMcpServers()
+    return fetchMcpServers()
       .then((list) => {
         if (!alive.current) return;
         setServers(list);
@@ -69,6 +69,7 @@ export function useMcpServers(onError: (message: string) => void): McpServersSta
       setBusy(name);
       try {
         await action();
+        await refresh();
         return true;
       } catch (cause) {
         onError(message(cause));

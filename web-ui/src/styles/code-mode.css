@@ -18,6 +18,16 @@
   outline-offset: 2px;
 }
 
+.code-mode-call-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.code-mode-call-chevron { flex-shrink: 0; }
+.code-mode-call[open] > summary .code-mode-call-chevron { transform: rotate(90deg); }
+
 .code-mode-tool {
   font-family: var(--font-mono);
   color: var(--color-text);

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { OutputView } from "./GenericToolViews";
 import { formatDuration } from "./helpers";
 import { isCodeModeTool, parseCodeResult, type CappedText, type InnerCall } from "./codeModeParse";
@@ -67,7 +68,9 @@ export function CodeModeInnerTool({ call, depth = 0 }: { call: InnerCall; depth?
   const label = opmanDisplayName(call.tool.replace(/^opman[-_]tools\./i, "opman_tools_")) ?? call.tool;
   return <details className="code-mode-call" onToggle={event => setOpened(event.currentTarget.open)}>
     <summary>
-      <span className="code-mode-tool">{label}</span>
+      <span className="code-mode-call-name"><ChevronRight size={12} className="code-mode-call-chevron" aria-hidden="true" />
+        <span className="code-mode-tool">{label}</span>
+      </span>
       {targetSummary && <span className="tc-card-muted code-mode-call-target">{targetSummary}</span>}
       <span className={call.finished && !call.ok ? "tool-call-error-banner" : "tc-card-muted"}>
         {status} · {formatDuration(call.durationMs)}
@@ -77,13 +80,13 @@ export function CodeModeInnerTool({ call, depth = 0 }: { call: InnerCall; depth?
       {isCodeModeTool(call.tool)
         ? <div><div className="gmc-section-label">Script</div><CodeScript input={call.input.text} /></div>
         : <CallText label="Input" value={call.input} />}
+      {Boolean(result?.calls.length) && <section className="code-mode-children" aria-label="Internal tool calls">
+        {result?.calls.map((child, index) => <CodeModeInnerTool key={index} call={child} depth={depth + 1} />)}
+      </section>}
       {!richPreview && (
         <CallText label={!call.finished || call.ok ? "Output" : "Error"} value={output} shellCommand={call.ok ? shellCommand : undefined} />
       )}
       <CodeReadPreview call={call} />
-      {Boolean(result?.calls.length) && <section className="code-mode-children" aria-label="Internal tool calls">
-        {result?.calls.map((child, index) => <CodeModeInnerTool key={index} call={child} depth={depth + 1} />)}
-      </section>}
     </div>}
   </details>;
 }

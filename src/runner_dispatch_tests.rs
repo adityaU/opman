@@ -144,6 +144,29 @@ async fn ordinary_send_does_not_abort_its_runner() -> Result<()> {
 }
 
 #[tokio::test]
+async fn handoff_keeps_the_opening_session_instructions() -> Result<()> {
+    let (registry, _) = registry(false);
+    let opening = format!(
+        "{}\n- Style: Keep changes small\n\n{}\nContinue the task",
+        crate::web::session_instructions::INSTRUCTIONS_MARKER,
+        crate::web::session_instructions::REQUEST_MARKER,
+    );
+    let outcome = registry
+        .send_message(
+            "instruction_handoff",
+            "/project",
+            Some(RunnerKind::ClaudeCode),
+            json!({"parts": [{"type": "text", "text": opening}]}),
+        )
+        .await?;
+
+    let prompt = extract_text(&outcome.response);
+    assert!(prompt.contains("[Session instructions]\n- Style: Keep changes small"));
+    assert!(prompt.ends_with("Continue the task"));
+    Ok(())
+}
+
+#[tokio::test]
 async fn concurrent_switches_stop_and_create_only_once() -> Result<()> {
     let events = Arc::new(Mutex::new(Vec::new()));
     let entered = Arc::new(tokio::sync::Notify::new());

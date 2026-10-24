@@ -61,6 +61,9 @@ pub struct ServerConfig {
     /// `false` hides this server from the `code` server's `execute` tool.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code_mode: Option<bool>,
+    /// Tool names hidden from the code-mode catalog and invocation path.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub code_mode_disabled_tools: Vec<String>,
     pub enabled: bool,
 
     // -- OAuth identity, read by `mcp_oauth`. Kept here so one file describes a server.
@@ -98,6 +101,7 @@ impl Default for ServerConfig {
             exclude_runners: Vec::new(),
             timeout_secs: None,
             code_mode: None,
+            code_mode_disabled_tools: Vec::new(),
             enabled: true,
             client_id: String::new(),
             client_secret: String::new(),
@@ -124,8 +128,16 @@ impl ServerConfig {
     /// Returns `None` when the entry disables the built-in. Only fields that make sense
     /// independently of a transport are applied — the rest would be meaningless without
     /// one, and are why [`Self::defines_transport`] exists.
-    pub(crate) fn patch(&self, mut spec: ServerSpec) -> Option<ServerSpec> {
-        if !self.enabled {
+    pub(crate) fn patch(&self, spec: ServerSpec) -> Option<ServerSpec> {
+        self.patch_inner(spec, false)
+    }
+
+    pub(crate) fn patch_for_code_mode(&self, spec: ServerSpec) -> Option<ServerSpec> {
+        self.patch_inner(spec, true)
+    }
+
+    fn patch_inner(&self, mut spec: ServerSpec, include_disabled: bool) -> Option<ServerSpec> {
+        if !include_disabled && !self.enabled {
             return None;
         }
         if self.timeout_secs.is_some() {
@@ -175,7 +187,16 @@ impl ServerConfig {
 
     /// Build the canonical spec, or `None` when the entry is disabled or unusable.
     pub(crate) fn to_spec(&self, name: &str) -> Option<ServerSpec> {
-        if !self.enabled {
+        self.to_spec_inner(name, false)
+    }
+
+    /// Build a code-mode spec even when direct registration is disabled.
+    pub(crate) fn to_spec_for_code_mode(&self, name: &str) -> Option<ServerSpec> {
+        self.to_spec_inner(name, true)
+    }
+
+    fn to_spec_inner(&self, name: &str, include_disabled: bool) -> Option<ServerSpec> {
+        if !include_disabled && !self.enabled {
             return None;
         }
         let transport = match self.remote_kind() {

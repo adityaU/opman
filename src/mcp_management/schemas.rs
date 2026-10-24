@@ -57,6 +57,7 @@ pub fn mcp() -> Value {
             "type":{"enum":["stdio","http","sse"]},"command":{"type":"string"},"args":strings(),
             "url":{"type":"string"},"auth":{"type":"string"},"runners":strings(),
             "timeoutSecs":{"type":["integer","null"],"minimum":1},
+            "codeMode":{"type":"boolean"},"codeModeDisabledTools":strings(),
             "envSet":string_map(),"envRemove":strings(),"headersSet":string_map(),"headersRemove":strings()
         }),
         &[],

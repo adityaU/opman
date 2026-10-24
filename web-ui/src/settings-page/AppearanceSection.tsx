@@ -18,6 +18,7 @@ import type { ThemeMode } from "../theme-selector/persistence";
 import { applyDensity, loadDensity, persistDensity } from "../utils/density";
 import type { Density } from "../utils/density";
 import { savePreferences, PREFERENCES_CHANGED, parsePreferences } from "../api/preferences";
+import { ThinkingVisibilitySetting } from "./ThinkingVisibilitySetting";
 
 /**
  * Density picker.
@@ -243,6 +244,11 @@ export function AppearanceSection(props: AppearanceSectionProps) {
           sidebar and your panes, and between two panes.
         </p>
         <DensitySwitcher value={density} onChange={changeDensity} />
+      </section>
+
+      <section className="stg-card">
+        <h3 className="stg-card-title">Assistant output</h3>
+        <ThinkingVisibilitySetting />
       </section>
 
       <section className="stg-card">

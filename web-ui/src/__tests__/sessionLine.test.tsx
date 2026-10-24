@@ -10,7 +10,10 @@ const renameSession = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("../api", () => ({ renameSession }));
 
 describe("SessionLine", () => {
-  beforeEach(() => renameSession.mockClear());
+  beforeEach(() => {
+    renameSession.mockClear();
+    localStorage.setItem("opman-show-thinking", "true");
+  });
 
   it("shows the session name", () => {
     render(<SessionLine title="Fix the dock" sessionId="s1" busy={false} />);
